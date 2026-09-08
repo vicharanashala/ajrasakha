@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from typing import Any, Optional
 
 from ajrasakha.tools.weather.code import describe_current_weather, describe_wind_direction
+from ajrasakha.tools.weather.weather_tools2 import LOCATION_UNRESOLVED_MESSAGE
 
 _SUBDIVISION_LIST_CAP = 10
 _MARKET_ROW_CAP = 5
@@ -100,6 +101,73 @@ def _is_annam_source(raw: Any) -> bool:
     return "annam" in s or "ws" in s
 
 
+def _extract_primary_station(data: dict[str, Any], fallback_location: str = "Location") -> tuple[str, Optional[float | str]]:
+    """Extract single primary observation station name and distance."""
+    # 1. Check if Annam AWS within 10 km
+    tw = data.get("weather_data", {}).get("today_weather") if isinstance(data.get("weather_data"), dict) else data.get("today_weather")
+    if isinstance(tw, dict) and _is_annam_source(tw.get("data_source") or data.get("data_source")):
+        st_name = tw.get("station") or fallback_location
+        dist = tw.get("distance_to_station_km")
+        return st_name, dist
+
+    aws = data.get("nearest_live_aws_station")
+    if isinstance(aws, dict) and aws.get("success") and _is_annam_source(aws.get("data_source")):
+        aws_st = aws.get("station") if isinstance(aws.get("station"), dict) else {}
+        st_name = aws_st.get("name") or aws.get("name")
+        dist = aws.get("distance_km")
+        if st_name and (dist is None or float(dist) <= 10.0):
+            return st_name, dist
+
+    candidates: list[tuple[float, str]] = []
+
+    # 2. Check IMD current station
+    imd_current = data.get("imd_current_weather") or (
+        data.get("weather_data", {}).get("imd_current_weather") if isinstance(data.get("weather_data"), dict) else {}
+    )
+    if isinstance(imd_current, dict) and imd_current.get("success"):
+        cur_st = imd_current.get("station") if isinstance(imd_current.get("station"), dict) else {}
+        st_name = cur_st.get("name") or imd_current.get("station_name")
+        dist = imd_current.get("distance_km")
+        if st_name and dist is not None and float(dist) <= 50.0:
+            candidates.append((float(dist), st_name))
+
+    # 3. Check nearest_station_info
+    st_info = data.get("nearest_station_info")
+    if isinstance(st_info, dict) and st_info and not st_info.get("no_station_within_radius"):
+        st_name = st_info.get("nearest_station_name") or st_info.get("station_name") or st_info.get("name") or st_info.get("station")
+        dist = st_info.get("distance_from_requested_place_km") or st_info.get("distance_km") or st_info.get("distance_to_station_km")
+        if st_name and dist is not None and float(dist) <= 50.0:
+            candidates.append((float(dist), st_name))
+
+    # 4. Check nearest_live_aws_station (IMD AWS)
+    if isinstance(aws, dict) and aws.get("success"):
+        aws_st = aws.get("station") if isinstance(aws.get("station"), dict) else {}
+        st_name = aws_st.get("name") or aws.get("name")
+        dist = aws.get("distance_km")
+        if st_name and dist is not None and float(dist) <= 50.0:
+            candidates.append((float(dist), st_name))
+
+    # 5. Check today_temperature station
+    today_t = data.get("temperature_timeframe_data", {}).get("today_temperature") if isinstance(data.get("temperature_timeframe_data"), dict) else None
+    if isinstance(today_t, dict) and today_t.get("station_name") and not today_t.get("no_station_within_radius"):
+        st_name = today_t.get("station_name")
+        dist = today_t.get("distance_km")
+        if dist is not None and float(dist) <= 50.0:
+            candidates.append((float(dist), st_name))
+        elif dist is None and st_name and st_name != "N/A":
+            candidates.append((25.0, st_name))
+
+    if candidates:
+        candidates.sort(key=lambda x: x[0])
+        best_dist, best_name = candidates[0]
+        return best_name, best_dist
+
+    if isinstance(st_info, dict) and st_info.get("no_station_within_radius"):
+        return None, None
+
+    return fallback_location, None
+
+
 def _format_subdiv_warning_item(s: dict[str, Any]) -> str:
     subdiv_name = s.get("subdivision") or s.get("Subdivision") or "Subdivision"
     warns = s.get("warnings") or s.get("warning") or s.get("message")
@@ -126,15 +194,33 @@ def format_tool_output(tool_name: str, raw_text: str) -> str:
     if not text:
         return ""
 
-    if tool_name in ["weather", "new_weather", "get_current_and_forecast_info", "get_rainfall_and_monsoon_info", "get_temperature_info", "get_location_weather", "get_weather_nowcast", "get_weather_alerts", "get_sowing_weather_guide"]:
+    if tool_name in ["weather", "new_weather", "get_current_and_forecast_info", "get_rainfall_and_monsoon_info", "get_temperature_info", "get_location_weather", "get_weather_nowcast", "get_weather_alerts"]:
         try:
             data = json.loads(text)
         except (json.JSONDecodeError, TypeError):
             return text
         if isinstance(data, dict):
-            # Envelope: {"answer": "...", "tool_data": {...}} — prefer deterministic tool_data formatter
+            if data.get("location_unresolved") or data.get("error") == "location_unresolved":
+                return data.get("message") or LOCATION_UNRESOLVED_MESSAGE
+            if data.get("success") is False:
+                if data.get("answer"):
+                    return str(data["answer"])
+                err = str(data.get("error") or "")
+                if err and "HTTPConnectionPool" not in err and "Traceback" not in err:
+                    return err
+                return data.get("message") or "Weather data is currently unavailable from the weather service. Please try again shortly."
+            # Envelope: {"answer": "...", "tool_data": {...}} — prefer synthesized answer
             if "tool_data" in data and isinstance(data["tool_data"], dict):
-                return format_new_weather_tool_dict(data["tool_data"])
+                td = data["tool_data"]
+                if td.get("location_unresolved") or td.get("error") == "location_unresolved":
+                    return td.get("message") or data.get("answer") or LOCATION_UNRESOLVED_MESSAGE
+                if td.get("success") is False:
+                    if data.get("answer"):
+                        return str(data["answer"])
+                    return td.get("message") or "Weather data is currently unavailable from the weather service. Please try again shortly."
+                if data.get("answer") and str(data["answer"]).strip():
+                    return str(data["answer"]).strip()
+                return format_new_weather_tool_dict(td)
             if "resolved_location" in data or "summary" in data or "district_5day_warnings" in data or "weather_data" in data or "results" in data:
                 return format_new_weather_tool_dict(data)
             if "answer" in data:
@@ -169,64 +255,94 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
     if not isinstance(data, dict):
         return str(data)
 
+    if data.get("location_unresolved") or data.get("error") == "location_unresolved":
+        return data.get("message") or LOCATION_UNRESOLVED_MESSAGE
+
+    if data.get("success") is False:
+        return data.get("message") or "Weather data is currently unavailable from the weather service. Please try again shortly."
+
     lines: list[str] = []
     today_str = datetime.now().strftime("%Y-%m-%d")
-    location = data.get("resolved_location") or data.get("district") or "Location"
-    summary = data.get("summary")
-    shown_live_current = False
+    _raw_loc = data.get("resolved_location") or data.get("district") or data.get("location") or "Location"
+    if str(_raw_loc).strip().lower() in {"location", "none", "", "null"} and not data.get("weather_data") and not data.get("today_weather") and not data.get("district_5day_warnings"):
+        return LOCATION_UNRESOLVED_MESSAGE
+    # Preserve parenthetical info like "(Central Observation Location: ...)" without breaking on commas
+    if "(" in _raw_loc and ")" in _raw_loc:
+        location = _raw_loc
+    else:
+        # Trim overly verbose reverse-geocode strings: keep at most first 3 comma-parts
+        _loc_parts = [p.strip() for p in _raw_loc.split(",") if p.strip()]
+        # Drop numeric postal codes and pure-country tail when 4+ parts present
+        _loc_filtered = [p for p in _loc_parts if not re.match(r'^\d+$', p)]
+        location = ", ".join(_loc_filtered[:3]) if len(_loc_filtered) > 3 else ", ".join(_loc_filtered)
+        if location.count('(') > location.count(')'):
+            location += ")"
 
-    # ------------------------------------------------------------------
-    # Tool 7: get_sowing_weather_guide
-    # ------------------------------------------------------------------
-    if data.get("tool") == "get_sowing_weather_guide" or "sowing_guidance" in data:
-        crop = data.get("crop_name") or "crop"
-        lines.append(f"Sowing weather guide — {location}")
-        lines.append("")
-        if data.get("query_type"):
-            lines.append(f"- Query type: {data.get('query_type')}")
-        lines.append(f"- Crop: {crop}")
-        if data.get("sowing_guidance"):
-            lines.append(f"- Guidance: {data.get('sowing_guidance')}")
-        ctx = data.get("sowing_weather_context")
-        if isinstance(ctx, dict) and ctx:
-            lines.append("- Current weather context:")
-            for k in ("date", "forecast", "forecast_min_temp", "forecast_max_temp", "past_24hrs_rainfall", "humidity_0830", "humidity_1730"):
-                if ctx.get(k) is not None and str(ctx.get(k)).strip() != "":
-                    lines.append(f"  - {k}: {ctx.get(k)}")
+    summary = data.get("summary")
+    if isinstance(summary, str):
+        summary = re.sub(r"\bNIL\s*mm\b", "0.0 mm", summary, flags=re.IGNORECASE)
+        summary = re.sub(r"\bNIL\b", "0.0", summary, flags=re.IGNORECASE)
 
     # ------------------------------------------------------------------
     # Tool 6: get_weather_alerts
     # ------------------------------------------------------------------
-    elif "district_5day_warnings" in data or "district_alerts_list" in data or data.get("is_state_wide_query"):
-        lines.append(f"District weather warnings — {location}")
+    if "district_5day_warnings" in data or "district_alerts_list" in data or data.get("is_state_wide_query"):
+        st_name, dist = _extract_primary_station(data, fallback_location=location)
+
+        lines.append(f"Weather warnings & alerts — {location}")
+        if st_name and (st_name.lower() != location.lower() or dist is not None):
+            dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
+            lines.append(f"Observation station: {st_name}{dist_str}")
         lines.append("")
-        if isinstance(summary, str) and summary.strip():
-            lines.append(f"Summary: {summary.strip()}")
-            lines.append("")
 
         if "district_5day_warnings" in data:
             warnings = data.get("district_5day_warnings", [])
             req_days = data.get("requested_days_count") or 5
             if isinstance(warnings, list) and req_days < len(warnings):
                 warnings = warnings[:req_days]
-            for w in warnings:
+
+            has_active_alert = any(
+                any(c in str(w.get("severity") or "") for c in ("Yellow", "Orange", "Red"))
+                for w in warnings if isinstance(w, dict)
+            )
+            day1_active = bool(warnings and any(c in str(warnings[0].get("severity") or "") for c in ("Yellow", "Orange", "Red")))
+            if not has_active_alert:
+                lines.append(f"🟢 All Clear: No active weather alerts for {location} for the upcoming forecast period.")
+            elif day1_active:
+                lines.append(f"Active weather alerts for {location}:")
+            else:
+                lines.append(f"🟢 No active weather warnings today for {location}. Active warnings in upcoming forecast:")
+
+            if isinstance(summary, str) and summary.strip():
+                lines.append(f"Summary: {summary.strip()}")
+            lines.append("")
+
+            base_dt = datetime.now()
+            for i, w in enumerate(warnings):
                 if not isinstance(w, dict):
                     continue
-                day_label = w.get("day", "Day")
-                desc = w.get("warning_description", "No Warning")
-                w_code = w.get("warning_codes", "1")
-                sev = str(w.get("severity") or "")
-                if "Red" in sev:
-                    lines.append(f"{day_label}: 🔴 Red alert — {desc}")
-                elif "Orange" in sev:
-                    lines.append(f"{day_label}: 🟠 Orange alert — {desc}")
-                elif "Yellow" in sev:
-                    lines.append(f"{day_label}: 🟡 Yellow alert — {desc}")
+                item_dt = base_dt + timedelta(days=i)
+                dt_str = item_dt.strftime("%Y-%m-%d")
+                if i == 0:
+                    day_label = f"Today (Day 1 - {dt_str})"
                 else:
-                    lines.append(f"{day_label}: 🟢 Green (No Warning) — {desc}")
-                lines.append(f"  Warning code(s): {w_code}")
-                if sev:
-                    lines.append(f"  Severity: {sev}")
+                    day_label = f"Day {i+1} ({dt_str})"
+                desc = w.get("warning_description", "No Warning")
+                w_code = str(w.get("warning_codes") or "1").strip()
+                sev = str(w.get("severity") or "")
+                # Show warning code(s) directly when meaningful
+                code_descs = [wc.strip() for wc in w_code.split(",") if wc.strip() and wc.strip() != "1"]
+                if "Red" in sev:
+                    lines.append(f"- {day_label}: 🔴 Red — {desc}")
+                elif "Orange" in sev:
+                    lines.append(f"- {day_label}: 🟠 Orange — {desc}")
+                elif "Yellow" in sev:
+                    lines.append(f"- {day_label}: 🟡 Yellow — {desc}")
+                else:
+                    lines.append(f"- {day_label}: 🟢 No Warning")
+                if code_descs:
+                    lines.append(f"  Warning code(s): {', '.join(code_descs)}")
+
 
         elif "district_alerts_list" in data:
             dist_list = data.get("district_alerts_list", [])
@@ -298,10 +414,35 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         if rf_list is None and "today_rainfall" in results:
             rf_list = [results.get("today_rainfall")]
 
+        st_name, dist = _extract_primary_station(data, fallback_location=location)
+
         lines.append(f"Rainfall — {location}")
-        if tf:
-            lines.append(f"Timeframe: {tf}")
+        if st_name and (st_name.lower() != location.lower() or dist is not None):
+            dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
+            lines.append(f"Observation station: {st_name}{dist_str}")
         lines.append("")
+
+        # Direct rain chance indicator (only when an explicit forecast string is present)
+        rain_chance = None
+        today_rf = results.get("today_rainfall") or (rf_list[0] if (rf_list and len(rf_list) == 1) else None)
+        if isinstance(today_rf, dict) and today_rf.get("forecast"):
+            fc_str = str(today_rf.get("forecast") or "").lower()
+            rain_keywords = ["rain", "shower", "thunder", "drizzle", "wet"]
+            if any(k in fc_str for k in rain_keywords):
+                rain_chance = f"Rain forecast: Yes, there is a chance of rain today ({today_str}) in {location}."
+            else:
+                rain_chance = f"Rain forecast: No significant rain expected today ({today_str}) in {location}."
+
+        top_notice = results.get("notice") or data.get("notice")
+        if top_notice:
+            lines.append(str(top_notice))
+            lines.append("")
+
+        is_hist_tf = "date_range" in tf or "previous" in tf or "historical" in tf
+        if rain_chance and not is_hist_tf:
+            lines.append(rain_chance)
+            lines.append("")
+
         if isinstance(summary, str) and summary.strip():
             lines.append(f"Summary: {summary.strip()}")
             lines.append("")
@@ -309,19 +450,22 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         if isinstance(rf_list, list) and rf_list:
             for item in rf_list:
                 lines.extend(_rainfall_item_detail_lines(item, rec=rec, today_str=today_str))
-        if rec:
+            # Only show district stats if rf_list didn't already embed the same numbers
+            rf_has_stats = any(
+                isinstance(it, dict) and (
+                    it.get("district_daily_actual_mm") is not None
+                    or it.get("observed_past_24hrs_rainfall_mm") is not None
+                )
+                for it in rf_list if isinstance(it, dict)
+            )
+            if rec and not rf_has_stats:
+                lines.append("")
+                lines.append("District rainfall statistics")
+                lines.extend(_district_rainfall_record_lines(rec))
+        elif rec:
             lines.append("")
             lines.append("District rainfall statistics")
             lines.extend(_district_rainfall_record_lines(rec))
-
-        subdiv = results.get("subdivision_rainfall") or results.get("matched_subdivision_rainfall") or data.get("subdivision_rainfall")
-        if isinstance(subdiv, dict) and subdiv:
-            lines.append("")
-            lines.append("Subdivision rainfall")
-            for k, v in subdiv.items():
-                if v is None or k in {"success", "raw"}:
-                    continue
-                lines.append(f"  {k}: {v}")
 
     # ------------------------------------------------------------------
     # Tool 1: get_current_and_forecast_info
@@ -340,60 +484,50 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             )
         )
 
-        imd_current = data.get("imd_current_weather") or w_data.get("imd_current_weather")
-        cur_st = {}
-        if isinstance(imd_current, dict) and imd_current.get("success"):
-            cur_st = imd_current.get("station") if isinstance(imd_current.get("station"), dict) else {}
+        st_name, dist = _extract_primary_station(data, fallback_location=location)
 
-        fc_list = None
+        query_type_val = str(data.get("query_type") or "").lower().strip()
+        if query_type_val == "current":
+            title = f"Live weather — {location}"
+        else:
+            title = f"Today's weather — {location}"
+
+        if st_name and (st_name.lower() != location.lower() or dist is not None):
+            dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
+            st_header = f"Observation station: {st_name}{dist_str}"
+        elif not st_name:
+            st_header = f"Notice: No active IMD weather station found within 50.0 km radius search range of {location}."
+        else:
+            st_header = None
+
         fc_list = None
         if is_today_current:
             tw = w_data.get("today_weather", {}) if isinstance(w_data.get("today_weather"), dict) else {}
+            imd_current = data.get("imd_current_weather") or w_data.get("imd_current_weather")
+            cur_st = imd_current.get("station") if isinstance(imd_current, dict) and imd_current.get("success") and isinstance(imd_current.get("station"), dict) else {}
             has_annam = bool(tw and _is_annam_source(tw.get("data_source") or data.get("data_source")))
 
-            if has_annam:
-                st_name = tw.get("station") or location
-                dist = tw.get("distance_to_station_km")
-            else:
-                st_info = data.get("nearest_station_info") if isinstance(data.get("nearest_station_info"), dict) else {}
-                st_info_dist = st_info.get("distance_from_requested_place_km") if st_info else None
-                if st_info_dist is None and st_info:
-                    st_info_dist = st_info.get("distance_km")
-                imd_dist = imd_current.get("distance_km") if isinstance(imd_current, dict) else None
-
-                if st_info and st_info_dist is not None and (imd_dist is None or float(st_info_dist) <= float(imd_dist)):
-                    st_name = st_info.get("nearest_station_name") or st_info.get("station_name") or cur_st.get("name") or location
-                    dist = st_info_dist
-                    st_det = st_info.get("station_details")
-                    if isinstance(st_det, dict) and st_det:
-                        cur_st = st_det
-                else:
-                    st_name = cur_st.get("name") or tw.get("station") or location
-                    dist = imd_dist if imd_dist is not None else tw.get("distance_to_station_km")
-
-            query_type_val = str(data.get("query_type") or "").lower().strip()
-            if query_type_val == "current":
-                title = f"Live weather — {st_name}"
-            else:
-                title = f"Today's weather — {st_name} ({today_str})"
-
-            if dist is not None and str(dist).strip() not in {"", "N/A"}:
-                title += f" (~{dist} km away)"
             lines.append(title)
+            if st_header:
+                lines.append(st_header)
+            # Observation date/time from station data
+            obs_st = tw if has_annam else (cur_st or tw)
+            if isinstance(obs_st, dict):
+                obs_ts = obs_st.get("observation_timestamp") or obs_st.get("TimeStamp") or _join_date_time(obs_st.get("date"), obs_st.get("time"))
+                if obs_ts and len(str(obs_ts).strip()) > 10:
+                    lines.append(f"Observed at: {obs_ts}")
             lines.append("")
+
             if isinstance(summary, str) and summary.strip():
                 lines.append(f"Summary: {summary.strip()}")
                 lines.append("")
 
             if has_annam:
-                lines.extend(_forecast_item_detail_lines(tw, default_date=tw.get("date") or "Today"))
-                shown_live_current = True
+                lines.extend(_live_station_detail_lines(tw, fallback_location=location))
             elif cur_st:
                 lines.extend(_live_station_detail_lines(cur_st, fallback_location=location))
-                shown_live_current = True
             elif tw:
                 lines.extend(_today_weather_fallback_lines(tw, location=location))
-                shown_live_current = True
         else:
             top_notice = w_data.get("notice") or data.get("notice")
             if top_notice:
@@ -408,9 +542,6 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
                         lines.append("")
                     if "forecast" in tdw or "min_temp" in tdw or "max_temp" in tdw or "observed_min_temp" in tdw:
                         fc_list = [tdw]
-                    elif "fallback_today_weather" in tdw:
-                        fb = tdw.get("fallback_today_weather")
-                        fc_list = [fb] if isinstance(fb, dict) else []
                     elif "available_7day_forecast_trend" in tdw:
                         fc_list = tdw.get("available_7day_forecast_trend", [])
             if fc_list is None:
@@ -419,28 +550,49 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             target_dt = data.get("target_date") or w_data.get("target_date")
             from_dt = data.get("from_date") or w_data.get("from_date")
             if "date_range" in st_timeframe or "previous" in st_timeframe or from_dt or (target_dt and target_dt < today_str):
-                title = f"Historical weather ({target_dt})" if target_dt else "Historical weather"
+                header_title = f"Historical weather ({target_dt})" if target_dt else "Historical weather"
             elif target_dt == today_str or st_timeframe == "today":
-                title = f"Today's weather ({today_str})"
+                header_title = f"Today's weather ({today_str})"
             else:
-                title = "Forecast"
-            lines.append(f"{title} — {location}")
-            lines.append("")
-            if isinstance(summary, str) and summary.strip():
-                sum_text = summary.strip()
-                if title.startswith("Historical weather") or (target_dt and target_dt < today_str) or from_dt or "previous" in st_timeframe or "date_range" in st_timeframe:
-                    sum_text = (
-                        sum_text.replace("Recorded/forecast weather range", "Recorded historical weather range")
-                        .replace("Weather forecast for", "Historical weather for")
-                        .replace(", Forecast:", ", Condition:")
+                header_title = "Forecast"
+            lines.append(f"{header_title} — {location}")
+            fc_src = (
+                data.get("forecast_data_source")
+                or (data.get("weather_data", {}).get("forecast_data_source") if isinstance(data.get("weather_data"), dict) else None)
+            )
+            obs_src = data.get("observation_data_source") or data.get("data_source")
+            if st_header:
+                if fc_src and obs_src and str(obs_src).strip() != str(fc_src).strip() and "Annam" in str(obs_src):
+                    dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
+                    lines.append(f"Observation station (Today): {st_name}{dist_str}")
+                    fc_st_info = data.get("forecast_station_info") or (
+                        data.get("weather_data", {}).get("forecast_station_info")
+                        if isinstance(data.get("weather_data"), dict) else None
                     )
-                elif target_dt and target_dt == today_str:
-                    sum_text = sum_text.replace("Weather forecast for", "Today's weather for").replace(", Forecast:", ", Condition:")
-                lines.append(f"Summary: {sum_text}")
+                    fc_st_name = fc_st_info.get("station_name") if isinstance(fc_st_info, dict) else None
+                    fc_st_dist = fc_st_info.get("distance_km") if isinstance(fc_st_info, dict) else None
+                    if fc_st_name:
+                        fc_dist_str = f" (~{float(fc_st_dist):.1f} km away)" if fc_st_dist is not None else ""
+                        lines.append(f"Forecast station (Upcoming days): {fc_st_name} (IMD){fc_dist_str}")
+                    else:
+                        lines.append(f"Forecast model (Upcoming days): {fc_src}")
+                else:
+                    lines.append(st_header)
+            lines.append("")
+
+
+            # Show summary only for today, not for historical ranges or plain forecast
+            if isinstance(summary, str) and summary.strip() and not header_title.startswith("Historical") and "today" in header_title.lower():
+                lines.append(f"Summary: {summary.strip()}")
                 lines.append("")
             if isinstance(fc_list, list):
-                for item in fc_list:
-                    lines.extend(_forecast_item_detail_lines(item))
+                if fc_list:
+                    is_single_dt = bool(target_dt and target_dt != today_str and "date_range" not in st_timeframe and "forecast" not in st_timeframe)
+                    for item in fc_list:
+                        lines.extend(_forecast_item_detail_lines(item, is_single_target_date=is_single_dt))
+                elif header_title.startswith("Historical"):
+                    lines.append(f"Historical daily observations are not available in station records for {location}.")
+
 
     # ------------------------------------------------------------------
     # Tool 3: get_temperature_info
@@ -456,54 +608,67 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             and "date_range" not in st_tf
         )
 
-        imd_current = data.get("imd_current_weather") if isinstance(data.get("imd_current_weather"), dict) else {}
-        cur_st = imd_current.get("station") if imd_current.get("success") and isinstance(imd_current.get("station"), dict) else {}
+        st_name, dist = _extract_primary_station(data, fallback_location=location)
 
-        temp_list = None
-        if "specific_target_date" in st_tf or "target_date_temperature" in temp_data:
-            tdt = temp_data.get("target_date_temperature", {})
-            if isinstance(tdt, dict):
-                if tdt.get("notice"):
-                    lines.append(str(tdt.get("notice")))
-                    lines.append("")
-                if any(k in tdt for k in ("min_temp", "max_temp", "forecast_min_temp", "observed_min_temp", "observed_min_temp_c", "min_temp_c")):
-                    temp_list = [tdt]
-                elif "available_7day_temperature_forecast_trend" in tdt:
-                    temp_list = tdt.get("available_7day_temperature_forecast_trend", [])
-        elif "temperature_range" in temp_data:
-            temp_list = temp_data.get("temperature_range")
-        elif "temperature_forecast_list" in temp_data:
-            temp_list = temp_data.get("temperature_forecast_list")
+        lines.append(f"Temperature — {location}")
+        if st_name and (st_name.lower() != location.lower() or dist is not None):
+            dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
+            lines.append(f"Observation station: {st_name}{dist_str}")
+        elif not st_name:
+            lines.append(f"Notice: No active IMD weather station found within 50.0 km radius search range of {location}.")
 
-        if is_today_temp and cur_st:
-            st_name = cur_st.get("name") or today_t.get("station_name") or location
-            dist = imd_current.get("distance_km")
-            title = f"Current weather — {st_name}"
-            if dist is not None:
-                title += f" (~{dist} km away)"
-            lines.append(title)
-            if st_tf:
-                lines.append(f"Timeframe: {st_tf}")
+        if st_tf and st_tf != "today":
+            lines.append(f"Timeframe: {st_tf}")
+        lines.append("")
+
+        if isinstance(summary, str) and summary.strip():
+            lines.append(f"Summary: {summary.strip()}")
             lines.append("")
-            if isinstance(summary, str) and summary.strip():
-                lines.append(f"Summary: {summary.strip()}")
-                lines.append("")
-            lines.extend(_live_station_detail_lines(cur_st, fallback_location=location))
-            shown_live_current = True
-            if today_t:
-                lines.append("")
-                lines.append("Today's temperature details")
-                lines.extend(_temperature_item_detail_lines(today_t, default_date=today_t.get("date") or "Today"))
+
+        if not st_name:
+            pass
+        elif is_today_temp and today_t:
+            # Temperature focused readings
+            cur_temp = today_t.get("observed_temp_c") or today_t.get("temperature_c") or today_t.get("max_temp_c") or today_t.get("max_temp")
+            feel = today_t.get("feel_like_c")
+            min_t = today_t.get("forecast_min_temp_c") or today_t.get("min_temp_c") or today_t.get("min_temp") or today_t.get("observed_min_temp")
+            max_t = today_t.get("forecast_max_temp_c") or today_t.get("max_temp_c") or today_t.get("max_temp") or today_t.get("observed_max_temp")
+            hum = today_t.get("humidity_pct") or today_t.get("humidity_0830") or today_t.get("humidity_1730")
+            cond = today_t.get("forecast_condition") or today_t.get("weather_condition") or today_t.get("condition")
+
+            if cur_temp is not None and str(cur_temp).strip() not in {"", "N/A"}:
+                cur_str = f"- Current temperature: {cur_temp}°C"
+                if feel is not None and str(feel).strip() not in {"", "N/A", "0"}:
+                    cur_str += f" (Feels like: {feel}°C)"
+                lines.append(cur_str)
+
+            temp_range = _fmt_temp(min_t, max_t)
+            if temp_range:
+                lines.append(f"- Expected range: {temp_range}")
+            if hum is not None and str(hum).strip() not in {"", "N/A"}:
+                lines.append(f"- Humidity: {hum}%")
+            if cond and str(cond).strip() not in {"", "N/A"}:
+                lines.append(f"- Condition: {cond}")
         else:
+            temp_list = None
+            if "specific_target_date" in st_tf or "target_date_temperature" in temp_data:
+                tdt = temp_data.get("target_date_temperature", {})
+                if isinstance(tdt, dict):
+                    if tdt.get("notice"):
+                        lines.append(str(tdt.get("notice")))
+                        lines.append("")
+                    if any(k in tdt for k in ("min_temp", "max_temp", "forecast_min_temp", "observed_min_temp", "observed_min_temp_c", "min_temp_c")):
+                        temp_list = [tdt]
+                    elif "available_7day_temperature_forecast_trend" in tdt:
+                        temp_list = tdt.get("available_7day_temperature_forecast_trend", [])
+            elif "temperature_range" in temp_data:
+                temp_list = temp_data.get("temperature_range")
+            elif "temperature_forecast_list" in temp_data:
+                temp_list = temp_data.get("temperature_forecast_list")
+
             if temp_list is None and today_t:
                 temp_list = [today_t]
-            lines.append(f"Temperature — {location}")
-            if st_tf:
-                lines.append(f"Timeframe: {st_tf}")
-            lines.append("")
-            if isinstance(summary, str) and summary.strip():
-                lines.append(f"Summary: {summary.strip()}")
-                lines.append("")
+
             if isinstance(temp_list, list) and temp_list:
                 for item in temp_list:
                     lines.extend(_temperature_item_detail_lines(item))
@@ -512,77 +677,66 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
     # Tool 5: get_weather_nowcast
     # ------------------------------------------------------------------
     elif "severity_color" in data or "valid_upto" in data or "active_nowcast_categories" in data:
+        st_name, dist = _extract_primary_station(data, fallback_location=location)
+
+        lines.append(f"Nowcast & Thunderstorm — {location}")
+        if st_name and (st_name.lower() != location.lower() or dist is not None):
+            dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
+            lines.append(f"Observation station: {st_name}{dist_str}")
+        lines.append("")
+
+        sev = str(data.get("severity_color") or "Green")
+        msg = data.get("consolidated_message")
+        if "Red" in sev:
+            lines.append(f"Nowcast Status: 🔴 Red alert — {sev}")
+        elif "Orange" in sev:
+            lines.append(f"Nowcast Status: 🟠 Orange alert — {sev}")
+        elif "Yellow" in sev:
+            lines.append(f"Nowcast Status: 🟡 Yellow alert — {sev}")
+        else:
+            lines.append(f"Nowcast Status: 🟢 Normal (No Warning) — {sev}")
+
+        if data.get("valid_upto"):
+            lines.append(f"Valid Upto: {data.get('valid_upto')}")
+        if msg:
+            lines.append(f"Details: {msg}")
+
+        active_cats = data.get("active_nowcast_categories", [])
+        if active_cats:
+            lines.append("")
+            lines.append("Active nowcast warnings:")
+            for c in active_cats:
+                if isinstance(c, dict):
+                    desc = c.get("category_description") or c.get("category_key")
+                    lines.append(f"  - {desc}")
+                elif isinstance(c, str):
+                    lines.append(f"  - {c}")
+
+        if isinstance(summary, str) and summary.strip():
+            lines.append("")
+            lines.append(f"Summary: {summary.strip()}")
+
+        # Concise live observation snapshot from single primary station (no duplicate AWS dump)
         imd_current = data.get("imd_current_weather") if isinstance(data.get("imd_current_weather"), dict) else {}
         cur_st = imd_current.get("station") if imd_current.get("success") and isinstance(imd_current.get("station"), dict) else {}
         aws = data.get("nearest_live_aws_station", {})
         aws_st = aws.get("station", {}) if isinstance(aws, dict) and aws.get("success") else {}
-        st = cur_st or (aws_st if isinstance(aws_st, dict) else {})
-        st_name = st.get("name") or location
-        dist = (
-            imd_current.get("distance_km")
-            if isinstance(imd_current, dict) and imd_current.get("distance_km") is not None
-            else (aws.get("distance_km") if isinstance(aws, dict) else None)
-        )
-        if dist is None and isinstance(data.get("nearest_station_info"), dict):
-            dist = data.get("nearest_station_info", {}).get("distance_from_requested_place_km")
-
-        title = f"Nowcast — {st_name}"
-        if dist is not None:
-            title += f" (~{dist} km away)"
-        lines.append(title)
-        lines.append("")
-        if isinstance(summary, str) and summary.strip():
-            lines.append(f"Summary: {summary.strip()}")
-            lines.append("")
+        st = cur_st or aws_st
         if st:
-            lines.append("Live observation")
-            lines.extend(_live_station_detail_lines(st, fallback_location=location))
-            shown_live_current = True
             lines.append("")
-
-        # Show nearest AWS separately when it differs from the IMD current station already shown.
-        if (
-            isinstance(aws, dict)
-            and aws.get("success")
-            and isinstance(aws_st, dict)
-            and aws_st
-        ):
-            aws_name = aws_st.get("name")
-            imd_name = cur_st.get("name") if isinstance(cur_st, dict) else None
-            if aws_name and aws_name != imd_name:
-                title = f"Nearest AWS station — {aws_name}"
-                if aws.get("distance_km") is not None:
-                    title += f" (~{aws.get('distance_km')} km away)"
-                lines.append(title)
-                lines.extend(_live_station_detail_lines(aws_st, fallback_location=location))
-                lines.append("")
-
-        sev = str(data.get("severity_color") or "Green")
-        if "Red" in sev:
-            lines.append(f"Nowcast Warning Status: 🔴 Red alert — {sev}")
-        elif "Orange" in sev:
-            lines.append(f"Nowcast Warning Status: 🟠 Orange alert — {sev}")
-        elif "Yellow" in sev:
-            lines.append(f"Nowcast Warning Status: 🟡 Yellow alert — {sev}")
-        else:
-            lines.append(f"Nowcast Warning Status: No Warning — {sev}")
-
-        if data.get("valid_upto"):
-            lines.append(f"Valid Upto: {data.get('valid_upto')}")
-        if data.get("consolidated_message"):
-            lines.append(f"Consolidated message: {data.get('consolidated_message')}")
-
-        active_cats = data.get("active_nowcast_categories", [])
-        if active_cats:
-            lines.append("Active nowcast categories:")
-            for c in active_cats:
-                if isinstance(c, dict):
-                    code = c.get("category_code")
-                    desc = c.get("category_description")
-                    key = c.get("category_key")
-                    lines.append(f"  - {desc or 'N/A'} (code {code or 'N/A'}{', ' + key if key else ''})")
-                elif isinstance(c, str):
-                    lines.append(f"  - {c}")
+            lines.append("Live observation snapshot:")
+            temp_c = st.get("temperature_c") or st.get("observed_max_temp") or st.get("Temperature")
+            if temp_c is not None:
+                lines.append(f"  - Temperature: {temp_c}°C")
+            cond = st.get("weather_description") or st.get("weather_message")
+            if cond:
+                lines.append(f"  - Condition: {cond}")
+            wind = _station_wind(st)
+            if wind:
+                lines.append(f"  - Wind: {wind}")
+            rain = st.get("past_24hrs_rainfall_mm") or st.get("past_24hrs_rainfall") or st.get("Rainfall")
+            if rain is not None:
+                lines.append(f"  - Rainfall (24h): {rain} mm")
 
     # ------------------------------------------------------------------
     # Tool 4: get_location_weather
@@ -592,19 +746,15 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         fc_block = w_det.get("forecast", {}) if isinstance(w_det.get("forecast"), dict) else {}
         fc_today = fc_block.get("today", {}) if isinstance(fc_block.get("today"), dict) else {}
         fc_days = fc_block.get("forecast") if isinstance(fc_block.get("forecast"), list) else []
-        imd_current = data.get("imd_current_weather") if isinstance(data.get("imd_current_weather"), dict) else {}
-        cur_st = imd_current.get("station") if imd_current.get("success") and isinstance(imd_current.get("station"), dict) else {}
-        aws_block = w_det.get("nearest_aws", {}) if isinstance(w_det.get("nearest_aws"), dict) else {}
-        aws_st = aws_block.get("station", {}) if isinstance(aws_block.get("station"), dict) else {}
-        st = cur_st or aws_st
 
-        st_name = st.get("name") or "Nearest Active Weather Station"
-        dist = imd_current.get("distance_km") if imd_current.get("distance_km") is not None else aws_block.get("distance_km")
-        title = f"Location weather — {st_name}"
-        if dist is not None:
-            title += f" (~{dist} km away)"
-        lines.append(title)
+        st_name, dist = _extract_primary_station(data, fallback_location=location)
+
+        lines.append(f"Location weather — {location}")
+        if st_name and (st_name.lower() != location.lower() or dist is not None):
+            dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
+            lines.append(f"Observation station: {st_name}{dist_str}")
         lines.append("")
+
         if isinstance(summary, dict):
             for k, v in summary.items():
                 if v is None:
@@ -615,10 +765,15 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             lines.append(f"Summary: {summary.strip()}")
             lines.append("")
 
+        imd_current = data.get("imd_current_weather") if isinstance(data.get("imd_current_weather"), dict) else {}
+        cur_st = imd_current.get("station") if imd_current.get("success") and isinstance(imd_current.get("station"), dict) else {}
+        aws_block = w_det.get("nearest_aws", {}) if isinstance(w_det.get("nearest_aws"), dict) else {}
+        aws_st = aws_block.get("station", {}) if isinstance(aws_block.get("station"), dict) else {}
+        st = cur_st or aws_st
+
         if st:
             lines.append("Live observation")
             lines.extend(_live_station_detail_lines(st, fallback_location=location))
-            shown_live_current = True
             lines.append("")
 
         if fc_today:
@@ -647,18 +802,6 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
                     continue
                 lines.append(f"  {k}: {v}")
 
-    # ------------------------------------------------------------------
-    # Common extras for every weather tool response
-    # ------------------------------------------------------------------
-    lines.extend(
-        _common_weather_extra_lines(
-            data,
-            location=location,
-            skip_live_current=shown_live_current,
-            skip_summary=True,  # already inlined above where useful
-        )
-    )
-
     # Consolidated Data Source Emission (Single deduplicated block)
     st_info = data.get("nearest_station_info")
     obs_src = (
@@ -682,7 +825,8 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
     )
 
     if obs_src and fc_src and str(obs_src).strip() != str(fc_src).strip() and "Annam" in str(obs_src):
-        single_source = f"Data Source: {obs_src} (Observations) | {fc_src} (Multi-day Forecast)"
+        single_source = f"Data Sources:\n- Today's observation: {obs_src}\n- Multi-day forecast: {fc_src}"
+
     elif obs_src:
         single_source = f"Data Source: {obs_src}"
     elif fc_src:
@@ -741,6 +885,9 @@ def _ensure_weather_answer_spacing(text: str) -> str:
 
 
 def format_weather_envelope(data: dict[str, Any]) -> str:
+    if data.get("location_unresolved") or data.get("error") == "location_unresolved":
+        return data.get("message") or LOCATION_UNRESOLVED_MESSAGE
+
     if not data.get("success", True):
         err = data.get("error")
         if not err:
@@ -785,14 +932,22 @@ def _fmt_val(label: str, value: Any) -> Optional[str]:
 
 
 def _fmt_temp(min_temp: Any, max_temp: Any) -> Optional[str]:
-    lo = None if _is_empty_val(min_temp) else str(min_temp).strip()
-    hi = None if _is_empty_val(max_temp) else str(max_temp).strip()
+    """Format temperature range, rounding floats to 1 decimal place."""
+    def _round_val(v: Any) -> Optional[str]:
+        if _is_empty_val(v):
+            return None
+        try:
+            return f"{float(v):.1f}"
+        except (TypeError, ValueError):
+            return str(v).strip() or None
+    lo = _round_val(min_temp)
+    hi = _round_val(max_temp)
     if lo and hi:
-        return f"{lo}°C–{hi}°C"
+        return f"{lo}\u00b0C\u2013{hi}\u00b0C"
     if lo:
-        return f"{lo}°C min"
+        return f"{lo}\u00b0C min"
     if hi:
-        return f"{hi}°C max"
+        return f"{hi}\u00b0C max"
     return None
 
 
@@ -1212,12 +1367,34 @@ def _present(value: Any) -> bool:
     return value is not None and str(value).strip() not in {"", "N/A", "None", "null"}
 
 
-def _forecast_item_detail_lines(item: Any, *, default_date: str = "Today") -> list[str]:
+def _fmt_rain_val(val: Any) -> str:
+    """Format rainfall value numerically. Converts NIL/NA/None to '0.0'."""
+    if val is None:
+        return "0.0"
+    s = str(val).strip()
+    if not s or s.upper() in {"NIL", "NA", "N/A", "NONE", "NULL", "TRACE", "TR"}:
+        return "0.0"
+    return s
+
+
+def _forecast_item_detail_lines(item: Any, *, default_date: str = "Today", is_single_target_date: bool = False) -> list[str]:
     if not isinstance(item, dict):
         return []
     dt = str(item.get("date") or default_date).strip()
+    day_num = item.get("day")
     today_str = datetime.now().strftime("%Y-%m-%d")
-    if dt.lower() in ("today", "day 1", "day-1") or dt == today_str:
+
+    if not is_single_target_date:
+        if dt.lower() in ("today", "day 1", "day-1") or dt == today_str or day_num == 1:
+            dt = f"Today (Day 1 - {today_str})"
+        elif day_num:
+            try:
+                d_int = int(day_num)
+                if d_int > 1:
+                    dt = f"Day {d_int} ({dt})"
+            except Exception:
+                pass
+    elif dt.lower() in ("today", "day 1", "day-1") or dt == today_str:
         dt = f"Today ({today_str})"
     fc_text = (
         item.get("forecast")
@@ -1254,18 +1431,20 @@ def _forecast_item_detail_lines(item: Any, *, default_date: str = "Today") -> li
         or item.get("observed_past_24hrs_rainfall_mm")
         or item.get("rainfall")
     )
-    if is_historical_item and _present(rain_24h):
-        lines.append(f"  Observed Rain 24h: {rain_24h} mm")
-    if _present(item.get("humidity_0830")):
-        lines.append(f"  Humidity 0830: {item.get('humidity_0830')}%")
-    if _present(item.get("humidity_1730")):
-        lines.append(f"  Humidity 1730: {item.get('humidity_1730')}%")
-    if _present(item.get("station")):
+    if is_historical_item:
+        if _present(max_t) and str(max_t).strip().upper() not in {"N/A", "NA"}:
+            lines.append(f"  Max Temp: {max_t}°C")
+        if _present(min_t) and str(min_t).strip().upper() not in {"N/A", "NA"}:
+            lines.append(f"  Min Temp: {min_t}°C")
+        if _present(rain_24h) and str(rain_24h).strip().upper() not in {"N/A", "NA"}:
+            lines.append(f"  Past 24h Rain: {_fmt_rain_val(rain_24h)} mm")
+    if _present(item.get("humidity_0830")) and str(item.get("humidity_0830")).strip().upper() not in {"N/A", "NA"}:
+        lines.append(f"  Humidity (Morning - 08:30 IST): {item.get('humidity_0830')}%")
+    if _present(item.get("humidity_1730")) and str(item.get("humidity_1730")).strip().upper() not in {"N/A", "NA"}:
+        lines.append(f"  Humidity (Evening - 17:30 IST): {item.get('humidity_1730')}%")
+    if is_historical_item and _present(item.get("station")):
         lines.append(f"  Station: {item.get('station')}")
-    if _present(item.get("sunrise")):
-        lines.append(f"  Sunrise: {item.get('sunrise')}")
-    if _present(item.get("sunset")):
-        lines.append(f"  Sunset: {item.get('sunset')}")
+    # Sunrise/Sunset omitted — not relevant for farmers
     return lines
 
 
@@ -1310,12 +1489,6 @@ def _temperature_item_detail_lines(item: Any, *, default_date: str = "Today") ->
         lines.append(f"  Humidity 0830: {item.get('humidity_0830')}%")
     if _present(item.get("humidity_1730")):
         lines.append(f"  Humidity 1730: {item.get('humidity_1730')}%")
-    if _present(item.get("station_name") or item.get("station")):
-        lines.append(f"  Station: {item.get('station_name') or item.get('station')}")
-    if _present(item.get("sunrise")):
-        lines.append(f"  Sunrise: {item.get('sunrise')}")
-    if _present(item.get("sunset")):
-        lines.append(f"  Sunset: {item.get('sunset')}")
     return lines
 
 
@@ -1329,33 +1502,36 @@ def _rainfall_item_detail_lines(
         return []
     rec = rec or {}
     dt = item.get("date") or "Today"
+    if str(dt).lower() in ("today", "day 1", "day-1"):
+        dt = f"Today ({today_str})"
     desc = (
         item.get("forecast")
         or item.get("distribution_description")
         or item.get("category_description")
         or ("Observed rainfall" if today_str and str(dt) < today_str else "Rainfall Expected")
     )
-    rain_val = (
-        item.get("observed_past_24hrs_rainfall_mm")
-        or item.get("observed_rainfall_mm")
-        or item.get("district_daily_actual_mm")
-        or item.get("observed_past_24hrs_rainfall")
-        or rec.get("Daily Actual")
-    )
+    # Prefer station observed 24h rainfall first; if absent, use district actual
+    station_rain = item.get("observed_past_24hrs_rainfall") or item.get("observed_past_24hrs_rainfall_mm") or item.get("observed_rainfall_mm")
+    dist_rain = item.get("district_daily_actual_mm") or rec.get("Daily Actual")
+    rain_val = station_rain if _present(station_rain) and str(station_rain).strip().upper() not in {"N/A", "NA", "NONE"} else dist_rain
+
     norm_val = item.get("district_daily_normal_mm") or rec.get("Daily Normal")
     dep_val = item.get("departure_pct") or rec.get("Daily Departure Per")
     cat = item.get("category_code") or item.get("category") or rec.get("Daily Category")
     cat_desc = item.get("category_description") or rec.get("Daily Category Description")
     lines = [f"{dt} | {desc}"]
-    if _present(rain_val):
-        lines.append(f"  Rain 24h / actual: {rain_val} mm")
-    if _present(norm_val):
+    if _present(rain_val) and str(rain_val).strip().upper() not in {"N/A", "NA", "NONE"}:
+        lines.append(f"  Recorded rainfall (Past 24 hours): {_fmt_rain_val(rain_val)} mm")
+    if _present(norm_val) and str(norm_val).strip().upper() not in {"N/A", "NA", "NONE"}:
         lines.append(f"  Normal: {norm_val} mm")
-    if _present(dep_val):
-        lines.append(f"  Departure: {dep_val}%")
-    if _present(cat):
-        lines.append(f"  Category: {cat}" + (f" — {cat_desc}" if _present(cat_desc) else ""))
-    if _present(item.get("weekly_cumulative_mm")):
+    if _present(dep_val) and str(dep_val).strip().upper() not in {"N/A", "NA", "NONE"}:
+        dep_str = str(dep_val).strip()
+        lines.append(f"  Departure from normal: {dep_str}" if dep_str.endswith("%") else f"  Departure from normal: {dep_str}%")
+    if _present(cat) and str(cat).strip().upper() not in {"N/A", "NA", "NONE", "ND"}:
+        from ajrasakha.tools.weather.code import describe_rainfall_category
+        cat_label = describe_rainfall_category(cat) or cat_desc or cat
+        lines.append(f"  Category: {cat_label}")
+    if _present(item.get("weekly_cumulative_mm")) and str(item.get("weekly_cumulative_mm")).strip().upper() not in {"N/A", "NA", "NONE"}:
         lines.append(f"  Weekly cumulative: {item.get('weekly_cumulative_mm')} mm")
     return lines
 
@@ -1386,7 +1562,7 @@ def _district_rainfall_record_lines(rec: dict[str, Any]) -> list[str]:
     ]
     for key, label, unit in mapping:
         val = rec.get(key)
-        if not _present(val):
+        if not _present(val) or str(val).strip().upper() in {"N/A", "NA", "NONE", "NULL", "ND"}:
             continue
         suffix = f" {unit}" if unit and not str(val).endswith(unit) else ""
         lines.append(f"  {label}: {val}{suffix}")
@@ -1401,25 +1577,20 @@ def _today_weather_fallback_lines(tw: dict[str, Any], *, location: str) -> list[
         or "Normal weather"
     )
     obs_temp = tw.get("observed_max_temp") or tw.get("observed_min_temp") or tw.get("forecast_max_temp")
-    lines = [f"District: {location}"]
-    obs_at = _join_date_time(tw.get("date"), tw.get("observation_timestamp"))
-    if obs_at:
-        lines.append(f"Observed at: {obs_at}")
-    lines.append(f"Temperature: {obs_temp if obs_temp is not None else 'N/A'}°C")
-    if _present(tw.get("humidity_0830") or tw.get("humidity_1730")):
-        lines.append(f"Humidity: {tw.get('humidity_0830') or tw.get('humidity_1730')}%")
-    if _present(tw.get("past_24hrs_rainfall")):
-        lines.append(f"Rain 24h: {tw.get('past_24hrs_rainfall')} mm")
+    lines: list[str] = []
+    if obs_temp is not None:
+        lines.append(f"Temperature: {obs_temp}°C")
+    hum = tw.get("humidity_0830") or tw.get("humidity_1730")
+    if _present(hum):
+        lines.append(f"Humidity: {hum}%")
+    rain = tw.get("past_24hrs_rainfall")
+    if _present(rain):
+        lines.append(f"Rain 24h: {_fmt_rain_val(rain)} mm")
     wind_val = _station_wind(tw)
     if wind_val:
         lines.append(f"Wind: {wind_val}")
-    if _present(tw.get("atm_pressure") or tw.get("mslp")):
-        lines.append(f"Pressure: {tw.get('atm_pressure') or tw.get('mslp')}")
-    lines.append(f"Conditions: {cond}")
-    if _present(tw.get("sunrise")):
-        lines.append(f"Sunrise: {tw.get('sunrise')}")
-    if _present(tw.get("sunset")):
-        lines.append(f"Sunset: {tw.get('sunset')}")
+    if cond and cond != "Normal weather":
+        lines.append(f"Condition: {cond}")
     return lines
 
 
@@ -1434,8 +1605,9 @@ def _common_weather_extra_lines(
     lines: list[str] = []
     summary = data.get("summary")
     if not skip_summary and isinstance(summary, str) and summary.strip():
+        clean_sum = re.sub(r"\bNIL\s*mm\b", "0.0 mm", summary, flags=re.I)
         lines.append("")
-        lines.append(f"Summary: {summary.strip()}")
+        lines.append(f"Summary: {clean_sum.strip()}")
         lines.append("")
 
     if not skip_live_current:
@@ -1479,14 +1651,21 @@ def _common_weather_extra_lines(
         for key, label in (
             ("nearest_station_name", "Station"),
             ("station_name", "Station"),
-            ("distance_from_requested_place_km", "Distance from your location"),
-            ("distance_km", "Distance from your location"),
+            ("distance_from_requested_place_km", "Distance"),
+            ("distance_km", "Distance"),
             ("district", "District"),
             ("state", "State"),
             ("nearest_station_note", "Note"),
         ):
-            if _present(st_info.get(key)):
-                lines.append(f"  {label}: {st_info.get(key)}")
+            val = st_info.get(key)
+            if _present(val):
+                if "distance" in key:
+                    try:
+                        lines.append(f"  {label}: {float(val):.1f} km")
+                    except (TypeError, ValueError):
+                        lines.append(f"  {label}: {val} km")
+                else:
+                    lines.append(f"  {label}: {val}")
         details = st_info.get("station_details")
         if isinstance(details, dict):
             for k, v in details.items():
@@ -1537,14 +1716,35 @@ def _common_weather_extra_lines(
 
 
 def _format_station_detail_field(key: str, value: Any) -> str:
-    """Render a station detail field with code → description when applicable."""
-    if key == "wind_direction_code":
-        return f"Wind direction: {describe_wind_direction(value)}"
-    if key == "wind_direction_deg":
+    """Render a station detail field with code → description and proper units."""
+    k_lower = key.lower()
+    if key in {"wind_direction_code", "wind_direction_deg"}:
         return f"Wind direction: {describe_wind_direction(value)}"
     if key == "weather_code":
         desc = describe_current_weather(value)
         return f"Weather: {desc or value}"
+    if "temperature" in k_lower or k_lower in {"temp", "temp_c", "feel_like_c"}:
+        try:
+            return f"{key.replace('_', ' ').title()}: {float(value):.1f}°C"
+        except (TypeError, ValueError):
+            return f"{key.replace('_', ' ').title()}: {value}°C"
+    if "humidity" in k_lower:
+        try:
+            return f"{key.replace('_', ' ').title()}: {float(value):.1f}%"
+        except (TypeError, ValueError):
+            return f"{key.replace('_', ' ').title()}: {value}%"
+    if "rainfall" in k_lower:
+        return f"{key.replace('_', ' ').title()}: {value} mm"
+    if "wind_speed" in k_lower or k_lower == "windspeed":
+        unit = "km/h" if "kmph" in k_lower else "m/s"
+        return f"{key.replace('_', ' ').title()}: {value} {unit}"
+    if k_lower in {"mslp", "atm_pressure", "atmpressure", "pressure"}:
+        return f"{key.replace('_', ' ').title()}: {value} hPa"
+    if "distance" in k_lower:
+        try:
+            return f"{key.replace('_', ' ').title()}: {float(value):.1f} km"
+        except (TypeError, ValueError):
+            return f"{key.replace('_', ' ').title()}: {value} km"
     label = key.replace("_", " ").strip().title()
     return f"{label}: {value}"
 
@@ -1585,53 +1785,95 @@ def _live_station_detail_lines(
     *,
     fallback_location: str | None = None,
 ) -> list[str]:
-    """Full live observation lines for IMD current_wx / AWS station dicts."""
+    """Full live observation lines for Annam AWS or IMD current_wx / AWS station dicts."""
     st = station if isinstance(station, dict) else {}
     today_date_str = datetime.now().strftime("%Y-%m-%d")
     raw_obs_date = st.get("date")
     if not raw_obs_date or str(raw_obs_date) < today_date_str:
         raw_obs_date = today_date_str
     raw_obs_time = st.get("time")
-    obs_time = _join_date_time(raw_obs_date, raw_obs_time) or str(raw_obs_date)
-
-    cond = (
-        st.get("weather_description")
-        or st.get("weather_message")
-        or "Clear Sky"
+    obs_at = (
+        st.get("observation_timestamp")
+        or st.get("TimeStamp")
+        or _join_date_time(raw_obs_date, raw_obs_time)
+        or str(raw_obs_date)
     )
+
+    # Resolve weather condition: prefer text description, then decode raw code
+    cond = st.get("weather_description") or st.get("weather_message")
     code_raw = st.get("weather_code_raw") or st.get("weather_code")
     if code_raw is not None and str(code_raw).strip() not in {"", "0", "00"}:
-        cond = f"{cond} (code {str(code_raw).strip()})"
+        cond = f"{cond} (code {str(code_raw).strip()})" if cond else (describe_current_weather(code_raw) or f"Code {str(code_raw).strip()}")
+    cond = cond or "Clear Sky"
+
+    def _fmt_obs_temp(v: Any) -> str:
+        if _is_empty_val(v):
+            return "N/A"
+        try:
+            return f"{float(v):.1f}°C"
+        except (TypeError, ValueError):
+            return f"{v}°C"
 
     lines: list[str] = []
-    district_val = st.get("district") or fallback_location
-    if district_val:
-        lines.append(f"District: {district_val}")
-    if st.get("state"):
-        lines.append(f"State: {st.get('state')}")
-    lines.append(f"Observed at: {obs_time}")
-    lines.append(f"Temperature: {st.get('temperature_c', 'N/A')}°C")
+
+    is_annam = _is_annam_source(st.get("data_source"))
+    dev_id = st.get("station_code") or st.get("device_id") or st.get("DeviceId") or st.get("Annam_ID")
+    if dev_id and ("ANNAM" in str(dev_id).upper() or str(dev_id).isdigit()):
+        is_annam = True
+
+    # Temperature
+    temp_c = st.get("temperature_c") if st.get("temperature_c") is not None else (
+        st.get("observed_max_temp") if st.get("observed_max_temp") is not None else st.get("Temperature")
+    )
+    temp_str = _fmt_obs_temp(temp_c)
     feel = st.get("feel_like_c")
     if feel is not None and str(feel).strip() not in {"", "N/A"}:
-        lines.append(f"Feels like: {feel}°C")
-    hum = st.get("humidity_pct")
+        lines.append(f"Temperature: {temp_str} (Feels like: {_fmt_obs_temp(feel)})")
+    else:
+        lines.append(f"Temperature: {temp_str}")
+
+    # Humidity
+    hum = st.get("humidity_pct") if st.get("humidity_pct") is not None else (
+        st.get("humidity_0830") if st.get("humidity_0830") is not None else (
+            st.get("humidity_1730") if st.get("humidity_1730") is not None else st.get("Humidity")
+        )
+    )
     if hum is not None and str(hum).strip() not in {"", "N/A"}:
         lines.append(f"Humidity: {hum}%")
-    wind_val = _station_wind(st)
-    if wind_val:
-        lines.append(f"Wind: {wind_val}")
-    if st.get("mslp") is not None and str(st.get("mslp")).strip() not in {"", "N/A"}:
-        lines.append(f"Pressure: {st.get('mslp')}")
-    rain = st.get("past_24hrs_rainfall_mm")
+
+    # Rainfall (24h)
+    rain = _fmt_rain_val(st.get("past_24hrs_rainfall_mm") if st.get("past_24hrs_rainfall_mm") is not None else (
+        st.get("past_24hrs_rainfall") if st.get("past_24hrs_rainfall") is not None else st.get("Rainfall")
+    ))
     if rain is not None and str(rain).strip() not in {"", "N/A"}:
         lines.append(f"Rain 24h: {rain} mm")
-    if st.get("nebulosity") is not None and str(st.get("nebulosity")).strip() not in {"", "N/A"}:
-        lines.append(f"Nebulosity: {st.get('nebulosity')}")
-    lines.append(f"Conditions: {cond}")
-    if st.get("sunrise"):
-        lines.append(f"Sunrise: {st.get('sunrise')}")
-    if st.get("sunset"):
-        lines.append(f"Sunset: {st.get('sunset')}")
+
+    # Wind
+    wind_val = _station_wind(st)
+    if not wind_val and st.get("wind_speed_mps") is not None:
+        ws = st.get("wind_speed_mps")
+        wdir = st.get("wind_direction") or st.get("wind_direction_deg")
+        w_desc = f"{float(ws):.1f} m/s" if isinstance(ws, (int, float)) else f"{ws} m/s"
+        if wdir:
+            w_desc += f" ({wdir})"
+        wind_val = w_desc
+    if wind_val:
+        lines.append(f"Wind: {wind_val}")
+
+    # Sky condition
+    if cond and cond != "Clear Sky":
+        lines.append(f"Condition: {cond}")
+    elif not is_annam:
+        lines.append(f"Condition: {cond}")
+
+    # Pressure — only for Annam (IMD pressure less reliable from synoptic)
+    if is_annam:
+        press = st.get("mslp") if st.get("mslp") is not None else (
+            st.get("atm_pressure") if st.get("atm_pressure") is not None else st.get("AtmPressure")
+        )
+        if press is not None and str(press).strip() not in {"", "N/A"}:
+            lines.append(f"Pressure: {press} hPa")
+
     return lines
 
 

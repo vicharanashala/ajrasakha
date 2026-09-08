@@ -36,6 +36,35 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 
+def is_crop_advisory_query(plan: dict, query: str) -> bool:
+    """Check if query is asking for crop advisory, disease, pest, or field management."""
+    q = (query or "").lower()
+
+    # Agronomic and pathological indicators
+    agri_keywords = (
+        "disease", "pest", "blast", "blight", "rot", "fungus", "fungal", "rust",
+        "mildew", "wilt", "caterpillar", "borer", "infestation", "damage", "attack",
+        "virus", "infection", "bacterial", "leaf curl", "leaf spot", "smut", "canker",
+        "manage", "management", "spray", "spraying", "control", "prevent", "prevention",
+        "treatment", "remedy", "cure", "pesticide", "fertilizer", "fungicide", "insecticide",
+        "dosage", "field management", "post rain", "after rain", "sowing advice", "crop advice",
+        "crop recommendation", "yield", "cultivation", "package of practice", "pop"
+    )
+    if any(k in q for k in agri_keywords):
+        return True
+
+    domain = str(plan.get("domain") or "").lower()
+    domains = [str(d).lower() for d in (plan.get("domains") or [])]
+    entities = plan.get("entities") or {}
+    has_crop = bool(entities.get("crop")) or any(c in q for c in ("crop", "plant", "paddy", "rice", "wheat", "cotton", "maize", "sugarcane", "soybean", "groundnut", "mustard", "chilli", "tomato", "potato", "onion"))
+
+    if has_crop and ("agriculture" in domain or any("agriculture" in d for d in domains)):
+        if any(w in q for w in ("affect", "effect", "impact", "increase", "decrease", "risk", "suitable", "recommend", "advice", "guidance")):
+            return True
+
+    return False
+
+
 async def assemble_answer_body_node(
     state: AjraSakhaState,
     config: RunnableConfig,
@@ -187,7 +216,15 @@ async def assemble_answer_body_node(
             complex_indicators = [
                 "best", "good", "suitable", "recommend", "should", "crop", "plant",
                 "pesticide", "fertilizer", "advice", "tip", "how to", "what to",
-                "is it good", "good for", "suitable for", "which crop"
+                "is it good", "good for", "suitable for", "which crop",
+                # Crop advisory, diseases, pests, field management
+                "disease", "pest", "blast", "blight", "rot", "fungus", "fungal", "rust",
+                "mildew", "wilt", "caterpillar", "borer", "infestation", "damage", "attack",
+                "virus", "infection", "bacterial", "leaf curl", "leaf spot", "smut", "canker",
+                "manage", "management", "spray", "spraying", "control", "prevent", "prevention",
+                "treatment", "remedy", "cure", "irrigation", "sowing", "harvesting", "dosage",
+                "increase", "decrease", "affect", "effect", "cause", "impact", "spread", "risk",
+                "yield", "field management", "post rain", "after rain",
             ]
             weather_only_indicators = [
                 "weather", "temperature", "rain", "forecast", "climate"
@@ -209,6 +246,11 @@ async def assemble_answer_body_node(
                 )
                 if has_dynamic_tool:
                     needs_relevance_check = True
+
+        # Crop advisory queries where GDB returned no data: weather alone cannot answer crop questions
+        if not has_gdb and is_crop_advisory_query(plan, rephrased_query):
+            logger.info("assemble_answer_body: crop advisory query with no GDB data — defer to 2-hour expert queue")
+            return defer_empty_gdb_to_translate(state, plan=plan)
         
         relevance_result = None
         if needs_relevance_check:

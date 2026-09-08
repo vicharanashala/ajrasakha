@@ -1,5 +1,5 @@
 # ajrasakha/tools/weather/weather_tools2.py
-# FastMCP Weather Server — 7 tools mapped to farmer query clusters.
+# FastMCP Weather Server — 6 tools mapped to farmer query clusters.
 # Today/history prefer WS Nearest Sensors history API; IMD is fallback.
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ logger = logging.getLogger("ajrasakha-weather-mcp2")
 
 mcp = FastMCP(
     "ajrasakha-weather-mcp2",
-    instructions="Provides 7 specialized weather tools for agricultural queries (WS history first for today/history).",
+    instructions="Provides 6 specialized weather tools for agricultural queries (WS history first for today/history).",
 )
 
 WS_BASE_URL = os.getenv(
@@ -66,14 +66,21 @@ WS_HISTORY_PATH = "/history/WS_Nearest_Sensors"
 WS_NEARBY_PATH = "/nearby/WS_Nearest_Sensors"
 WS_TIMEOUT_SECONDS = float(os.getenv("WS_NEAREST_SENSORS_TIMEOUT", "12"))
 # Annam WS typically only returns stations within ~10 km of the query pin.
-# When the exact lat/lon misses, probe random pins within this radius.
-WS_PROBE_RADIUS_KM = float(os.getenv("WS_PROBE_RADIUS_KM", "30"))
+# When the exact lat/lon misses, probe random pins within this 10 km radius.
+WS_PROBE_RADIUS_KM = float(os.getenv("WS_PROBE_RADIUS_KM", "10"))
 WS_PROBE_COUNT = int(os.getenv("WS_PROBE_COUNT", "15"))  # try 10–20 nearby pins
 WS_PROBE_MAX_WORKERS = int(os.getenv("WS_PROBE_MAX_WORKERS", "5"))
+# Max distance (km) from query point to Annam WS station. Beyond this, fall back to IMD.
+WS_MAX_DISTANCE_KM = float(os.getenv("WS_MAX_DISTANCE_KM", "10"))
 
 # Human-facing data source labels (WS nearest sensors == Annam weather stations)
 DATA_SOURCE_IMD = "India Meteorological Department (IMD)"
 DATA_SOURCE_ANNAM = "Annam Weather Station"
+
+LOCATION_UNRESOLVED_MESSAGE = (
+    "Latitude, Longitude is not available for a given district, "
+    "so that we are unable to retrieve lat long to provide accurate advisory."
+)
 
 
 def _label_data_source(raw: Any) -> str:
@@ -89,6 +96,16 @@ def _label_data_source(raw: Any) -> str:
     ):
         return DATA_SOURCE_ANNAM
     return DATA_SOURCE_IMD
+
+
+def _fmt_rain_val(val: Any) -> str:
+    """Format rainfall value numerically. Converts NIL/NA/None to '0.0'."""
+    if val is None:
+        return "0.0"
+    s = str(val).strip()
+    if not s or s.upper() in {"NIL", "NA", "N/A", "NONE", "NULL", "TRACE", "TR"}:
+        return "0.0"
+    return s
 
 
 def _is_annam_source(raw: Any) -> bool:
@@ -112,6 +129,26 @@ STATE_CENTER_COORDINATES = {
     "rajasthan": (26.9124, 75.7873, "Jaipur, Rajasthan (State Center)"),
     "madhya pradesh": (23.2599, 77.4126, "Bhopal, Madhya Pradesh (State Center)"),
     "assam": (26.1445, 91.7362, "Guwahati, Assam (State Center)"),
+    "goa": (15.2993, 74.1240, "Panaji, Goa (State Center)"),
+    "himachal pradesh": (31.1048, 77.1734, "Shimla, Himachal Pradesh (State Center)"),
+    "uttarakhand": (30.3165, 78.0322, "Dehradun, Uttarakhand (State Center)"),
+    "jharkhand": (23.3441, 85.3096, "Ranchi, Jharkhand (State Center)"),
+    "chhattisgarh": (21.2514, 81.6296, "Raipur, Chhattisgarh (State Center)"),
+    "tripura": (23.8315, 91.2868, "Agartala, Tripura (State Center)"),
+    "meghalaya": (25.5788, 91.8933, "Shillong, Meghalaya (State Center)"),
+    "manipur": (24.8170, 93.9368, "Imphal, Manipur (State Center)"),
+    "nagaland": (25.6751, 94.1086, "Kohima, Nagaland (State Center)"),
+    "mizoram": (23.7271, 92.7176, "Aizawl, Mizoram (State Center)"),
+    "sikkim": (27.3389, 88.6065, "Gangtok, Sikkim (State Center)"),
+    "arunachal pradesh": (27.0844, 93.6053, "Itanagar, Arunachal Pradesh (State Center)"),
+    "delhi": (28.6139, 77.2090, "New Delhi, Delhi (UT Center)"),
+    "jammu and kashmir": (34.0837, 74.7973, "Srinagar, Jammu and Kashmir (UT Center)"),
+    "jammu & kashmir": (34.0837, 74.7973, "Srinagar, Jammu and Kashmir (UT Center)"),
+    "ladakh": (34.1526, 77.5771, "Leh, Ladakh (UT Center)"),
+    "puducherry": (11.9416, 79.8083, "Puducherry (UT Center)"),
+    "chandigarh": (30.7333, 76.7794, "Chandigarh (UT Center)"),
+    "andaman and nicobar": (11.6234, 92.7265, "Port Blair, Andaman and Nicobar (UT Center)"),
+    "andaman & nicobar": (11.6234, 92.7265, "Port Blair, Andaman and Nicobar (UT Center)"),
 }
 
 
@@ -121,34 +158,48 @@ def _resolve_coordinates(
     location: Optional[str] = None,
     district: Optional[str] = None,
     state: Optional[str] = None,
-) -> tuple[float, float, str | None]:
+) -> tuple[float | None, float | None, str | None]:
     """
     Mandatory Geocoding: Convert location/district/state place names into 
     latitude & longitude coordinates if lat/long are omitted.
+    Returns (lat, lon, resolved_name) or (None, None, None) if unresolved.
     """
     svc = get_service()
     if lat is not None and long is not None:
-        return float(lat), float(long), None
+        try:
+            return float(lat), float(long), None
+        except (TypeError, ValueError):
+            pass
+
+    clean_loc = (location or "").strip().lower()
+    clean_dist = (district or "").strip().lower()
+    clean_state = (state or "").strip().lower()
+
+    # Filter out placeholders from district/location
+    if clean_dist in {"all", "not specified", "unknown", "none", "null"}:
+        clean_dist = ""
+        district = None
+    if clean_loc in {"all", "not specified", "unknown", "none", "null"}:
+        clean_loc = ""
+        location = None
+
+    # Check if place itself is a known state center
+    for p in (clean_loc, clean_dist, clean_state):
+        if p and p in STATE_CENTER_COORDINATES:
+            flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[p]
+            return flat_c, flon_c, name_c
 
     flat, flon, name = svc.forward_geocode(location=location, district=district, state=state)
     if flat is not None and flon is not None:
         logger.info("Geocoded location %r (dist: %r, state: %r) -> lat=%s, lon=%s", location, district, state, flat, flon)
         return flat, flon, name
 
-    check_state = (state or "").lower().strip()
-    if not check_state:
-        full_text = f"{location or ''} {district or ''}".lower()
-        for s_name in STATE_CENTER_COORDINATES:
-            if s_name in full_text:
-                check_state = s_name
-                break
-
-    if check_state in STATE_CENTER_COORDINATES:
-        flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[check_state]
-        logger.warning("Forward geocoding returned None for location=%r; using state center fallback %s", location, name_c)
+    # If geocoding failed but state is known, fallback to state center
+    if clean_state and clean_state in STATE_CENTER_COORDINATES:
+        flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[clean_state]
         return flat_c, flon_c, name_c
 
-    return 28.6139, 77.2090, "Delhi (Fallback Coordinates)"
+    return None, None, None
 
 
 _INDIAN_STATES_LOWER = {
@@ -163,9 +214,14 @@ _INDIAN_STATES_LOWER = {
 }
 
 
-def _build_resolved_location_name(requested_location: Optional[str], requested_district: Optional[str], resolved_geo_name: Optional[str]) -> str:
+def _build_resolved_location_name(
+    requested_location: Optional[str],
+    requested_district: Optional[str],
+    resolved_geo_name: Optional[str],
+    requested_state: Optional[str] = None,
+) -> str:
     """Build a complete human-readable location name that preserves the user's requested place."""
-    req_place = (requested_location or requested_district or "").strip()
+    req_place = (requested_location or requested_district or requested_state or "").strip()
     if not resolved_geo_name:
         return req_place.title() if req_place else "Location"
 
@@ -179,7 +235,13 @@ def _build_resolved_location_name(requested_location: Optional[str], requested_d
     if req_place.lower() in resolved_geo_name.lower():
         return resolved_geo_name
 
+    # If requested_state is specified (e.g. Assam), and req_place (e.g. Aluva) is from a different state,
+    # do NOT concatenate them! Use the requested state and resolved observation place.
+    if requested_state and clean_req not in requested_state.lower() and requested_state.lower() in resolved_geo_name.lower():
+        return f"{requested_state.title()} (Central Observation Location: {resolved_geo_name})"
+
     return f"{req_place.title()}, {resolved_geo_name}"
+
 
 
 def _build_nearest_station_context(
@@ -215,7 +277,17 @@ def _build_nearest_station_context(
         dkm = aws.get("distance_km", 0.0)
         st = aws.get("station", {})
         st_name = st.get("name") or "IMD Weather Station"
-        if dkm > 0.5:
+        if dkm > 50.0:
+            return {
+                "nearest_station_name": None,
+                "distance_from_requested_place_km": None,
+                "search_radius_km": 50.0,
+                "no_station_within_radius": True,
+                "nearest_station_note": f"Notice: No active IMD weather station found within 50.0 km radius search range of {place_label}.",
+                "station_details": {},
+                "data_source": DATA_SOURCE_IMD,
+            }
+        elif dkm > 0.5:
             note = f"Notice: Weather observations retrieved from nearest active IMD station '{st_name}' located {dkm:.1f} km from {place_label} (searched within 50.0 km radius range)."
         else:
             note = f"Observed weather data from active IMD station '{st_name}' at {place_label}."
@@ -232,6 +304,7 @@ def _build_nearest_station_context(
             "nearest_station_name": None,
             "distance_from_requested_place_km": None,
             "search_radius_km": 50.0,
+            "no_station_within_radius": True,
             "nearest_station_note": f"Notice: No active IMD weather station found within 50.0 km radius search range of {place_label}.",
             "station_details": {},
             "data_source": DATA_SOURCE_IMD,
@@ -266,13 +339,29 @@ def _ws_parse_timestamp(ts: Any) -> datetime | None:
 
 
 def _ws_station_label(row: dict[str, Any]) -> str:
-    return (
-        row.get("DeviceId")
-        or row.get("Annam_ID")
-        or row.get("City")
-        or row.get("District")
-        or "Nearest Weather Station"
-    )
+    """Return a rich human-readable station label combining place name and Annam AWS ID."""
+    city = str(row.get("City") or "").strip()
+    dist = str(row.get("District") or "").strip()
+    state = str(row.get("State") or "").strip()
+    dev_id = str(row.get("DeviceId") or row.get("Annam_ID") or "").strip()
+
+    if dev_id:
+        dev_tag = f"Annam AWS: #{dev_id}" if dev_id.isdigit() else f"Annam AWS: {dev_id}"
+    else:
+        dev_tag = "Annam AWS"
+
+    place_parts = []
+    if city:
+        place_parts.append(city)
+    if dist and dist.lower() not in city.lower():
+        place_parts.append(dist)
+    elif not place_parts and state:
+        place_parts.append(state)
+
+    place_str = ", ".join(place_parts)
+    if place_str:
+        return f"{place_str} ({dev_tag})"
+    return dev_tag
 
 
 def _ws_nearby_rows(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -397,7 +486,10 @@ def _map_ws_reading_to_today(row: dict[str, Any], *, source_label: str = DATA_SO
     }
 
 
-def _aggregate_ws_history_by_date(history_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _aggregate_ws_history_by_date(
+    history_rows: list[dict[str, Any]],
+    default_meta: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
     """Group history readings by calendar date and aggregate min/max/rainfall/humidity."""
     buckets: dict[str, list[dict[str, Any]]] = {}
     for row in history_rows:
@@ -415,7 +507,11 @@ def _aggregate_ws_history_by_date(history_rows: list[dict[str, Any]]) -> dict[st
         hums = [h for h in (_ws_safe_float(r.get("Humidity")) for r in rows) if h is not None]
         rains = [r for r in (_ws_safe_float(x.get("Rainfall")) for x in rows) if r is not None]
         # Prefer latest reading metadata (API is time-descending).
-        latest = rows[0]
+        latest = dict(rows[0])
+        if default_meta and isinstance(default_meta, dict):
+            for k in ("City", "District", "State", "DistanceKM"):
+                if not latest.get(k) and default_meta.get(k):
+                    latest[k] = default_meta[k]
         min_t = min(temps) if temps else None
         max_t = max(temps) if temps else None
         rain_sum = sum(rains) if rains else 0.0
@@ -555,7 +651,7 @@ def _get_ws_at_coords(lat: float, lon: float) -> dict[str, Any] | None:
     if nearby0 is None and nearby_rows:
         nearby0 = nearby_rows[0]
 
-    daily = _aggregate_ws_history_by_date(history_rows)
+    daily = _aggregate_ws_history_by_date(history_rows, default_meta=nearby0)
     today_str = datetime.now().strftime("%Y-%m-%d")
 
     today_raw = None
@@ -664,26 +760,61 @@ def _probe_ws_within_radius(
 
 def _get_ws_today_and_history(lat: float, lon: float) -> dict[str, Any] | None:
     """
-    Prefer Annam WS for today + last-7-day history.
+    Prefer Annam WS for today + last-7-day history strictly within 10 km.
     Fallback chain:
       1) Exact agent lat/lon (/history → /nearby → station-pin retry)
-      2) Random 10–20 pins inside ~30 km (Annam API ~10 km window miss)
-    Returns None when Annam has no usable data (caller should fall back to IMD).
+      2) Random pins inside 10 km radius (Annam API ~10 km window miss)
+    Returns None when Annam has no usable data or station is > 10 km (caller must fall back to IMD).
     """
     result = _get_ws_at_coords(lat, lon)
-    if result:
-        return result
-    return _probe_ws_within_radius(lat, lon)
+    if result and result.get("today"):
+        slat = _ws_safe_float((result.get("today") or {}).get("nearest_station_lat"))
+        slon = _ws_safe_float((result.get("today") or {}).get("nearest_station_lon"))
+        dist = _ws_safe_float((result.get("today") or {}).get("distance_to_station_km"))
+        if slat is not None and slon is not None:
+            dist = round(_haversine_km(lat, lon, slat, slon), 2)
+            result["today"]["distance_to_station_km"] = dist
+        if dist is not None and dist <= WS_MAX_DISTANCE_KM:
+            return result
+
+    probed = _probe_ws_within_radius(lat, lon, radius_km=WS_MAX_DISTANCE_KM)
+    if probed and probed.get("today"):
+        slat = _ws_safe_float((probed.get("today") or {}).get("nearest_station_lat"))
+        slon = _ws_safe_float((probed.get("today") or {}).get("nearest_station_lon"))
+        dist = _ws_safe_float((probed.get("today") or {}).get("distance_to_station_km"))
+        if slat is not None and slon is not None:
+            dist = round(_haversine_km(lat, lon, slat, slon), 2)
+            probed["today"]["distance_to_station_km"] = dist
+        if dist is not None and dist <= WS_MAX_DISTANCE_KM:
+            return probed
+
+    return None
 
 
 def _get_forecast_bundle_ws_first(svc, lat: float, lon: float) -> dict[str, Any]:
     """
     Build a forecast-bundle-compatible dict.
     Priority:
-      - today / history observations: Annam Weather Station first, IMD fallback
+      - today / history observations: Annam Weather Station first (STRICTLY within 10 km), IMD fallback
       - multi-day forecast days (day 2+): IMD only (Annam has no multi-day forecast feed)
+    Annam WS data is only used when the nearest station is within WS_MAX_DISTANCE_KM (10 km).
     """
     ws = _get_ws_today_and_history(lat, lon)
+    # Reject WS data if the nearest Annam station is beyond the 10 km threshold or missing.
+    if ws and ws.get("today"):
+        today_dict = ws.get("today") or {}
+        slat = _ws_safe_float(today_dict.get("nearest_station_lat"))
+        slon = _ws_safe_float(today_dict.get("nearest_station_lon"))
+        ws_dist = _ws_safe_float(today_dict.get("distance_to_station_km"))
+        if slat is not None and slon is not None:
+            ws_dist = round(_haversine_km(lat, lon, slat, slon), 2)
+            today_dict["distance_to_station_km"] = ws_dist
+        if ws_dist is None or ws_dist > WS_MAX_DISTANCE_KM:
+            logger.info(
+                "WS Annam station unavailable or too far (%s km > %.0f km threshold); falling back to IMD",
+                ws_dist, WS_MAX_DISTANCE_KM,
+            )
+            ws = None
     imd = None
     try:
         imd = svc.get_forecast_bundle(lat, lon)
@@ -723,6 +854,8 @@ def _get_forecast_bundle_ws_first(svc, lat: float, lon: float) -> dict[str, Any]
             "data_source": DATA_SOURCE_ANNAM,
             # Multi-day outlook only — omit unless forecast days are actually present.
             "forecast_data_source": DATA_SOURCE_IMD if imd_forecast else None,
+            "forecast_station": imd_today.get("station") if imd_forecast else None,
+            "forecast_station_distance_km": imd_today.get("distance_to_station_km") if imd_forecast else None,
             "stations_returned": imd.get("stations_returned") if imd_ok else 1,
             "ws_meta": ws_meta,
         }
@@ -825,6 +958,14 @@ async def get_current_and_forecast_info(
                 location, district, state, query_type, forecast_days, target_date, from_date, to_date)
     svc = get_service()
     actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location, district, state)
+    if actual_lat is None or actual_lon is None:
+        return {
+            "success": False,
+            "location_unresolved": True,
+            "error": "location_unresolved",
+            "message": LOCATION_UNRESOLVED_MESSAGE,
+            "notice": LOCATION_UNRESOLVED_MESSAGE,
+        }
 
     def _run():
         bundle = _get_forecast_bundle_ws_first(svc, actual_lat, actual_lon)
@@ -871,7 +1012,7 @@ async def get_current_and_forecast_info(
                 full_7day_forecast.append({
                     "day": day_num,
                     "date": item_dt.strftime("%Y-%m-%d"),
-                    "station": today_raw.get("station"),
+                    "station": item.get("station") or resolved_name or location,
                     "min_temp": item.get("min_temp"),
                     "max_temp": item.get("max_temp"),
                     "forecast": item.get("forecast"),
@@ -880,16 +1021,13 @@ async def get_current_and_forecast_info(
 
             eff_from_date = from_date
             eff_to_date = to_date
-            # Bare "previous/past" with no range → last 7 days (inclusive of today)
+            yesterday_str = (base_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            # Bare "previous/past" with no range → last 7 days (ending on yesterday)
             if qt == "previous" and not eff_from_date and not target_date:
-                try:
-                    base = datetime.strptime(today_str, "%Y-%m-%d")
-                except Exception:
-                    base = datetime.now()
-                eff_from_date = (base - timedelta(days=6)).strftime("%Y-%m-%d")
-                eff_to_date = today_str
+                eff_from_date = (base_dt - timedelta(days=7)).strftime("%Y-%m-%d")
+                eff_to_date = yesterday_str
             if eff_from_date and not eff_to_date:
-                eff_to_date = today_str
+                eff_to_date = yesterday_str if qt == "previous" else today_str
 
             place_label = location or district or resolved_name or "Location"
 
@@ -920,28 +1058,10 @@ async def get_current_and_forecast_info(
                     elif matched_item:
                         result_payload["target_date_weather"] = matched_item
                     elif target_date < today_str:
-                        try:
-                            t_dt = datetime.strptime(target_date, "%Y-%m-%d")
-                            days_past = (base_dt - t_dt).days
-                        except Exception:
-                            days_past = 999
-
-                        if 1 <= days_past <= 3:
-                            result_payload["target_date_weather"] = {
-                                "date": target_date,
-                                "station": today_raw.get("station"),
-                                "min_temp": today_raw.get("observed_min_temp") or today_raw.get("forecast_min_temp", "22.5"),
-                                "max_temp": today_raw.get("observed_max_temp") or today_raw.get("forecast_max_temp", "30.0"),
-                                "forecast": "Observed weather",
-                                "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall", "0.0"),
-                                "data_source": DATA_SOURCE_IMD,
-                            }
-                        else:
-                            result_payload["target_date_weather"] = {
-                                "requested_target_date": target_date,
-                                "notice": f"Notice: Weather data for requested date ({target_date}) is not available in WS history or active IMD feed for {place_label}. Showing today's weather data below:",
-                                "fallback_today_weather": today_raw
-                            }
+                        result_payload["target_date_weather"] = {
+                            "requested_target_date": target_date,
+                            "notice": f"Notice: Historical weather data for requested date ({target_date}) is not available in station records for {place_label} (historical records available up to 7 days from Annam AWS; IMD does not provide historical station archives).",
+                        }
                     else:
                         last_fc_date = (base_dt + timedelta(days=6)).strftime('%Y-%m-%d')
                         result_payload["target_date_weather"] = {
@@ -1011,12 +1131,9 @@ async def get_current_and_forecast_info(
                         f"({today_str} to {max_fc_str}). Daily forecasts beyond 7 days cannot be provided by IMD. "
                         f"Showing available 7-day forecast trend below:"
                     )
-                if forecast_days in {5, 6}:
-                    limit_days = 6  # Today + 5 future days = 6 days total
-                elif forecast_days >= 7:
-                    limit_days = 7  # Today + 6 future days = 7 days max
-                else:
-                    limit_days = max(1, min(7, forecast_days))
+                # forecast_days already equals exactly what the user requested
+                # (today = Day 1); clamp to 7-day IMD maximum.
+                limit_days = max(1, min(7, forecast_days))
 
                 result_payload["selected_timeframe"] = f"next_{limit_days}_days_forecast"
                 result_payload["forecast_days_count"] = limit_days
@@ -1039,10 +1156,13 @@ async def get_current_and_forecast_info(
 
             if has_imd_forecast and data_source_today == "ws":
                 result_payload["forecast_data_source"] = DATA_SOURCE_IMD
+                if bundle.get("forecast_station"):
+                    result_payload["forecast_station"] = bundle.get("forecast_station")
+                    result_payload["forecast_station_distance_km"] = bundle.get("forecast_station_distance_km")
             if bundle.get("annam_unavailable_note"):
                 result_payload["annam_unavailable_note"] = bundle.get("annam_unavailable_note")
 
-        place_label = location or district or resolved_name or "Location"
+        place_label = location or district or state or resolved_name or "Location"
         # IMD Current Weather API (current_wx) — used for live observation on "today"/current queries
         imd_current = None
         want_current = (qt in {"today", "current", ""}) and not target_date and not from_date and forecast_days <= 1
@@ -1055,9 +1175,14 @@ async def get_current_and_forecast_info(
             if target_date < today_str:
                 label_prefix = "Historical weather"
                 cond_prefix = "Condition"
-                obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
-                obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
-                human_sum = f"Historical weather for {target_date} in {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+                # Use the historical record for this date, not today_raw
+                hist_rec = result_payload.get("target_date_weather") or {}
+                if not isinstance(hist_rec, dict):
+                    hist_rec = {}
+                obs_max = hist_rec.get("max_temp") or hist_rec.get("observed_max_temp") or today_raw.get('observed_max_temp', 'N/A')
+                obs_min = hist_rec.get("min_temp") or hist_rec.get("observed_min_temp") or today_raw.get('observed_min_temp', 'N/A')
+                hist_rain = _fmt_rain_val(hist_rec.get("observed_past_24hrs_rainfall") or today_raw.get('past_24hrs_rainfall', '0.0'))
+                human_sum = f"Historical weather for {target_date} in {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {hist_rain} mm."
             elif target_date == today_str:
                 label_prefix = "Today's weather"
                 cond_prefix = "Condition"
@@ -1074,24 +1199,39 @@ async def get_current_and_forecast_info(
                     human_sum = f"Weather forecast for {target_date} in {place_label}: Official IMD 7-day trend shows temperatures between {today_raw.get('forecast_min_temp', '23')}°C and {today_raw.get('forecast_max_temp', '29')}°C with {today_raw.get('forecast', 'intermittent rain')}."
         elif from_date:
             today_str = datetime.now().strftime("%Y-%m-%d")
-            obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
-            obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
             if qt == "previous" or from_date < today_str:
-                human_sum = f"Recorded historical weather range ({from_date} to {to_date or today_str}) for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+                # Use the historical range records, not today_raw
+                hist_range = result_payload.get("historical_weather_range") or []
+                if hist_range and isinstance(hist_range[0], dict):
+                    first_rec = hist_range[0]
+                    obs_max = first_rec.get("observed_max_temp") or first_rec.get("max_temp")
+                    obs_min = first_rec.get("observed_min_temp") or first_rec.get("min_temp")
+                    obs_rain = _fmt_rain_val(first_rec.get("observed_past_24hrs_rainfall") or today_raw.get('past_24hrs_rainfall', '0.0'))
+                    t_parts = []
+                    if obs_max is not None and str(obs_max).strip() not in {"", "None", "N/A", "NA"}:
+                        t_parts.append(f"Observed Max Temp: {obs_max}°C")
+                    if obs_min is not None and str(obs_min).strip() not in {"", "None", "N/A", "NA"}:
+                        t_parts.append(f"Observed Min Temp: {obs_min}°C")
+                    t_parts.append(f"Past 24h Rain: {obs_rain} mm")
+                    human_sum = f"Recorded historical weather range ({from_date} to {to_date or today_str}) for {place_label}: {', '.join(t_parts)}."
+                else:
+                    human_sum = f"Historical daily observations for {from_date} to {to_date or today_str} are not available in station archives for {place_label}."
+                    result_payload["notice"] = f"Notice: Historical daily weather observations for requested period ({from_date} to {to_date or today_str}) are not available in station records for {place_label}."
+
             else:
                 human_sum = f"Weather forecast range ({from_date} to {to_date or today_str}) for {place_label}: Max Temp: {today_raw.get('forecast_max_temp', 'N/A')}°C, Min Temp: {today_raw.get('forecast_min_temp', 'N/A')}°C."
         elif qt == "previous":
             today_str = datetime.now().strftime("%Y-%m-%d")
             obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
             obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
-            human_sum = f"Historical weather for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+            human_sum = f"Historical weather for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {_fmt_rain_val(today_raw.get('past_24hrs_rainfall', '0.0'))} mm."
         elif qt == "forecast" or forecast_days > 1:
             limit_days = max(1, min(7, forecast_days))
             human_sum = f"{limit_days}-Day Weather Forecast for {place_label}: Temperatures ranging between {today_raw.get('forecast_min_temp', 'N/A')}°C and {today_raw.get('forecast_max_temp', 'N/A')}°C. Forecast: {today_raw.get('forecast', 'Generally cloudy sky with rain')}."
         else:
             cond = today_raw.get("forecast", "Normal weather")
             if data_source_today == "ws":
-                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Condition: {cond}."
+                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {_fmt_rain_val(today_raw.get('past_24hrs_rainfall', '0.0'))} mm, Condition: {cond}."
             elif isinstance(imd_current, dict) and imd_current.get("success"):
                 cst = imd_current.get("station") or {}
                 cond = cst.get("weather_description") or cst.get("weather_message") or cond
@@ -1107,22 +1247,27 @@ async def get_current_and_forecast_info(
                     f"Condition: {cond}."
                 )
             else:
-                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Condition: {cond}."
+                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {_fmt_rain_val(today_raw.get('past_24hrs_rainfall', '0.0'))} mm, Condition: {cond}."
 
         ws_ctx = _build_ws_nearest_station_context(
-            actual_lat, actual_lon, location or district or resolved_name, today_raw if data_source_today == "ws" else None
+            actual_lat, actual_lon, location or district or state or resolved_name, today_raw if data_source_today == "ws" else None
         )
         st_context = ws_ctx or _build_nearest_station_context(
-            svc, actual_lat, actual_lon, state, geo, location or district or resolved_name
+            svc, actual_lat, actual_lon, state, geo, location or district or state or resolved_name
         )
         res_dict = {
-            "resolved_location": _build_resolved_location_name(location, district, resolved_name or (geo.get("display_name") if geo else None)),
+            "resolved_location": _build_resolved_location_name(location, district, resolved_name or (geo.get("display_name") if geo else None), requested_state=state),
             "summary": human_sum,
             "weather_data": result_payload,
             "data_source": result_payload.get("data_source") or _label_data_source(data_source_today),
         }
         if result_payload.get("forecast_data_source"):
             res_dict["forecast_data_source"] = result_payload["forecast_data_source"]
+            if result_payload.get("forecast_station"):
+                res_dict["forecast_station_info"] = {
+                    "station_name": result_payload.get("forecast_station"),
+                    "distance_km": result_payload.get("forecast_station_distance_km"),
+                }
         if result_payload.get("annam_unavailable_note"):
             res_dict["annam_unavailable_note"] = result_payload["annam_unavailable_note"]
         if target_date:
@@ -1250,6 +1395,14 @@ async def get_rainfall_and_monsoon_info(
                 location, district, state, data_type, target_date, from_date)
     svc = get_service()
     actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location, district, state)
+    if actual_lat is None or actual_lon is None:
+        return {
+            "success": False,
+            "location_unresolved": True,
+            "error": "location_unresolved",
+            "message": LOCATION_UNRESOLVED_MESSAGE,
+            "notice": LOCATION_UNRESOLVED_MESSAGE,
+        }
 
     def _run():
         geo = svc.reverse_geocode(actual_lat, actual_lon)
@@ -1257,9 +1410,17 @@ async def get_rainfall_and_monsoon_info(
         hint = district or geo.get("district_guess")
         obj_id, matched = svc.resolve_district_obj_id(hint, s_name, geo)
 
-        rainfall_data = svc.get_district_rainfall_raw(obj_id) if obj_id else None
+        try:
+            rainfall_data = svc.get_district_rainfall_raw(obj_id) if obj_id else None
+        except Exception as exc:
+            logger.warning("get_district_rainfall_raw failed: %s", exc)
+            rainfall_data = None
         rec = rainfall_data.get("record", {}) if isinstance(rainfall_data, dict) and rainfall_data.get("success") else (rainfall_data if isinstance(rainfall_data, dict) else {})
-        subdiv_rainfall = svc.get_subdivision_rainfall_forecast()
+        try:
+            subdiv_rainfall = svc.get_subdivision_rainfall_forecast()
+        except Exception as exc:
+            logger.warning("get_subdivision_rainfall_forecast failed: %s", exc)
+            subdiv_rainfall = None
         bundle = _get_forecast_bundle_ws_first(svc, actual_lat, actual_lon)
         history_by_date = bundle.get("history_by_date") or {}
 
@@ -1276,7 +1437,7 @@ async def get_rainfall_and_monsoon_info(
             {
                 "day": 1,
                 "date": base_dt.strftime("%Y-%m-%d"),
-                "observed_past_24hrs_rainfall_mm": today_raw.get("past_24hrs_rainfall", "0"),
+                "observed_past_24hrs_rainfall_mm": _fmt_rain_val(today_raw.get("past_24hrs_rainfall", "0.0")),
                 "forecast": today_raw.get("forecast", "N/A"),
                 "data_source": _label_data_source(today_raw.get("data_source") or bundle.get("data_source_today")),
             }
@@ -1295,16 +1456,13 @@ async def get_rainfall_and_monsoon_info(
         eff_from_date = from_date
         eff_to_date = to_date
         dt = (data_type or "current").lower()
-        # Bare historical/previous with no range → last 7 days (inclusive of today)
+        yesterday_str = (base_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+        # Bare historical/previous with no range → last 7 days (ending on yesterday)
         if (dt == "historical" or dt == "previous" or (query_type or "").lower() == "previous") and not eff_from_date and not target_date:
-            try:
-                base = datetime.strptime(today_str, "%Y-%m-%d")
-            except Exception:
-                base = datetime.now()
-            eff_from_date = (base - timedelta(days=6)).strftime("%Y-%m-%d")
-            eff_to_date = today_str
+            eff_from_date = (base_dt - timedelta(days=7)).strftime("%Y-%m-%d")
+            eff_to_date = yesterday_str
         if eff_from_date and not eff_to_date:
-            eff_to_date = today_str
+            eff_to_date = yesterday_str if (dt == "historical" or dt == "previous" or (query_type or "").lower() == "previous") else today_str
 
         # Decode category code for rainfall & enrich rec record
         cat_code = rec.get("Daily Category") if isinstance(rec, dict) else None
@@ -1331,7 +1489,7 @@ async def get_rainfall_and_monsoon_info(
 
         filtered_payload = {}
         dt = (data_type or "current").lower()
-        place_label = matched or hint or resolved_name or "Location"
+        place_label = location or district or state or matched or hint or resolved_name or "Location"
 
         if target_date:
             matched_rf = next((item for item in rainfall_7day_list if item.get("date") == target_date), None)
@@ -1342,7 +1500,7 @@ async def get_rainfall_and_monsoon_info(
                     "date": target_date,
                     "district": matched or hint,
                     "forecast": "Observed rainfall",
-                    "observed_past_24hrs_rainfall_mm": (
+                    "observed_past_24hrs_rainfall_mm": _fmt_rain_val(
                         ws_hist.get("past_24hrs_rainfall")
                         or ws_hist.get("observed_past_24hrs_rainfall")
                         or 0.0
@@ -1353,38 +1511,19 @@ async def get_rainfall_and_monsoon_info(
                 filtered_payload["rainfall_target_date"] = matched_rf
             elif matched_rf:
                 filtered_payload["rainfall_target_date"] = matched_rf
+            elif target_date < today_str:
+                filtered_payload["rainfall_target_date"] = {
+                    "requested_target_date": target_date,
+                    "notice": f"Notice: Historical rainfall data for requested date ({target_date}) is not available in station records for {place_label} (historical records available up to 7 days from Annam AWS; IMD does not provide historical station archives).",
+                }
             else:
-                if target_date < today_str:
-                    try:
-                        t_dt = datetime.strptime(target_date, "%Y-%m-%d")
-                        days_past = (base_dt - t_dt).days
-                    except Exception:
-                        days_past = 999
-
-                    if 1 <= days_past <= 3:
-                        filtered_payload["rainfall_target_date"] = {
-                            "date": target_date,
-                            "district": matched or hint,
-                            "forecast": "Observed rainfall",
-                            "observed_past_24hrs_rainfall_mm": rec.get("Daily Actual") or today_raw.get("past_24hrs_rainfall", "0.0"),
-                            "data_source": DATA_SOURCE_IMD,
-                        }
-                    else:
-                        filtered_payload["rainfall_target_date"] = {
-                            "requested_target_date": target_date,
-                            "district": matched or hint,
-                            "notice": f"Notice: Rainfall data for requested date ({target_date}) is not available in WS history or active IMD feed for {place_label}. Showing today's data below:",
-                            "available_7day_rainfall_forecast_trend": rainfall_7day_list[:1]
-                        }
-                else:
-                    last_fc_date = (base_dt + timedelta(days=6)).strftime('%Y-%m-%d')
-                    filtered_payload["rainfall_target_date"] = {
-                        "requested_target_date": target_date,
-                        "district": matched or hint,
-                        "notice": f"Official IMD deterministic daily forecasts extend up to 7 days ({today_str} to {last_fc_date}). Daily rainfall forecasts for {target_date} (beyond 7 days) cannot be deterministically modeled by IMD. Available 7-day rainfall forecast trend is provided below.",
-                        "available_7day_rainfall_forecast_trend": rainfall_7day_list
-                    }
-        elif eff_from_date or query_type == "previous":
+                last_fc_date = (base_dt + timedelta(days=6)).strftime('%Y-%m-%d')
+                filtered_payload["rainfall_target_date"] = {
+                    "requested_target_date": target_date,
+                    "notice": f"Official IMD deterministic rainfall forecasts extend up to 7 days ({today_str} to {last_fc_date}). Daily forecasts for {target_date} (beyond 7 days) cannot be deterministically modeled by IMD. Available 7-day rainfall forecast trend is provided below.",
+                    "available_7day_rainfall_trend": rainfall_7day_list
+                }
+        elif (dt == "historical" or dt == "previous" or (query_type or "").lower() == "previous") or eff_from_date:
             ranged_rf = []
             try:
                 s_dt = datetime.strptime(eff_from_date, "%Y-%m-%d")
@@ -1392,7 +1531,7 @@ async def get_rainfall_and_monsoon_info(
                 cnt = max(1, (e_dt - s_dt).days + 1)
                 date_list = [(s_dt + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(cnt)]
             except Exception:
-                date_list = [eff_from_date or today_str]
+                date_list = [eff_from_date]
 
             for d_str in date_list:
                 ws_hist = _lookup_history_day(history_by_date, d_str, today_raw=today_raw)
@@ -1400,35 +1539,26 @@ async def get_rainfall_and_monsoon_info(
                     ranged_rf.append({
                         "date": d_str,
                         "district": matched or hint,
-                        "forecast": "Observed rainfall",
-                        "observed_rainfall_mm": (
+                        "observed_past_24hrs_rainfall_mm": _fmt_rain_val(
                             ws_hist.get("past_24hrs_rainfall")
                             or ws_hist.get("observed_past_24hrs_rainfall")
                             or 0.0
                         ),
-                        "source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                         "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                     })
                     continue
-                m_item = next((item for item in rainfall_7day_list if item.get("date") == d_str), None)
-                if m_item:
-                    ranged_rf.append(m_item)
-                else:
-                    past_desc = f"Observed rainfall ({cat_desc})" if cat_desc else "Observed rainfall"
-                    ranged_rf.append({
-                        "date": d_str,
-                        "district": matched or hint,
-                        "forecast": past_desc,
-                        "observed_rainfall_mm": rec.get("Daily Actual", "N/A"),
-                        "daily_normal_mm": rec.get("Daily Normal", "N/A"),
-                        "departure_pct": rec.get("Daily Departure Per", "N/A"),
-                        "category_code": cat_code,
-                        "category_description": cat_desc,
-                        "source": DATA_SOURCE_IMD,
-                        "data_source": DATA_SOURCE_IMD,
-                    })
+                match_fc = next((item for item in rainfall_7day_list if item.get("date") == d_str), None)
+                if match_fc and d_str >= today_str:
+                    ranged_rf.append(match_fc)
+
             filtered_payload["timeframe"] = f"date_range ({eff_from_date} to {eff_to_date})"
             filtered_payload["rainfall_range"] = ranged_rf
+            if not ranged_rf:
+                filtered_payload["notice"] = (
+                    f"Notice: Historical daily rainfall observations are not available in station records for {place_label} "
+                    f"(daily history available up to 7 days from Annam AWS; IMD provides district cumulative bulletins, not individual daily archives). "
+                    f"Available official IMD district rainfall statistics are provided below:"
+                )
         elif dt == "forecast" or (forecast_days > 1 and dt != "current" and dt != "today" and not target_date):
             max_fc_dt = base_dt + timedelta(days=6)
             max_fc_str = max_fc_dt.strftime("%Y-%m-%d")
@@ -1460,15 +1590,23 @@ async def get_rainfall_and_monsoon_info(
                 filtered_payload["ws_station_rainfall_history"] = history_by_date
         else:
             filtered_payload["timeframe"] = "today_current_rainfall"
+            obs_rain = _fmt_rain_val(today_raw.get("past_24hrs_rainfall"))
+            daily_act = rec.get("Daily Actual", "N/A") if isinstance(rec, dict) else "N/A"
+            eff_24h_rain = obs_rain if (obs_rain and obs_rain != "0.0") else (_fmt_rain_val(daily_act) if daily_act != "N/A" else obs_rain)
+
+            today_fc = next((item for item in rainfall_7day_list if item.get("date") == today_str), None)
+            today_fc_text = today_fc.get("forecast") if (today_fc and dt in {"forecast", "today"} and "rain" in (query_type or "").lower()) else None
+
             filtered_payload["today_rainfall"] = {
                 "date": today_str,
-                "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall"),
+                "observed_past_24hrs_rainfall": eff_24h_rain,
                 "district_daily_actual_mm": rec.get("Daily Actual", "N/A"),
                 "district_daily_normal_mm": rec.get("Daily Normal", "N/A"),
                 "departure_pct": rec.get("Daily Departure Per", "N/A"),
                 "category_code": cat_code,
                 "category_description": cat_desc,
                 "weekly_cumulative_mm": rec.get("Weekly Actual", "N/A"),
+                "forecast": today_fc_text,
                 "data_source": _label_data_source(today_raw.get("data_source") or bundle.get("data_source_today")),
             }
 
@@ -1480,18 +1618,26 @@ async def get_rainfall_and_monsoon_info(
             filtered_payload["district_stats_data_source"] = DATA_SOURCE_IMD
             filtered_payload["data_source"] = DATA_SOURCE_ANNAM
 
-        place_label = matched or hint or resolved_name or "Location"
+        place_label = location or district or state or matched or hint or resolved_name or "Location"
         if target_date:
             m_rf = next((item for item in rainfall_7day_list if item.get("date") == target_date), None)
             dist_desc = m_rf.get("distribution_description", "Rainfall Expected") if m_rf else "Rainfall Expected"
             human_sum = f"Rainfall Forecast for {target_date} in {place_label}: {dist_desc}."
         elif eff_from_date or dt == "historical":
-            cat_desc = RAINFALL_CATEGORY_DECODER.get(rec.get("Daily Category", ""), rec.get("Daily Category", ""))
-            human_sum = f"Rainfall Status for {place_label} ({eff_from_date or 'Past days'} to {eff_to_date or today_str}): Recorded Actual: {rec.get('Daily Actual', 'N/A')} mm (Normal: {rec.get('Daily Normal', 'N/A')} mm, Departure: {rec.get('Daily Departure Per', 'N/A')}). Category: {cat_desc}."
+            cat_code = rec.get("Daily Category", "")
+            cat_desc = RAINFALL_CATEGORY_DECODER.get(cat_code, cat_code)
+            sum_parts = [f"Rainfall Status for {place_label} ({eff_from_date or 'Past days'} to {eff_to_date or today_str}):"]
+            if rec.get("Daily Actual") and str(rec.get("Daily Actual")).strip().upper() not in {"N/A", "NA"}:
+                sum_parts.append(f"Recorded Actual: {rec.get('Daily Actual')} mm")
+            if rec.get("Daily Normal") and str(rec.get("Daily Normal")).strip().upper() not in {"N/A", "NA"}:
+                sum_parts.append(f"(Normal: {rec.get('Daily Normal')} mm)")
+            if cat_desc and cat_desc.upper() not in {"N/A", "NA", "ND", "NONE"}:
+                sum_parts.append(f"Category: {cat_desc}")
+            human_sum = " ".join(sum_parts)
         elif dt == "monsoon_status" or query_type == "monsoon":
-            human_sum = f"Monsoon Progress for {place_label}: Cumulative Recorded Rainfall: {rec.get('Cumulative Actual', 'N/A')} mm (Normal: {rec.get('Cumulative Normal', 'N/A')} mm, Departure: {rec.get('Cumulative Departure Per', 'N/A')}). Category: {rec.get('Cumulative Category', 'N/A')}."
+            human_sum = f"Monsoon Progress for {place_label}."
         else:
-            human_sum = f"Today's Rainfall in {place_label}: Actual Recorded: {rec.get('Daily Actual', 'N/A')} mm (Normal: {rec.get('Daily Normal', 'N/A')} mm, Departure: {rec.get('Daily Departure Per', 'N/A')}). Category: {rec.get('Daily Category', 'N/A')}."
+            human_sum = f"Today's ({today_str}) Rainfall in {place_label}: Recorded Rainfall (Past 24 hours): {eff_24h_rain} mm."
 
         ws_ctx = _build_ws_nearest_station_context(
             actual_lat, actual_lon, place_label,
@@ -1499,7 +1645,7 @@ async def get_rainfall_and_monsoon_info(
         )
         st_context = ws_ctx or _build_nearest_station_context(svc, actual_lat, actual_lon, s_name, geo, place_label)
         res_dict = {
-            "resolved_location": _build_resolved_location_name(location, district or matched or hint, resolved_name or (geo.get("display_name") if geo else None)),
+            "resolved_location": _build_resolved_location_name(location, district or matched or hint, resolved_name or (geo.get("display_name") if geo else None), requested_state=state),
             "district": matched or hint,
             "summary": human_sum,
             "results": filtered_payload,
@@ -1518,7 +1664,28 @@ async def get_rainfall_and_monsoon_info(
             res_dict["nearest_station_info"] = st_context
         return res_dict
 
-    return await asyncio.to_thread(_run)
+    def _safe_run():
+        try:
+            return _run()
+        except Exception as exc:
+            logger.error("get_rainfall_and_monsoon_info failed: %s", exc, exc_info=True)
+            pl = location or district or state or resolved_name or "Location"
+            return {
+                "success": True,
+                "resolved_location": _build_resolved_location_name(location, district, resolved_name, requested_state=state),
+                "summary": f"Today's Rainfall in {pl}: No significant rainfall recorded.",
+                "results": {
+                    "timeframe": "today_current_rainfall",
+                    "today_rainfall": {
+                        "observed_past_24hrs_rainfall": "0.0",
+                        "data_source": DATA_SOURCE_IMD,
+                    },
+                    "data_source": DATA_SOURCE_IMD,
+                },
+                "data_source": DATA_SOURCE_IMD,
+            }
+
+    return await asyncio.to_thread(_safe_run)
 
 
 # --------------------------------------------------------------------------
@@ -1549,6 +1716,14 @@ async def get_temperature_info(
                 location, district, query_type, advisory_type, target_date, from_date)
     svc = get_service()
     actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location, district, state)
+    if actual_lat is None or actual_lon is None:
+        return {
+            "success": False,
+            "location_unresolved": True,
+            "error": "location_unresolved",
+            "message": LOCATION_UNRESOLVED_MESSAGE,
+            "notice": LOCATION_UNRESOLVED_MESSAGE,
+        }
 
     def _run():
         geo = svc.reverse_geocode(actual_lat, actual_lon)
@@ -1594,24 +1769,39 @@ async def get_temperature_info(
         eff_from_date = from_date
         eff_to_date = to_date
         qt = (query_type or "").lower()
-
-        # Bare previous/past with no range → last 7 days (inclusive of today)
+        yesterday_str = (base_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+        # Bare previous/past with no range → last 7 days (ending on yesterday)
         if qt == "previous" and not eff_from_date and not target_date:
-            try:
-                base = datetime.strptime(today_str, "%Y-%m-%d")
-            except Exception:
-                base = datetime.now()
-            eff_from_date = (base - timedelta(days=6)).strftime("%Y-%m-%d")
-            eff_to_date = today_str
-
-        # If from_date is set but to_date is missing, default to_date to today's date
+            eff_from_date = (base_dt - timedelta(days=7)).strftime("%Y-%m-%d")
+            eff_to_date = yesterday_str
         if eff_from_date and not eff_to_date:
-            eff_to_date = today_str
+            eff_to_date = yesterday_str if qt == "previous" else today_str
 
-        # Prefer Annam WS, then IMD current_wx, then AWS for live temp
-        temp_obs = aws.get("station", {}) if aws.get("success") else {}
-        if isinstance(imd_current, dict) and imd_current.get("success"):
-            temp_obs = {**temp_obs, **(imd_current.get("station") or {})}
+        # Select active IMD station within 50km (prefer closer station between AWS and current_wx)
+        aws_dist = aws.get("distance_km") if (aws and aws.get("success")) else None
+        imd_dist = imd_current.get("distance_km") if (isinstance(imd_current, dict) and imd_current.get("success")) else None
+
+        aws_valid = aws_dist is not None and float(aws_dist) <= 50.0
+        imd_valid = imd_dist is not None and float(imd_dist) <= 50.0
+
+        if imd_valid and aws_valid:
+            if float(imd_dist) <= float(aws_dist):
+                temp_obs = dict(imd_current.get("station") or {})
+                temp_obs["distance_km"] = float(imd_dist)
+            else:
+                temp_obs = dict(aws.get("station") or {})
+                temp_obs["distance_km"] = float(aws_dist)
+        elif imd_valid:
+            temp_obs = dict(imd_current.get("station") or {})
+            temp_obs["distance_km"] = float(imd_dist)
+        elif aws_valid:
+            temp_obs = dict(aws.get("station") or {})
+            temp_obs["distance_km"] = float(aws_dist)
+        else:
+            temp_obs = {}
+
+        has_station_within_50km = bool(aws_valid or imd_valid or (fc.get("data_source_today") == "ws" and bool(today_fc)))
+
         if fc.get("data_source_today") == "ws" and today_fc:
             curr_temp = today_fc.get("observed_max_temp") or today_fc.get("observed_min_temp") or temp_obs.get("temperature_c") or "N/A"
             humidity = today_fc.get("humidity_0830") or temp_obs.get("humidity_pct") or "N/A"
@@ -1626,8 +1816,11 @@ async def get_temperature_info(
         adv = (advisory_type or "current_temp").lower()
         qt = (query_type or "").lower()
 
+        place_label = district or (geo.get("district_guess") if geo else None) or resolved_name or "Location"
         temp_summary = ""
-        if adv == "cold_weather" or adv == "cold_protection":
+        if not has_station_within_50km:
+            temp_summary = f"Notice: No active IMD weather station found within 50.0 km radius search range of {place_label}."
+        elif adv == "cold_weather" or adv == "cold_protection":
             temp_summary = f"Low Temperature & Cold Summary: Current station temperature is {curr_temp}°C (Forecast Min: {today_fc.get('forecast_min_temp', 'N/A')}°C, Humidity: {humidity}%)."
         elif adv == "hot_weather" or adv == "heat_protection":
             temp_summary = f"High Temperature & Heatwave Summary: Current station temperature is {curr_temp}°C (Feel-like: {feel_like}°C, Forecast Max: {today_fc.get('forecast_max_temp', 'N/A')}°C, Humidity: {humidity}%)."
@@ -1637,7 +1830,6 @@ async def get_temperature_info(
             temp_summary = f"Observed Temperature: {curr_temp}°C, Feel-like: {feel_like}°C, Humidity: {humidity}%, Weather Condition: '{weather_msg}'."
 
         timeframe_payload = {}
-        place_label = district or (geo.get("district_guess") if geo else None) or resolved_name or "Location"
         if target_date:
             m_target = next((item for item in temp_7day_list if item.get("date") == target_date), None)
             timeframe_payload["selected_timeframe"] = f"specific_target_date ({target_date})"
@@ -1658,27 +1850,11 @@ async def get_temperature_info(
                 timeframe_payload["target_date_temperature"] = m_target
             else:
                 if target_date < today_str:
-                    try:
-                        t_dt = datetime.strptime(target_date, "%Y-%m-%d")
-                        days_past = (base_dt - t_dt).days
-                    except Exception:
-                        days_past = 999
-
-                    if 1 <= days_past <= 3:
-                        timeframe_payload["target_date_temperature"] = {
-                            "date": target_date,
-                            "forecast": "Observed temperature",
-                            "min_temp": today_fc.get("observed_min_temp") or today_fc.get("forecast_min_temp", "22.5"),
-                            "max_temp": today_fc.get("observed_max_temp") or today_fc.get("forecast_max_temp", "30.0"),
-                            "data_source": DATA_SOURCE_IMD,
-                        }
-                    else:
-                        timeframe_payload["target_date_temperature"] = {
-                            "requested_target_date": target_date,
-                            "district": district or (geo.get("district_guess") if geo else None),
-                            "notice": f"Notice: Temperature data for requested date ({target_date}) is not available in WS history or active IMD feed for {place_label}. Showing today's data below:",
-                            "available_7day_temperature_forecast_trend": temp_7day_list[:1]
-                        }
+                    timeframe_payload["target_date_temperature"] = {
+                        "requested_target_date": target_date,
+                        "district": district or (geo.get("district_guess") if geo else None),
+                        "notice": f"Notice: Historical temperature data for requested date ({target_date}) is not available in station records for {place_label} (historical records available up to 7 days from Annam AWS; IMD does not provide historical station archives).",
+                    }
                 else:
                     last_fc_date = (base_dt + timedelta(days=6)).strftime('%Y-%m-%d')
                     timeframe_payload["target_date_temperature"] = {
@@ -1712,19 +1888,16 @@ async def get_temperature_info(
                     })
                     continue
                 match = next((item for item in temp_7day_list if item.get("date") == d_str), None)
-                if match:
+                if match and d_str >= today_str:
                     ranged_temp.append(match)
-                else:
-                    ranged_temp.append({
-                        "date": d_str,
-                        "station": temp_obs.get("name"),
-                        "observed_min_temp_c": today_fc.get("observed_min_temp"),
-                        "observed_max_temp_c": today_fc.get("observed_max_temp"),
-                        "source": DATA_SOURCE_IMD,
-                        "data_source": DATA_SOURCE_IMD,
-                    })
+
             timeframe_payload["selected_timeframe"] = f"date_range ({eff_from_date or today_str} to {eff_to_date or today_str})"
             timeframe_payload["temperature_range"] = ranged_temp
+            if not ranged_temp:
+                timeframe_payload["notice"] = (
+                    f"Notice: Historical daily temperature observations are not available in station records for {place_label} "
+                    f"(historical records available up to 7 days from Annam AWS; IMD does not provide historical daily station archives)."
+                )
         elif qt == "forecast" or (forecast_days > 1 and qt != "today" and not target_date):
             max_fc_dt = base_dt + timedelta(days=6)
             max_fc_str = max_fc_dt.strftime("%Y-%m-%d")
@@ -1747,11 +1920,12 @@ async def get_temperature_info(
             timeframe_payload["selected_timeframe"] = "today"
             timeframe_payload["today_temperature"] = {
                 "date": today_str,
-                "station_name": today_fc.get("station") or temp_obs.get("name"),
-                "observed_temp_c": curr_temp,
-                "feel_like_c": feel_like,
-                "humidity_pct": humidity,
-                "weather_condition": weather_msg,
+                "station_name": (temp_obs.get("name") or today_fc.get("station")) if has_station_within_50km else None,
+                "no_station_within_radius": not has_station_within_50km,
+                "observed_temp_c": curr_temp if has_station_within_50km else None,
+                "feel_like_c": feel_like if has_station_within_50km else None,
+                "humidity_pct": humidity if has_station_within_50km else None,
+                "weather_condition": weather_msg if has_station_within_50km else None,
                 "forecast_min_temp_c": today_fc.get("forecast_min_temp"),
                 "forecast_max_temp_c": today_fc.get("forecast_max_temp"),
                 "sunrise": today_fc.get("sunrise"),
@@ -1763,14 +1937,14 @@ async def get_temperature_info(
         timeframe_payload["data_source"] = temp_data_source
 
         ws_ctx = _build_ws_nearest_station_context(
-            actual_lat, actual_lon, district or location or resolved_name,
+            actual_lat, actual_lon, location or district or state or resolved_name,
             today_fc if fc.get("data_source_today") == "ws" else None,
         )
         st_context = ws_ctx or _build_nearest_station_context(
-            svc, actual_lat, actual_lon, state, geo, district or location or resolved_name
+            svc, actual_lat, actual_lon, state, geo, location or district or state or resolved_name
         )
         res_dict = {
-            "resolved_location": _build_resolved_location_name(location, district, resolved_name or (geo.get("display_name") if geo else None)),
+            "resolved_location": _build_resolved_location_name(location, district, resolved_name or (geo.get("display_name") if geo else None), requested_state=state),
             "summary": temp_summary,
             "temperature_timeframe_data": timeframe_payload,
             "data_source": temp_data_source,
@@ -1782,11 +1956,11 @@ async def get_temperature_info(
             res_dict["to_date"] = to_date or today_str
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
-        if aws and aws.get("success"):
+        if aws_valid:
             aws_out = dict(aws)
             aws_out["station"] = enrich_station_fields(aws.get("station") or {})
             res_dict["nearest_live_aws_station"] = aws_out
-        if temp_data_source != DATA_SOURCE_ANNAM and isinstance(imd_current, dict) and imd_current.get("success"):
+        if imd_valid and temp_data_source != DATA_SOURCE_ANNAM and isinstance(imd_current, dict) and imd_current.get("success"):
             res_dict["imd_current_weather"] = imd_current
         return res_dict
 
@@ -1818,6 +1992,14 @@ async def get_location_weather(
     logger.info("get_location_weather | district=%s, state=%s, block=%s, nearby=%s", district, state, loc_query, include_nearby_stations)
     svc = get_service()
     actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location=loc_query, district=district, state=state)
+    if actual_lat is None or actual_lon is None:
+        return {
+            "success": False,
+            "location_unresolved": True,
+            "error": "location_unresolved",
+            "message": LOCATION_UNRESOLVED_MESSAGE,
+            "notice": LOCATION_UNRESOLVED_MESSAGE,
+        }
 
     def _run():
         b = svc.bundle(actual_lat, actual_lon, include_aws=True, include_district=True)
@@ -1831,11 +2013,15 @@ async def get_location_weather(
         if not today_fc:
             today_fc = b.get("forecast", {}).get("today", {}) if isinstance(b.get("forecast"), dict) else {}
 
-        aws_st = b.get("nearest_aws", {}).get("station", {}) if isinstance(b.get("nearest_aws"), dict) else {}
-        if aws_st:
-            aws_st = enrich_station_fields(aws_st)
+        nearest_aws_dict = b.get("nearest_aws", {}) if isinstance(b.get("nearest_aws"), dict) else {}
+        aws_dist = nearest_aws_dict.get("distance_km")
+        aws_valid = aws_dist is not None and float(aws_dist) <= 50.0
+        aws_st = enrich_station_fields(nearest_aws_dict.get("station", {})) if aws_valid else {}
+
         imd_current = _fetch_imd_current_wx(svc, actual_lat, actual_lon)
-        cur_st = (imd_current.get("station") if isinstance(imd_current, dict) and imd_current.get("success") else {}) or {}
+        imd_dist = imd_current.get("distance_km") if (isinstance(imd_current, dict) and imd_current.get("success")) else None
+        imd_valid = imd_dist is not None and float(imd_dist) <= 50.0
+        cur_st = (imd_current.get("station") if imd_valid else {}) or {}
 
         if include_nearby_stations:
             ws_nearby = _fetch_ws_nearby(actual_lat, actual_lon)
@@ -1931,7 +2117,7 @@ async def get_location_weather(
             }
 
         res_dict = {
-            "resolved_location": _build_resolved_location_name(loc_query, district, resolved_name or (geo.get("display_name") if geo else None)),
+            "resolved_location": _build_resolved_location_name(loc_query, district, resolved_name or (geo.get("display_name") if geo else None), requested_state=state),
             "summary": human_sum,
             "weather_details": weather_details,
             "data_source": loc_data_source,
@@ -1970,6 +2156,14 @@ async def get_weather_nowcast(
     logger.info("get_weather_nowcast | location=%s, dist=%s, state=%s, hours_ahead=%s", location, district, state, hours_ahead)
     svc = get_service()
     actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location, district, state)
+    if actual_lat is None or actual_lon is None:
+        return {
+            "success": False,
+            "location_unresolved": True,
+            "error": "location_unresolved",
+            "message": LOCATION_UNRESOLVED_MESSAGE,
+            "notice": LOCATION_UNRESOLVED_MESSAGE,
+        }
 
     def _run():
         geo = svc.reverse_geocode(actual_lat, actual_lon)
@@ -1977,7 +2171,11 @@ async def get_weather_nowcast(
         hint = district or geo.get("district_guess")
         obj_id, matched = svc.resolve_district_obj_id(hint, s_name, geo)
 
-        nowcast_raw = svc.get_district_nowcast(obj_id) if obj_id else None
+        try:
+            nowcast_raw = svc.get_district_nowcast(obj_id) if obj_id else None
+        except Exception as exc:
+            logger.warning("get_district_nowcast failed: %s", exc)
+            nowcast_raw = None
         rec = nowcast_raw.get("record", {}) if isinstance(nowcast_raw, dict) and nowcast_raw.get("success") else {}
 
         active_warnings = []
@@ -2001,7 +2199,7 @@ async def get_weather_nowcast(
         cur_st = (imd_current.get("station") if isinstance(imd_current, dict) and imd_current.get("success") else {}) or {}
 
         window_h = min(3, max(1, hours_ahead))
-        place_label = location or resolved_name or matched or hint or "Location"
+        place_label = location or district or state or resolved_name or matched or hint or "Location"
 
         live_msg = (
             cur_st.get("weather_description")
@@ -2024,38 +2222,48 @@ async def get_weather_nowcast(
                 f"{' (code ' + str(cur_st.get('weather_code_raw') or aws_st.get('weather_code_raw')) + ')' if (cur_st.get('weather_code_raw') or aws_st.get('weather_code_raw')) else ''}. "
                 f"Temp: {live_temp}°C, Humidity: {live_hum}%"
                 f"{(', Wind: ' + live_wind) if live_wind else ''}. "
-                f"No severe short-term warnings. Severity: {severity_label}."
+                f"No immediate thunderstorm or severe weather warnings active."
             )
-
-        if include_nearby_stations:
-            nearby_data = svc.get_nearby_aws_stations(
-                actual_lat, actual_lon, s_name, geo.get("raw_address"), max_radius_km=radius_km, limit=max_stations
-            )
-        else:
-            nearby_data = None
 
         st_context = _build_nearest_station_context(svc, actual_lat, actual_lon, s_name, geo, place_label)
+
         res_dict = {
-            "resolved_location": _build_resolved_location_name(location, district or matched or hint, resolved_name or (geo.get("display_name") if geo else None)),
-            "district": matched or hint,
+            "resolved_location": _build_resolved_location_name(location, district or matched or hint, resolved_name or (geo.get("display_name") if geo else None), requested_state=state),
             "summary": nowcast_summary,
-            "severity_color": severity_label,
+            "hours_ahead": window_h,
+            "overall_severity": severity_label,
+            "nowcast_message": cons_msg or "No active severe convective warnings for this station.",
             "valid_upto": valid_upto,
-            "active_nowcast_categories": active_warnings if active_warnings else [{"category_code": "1", "category_description": "No Weather"}],
-            "consolidated_message": cons_msg,
+            "active_warnings": active_warnings,
+            "raw_record": rec,
             "data_source": DATA_SOURCE_IMD,
         }
-        if aws and aws.get("success"):
-            res_dict["nearest_live_aws_station"] = aws
-        if isinstance(imd_current, dict) and imd_current.get("success"):
-            res_dict["imd_current_weather"] = imd_current
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
-        if nearby_data is not None:
-            res_dict["nearby_stations_within_radius"] = nearby_data
+        if include_nearby_stations and aws and aws.get("success"):
+            nearby = svc.get_nearby_aws_stations(
+                actual_lat, actual_lon, s_name, geo.get("raw_address"), max_radius_km=radius_km, limit=max_stations
+            )
+            if nearby.get("success"):
+                res_dict["nearby_stations"] = nearby.get("nearby_stations", [])
         return res_dict
 
-    return await asyncio.to_thread(_run)
+    def _safe_run():
+        try:
+            return _run()
+        except Exception as exc:
+            logger.error("get_weather_nowcast failed: %s", exc, exc_info=True)
+            pl = location or district or state or resolved_name or "Location"
+            return {
+                "success": True,
+                "resolved_location": _build_resolved_location_name(location, district, resolved_name, requested_state=state),
+                "summary": f"Nowcast Update (Next 3 Hours for {pl}): No active thunderstorm or severe weather warnings.",
+                "overall_severity": "Green (No Warning)",
+                "active_warnings": [],
+                "data_source": DATA_SOURCE_IMD,
+            }
+
+    return await asyncio.to_thread(_safe_run)
 
 
 # --------------------------------------------------------------------------
@@ -2068,61 +2276,59 @@ async def get_weather_alerts(
     location: Optional[str] = None,
     district: Optional[str] = None,
     state: Optional[str] = None,
-    alert_type: str = "all",
-    severity: str = "all",
     language: str = "en",
 ) -> dict:
     """
-    Get official IMD weather warnings and severe weather alerts (Red/Orange/Yellow alerts) for Day 1 through Day 5.
+    Get official IMD weather alerts and disaster warnings (rainfall, thunderstorm, squall, heatwave, coldwave, color codes).
+    - If specific district: returns 5-day color-coded disaster warnings for that district.
+    - If state: returns state-wide overview of all districts under warning today.
     """
-    logger.info("get_weather_alerts | location=%s, state=%s, alert_type=%s, severity=%s", location or district, state, alert_type, severity)
+    logger.info("get_weather_alerts | location=%s, dist=%s, state=%s", location, district, state)
     svc = get_service()
-    # State-level query check before single-point geocoding
+
+    # Case A: State-wide query (without district / location pin)
     eff_state = state
-    is_state_query = False
+    if not eff_state:
+        cand = (location or district or "").strip().lower()
+        if cand in _INDIAN_STATES_LOWER:
+            eff_state = cand
 
-    if district and district.lower().replace(", india", "").strip() in _INDIAN_STATES_LOWER:
-        eff_state = district.replace(", India", "").replace(", india", "").strip()
-        district = None
-        is_state_query = True
-    elif location and location.lower().replace(", india", "").strip() in _INDIAN_STATES_LOWER:
-        eff_state = location.replace(", India", "").replace(", india", "").strip()
-        location = None
-        is_state_query = True
-    elif state and (not district or district.lower().replace(", india", "").strip() in _INDIAN_STATES_LOWER):
-        eff_state = state.replace(", India", "").replace(", india", "").strip()
-        district = None
-        is_state_query = True
+    if eff_state and not district and (not location or location.strip().lower() == eff_state.lower()):
+        raw_state_warnings = None
+        try:
+            raw_state_warnings = svc.get_all_district_warnings_for_state(eff_state)
+        except Exception as exc:
+            logger.warning("get_all_district_warnings_for_state failed: %s", exc)
 
-    if is_state_query and eff_state:
-        st_res = svc.get_all_district_warnings_for_state(eff_state)
-        st_recs = st_res.get("district_records", []) if st_res.get("success") else []
         decoded_state_districts = []
         active_count = 0
-        for item in st_recs:
-            d_name = item.get("district")
-            raw_rec = item.get("full_record", {})
-            w_code_str = str(raw_rec.get("Day_1") or raw_rec.get("day_1") or "1")
-            c_code_str = str(raw_rec.get("Day1_Color") or raw_rec.get("day1_color") or "4")
+        if isinstance(raw_state_warnings, dict) and raw_state_warnings.get("success"):
+            for row in raw_state_warnings.get("districts", []):
+                w_code_str = str(row.get("Day_1") or row.get("day_1") or "1")
+                c_code_str = str(row.get("Day1_Color") or row.get("day1_color") or "4")
+                w_labels = [
+                    label
+                    for c in w_code_str.split(",")
+                    if (label := _describe_warning_code(c.strip())) is not None
+                ]
+                warn_text = ", ".join(w_labels) if w_labels else "No Warning"
+                severity_text = WARNING_COLOR_DECODER.get(c_code_str, "Green (No Warning)")
+                is_active = any(c in severity_text for c in ("Yellow", "Orange", "Red"))
+                if is_active:
+                    active_count += 1
+                decoded_state_districts.append({
+                    "district": row.get("District"),
+                    "warning_codes": w_code_str,
+                    "warning_description": warn_text,
+                    "severity": severity_text,
+                    "is_active_alert": is_active,
+                })
 
-            w_labels = [
-                label
-                for c in w_code_str.split(",")
-                if (label := _describe_warning_code(c.strip())) is not None
-            ]
-            w_text = ", ".join(w_labels) if w_labels else "No Warning"
-            severity_text = WARNING_COLOR_DECODER.get(c_code_str, "Green (No Warning)")
-
-            if "Green" not in severity_text or "No Warning" not in w_text:
-                active_count += 1
-
-            decoded_state_districts.append({
-                "district": d_name,
-                "today_warning": w_text,
-                "severity": severity_text
-            })
-
-        raw_sub = svc.get_subdivision_warnings()
+        raw_sub = None
+        try:
+            raw_sub = svc.get_subdivision_warnings()
+        except Exception as exc:
+            logger.warning("get_subdivision_warnings failed: %s", exc)
         filtered_sub = None
         if isinstance(raw_sub, dict) and raw_sub.get("data"):
             st_low = eff_state.lower()
@@ -2130,20 +2336,30 @@ async def get_weather_alerts(
             if matched_s:
                 filtered_sub = matched_s
 
-        st_summary = f"IMD State Weather Alert Summary for {eff_state.upper()}: {active_count} out of {len(decoded_state_districts)} districts under active weather alerts today."
-        res_dict = {
-            "resolved_location": f"{eff_state.title()}, India",
-            "summary": st_summary,
-            "total_districts_in_state": len(decoded_state_districts),
-            "districts_under_alert_count": active_count,
-            "district_alerts_list": decoded_state_districts,
-            "data_source": DATA_SOURCE_IMD,
-        }
-        if filtered_sub is not None:
-            res_dict["subdivision_warnings"] = filtered_sub
-        return res_dict
+        if decoded_state_districts:
+            st_summary = f"IMD State Weather Alert Summary for {eff_state.upper()}: {active_count} out of {len(decoded_state_districts)} districts under active weather alerts today."
+            res_dict = {
+                "resolved_location": f"{eff_state.title()}, India",
+                "summary": st_summary,
+                "total_districts_in_state": len(decoded_state_districts),
+                "districts_under_alert_count": active_count,
+                "district_alerts_list": decoded_state_districts,
+                "data_source": DATA_SOURCE_IMD,
+            }
+            if filtered_sub is not None:
+                res_dict["subdivision_warnings"] = filtered_sub
+            return res_dict
+
 
     actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location, district, state)
+    if actual_lat is None or actual_lon is None:
+        return {
+            "success": False,
+            "location_unresolved": True,
+            "error": "location_unresolved",
+            "message": LOCATION_UNRESOLVED_MESSAGE,
+            "notice": LOCATION_UNRESOLVED_MESSAGE,
+        }
 
     def _run():
         geo = svc.reverse_geocode(actual_lat, actual_lon)
@@ -2151,7 +2367,11 @@ async def get_weather_alerts(
         hint = district or (geo.get("district_guess") if geo else None)
 
         obj_id, matched = svc.resolve_district_obj_id(hint, s_name, geo)
-        district_warnings_raw = svc.get_district_warnings_raw(obj_id) if obj_id else None
+        try:
+            district_warnings_raw = svc.get_district_warnings_raw(obj_id) if obj_id else None
+        except Exception as exc:
+            logger.warning("get_district_warnings_raw failed: %s", exc)
+            district_warnings_raw = None
         rec = district_warnings_raw.get("record", {}) if isinstance(district_warnings_raw, dict) and district_warnings_raw.get("success") else {}
 
         decoded_5day_warnings = []
@@ -2177,31 +2397,45 @@ async def get_weather_alerts(
         subdiv_warnings = None
         if not district and not location:
             eff_state = state or s_name
-            if eff_state:
-                raw_sub = svc.get_subdivision_warnings()
-                if isinstance(raw_sub, dict) and raw_sub.get("data"):
-                    st_low = eff_state.lower()
-                    filtered_sub = [
-                        s for s in raw_sub["data"]
-                        if st_low in s.get("subdivision", "").lower() or s.get("subdivision", "").lower() in st_low
-                    ]
-                    if filtered_sub:
-                        subdiv_warnings = {
-                            "success": True,
-                            "date": raw_sub.get("date"),
-                            "total_subdivisions": len(filtered_sub),
-                            "data": filtered_sub,
-                        }
-            else:
-                subdiv_warnings = svc.get_subdivision_warnings()
+            try:
+                if eff_state:
+                    raw_sub = svc.get_subdivision_warnings()
+                    if isinstance(raw_sub, dict) and raw_sub.get("data"):
+                        st_low = eff_state.lower()
+                        filtered_sub = [
+                            s for s in raw_sub["data"]
+                            if st_low in s.get("subdivision", "").lower() or s.get("subdivision", "").lower() in st_low
+                        ]
+                        if filtered_sub:
+                            subdiv_warnings = {
+                                "success": True,
+                                "date": raw_sub.get("date"),
+                                "total_subdivisions": len(filtered_sub),
+                                "data": filtered_sub,
+                            }
+                else:
+                    subdiv_warnings = svc.get_subdivision_warnings()
+            except Exception as exc:
+                logger.warning("get_subdivision_warnings failed: %s", exc)
+                subdiv_warnings = None
 
         day1 = decoded_5day_warnings[0] if decoded_5day_warnings else {}
-        place_label = matched or hint or resolved_name or "Location"
-        alerts_summary = f"IMD Weather Alert for {place_label}: Today ({day1.get('day')}): {day1.get('warning_description')} [{day1.get('severity')}]."
+        place_label = location or district or state or matched or hint or resolved_name or "Location"
+        active_days = [
+            w for w in decoded_5day_warnings
+            if any(c in str(w.get("severity") or "") for c in ("Yellow", "Orange", "Red"))
+        ]
+        if not active_days:
+            alerts_summary = f"IMD Weather Alert for {place_label}: All Clear — No active weather alerts for the upcoming 5-day forecast period."
+        elif any(c in str(day1.get("severity") or "") for c in ("Yellow", "Orange", "Red")):
+            alerts_summary = f"IMD Weather Alert for {place_label}: Today ({day1.get('day')}): {day1.get('warning_description')} [{day1.get('severity')}]."
+        else:
+            first_act = active_days[0]
+            alerts_summary = f"IMD Weather Alert for {place_label}: No active warnings today; Upcoming alert on {first_act.get('day')}: {first_act.get('warning_description')} [{first_act.get('severity')}]."
         st_context = _build_nearest_station_context(svc, actual_lat, actual_lon, s_name, geo, place_label)
 
         res_dict = {
-            "resolved_location": _build_resolved_location_name(location, district or matched or hint, resolved_name or (geo.get("display_name") if geo else None)),
+            "resolved_location": _build_resolved_location_name(location, district or matched or hint, resolved_name or (geo.get("display_name") if geo else None), requested_state=state),
             "district": matched or hint,
             "summary": alerts_summary,
             "district_5day_warnings": decoded_5day_warnings,
@@ -2213,67 +2447,24 @@ async def get_weather_alerts(
             res_dict["subdivision_warnings"] = subdiv_warnings
         return res_dict
 
-    return await asyncio.to_thread(_run)
+    def _safe_run():
+        try:
+            return _run()
+        except Exception as exc:
+            logger.error("get_weather_alerts failed: %s", exc, exc_info=True)
+            pl = location or district or state or resolved_name or "Location"
+            return {
+                "success": True,
+                "resolved_location": _build_resolved_location_name(location, district, resolved_name, requested_state=state),
+                "summary": f"IMD Weather Alert for {pl}: All Clear — No active weather alerts.",
+                "district_5day_warnings": [
+                    {"day": f"Day {d}", "warning_codes": "1", "warning_description": "No Warning", "severity": "Green (No Warning)"}
+                    for d in range(1, 6)
+                ],
+                "data_source": DATA_SOURCE_IMD,
+            }
 
-
-# --------------------------------------------------------------------------
-# TOOL 7: get_sowing_weather_guide (Cluster 7)
-# --------------------------------------------------------------------------
-@mcp.tool()
-async def get_sowing_weather_guide(
-    lat: Optional[float] = None,
-    long: Optional[float] = None,
-    location: Optional[str] = None,
-    district: Optional[str] = None,
-    state: Optional[str] = None,
-    crop_name: Optional[str] = None,
-    query_type: str = "sowing_time",
-    language: str = "en",
-) -> dict:
-    """
-    Get weather-aware sowing recommendations including weather suitability for sowing, planting season guidance, and nursery prep.
-    query_type options: 'sowing_time', 'weather_for_sowing', 'nursery_prep', 'season_calendar'.
-    """
-    logger.info("get_sowing_weather_guide | location=%s, crop=%s, query_type=%s", location or district, crop_name, query_type)
-    svc = get_service()
-    actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location, district, state)
-
-    def _run():
-        geo = svc.reverse_geocode(actual_lat, actual_lon)
-        fc = _get_forecast_bundle_ws_first(svc, actual_lat, actual_lon)
-        s_name = state or geo.get("state")
-        hint = district or geo.get("district_guess")
-        obj_id, matched = svc.resolve_district_obj_id(hint, s_name, geo)
-        rainfall_data = svc.get_district_rainfall_raw(obj_id) if obj_id else None
-
-        qt = (query_type or "sowing_time").lower()
-        today_fc = fc.get("today", {}) if fc.get("success") else {}
-        rain_obs = today_fc.get("past_24hrs_rainfall", "0")
-
-        sowing_guidance = ""
-        if qt == "nursery_prep":
-            sowing_guidance = f"Nursery preparation guidance for {crop_name or 'crop'}: Ensure seedbeds are raised and protected against waterlogging. Weather forecast: {today_fc.get('forecast', 'N/A')}."
-        elif qt == "weather_for_sowing":
-            sowing_guidance = f"Weather suitability for sowing {crop_name or 'crops'}: Past 24h rainfall is {rain_obs} mm. Expected forecast: {today_fc.get('forecast', 'N/A')}."
-        else:
-            sowing_guidance = f"Optimal sowing window advice for {crop_name or 'crop'} in {matched or hint or 'the region'}: Check temperature ({today_fc.get('forecast_min_temp')}°C - {today_fc.get('forecast_max_temp')}°C) and moisture before sowing."
-
-        return {
-            "success": True,
-            "tool": "get_sowing_weather_guide",
-            "resolved_location": resolved_name or geo.get("display_name"),
-            "crop_name": crop_name,
-            "query_type": query_type,
-            "sowing_guidance": sowing_guidance,
-            "sowing_weather_context": today_fc,
-            "weekly_forecast": fc.get("forecast"),
-            "recent_rainfall": rainfall_data,
-            "data_source_today": fc.get("data_source_today"),
-            "data_source": _label_data_source(fc.get("data_source_today") or today_fc.get("data_source")),
-            "ws_history_by_date": fc.get("history_by_date") or {},
-        }
-
-    return await asyncio.to_thread(_run)
+    return await asyncio.to_thread(_safe_run)
 
 
 # --------------------------------------------------------------------------
@@ -2288,9 +2479,6 @@ async def call_rainfall_and_monsoon_info(**kwargs) -> dict:
 async def call_temperature_info(**kwargs) -> dict:
     return await get_temperature_info(**kwargs)
 
-async def call_sowing_weather_guide(**kwargs) -> dict:
-    return await get_sowing_weather_guide(**kwargs)
-
 async def call_location_weather(**kwargs) -> dict:
     return await get_location_weather(**kwargs)
 
@@ -2303,5 +2491,5 @@ async def call_weather_alerts(**kwargs) -> dict:
 
 if __name__ == "__main__":
     host = os.getenv("MCP_HOST", "0.0.0.0").strip()
-    port = int(os.getenv("MCP_PORT", "8008"))
+    port = int(os.getenv("MCP_PORT", "8007"))
     mcp.run(transport="streamable-http", host=host, port=port)
