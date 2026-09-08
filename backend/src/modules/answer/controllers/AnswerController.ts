@@ -39,6 +39,14 @@ const toCount = (value?: string): number | undefined => {
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : undefined;
 };
 
+// Keeps the shuffle seed inside a range where seed * timestamp stays within int64.
+const toSeed = (value?: string): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return Math.floor(parsed) % 999983 || undefined;
+};
+
 // Splits a comma-separated query param into a trimmed list, or undefined when empty.
 const toList = (value?: string): string[] | undefined => {
   if (!value) return undefined;
@@ -576,6 +584,7 @@ export class AnswerController {
       sourceTypes?: string;
       minSources?: string;
       maxSources?: string;
+      shuffleSeed?: string;
       states?: string;
       crops?: string;
       domains?: string;
@@ -595,6 +604,7 @@ export class AnswerController {
       sourceTypes: toList(query.sourceTypes),
       minSources: toCount(query.minSources),
       maxSources: toCount(query.maxSources),
+      shuffleSeed: toSeed(query.shuffleSeed),
       states: toList(query.states),
       crops: toList(query.crops),
       domains: toList(query.domains),

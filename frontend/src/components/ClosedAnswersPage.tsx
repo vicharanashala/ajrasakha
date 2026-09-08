@@ -17,6 +17,8 @@ import {
   Eye,
   EyeOff,
   List,
+  Shuffle,
+  Keyboard,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -41,6 +43,11 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/atoms/command";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
@@ -832,13 +839,30 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
   </div>
 );
 
-const Kbd = ({ children }: { children: React.ReactNode }) => (
-  <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-muted px-1.5 font-sans text-[11px] font-medium text-foreground/80">
+const Kbd = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <kbd
+    className={cn(
+      "inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-muted px-1.5 font-sans text-[11px] font-medium text-foreground/80",
+      className,
+    )}
+  >
     {children}
   </kbd>
 );
 
+const TOOLTIP_KBD_CLASSES =
+  "border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground";
+
 const ANSWERS_PAGE_SIZE = 20;
+
+// A fresh seed reshuffles the list; the same seed keeps paging stable while scrolling.
+const createShuffleSeed = () => Math.floor(Math.random() * 999982) + 1;
 
 // Offsets the sticky playground header and the tab container padding so the page fits
 // the viewport and only the list and detail panes scroll.
@@ -851,6 +875,7 @@ export const ClosedAnswersPage = () => {
   );
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const [isListOpen, setIsListOpen] = useState(false);
+  const [shuffleSeed, setShuffleSeed] = useState(createShuffleSeed);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
 
@@ -862,7 +887,10 @@ export const ClosedAnswersPage = () => {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useGetClosedAnswers(ANSWERS_PAGE_SIZE, debouncedSearch, filters);
+  } = useGetClosedAnswers(ANSWERS_PAGE_SIZE, debouncedSearch, {
+    ...filters,
+    shuffleSeed,
+  });
 
   const answers = data?.pages.flatMap((page) => page?.answers ?? []) ?? [];
   const totalAnswers = data?.pages?.[0]?.totalAnswers ?? 0;
@@ -906,6 +934,12 @@ export const ClosedAnswersPage = () => {
       ?.scrollIntoView({ block: "nearest" });
   };
 
+  // Rerolls the order and lands the detail pane on the first answer of the new list.
+  const shuffleAnswers = () => {
+    setShuffleSeed(createShuffleSeed());
+    setSelectedAnswerId(null);
+  };
+
   // Arrow keys walk the answer list, as long as the reviewer is not typing.
   useKeyDown((event) => {
     if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) {
@@ -917,6 +951,9 @@ export const ClosedAnswersPage = () => {
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       moveSelection(-1);
+    } else if (event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      shuffleAnswers();
     }
   });
 
@@ -928,17 +965,9 @@ export const ClosedAnswersPage = () => {
             <h2 className="text-lg font-semibold leading-tight text-foreground">
               Answer Sources
             </h2>
-            <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
-              <span>
-                Add and update the sources backing each final answer
-                {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} answers`}
-              </span>
-              <span className="hidden items-center gap-1.5 text-xs sm:flex">
-                <span className="text-muted-foreground/40">·</span>
-                <Kbd>↑</Kbd>
-                <Kbd>↓</Kbd>
-                <span>switch answers</span>
-              </span>
+            <p className="text-sm text-muted-foreground">
+              Add and update the sources backing each final answer
+              {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} answers`}
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -956,6 +985,16 @@ export const ClosedAnswersPage = () => {
                 variant="outline"
                 size="sm"
                 className="cursor-pointer gap-2"
+                onClick={shuffleAnswers}
+                title="Reshuffle the answer list (S)"
+              >
+                <Shuffle className="h-3.5 w-3.5" />
+                Shuffle
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer gap-2"
                 onClick={() => setIsListOpen(true)}
                 title="Open the full list"
               >
@@ -963,6 +1002,36 @@ export const ClosedAnswersPage = () => {
                 Full list
               </Button>
               <ClosedAnswersFilters filters={filters} onChange={setFilters} />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="cursor-pointer text-muted-foreground"
+                    aria-label="Keyboard shortcuts"
+                  >
+                    <Keyboard className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent align="end" className="p-0">
+                  <div className="grid gap-1.5 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                      Keyboard shortcuts
+                    </p>
+                    <div className="flex items-center justify-between gap-4 text-xs">
+                      <span>Switch answers</span>
+                      <span className="flex items-center gap-1">
+                        <Kbd className={TOOLTIP_KBD_CLASSES}>↑</Kbd>
+                        <Kbd className={TOOLTIP_KBD_CLASSES}>↓</Kbd>
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 text-xs">
+                      <span>Shuffle the list</span>
+                      <Kbd className={TOOLTIP_KBD_CLASSES}>S</Kbd>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </header>

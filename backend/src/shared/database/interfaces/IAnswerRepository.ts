@@ -26,6 +26,11 @@ export interface ClosedAnswerFilters {
   /** Inclusive bounds on how many sources the answer carries. */
   minSources?: number;
   maxSources?: number;
+  /**
+   * Orders the results by a stable pseudo-random key derived from this seed instead
+   * of by creation date. The same seed keeps paging consistent; a new one reshuffles.
+   */
+  shuffleSeed?: number;
   /** Question detail filters. */
   states?: string[];
   crops?: string[];

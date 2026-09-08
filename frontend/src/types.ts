@@ -424,6 +424,8 @@ export interface ClosedAnswerFilters {
   sourceTypes: SourceType[];
   minSources?: number;
   maxSources?: number;
+  /** Orders results by a seeded shuffle instead of newest first. */
+  shuffleSeed?: number;
   states: string[];
   crops: string[];
   domains: string[];
