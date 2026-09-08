@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Search,
   Link as LinkIcon,
@@ -12,6 +14,8 @@ import {
   CircleDot,
   Circle,
   FileSearch,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -627,6 +631,88 @@ const DetailFact = ({ label, value }: { label: string; value: string }) => (
 const formatClosedAt = (value?: string, isTimeNeeded = true) =>
   value ? formatDate(new Date(value), isTimeNeeded) : "—";
 
+const MARKDOWN_COMPONENTS = {
+  h1: (props: object) => <h4 className="mt-3 mb-1 text-sm font-semibold first:mt-0" {...props} />,
+  h2: (props: object) => <h5 className="mt-3 mb-1 text-sm font-semibold first:mt-0" {...props} />,
+  h3: (props: object) => <h6 className="mt-3 mb-1 text-sm font-semibold first:mt-0" {...props} />,
+  p: (props: object) => <p className="my-2 first:mt-0 last:mb-0" {...props} />,
+  ul: (props: object) => <ul className="my-2 list-disc space-y-1 pl-5" {...props} />,
+  ol: (props: object) => <ol className="my-2 list-decimal space-y-1 pl-5" {...props} />,
+  strong: (props: object) => <strong className="font-semibold text-foreground" {...props} />,
+  blockquote: (props: object) => (
+    <blockquote className="my-2 border-l-2 border-border pl-3 text-muted-foreground" {...props} />
+  ),
+  code: (props: object) => (
+    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]" {...props} />
+  ),
+  a: (props: object) => (
+    <a
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary underline underline-offset-2"
+      {...props}
+    />
+  ),
+  table: (props: object) => (
+    <div className="my-2 overflow-x-auto">
+      <table className="w-full border-collapse text-xs" {...props} />
+    </div>
+  ),
+  th: (props: object) => (
+    <th className="border border-border bg-muted/50 px-2 py-1 text-left font-medium" {...props} />
+  ),
+  td: (props: object) => <td className="border border-border px-2 py-1 align-top" {...props} />,
+  hr: (props: object) => <hr className="my-3 border-border" {...props} />,
+};
+
+// The answer is reference material here, so it stays folded until asked for.
+const AnswerBody = ({ answer }: { answer: ClosedAnswer }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className={SECTION_LABEL_CLASSES}>Answer</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="cursor-pointer"
+          onClick={() => setIsVisible((prev) => !prev)}
+        >
+          {isVisible ? (
+            <>
+              <EyeOff className="h-3.5 w-3.5" />
+              Hide answer
+            </>
+          ) : (
+            <>
+              <Eye className="h-3.5 w-3.5" />
+              View answer
+            </>
+          )}
+        </Button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {isVisible && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="break-words text-sm leading-relaxed text-foreground/90"
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+              {formatAiTags(answer.answer)}
+            </ReactMarkdown>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const AnswerListItem = ({
   answer,
   isActive,
@@ -690,14 +776,19 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
       </h3>
     </div>
 
+    <div className="grid grid-cols-2 gap-3 border-b border-border/60 pb-3 sm:grid-cols-4">
+      <DetailFact label="Answered by" value={answer.author?.name || "—"} />
+      <DetailFact label="Approved by" value={answer.approvedBy?.name || "—"} />
+      <DetailFact label="Approvals" value={String(answer.approvalCount ?? 0)} />
+      <DetailFact
+        label="Closed"
+        value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
+      />
+    </div>
+
     <AnswerSourcesEditor answer={answer} />
 
-    <div className="flex flex-col gap-1.5">
-      <p className={SECTION_LABEL_CLASSES}>Answer</p>
-      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
-        {formatAiTags(answer.answer)}
-      </p>
-    </div>
+    <AnswerBody answer={answer} />
 
     {answer.remarks && (
       <div className="flex flex-col gap-1.5">
@@ -707,16 +798,6 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
         </p>
       </div>
     )}
-
-    <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3 sm:grid-cols-4">
-      <DetailFact label="Answered by" value={answer.author?.name || "—"} />
-      <DetailFact label="Approved by" value={answer.approvedBy?.name || "—"} />
-      <DetailFact label="Approvals" value={String(answer.approvalCount ?? 0)} />
-      <DetailFact
-        label="Closed"
-        value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
-      />
-    </div>
   </div>
 );
 
