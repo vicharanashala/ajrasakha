@@ -455,6 +455,7 @@ export interface Organization {
 
 export interface OrganizationsResponse {
   organizations: Organization[];
+  totalPages: number;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string

@@ -280,7 +280,11 @@ export interface SourceItem {
 export interface IOrganization {
   _id?: string | ObjectId;
   org_name: string;
-  state?: string;
+  state: string;
+  district?: string;
+  address?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 /** An entry in the `pop` collection, looked up by `shareable_link` to resolve the
