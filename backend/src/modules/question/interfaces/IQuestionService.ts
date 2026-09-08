@@ -550,7 +550,7 @@ export interface IQuestionService {
   /** Manually (re)assign the gate keeper / auditor for a question. */
   getRoleAssigneeDashboard(
     userId: string,
-    role: 'gate_keeper' | 'auditor',
+    role: 'gate_keeper' | 'auditor' | 'moderator',
     page: number,
     limit: number,
     search?: string,

@@ -698,6 +698,21 @@ export interface IQuestionRepository {
     totalPages: number;
     totalCount: number;
   }>;
+  getModeratorDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
   setRoleAssignee(
     questionId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',

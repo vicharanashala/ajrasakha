@@ -1829,7 +1829,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getRoleAssigneeDashboard(
     userId: string,
-    role: 'gate_keeper' | 'auditor',
+    role: 'gate_keeper' | 'auditor' | 'moderator',
     page: number,
     limit: number,
     search?: string,
