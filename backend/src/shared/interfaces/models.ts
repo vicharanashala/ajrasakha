@@ -280,7 +280,11 @@ export interface SourceItem {
 export interface IOrganization {
   _id?: string | ObjectId;
   org_name: string;
-  state?: string;
+  state: string;
+  district?: string;
+  address?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;

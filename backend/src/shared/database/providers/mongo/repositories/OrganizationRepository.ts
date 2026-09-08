@@ -19,16 +19,57 @@ export class OrganizationRepository implements IOrganizationRepository {
       await this.db.getCollection<IOrganization>('organizations');
   }
 
-  async search(search?: string, limit = 20): Promise<IOrganization[]> {
+  async search(search?: string, page = 1, limit = 20): Promise<{organizations: IOrganization[], totalPages: number}> {
     await this.init();
 
     const filter = search
       ? {org_name: {$regex: search, $options: 'i'}}
       : {};
 
-    return this.OrganizationCollection.find(filter)
-      .sort({org_name: 1})
-      .limit(limit)
-      .toArray();
+    const skip = (page - 1) * limit;
+
+    const [organizationsRaw, totalItems] = await Promise.all([
+      this.OrganizationCollection.find(filter)
+        .sort({org_name: 1})
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+      this.OrganizationCollection.countDocuments(filter),
+    ]);
+
+    const organizations = organizationsRaw.map(org => ({
+      ...org,
+      _id: org._id ? org._id.toString() : org._id
+    }));
+
+    const totalPages = Math.ceil(totalItems / limit) || 1;
+
+    return {organizations, totalPages};
+  }
+
+  async create(data: Omit<IOrganization, '_id'>): Promise<IOrganization> {
+    await this.init();
+    const now = new Date();
+    const doc = { ...data, createdAt: now, updatedAt: now };
+    const result = await this.OrganizationCollection.insertOne(doc as IOrganization);
+    return { ...doc, _id: result.insertedId.toString() };
+  }
+
+  async update(id: string, data: Partial<IOrganization>): Promise<boolean> {
+    await this.init();
+    const { ObjectId } = await import('mongodb');
+    const updateDoc = { ...data, updatedAt: new Date() };
+    const result = await this.OrganizationCollection.updateOne(
+      { _id: new ObjectId(id) as any },
+      { $set: updateDoc }
+    );
+    return result.matchedCount > 0;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    await this.init();
+    const { ObjectId } = await import('mongodb');
+    const result = await this.OrganizationCollection.deleteOne({ _id: new ObjectId(id) as any });
+    return result.deletedCount > 0;
   }
 }

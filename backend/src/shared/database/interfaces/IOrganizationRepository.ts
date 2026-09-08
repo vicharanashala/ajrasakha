@@ -3,9 +3,9 @@ import {IOrganization} from '#root/shared/interfaces/models.js';
 export interface IOrganizationRepository {
   /**
    * Searches the `organization` collection by org_name (case-insensitive).
-   * @param search - Optional text to match against org_name; returns the first
-   *   page of organizations (alphabetical by org_name) when omitted.
-   * @param limit - Maximum number of results to return.
    */
-  search(search?: string, limit?: number): Promise<IOrganization[]>;
+  search(search?: string, page?: number, limit?: number): Promise<{organizations: IOrganization[], totalPages: number}>;
+  create(data: Omit<IOrganization, '_id'>): Promise<IOrganization>;
+  update(id: string, data: Partial<IOrganization>): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
 }

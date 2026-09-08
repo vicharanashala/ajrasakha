@@ -35,6 +35,11 @@ import type { ICropAlias, ICropResponse, IBulkJobResult } from "@/hooks/services
 import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
 
 const cropServiceForStatus = new CropService();
+import { useGetOrganizations } from "@/hooks/api/organization/useGetOrganizations";
+import { useCreateOrganization } from "@/hooks/api/organization/useCreateOrganization";
+import { useUpdateOrganization } from "@/hooks/api/organization/useUpdateOrganization";
+import { useDeleteOrganization } from "@/hooks/api/organization/useDeleteOrganization";
+import { Building2 } from "lucide-react";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 
 type EntryType = "crop" | "chemical" | "other";
@@ -792,7 +797,7 @@ const AliasSection = ({
 };
 
 // -- Main Modal ----------------------------------------------------------------
-type ActiveTab = "crop" | "chemical" | "other";
+type ActiveTab = "crop" | "chemical" | "other" | "organization";
 
 export const CropManagementModal = ({
   open,
@@ -832,6 +837,32 @@ export const CropManagementModal = ({
   const [cropLimit, setCropLimit] = useState(12);
   const [chemLimit, setChemLimit] = useState(12);
   const [otherLimit, setOtherLimit] = useState(12);
+  const [orgSearchInput, setOrgSearchInput] = useState("");
+  const [orgSearchQuery, setOrgSearchQuery] = useState("");
+  const [orgPage, setOrgPage] = useState(1);
+  const [orgLimit, setOrgLimit] = useState(12);
+  const orgDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { data: orgData, isLoading: isOrgLoading } = useGetOrganizations(orgSearchQuery, orgPage, orgLimit);
+  const { mutateAsync: createOrg } = useCreateOrganization();
+  const { mutateAsync: updateOrg } = useUpdateOrganization();
+  const { mutateAsync: deleteOrg } = useDeleteOrganization();
+
+  const handleOrgSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setOrgSearchInput(value);
+    if (orgDebounce.current) clearTimeout(orgDebounce.current);
+    orgDebounce.current = setTimeout(() => { setOrgSearchQuery(value); setOrgPage(1); }, 350);
+  }, []);
+
+  const [orgState, setOrgState] = useState("");
+  const [orgDistrict, setOrgDistrict] = useState("");
+  const [orgAddress, setOrgAddress] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [orgToDelete, setOrgToDelete] = useState<any | null>(null);
+  const [orgEditId, setOrgEditId] = useState<string | null>(null);
+
+
 
   const handleCropSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -1431,6 +1462,20 @@ export const CropManagementModal = ({
               Other
             </button>
 
+              {/* Organization tab */}
+              <button
+                id="agritech-tab-organization"
+                onClick={() => handleTabSwitch("organization" as any)}
+                className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
+                  activeTab === "organization"
+                    ? "border-b-emerald-500 text-emerald-700 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
+                    : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                }`}
+              >
+                <Building2 className={`h-3.5 w-3.5 ${activeTab === "organization" ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
+                Organization
+              </button>
+
             {/* Rail fills remaining width */}
             <div className="flex-1 border-b-2 border-b-gray-100 dark:border-b-gray-800" />
           </div>
@@ -1439,7 +1484,7 @@ export const CropManagementModal = ({
           <div className="flex-1 overflow-y-auto min-h-0">
 
             {/* ── Add Form ────────────────────────────────────────────────── */}
-            {isAddFormOpen && (
+            {isAddFormOpen && activeTab !== "organization" && (
               <div className={`mx-5 mt-4 mb-3 p-4 rounded-xl border-l-[3px] space-y-3 ${
                 activeTab === "chemical"
                   ? "border-l-purple-500 border border-purple-200/60 dark:border-purple-500/15 bg-purple-50/30 dark:bg-purple-500/[0.03]"
@@ -1743,6 +1788,91 @@ export const CropManagementModal = ({
                 </div>
               </>
             )}
+            {/* 🏢 ORGANIZATIONS TAB */}
+            {activeTab === "organization" && (
+              <>
+                <div className="px-5 pt-3 pb-1">
+                  <div className="relative mb-3">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <Input
+                      placeholder="Search organizations..."
+                      value={orgSearchInput}
+                      onChange={handleOrgSearchChange}
+                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
+                    />
+                    {isOrgLoading && (
+                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                    )}
+                  </div>
+                  <div className="grid grid-cols-[2fr_1.5fr_1.5fr_2fr_100px] gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 font-semibold text-xs text-gray-500">
+                    <div>Organization Name</div>
+                    <div>State</div>
+                    <div>District</div>
+                    <div>Address</div>
+                    <div className="text-right">Actions</div>
+                  </div>
+                  
+                  {isAddFormOpen && (
+                    <div className="mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-emerald-500 border border-emerald-200/60 dark:border-emerald-500/15 bg-emerald-50/30 dark:bg-emerald-500/[0.03]">
+                      <div className="flex flex-col gap-3">
+                        <Input placeholder="Organization Name *" value={orgName} onChange={(e) => setOrgName(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input placeholder="State *" value={orgState} onChange={(e) => setOrgState(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                          <Input placeholder="District" value={orgDistrict} onChange={(e) => setOrgDistrict(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                        </div>
+                        <Input placeholder="Address" value={orgAddress} onChange={(e) => setOrgAddress(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                        
+                        <div className="flex justify-end gap-2 mt-2">
+                          <Button variant="outline" size="sm" onClick={() => { setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgState(""); setOrgDistrict(""); setOrgAddress(""); }} className="h-8 text-xs">Cancel</Button>
+                          <Button size="sm" onClick={async () => {
+                            if (!orgName || !orgState) return toast.error("Name and State are required");
+                            const payload = { org_name: orgName, state: orgState, district: orgDistrict, address: orgAddress };
+                            try {
+                                if (orgEditId) {
+                                  await updateOrg({ id: orgEditId, data: payload });
+                                } else {
+                                  await createOrg(payload);
+                                }
+                                setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgState(""); setOrgDistrict(""); setOrgAddress("");
+                            } catch (error) {}
+                          }} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">{orgEditId ? "Update" : "Add"}</Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-0 border rounded-xl overflow-hidden mt-3 dark:border-gray-800">
+                    {orgData?.organizations?.map((org: any, i: number) => (
+                      <div key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className={`grid grid-cols-[2fr_1.5fr_1.5fr_2fr_100px] gap-3 items-center p-3 text-xs transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""}`}>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{org.org_name}</div>
+                        <div className="text-gray-600 dark:text-gray-400">{org.state}</div>
+                        <div className="text-gray-600 dark:text-gray-400">{org.district || "-"}</div>
+                        <div className="text-gray-600 dark:text-gray-400 truncate" title={org.address}>{org.address || "-"}</div>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10" onClick={() => {
+                            setOrgEditId(typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id));
+                            setOrgName(org.org_name);
+                            setOrgState(org.state);
+                            setOrgDistrict(org.district || "");
+                            setOrgAddress(org.address || "");
+                            setIsAddFormOpen(true);
+                          }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10" onClick={() => setOrgToDelete(org)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {!isOrgLoading && orgData?.organizations?.length === 0 && (
+                      <div className="text-center py-8 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">No organizations found.</div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
           </div>
 
           {/* ── Pagination Footer (fixed inside modal) ──────────────────────── */}
@@ -1947,6 +2077,93 @@ export const CropManagementModal = ({
               <button
                 onClick={() => setOtherPage((p) => Math.min(otherTotalPages, p + 1))}
                 disabled={otherPage === otherTotalPages}
+                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
+          
+          <ConfirmationModal
+            open={!!orgToDelete}
+            onOpenChange={(isOpen) => !isOpen && setOrgToDelete(null)}
+            title={`Delete "${orgToDelete?.org_name}"?`}
+            description="Are you sure you want to delete this organization? This action cannot be undone."
+            confirmText="Delete"
+            type="delete"
+            onConfirm={async () => {
+              if (orgToDelete) {
+                try {
+                  const id = typeof orgToDelete._id === 'object' ? orgToDelete._id?.$oid : (orgToDelete._id || orgToDelete.id);
+                  await deleteOrg(id);
+                  setOrgToDelete(null);
+                } catch (e) {}
+              }
+            }}
+          />
+          {activeTab === "organization" && orgData?.totalPages > 1 && (
+            <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] px-4 py-2 flex items-center justify-end gap-2 flex-wrap">
+              {/* Items per page */}
+              <div className="relative">
+                <Select
+                  value={orgLimit.toString()}
+                  onValueChange={(v) => { setOrgLimit(Number(v)); setOrgPage(1); }}
+                >
+                  <SelectTrigger className="h-6 w-[62px] text-[11px] px-2 border-gray-200 dark:border-gray-700" size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[12, 25, 50, 100].map((v) => (
+                      <SelectItem key={v} value={v.toString()} className="text-xs">{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Prev */}
+              <button
+                onClick={() => setOrgPage((p) => Math.max(1, p - 1))}
+                disabled={orgPage === 1}
+                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              {/* Page numbers */}
+              {(() => {
+                const MAX = 5;
+                let start = orgPage > MAX ? orgPage : 1;
+                let end = Math.min(start + MAX - 1, orgData.totalPages);
+                const pages = [];
+                for (let i = start; i <= end; i++) pages.push(i);
+                return (
+                  <>
+                    {pages.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setOrgPage(p)}
+                        className={`h-6 w-6 text-[11px] rounded border transition-colors ${
+                          p === orgPage
+                            ? "bg-emerald-500 border-emerald-500 text-white font-semibold"
+                            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    {end < orgData.totalPages && (
+                      <button
+                        onClick={() => setOrgPage(end + 1)}
+                        className="h-6 w-6 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                      >
+                        ...
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+              {/* Next */}
+              <button
+                onClick={() => setOrgPage((p) => Math.min(orgData.totalPages, p + 1))}
+                disabled={orgPage === orgData.totalPages}
                 className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Next
