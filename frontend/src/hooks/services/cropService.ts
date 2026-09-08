@@ -125,15 +125,18 @@ export class CropService {
     return apiFetch<{ types: string[] }>(`${this._baseUrl}/entry-types`);
   }
 
-  async downloadList(type: 'crop' | 'chemical'): Promise<Blob> {
+  /** Download the AgriTech Management list as Excel. Pass a type to filter
+   *  (crop/chemical/weed/pest/disease/custom); omit it to download everything. */
+  async downloadList(type?: string): Promise<Blob> {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) throw new Error("User not authenticated");
     const token = await getIdToken(firebaseUser);
-    const response = await fetch(`${this._baseUrl}/download?type=${type}`, {
+    const qs = type ? `?type=${encodeURIComponent(type)}` : "";
+    const response = await fetch(`${this._baseUrl}/download${qs}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!response.ok) throw new Error(`Failed to download ${type} list`);
+    if (!response.ok) throw new Error(`Failed to download ${type ?? "AgriTech"} list`);
     return response.blob();
   }
 
