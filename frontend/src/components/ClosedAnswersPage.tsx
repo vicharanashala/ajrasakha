@@ -37,7 +37,6 @@ import {
 } from "@/components/atoms/command";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
-import { ExpandableText } from "@/components/expandable-text";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
 import {
   ClosedAnswersFilters,
@@ -671,14 +670,8 @@ const AnswerListItem = ({
   );
 };
 
-// Characters of the answer shown before the reader has to expand it.
-const ANSWER_PREVIEW_LENGTH = 400;
-
-const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
-  const [isAnswerExpanded, setIsAnswerExpanded] = useState(false);
-
-  return (
-    <div className="flex flex-col gap-4 p-4 sm:p-5">
+const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
+  <div className="flex flex-col gap-4 p-4 sm:p-5">
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-3">
           <p className={SECTION_LABEL_CLASSES}>Question</p>
@@ -718,14 +711,9 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
 
       <div className="flex flex-col gap-1.5">
         <p className={SECTION_LABEL_CLASSES}>Answer</p>
-        <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
-          <ExpandableText
-            text={formatAiTags(answer.answer)}
-            maxLength={ANSWER_PREVIEW_LENGTH}
-            isExpanded={isAnswerExpanded}
-            onToggle={() => setIsAnswerExpanded((prev) => !prev)}
-          />
-        </div>
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
+          {formatAiTags(answer.answer)}
+        </p>
       </div>
 
       {answer.remarks && (
@@ -736,9 +724,8 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
           </p>
         </div>
       )}
-    </div>
-  );
-};
+  </div>
+);
 
 const ANSWERS_PAGE_SIZE = 20;
 
