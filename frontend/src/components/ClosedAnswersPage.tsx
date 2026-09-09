@@ -413,7 +413,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
 
   const isEditing = editingIndex !== null;
   const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : newEntry;
-  const isValid = form.source.trim().length > 0 && Boolean(form.sourceType);
+  const isValid = Boolean(form.sourceType) && form.sourceReferenceStatus !== null;
   // With more than one existing source, step through them with "Next" - Save only
   // shows up once confirming the one currently open would leave none unconfirmed, so
   // the last remaining source goes straight to "Save" instead of needing an extra
@@ -495,7 +495,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   // way, the button below switches from "Next" to "Save".
   const handleNext = () => {
     if (!isValid) {
-      toast.error("Enter a source and select a source type first.");
+      toast.error("Select a source type and fetch the source reference first.");
       return;
     }
     if (editingIndex === null) return;
@@ -515,7 +515,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
 
   const handleSave = () => {
     if (!isValid) {
-      toast.error("Enter a source and select a source type first.");
+      toast.error("Select a source type and fetch the source reference first.");
       return;
     }
     if (!newSourceId) {
@@ -608,11 +608,10 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
 
         <div className="grid gap-1.5">
           <Label htmlFor={`${fieldId}-source`} className="text-xs">
-            Source <span className="text-destructive">*</span>
+            Source
           </Label>
           <Input
             id={`${fieldId}-source`}
-            required
             className="bg-background"
             value={form.source}
             onChange={(e) => updateField("source", e.target.value)}
@@ -689,7 +688,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
           <p className="text-xs text-muted-foreground">
-            Source and source type are required.
+            Source type is required, and the source reference must be fetched.
           </p>
           <div className="flex gap-2">
             <Button
