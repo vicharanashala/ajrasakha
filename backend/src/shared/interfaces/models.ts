@@ -288,6 +288,23 @@ export interface IOrganization {
   updatedAt?: Date;
 }
 
+/** A single row of an organization bulk import. `type` is applied to the whole
+ *  sheet by the uploader, so it is not part of the row. */
+export interface IOrganizationBulkRow {
+  org_name: string;
+  state: string;
+  district?: string;
+  address?: string;
+}
+
+/** Outcome of one row of an organization bulk import, reported back per row so
+ *  the uploader can see exactly what was written and why a row was not. */
+export interface IOrganizationBulkResult {
+  name: string;
+  status: 'created' | 'skipped' | 'failed';
+  reason: string;
+}
+
 /** An entry in the `pop` collection, looked up by `shareable_link` to resolve the
  *  Source Reference button on the Edit Source modal (Closed Answers page). */
 /** A duplicate file recorded against a `pop` document. When a source matches one of

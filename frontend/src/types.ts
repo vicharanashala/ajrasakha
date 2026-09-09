@@ -474,7 +474,7 @@ export interface SourceItem {
 export interface Organization {
   _id?: string;
   org_name: string;
-  type?: \'central\' | \'state\' | \'district\';
+  type?: 'central' | 'state' | 'district';
   state?: string;
   district?: string;
   address?: string;
@@ -483,6 +483,28 @@ export interface Organization {
 export interface OrganizationsResponse {
   organizations: Organization[];
   totalPages: number;
+}
+
+/** One row of an organization sheet import. The type is chosen once for the whole
+ *  sheet, so it is not part of the row. */
+export interface OrganizationBulkRow {
+  org_name: string;
+  state: string;
+  district?: string;
+  address?: string;
+}
+
+export interface OrganizationBulkResult {
+  name: string;
+  status: "created" | "skipped" | "failed";
+  reason: string;
+}
+
+export interface OrganizationBulkResponse {
+  results: OrganizationBulkResult[];
+  created: number;
+  skipped: number;
+  failed: number;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string
