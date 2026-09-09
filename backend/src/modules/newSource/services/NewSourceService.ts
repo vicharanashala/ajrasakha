@@ -17,6 +17,9 @@ export class NewSourceService implements INewSourceService {
   ) {}
 
   async startNewSource(input: StartNewSourceInput): Promise<INewSource> {
+    const existing = await this.newSourceRepo.findByAnswerId(input.answerId);
+    if (existing) return existing;
+
     return await this.newSourceRepo.create({
       answerId: input.answerId,
       questionId: input.questionId,

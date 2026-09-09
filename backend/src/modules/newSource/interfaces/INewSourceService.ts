@@ -21,7 +21,9 @@ export interface CompleteNewSourceInput {
 
 export interface INewSourceService {
   /** Called when the Edit Source modal opens — creates the new_sources record as
-   *  'in-progress' so the editing timer is backed by a real document from the start. */
+   *  'in-progress' so the editing timer is backed by a real document from the start.
+   *  If a record already exists for this answer, that one is returned instead so the
+   *  same answer never ends up with more than one new_sources document. */
   startNewSource(input: StartNewSourceInput): Promise<INewSource>;
 
   /** Called when the user saves — records the final sources (each with its own

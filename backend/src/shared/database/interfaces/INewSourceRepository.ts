@@ -18,6 +18,10 @@ export interface INewSourceRepository {
    *  about to start editing — used to detect an abandoned-in-place review elsewhere. */
   findActiveInProgressByUser(userId: string, excludeAnswerId: string): Promise<INewSource | null>;
 
+  /** Finds the existing `new_sources` record for this answer, if one already exists —
+   *  used so starting an edit never creates a duplicate document for the same answer. */
+  findByAnswerId(answerId: string): Promise<INewSource | null>;
+
   /** Sends an 'in-progress' record back to 'pending' (and stamps closedAt) so another
    *  expert can pick it up, when the same expert starts reviewing a different answer. */
   releaseToPending(id: string): Promise<INewSource | null>;

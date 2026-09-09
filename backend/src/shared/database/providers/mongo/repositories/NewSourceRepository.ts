@@ -95,6 +95,19 @@ export class NewSourceRepository implements INewSourceRepository {
     return {...result, _id: result._id?.toString()} as INewSource;
   }
 
+  async findByAnswerId(answerId: string): Promise<INewSource | null> {
+    await this.init();
+
+    const result = await this.NewSourceCollection.findOne(
+      {answerId},
+      {sort: {createdAt: -1}},
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
   async releaseToPending(id: string): Promise<INewSource | null> {
     await this.init();
 
