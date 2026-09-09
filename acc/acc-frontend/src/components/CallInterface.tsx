@@ -17,8 +17,6 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
   Edit3,
   Copy,
   Check,
@@ -454,7 +452,7 @@ export const CallInterface = () => {
     });
   };
 
-  const handleSelectQueryCard = (index: number) => {
+  /* const handleSelectQueryCard = (index: number) => {
     if (index < 0 || index >= queryCards.length) return;
     setActiveQueryIndex(index);
     const card = queryCards[index];
@@ -468,7 +466,7 @@ export const CallInterface = () => {
       setEditableVillage(card.village || "");
       setEditableDomain(card.domain || []);
     }
-  };
+  }; */
 
   // Farmer Details HITL state
   const [extractedFarmerProfile, setExtractedFarmerProfile] = useState<any>(null);
@@ -774,10 +772,19 @@ export const CallInterface = () => {
       setExtractedData(data);
 
       if (extractionType === 'query_details') {
-        const rootState = data.extracted_state || editableState || "";
-        const rootDistrict = data.extracted_district || editableDistrict || "";
-        const rootBlock = data.extracted_block || editableBlock || "";
-        const rootVillage = data.extracted_village || editableVillage || "";
+        const farmer = activeProfileRef.current || extractedFarmerProfile || {};
+        const rootState = (data.extracted_state && data.extracted_state.trim())
+          ? data.extracted_state.trim()
+          : ((farmer.state || farmer.stateName || editableState || "").trim());
+        const rootDistrict = (data.extracted_district && data.extracted_district.trim())
+          ? data.extracted_district.trim()
+          : ((farmer.district || farmer.districtName || editableDistrict || "").trim());
+        const rootBlock = (data.extracted_block && data.extracted_block.trim())
+          ? data.extracted_block.trim()
+          : ((farmer.blockName || farmer.block || editableBlock || "").trim());
+        const rootVillage = (data.extracted_village && data.extracted_village.trim())
+          ? data.extracted_village.trim()
+          : ((farmer.villageName || farmer.village || editableVillage || "").trim());
         const defaultSeason = (data as any).extracted_season || editableSeason || getAutoSelectedSeason();
 
         const rawQueries = data.extracted_queries && data.extracted_queries.length > 0
