@@ -1005,6 +1005,14 @@ const AnswerListItem = ({
           {newSourceStatus === "in-progress" && !answer.isOwnInProgress ? " · Locked" : ""}
         </span>
       )}
+      {showNewSourceStatus && answer.hasNotFoundReference && (
+        <span
+          className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-red-600 dark:text-red-400"
+          title="A source on this answer had no matching reference"
+        >
+          Not found
+        </span>
+      )}
     </div>
   </motion.button>
   );
@@ -1337,6 +1345,12 @@ export const ClosedAnswersPage = () => {
   const { data: currentUser } = useGetCurrentUser({});
   const isModerator = currentUser?.role === "moderator";
   const isAdmin = currentUser?.role === "admin";
+  // Moderators and admins review what experts recorded; they don't add sources here.
+  const isReviewer = isModerator || isAdmin;
+  const pageTitle = isReviewer ? "Source Reviews" : "Answer Sources";
+  const pageDescription = isReviewer
+    ? "Review the sources experts recorded against each final answer"
+    : "Add and update the sources backing each final answer";
 
   const {
     data,
@@ -1422,10 +1436,10 @@ export const ClosedAnswersPage = () => {
         <header className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-0.5">
             <h2 className="text-lg font-semibold leading-tight text-foreground">
-              Answer Sources
+              {pageTitle}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Add and update the sources backing each final answer
+              {pageDescription}
               {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} answers`}
             </p>
           </div>
@@ -1460,7 +1474,11 @@ export const ClosedAnswersPage = () => {
                 <List className="h-3.5 w-3.5" />
                 Full list
               </Button>
-              <ClosedAnswersFilters filters={filters} onChange={setFilters} />
+              <ClosedAnswersFilters
+                filters={filters}
+                onChange={setFilters}
+                showReferenceStatusFilter={isAdmin}
+              />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1594,6 +1612,7 @@ export const ClosedAnswersPage = () => {
         onSearchChange={setSearch}
         filters={filters}
         onFiltersChange={setFilters}
+        showReferenceStatusFilter={isAdmin}
         hasNextPage={Boolean(hasNextPage)}
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={() => fetchNextPage()}

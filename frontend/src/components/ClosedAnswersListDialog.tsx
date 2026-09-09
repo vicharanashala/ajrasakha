@@ -24,6 +24,7 @@ export const ClosedAnswersListDialog = ({
   onSearchChange,
   filters,
   onFiltersChange,
+  showReferenceStatusFilter,
   hasNextPage,
   isFetchingNextPage,
   onLoadMore,
@@ -39,6 +40,7 @@ export const ClosedAnswersListDialog = ({
   onSearchChange: (value: string) => void;
   filters: ClosedAnswerFilters;
   onFiltersChange: (next: ClosedAnswerFilters) => void;
+  showReferenceStatusFilter?: boolean;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
@@ -88,7 +90,11 @@ export const ClosedAnswersListDialog = ({
               className="pl-8"
             />
           </div>
-          <ClosedAnswersFilters filters={filters} onChange={onFiltersChange} />
+          <ClosedAnswersFilters
+            filters={filters}
+            onChange={onFiltersChange}
+            showReferenceStatusFilter={showReferenceStatusFilter}
+          />
         </div>
       </DialogHeader>
 

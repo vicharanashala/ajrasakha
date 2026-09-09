@@ -585,6 +585,7 @@ export class AnswerController {
       minSources?: string;
       maxSources?: string;
       shuffleSeed?: string;
+      sourceReferenceStatuses?: string;
       states?: string;
       crops?: string;
       domains?: string;
@@ -606,6 +607,7 @@ export class AnswerController {
       minSources: toCount(query.minSources),
       maxSources: toCount(query.maxSources),
       shuffleSeed: toSeed(query.shuffleSeed),
+      sourceReferenceStatuses: toList(query.sourceReferenceStatuses),
       states: toList(query.states),
       crops: toList(query.crops),
       domains: toList(query.domains),

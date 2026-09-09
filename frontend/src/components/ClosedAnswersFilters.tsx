@@ -3,6 +3,7 @@ import { motion, MotionConfig } from "framer-motion";
 import {
   CalendarDays,
   Filter,
+  FileSearch,
   Flag,
   Globe,
   Hash,
@@ -50,6 +51,7 @@ export const EMPTY_CLOSED_ANSWER_FILTERS: ClosedAnswerFilters = {
   authorIds: [],
   sourcePresence: undefined,
   sourceTypes: [],
+  sourceReferenceStatuses: [],
   minSources: undefined,
   maxSources: undefined,
   states: [],
@@ -67,6 +69,15 @@ const SOURCE_TYPE_FILTER_OPTIONS: { value: SourceType; label: string }[] = [
 
 const PRIORITY_OPTIONS = ["low", "medium", "high"];
 
+const REFERENCE_STATUS_OPTIONS: {
+  value: ClosedAnswerFilters["sourceReferenceStatuses"][number];
+  label: string;
+}[] = [
+  { value: "notFound", label: "Not found" },
+  { value: "topLevelMatch", label: "Top level match" },
+  { value: "duplicateMatch", label: "Duplicate match" },
+];
+
 const AUTHOR_ROLES: UserRole[] = ["expert", "moderator", "admin"];
 
 // Counts the filter groups in use, so the trigger can show how many are active.
@@ -75,6 +86,7 @@ export const countActiveFilters = (filters: ClosedAnswerFilters) =>
   (filters.authorIds.length > 0 ? 1 : 0) +
   (filters.sourcePresence ? 1 : 0) +
   (filters.sourceTypes.length > 0 ? 1 : 0) +
+  (filters.sourceReferenceStatuses.length > 0 ? 1 : 0) +
   (filters.minSources !== undefined || filters.maxSources !== undefined ? 1 : 0) +
   (filters.states.length > 0 ? 1 : 0) +
   (filters.crops.length > 0 ? 1 : 0) +
@@ -145,9 +157,12 @@ const FilterField = ({
 export const ClosedAnswersFilters = ({
   filters,
   onChange,
+  showReferenceStatusFilter = false,
 }: {
   filters: ClosedAnswerFilters;
   onChange: (next: ClosedAnswerFilters) => void;
+  /** Admin-only: filter by the pop lookup outcome recorded on reviewed sources. */
+  showReferenceStatusFilter?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<ClosedAnswerFilters>(filters);
@@ -281,6 +296,7 @@ export const ClosedAnswersFilters = ({
                   count={
                     (draft.sourcePresence ? 1 : 0) +
                     (draft.sourceTypes.length > 0 ? 1 : 0) +
+                    (draft.sourceReferenceStatuses.length > 0 ? 1 : 0) +
                     (draft.minSources !== undefined || draft.maxSources !== undefined
                       ? 1
                       : 0)
@@ -353,6 +369,33 @@ export const ClosedAnswersFilters = ({
                         />
                       </div>
                     </FilterField>
+
+                    {showReferenceStatusFilter && (
+                      <FilterField icon={FileSearch} label="Reference lookup">
+                        <MultiSelect
+                          items={REFERENCE_STATUS_OPTIONS.map((opt) => ({
+                            value: opt.value,
+                            label: opt.label,
+                          }))}
+                          selected={draft.sourceReferenceStatuses}
+                          onChange={(next) =>
+                            setField(
+                              "sourceReferenceStatuses",
+                              next as ClosedAnswerFilters["sourceReferenceStatuses"],
+                            )
+                          }
+                          getDisplayLabel={(selected) =>
+                            selected.length === 0
+                              ? "Any outcome"
+                              : selected.length === 1
+                                ? REFERENCE_STATUS_OPTIONS.find(
+                                    (opt) => opt.value === selected[0],
+                                  )?.label ?? "1 selected"
+                                : `${selected.length} selected`
+                          }
+                        />
+                      </FilterField>
+                    )}
 
                     <FilterField icon={Layers} label="Source type">
                       <MultiSelect

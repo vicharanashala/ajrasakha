@@ -424,6 +424,8 @@ export interface ClosedAnswerFilters {
   sourceTypes: SourceType[];
   minSources?: number;
   maxSources?: number;
+  /** Pop lookup outcomes recorded on the answer's reviewed sources. */
+  sourceReferenceStatuses: ("notFound" | "topLevelMatch" | "duplicateMatch")[];
   /** Orders results by a seeded shuffle instead of newest first. */
   shuffleSeed?: number;
   states: string[];
@@ -455,6 +457,9 @@ export interface ClosedAnswer {
   // True when the requesting viewer is the one who put this answer's sources
   // 'in-progress' - false (including for a 'pending'/'completed' record) otherwise.
   isOwnInProgress?: boolean;
+  // True when any reviewed source on this answer had no matching pop document
+  // (sourceReferenceStatus 'notFound'), so the list can flag it.
+  hasNotFoundReference?: boolean;
   createdAt: string;
   updatedAt: string;
   question: ClosedAnswerQuestion;
