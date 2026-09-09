@@ -58,6 +58,7 @@ import {
 } from "./ClosedAnswersFilters";
 import { ClosedAnswersListDialog } from "./ClosedAnswersListDialog";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
 import { useStartNewSource } from "@/hooks/api/newSource/useStartNewSource";
@@ -399,6 +400,10 @@ const EMPTY_SOURCE_DRAFT: SourceDraft = { ...EMPTY_SOURCE_FORM, sourceReferenceS
 const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
+  // Whoever put this answer's sources 'in-progress' owns finishing the review - any
+  // other expert gets a read-only view until it's released back to 'pending'/completed.
+  const isLockedByOther =
+    answer.newSourceStatus === "in-progress" && !answer.isOwnInProgress;
   // Every existing source's in-progress edits, so picking a different source to edit
   // (e.g. to set its own organization) never drops another source's changes.
   const [drafts, setDrafts] = useState<SourceDraft[]>(() => sources.map(toSourceDraft));
@@ -461,6 +466,18 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
         onSuccess: (result) => {
           if (result?._id) setNewSourceId(result._id);
         },
+        // Belt-and-suspenders: the list already hides editing behind isLockedByOther,
+        // but another expert could still have started reviewing this answer moments
+        // ago, in which case the backend rejects the start - surface that instead of
+        // leaving the form silently stuck.
+        onError: (err) => {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "This answer is already being reviewed by another expert.",
+          );
+          sessionStartedRef.current = false;
+        },
       },
     );
   };
@@ -469,7 +486,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   // source on a different answer - if so, they must confirm switching (which releases
   // that other source back to 'pending') before this one can start.
   const ensureSession = () => {
-    if (sessionStartedRef.current) return;
+    if (sessionStartedRef.current || isLockedByOther) return;
     sessionStartedRef.current = true;
     findActiveElsewhere(answer._id, {
       onSuccess: (record) => {
@@ -610,6 +627,32 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
       },
     );
   };
+
+  if (isLockedByOther) {
+    return (
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
+        <header className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <LinkIcon className="h-3.5 w-3.5" />
+          </span>
+          <p className="text-sm font-semibold text-foreground">
+            Sources ({sources.length})
+          </p>
+        </header>
+        <p className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+          Another expert is currently reviewing this answer's sources. It'll be
+          editable again once they save or it's released back to Pending.
+        </p>
+        {sources.length > 0 && (
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+            {sources.map((source, index) => (
+              <SourceRow key={index} source={source} index={index} isActive={false} onSelect={() => {}} />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
@@ -883,16 +926,35 @@ const AnswerBody = ({ answer }: { answer: ClosedAnswer }) => {
   );
 };
 
+const NEW_SOURCE_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  "in-progress": "In Progress",
+  completed: "Completed",
+  flagged: "Flagged",
+  merged: "Merged",
+};
+
+const NEW_SOURCE_STATUS_BADGE_CLASSES: Record<string, string> = {
+  pending: "bg-muted text-muted-foreground",
+  "in-progress": "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  completed: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  flagged: "bg-red-500/15 text-red-600 dark:text-red-400",
+  merged: "bg-primary/15 text-primary",
+};
+
 const AnswerListItem = ({
   answer,
   isActive,
+  showNewSourceStatus,
   onSelect,
 }: {
   answer: ClosedAnswer;
   isActive: boolean;
+  showNewSourceStatus: boolean;
   onSelect: () => void;
 }) => {
   const sourceCount = answer.sources?.length ?? 0;
+  const newSourceStatus = answer.newSourceStatus;
 
   return (
   <motion.button
@@ -923,6 +985,17 @@ const AnswerListItem = ({
       <span className="text-muted-foreground">
         {formatClosedAt(answer.question?.closedAt ?? answer.updatedAt, false)}
       </span>
+      {showNewSourceStatus && newSourceStatus && (
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none",
+            NEW_SOURCE_STATUS_BADGE_CLASSES[newSourceStatus] ?? "bg-muted text-muted-foreground",
+          )}
+        >
+          {NEW_SOURCE_STATUS_LABELS[newSourceStatus] ?? newSourceStatus}
+          {newSourceStatus === "in-progress" && !answer.isOwnInProgress ? " · Locked" : ""}
+        </span>
+      )}
     </div>
   </motion.button>
   );
@@ -1011,6 +1084,10 @@ export const ClosedAnswersPage = () => {
   const [shuffleSeed, setShuffleSeed] = useState(createShuffleSeed);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
+  // Only experts see the new_sources status badge in the list - the whole point is
+  // showing them where each answer stands (Pending/In Progress/etc) before they open it.
+  const { data: currentUser } = useGetCurrentUser({});
+  const isExpert = currentUser?.role === "expert";
 
   const {
     data,
@@ -1209,6 +1286,7 @@ export const ClosedAnswersPage = () => {
                     key={answer._id}
                     answer={answer}
                     isActive={selectedAnswer?._id === answer._id}
+                    showNewSourceStatus={isExpert}
                     onSelect={() => setSelectedAnswerId(answer._id)}
                   />
                 ))}
