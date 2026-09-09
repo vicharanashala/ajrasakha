@@ -1,0 +1,25 @@
+{
+  "name": "ajrasakha-loadtest-p7",
+  "version": "1.0.0",
+  "description": "Project 7 — Reviewer System Load & SLA Testing toolchain",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed":        "node seed/seed_all.mjs",
+    "seed:users":  "node seed/seed_users.mjs",
+    "seed:q":      "node seed/seed_questions.mjs",
+    "register:fb": "node seed/register_firebase_users.mjs",
+    "clear":       "node seed/clear.mjs",
+    "indexes":     "node seed/ensure_indexes.mjs",
+    "smoke":       "node scripts/smoke.mjs",
+    "reconcile":   "node scripts/reconcile_reputation.mjs"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.7.0",
+    "dotenv": "^16.5.0",
+    "mongodb": "^6.17.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
