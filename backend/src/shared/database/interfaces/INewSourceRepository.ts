@@ -1,4 +1,4 @@
-import {INewSource} from '#root/shared/interfaces/models.js';
+import {INewSource, INewSourceStatusChange} from '#root/shared/interfaces/models.js';
 
 export interface INewSourceRepository {
   /** Inserts a new document into the `new_sources` collection. */
@@ -25,4 +25,8 @@ export interface INewSourceRepository {
   /** Sends an 'in-progress' record back to 'pending' (and stamps closedAt) so another
    *  expert can pick it up, when the same expert starts reviewing a different answer. */
   releaseToPending(id: string): Promise<INewSource | null>;
+
+  /** An admin/moderator override of a record's status (to 'pending' or 'merged'), with
+   *  the mandatory reason appended to statusChanges rather than replacing history. */
+  changeStatusWithReason(id: string, entry: INewSourceStatusChange): Promise<INewSource | null>;
 }

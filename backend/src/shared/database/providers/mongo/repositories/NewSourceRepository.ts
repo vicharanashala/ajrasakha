@@ -1,5 +1,5 @@
 import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceRepository.js';
-import {INewSource} from '#root/shared/interfaces/models.js';
+import {INewSource, INewSourceStatusChange} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {Collection, ObjectId} from 'mongodb';
@@ -119,6 +119,30 @@ export class NewSourceRepository implements INewSourceRepository {
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
       {$set: {status: 'pending', 'reviewArray.0.closedAt': new Date(), updatedAt: new Date()}},
+      {returnDocument: 'after'},
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
+  async changeStatusWithReason(
+    id: string,
+    entry: INewSourceStatusChange,
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing new_sources id');
+    }
+
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {
+        $set: {status: entry.status, updatedAt: new Date()},
+        $push: {statusChanges: entry},
+      },
       {returnDocument: 'after'},
     );
 

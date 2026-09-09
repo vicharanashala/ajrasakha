@@ -2,8 +2,9 @@ import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceR
 import {INewSource} from '#root/shared/interfaces/models.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {inject, injectable} from 'inversify';
-import {ForbiddenError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, ForbiddenError, NotFoundError} from 'routing-controllers';
 import {
+  ChangeNewSourceStatusInput,
   CompleteNewSourceInput,
   INewSourceService,
   StartNewSourceInput,
@@ -92,5 +93,28 @@ export class NewSourceService implements INewSourceService {
 
   async getByAnswerId(answerId: string): Promise<INewSource | null> {
     return await this.newSourceRepo.findByAnswerId(answerId);
+  }
+
+  async changeStatus(input: ChangeNewSourceStatusInput): Promise<INewSource> {
+    if (input.status !== 'pending' && input.status !== 'merged') {
+      throw new BadRequestError("Status must be 'pending' or 'merged' for this action");
+    }
+    if (!input.reason?.trim()) {
+      throw new BadRequestError('A reason is required to change this status');
+    }
+
+    const updated = await this.newSourceRepo.changeStatusWithReason(input.id, {
+      status: input.status,
+      reason: input.reason.trim(),
+      changedBy: input.changedBy,
+      changedByName: input.changedByName,
+      changedAt: new Date(),
+    });
+
+    if (!updated) {
+      throw new NotFoundError(`new_sources record not found with id ${input.id}`);
+    }
+
+    return updated;
   }
 }

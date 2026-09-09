@@ -9,6 +9,7 @@ import {
   QueryParams,
   Authorized,
   CurrentUser,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -89,5 +90,26 @@ export class NewSourceController {
   @Authorized()
   async getByAnswerId(@Param('answerId') answerId: string): Promise<INewSource | null> {
     return await this.newSourceService.getByAnswerId(answerId);
+  }
+
+  @OpenAPI({summary: "Admin/moderator override of a record's status to 'pending' or 'merged', with a mandatory reason"})
+  @Patch('/:id/status')
+  @Authorized()
+  async changeStatus(
+    @Param('id') id: string,
+    @Body() body: {status: 'pending' | 'merged'; reason: string},
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource> {
+    if (user.role !== 'admin' && user.role !== 'moderator') {
+      throw new ForbiddenError('Only admins and moderators can change this status');
+    }
+
+    const changedByName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
+    return await this.newSourceService.changeStatus({
+      id,
+      ...body,
+      changedBy: user._id?.toString() ?? '',
+      changedByName,
+    });
   }
 }

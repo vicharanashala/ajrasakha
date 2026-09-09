@@ -372,6 +372,17 @@ export interface INewSourceReviewEntry {
   isSaved: boolean;
 }
 
+/** One admin/moderator override of a `new_sources` record's status (e.g. sending it
+ *  back to 'pending' or marking it 'merged') - a permanent audit entry, appended to on
+ *  every such change rather than overwritten, with the mandatory reason they gave. */
+export interface INewSourceStatusChange {
+  status: NewSourceStatus;
+  reason: string;
+  changedBy: string;
+  changedByName: string;
+  changedAt: Date;
+}
+
 /** A document written to the `new_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
  *  `answers` collection — edits are logged here instead. Created (status:
@@ -387,6 +398,9 @@ export interface INewSource {
   status: NewSourceStatus;
   timeTaken: number | null;
   reviewArray: INewSourceReviewEntry[];
+  /** Admin/moderator status overrides (to 'pending' or 'merged'), each with the
+   *  mandatory reason given - see INewSourceStatusChange. Absent until the first one. */
+  statusChanges?: INewSourceStatusChange[];
   createdAt?: Date;
   updatedAt?: Date;
 }

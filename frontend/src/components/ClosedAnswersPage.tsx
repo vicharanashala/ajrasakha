@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -67,6 +68,7 @@ import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
 import { useActiveNewSource } from "@/hooks/api/newSource/useActiveNewSource";
 import { useReleaseNewSource } from "@/hooks/api/newSource/useReleaseNewSource";
 import { useGetNewSourceByAnswerId } from "@/hooks/api/newSource/useGetNewSourceByAnswerId";
+import { useChangeNewSourceStatus } from "@/hooks/api/newSource/useChangeNewSourceStatus";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
@@ -1019,9 +1021,89 @@ const SourceChangeItem = ({
   </div>
 );
 
-// Moderator-only: compares the answer's sources as they stand in the answers collection
-// (Before) against what the assigned expert has recorded in new_sources (After), so a
-// moderator can see what changed without opening the edit panel below it.
+const STATUS_OVERRIDE_OPTIONS: { value: "pending" | "merged"; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "merged", label: "Merged" },
+];
+
+// Admin/moderator-only: lets them send a new_sources record back to 'pending' or forward
+// to 'merged', with a mandatory reason logged to the record's statusChanges. Only
+// rendered once a record exists for this answer - there's nothing to override otherwise.
+const StatusOverrideControl = ({
+  answer,
+  newSourceRecord,
+}: {
+  answer: ClosedAnswer;
+  newSourceRecord: NewSourceRecord;
+}) => {
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<"pending" | "merged">("pending");
+  const [reason, setReason] = useState("");
+  const { mutate: changeStatus, isPending } = useChangeNewSourceStatus();
+
+  const handleApply = () => {
+    if (!reason.trim()) {
+      toast.error("A reason is required to change this status.");
+      return;
+    }
+
+    changeStatus(
+      { id: newSourceRecord._id, status, reason: reason.trim() },
+      {
+        onSuccess: () => {
+          toast.success(`Status changed to ${status}.`);
+          setReason("");
+          queryClient.invalidateQueries({
+            queryKey: ["new-source-by-answer", answer._id],
+          });
+        },
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to change status.");
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5">
+      <p className={SECTION_LABEL_CLASSES}>Change Status</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        <Select value={status} onValueChange={value => setStatus(value as "pending" | "merged")}>
+          <SelectTrigger className="h-9 w-full sm:w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OVERRIDE_OPTIONS.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          value={reason}
+          onChange={event => setReason(event.target.value)}
+          placeholder="Reason (required)"
+          className="h-9 flex-1"
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-9"
+          onClick={handleApply}
+          disabled={isPending}
+        >
+          {isPending ? "Applying…" : "Apply"}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Compares the answer's sources as they stand in the answers collection (Before) against
+// what the assigned expert has recorded in new_sources (After), so a moderator/admin can
+// see what changed without opening the edit panel below it. Admins/moderators also get a
+// status-override control here once a new_sources record exists to act on.
 const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
   const { data: newSourceRecord, isLoading } = useGetNewSourceByAnswerId(answer._id, {
     enabled: true,
@@ -1056,6 +1138,10 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
           )}
         </div>
       </div>
+
+      {newSourceRecord && (
+        <StatusOverrideControl answer={answer} newSourceRecord={newSourceRecord} />
+      )}
     </div>
   );
 };
@@ -1063,9 +1149,11 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
 const AnswerDetail = ({
   answer,
   isModerator,
+  isAdmin,
 }: {
   answer: ClosedAnswer;
   isModerator: boolean;
+  isAdmin: boolean;
 }) => (
   <div className="flex flex-col gap-4 p-4 sm:p-5">
     <div className="flex flex-col gap-1.5">
@@ -1095,7 +1183,7 @@ const AnswerDetail = ({
       />
     </div>
 
-    {isModerator && <SourceChangesSection answer={answer} />}
+    {(isModerator || isAdmin) && <SourceChangesSection answer={answer} />}
 
     <AnswerSourcesEditor answer={answer} />
 
@@ -1156,6 +1244,7 @@ export const ClosedAnswersPage = () => {
   const { data: currentUser } = useGetCurrentUser({});
   const isExpert = currentUser?.role === "expert";
   const isModerator = currentUser?.role === "moderator";
+  const isAdmin = currentUser?.role === "admin";
 
   const {
     data,
@@ -1384,7 +1473,11 @@ export const ClosedAnswersPage = () => {
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.15, ease: "easeOut" }}
                     >
-                      <AnswerDetail answer={selectedAnswer} isModerator={isModerator} />
+                      <AnswerDetail
+                        answer={selectedAnswer}
+                        isModerator={isModerator}
+                        isAdmin={isAdmin}
+                      />
                     </motion.div>
                   ) : (
                     <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">

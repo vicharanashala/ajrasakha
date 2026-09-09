@@ -45,6 +45,14 @@ export interface NewSourceReviewEntry {
   isSaved: boolean;
 }
 
+export interface NewSourceStatusChange {
+  status: NewSourceStatus;
+  reason: string;
+  changedBy: string;
+  changedByName: string;
+  changedAt: string;
+}
+
 export interface NewSourceRecord {
   _id: string;
   answerId: string;
@@ -53,6 +61,7 @@ export interface NewSourceRecord {
   status: NewSourceStatus;
   timeTaken: number | null;
   reviewArray: NewSourceReviewEntry[];
+  statusChanges?: NewSourceStatusChange[];
 }
 
 export class NewSourceService {
@@ -104,5 +113,17 @@ export class NewSourceService {
    *  before/after comparison view. Null when no one has reviewed this answer yet. */
   async getByAnswerId(answerId: string): Promise<NewSourceRecord | null> {
     return apiFetch<NewSourceRecord | null>(`${this._baseUrl}/by-answer/${answerId}`);
+  }
+
+  /** Admin/moderator override of a record's status to 'pending' or 'merged', with a
+   *  mandatory reason stored on the record's statusChanges. */
+  async changeStatus(
+    id: string,
+    payload: { status: "pending" | "merged"; reason: string },
+  ): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   }
 }
