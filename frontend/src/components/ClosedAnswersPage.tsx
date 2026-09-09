@@ -27,10 +27,10 @@ import {
   UserCheck,
   Minus,
   Flag,
-  GitMerge,
   Undo2,
   ChevronDown,
   History,
+  CheckCheck,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -996,7 +996,7 @@ const NEW_SOURCE_STATUS_LABELS: Record<string, string> = {
   "in-progress": "In Progress",
   completed: "Completed",
   flagged: "Flagged",
-  merged: "Merged",
+  merged: "Approved",
 };
 
 const NEW_SOURCE_STATUS_BADGE_CLASSES: Record<string, string> = {
@@ -1256,6 +1256,7 @@ const STATUS_OVERRIDE_ACTIONS: {
   title: string;
   description: string;
   confirmLabel: string;
+  successMessage: string;
   variant: "secondary" | "destructive" | "default";
 }[] = [
   {
@@ -1266,6 +1267,7 @@ const STATUS_OVERRIDE_ACTIONS: {
     description:
       "The record returns to the queue so an expert can pick it up and redo the sources.",
     confirmLabel: "Move to pending",
+    successMessage: "Review moved back to pending.",
     variant: "secondary",
   },
   {
@@ -1276,16 +1278,18 @@ const STATUS_OVERRIDE_ACTIONS: {
     description:
       "Marks the review as needing attention. It stays visible but is set apart from completed work.",
     confirmLabel: "Flag review",
+    successMessage: "Review flagged.",
     variant: "destructive",
   },
   {
     value: "merged",
-    label: "Merge",
-    icon: GitMerge,
-    title: "Mark this review as merged",
+    label: "Approve",
+    icon: CheckCheck,
+    title: "Approve this review",
     description:
-      "Records that the reviewer's sources have been folded into the answer's own sources.",
-    confirmLabel: "Mark as merged",
+      "Accepts the reviewer's sources as the correct set for this answer and closes the review.",
+    confirmLabel: "Approve review",
+    successMessage: "Review approved.",
     variant: "default",
   },
 ];
@@ -1293,9 +1297,15 @@ const STATUS_OVERRIDE_ACTIONS: {
 const StatusOverrideControl = ({
   answer,
   newSourceRecord,
+  actions = ["pending", "merged", "flagged"],
+  inline = false,
 }: {
   answer: ClosedAnswer;
   newSourceRecord: NewSourceRecord;
+  /** Which overrides to offer here - Flag lives in the section header on its own. */
+  actions?: ("pending" | "merged" | "flagged")[];
+  /** Renders just the buttons, without the bordered "Change status" row. */
+  inline?: boolean;
 }) => {
   const queryClient = useQueryClient();
   const [activeAction, setActiveAction] = useState<
@@ -1320,7 +1330,7 @@ const StatusOverrideControl = ({
       { id: newSourceRecord._id, status: activeAction.value, reason: reason.trim() },
       {
         onSuccess: () => {
-          toast.success(`Status changed to ${activeAction.value}.`);
+          toast.success(activeAction.successMessage);
           setReason("");
           setActiveAction(null);
           queryClient.invalidateQueries({
@@ -1334,11 +1344,21 @@ const StatusOverrideControl = ({
     );
   };
 
+  const visibleActions = STATUS_OVERRIDE_ACTIONS.filter((action) =>
+    actions.includes(action.value),
+  );
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-      <p className={SECTION_LABEL_CLASSES}>Change status</p>
+    <div
+      className={cn(
+        inline
+          ? "flex items-center gap-2"
+          : "flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3",
+      )}
+    >
+      {!inline && <p className={SECTION_LABEL_CLASSES}>Change status</p>}
       <div className="flex flex-wrap gap-2">
-        {STATUS_OVERRIDE_ACTIONS.map((action) => {
+        {visibleActions.map((action) => {
           const Icon = action.icon;
           const isCurrent = newSourceRecord.status === action.value;
 
@@ -1347,8 +1367,14 @@ const StatusOverrideControl = ({
               key={action.value}
               type="button"
               size="sm"
-              variant={action.variant}
-              className="cursor-pointer gap-1.5"
+              // Inline sits beside the status badge in the section header, so it stays
+              // light - a full solid button would outweigh everything around it.
+              variant={inline ? "ghost" : action.variant}
+              className={cn(
+                "cursor-pointer gap-1.5",
+                inline &&
+                  "h-7 px-2 text-xs text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400",
+              )}
               disabled={isCurrent || isPending}
               title={isCurrent ? `Already ${action.value}` : action.title}
               onClick={() => openAction(action)}
@@ -1583,16 +1609,26 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
           </span>
           <p className="text-sm font-semibold text-foreground">Source changes</p>
         </div>
-        {recordStatus && (
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
-              NEW_SOURCE_STATUS_BADGE_CLASSES[recordStatus] ?? "bg-muted text-muted-foreground",
-            )}
-          >
-            {NEW_SOURCE_STATUS_LABELS[recordStatus] ?? recordStatus}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {recordStatus && (
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
+                NEW_SOURCE_STATUS_BADGE_CLASSES[recordStatus] ?? "bg-muted text-muted-foreground",
+              )}
+            >
+              {NEW_SOURCE_STATUS_LABELS[recordStatus] ?? recordStatus}
+            </span>
+          )}
+          {newSourceRecord && (
+            <StatusOverrideControl
+              answer={answer}
+              newSourceRecord={newSourceRecord}
+              actions={["flagged"]}
+              inline
+            />
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -1660,7 +1696,11 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
       )}
 
       {newSourceRecord && (
-        <StatusOverrideControl answer={answer} newSourceRecord={newSourceRecord} />
+        <StatusOverrideControl
+          answer={answer}
+          newSourceRecord={newSourceRecord}
+          actions={["pending", "merged"]}
+        />
       )}
     </div>
   );
