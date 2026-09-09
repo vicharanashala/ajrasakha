@@ -20,6 +20,16 @@ import {
   List,
   Shuffle,
   Keyboard,
+  ArrowRight,
+  Clock,
+  GitCompare,
+  Users,
+  UserCheck,
+  Minus,
+  Flag,
+  GitMerge,
+  Undo2,
+  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -49,6 +59,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
@@ -400,9 +418,17 @@ const toSourceDraft = (source: SourceItem): SourceDraft => ({
 const EMPTY_SOURCE_DRAFT: SourceDraft = { ...EMPTY_SOURCE_FORM, sourceReferenceStatus: null };
 
 // The working area of the page: pick a source (or add one) and edit it in place.
-const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
+const AnswerSourcesEditor = ({
+  answer,
+  startCollapsed = false,
+}: {
+  answer: ClosedAnswer;
+  /** Moderators/admins land on the review, so the edit panel starts folded for them. */
+  startCollapsed?: boolean;
+}) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
+  const [isOpen, setIsOpen] = useState(!startCollapsed);
   // Whoever put this answer's sources 'in-progress' owns finishing the review - any
   // other expert gets a read-only view until it's released back to 'pending'/completed.
   const isLockedByOther =
@@ -666,26 +692,50 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          className="flex cursor-pointer items-center gap-2 text-left"
+        >
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
             <LinkIcon className="h-3.5 w-3.5" />
           </span>
           <p className="text-sm font-semibold text-foreground">
             Sources ({sources.length})
           </p>
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              isOpen ? "rotate-180" : "rotate-0",
+            )}
+          />
+        </button>
         <Button
           type="button"
           variant="secondary"
           size="sm"
           className="cursor-pointer"
-          onClick={startBlankSource}
+          onClick={() => {
+            setIsOpen(true);
+            startBlankSource();
+          }}
         >
           <Plus className="h-3.5 w-3.5" />
           Add source
         </Button>
       </header>
 
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="sources-editor-body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="flex flex-col gap-3 overflow-hidden"
+          >
       {drafts.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
           {drafts.map((source, index) => (
@@ -823,6 +873,10 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           </div>
         </div>
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       <ConfirmationModal
         open={pendingSwitch !== null}
@@ -1024,70 +1078,172 @@ const SOURCE_REFERENCE_STATUS_LABELS: Record<string, string> = {
   notFound: "Not found",
 };
 
-// A single read-only source line shared by the Before/After lists below - Before shows
-// the answer's own SourceItem entries, After the new_sources record's NewSourceItem
-// entries. sourceReferenceStatus only exists on the After (NewSourceItem) side, hence
-// optional here - it simply doesn't render for Before entries.
-const SourceChangeItem = ({
-  source,
-}: {
-  source: Pick<
-    SourceItem,
-    "source" | "sourceType" | "sourceName" | "page" | "organization" | "sourceReference"
-  > & { sourceReferenceStatus?: PopMatchStatus | null };
-}) => (
-  <div className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2 text-xs">
-    {source.sourceName && (
-      <p className="truncate text-sm font-medium text-foreground">{source.sourceName}</p>
-    )}
-    <p className="flex gap-1 text-muted-foreground">
-      <span className="shrink-0 font-medium text-foreground/70">Source:</span>
-      {isUrl(source.source) ? (
-        <a
-          href={source.source}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="truncate text-primary hover:underline"
-        >
-          {source.source}
-        </a>
-      ) : (
-        <span className="truncate">{source.source || "—"}</span>
-      )}
-    </p>
-    <p className="text-muted-foreground">
-      <span className="font-medium text-foreground/70">Type:</span>{" "}
-      {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "No type"}
-      {source.page !== undefined && source.page !== "" ? ` · Page ${source.page}` : ""}
-    </p>
-    {source.organization && (
-      <p className="truncate text-muted-foreground">
-        <span className="font-medium text-foreground/70">Org:</span> {source.organization}
-      </p>
-    )}
-    {source.sourceReference && (
-      <p className="truncate text-muted-foreground">
-        <span className="font-medium text-foreground/70">Reference:</span> {source.sourceReference}
-      </p>
-    )}
-    {source.sourceReferenceStatus && (
-      <p className="text-muted-foreground">
-        <span className="font-medium text-foreground/70">Match:</span>{" "}
-        {SOURCE_REFERENCE_STATUS_LABELS[source.sourceReferenceStatus] ?? source.sourceReferenceStatus}
-      </p>
-    )}
-  </div>
+// One entry in the Before/After comparison. `side` colours it: red for the answer's
+// current sources, green for what the reviewer recorded. Accepts both SourceItem
+// (Before) and NewSourceItem (After) shapes - sourceReferenceStatus only exists on the
+// latter and simply doesn't render for Before entries.
+type ReviewSource = {
+  source: string;
+  sourceType?: string;
+  sourceName?: string;
+  page?: string | number;
+  organization?: string;
+  sourceReference?: string;
+  sourceReferenceStatus?: PopMatchStatus | null;
+};
+
+const SOURCE_SIDE_STYLES = {
+  before: {
+    container: "border-red-500/30 bg-red-500/5",
+    rail: "bg-red-500/60",
+    icon: "text-red-600 dark:text-red-400",
+    iconBg: "bg-red-500/15",
+  },
+  after: {
+    container: "border-emerald-500/30 bg-emerald-500/5",
+    rail: "bg-emerald-500/60",
+    icon: "text-emerald-600 dark:text-emerald-400",
+    iconBg: "bg-emerald-500/15",
+  },
+} as const;
+
+const SourceDetailLine = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <p className="flex min-w-0 gap-1.5 text-xs">
+    <span className="shrink-0 text-muted-foreground/70">{label}</span>
+    <span className="min-w-0 break-all text-foreground/90">{children}</span>
+  </p>
 );
 
-const STATUS_OVERRIDE_OPTIONS: { value: "pending" | "merged" | "flagged"; label: string }[] = [
-  { value: "pending", label: "Pending" },
-  { value: "merged", label: "Merged" },
-  { value: "flagged", label: "Flagged" },
+const SourceChangeItem = ({
+  source,
+  side,
+  index,
+}: {
+  source: ReviewSource;
+  side: "before" | "after";
+  index: number;
+}) => {
+  const styles = SOURCE_SIDE_STYLES[side];
+
+  return (
+    <div
+      className={cn(
+        "relative flex h-full min-w-0 flex-col gap-1 overflow-hidden rounded-lg border py-2 pl-4 pr-3",
+        styles.container,
+      )}
+    >
+      <span className={cn("absolute inset-y-0 left-0 w-1", styles.rail)} />
+
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+            styles.iconBg,
+            styles.icon,
+          )}
+        >
+          {side === "before" ? (
+            <Minus className="h-3 w-3" />
+          ) : (
+            <Plus className="h-3 w-3" />
+          )}
+        </span>
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+          {source.sourceName || `Source ${index + 1}`}
+        </p>
+        {source.sourceType && (
+          <span className="shrink-0 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType}
+          </span>
+        )}
+      </div>
+
+      <SourceDetailLine label="Source">
+        {isUrl(source.source) ? (
+          <a
+            href={source.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {source.source}
+          </a>
+        ) : (
+          source.source || "—"
+        )}
+      </SourceDetailLine>
+
+      {source.page !== undefined && source.page !== "" && (
+        <SourceDetailLine label="Page">{source.page}</SourceDetailLine>
+      )}
+      {source.organization && (
+        <SourceDetailLine label="Org">{source.organization}</SourceDetailLine>
+      )}
+      {source.sourceReference && (
+        <SourceDetailLine label="Reference">{source.sourceReference}</SourceDetailLine>
+      )}
+      {source.sourceReferenceStatus && (
+        <SourceDetailLine label="Match">
+          <span
+            className={cn(
+              source.sourceReferenceStatus === "notFound"
+                ? "text-red-600 dark:text-red-400"
+                : "text-emerald-600 dark:text-emerald-400",
+            )}
+          >
+            {SOURCE_REFERENCE_STATUS_LABELS[source.sourceReferenceStatus] ??
+              source.sourceReferenceStatus}
+          </span>
+        </SourceDetailLine>
+      )}
+    </div>
+  );
+};
+
+// The three states an admin/moderator can force a record into (see
+// NewSourceService.changeStatus) - 'in-progress' and 'completed' are reached by the
+// reviewer's own flow, not by an override. Each needs a reason, asked for in a modal.
+const STATUS_OVERRIDE_ACTIONS: {
+  value: "pending" | "merged" | "flagged";
+  label: string;
+  icon: typeof Flag;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  variant: "secondary" | "destructive" | "default";
+}[] = [
+  {
+    value: "pending",
+    label: "Move to pending",
+    icon: Undo2,
+    title: "Move this review back to pending",
+    description:
+      "The record returns to the queue so an expert can pick it up and redo the sources.",
+    confirmLabel: "Move to pending",
+    variant: "secondary",
+  },
+  {
+    value: "flagged",
+    label: "Flag",
+    icon: Flag,
+    title: "Flag this review",
+    description:
+      "Marks the review as needing attention. It stays visible but is set apart from completed work.",
+    confirmLabel: "Flag review",
+    variant: "destructive",
+  },
+  {
+    value: "merged",
+    label: "Merge",
+    icon: GitMerge,
+    title: "Mark this review as merged",
+    description:
+      "Records that the reviewer's sources have been folded into the answer's own sources.",
+    confirmLabel: "Mark as merged",
+    variant: "default",
+  },
 ];
 
-// Admin/moderator-only: lets them send a new_sources record back to 'pending' or forward
-// to 'merged'/'flagged', with a mandatory reason logged to the record's statusChanges.
-// Only rendered once a record exists for this answer - there's nothing to override otherwise.
 const StatusOverrideControl = ({
   answer,
   newSourceRecord,
@@ -1096,22 +1252,31 @@ const StatusOverrideControl = ({
   newSourceRecord: NewSourceRecord;
 }) => {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<"pending" | "merged" | "flagged">("pending");
+  const [activeAction, setActiveAction] = useState<
+    (typeof STATUS_OVERRIDE_ACTIONS)[number] | null
+  >(null);
   const [reason, setReason] = useState("");
   const { mutate: changeStatus, isPending } = useChangeNewSourceStatus();
 
-  const handleApply = () => {
+  const openAction = (action: (typeof STATUS_OVERRIDE_ACTIONS)[number]) => {
+    setReason("");
+    setActiveAction(action);
+  };
+
+  const handleConfirm = () => {
+    if (!activeAction) return;
     if (!reason.trim()) {
       toast.error("A reason is required to change this status.");
       return;
     }
 
     changeStatus(
-      { id: newSourceRecord._id, status, reason: reason.trim() },
+      { id: newSourceRecord._id, status: activeAction.value, reason: reason.trim() },
       {
         onSuccess: () => {
-          toast.success(`Status changed to ${status}.`);
+          toast.success(`Status changed to ${activeAction.value}.`);
           setReason("");
+          setActiveAction(null);
           queryClient.invalidateQueries({
             queryKey: ["new-source-by-answer", answer._id],
           });
@@ -1124,40 +1289,81 @@ const StatusOverrideControl = ({
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5">
-      <p className={SECTION_LABEL_CLASSES}>Change Status</p>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-        <Select
-          value={status}
-          onValueChange={value => setStatus(value as "pending" | "merged" | "flagged")}
-        >
-          <SelectTrigger className="h-9 w-full sm:w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OVERRIDE_OPTIONS.map(option => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          value={reason}
-          onChange={event => setReason(event.target.value)}
-          placeholder="Reason (required)"
-          className="h-9 flex-1"
-        />
-        <Button
-          type="button"
-          size="sm"
-          className="h-9"
-          onClick={handleApply}
-          disabled={isPending}
-        >
-          {isPending ? "Applying…" : "Apply"}
-        </Button>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+      <p className={SECTION_LABEL_CLASSES}>Change status</p>
+      <div className="flex flex-wrap gap-2">
+        {STATUS_OVERRIDE_ACTIONS.map((action) => {
+          const Icon = action.icon;
+          const isCurrent = newSourceRecord.status === action.value;
+
+          return (
+            <Button
+              key={action.value}
+              type="button"
+              size="sm"
+              variant={action.variant}
+              className="cursor-pointer gap-1.5"
+              disabled={isCurrent || isPending}
+              title={isCurrent ? `Already ${action.value}` : action.title}
+              onClick={() => openAction(action)}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {action.label}
+            </Button>
+          );
+        })}
       </div>
+
+      <Dialog
+        open={activeAction !== null}
+        onOpenChange={(open) => !open && setActiveAction(null)}
+      >
+        <DialogContent className="w-[95vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {activeAction && <activeAction.icon className="h-4 w-4" />}
+              {activeAction?.title}
+            </DialogTitle>
+            <DialogDescription>{activeAction?.description}</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="status-change-reason" className="text-xs">
+              Reason <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="status-change-reason"
+              autoFocus
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Why is this status changing?"
+              className="bg-background"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => setActiveAction(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={activeAction?.variant === "destructive" ? "destructive" : "default"}
+              className="cursor-pointer"
+              disabled={!reason.trim() || isPending}
+              onClick={handleConfirm}
+            >
+              {isPending ? "Applying…" : activeAction?.confirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -1176,69 +1382,184 @@ const formatTimeTaken = (seconds?: number | null) => {
 
 // Moderator/admin-only: every expert who has reviewed this answer's sources (a record
 // can carry more than one entry - e.g. after being released back to 'pending' and picked
-// up by someone else), each with how long that particular reviewer spent.
+// up by someone else), laid out like the allocation queue on the question details page.
+const REVIEWER_CARD_STYLES = {
+  saved: {
+    container: "border-green-300 bg-green-100 dark:border-green-700 dark:bg-green-900/30",
+    iconBg: "bg-green-200 dark:bg-green-800/40",
+    icon: "text-green-700 dark:text-green-400",
+    badge:
+      "border border-green-300 bg-green-100 text-green-700 dark:border-green-700 dark:bg-green-900/30 dark:text-green-400",
+  },
+  open: {
+    container: "border-amber-300 bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30",
+    iconBg: "bg-amber-200 dark:bg-amber-800/40",
+    icon: "text-amber-700 dark:text-amber-400",
+    badge:
+      "border border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  },
+} as const;
+
 const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
-  <div className="flex flex-col gap-1.5 border-t border-border/60 pt-2.5">
-    <p className={SECTION_LABEL_CLASSES}>Reviewers ({reviewArray.length})</p>
+  <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
+    <div className="flex items-center gap-2">
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <Users className="h-3.5 w-3.5" />
+      </span>
+      <p className="text-sm font-semibold text-foreground">
+        Reviewers ({reviewArray.length})
+      </p>
+    </div>
+
     {reviewArray.length > 0 ? (
-      <div className="flex flex-col gap-1">
-        {reviewArray.map((entry, index) => (
-          <div
-            key={`${entry.userId}-${index}`}
-            className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs"
-          >
-            <span className="truncate text-foreground">{entry.name || "—"}</span>
-            <span className="shrink-0 text-muted-foreground">
-              {entry.isSaved ? `Time taken: ${formatTimeTaken(entry.timeTaken)}` : "In progress"}
-            </span>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-start gap-4">
+        {reviewArray.map((entry, index) => {
+          const styles = entry.isSaved
+            ? REVIEWER_CARD_STYLES.saved
+            : REVIEWER_CARD_STYLES.open;
+
+          return (
+            <div
+              key={`${entry.userId}-${index}`}
+              className="flex flex-col items-center gap-1.5"
+              title={`${entry.name || "Unknown reviewer"} · started ${formatClosedAt(entry.startedAt)}`}
+            >
+              <div
+                className={cn(
+                  "flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-full border-2 p-2 text-center transition-all duration-300 hover:scale-105 hover:shadow-lg",
+                  styles.container,
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full",
+                    styles.iconBg,
+                    styles.icon,
+                  )}
+                >
+                  {entry.isSaved ? (
+                    <UserCheck className="h-4 w-4" />
+                  ) : (
+                    <Clock className="h-4 w-4" />
+                  )}
+                </span>
+                <p className="w-full truncate px-1 text-[11px] font-semibold text-foreground">
+                  {entry.name || "Unknown"}
+                </p>
+              </div>
+
+              <span
+                className={cn(
+                  "whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  styles.badge,
+                )}
+              >
+                {entry.isSaved ? formatTimeTaken(entry.timeTaken) : "In progress"}
+              </span>
+            </div>
+          );
+        })}
       </div>
     ) : (
-      <p className="text-xs text-muted-foreground">No reviewers yet.</p>
+      <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+        No one has reviewed these sources yet.
+      </p>
     )}
   </div>
 );
 
-// Compares the answer's sources as they stand in the answers collection (Before) against
-// what the assigned expert has recorded in new_sources (After), so a moderator/admin can
-// see what changed without opening the edit panel below it. Admins/moderators also get
-// the list of reviewers (with time taken) and a status-override control here, once a
-// new_sources record exists to show/act on.
+// Compares the answer's sources as they stand in the answers collection (Before, red)
+// against what the assigned expert recorded in new_sources (After, green), so a
+// moderator/admin can see what changed without opening the edit panel below it, plus
+// the reviewer queue and the status-override control.
 const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
   const { data: newSourceRecord, isLoading } = useGetNewSourceByAnswerId(answer._id, {
     enabled: true,
   });
   const beforeSources = answer.sources ?? [];
   const afterSources = newSourceRecord?.sources ?? [];
+  const recordStatus = newSourceRecord?.status;
+  // Rows are paired by position, so each source lines up with its reviewed counterpart.
+  const pairCount = Math.max(beforeSources.length, afterSources.length);
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-3.5">
-      <p className="text-sm font-semibold text-foreground">Source Changes</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <p className={SECTION_LABEL_CLASSES}>Before ({beforeSources.length})</p>
-          {beforeSources.length > 0 ? (
-            beforeSources.map((source, index) => (
-              <SourceChangeItem key={index} source={source} />
-            ))
-          ) : (
-            <p className="text-xs text-muted-foreground">No sources.</p>
-          )}
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <GitCompare className="h-3.5 w-3.5" />
+          </span>
+          <p className="text-sm font-semibold text-foreground">Source changes</p>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <p className={SECTION_LABEL_CLASSES}>After ({afterSources.length})</p>
-          {isLoading ? (
-            <p className="text-xs text-muted-foreground">Loading…</p>
-          ) : afterSources.length > 0 ? (
-            afterSources.map((source, index) => (
-              <SourceChangeItem key={index} source={source} />
-            ))
-          ) : (
-            <p className="text-xs text-muted-foreground">No review yet.</p>
-          )}
-        </div>
+        {recordStatus && (
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
+              NEW_SOURCE_STATUS_BADGE_CLASSES[recordStatus] ?? "bg-muted text-muted-foreground",
+            )}
+          >
+            {NEW_SOURCE_STATUS_LABELS[recordStatus] ?? recordStatus}
+          </span>
+        )}
       </div>
+
+      {isLoading ? (
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+          Loading review…
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_1.5rem_minmax(0,1fr)]">
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              Before · on the answer ({beforeSources.length})
+            </p>
+            <span className="hidden lg:block" />
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              After · reviewer's version ({afterSources.length})
+            </p>
+          </div>
+
+          {pairCount === 0 ? (
+            <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+              No sources on the answer and no review recorded yet.
+            </p>
+          ) : (
+            Array.from({length: pairCount}).map((_, index) => {
+              const before = beforeSources[index];
+              const after = afterSources[index];
+
+              return (
+                <div
+                  key={index}
+                  className="grid items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_1.5rem_minmax(0,1fr)]"
+                >
+                  {before ? (
+                    <SourceChangeItem source={before} side="before" index={index} />
+                  ) : (
+                    <p className="flex items-center rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                      Not on the answer
+                    </p>
+                  )}
+
+                  <div className="hidden items-center justify-center text-muted-foreground/50 lg:flex">
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
+
+                  {after ? (
+                    <SourceChangeItem source={after} side="after" index={index} />
+                  ) : (
+                    <p className="flex items-center rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                      Not in the review
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {newSourceRecord && <ReviewersList reviewArray={newSourceRecord.reviewArray} />}
 
@@ -1288,7 +1609,7 @@ const AnswerDetail = ({
 
     {(isModerator || isAdmin) && <SourceChangesSection answer={answer} />}
 
-    <AnswerSourcesEditor answer={answer} />
+    <AnswerSourcesEditor answer={answer} startCollapsed={isModerator || isAdmin} />
 
     <AnswerBody answer={answer} />
 
@@ -1572,7 +1893,7 @@ export const ClosedAnswersPage = () => {
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-card to-transparent" />
             </div>
 
-            <div className="min-h-0">
+            <div className="min-h-0 min-w-0">
               <ScrollArea className="h-full">
                 <AnimatePresence mode="wait" initial={false}>
                   {selectedAnswer ? (
