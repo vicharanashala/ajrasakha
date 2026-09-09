@@ -23,6 +23,10 @@ export class OrganizationService implements IOrganizationService {
     return this.organizationRepo.search(search, page, limit);
   }
 
+  async findById(id: string): Promise<IOrganization | null> {
+    return this.organizationRepo.findById(id);
+  }
+
   async create(data: Omit<IOrganization, '_id'>): Promise<IOrganization> {
     return this.organizationRepo.create(data);
   }
