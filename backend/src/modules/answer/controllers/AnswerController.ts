@@ -590,6 +590,7 @@ export class AnswerController {
       domains?: string;
       priorities?: string;
     },
+    @CurrentUser() user: IUser,
   ): Promise<{answers: any[]; totalAnswers: number}> {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
@@ -609,6 +610,7 @@ export class AnswerController {
       crops: toList(query.crops),
       domains: toList(query.domains),
       priorities: toList(query.priorities),
+      viewerRole: user.role,
     };
     return await this.answerService.getClosedAnswers(
       page,

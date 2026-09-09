@@ -1,5 +1,5 @@
 
-import {IAnswer, PreviousAnswersItem, SourceItem} from '#root/shared/interfaces/models.js';
+import {IAnswer, PreviousAnswersItem, SourceItem, UserRole} from '#root/shared/interfaces/models.js';
 import {
   Analytics,
   AnswerStatusOverview,
@@ -36,6 +36,13 @@ export interface ClosedAnswerFilters {
   crops?: string[];
   domains?: string[];
   priorities?: string[];
+  /**
+   * The requesting user's role — controls visibility based on the answer's
+   * new_sources review state, not a user-facing query param. Experts don't see
+   * answers whose new_sources record is already 'completed'; moderators/admins
+   * see only those that are.
+   */
+  viewerRole?: UserRole;
 }
 
 export interface IAnswerRepository {

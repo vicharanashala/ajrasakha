@@ -1214,6 +1214,18 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage['question.priority'] = {$in: filters.priorities};
       }
 
+      // Experts shouldn't see answers whose sources have already been reviewed and
+      // completed (new_sources.status === 'completed'); moderators/admins should see
+      // only those. Other roles get no extra filtering here.
+      if (filters?.viewerRole === 'expert') {
+        matchStage.hasCompletedNewSource = false;
+      } else if (
+        filters?.viewerRole === 'moderator' ||
+        filters?.viewerRole === 'admin'
+      ) {
+        matchStage.hasCompletedNewSource = true;
+      }
+
       // A seeded key derived from the document's creation time gives a shuffled but
       // page-stable order; without a seed the newest answers come first as before.
       const orderingStages: any[] = filters?.shuffleSeed
@@ -1247,6 +1259,29 @@ export class AnswerRepository implements IAnswerRepository {
           },
         },
         {$unwind: '$question'},
+        // new_sources.answerId is stored as the plain string form of the answer's _id
+        // (see NewSourceService.startNewSource), not an ObjectId, hence the $toString.
+        {
+          $lookup: {
+            from: 'new_sources',
+            let: {answerIdStr: {$toString: '$_id'}},
+            pipeline: [
+              {
+                $match: {
+                  $expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']},
+                  status: 'completed',
+                },
+              },
+              {$limit: 1},
+            ],
+            as: 'completedNewSource',
+          },
+        },
+        {
+          $addFields: {
+            hasCompletedNewSource: {$gt: [{$size: '$completedNewSource'}, 0]},
+          },
+        },
         {$match: matchStage},
       ];
 
