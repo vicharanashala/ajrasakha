@@ -58,21 +58,29 @@ import {
 } from "./ClosedAnswersFilters";
 import { ClosedAnswersListDialog } from "./ClosedAnswersListDialog";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
 import { useStartNewSource } from "@/hooks/api/newSource/useStartNewSource";
 import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource";
 import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
+import { useActiveNewSource } from "@/hooks/api/newSource/useActiveNewSource";
+import { useReleaseNewSource } from "@/hooks/api/newSource/useReleaseNewSource";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
+import { ConfirmationModal } from "./confirmation-modal";
 import type {
   ClosedAnswer,
   ClosedAnswerFilters as ClosedAnswerFiltersState,
   SourceItem,
   SourceType,
 } from "@/types";
-import type { NewSourceItem, PopMatchStatus } from "@/hooks/services/newSourceService";
+import type {
+  NewSourceItem,
+  NewSourceRecord,
+  PopMatchStatus,
+} from "@/hooks/services/newSourceService";
 
 const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "hyper_local", label: "Hyper Local" },
@@ -392,6 +400,10 @@ const EMPTY_SOURCE_DRAFT: SourceDraft = { ...EMPTY_SOURCE_FORM, sourceReferenceS
 const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
+  // Whoever put this answer's sources 'in-progress' owns finishing the review - any
+  // other expert gets a read-only view until it's released back to 'pending'/completed.
+  const isLockedByOther =
+    answer.newSourceStatus === "in-progress" && !answer.isOwnInProgress;
   // Every existing source's in-progress edits, so picking a different source to edit
   // (e.g. to set its own organization) never drops another source's changes.
   const [drafts, setDrafts] = useState<SourceDraft[]>(() => sources.map(toSourceDraft));
@@ -403,6 +415,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const [confirmedIndices, setConfirmedIndices] = useState<Set<number>>(new Set());
   const [newEntry, setNewEntry] = useState<SourceDraft>(EMPTY_SOURCE_DRAFT);
   const [newSourceId, setNewSourceId] = useState<string | null>(null);
+  // The other answer's in-progress new_sources record this expert still owns, surfaced
+  // so they can confirm switching to this answer before it's released back to pending.
+  const [pendingSwitch, setPendingSwitch] = useState<NewSourceRecord | null>(null);
   const editStartedAtRef = useRef<number | null>(null);
   const sessionStartedRef = useRef(false);
   const newSourceIdRef = useRef<string | null>(null);
@@ -410,10 +425,15 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const { mutate: startNewSource, isPending: isStarting } = useStartNewSource();
   const { mutate: completeNewSource, isPending: isSaving } = useCompleteNewSource();
   const { mutate: closeNewSource } = useCloseNewSource();
+  const { mutate: findActiveElsewhere } = useActiveNewSource();
+  const { mutate: releaseNewSource, isPending: isReleasing } = useReleaseNewSource();
 
   const isEditing = editingIndex !== null;
   const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : newEntry;
-  const isValid = Boolean(form.sourceType) && form.sourceReferenceStatus !== null;
+  const isValid =
+    form.source.trim().length > 0 &&
+    Boolean(form.sourceType) &&
+    form.sourceReferenceStatus !== null;
   // With more than one existing source, step through them with "Next" - Save only
   // shows up once confirming the one currently open would leave none unconfirmed, so
   // the last remaining source goes straight to "Save" instead of needing an extra
@@ -436,11 +456,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
     [closeNewSource],
   );
 
-  // Creates the new_sources record as 'inProgress' on the first edit, giving
+  // Creates the new_sources record as 'in-progress' on the first edit, giving
   // timeTaken a real start point without logging a record for idle browsing.
-  const ensureSession = () => {
-    if (sessionStartedRef.current) return;
-    sessionStartedRef.current = true;
+  const beginSession = () => {
     editStartedAtRef.current = Date.now();
     startNewSource(
       { answerId: answer._id, questionId: answer.questionId ?? "" },
@@ -448,8 +466,58 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
         onSuccess: (result) => {
           if (result?._id) setNewSourceId(result._id);
         },
+        // Belt-and-suspenders: the list already hides editing behind isLockedByOther,
+        // but another expert could still have started reviewing this answer moments
+        // ago, in which case the backend rejects the start - surface that instead of
+        // leaving the form silently stuck.
+        onError: (err) => {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "This answer is already being reviewed by another expert.",
+          );
+          sessionStartedRef.current = false;
+        },
       },
     );
+  };
+
+  // Before starting a session, checks whether this expert still owns an 'in-progress'
+  // source on a different answer - if so, they must confirm switching (which releases
+  // that other source back to 'pending') before this one can start.
+  const ensureSession = () => {
+    if (sessionStartedRef.current || isLockedByOther) return;
+    sessionStartedRef.current = true;
+    findActiveElsewhere(answer._id, {
+      onSuccess: (record) => {
+        if (record) {
+          setPendingSwitch(record);
+        } else {
+          beginSession();
+        }
+      },
+      // Fail open - don't block editing if the ownership check itself fails.
+      onError: () => beginSession(),
+    });
+  };
+
+  const cancelSwitch = () => {
+    setPendingSwitch(null);
+    // Let the next edit re-run the ownership check rather than getting stuck unstarted.
+    sessionStartedRef.current = false;
+  };
+
+  const confirmSwitch = () => {
+    if (!pendingSwitch) return;
+    releaseNewSource(pendingSwitch._id, {
+      onSuccess: () => {
+        setPendingSwitch(null);
+        beginSession();
+      },
+      onError: () => {
+        toast.error("Couldn't release the other source. Try again.");
+      },
+    });
   };
 
   // Merges into whichever source is currently active - an existing one being edited,
@@ -495,7 +563,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   // way, the button below switches from "Next" to "Save".
   const handleNext = () => {
     if (!isValid) {
-      toast.error("Select a source type and fetch the source reference first.");
+      toast.error("Enter a source, select a source type, and fetch the source reference first.");
       return;
     }
     if (editingIndex === null) return;
@@ -515,7 +583,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
 
   const handleSave = () => {
     if (!isValid) {
-      toast.error("Select a source type and fetch the source reference first.");
+      toast.error("Enter a source, select a source type, and fetch the source reference first.");
       return;
     }
     if (!newSourceId) {
@@ -559,6 +627,32 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
       },
     );
   };
+
+  if (isLockedByOther) {
+    return (
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
+        <header className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <LinkIcon className="h-3.5 w-3.5" />
+          </span>
+          <p className="text-sm font-semibold text-foreground">
+            Sources ({sources.length})
+          </p>
+        </header>
+        <p className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+          Another expert is currently reviewing this answer's sources. It'll be
+          editable again once they save or it's released back to Pending.
+        </p>
+        {sources.length > 0 && (
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+            {sources.map((source, index) => (
+              <SourceRow key={index} source={source} index={index} isActive={false} onSelect={() => {}} />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
@@ -608,7 +702,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
 
         <div className="grid gap-1.5">
           <Label htmlFor={`${fieldId}-source`} className="text-xs">
-            Source
+            Source <span className="text-destructive">*</span>
           </Label>
           <Input
             id={`${fieldId}-source`}
@@ -616,6 +710,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
             value={form.source}
             onChange={(e) => updateField("source", e.target.value)}
             placeholder="https://... or the document name"
+            required
           />
           <SourceReferenceLookup
             key={editingIndex ?? "new"}
@@ -688,7 +783,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
           <p className="text-xs text-muted-foreground">
-            Source type is required, and the source reference must be fetched.
+            Source and source type are required, and the source reference must be fetched.
           </p>
           <div className="flex gap-2">
             <Button
@@ -719,6 +814,19 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           </div>
         </div>
       </div>
+
+      <ConfirmationModal
+        open={pendingSwitch !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelSwitch();
+        }}
+        title="Switch to this source?"
+        description="You still have a source In Progress on another answer. Switching here will send that one back to Pending so another expert can pick it up."
+        confirmText="Switch anyway"
+        cancelText="Stay there"
+        isLoading={isReleasing}
+        onConfirm={confirmSwitch}
+      />
     </section>
   );
 };
@@ -818,16 +926,35 @@ const AnswerBody = ({ answer }: { answer: ClosedAnswer }) => {
   );
 };
 
+const NEW_SOURCE_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  "in-progress": "In Progress",
+  completed: "Completed",
+  flagged: "Flagged",
+  merged: "Merged",
+};
+
+const NEW_SOURCE_STATUS_BADGE_CLASSES: Record<string, string> = {
+  pending: "bg-muted text-muted-foreground",
+  "in-progress": "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  completed: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  flagged: "bg-red-500/15 text-red-600 dark:text-red-400",
+  merged: "bg-primary/15 text-primary",
+};
+
 const AnswerListItem = ({
   answer,
   isActive,
+  showNewSourceStatus,
   onSelect,
 }: {
   answer: ClosedAnswer;
   isActive: boolean;
+  showNewSourceStatus: boolean;
   onSelect: () => void;
 }) => {
   const sourceCount = answer.sources?.length ?? 0;
+  const newSourceStatus = answer.newSourceStatus;
 
   return (
   <motion.button
@@ -858,6 +985,17 @@ const AnswerListItem = ({
       <span className="text-muted-foreground">
         {formatClosedAt(answer.question?.closedAt ?? answer.updatedAt, false)}
       </span>
+      {showNewSourceStatus && newSourceStatus && (
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none",
+            NEW_SOURCE_STATUS_BADGE_CLASSES[newSourceStatus] ?? "bg-muted text-muted-foreground",
+          )}
+        >
+          {NEW_SOURCE_STATUS_LABELS[newSourceStatus] ?? newSourceStatus}
+          {newSourceStatus === "in-progress" && !answer.isOwnInProgress ? " · Locked" : ""}
+        </span>
+      )}
     </div>
   </motion.button>
   );
@@ -946,6 +1084,10 @@ export const ClosedAnswersPage = () => {
   const [shuffleSeed, setShuffleSeed] = useState(createShuffleSeed);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
+  // Only experts see the new_sources status badge in the list - the whole point is
+  // showing them where each answer stands (Pending/In Progress/etc) before they open it.
+  const { data: currentUser } = useGetCurrentUser({});
+  const isExpert = currentUser?.role === "expert";
 
   const {
     data,
@@ -1144,6 +1286,7 @@ export const ClosedAnswersPage = () => {
                     key={answer._id}
                     answer={answer}
                     isActive={selectedAnswer?._id === answer._id}
+                    showNewSourceStatus={isExpert}
                     onSelect={() => setSelectedAnswerId(answer._id)}
                   />
                 ))}

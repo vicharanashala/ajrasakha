@@ -1228,6 +1228,8 @@ export class AnswerRepository implements IAnswerRepository {
 
       // A seeded key derived from the document's creation time gives a shuffled but
       // page-stable order; without a seed the newest answers come first as before.
+      // isOwnInProgress (added to basePipeline below) always sorts first, so an expert's
+      // own in-progress reviews stay on top regardless of shuffle/date ordering.
       const orderingStages: any[] = filters?.shuffleSeed
         ? [
             {
@@ -1245,9 +1247,9 @@ export class AnswerRepository implements IAnswerRepository {
                 },
               },
             },
-            {$sort: {shuffleKey: 1, _id: 1}},
+            {$sort: {isOwnInProgress: -1, shuffleKey: 1, _id: 1}},
           ]
-        : [{$sort: {createdAt: -1}}];
+        : [{$sort: {isOwnInProgress: -1, createdAt: -1}}];
 
       const basePipeline: any[] = [
         {
@@ -1283,6 +1285,31 @@ export class AnswerRepository implements IAnswerRepository {
           },
         },
         {$match: matchStage},
+        // Whichever answer this viewer currently has 'in-progress' in new_sources sorts
+        // to the top of their list - see orderingStages above. Scoped to matchStage's
+        // filtered set, not every answer, so this is cheap even without an index.
+        {
+          $lookup: {
+            from: 'new_sources',
+            let: {answerIdStr: {$toString: '$_id'}},
+            pipeline: [
+              {
+                $match: {
+                  $expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']},
+                  status: 'in-progress',
+                  'reviewArray.userId': filters?.viewerId ?? null,
+                },
+              },
+              {$limit: 1},
+            ],
+            as: 'ownInProgressNewSource',
+          },
+        },
+        {
+          $addFields: {
+            isOwnInProgress: {$gt: [{$size: '$ownInProgressNewSource'}, 0]},
+          },
+        },
       ];
 
       const [answers, totalCountResult] = await Promise.all([
@@ -1292,6 +1319,28 @@ export class AnswerRepository implements IAnswerRepository {
             ...orderingStages,
             {$skip: skip},
             {$limit: limit},
+            // Surfaces the answer's own new_sources record status (whatever it is -
+            // there's at most one per answer, see NewSourceService.startNewSource's
+            // dedup) so the list can show reviewers where each answer stands, not just
+            // filter by it. Only run on the page being returned, not the count query.
+            {
+              $lookup: {
+                from: 'new_sources',
+                let: {answerIdStr: {$toString: '$_id'}},
+                pipeline: [
+                  {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},
+                  {$sort: {createdAt: -1}},
+                  {$limit: 1},
+                  {$project: {_id: 0, status: 1}},
+                ],
+                as: 'newSourceRecord',
+              },
+            },
+            {
+              $addFields: {
+                newSourceStatus: {$arrayElemAt: ['$newSourceRecord.status', 0]},
+              },
+            },
             {
               $lookup: {
                 from: 'users',
@@ -1331,6 +1380,11 @@ export class AnswerRepository implements IAnswerRepository {
         approvalCount: ans.approvalCount,
         remarks: ans.remarks,
         sources: ans.sources || [],
+        newSourceStatus: ans.newSourceStatus ?? null,
+        // True when THIS viewer is the one who put it 'in-progress' (see isOwnInProgress
+        // above, used for sort order) - lets the UI tell "mine, still open" apart from
+        // "someone else's, locked" without a second round trip.
+        isOwnInProgress: Boolean(ans.isOwnInProgress),
         createdAt: ans.createdAt?.toISOString(),
         updatedAt: ans.updatedAt?.toISOString(),
         question: {

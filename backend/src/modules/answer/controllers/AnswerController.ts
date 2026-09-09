@@ -611,6 +611,7 @@ export class AnswerController {
       domains: toList(query.domains),
       priorities: toList(query.priorities),
       viewerRole: user.role,
+      viewerId: user._id?.toString(),
     };
     return await this.answerService.getClosedAnswers(
       page,

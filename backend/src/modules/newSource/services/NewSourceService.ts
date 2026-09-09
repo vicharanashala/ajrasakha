@@ -2,7 +2,7 @@ import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceR
 import {INewSource} from '#root/shared/interfaces/models.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {inject, injectable} from 'inversify';
-import {NotFoundError} from 'routing-controllers';
+import {ForbiddenError, NotFoundError} from 'routing-controllers';
 import {
   CompleteNewSourceInput,
   INewSourceService,
@@ -17,6 +17,23 @@ export class NewSourceService implements INewSourceService {
   ) {}
 
   async startNewSource(input: StartNewSourceInput): Promise<INewSource> {
+    const existing = await this.newSourceRepo.findByAnswerId(input.answerId);
+    if (existing) {
+      // Whoever put this source 'in-progress' owns finishing it - a different expert
+      // can't jump in and edit it until it's released back to 'pending' (or completed).
+      const ownedByAnotherExpert =
+        existing.status === 'in-progress' &&
+        !existing.reviewArray.some(entry => entry.userId === input.userId);
+
+      if (ownedByAnotherExpert) {
+        throw new ForbiddenError(
+          "This answer's sources are already being reviewed by another expert.",
+        );
+      }
+
+      return existing;
+    }
+
     return await this.newSourceRepo.create({
       answerId: input.answerId,
       questionId: input.questionId,
@@ -51,6 +68,20 @@ export class NewSourceService implements INewSourceService {
 
   async closeNewSource(id: string): Promise<INewSource> {
     const updated = await this.newSourceRepo.recordClose(id);
+
+    if (!updated) {
+      throw new NotFoundError(`new_sources record not found with id ${id}`);
+    }
+
+    return updated;
+  }
+
+  async findActiveInProgress(userId: string, excludeAnswerId: string): Promise<INewSource | null> {
+    return await this.newSourceRepo.findActiveInProgressByUser(userId, excludeAnswerId);
+  }
+
+  async releaseToPending(id: string): Promise<INewSource> {
+    const updated = await this.newSourceRepo.releaseToPending(id);
 
     if (!updated) {
       throw new NotFoundError(`new_sources record not found with id ${id}`);

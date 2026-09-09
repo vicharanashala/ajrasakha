@@ -84,4 +84,19 @@ export class NewSourceService {
       method: "PATCH",
     });
   }
+
+  /** Called before starting a new edit session — finds this user's other 'in-progress'
+   *  record, if any, so switching answers can be confirmed first. */
+  async findActiveInProgress(excludeAnswerId: string): Promise<NewSourceRecord | null> {
+    const params = new URLSearchParams({ excludeAnswerId });
+    return apiFetch<NewSourceRecord | null>(`${this._baseUrl}/active?${params.toString()}`);
+  }
+
+  /** Called once the user confirms switching answers — sends the previous 'in-progress'
+   *  record back to 'pending' so another expert can pick it up. */
+  async release(id: string): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/release`, {
+      method: "PATCH",
+    });
+  }
 }

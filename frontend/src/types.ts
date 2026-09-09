@@ -448,6 +448,13 @@ export interface ClosedAnswer {
   approvalCount: number;
   remarks?: string;
   sources: SourceItem[];
+  // The answer's own new_sources record status, if one exists (there's at most one per
+  // answer - see NewSourceService.startNewSource's dedup). Null when no one has started
+  // reviewing this answer's sources yet.
+  newSourceStatus?: "pending" | "completed" | "in-progress" | "flagged" | "merged" | null;
+  // True when the requesting viewer is the one who put this answer's sources
+  // 'in-progress' - false (including for a 'pending'/'completed' record) otherwise.
+  isOwnInProgress?: boolean;
   createdAt: string;
   updatedAt: string;
   question: ClosedAnswerQuestion;

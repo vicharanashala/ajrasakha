@@ -13,4 +13,16 @@ export interface INewSourceRepository {
   /** Stamps closedAt on the record's reviewArray entry when the Edit Source modal closes —
    *  independent of updateById, since the modal can close without the edit being completed. */
   recordClose(id: string): Promise<INewSource | null>;
+
+  /** Finds this user's other 'in-progress' record, if any, excluding the answer they're
+   *  about to start editing — used to detect an abandoned-in-place review elsewhere. */
+  findActiveInProgressByUser(userId: string, excludeAnswerId: string): Promise<INewSource | null>;
+
+  /** Finds the existing `new_sources` record for this answer, if one already exists —
+   *  used so starting an edit never creates a duplicate document for the same answer. */
+  findByAnswerId(answerId: string): Promise<INewSource | null>;
+
+  /** Sends an 'in-progress' record back to 'pending' (and stamps closedAt) so another
+   *  expert can pick it up, when the same expert starts reviewing a different answer. */
+  releaseToPending(id: string): Promise<INewSource | null>;
 }

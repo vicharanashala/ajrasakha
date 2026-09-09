@@ -21,7 +21,9 @@ export interface CompleteNewSourceInput {
 
 export interface INewSourceService {
   /** Called when the Edit Source modal opens — creates the new_sources record as
-   *  'in-progress' so the editing timer is backed by a real document from the start. */
+   *  'in-progress' so the editing timer is backed by a real document from the start.
+   *  If a record already exists for this answer, that one is returned instead so the
+   *  same answer never ends up with more than one new_sources document. */
   startNewSource(input: StartNewSourceInput): Promise<INewSource>;
 
   /** Called when the user saves — records the final sources (each with its own
@@ -33,4 +35,12 @@ export interface INewSourceService {
    *  right after a successful save — regardless of whether the edit was completed.
    *  Stamps closedAt on the record's reviewArray entry. */
   closeNewSource(id: string): Promise<INewSource>;
+
+  /** Called before starting a new edit session — finds this user's other 'in-progress'
+   *  record, if any, so the UI can confirm switching away from it before starting. */
+  findActiveInProgress(userId: string, excludeAnswerId: string): Promise<INewSource | null>;
+
+  /** Called once the user confirms switching answers — sends the previous 'in-progress'
+   *  record back to 'pending' so it becomes available to other experts again. */
+  releaseToPending(id: string): Promise<INewSource>;
 }

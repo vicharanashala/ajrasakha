@@ -43,6 +43,11 @@ export interface ClosedAnswerFilters {
    * see only those that are.
    */
   viewerRole?: UserRole;
+  /**
+   * The requesting user's id — not a user-facing query param. Answers where this user
+   * has an 'in-progress' new_sources record are sorted to the top of their list.
+   */
+  viewerId?: string;
 }
 
 export interface IAnswerRepository {
