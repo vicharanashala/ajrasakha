@@ -80,6 +80,7 @@ const REVIEW_STATUS_OPTIONS: {
   { value: "in-progress", label: "In progress" },
   { value: "completed", label: "Completed" },
   { value: "merged", label: "Merged" },
+  { value: "flagged", label: "Flagged" },
 ];
 
 const REFERENCE_STATUS_OPTIONS: {

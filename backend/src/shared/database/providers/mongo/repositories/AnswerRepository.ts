@@ -1221,21 +1221,20 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage['question.priority'] = {$in: filters.priorities};
       }
 
-      // Flagged reviews are pulled from the list for everyone - $ne also matches the
-      // answers that have no record at all, which is what we want.
-      matchStage.$and = [
-        ...(matchStage.$and ?? []),
-        {newSourceRecordStatus: {$ne: 'flagged'}},
-      ];
+      // Flagged reviews stay out of the list unless someone asks for them by name.
+      const requestedStatuses = filters?.newSourceStatuses ?? [];
+      matchStage.$and = matchStage.$and ?? [];
+      if (!requestedStatuses.includes('flagged')) {
+        // $ne also matches the answers with no record at all, which is what we want.
+        matchStage.$and.push({newSourceRecordStatus: {$ne: 'flagged'}});
+      }
 
-      if (filters?.newSourceStatuses?.length) {
+      if (requestedStatuses.length > 0) {
         // 'none' stands for answers with no record yet, stored as a missing field.
-        const wantedStatuses = filters.newSourceStatuses
-          .filter(status => status !== 'flagged')
-          .map(status => (status === 'none' ? null : status));
-        if (wantedStatuses.length > 0) {
-          matchStage.$and.push({newSourceRecordStatus: {$in: wantedStatuses}});
-        }
+        const wantedStatuses = requestedStatuses.map(status =>
+          status === 'none' ? null : status,
+        );
+        matchStage.$and.push({newSourceRecordStatus: {$in: wantedStatuses}});
       }
 
       // Experts shouldn't see answers whose sources have already been reviewed

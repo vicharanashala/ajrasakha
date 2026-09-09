@@ -425,7 +425,14 @@ export interface ClosedAnswerFilters {
   minSources?: number;
   maxSources?: number;
   /** Review states to keep; "none" means answers nobody has started. */
-  newSourceStatuses: ("none" | "pending" | "in-progress" | "completed" | "merged")[];
+  newSourceStatuses: (
+    | "none"
+    | "pending"
+    | "in-progress"
+    | "completed"
+    | "merged"
+    | "flagged"
+  )[];
   /** Pop lookup outcomes recorded on the answer's reviewed sources. */
   sourceReferenceStatuses: ("notFound" | "topLevelMatch" | "duplicateMatch")[];
   /** Orders results by a seeded shuffle instead of newest first. */

@@ -25,8 +25,8 @@ export interface ClosedAnswerFilters {
   sourceTypes?: string[];
   /**
    * new_sources record states to keep ('pending' | 'in-progress' | 'completed' |
-   * 'merged', or 'none' for answers nobody has started). 'flagged' records are always
-   * hidden and cannot be requested here.
+   * 'merged' | 'flagged', or 'none' for answers nobody has started). Flagged records
+   * are hidden from the list unless 'flagged' is asked for here.
    */
   newSourceStatuses?: string[];
   /**
