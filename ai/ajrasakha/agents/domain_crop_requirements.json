@@ -23,237 +23,46 @@
   },
   "domains": [
     {
-      "key": "agriculture_mechanization",
-      "name": "Agriculture Mechanization",
-      "default_crop_required": false,
-      "remarks": "Sometimes",
-      "description": "Questions related to agricultural machinery, farm implements, tractors, harvesters, seeders, planters, sprayers, irrigation equipment, mechanized farm operations, machine selection, operation, calibration, maintenance, repair, efficiency, custom hiring, and government support for agricultural machinery. Crop information is only needed when machinery recommendations depend on the crop being cultivated. Example- Which seed drill should I use? (Crop needed: Wheat, paddy, maize, etc.)\nWhich planter is suitable for my crop?\nWhich harvester should I use?",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "sometimes"
-      }
-    },
-    {
-      "key": "bio_pesticides_and_bio_fertilizers",
-      "name": "Bio-Pesticides and Bio-Fertilizers",
+      "key": "soil_health_and_nutrient_management",
+      "name": "Soil Health and Nutrient Management",
+      "code": "SHNM",
       "default_crop_required": true,
       "remarks": "Usually",
-      "description": "Questions related to biological crop protection and nutrient products such as bio-pesticides, bio-fertilizers, microbial inoculants, beneficial fungi, bacteria, biocontrol agents, application methods, dosage, compatibility, storage, effectiveness, availability, and recommendations. Since recommendations vary by crop, crop information is usually required.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
-      }
-    },
-    {
-      "key": "crop_insurance",
-      "name": "Crop Insurance",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to crop insurance schemes, enrollment, premium, coverage, notified crops, eligibility, claims, compensation, claim status, loss assessment, insurance timelines, and government insurance programs. Most advisory questions require knowing the insured crop, although general questions about schemes do not.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
-      }
-    },
-    {
-      "key": "cultural_practices",
-      "name": "Cultural Practices",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to recommended crop cultivation practices throughout the crop lifecycle, including sowing methods, spacing, transplanting, thinning, gap filling, pruning, staking, training, earthing up, mulching, irrigation scheduling, intercultural operations, ratooning, and other crop management practices. Recommendations are inherently crop-specific.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "fertilizer_use_and_availability",
-      "name": "Fertilizer Use and Availability",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to fertilizer recommendations, fertilizer grades, dosage, timing, application methods, compatibility, nutrient sources, fertilizer products, availability, subsidy, procurement, and usage guidelines. Most fertilizer recommendations depend on the crop, although general fertilizer information does not.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
-      }
-    },
-    {
-      "key": "field_preparation",
-      "name": "Field Preparation",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to land preparation before planting, including tillage, ploughing, harrowing, levelling, bed preparation, puddling, ridge and furrow formation, soil conditioning, field layout, and preparation techniques. Since land preparation varies across crops, crop information is usually required.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
-      }
-    },
-    {
-      "key": "nutrient_management",
-      "name": "Nutrient Management",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to supplying and managing plant nutrients, including nutrient scheduling, deficiency correction, integrated nutrient management, fertigation, foliar nutrition, secondary and micronutrients, nutrient diagnosis, nutrient balance, and soil test-based recommendations. Accurate recommendations require knowledge of the crop.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "organic_farming",
-      "name": "Organic Farming",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to organic cultivation practices, organic certification, approved inputs, composting, vermicomposting, organic nutrient management, organic pest management, organic standards, transition to organic farming, and sustainable agriculture. General principles are crop-independent, but advisory recommendations are usually crop-specific.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
-      }
-    },
-    {
-      "key": "plant_protection",
-      "name": "Plant Protection",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to protecting crops from pests, diseases, weeds, nematodes, rodents, and other harmful organisms, including identification, diagnosis, monitoring, chemical control, biological control, integrated pest management (IPM), pesticide recommendations, resistance management, and preventive measures. Effective recommendations always require knowing the crop.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "post_harvest_preservation",
-      "name": "Post Harvest Preservation",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to handling agricultural produce after harvest, including cleaning, grading, curing, drying, storage, packaging, transportation, preservation, shelf-life enhancement, post-harvest loss reduction, value addition, and quality maintenance. Preservation methods depend on the harvested crop or commodity.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "seeds",
-      "name": "Seeds",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to agricultural seeds, including seed selection, seed quality, certified seeds, truthfully labelled seeds, hybrid and open-pollinated seeds, seed treatment, seed germination, seed rate, seed production, seed availability, seed replacement, seed storage before sowing, and procurement. Since seed recommendations are crop-specific, crop information is always required.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "sowing_time_and_weather",
-      "name": "Sowing Time and Weather",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to the appropriate time for sowing or planting crops based on seasonal conditions, rainfall, temperature, weather forecasts, monsoon, frost, heat, humidity, and climatic suitability. General weather questions do not require crop information, but sowing recommendations are usually crop-specific.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
-      }
-    },
-    {
-      "key": "storage",
-      "name": "Storage",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to the storage of agricultural produce, seeds, fertilizers, pesticides, or other agricultural inputs, including storage methods, structures, storage pests, moisture management, storage conditions, shelf life, and prevention of storage losses. Crop information is usually required for produce and seed storage recommendations, but not for general storage principles.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
-      }
-    },
-    {
-      "key": "varieties",
-      "name": "Varieties",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to crop varieties, cultivars, hybrids, improved varieties, released varieties, variety selection, varietal characteristics, maturity duration, yield potential, disease resistance, stress tolerance, and suitability for different agro-climatic conditions. Variety recommendations are inherently crop-specific.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "water_management",
-      "name": "Water Management",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to irrigation scheduling, water requirement, irrigation methods, drainage, water conservation, moisture management, fertigation, water-use efficiency, irrigation intervals, and management of excess or deficient water. Appropriate recommendations depend on the crop being cultivated.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "weed_management",
-      "name": "Weed Management",
-      "default_crop_required": true,
-      "remarks": "Always",
-      "description": "Questions related to weed identification, weed control, herbicide recommendations, integrated weed management, manual and mechanical weeding, herbicide application timing, resistant weeds, and prevention of weed infestation. Weed management recommendations are crop-specific.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "always_required",
-        "crop_required": true,
-        "requires_llm": false,
-        "remark": "always"
-      }
-    },
-    {
-      "key": "market_information",
-      "name": "Market Information",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to market prices, mandi arrivals, demand and supply, market trends, MSP, commodity trading, buyers, market intelligence, marketing channels, and sale of agricultural produce. Most market queries require knowing the crop or commodity, although general questions about markets or MSP do not.",
+      "description": "Covers the condition, fertility and health of the soil and the complete management of plant nutrition. Includes physical, chemical and biological soil health; soil sampling, soil testing and interpretation of test reports; the Soil Health Card scheme; and the choice, source, quality, availability, dose, timing, placement and method of application of all nutrient inputs — straight and complex chemical fertilisers, organic manures (FYM, compost, vermicompost, green manure), biofertilisers used as nutrient sources, micronutrient and secondary-nutrient formulations, and soil amendments (lime, gypsum, sulphur, organic carbon builders). Also covers problem soils — acidic, saline, sodic/alkaline, eroded, compacted, poorly drained, low-organic-carbon soils — and their reclamation. Mapped fragmented domains: Fertilizer Use and Availability; Nutrient Management; Soil Testing; Dosage; Soil Health Card; Nutrient Deficiency/Excessiveness Management; Problem Of Soil.\n\nAssign here when the query concerns: which fertiliser, grade or brand to use and where/at what price to get it (availability, shortage, quality complaint); how much to apply per acre/hectare/plant and at which crop stage (basal, top dressing, split application, foliar spray); the method of application (broadcasting, banding, side dressing, drenching, fertigation); symptoms of nutrient deficiency or excess/toxicity such as yellowing, reddening, purpling, stunting, leaf scorch or chlorosis caused by N, P, K, S, Ca, Mg, Zn, Fe, B, Mn or Cu; how and where to collect and test a soil sample, cost of testing, and how to read a soil test report or Soil Health Card recommendation; use of farmyard manure, compost, vermicompost, green manuring, crop residue incorporation and biofertilisers (Rhizobium, Azotobacter, Azospirillum, PSB, KSB) for nutrient supply; use of amendments for acidic, saline or sodic soils; and any general \"problem of soil\" — hardpan, crusting, erosion, low water-holding capacity, declining fertility or unexplained poor growth traced to soil. Route elsewhere if the issue is water application (Irrigation and Water Management), pest or disease symptoms (Insect - Pest Management / Disease Management), or whole-farm organic systems and certification (Organic and Natural Farming).",
+      "mapped_fragmented_domains": [
+        "Fertilizer Use and Availability",
+        "Nutrient Management",
+        "Soil Testing",
+        "Dosage",
+        "Soil Health Card",
+        "Nutrient Deficiency/Excessiveness Management",
+        "Problem Of Soil",
+        "Fertiizer and Nutrient",
+        "Fertilizer Management",
+        "Fertilizer alternatives",
+        "Fertilizer and Nutrient",
+        "Fertilizer and nutrient management",
+        "Foliar Spray",
+        "Micronutrient management",
+        "Micronutrient deficiency management",
+        "Nitrogen fertilizer management",
+        "Nutrient",
+        "Nutrition Management",
+        "Soil & Nutrient Management",
+        "Soil Health and Fertilizer",
+        "Soil Management",
+        "Soil and Fertilizer Management",
+        "Soil and Fertilizers",
+        "Soil and Nutrient Management",
+        "fertilizers and soil health",
+        "soil health",
+        "Biofertilizer application"
+      ],
       "additional_remarks": {
-        "additional_remarks": "However, questions about general banking, FPO registration, KCC process - crop is not needed."
+        "why_crop_matters": "Fertiliser grade, dose per acre, split-dose timing and deficiency symptoms are all crop- and stage-specific. The same soil test gives a completely different recommendation for paddy, sugarcane and tomato. Only the generic soil-service questions (sampling, testing, Soil Health Card, amendments for problem soil) are crop-free.",
+        "example_crop_required": "• \"How much urea should I apply per acre?\" – meaningless without knowing paddy vs cotton vs banana.\n • \"Leaves are turning yellow, which nutrient is missing?\" – the same symptom points to different nutrients in different crops.\n • \"When should I give the second dose of fertiliser?\"",
+        "example_crop_not_required": "• \"How do I collect a soil sample and where do I get it tested?\"\n • \"What is a Soil Health Card and how do I get one?\"\n • \"How much gypsum is needed to reclaim saline soil?\"\n • \"How do I make good vermicompost?\"",
+        "capture_instead": "Crop + variety + crop stage/age + area (acres) + irrigated or rainfed + soil test report if available."
       },
       "requirement": {
         "decision_mode": "conditional",
@@ -263,12 +72,27 @@
       }
     },
     {
-      "key": "horticulture_and_allied_agriculture",
-      "name": "Horticulture & Allied Agriculture",
+      "key": "irrigation_and_water_management",
+      "name": "Irrigation and Water Management",
+      "code": "IWM",
       "default_crop_required": true,
       "remarks": "Usually",
-      "description": "Questions related to horticultural crops (fruits, vegetables, flowers, spices, plantation crops) and allied agricultural enterprises such as mushroom cultivation, beekeeping, sericulture, fisheries, livestock, poultry, goat farming, dairy, and other integrated farming activities. Crop information is usually required for horticultural advisory, while allied sectors may instead require the specific enterprise rather than a crop.",
-      "additional_remarks": null,
+      "description": "Covers the planning, scheduling, delivery and efficient use of irrigation water for crops. Includes water sources (canal, tank, pond, open well, borewell, lift and recycled water), conveyance and distribution (channels, underground pipelines, pumps and their capacity for water delivery), all irrigation methods (flood, border, basin, furrow, drip, sprinkler, mini and micro sprinkler, rain gun, sub-surface drip), irrigation scheduling by crop stage and critical growth stages, water requirement and depth of application, water-use efficiency and moisture conservation (mulching, deficit irrigation, alternate wetting and drying), fertigation hardware and practice, irrigation water quality, drainage and waterlogging, and micro-irrigation support under PMKSY – Per Drop More Crop and the National Mission on Micro Irrigation. Mapped fragmented domains: Water Management; Water Management Micro Irrigation; Micro Irrigation; Irrigation Management.\n\nAssign here when the farmer asks: when to irrigate, at what interval, how many irrigations and at which critical stages; how much water or how many hours of pumping to apply; which irrigation method suits the crop, soil and land slope; selection, layout, design, spacing, emitter/nozzle choice, cost, subsidy, installation, operation and maintenance of drip and sprinkler systems (clogging, filters, flushing, leakage, repair); how to apply fertiliser through drip (fertigation); how to conserve soil moisture or manage irrigation under water scarcity and dry spells; problems of waterlogging, poor drainage, seepage or excess irrigation; suitability of saline, alkaline or otherwise poor-quality water for irrigation; and rainwater harvesting, farm ponds or recharge structures used to supply irrigation. Route to Rural Infrastructure if the real issue is electricity supply or canal/road infrastructure, and to Climate, Weather & Stress Management if it is about rainfall forecast or drought contingency planning rather than water application.",
+      "mapped_fragmented_domains": [
+        "Water Management",
+        "Water Management Micro Irrigation",
+        "Micro Irrigation",
+        "Irrigation Management",
+        "Irrigation",
+        "Fertigation",
+        "Fertigation and Irrigation Management"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Irrigation interval, depth of water, total water requirement and the critical stages at which water must not be missed are defined crop by crop. Hardware questions (drip design, subsidy, repair, filters) are driven by area, spacing and water source, not by the crop.",
+        "example_crop_required": "• \"How often should I irrigate?\" / \"How many irrigations are needed?\"\n • \"Can I skip irrigation this week?\" – depends on whether the crop is at a critical stage.\n • \"What drip lateral and dripper spacing do I need?\" – spacing follows the crop's planting geometry.",
+        "example_crop_not_required": "• \"What subsidy is available on a drip system and how do I apply?\"\n • \"My drippers are clogged – how do I clean them?\"\n • \"Which filter should I fit with my drip set?\"\n • \"My field is waterlogged, how do I drain it?\"",
+        "capture_instead": "Crop + stage + area + soil type + water source; for hardware queries capture area, plot dimensions and pump/water source instead."
+      },
       "requirement": {
         "decision_mode": "conditional",
         "crop_required": null,
@@ -277,12 +101,240 @@
       }
     },
     {
-      "key": "soil_health_card",
-      "name": "Soil Health Card",
+      "key": "insect_pest_management",
+      "name": "Insect - Pest Management",
+      "code": "INPM",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Covers the identification, monitoring and management of all insect and mite pests attacking crops in the field and in the nursery, following Integrated Pest Management (IPM) principles promoted by ICAR and the Central Integrated Pest Management Centres. Code note: the code for this domain is INPM (Insect - Pest Management); the abbreviation IPM is deliberately not used as a domain code because in agriculture IPM is the established term for Integrated Pest Management, which is a control philosophy applied across the insect, disease and weed domains, not a domain in itself. Includes pest identification from symptoms or damage, life cycle and seasonal occurrence, scouting, pest surveillance and e-pest surveillance advisories, economic threshold levels, and the full control tool-kit — cultural and mechanical control (trap crops, hand picking, light traps, pheromone traps, sticky traps, bird perches, netting), biological control (predators, parasitoids such as Trichogramma, entomopathogenic fungi and bacteria such as Beauveria, Metarhizium, Bt, NPV, and botanicals such as neem), and chemical control (choice of insecticide/acaricide and its formulation, dose, dilution, spray volume, nozzle, spray timing and interval, tank-mix compatibility, insecticide resistance management, pre-harvest waiting period, residue limits, banned and spurious pesticides, pesticide availability, quality and price, safe handling, protective gear, poisoning first aid, empty-container disposal, and spraying equipment including drones). Also covers other field animal pests — mites, snails and slugs, termites and other soil pests, rodents, birds, monkeys and stray or wild animal damage. Mapped fragmented domains: Insect Management.\n\nAssign here when the farmer reports insects, caterpillars, grubs, maggots, borers, weevils, beetles, hoppers, aphids, whitefly, thrips, jassids, mealybugs, scales, mites, termites, snails or similar (\"keeda\", \"poka\", \"illi\"), or describes damage such as holes in leaves, defoliation, bore holes in stem/fruit/grain, dead heart, white ear head, leaf curling and sooty mould from sucking pests, webbing, wilting due to root grubs, or cut seedlings; when the query is about identifying an insect, its life cycle or when it is likely to appear; when the farmer asks which insecticide to spray, at what dose and interval, whether two chemicals can be mixed, how long before harvest spraying must stop, or why a spray failed; and when the question concerns traps, biocontrol agents, neem-based products, seed treatment against insects, or IPM packages. Also assign here for rodent, bird or wild-animal damage in the field. Do not use for spots, rots, wilts or other pathogen symptoms (Disease Management), for weeds (Weed Management), for insects in stored grain (Post-Harvest Management & Storage), or for livestock parasites (Animal Husbandry & Livestock).",
+      "mapped_fragmented_domains": [
+        "Insect Management",
+        "Biological Pest Management",
+        "Insect Pest Management",
+        "Insect–Pest Management",
+        "Pest",
+        "Pest Management",
+        "Pesticides"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Insecticides are registered and label-approved crop by crop, and the safe dose, spray interval and pre-harvest waiting period change with the crop. The same insect (say whitefly) on cotton, tomato and chilli needs three different recommendations. Answering without the crop name risks an illegal or unsafe spray recommendation.",
+        "example_crop_required": "• \"Small insects are sucking the leaves – what should I spray?\"\n • \"Caterpillars are boring into the fruit, which medicine and what dose?\"\n • \"When can I harvest after spraying?\" – waiting period is crop-specific.\n • \"Which trap should I install and how many per acre?\"",
+        "example_crop_not_required": "• \"How does a pheromone trap work?\"\n • \"Is this pesticide banned in India?\"\n • \"What should I do if pesticide is swallowed / falls on the skin?\"\n • \"How do I dispose of empty pesticide containers?\"",
+        "capture_instead": "Crop + variety + crop age/stage + pest symptom or photo + area + what has already been sprayed and when."
+      },
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "disease_management",
+      "name": "Disease Management",
+      "code": "PDM",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Covers the identification and management of plant diseases and disorders caused by pathogens — fungi, bacteria, viruses and viroids, phytoplasmas, nematodes and parasitic plants — in the nursery, field and orchard, using integrated disease management approaches aligned with national plant-protection guidelines. Code note: the code for this domain is PDM (Plant Disease Management); the shorter DM is avoided because in crop protection DM is commonly read as Downy Mildew, a specific disease. Includes diagnosis from symptoms, understanding of the causal organism and its spread (seed-borne, soil-borne, air-borne, water-borne and insect-vector transmitted), and the full management package — use of resistant and tolerant varieties, healthy/certified seed and planting material, seed and soil treatment, solarisation, sanitation and rogueing, crop rotation and field hygiene, vector control, biological control agents (Trichoderma, Pseudomonas), and chemical control (fungicides, bactericides, nematicides — choice and formulation, dose, timing, interval, tank-mix compatibility, waiting period, fungicide resistance management, spurious or poor-quality product complaints). Also covers disease surveillance, outbreak reporting, plant quarantine and advisories issued by the State Department or ICAR. Mapped fragmented domains: Disease Management; Disease; Disease Reporting; Pathogenic Disease Management; Disease (Viral); Disease (Bacterial).\n\nAssign here when the farmer describes leaf spots, blight, blast, rust, smut, mildew (downy or powdery), anthracnose, wilt, damping off, root rot, collar rot, stem rot, fruit rot, canker, gummosis, die-back, scab, mosaic, leaf curl, yellow vein, bunchy top, little leaf, phyllody, galls or root knot; when the query is about what disease it is, why it is spreading and how it survives or is carried; when the farmer asks which fungicide or bactericide to use, at what dose and interval, how to treat seed or soil, or how to manage viral disease through vector and weed-host control; when the question concerns disease-resistant varieties, sanitation, rogueing, pruning of infected parts or crop rotation to break disease cycles; and when a disease outbreak is being reported or an advisory/surveillance query is raised. Do not use for insect damage without pathogen symptoms (Insect - Pest Management), for nutrient-deficiency symptoms that mimic disease (Soil Health and Nutrient Management), for weather or stress injury such as frost, heat or hail damage (Climate, Weather & Stress Management), or for animal diseases (Animal Husbandry & Livestock).",
+      "mapped_fragmented_domains": [
+        "Disease Management",
+        "Disease",
+        "Disease Reporting",
+        "Pathogenic Disease Management",
+        "Disease (Viral)",
+        "Disease (Bacterial)",
+        "Crop Health and Disease Management",
+        "Fungicide",
+        "crop disease management",
+        "ਬਿਮਾਰੀ ਪ੍ਰਬੰਧਨ",
+        "Disease management - red rot"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "The same visible symptom (leaf spot, wilt, yellowing) is caused by a different pathogen in every crop, and fungicides/bactericides are registered crop-wise with crop-specific doses and waiting periods. Resistant varieties recommended are also crop-specific. A diagnosis without the crop name is guesswork.",
+        "example_crop_required": "• \"Yellow/brown spots are appearing on the leaves – which medicine?\"\n • \"The plant is wilting from the top – what disease is this?\"\n • \"Which resistant variety should I use next season?\"\n • \"How do I treat my seed before sowing and with what dose?\"",
+        "example_crop_not_required": "• \"Whom do I report a disease outbreak to?\"\n • \"What does the waiting period printed on a fungicide label mean?\"\n • \"What is plant quarantine?\"\n • \"How do I multiply Trichoderma at home?\"",
+        "capture_instead": "Crop + variety + crop stage + symptom description or photo + affected plant part + spread pattern in the field + weather in the last week."
+      },
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "seed_and_variety_selection",
+      "name": "Seed and Variety Selection",
+      "code": "SVS",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Covers the choice of crop, variety, hybrid and planting material, and everything relating to seed quality and seed handling up to sowing/planting. Includes selection of varieties suited to the district, season, soil type, duration, market demand and stress tolerance; identification of released, notified and locally recommended varieties; sources of quality seed and planting material (certified/foundation/truthfully labelled seed, seed villages, state seed corporations, KVKs, ICAR institutes, registered nurseries) and their price and availability; seed rate and seed quality parameters (germination percentage, purity, vigour, spurious or substandard seed complaints); seed treatment with fungicides, insecticides and biofertilisers/biocontrol agents; seed storage and seed production for own use; and vegetative propagation and tissue culture material — grafts, budding, layering, cuttings, suckers, setts, tubers, rhizomes, saplings and tissue-cultured plantlets. Aligned with the Sub-Mission on Seed and Planting Material and the Seed/Varietal Replacement Rate agenda. Mapped fragmented domains: Varieties; Varities; Vegetative Propagation and Tissue Culture; Seed Sowing And Treatment; Varietal Selection.\n\nAssign here when the farmer asks which variety or hybrid to grow for their area, season, soil, duration or end use; which variety resists a particular pest, disease, drought, salinity or lodging; the characteristics, yield potential or availability of a named variety; where to buy genuine seed or planting material and at what price; how much seed is needed per acre; how to test germination; what to do about spurious, poor-germinating or mixed seed; how to treat seed before sowing and with what product and dose; how to produce, store and keep his own seed; and how to raise or obtain grafts, cuttings, layers, setts, suckers, tubers, saplings or tissue-cultured plants. Also assign for questions on seed and varietal replacement and on shifting from local to improved varieties. Route to Cultural and Crop Management Practices if the question is really about sowing method, depth, spacing, time of sowing or nursery bed management rather than the seed or variety itself.",
+      "mapped_fragmented_domains": [
+        "Varieties",
+        "Varities",
+        "Vegetative Propagation and Tissue Culture",
+        "Seed Sowing And Treatment",
+        "Varietal Selection",
+        "Crop Varieties",
+        "Crop Variety",
+        "Crop Variety Selection",
+        "Seed",
+        "Seed Availability",
+        "Seed Management",
+        "Seed Suppliers",
+        "Seed Treatment",
+        "Seeds",
+        "Seeds and Planting Material",
+        "Seeds and Varieties",
+        "Variety",
+        "Variety Information",
+        "Variety Selection",
+        "Seed Quality and Complaints",
+        "Seed Availability and Planting Time"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Varieties, hybrids, seed rate, seed treatment dose and propagation method exist only in relation to a crop — there is no such thing as a recommended variety in the abstract. District and season are needed alongside the crop.",
+        "example_crop_required": "• \"Which variety should I sow this kharif?\"\n • \"How much seed do I need per acre?\"\n • \"Where can I buy good quality seed?\"\n • \"Which variety tolerates drought/salinity in my area?\"",
+        "example_crop_not_required": "• \"What is the difference between certified, foundation and truthfully labelled seed?\"\n • \"How do I test germination at home?\"\n • \"What can I do about spurious seed – where do I complain?\"\n • \"What is tissue culture?\"",
+        "capture_instead": "Crop + district/block + season (kharif/rabi/summer) + sowing date + irrigated or rainfed + area + intended use (grain, fodder, market)."
+      },
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "cultural_and_crop_management_practices",
+      "name": "Cultural and Crop Management Practices",
+      "code": "CCMP",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Covers all non-input agronomic and management practices that determine crop establishment, growth, quality and yield. Includes land and field preparation (ploughing, harrowing, levelling, puddling, bed/ridge/furrow formation, bunding), sowing and planting operations (time and method of sowing, depth, spacing, plant population, transplanting, gap filling, thinning), nursery raising and nursery management, cultivation conditions and crop suitability (soil type, climate, season, altitude, shade, protected cultivation), intercultural operations (weeding-related interculture, earthing up, staking, training, pruning, pinching, thinning of fruits, de-suckering, mulching), cropping systems (crop rotation, intercropping, mixed and relay cropping, crop diversification, ratooning), plant growth regulator use and correction of hormonal imbalance (flower and fruit drop, poor fruit set, excessive vegetative growth, lodging, uneven ripening), and Integrated Farming System design combining crops with livestock, fishery, horticulture and allied enterprises. Also the default domain for general crop \"management\" queries not specific to nutrients, water, pests, diseases or weeds. Mapped fragmented domains: Cultural Practices; Cultivation Conditions; Field Preparation; Management; Integrated Farming System; Hormonic Imbalance; Hormone Imbalance Management; Nursery Management.\n\nAssign here when the query is about how to prepare the land and how many ploughings are needed; the best time and method of sowing or transplanting; row-to-row and plant-to-plant spacing, seed depth and plant population; how to raise and manage a nursery (bed preparation, shade, watering, hardening, seedling age at transplanting); whether a crop or cropping season is suitable for the farmer's soil, climate or location; how to do earthing up, staking, trellising, training, pruning, pinching, de-suckering, thinning or mulching; which crop to grow after or along with another (rotation, intercropping, mixed cropping, ratooning, diversification); how to use plant growth regulators or manage flower drop, fruit drop, poor setting, excessive vegetative growth or lodging; and how to plan an integrated farm combining crops with dairy, poultry, fishery, apiary or horticulture. Also assign general \"how to manage this crop\" or complete package-of-practice queries. Route elsewhere when the specific issue is nutrients, irrigation, pests, diseases or weeds.",
+      "mapped_fragmented_domains": [
+        "Cultural Practices",
+        "Cultivation Conditions",
+        "Field Preparation",
+        "Management",
+        "Integrated Farming System",
+        "Hormonic Imbalance",
+        "Hormone Imbalance Management",
+        "Nursery Management",
+        "Agronomy",
+        "Agronomy and Crop Management",
+        "Agronomy and Planting",
+        "Crop Cultivation",
+        "Crop Growth Stages",
+        "Crop Health",
+        "Crop Improvement",
+        "Crop Management",
+        "Crop Planning",
+        "Crop Practices",
+        "Crop Production",
+        "Crop Selection",
+        "Crop Suitability",
+        "Intercropping",
+        "Nursery Raising",
+        "Plant growth",
+        "Plant growth regulators",
+        "Planting methods",
+        "Pruning and detrashing practices",
+        "Ratoon management and gap filling",
+        "Tillering phase management",
+        "crop rotation",
+        "cultivation",
+        "cultivation practices",
+        "Crop Residue Management"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Spacing, plant population, sowing depth, number of ploughings, pruning, training, thinning and the whole package of practices are defined per crop. Even the generic word \"management\" from a farmer becomes answerable only once the crop is known.",
+        "example_crop_required": "• \"What spacing should I keep between rows and plants?\"\n • \"How do I prepare the field before sowing?\"\n • \"When should I do pruning / earthing up / thinning?\"\n • \"Flowers are dropping without setting fruit – what should I do?\"",
+        "example_crop_not_required": "• \"What is an Integrated Farming System?\"\n • \"What is the benefit of crop rotation in general?\"\n • \"What is a raised bed and why is it used?\"\n • \"What does a laser leveller do to my field?\"",
+        "capture_instead": "Crop + season + district + land type/soil + irrigated or rainfed + sowing or planting date + area."
+      },
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "organic_and_natural_farming",
+      "name": "Organic and Natural Farming",
+      "code": "ONF",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Covers organic, natural, biological and chemical-free farming systems as a whole, including the schemes that promote them — Paramparagat Krishi Vikas Yojana (PKVY), the National Mission on Natural Farming, Mission Organic Value Chain Development for the North Eastern Region and state organic missions. Includes conversion from conventional to organic farming, organic package of practices for individual crops, on-farm preparation and use of organic and natural inputs (compost, vermicompost, FYM, green manure, jeevamrit, beejamrit, ghanjeevamrit, panchagavya, cow-dung and cow-urine formulations, botanical extracts such as neem and dashparni ark), biofertilisers and biopesticides (Rhizobium, Azotobacter, Azospirillum, PSB, Trichoderma, Pseudomonas, Beauveria, Metarhizium, NPV, Bt), soil-fertility building without synthetic chemicals, organic pest and disease management, mulching and cover cropping, and the certification and marketing side — third-party certification, Participatory Guarantee System (PGS-India), Jaivik Bharat, cluster/group formation, documentation, inspection, certification cost and premium markets for organic produce. Mapped fragmented domains: Organic Farming; Bio-Pesticides and Bio-Fertilizers.\n\nAssign here when the farmer explicitly asks about organic farming, natural farming, zero-budget natural farming or chemical-free cultivation; how to convert his land to organic and how long it takes; the organic package of practices for a crop; how to prepare or use jeevamrit, beejamrit, panchagavya, vermicompost, compost or botanical extracts; which biofertiliser or biopesticide to use, at what dose, how to store it and where to buy it; how to control a pest, disease or weed without chemical pesticides; how to maintain soil fertility organically; how to obtain organic certification or join a PGS group or organic cluster; what documentation and inspection are required; and where and at what premium organic produce can be sold. Note the overlap rule: if the farmer only wants a biofertiliser dose as a nutrient source within a conventional crop, it may sit under Soil Health and Nutrient Management; assign here when the intent is organic/natural farming as a system or when the input is explicitly a bio-input.",
+      "mapped_fragmented_domains": [
+        "Organic Farming",
+        "Bio-Pesticides and Bio-Fertilizers",
+        "Organic Fertilizer",
+        "Organic Inputs",
+        "Organic fertilizer application",
+        "Organic weed management"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "The organic package of practices, nutrient budgeting and pest control differ crop by crop, so any \"how do I grow this organically\" question needs the crop. But preparation of natural inputs, certification, PGS group formation and scheme details are the same regardless of crop.",
+        "example_crop_required": "• \"Give me the organic package of practice for my crop.\"\n • \"How do I control pests organically in my crop?\"\n • \"How much vermicompost per acre is enough to replace fertiliser?\"\n • \"Can I get an organic premium price for my produce?\"",
+        "example_crop_not_required": "• \"How do I prepare jeevamrit / beejamrit / panchagavya?\"\n • \"How do I get PGS organic certification, and what does it cost?\"\n • \"What is the difference between organic and natural farming?\"\n • \"How long is the conversion period?\"",
+        "capture_instead": "Crop + area + year of conversion + certification status + livestock available on farm (for input preparation)."
+      },
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "weed_management",
+      "name": "Weed Management",
+      "code": "WDM",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Covers the identification and management of all unwanted plants competing with crops, using Integrated Weed Management. Code note: the code for this domain is WDM (Weed Management); the shorter WM is avoided because \"Water Management\" is a fragmented domain mapped under Irrigation and Water Management (IWM) and WM would be read ambiguously. Includes identification of grassy, broadleaf and sedge weeds, perennial and problem weeds (Cyperus, Parthenium, Cynodon, Striga and other parasitic weeds, water hyacinth and aquatic weeds), weed seed banks and sources of infestation, understanding of critical crop–weed competition periods, and all control methods — preventive (clean seed, clean implements, weed-free bunds and channels, composting of weed-free manure), cultural (stale seed bed, spacing, mulching, cover crops, crop rotation, intercropping), mechanical and manual (hand weeding, hoeing, wheel hoe, power weeder, interculture), biological, and chemical (choice of pre-plant, pre-emergence, early post-emergence and post-emergence herbicide, dose, water volume, nozzle type, timing, sequential application, tank mixing, herbicide-tolerant crops, herbicide resistance, soil residue and carry-over effects on the next crop, phytotoxicity, spurious product complaints and safe handling). Also covers weed control in organic systems and weed management in non-crop areas of the farm. Mapped fragmented domains: Weed Management.\n\nAssign here when the farmer reports grasses, broadleaf weeds, sedges or parasitic weeds in his field, nursery, orchard, bund or channel; asks the name of a weed or how to identify it; asks when weeding should be done and how many weedings are needed; asks which herbicide to use, at what dose and water volume, at which stage, with which nozzle, and whether it can be mixed with another product; reports herbicide failure, crop damage or phytotoxicity from a herbicide, or weeds that are no longer being controlled (resistance); asks about weeding implements, power weeders or labour-saving weed control; or asks how to manage weeds without chemicals under organic cultivation. Do not use when the query is about interculture purely as a soil-loosening/earthing-up operation (Cultural and Crop Management Practices) or about aquatic weeds in a fish pond (Fisheries & Aquaculture).",
+      "mapped_fragmented_domains": [
+        "Weed Management",
+        "Weed",
+        "Weed Control",
+        "Weedicide",
+        "Herbicide"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Herbicides are crop-selective — a product safe in wheat will kill a pulse crop. Registration, dose, and pre- or post-emergence timing are all defined for a specific crop, so recommending a herbicide without the crop name can destroy the standing crop.",
+        "example_crop_required": "• \"Which herbicide should I spray for grassy weeds in my field?\"\n • \"Can I spray this herbicide now, at this crop stage?\"\n • \"Weeds have come back after spraying – what next?\"\n • \"Can I sow my next crop after using this herbicide?\" – needs both the previous and the next crop.",
+        "example_crop_not_required": "• \"What is this weed called?\" (identification from a photo alone)\n • \"What is a stale seed bed and how does it help?\"\n • \"Which nozzle should be used for herbicide spraying?\"\n • \"How do I clear water hyacinth from my farm pond?\"",
+        "capture_instead": "Crop + crop stage / days after sowing + weed type (grass, broadleaf, sedge) + pre- or post-emergence + area + previous herbicide used."
+      },
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "climate,_weather_and_stress_management",
+      "name": "Climate, Weather & Stress Management",
+      "code": "CWSM",
       "default_crop_required": false,
       "remarks": "Sometimes",
-      "description": "Questions related to the Soil Health Card scheme, interpretation of soil test parameters, understanding nutrient values, recommendations generated through the Soil Health Card, sampling procedures, and card availability. General questions can be answered without crop information, but interpreting fertilizer recommendations from a Soil Health Card may require the intended crop.",
-      "additional_remarks": null,
+      "description": "Covers the use of weather and climate information in farm decision-making and the management of all abiotic (non-living) stresses affecting crops and farm operations. Includes short-range and medium-range weather forecasts, rainfall, temperature, humidity and wind information, monsoon onset and withdrawal, agro-met advisories (Gramin Krishi Mausam Sewa, block-level advisories), weather-based decisions on sowing time, spraying, irrigation and harvesting; and management of drought and dry spells, delayed or deficient monsoon, excess rain, flood, waterlogging, cyclone, hailstorm, heat wave, cold wave, frost, fog, unseasonal rain, lightning, high wind and lodging, and soil-related abiotic stresses such as salinity, alkalinity and drought-induced wilting. Also covers contingency crop planning, alternate crops and varieties for late sowing, climate-resilient agriculture practices under NICRA, protective measures (mulching, shade nets, poly/low tunnels, anti-hail nets, smoking/irrigation against frost, windbreaks) and post-event crop recovery advice. Mapped fragmented domains: Weather; Sowing Time and Weather; Abiotic Stress Management.\n\nAssign here when the farmer asks for the weather or rainfall forecast for his area, whether it will rain, or whether the monsoon has arrived; when to sow given the current or expected weather, or what to do if sowing is delayed or the crop has failed due to weather; whether it is safe to spray, irrigate or harvest given the forecast; how to protect the crop from or recover it after drought, flood, waterlogging, hail, cyclone, heat wave, cold wave, frost, fog or unseasonal rain; which alternate crop or short-duration variety to take under a contingency plan; and how to make the farm more resilient to climate variability. Route to Credit, Loan & Insurance if the intent is compensation, insurance claim or loss assessment after a weather event, and to Irrigation and Water Management if the question is about how much water to apply rather than the weather event itself.",
+      "mapped_fragmented_domains": [
+        "Weather",
+        "Sowing Time and Weather",
+        "Abiotic Stress Management",
+        "Climate Weather and Stress Management",
+        "Disaster Management and Crop Recovery"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Weather itself is a location attribute, not a crop attribute — the forecast for a block is the same for every farmer in it. The crop name becomes necessary only when the farmer wants an ACTION out of the weather (protect, sow, spray, choose a contingency crop). LOCATION is the mandatory field here, not crop.",
+        "example_crop_required": "• \"Rain is expected in two days – should I sow now or wait?\"\n • \"How do I protect my crop from frost/heat wave?\"\n • \"Sowing has been delayed by three weeks – what should I grow instead?\"\n • \"My field was flooded – can the crop be saved?\"",
+        "example_crop_not_required": "• \"Will it rain in my village this week?\"\n • \"When will the monsoon arrive?\"\n • \"What is the temperature forecast for the coming days?\"\n • \"Has a cyclone warning been issued for my district?\"",
+        "capture_instead": "District/block/village is COMPULSORY. Add crop + stage + sowing date only when protective, contingency or sowing-time advice is being asked for."
+      },
       "requirement": {
         "decision_mode": "conditional",
         "crop_required": null,
@@ -291,12 +343,25 @@
       }
     },
     {
-      "key": "soil_testing",
-      "name": "Soil Testing",
+      "key": "farm_tools_and_mechanisation",
+      "name": "Farm Tools & Mechanisation",
+      "code": "FTM",
       "default_crop_required": false,
       "remarks": "Sometimes",
-      "description": "Questions related to soil sampling, laboratory testing, testing procedures, soil analysis, interpretation of soil properties, nutrient status, pH, EC, organic carbon, micronutrients, and test reports. General soil testing guidance does not require crop information, but crop-specific fertilizer recommendations based on test results may require knowing the intended crop.",
-      "additional_remarks": null,
+      "description": "Covers the selection, availability, operation, maintenance, safety and economics of farm tools, implements, machinery and plasticulture materials for all farm operations. Includes hand tools and animal-drawn implements; tractors and power tillers and their matching implements (plough, cultivator, rotavator, harrow, leveller, laser leveller, ridger, puddler); sowing and planting machinery (seed drill, zero-till drill, happy seeder, planter, transplanter); plant-protection equipment (knapsack, power and battery sprayers, boom sprayers, dusters, nozzles, drones for spraying); intercultural and weeding equipment; harvesting and threshing machinery (reaper, combine harvester, thresher, chaff cutter, straw baler, digger); irrigation pumps and pump sets as equipment; and plasticulture materials (mulch film, poly house, shade net house, low tunnels, plastic-lined ponds, drip and sprinkler components as hardware). Also covers subsidies and support under SMAM and state mechanisation schemes, Custom Hiring Centres, Farm Machinery Banks, hiring rates, machine cost economics and after-sales service. Mapped fragmented domains: Agriculture Mechanization; Plasticulture.\n\nAssign here when the farmer asks which machine or implement to use for a given operation, which size, model or horsepower is suitable, how to operate, calibrate, adjust, repair or maintain it, or how to solve a machinery breakdown; when comparing manual, animal-drawn and mechanised options or asking about the cost, hiring rate or economics of a machine; when asking where to buy or hire a machine, about Custom Hiring Centres, Farm Machinery Banks or drone-based spraying services; when asking about subsidy amount, eligibility, dealer list or application process for farm machinery and equipment; and when the query concerns plastic mulch, poly houses, shade nets, low tunnels or other plasticulture structures and materials. Route to Agricultural Schemes & Subsidies only if the question is purely about a scheme in general terms, and to Rural Infrastructure if it concerns village-level power or roads rather than the farmer's own equipment.",
+      "mapped_fragmented_domains": [
+        "Agriculture Mechanization",
+        "Plasticulture",
+        "Farm Machinery",
+        "Farm Machinery and Equipment",
+        "Farm Inputs and Supplies"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Machinery is chosen by the OPERATION (ploughing, sowing, spraying, harvesting), land holding, soil and tractor horsepower — not by the crop. Crop matters only for crop-specific machines such as paddy transplanters, groundnut diggers, sugarcane harvesters, cotton pickers or maize shellers.",
+        "example_crop_required": "• \"Which harvester or reaper suits my crop?\"\n • \"Which planter should I use for sowing my crop?\"\n • \"Is there a machine to harvest my crop and reduce labour?\"\n • \"Which thresher should I buy?\"",
+        "example_crop_not_required": "• \"What is the subsidy on a rotavator and how do I apply?\"\n • \"Where is the nearest Custom Hiring Centre and what are its rates?\"\n • \"My tractor pump is not lifting water – what could be wrong?\"\n • \"Which mulch film thickness should I buy?\"",
+        "capture_instead": "Operation to be done + land holding + tractor HP / power source + soil type + budget; add crop only for sowing, transplanting or harvesting machinery."
+      },
       "requirement": {
         "decision_mode": "conditional",
         "crop_required": null,
@@ -305,13 +370,170 @@
       }
     },
     {
-      "key": "livestock_and_animal_husbandry",
-      "name": "Livestock & Animal Husbandry",
+      "key": "post_harvest_management_and_storage",
+      "name": "Post-Harvest Management & Storage",
+      "code": "PHMS",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Covers everything that happens from maturity of the crop onwards — harvesting, handling, preservation, storage and value addition of agricultural produce. Includes judging correct maturity and harvest stage, method and timing of harvesting, harvesting losses, threshing, shelling, winnowing, curing, ripening and de-greening; primary processing and preservation (drying, moisture reduction, cleaning, sorting, grading, waxing, pre-cooling, chilling); packaging and packhouse operations; storage structures and systems (on-farm bins and godowns, warehouses, WDRA-registered warehouses and negotiable warehouse receipts, hermetic bags, cold storage, controlled-atmosphere storage and the cool chain/reefer transport); management of biotic post-harvest problems (storage insects such as weevils and moths, rodents, moulds, mycotoxins/aflatoxin, rots and sprouting) and abiotic post-harvest problems (moisture, temperature, humidity, chilling injury, bruising, shrivelling, physiological weight loss); secondary processing and value addition (milling, grinding, oil extraction, pulping, pickling, drying/dehydration, minimally processed and packaged products); and reduction of quantitative and qualitative post-harvest losses. Mapped fragmented domains: Storage; Post Harvest Preservation; Post Harvest Management (Cleaning, Grading, Packaging, Food Processing, Cool Chain etc.); Cold Storage; Harvesting Management; Post Harvest Management - Abiotic; Post Harvest Management - Biotic.\n\nAssign here when the farmer asks when and how to harvest, how to know the crop is mature, how to reduce harvest losses, or how to thresh, dry, cure or ripen produce; what safe moisture level is needed before storage and how to dry grain; how to clean, sort, grade and pack produce and what packaging material to use; which storage structure to use, how to build or fumigate a godown or bin, how long produce can be stored, and where cold storage or warehouse facilities are available and at what cost; how to protect stored grain, pulses, potato, onion or fruit from storage insects, rodents, moulds, aflatoxin, rotting or sprouting; how to prevent chilling injury, shrivelling, weight loss or spoilage during storage and transport; and how to process or add value to produce (milling, dehydration, pickling, pulp, oil, flour, packaged products) including small processing units. Route to Market Prices, MSP & Marketing if the intent is selling and price rather than handling, and to Agricultural Schemes & Subsidies if the question is only about a scheme for building storage or processing infrastructure.",
+      "mapped_fragmented_domains": [
+        "Storage",
+        "Post Harvest Preservation",
+        "Post Harvest Management Cleaning Grading Packaging Food Processing Cool Chain etc",
+        "Cold Storage",
+        "Post Harvest Management (Cleaning",
+        "Grading",
+        "Packaging",
+        "Food Processing",
+        "Cool Chain etc.)",
+        "Harvesting Management",
+        "Post Harvest Management - Abiotic",
+        "Post Harvest Management - Biotic",
+        "Post Harvest Management",
+        "Post-Harvest & Value Addition",
+        "Post-harvest Management",
+        "Storage Pest Management",
+        "Crop Harvesting"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Safe storage moisture, storage life, packing material, storage temperature and the pests that attack produce are all commodity-specific — paddy, onion, potato and mango behave completely differently. Only the facility- and scheme-level questions (where is a cold store, warehouse receipt rules) are commodity-free.",
+        "example_crop_required": "• \"At what moisture should I store my grain?\"\n • \"My stored produce is being attacked by insects – what should I do?\"\n • \"How long can I keep this produce before selling?\"\n • \"Potatoes/onions are sprouting and rotting in storage – why?\"",
+        "example_crop_not_required": "• \"Where is the nearest cold storage and what is the rent?\"\n • \"What is a negotiable warehouse receipt and how do I get finance on it?\"\n • \"How do I build a small godown, and is there a subsidy?\"\n • \"How do I get an FSSAI licence for a small processing unit?\"",
+        "capture_instead": "Commodity/crop + variety + quantity + present moisture + intended storage duration + type of structure available."
+      },
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "market_prices,_msp_and_marketing",
+      "name": "Market Prices, MSP & Marketing",
+      "code": "MPM",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Covers all market-related information and decisions for agricultural and allied produce. Includes current and expected market (mandi) prices, arrivals and price trends across markets and over time, Minimum Support Price — announced MSP for each notified crop, how MSP is fixed, procurement centres, procurement norms, registration, quality/FAQ specifications and payment; marketing channels and institutions (APMC mandis, e-NAM, private buyers, contract farming, direct marketing, farmers' markets, FPOs and cooperatives, export markets); market intelligence sources (Agmarknet, Kisan Rath, mobile apps); grading and quality standards as they affect price; transport, commission, weighing, deduction and payment issues; and marketing strategy — when to sell or hold, where to sell, aggregation and collective marketing to obtain a better price. Mapped fragmented domains: Market Information.\n\nAssign here when the farmer asks today's or a recent price of a commodity in a named market, price trends or which market is giving the best rate; what the MSP of a crop is, whether it has been declared, how it is calculated, where and how to sell at MSP, and about procurement centre location, registration, quality norms and payment delays; where and to whom to sell his produce (mandi, e-NAM, FPO, cooperative, trader, exporter, contract buyer, direct consumer); how to become part of or use an FPO for collective marketing; about licences, commission, weighment, deduction, transport arrangements or payment disputes in the market; and when to sell or store for a better price, or how to get a better price through grading, packaging or branding. Route to Post-Harvest Management & Storage if the query is really about handling, grading or storing produce, and to Agricultural Schemes & Subsidies for scheme-level questions about market infrastructure.",
+      "mapped_fragmented_domains": [
+        "Market Information",
+        "Economics",
+        "Market & Schemes",
+        "Market Price",
+        "Market Prices",
+        "Market and Pricing",
+        "market advisory",
+        "Economics and Marketing"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "A price or an MSP exists only for a named commodity, and usually for a named variety/grade in a named market on a given date. Without the commodity the bot literally has nothing to look up. Only the process questions about how markets and institutions work are commodity-free.",
+        "example_crop_required": "• \"What is today's rate in the mandi?\"\n • \"What is the MSP this year, and has it been declared?\"\n • \"Which market is giving the best price?\"\n • \"Should I sell now or hold my produce?\"",
+        "example_crop_not_required": "• \"How does e-NAM work and how do I register?\"\n • \"How do I form or join an FPO?\"\n • \"What documents are needed to sell in the mandi?\"\n • \"The trader has not paid me – where do I complain?\"",
+        "capture_instead": "Commodity + variety/grade + quantity + market or district + date; for MSP also the marketing season."
+      },
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "agricultural_schemes_and_subsidies",
+      "name": "Agricultural Schemes & Subsidies",
+      "code": "AGSS",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Covers Central and State Government schemes, missions, programmes, subsidies, grants and direct benefit transfers in agriculture and allied sectors, other than routine bank credit and crop insurance which belong to Credit, Loan & Insurance. Includes income-support and input-support schemes (PM-KISAN, state farmer-income schemes), crop and horticulture missions (NFSM, MIDH, NMEO-Oilseeds/Oil Palm, RKVY, Krishonnati Yojana), irrigation and water schemes (PMKSY, Per Drop More Crop), mechanisation (SMAM), organic and natural farming (PKVY, NMNF, MOVCDNER), seed and planting material, soil health (Soil Health Card scheme), infrastructure schemes (Agriculture Infrastructure Fund, storage, processing, PMFME), FPO promotion (10,000 FPOs scheme), allied-sector schemes of DAHD (Rashtriya Gokul Mission, NLM, AHIDF) and the Department of Fisheries (PMMSY), and corresponding State Government schemes. Also covers the process side — eligibility criteria, benefit and subsidy amount or percentage, required documents (Aadhaar, land records, bank account, caste/category certificate), where and how to apply (portal, CSC, block/district office), application status, beneficiary lists, instalment and DBT payment status, grievance redressal and reasons for rejection. Mapped fragmented domains: Government Schemes.\n\nAssign here when the query mentions a \"yojana\", scheme, mission, programme, subsidy, grant, assistance or benefit for seeds, fertilisers, machinery, irrigation, organic/natural farming, horticulture, storage, processing, livestock, fisheries or infrastructure; when the farmer asks whether he is eligible, how much subsidy he will get, what documents are needed, how and where to apply, what the last date is, how to check his application or instalment status, why his benefit was not credited or his application rejected, or whom to complain to; and when he asks what schemes are available for his category (small/marginal farmer, woman farmer, SC/ST, FPO, entrepreneur) or for a particular activity. Route to Credit, Loan & Insurance when the subject is a loan, KCC, interest subvention or crop insurance; route to the technical domain (for example Farm Tools & Mechanisation) when the question is really about the technology itself and only incidentally mentions a subsidy.",
+      "mapped_fragmented_domains": [
+        "Government Schemes"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Most scheme queries turn on the FARMER and the COMPONENT — category, land holding, state, documents, application status — not on the crop. Crop is needed only for crop-linked missions and crop-specific subsidy components (oilseeds, oil palm, horticulture, seed minikits, NFSM crops).",
+        "example_crop_required": "• \"Is there a subsidy for planting my crop / for this horticulture crop?\"\n • \"Is my crop covered under NFSM or the oilseeds mission?\"\n • \"Is a seed minikit available for my crop this season?\"\n • \"How much assistance is given per hectare for this plantation?\"",
+        "example_crop_not_required": "• \"How do I check my PM-KISAN instalment status?\"\n • \"What documents are needed for a tractor subsidy?\"\n • \"My application was rejected – what do I do?\"\n • \"Which schemes are available for a woman/SC farmer in my state?\"",
+        "capture_instead": "State/district + farmer category + land holding + scheme or component name + Aadhaar/land record availability; add crop only for crop-linked components."
+      },
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "credit,_loan_and_insurance",
+      "name": "Credit, Loan & Insurance",
+      "code": "CLI",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Covers institutional agricultural finance and risk-transfer products for farmers and allied-sector enterprises. Includes crop loans and short-term production credit, the Kisan Credit Card (issue, limit, renewal, interest rate, interest subvention and prompt repayment incentive, KCC for animal husbandry and fisheries), term and investment loans (land development, wells and irrigation, machinery, dairy, poultry, fishery, agri-enterprise), gold and produce-pledge loans, warehouse receipt finance, Self-Help Group, Joint Liability Group and FPO credit, NABARD refinance and cooperative/RRB/commercial bank lending; loan documentation, collateral and margin requirements, repayment schedules, defaults, overdue interest, restructuring, moratorium and waiver; and all agricultural insurance — Pradhan Mantri Fasal Bima Yojana, Restructured Weather Based Crop Insurance Scheme, Coconut Palm Insurance, livestock and fisheries insurance — covering enrolment, premium, sum insured, notified crops and areas, cut-off dates, risks covered, intimation of loss, crop cutting experiments, loss assessment, claim calculation, claim settlement and grievance redressal. Mapped fragmented domains: Credit; Loans; Crop Insurance.\n\nAssign here when the farmer asks how to get a crop loan or term loan, which bank to approach, how much loan he can get, what interest rate and subvention apply, what documents or security are required, and how and when to repay; about obtaining, renewing or enhancing a Kisan Credit Card, or a KCC for dairy, poultry or fishery; about overdue loans, defaults, restructuring, moratorium, rescheduling after a calamity, or loan waiver; about the link between PM-KISAN records, land records and access to credit; and about crop insurance — how to enrol, last date, premium payable, sum insured, whether his crop and village are notified, which risks are covered, how to report crop loss within the stipulated time, how loss is assessed, when and how much claim will be paid, and what to do if the claim is rejected or delayed. Route to Agricultural Schemes & Subsidies for capital subsidy or grant schemes that are not loans or insurance.",
+      "mapped_fragmented_domains": [
+        "Credit",
+        "Loans",
+        "Crop Insurance",
+        "Insurance",
+        "Financial & Institutional Services"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "Split domain: CREDIT questions (KCC, loans, interest, repayment) depend on land holding and the bank, not on the crop — although the KCC scale of finance is fixed crop-wise. INSURANCE questions almost always need the crop, because PMFBY cover is defined for a notified crop in a notified area with a crop-specific premium and cut-off date.",
+        "example_crop_required": "• \"Is my crop notified under PMFBY in my village, and what premium do I pay?\"\n • \"My crop has failed – how do I claim insurance?\"\n • \"What is the sum insured per acre?\"\n • \"How much crop loan can I get per acre?\" (scale of finance is fixed crop-wise)",
+        "example_crop_not_required": "• \"How do I get a Kisan Credit Card and what is the interest rate?\"\n • \"How do I repay or restructure an overdue loan?\"\n • \"What is interest subvention?\"\n • \"Can I get a loan against my gold / warehouse receipt?\"",
+        "capture_instead": "For insurance: crop + area sown + village + season + sowing date + loanee or non-loanee. For credit: land holding + bank/branch + existing KCC + purpose."
+      },
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "capacity_building,_extension_and_communication",
+      "name": "Capacity Building, Extension and Communication",
+      "code": "CEE",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Covers the delivery of knowledge, skills and advisory services to farmers and the institutions and channels that provide them. Includes training programmes and skill development (on-campus and off-campus training by KVKs, ATMA, State Agricultural Universities, ICAR institutes, State Departments of Agriculture, Horticulture, Animal Husbandry and Fisheries, RSETI, ASCI/skill missions), vocational and entrepreneurship training (agri-clinics and agri-business centres, food processing, beekeeping, mushroom, dairy, nursery), exposure visits, study tours, field days, kisan melas, farmer fairs and farmer-scientist interactions; method and result demonstrations, front-line demonstrations, farmer field schools and on-farm trials; formation and functioning of farmer groups — farmer interest groups, commodity groups, SHGs, FPOs, water user associations and village-level committees; and advisory and communication channels — Kisan Call Centre (1800-180-1551), Kisan Suvidha and other mobile apps, m-Kisan/SMS advisories, agro-met bulletins, community radio, TV and print advisories, help desks and whom to contact for on-field technical guidance. Mapped fragmented domains: Training; Training and Exposure Visits.\n\nAssign here when the farmer asks what trainings are available, on what topic, where, when, for how long, at what cost and how to register or get selected; how to attend an exposure visit, study tour, field day, demonstration or kisan mela; how to start or join an FPO, SHG, farmer interest group or village committee and what support is available for it; whom to contact for technical guidance — the local KVK, ATMA, agriculture/horticulture/veterinary/fisheries officer, extension worker or scientist — and how to reach them; how the Kisan Call Centre or a farmer helpline works, what it can help with and how to follow up on an earlier query; and how to access advisory apps, SMS advisories, bulletins or printed literature. Route to Agricultural Schemes & Subsidies when the query is about the financial benefit of a scheme rather than the training or advisory service itself.",
+      "mapped_fragmented_domains": [
+        "Training",
+        "Training and Exposure Visits",
+        "Capacity Building & Extension",
+        "Extension & Capacity Building",
+        "Extension Services",
+        "Farmer Services"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "These queries are about people and institutions — where is the KVK, how do I attend a training, whom do I contact. The answer depends on the district/block, not on the crop. Crop or enterprise is needed only to point the farmer to the right subject-matter training or specialist.",
+        "example_crop_required": "• \"Is there any training near me on cultivating this crop?\"\n • \"I want to visit a successful farm growing this crop – where can I go?\"\n • \"Which specialist should I talk to about this crop?\"",
+        "example_crop_not_required": "• \"Where is my nearest KVK / agriculture office?\"\n • \"How do I contact the Kisan Call Centre?\"\n • \"How do I join a farmer group or FPO?\"\n • \"How do I register for SMS advisories?\"",
+        "capture_instead": "District/block/village + preferred language + subject or enterprise of interest + farmer category; crop only when a subject-specific training or expert is being sought."
+      },
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "rural_infrastructure",
+      "name": "Rural Infrastructure",
+      "code": "RI",
       "default_crop_required": false,
       "remarks": "Never",
-      "description": "Questions related to the rearing, breeding, feeding, housing, management, production, and welfare of livestock and farm animals, including dairy cattle, buffalo, goats, sheep, pigs, poultry, rabbits, and other domesticated animals. These questions pertain to animals rather than crops and therefore do not require crop information.",
+      "description": "Covers the basic public and village-level physical infrastructure that supports agriculture and allied activities, as distinct from a farmer's own equipment. Includes rural and farm-approach roads and all-weather connectivity (PMGSY), culverts, bridges and market/mandi approach roads; electricity supply for agriculture — new agricultural connections, transformers, feeders, load and voltage problems, hours and timing of supply, power cuts, tariff and metering, solarisation of pumps and grid-connected solar under PM-KUSUM, and power for irrigation, cold storage and agro-processing units; and other common infrastructure such as canals and public irrigation structures at the system level, village water supply, drainage and flood-protection works, common godowns, market yards, collection and grading centres, custom hiring centre buildings, milk collection centres, telecom/internet connectivity for digital services, and street/farm lighting. Mapped fragmented domains: Power, Roads etc.\n\nAssign here when the farmer's question is about the availability, condition, construction, repair or impact of rural roads, farm approach roads or market connectivity, including difficulty in transporting inputs or produce; about getting a new electricity connection for a tubewell or farm, transformer failure, low voltage, insufficient or irregular supply hours, power cuts affecting irrigation or processing, electricity tariff, meter and bill issues, or solar pump installation and subsidy under PM-KUSUM; about canal, drainage, embankment or flood-protection works and their maintenance; and about common village-level facilities such as godowns, market yards, collection centres, milk chilling centres or internet connectivity. Route to Farm Tools & Mechanisation for the farmer's own pump, machinery or equipment, and to Irrigation and Water Management for on-farm water application.",
+      "mapped_fragmented_domains": [
+        "Power Roads etc",
+        "Power",
+        "Roads etc.",
+        "Infrastructure & Utilities"
+      ],
       "additional_remarks": {
-        "additional_remarks": "Except in integrated farming system questions where crop context may appear."
+        "why_crop_matters": "Roads, power supply, transformers and village facilities are LOCATION attributes. The answer is identical whatever the farmer grows. Crop appears at most as background colour (\"I need power during transplanting\") and never changes the answer.",
+        "example_crop_required": "• Almost none. At best a seasonal framing such as \"I need assured power supply during the transplanting season\" – and even here the crop only explains the timing, it does not change the answer.",
+        "example_crop_not_required": "• \"There is no transformer in my village – whom do I approach?\"\n • \"How do I get a new electricity connection for my borewell?\"\n • \"How do I apply for a solar pump under PM-KUSUM?\"\n • \"The approach road to my field is broken – who repairs it?\"",
+        "capture_instead": "Village/block/district + type of connection or facility + consumer/application number + department already approached. Do NOT ask for the crop — it only irritates the farmer."
       },
       "requirement": {
         "decision_mode": "never_required",
@@ -321,13 +543,39 @@
       }
     },
     {
-      "key": "veterinary_and_animal_health",
-      "name": "Veterinary & Animal Health",
+      "key": "animal_husbandry_and_livestock",
+      "name": "Animal Husbandry & Livestock",
+      "code": "AHL",
       "default_crop_required": false,
       "remarks": "Never",
-      "description": "Questions related to animal diseases, diagnosis, symptoms, treatment, vaccination, deworming, biosecurity, nutrition, reproductive health, first aid, disease prevention, and general veterinary care for livestock, poultry, pets, and other farm animals. Crop information is not relevant.",
+      "description": "Covers the rearing, health, breeding, feeding, housing and productivity of all livestock and poultry — cattle, buffalo, sheep, goat, pig, poultry (layer, broiler, backyard, duck, turkey, quail), equines, camel and other species — and the processing of livestock products, under the Department of Animal Husbandry & Dairying and its schemes. Includes dairy production and milk yield improvement, clean milk production, milking management, dry period and calf rearing; animal nutrition and feeding (concentrate and compound feed, green and dry fodder, silage, hay, azolla, mineral mixture, feed cost, ration balancing, fodder cultivation for animals, feed for poultry and small ruminants); breeding and reproduction (breed selection and comparison, artificial insemination, semen and sexed semen, natural service, heat detection, repeat breeding, anoestrus, infertility, pregnancy diagnosis, calving and calving problems, inbreeding and its avoidance, breed improvement and Rashtriya Gokul Mission); housing and shed planning (site, floor, ventilation, space per animal, drainage, dung and waste management, biogas); animal health (vaccination and vaccine schedules including viral diseases such as FMD, PPR, LSD, HS, BQ, Ranikhet and IBD, deworming, internal and external parasites such as ticks, lice, mites and mange, mastitis, bloat, milk fever, wounds, lameness, poisoning, first aid, veterinary contact and treatment, biosecurity and quarantine); and livestock product processing and packaging (milk products, meat, eggs, hides, wool) and small dairy, poultry, piggery, goatery and sheep-farming enterprises including their economics and insurance-linked queries. Mapped fragmented domains: Dairy Production; Animal Husbandry; Poultry; Feed; Animal Production (Piggery, Goatery, Sheep Farming etc.); Livestock Products Processing and Packaging; Animal Nutrition; Animal Breeding; Cattle shed Planning and Management; Artificial Insemination; Vaccine - Viral; Breeding - Inbreeding; Disease - External Parasitic.\n\nAssign here when the query concerns what and how much to feed an animal or bird, ration and mineral mixture, fodder and silage making, feed cost or feed availability; how to design, site and manage a cattle shed, poultry shed or pig sty, space, ventilation, flooring, dung and waste disposal; which breed to keep, where to buy animals, breeding policy, artificial insemination, semen availability and cost, heat detection, repeat breeding, anoestrus, infertility, pregnancy, calving and problems of inbreeding; vaccination schedules and availability of vaccines, deworming, tick/lice/mite and other external parasite control, mastitis, bloat, milk fever, diarrhoea, lameness, wounds, sudden death, or any sign of illness in animals or birds, and whom to contact for veterinary help; how to increase milk, meat, egg or wool production and improve quality; how to process and package milk, meat or eggs and start a small dairy, poultry, piggery, goatery or sheep unit including its cost, profitability, licences and insurance. Do not use for crop diseases or crop pests, or for fish and aquaculture (Fisheries & Aquaculture).",
+      "mapped_fragmented_domains": [
+        "Dairy Production",
+        "Animal Husbandry",
+        "Poultry",
+        "Feed",
+        "Animal Production Piggery Goatery Sheep Farming etc",
+        "Livestock Products Processing and Packaging",
+        "Animal Nutrition",
+        "Animal Breeding",
+        "Cattle shed Planning and Management",
+        "Artificial Insemination",
+        "Animal Production (Piggery",
+        "Goatery",
+        "Sheep Farming etc.)",
+        "Vaccine - Viral",
+        "Breeding -Inbreeding",
+        "Disease - External Parasitic",
+        "Animal Health",
+        "Fodder Cultivation",
+        "Livestock & Animal Husbandry",
+        "Veterinary & Animal Health"
+      ],
       "additional_remarks": {
-        "additional_remarks": "Except in integrated farming system questions where crop context may appear."
+        "why_crop_matters": "Crop name is the wrong metadata here — the equivalent mandatory field is the ANIMAL: species, breed, age and production stage. A crop name is needed only when the question is about growing fodder for the animals, which is really a crop question serving a livestock purpose.",
+        "example_crop_required": "• \"Which fodder crop should I grow for my dairy animals?\"\n • \"Can I feed maize/sorghum green fodder, and at what stage?\"\n • \"How do I make silage from this crop?\"\n • \"My animal ate this crop residue and is bloated – what should I do?\"",
+        "example_crop_not_required": "• \"My cow is not coming into heat – what should I do?\"\n • \"What is the vaccination schedule for goats?\"\n • \"How much space is needed per animal in a shed?\"\n • \"Milk yield has suddenly dropped – why?\"\n • \"How do I start a poultry unit and what will it cost?\"",
+        "capture_instead": "Species + breed + age + sex + number of animals + production stage (lactating, pregnant, growing) + current feed + symptoms and duration. Capture crop only for fodder queries."
       },
       "requirement": {
         "decision_mode": "never_required",
@@ -339,11 +587,36 @@
     {
       "key": "fisheries_and_aquaculture",
       "name": "Fisheries & Aquaculture",
+      "code": "FA",
       "default_crop_required": false,
       "remarks": "Never",
-      "description": "Questions related to fish farming, aquaculture systems, pond preparation, water quality, fish species, stocking, feeding, disease management, harvesting, ornamental fisheries, shrimp farming, and other aquatic farming enterprises. These questions concern aquatic organisms rather than crops.",
+      "description": "Covers all inland, brackish-water and marine fisheries and aquaculture activities supported by the Department of Fisheries, NFDB and PMMSY. Includes culture systems and water bodies (ponds, tanks, reservoirs, cages, pens, raceways, biofloc and RAS units, paddy-cum-fish culture, coastal and brackish-water aquaculture, shrimp and prawn farming, mariculture and seaweed cultivation); pond and tank construction, renovation, liming, manuring, water depth and pond preparation; water quality management and water testing for fish production (pH, dissolved oxygen, ammonia, alkalinity, hardness, salinity, turbidity, plankton bloom); seed and stocking (fish seed, spawn, fry, fingerling production and nursery rearing, species selection, stocking density, polyculture, composite fish culture, transport of seed); breeding and hatchery operations (induced breeding, magur and other catfish breeding, freshwater prawn breeding, ornamental fish breeding and culture, freshwater pearl farming and pearl culture, hatchery management); fish nutrition and feeding (feed types, formulation, feeding rate and schedule, supplementary and floating feed); fish health (parasites, bacterial, fungal and viral infections, mortality, prophylaxis and treatment); fisheries mechanisation and craft/gear (boats, engines, nets, aerators, pumps, fish finders); capture fisheries including deep-sea fishing, fishing seasons, bans and licences; and post-harvest and marketing — fish dressing, drying, icing, processing, value addition, fishing harbours and landing centres, fish markets, prices and fish marketing channels. Mapped fragmented domains: Coastal Aquaculture; Tank, Pond and Reservoir Management; Fish Marketing; Breeding of freshwater prawn; Freshwater Pearl Farming; Fishery Nutrition; Fish Fingerling Production; Fishery Mechanization; Magur Breeding and Culture; Breeding and culture of ornamental fish; Freshwater pearl culture; Water Testing for Fish Production; Seaweed Cultivation; Fish Dressing Drying; Deep Sea Fishing and Processing; Fishing Harbours and Landing Centre.\n\nAssign here when the farmer asks how to construct, renovate, prepare, lime, manure or manage a pond, tank, reservoir, cage or biofloc/RAS unit; which fish or shrimp species to culture and in what combination; where to get fish seed, spawn, fry or fingerlings, at what stocking density and how to transport and nursery-rear them; how to breed fish, magur, freshwater prawn or ornamental fish, or run a hatchery; how to do freshwater pearl farming or seaweed cultivation; what and how much to feed and how to prepare fish feed; how to test and correct pond water quality, or why fish are dying, gasping or growing slowly, and how to treat fish diseases and parasites; about aerators, pumps, boats, engines, nets and other fishery equipment and their subsidy; about deep-sea fishing, licences, fishing ban periods and marine operations; and about harvesting, dressing, drying, icing, processing, value addition, fish prices, fish markets, harbours and landing centres. Do not use for irrigation ponds used only for crops (Irrigation and Water Management) or for livestock and poultry (Animal Husbandry & Livestock).",
+      "mapped_fragmented_domains": [
+        "Coastal Aquaculture",
+        "Tank Pond and Reservoir Management",
+        "Fish Marketing",
+        "Breeding of freshwater prawn",
+        "Freshwater Pearl Farming",
+        "Fishery Nutrition",
+        "Fish Fingerling Production",
+        "Fishery Mechanization",
+        "Magur Breeding and Culture",
+        "Breeding and culture of ornamental fish",
+        "Freshwater pearl culture",
+        "Water Testing for Fish Production",
+        "Seaweed Cultivation",
+        "Fish Dressing Drying",
+        "Deep Sea Fishing and Processing",
+        "Fishing Harbours and Landing Centre",
+        "Tank",
+        "Pond and Reservoir Management",
+        "Fisheries"
+      ],
       "additional_remarks": {
-        "additional_remarks": "Except in integrated farming system questions where crop context may appear."
+        "why_crop_matters": "Crop name is not the relevant metadata — the mandatory equivalents are the FISH SPECIES and the CULTURE SYSTEM (pond, tank, cage, biofloc, coastal, marine) with water body size. A crop is involved only in integrated systems such as paddy-cum-fish culture.",
+        "example_crop_required": "• \"I want to do paddy-cum-fish culture – which paddy variety suits it?\"\n • \"Can I use rice bran / oil cake from this crop as fish feed?\"\n • \"Which crop can I grow on the pond embankment?\"",
+        "example_crop_not_required": "• \"Fish are gasping at the surface in the morning – what is wrong?\"\n • \"What stocking density should I keep in a one-acre pond?\"\n • \"Where can I buy fingerlings and at what rate?\"\n • \"How do I do induced breeding of magur?\"\n • \"How do I get a subsidy for a new pond under PMMSY?\"",
+        "capture_instead": "Fish/prawn species + culture system + water body type and area + water depth + stocking date and density + feed used + water test values + symptoms."
       },
       "requirement": {
         "decision_mode": "never_required",
@@ -353,96 +626,47 @@
       }
     },
     {
-      "key": "financial_and_institutional_services",
-      "name": "Financial & Institutional Services",
+      "key": "allied_agricultural_activities",
+      "name": "Allied Agricultural Activities",
+      "code": "AAA",
       "default_crop_required": false,
       "remarks": "Sometimes",
-      "description": "Questions related to agricultural finance, loans, Kisan Credit Card (KCC), banking services, subsidies, credit, insurance (non-crop specific), farmer producer organizations (FPOs), cooperatives, agricultural institutions, financial assistance, and institutional support. Most questions do not require crop information, although certain loan or subsidy schemes may depend on the intended crop.",
-      "additional_remarks": null,
+      "description": "Covers allied and secondary income-generating enterprises taken up alongside crop farming, principally beekeeping and mushroom cultivation, and other similar small farm-based enterprises promoted through the National Beekeeping and Honey Mission, MIDH, PMFME and related training and support programmes. Beekeeping includes bee species and breed selection (Apis mellifera, Apis cerana indica, stingless bees), hive types and equipment, apiary site selection, colony purchase, division and multiplication, seasonal and migratory management, feeding during dearth periods, swarming and absconding, queen rearing, bee pests and diseases (mites, wax moth, brood diseases), pollination services to crops, honey extraction, processing, quality, storage, other hive products (wax, propolis, pollen, royal jelly) and honey marketing. Mushroom cultivation includes species selection (button, oyster, milky, paddy straw, shiitake), spawn source and quality, substrate selection, preparation, pasteurisation and sterilisation, bed/bag filling, spawning, casing, cropping-room conditions (temperature, humidity, ventilation, light), pests, diseases and contamination, yield, flushes, harvesting, drying, packaging, storage, value addition, unit cost, profitability and marketing. Mapped fragmented domains: Beekeeping; Mushroom Production.\n\nAssign here when the query is primarily about apiary management — how to start beekeeping, cost and profitability, where to buy bee colonies, boxes and equipment, which bee species suits the area, hive placement and migration, feeding sugar syrup, controlling wax moth, mites and other bee enemies, preventing swarming and absconding, queen rearing, when and how to extract honey, honey quality, storage and where to sell honey and other hive products, and using bees for crop pollination — or about mushroom cultivation: which mushroom to grow in the local climate, where to obtain good spawn, how to prepare and pasteurise straw or other substrate, how to fill bags/beds and spawn them, casing, the temperature, humidity and ventilation needed in the cropping room, why the crop is contaminated or yielding poorly, how many flushes to expect, and how to harvest, dry, pack, store, add value to and market mushrooms. Also assign for comparable small allied enterprises (for example sericulture-type or other farm-based secondary units) that are not covered by crop, livestock or fisheries domains.",
+      "mapped_fragmented_domains": [
+        "Beekeeping",
+        "Mushroom Production"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "The primary metadata is the ENTERPRISE and its species (bee species, mushroom type). Crop name matters in two specific situations: bee colonies must be placed near a flowering crop for foraging and pollination, and mushroom substrate is a crop residue (paddy straw, wheat straw, sugarcane bagasse, sawdust).",
+        "example_crop_required": "• \"Near which crop should I place my bee boxes for a good honey flow?\"\n • \"How many hives per acre are needed to pollinate this crop?\"\n • \"Can I use paddy straw or wheat straw for oyster mushroom?\"\n • \"Is it safe to keep bees when the nearby crop is being sprayed?\"",
+        "example_crop_not_required": "• \"How do I control wax moth / mites in my hives?\"\n • \"How do I prevent my colony from absconding?\"\n • \"What temperature and humidity are needed in a mushroom cropping room?\"\n • \"Where do I buy good spawn and at what price?\"\n • \"What is the cost and profit of a small mushroom unit?\"",
+        "capture_instead": "Enterprise + species (Apis mellifera / cerana, button / oyster / milky mushroom) + scale (number of hives or bags) + season + location; add the flowering or residue crop where relevant."
+      },
       "requirement": {
         "decision_mode": "conditional",
         "crop_required": null,
         "requires_llm": true,
         "remark": "sometimes"
-      }
-    },
-    {
-      "key": "extension_and_capacity_building",
-      "name": "Extension & Capacity Building",
-      "default_crop_required": false,
-      "remarks": "Never",
-      "description": "Questions related to agricultural training, demonstrations, farmer field schools, extension services, KVK programs, awareness campaigns, skill development, workshops, advisory services, educational materials, and capacity-building initiatives. Crop information is generally not required.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "never_required",
-        "crop_required": false,
-        "requires_llm": false,
-        "remark": "never"
-      }
-    },
-    {
-      "key": "infrastructure_and_utilities",
-      "name": "Infrastructure & Utilities",
-      "default_crop_required": false,
-      "remarks": "Sometimes",
-      "description": "Questions related to agricultural infrastructure such as warehouses, cold storage, pack houses, irrigation infrastructure, electricity supply, solar pumps, fencing, farm roads, drying yards, custom hiring centers, and other farm utilities. Most infrastructure-related questions are crop-independent, but facility recommendations may occasionally depend on the crop being cultivated.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "sometimes"
-      }
-    },
-    {
-      "key": "government_schemes",
-      "name": "Government Schemes",
-      "default_crop_required": false,
-      "remarks": "Sometimes",
-      "description": "Questions related to central and state government agricultural schemes, eligibility, benefits, application procedures, subsidies, incentives, registration, documentation, and scheme implementation. General scheme information does not require crop information, although crop-specific schemes may require knowing the crop.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "sometimes"
-      }
-    },
-    {
-      "key": "weather",
-      "name": "Weather",
-      "default_crop_required": false,
-      "remarks": "Never",
-      "description": "Questions related to current weather, weather forecasts, rainfall, temperature, humidity, wind, storms, heat waves, cold waves, monsoon, frost, and other meteorological conditions. Weather information is independent of the crop, although advisory services may later combine weather with crop information.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "never_required",
-        "crop_required": false,
-        "requires_llm": false,
-        "remark": "never"
-      }
-    },
-    {
-      "key": "market_prices",
-      "name": "Market Prices",
-      "default_crop_required": true,
-      "remarks": "Usually",
-      "description": "Questions related to the current, historical, or forecast prices of agricultural commodities, mandi prices, MSP, arrivals, commodity trends, buyers, and marketing opportunities. Since prices are commodity-specific, crop information is usually required unless the question is about general market concepts or policies.",
-      "additional_remarks": null,
-      "requirement": {
-        "decision_mode": "conditional",
-        "crop_required": null,
-        "requires_llm": true,
-        "remark": "usually"
       }
     },
     {
       "key": "general",
       "name": "General",
+      "code": "GEN",
       "default_crop_required": false,
       "remarks": "Never",
       "description": "Questions that do not clearly belong to any specific agricultural domain, are conversational in nature, involve greetings, general agricultural knowledge, definitions, navigation, chatbot assistance, or other miscellaneous topics that do not require crop-specific information.",
-      "additional_remarks": null,
+      "mapped_fragmented_domains": [
+        "Greetings",
+        "Chatbot Assistance",
+        "General"
+      ],
+      "additional_remarks": {
+        "why_crop_matters": "General conversational, courtesy, and greeting messages do not require any crop context.",
+        "example_crop_required": "",
+        "example_crop_not_required": "• \"Hello\"\n• \"Thank you\"\n• \"Who created you?\"",
+        "capture_instead": ""
+      },
       "requirement": {
         "decision_mode": "never_required",
         "crop_required": false,

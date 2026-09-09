@@ -16,7 +16,7 @@ from ajrasakha.agents.planner_rules import extract_crop_from_text
 
 @pytest.mark.asyncio
 async def test_never_crop_domain_forces_all():
-    plan = {"domain": "Weather", "entities": {}}
+    plan = {"domain": "Climate, Weather & Stress Management", "weather": True, "entities": {}}
     with patch(
         "ajrasakha.agents.planner.is_crop_specific_question",
         new_callable=AsyncMock,
@@ -28,7 +28,7 @@ async def test_never_crop_domain_forces_all():
             config={},
         )
     mock_cls.assert_not_called()
-    assert domain == "Weather"
+    assert domain == "Climate, Weather & Stress Management"
     assert out["entities"]["crop"] == "all"
     assert crop_required is False
 
@@ -49,7 +49,7 @@ async def test_always_crop_required_domain_requires_crop():
             crop_prefilled=None,
             config={},
         )
-    assert domain == "Plant Protection"
+    assert domain == "Insect - Pest Management"
     assert out["entities"].get("crop") is None
     assert crop_required is True
     assert out["knowledge_base"] is True
@@ -97,7 +97,7 @@ async def test_always_domain_crop_output_does_not_require_input_crop():
             config={},
         )
 
-    assert domain == "Cultural Practices"
+    assert domain == "Cultural and Crop Management Practices"
     classifier.assert_not_awaited()
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
@@ -124,7 +124,7 @@ async def test_seed_drill_still_requires_named_crop():
             config={},
         )
 
-    assert domain == "Agriculture Mechanization"
+    assert domain == "Farm Tools & Mechanisation"
     assert crop_required is True
     assert out["entities"].get("crop") is None
     classifier.assert_awaited_once()
@@ -133,7 +133,6 @@ async def test_seed_drill_still_requires_named_crop():
 def test_legacy_crop_patterns_are_used_without_crop_master_aliases():
     assert extract_crop_from_text("I am growing gehu") is None
     assert extract_crop_from_text("I am growing rice") == "paddy"
-    assert extract_crop_from_text("I am growing rice") == "Paddy"
 
 
 def test_missing_crop_values_use_the_mongodb_all_value():
@@ -200,7 +199,7 @@ async def test_general_crop_clarification_resolves_required_crop_once():
             config={},
         )
 
-    assert domain == "Varieties"
+    assert domain == "Seed and Variety Selection"
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
     assert out["crop_requirement_source"] == "deterministic_all_crop_requested"
@@ -228,7 +227,7 @@ async def test_inherited_all_without_explicit_reply_remains_unresolved_for_requi
             config={},
         )
 
-    assert domain == "Varieties"
+    assert domain == "Seed and Variety Selection"
     assert crop_required is True
     assert out["entities"].get("crop") is None
     classifier.assert_awaited_once()
@@ -251,7 +250,7 @@ async def test_crop_required_any_when_mixed_domains_crop_required():
             config={},
         )
     # First domain wins for the returned `domain`, but crop requirement comes from ANY selected domain.
-    assert domain == "Weather"
+    assert domain == "Climate, Weather & Stress Management"
     assert crop_required is True
     assert out["entities"].get("crop") is None
 
@@ -267,7 +266,7 @@ async def test_tool_flags_or_union_across_domains():
         crop_prefilled=None,
         config={},
     )
-    assert domain == "Weather"
+    assert domain == "Climate, Weather & Stress Management"
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
     assert out["weather"] is True
@@ -313,8 +312,8 @@ async def test_non_specific_crop_clarification_resolves_to_all():
 async def test_conditional_domain_classifier_can_mark_crop_not_required():
     plan = planner_output_to_plan(
         PlannerOutput(
-            domains=["Market Prices"],
-            rephrased_query="What are the general market policies?",
+            domains=["Farm Tools & Mechanisation"],
+            rephrased_query="What is the subsidy on a rotavator?",
         )
     )
     with patch(
@@ -324,7 +323,7 @@ async def test_conditional_domain_classifier_can_mark_crop_not_required():
     ) as classifier:
         out, _domain, crop_required = await _apply_domain_and_crop_async(
             plan,
-            [HumanMessage(content="What are the general market policies?")],
+            [HumanMessage(content="What is the subsidy on a rotavator?")],
             crop_prefilled=None,
             config={},
         )
@@ -339,8 +338,8 @@ async def test_conditional_domain_classifier_can_mark_crop_not_required():
 async def test_conditional_classifier_is_skipped_when_crop_is_present():
     plan = planner_output_to_plan(
         PlannerOutput(
-            domains=["Market Prices"],
-            rephrased_query="What is the wheat market price today?",
+            domains=["Farm Tools & Mechanisation"],
+            rephrased_query="Which harvester suits wheat?",
             entities={"crop": "wheat"},
         )
     )
@@ -351,7 +350,7 @@ async def test_conditional_classifier_is_skipped_when_crop_is_present():
     ) as classifier:
         out, _domain, crop_required = await _apply_domain_and_crop_async(
             plan,
-            [HumanMessage(content="What is the wheat market price today?")],
+            [HumanMessage(content="Which harvester suits wheat?")],
             crop_prefilled="wheat",
             config={},
         )
@@ -366,8 +365,8 @@ async def test_conditional_classifier_is_skipped_when_crop_is_present():
 async def test_conditional_domain_classifier_can_require_missing_crop():
     plan = planner_output_to_plan(
         PlannerOutput(
-            domains=["Market Prices"],
-            rephrased_query="What is the market price today?",
+            domains=["Farm Tools & Mechanisation"],
+            rephrased_query="Which planter should I buy?",
         )
     )
     with patch(
@@ -377,7 +376,7 @@ async def test_conditional_domain_classifier_can_require_missing_crop():
     ) as classifier:
         out, _domain, crop_required = await _apply_domain_and_crop_async(
             plan,
-            [HumanMessage(content="What is the market price today?")],
+            [HumanMessage(content="Which planter should I buy?")],
             crop_prefilled=None,
             config={},
         )
@@ -516,7 +515,7 @@ async def test_weather_domain_never_requires_crop():
         crop_prefilled=None,
         config={},
     )
-    assert domain == "Weather"
+    assert domain == "Climate, Weather & Stress Management"
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
 

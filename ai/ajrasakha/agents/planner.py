@@ -477,6 +477,11 @@ async def _apply_domain_and_crop_async(
         entities["crop"] = "all"
         crop_required = False
         crop_requirement_source = resolved_turn_source
+    elif plan.get("weather") and all(d == "Climate, Weather & Stress Management" for d in domains):
+        # Weather forecasts / meteorological info never require a crop.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "never_required"
     elif crop_slot_satisfied(crop):
         # Preserve the pre-existing crop-present behavior. The new JSON/LLM
         # decision path is intentionally only for turns without a crop name.

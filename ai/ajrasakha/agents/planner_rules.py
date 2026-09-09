@@ -893,6 +893,8 @@ def _finalize_location_and_crop_completeness(
         out["is_complete"] = False
         out["missing_info"] = ["crop"]
         out["follow_up_question"] = get_crop_follow_up(script, vocal)
+        entities.pop("crop", None)
+        out["entities"] = entities
     else:
         out["is_complete"] = True
         out["missing_info"] = []
@@ -954,6 +956,8 @@ def apply_planner_completeness_rules(
 
     if is_schemes_intent(latest) and any(
         normalize_domain(d) in {
+            "Agricultural Schemes & Subsidies",
+            "Credit, Loan & Insurance",
             "Government Schemes",
             "Financial & Institutional Services",
             "Crop Insurance",

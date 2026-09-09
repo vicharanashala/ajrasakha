@@ -13,13 +13,18 @@ from ajrasakha.agents.domains import (
 
 
 def test_normalize_domain_exact():
-    assert normalize_domain("Plant Protection") == "Plant Protection"
-    assert normalize_domain("  Weather  ") == "Weather"
+    assert normalize_domain("Insect - Pest Management") == "Insect - Pest Management"
+    assert normalize_domain("  Climate, Weather & Stress Management  ") == "Climate, Weather & Stress Management"
 
 
 def test_normalize_domain_alias():
-    assert normalize_domain("Crop Protection") == "Plant Protection"
-    assert normalize_domain("soil health") == "Soil Health Card"
+    assert normalize_domain("Plant Protection") == "Insect - Pest Management"
+    assert normalize_domain("Crop Protection") == "Insect - Pest Management"
+    assert normalize_domain("soil health") == "Soil Health and Nutrient Management"
+    assert normalize_domain("Weather") == "Climate, Weather & Stress Management"
+    assert normalize_domain("Market Prices") == "Market Prices, MSP & Marketing"
+    assert normalize_domain("SHNM") == "Soil Health and Nutrient Management"
+    assert normalize_domain("cwsm") == "Climate, Weather & Stress Management"
 
 
 def test_normalize_domain_invalid_fallback():
@@ -28,44 +33,45 @@ def test_normalize_domain_invalid_fallback():
 
 
 def test_apply_tool_flags_weather():
-    flags = apply_tool_flags_from_domain("Weather")
+    flags = apply_tool_flags_from_domain("Climate, Weather & Stress Management")
     assert flags["weather"] is True
     assert flags["knowledge_base"] is False
 
 
 def test_apply_tool_flags_plant_protection():
-    flags = apply_tool_flags_from_domain("Plant Protection")
+    flags = apply_tool_flags_from_domain("Insect - Pest Management")
     assert flags["knowledge_base"] is True
     assert flags["weather"] is False
 
 
 def test_apply_tool_flags_schemes():
-    flags = apply_tool_flags_from_domain("Financial & Institutional Services")
+    flags = apply_tool_flags_from_domain("Credit, Loan & Insurance")
     assert flags["schemes"] is True
     assert flags["knowledge_base"] is False
 
 
 def test_conditional_crop_policy_does_not_change_legacy_tool_routing():
-    flags = apply_tool_flags_from_domain("Infrastructure & Utilities")
+    flags = apply_tool_flags_from_domain("Rural Infrastructure")
     assert flags["knowledge_base"] is False
 
 
 def test_domain_requires_crop_buckets():
-    assert domain_requires_crop("Plant Protection") is True
-    assert domain_requires_crop("Market Prices") is True
-    assert domain_requires_crop("Government Schemes") is False
+    assert domain_requires_crop("Insect - Pest Management") is True
+    assert domain_requires_crop("Market Prices, MSP & Marketing") is True
+    assert domain_requires_crop("Rural Infrastructure") is False
     assert domain_requires_crop("General") is False
 
 
 def test_json_backed_crop_policy_modes():
-    assert domain_crop_requirement_mode("Cultural Practices") == "always_required"
-    assert domain_crop_requirement_mode("Weather") == "never_required"
-    assert domain_crop_requirement_mode("Market Prices") == "conditional"
+    assert domain_crop_requirement_mode("Cultural and Crop Management Practices") == "always_required"
+    assert domain_crop_requirement_mode("Rural Infrastructure") == "never_required"
+    assert domain_crop_requirement_mode("Climate, Weather & Stress Management") == "conditional"
+    assert domain_crop_requirement_mode("Market Prices, MSP & Marketing") == "always_required"
 
-    policy = get_domain_crop_policy("Market Prices")
+    policy = get_domain_crop_policy("Soil Health and Nutrient Management")
     assert policy["default_crop_required"] is True
     assert policy["remarks"] == "Usually"
-    assert "prices" in policy["description"].lower()
+    assert "fertility" in policy["description"].lower()
 
 
 def test_crop_counts_as_resolved():
@@ -75,8 +81,8 @@ def test_crop_counts_as_resolved():
 
 
 def test_reviewer_upload_domain_maps_routing_only():
-    assert reviewer_upload_domain("Weather") == "Weather"
-    assert reviewer_upload_domain("Market Prices") == "Market Information"
-    assert reviewer_upload_domain("Plant Protection") == "Plant Protection"
+    assert reviewer_upload_domain("Climate, Weather & Stress Management") == "Climate, Weather & Stress Management"
+    assert reviewer_upload_domain("Weather") == "Climate, Weather & Stress Management"
+    assert reviewer_upload_domain("Insect - Pest Management") == "Insect - Pest Management"
     assert reviewer_upload_domain("bogus") == "General"
-    assert reviewer_upload_domain("Plant Protection") in ALLOWED_DOMAINS
+    assert reviewer_upload_domain("Insect - Pest Management") in ALLOWED_DOMAINS

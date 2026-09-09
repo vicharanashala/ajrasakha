@@ -26,6 +26,23 @@ class DomainCropPolicy(TypedDict, total=False):
 
 # Fallback values keep older deployments working if the JSON asset is missing.
 _LEGACY_CROP_REQUIRED_DOMAINS: frozenset[str] = frozenset({
+    "Soil Health and Nutrient Management",
+    "Irrigation and Water Management",
+    "Insect - Pest Management",
+    "Disease Management",
+    "Seed and Variety Selection",
+    "Cultural and Crop Management Practices",
+    "Organic and Natural Farming",
+    "Weed Management",
+    "Climate, Weather & Stress Management",
+    "Farm Tools & Mechanisation",
+    "Post-Harvest Management & Storage",
+    "Market Prices, MSP & Marketing",
+    "Agricultural Schemes & Subsidies",
+    "Credit, Loan & Insurance",
+    "Capacity Building, Extension and Communication",
+    "Allied Agricultural Activities",
+    # Legacy names for backward compatibility
     "Agriculture Mechanization",
     "Bio-Pesticides and Bio-Fertilizers",
     "Crop Insurance",
@@ -48,6 +65,11 @@ _LEGACY_CROP_REQUIRED_DOMAINS: frozenset[str] = frozenset({
 })
 
 _LEGACY_CROP_ALL_DOMAINS: frozenset[str] = frozenset({
+    "Rural Infrastructure",
+    "Animal Husbandry & Livestock",
+    "Fisheries & Aquaculture",
+    "General",
+    # Legacy names for backward compatibility
     "Soil Health Card",
     "Soil Testing",
     "Livestock & Animal Husbandry",
@@ -58,7 +80,6 @@ _LEGACY_CROP_ALL_DOMAINS: frozenset[str] = frozenset({
     "Infrastructure & Utilities",
     "Government Schemes",
     "Weather",
-    "General",
 })
 
 def _legacy_domain_policies() -> dict[str, DomainCropPolicy]:
@@ -78,7 +99,7 @@ def _legacy_domain_policies() -> dict[str, DomainCropPolicy]:
     return policies
 
 
-def _load_domain_crop_policies() -> dict[str, DomainCropPolicy]:
+def _load_domain_crop_policies() -> tuple[dict[str, DomainCropPolicy], dict[str, str]]:
     path = Path(__file__).with_name("domain_crop_requirements.json")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -87,6 +108,7 @@ def _load_domain_crop_policies() -> dict[str, DomainCropPolicy]:
             raise ValueError("domains must be a list")
 
         policies: dict[str, DomainCropPolicy] = {}
+        dynamic_aliases: dict[str, str] = {}
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
@@ -107,19 +129,30 @@ def _load_domain_crop_policies() -> dict[str, DomainCropPolicy]:
                 "additional_remarks": entry.get("additional_remarks"),
             }
 
+            # Map domain code if present
+            code = str(entry.get("code") or "").strip().lower()
+            if code:
+                dynamic_aliases[code] = name
+
+            # Map fragmented domains if present
+            for frag in entry.get("mapped_fragmented_domains") or []:
+                frag_clean = str(frag).strip().lower()
+                if frag_clean:
+                    dynamic_aliases[frag_clean] = name
+
         if not policies:
             raise ValueError("no valid domain policies found")
-        return policies
+        return policies, dynamic_aliases
     except Exception as exc:
         logger.warning(
             "Could not load domain_crop_requirements.json (%s: %s); using legacy domain policy",
             type(exc).__name__,
             exc,
         )
-        return _legacy_domain_policies()
+        return _legacy_domain_policies(), {}
 
 
-DOMAIN_CROP_POLICIES: dict[str, DomainCropPolicy] = _load_domain_crop_policies()
+DOMAIN_CROP_POLICIES, _DYNAMIC_DOMAIN_ALIASES = _load_domain_crop_policies()
 
 # CROP_REQUIRED_DOMAINS remains a compatibility name for domains that may need
 # crop context. Conditional domains are intentionally included.
@@ -146,28 +179,154 @@ ALLOWED_DOMAINS_LIST: list[str] = sorted(ALLOWED_DOMAINS)
 
 # Common LLM / legacy label mistakes -> canonical ALLOWED_DOMAINS name.
 _DOMAIN_ALIASES: dict[str, str] = {
-    "crop protection": "Plant Protection",
-    "plant protection": "Plant Protection",
-    "soil health": "Soil Health Card",
-    "government scheme": "Government Schemes",
-    "government schemes": "Government Schemes",
-    "market price": "Market Prices",
-    "market prices": "Market Prices",
-    "financial and institutional services": "Financial & Institutional Services",
-    "pm-kisan": "Financial & Institutional Services",
-    "pm kisan": "Financial & Institutional Services",
-    "farm machinery and equipment": "Agriculture Mechanization",
-    "farm machinery": "Agriculture Mechanization",
+    # Legacy domain mappings to standardized 19 domains
+    "weather": "Climate, Weather & Stress Management",
+    "sowing time and weather": "Climate, Weather & Stress Management",
+    "abiotic stress management": "Climate, Weather & Stress Management",
+    "disaster management and crop recovery": "Climate, Weather & Stress Management",
+    "climate weather and stress management": "Climate, Weather & Stress Management",
+
+    "plant protection": "Insect - Pest Management",
+    "crop protection": "Insect - Pest Management",
+    "insect management": "Insect - Pest Management",
+    "insect pest management": "Insect - Pest Management",
+    "insect–pest management": "Insect - Pest Management",
+    "biological pest management": "Insect - Pest Management",
+    "pest management": "Insect - Pest Management",
+    "pest": "Insect - Pest Management",
+    "pesticides": "Insect - Pest Management",
+
+    "disease management": "Disease Management",
+    "disease": "Disease Management",
+    "disease reporting": "Disease Management",
+    "pathogenic disease management": "Disease Management",
+    "crop health and disease management": "Disease Management",
+    "fungicide": "Disease Management",
+
+    "soil health": "Soil Health and Nutrient Management",
+    "soil testing": "Soil Health and Nutrient Management",
+    "soil health card": "Soil Health and Nutrient Management",
+    "fertilizer use and availability": "Soil Health and Nutrient Management",
+    "nutrient management": "Soil Health and Nutrient Management",
+    "fertilizer": "Soil Health and Nutrient Management",
+    "fertilizers": "Soil Health and Nutrient Management",
+    "soil & nutrient management": "Soil Health and Nutrient Management",
+    "soil management": "Soil Health and Nutrient Management",
+
+    "water management": "Irrigation and Water Management",
+    "micro irrigation": "Irrigation and Water Management",
+    "irrigation": "Irrigation and Water Management",
+    "irrigation management": "Irrigation and Water Management",
+    "fertigation": "Irrigation and Water Management",
+
+    "seeds": "Seed and Variety Selection",
+    "seed": "Seed and Variety Selection",
+    "varieties": "Seed and Variety Selection",
+    "variety": "Seed and Variety Selection",
+    "varietal selection": "Seed and Variety Selection",
+    "crop varieties": "Seed and Variety Selection",
+    "seed sowing and treatment": "Seed and Variety Selection",
+
+    "cultural practices": "Cultural and Crop Management Practices",
+    "field preparation": "Cultural and Crop Management Practices",
+    "crop management": "Cultural and Crop Management Practices",
+    "agronomy": "Cultural and Crop Management Practices",
+    "nursery management": "Cultural and Crop Management Practices",
+
+    "organic farming": "Organic and Natural Farming",
+    "natural farming": "Organic and Natural Farming",
+    "bio-pesticides and bio-fertilizers": "Organic and Natural Farming",
+    "bio pesticides and bio fertilizers": "Organic and Natural Farming",
+
+    "weed management": "Weed Management",
+    "weed control": "Weed Management",
+    "weed": "Weed Management",
+    "weeds": "Weed Management",
+    "weedicide": "Weed Management",
+    "herbicide": "Weed Management",
+
+    "agriculture mechanization": "Farm Tools & Mechanisation",
+    "farm machinery": "Farm Tools & Mechanisation",
+    "farm machinery and equipment": "Farm Tools & Mechanisation",
+    "farm tools and mechanisation": "Farm Tools & Mechanisation",
+    "farm tools & mechanisation": "Farm Tools & Mechanisation",
+    "farm tools & mechanization": "Farm Tools & Mechanisation",
+    "plasticulture": "Farm Tools & Mechanisation",
+
+    "storage": "Post-Harvest Management & Storage",
+    "post harvest preservation": "Post-Harvest Management & Storage",
+    "post harvest management": "Post-Harvest Management & Storage",
+    "post-harvest management": "Post-Harvest Management & Storage",
+    "cold storage": "Post-Harvest Management & Storage",
+    "post-harvest & value addition": "Post-Harvest Management & Storage",
+
+    "market prices": "Market Prices, MSP & Marketing",
+    "market price": "Market Prices, MSP & Marketing",
+    "market information": "Market Prices, MSP & Marketing",
+    "market & schemes": "Market Prices, MSP & Marketing",
+    "mandi": "Market Prices, MSP & Marketing",
+    "msp": "Market Prices, MSP & Marketing",
+
+    "government scheme": "Agricultural Schemes & Subsidies",
+    "government schemes": "Agricultural Schemes & Subsidies",
+    "agricultural schemes and subsidies": "Agricultural Schemes & Subsidies",
+    "agricultural schemes & subsidies": "Agricultural Schemes & Subsidies",
+    "subsidies": "Agricultural Schemes & Subsidies",
+    "subsidy": "Agricultural Schemes & Subsidies",
+
+    "crop insurance": "Credit, Loan & Insurance",
+    "credit": "Credit, Loan & Insurance",
+    "loans": "Credit, Loan & Insurance",
+    "loan": "Credit, Loan & Insurance",
+    "kcc": "Credit, Loan & Insurance",
+    "insurance": "Credit, Loan & Insurance",
+    "financial and institutional services": "Credit, Loan & Insurance",
+    "financial & institutional services": "Credit, Loan & Insurance",
+    "pm-kisan": "Credit, Loan & Insurance",
+    "pm kisan": "Credit, Loan & Insurance",
+
+    "capacity building & extension": "Capacity Building, Extension and Communication",
+    "extension & capacity building": "Capacity Building, Extension and Communication",
+    "extension and capacity building": "Capacity Building, Extension and Communication",
+    "training": "Capacity Building, Extension and Communication",
+    "extension services": "Capacity Building, Extension and Communication",
+
+    "power roads etc": "Rural Infrastructure",
+    "power, roads etc.": "Rural Infrastructure",
+    "infrastructure & utilities": "Rural Infrastructure",
+    "infrastructure and utilities": "Rural Infrastructure",
+    "rural infrastructure": "Rural Infrastructure",
+
+    "livestock & animal husbandry": "Animal Husbandry & Livestock",
+    "livestock and animal husbandry": "Animal Husbandry & Livestock",
+    "animal husbandry": "Animal Husbandry & Livestock",
+    "dairy production": "Animal Husbandry & Livestock",
+    "poultry": "Animal Husbandry & Livestock",
+    "veterinary & animal health": "Animal Husbandry & Livestock",
+    "veterinary and animal health": "Animal Husbandry & Livestock",
+
+    "fisheries & aquaculture": "Fisheries & Aquaculture",
+    "fisheries and aquaculture": "Fisheries & Aquaculture",
+    "fisheries": "Fisheries & Aquaculture",
+    "aquaculture": "Fisheries & Aquaculture",
+
+    "horticulture & allied agriculture": "Allied Agricultural Activities",
+    "horticulture and allied agriculture": "Allied Agricultural Activities",
+    "beekeeping": "Allied Agricultural Activities",
+    "mushroom production": "Allied Agricultural Activities",
+    "allied agricultural activities": "Allied Agricultural Activities",
 }
+# Merge dynamic aliases extracted from JSON
+_DOMAIN_ALIASES.update(_DYNAMIC_DOMAIN_ALIASES)
 
 # Planner routing labels not in reviewer MCP allowed_domains -> upload-safe name.
 _REVIEWER_UPLOAD_MAP: dict[str, str] = {
-    "Market Prices": "Market Information",
-    "Government Schemes": "Financial & Institutional Services",
     "General": "General",
 }
 
 _SCHEME_DOMAINS: frozenset[str] = frozenset({
+    "Agricultural Schemes & Subsidies",
+    "Credit, Loan & Insurance",
     "Government Schemes",
     "Financial & Institutional Services",
     "Crop Insurance",
@@ -184,18 +343,25 @@ class PlannerToolFlags(TypedDict, total=False):
 
 
 def domain_requires_crop(domain: str) -> bool:
-    """Return whether a domain can require crop context.
-
-    This keeps the legacy meaning used by tool routing. Use
-    ``domain_crop_requirement_mode`` when the caller needs to distinguish
-    deterministic and conditional crop decisions.
-    """
-    return domain_crop_requirement_mode(domain) != "never_required"
+    """Return whether a domain requires crop context by default."""
+    d = (domain or "").strip()
+    if d.lower() == "crop insurance":
+        return True
+    policy = get_domain_crop_policy(domain)
+    mode = policy.get("mode")
+    if mode == "always_required":
+        return True
+    if mode == "never_required":
+        return False
+    return bool(policy.get("default_crop_required", False))
 
 
 def legacy_domain_requires_crop(domain: str) -> bool:
-    """Return the pre-JSON crop-required classification for compatibility paths."""
-    return normalize_domain(domain) in _LEGACY_CROP_REQUIRED_DOMAINS
+    """Return whether a domain can require crop context."""
+    d = normalize_domain(domain)
+    if d in DOMAIN_CROP_POLICIES:
+        return DOMAIN_CROP_POLICIES[d].get("mode") != "never_required"
+    return d in _LEGACY_CROP_REQUIRED_DOMAINS
 
 
 def get_domain_crop_policy(domain: str) -> DomainCropPolicy:
@@ -227,7 +393,7 @@ def normalize_domain(raw: str) -> str:
     if d in ALLOWED_DOMAINS:
         return d
     alias = _DOMAIN_ALIASES.get(d.lower())
-    if alias:
+    if alias and alias in ALLOWED_DOMAINS:
         return alias
     lowered = d.lower()
     for canonical in ALLOWED_DOMAINS_LIST:
@@ -247,19 +413,35 @@ def apply_tool_flags_from_domain(domain: str) -> PlannerToolFlags:
         "chemical_checker": False,
         "knowledge_base": False,
     }
-    if d == "Weather":
+    if d == "Climate, Weather & Stress Management":
         flags["weather"] = True
-    elif d == "Market Prices":
+    elif d == "Market Prices, MSP & Marketing":
         flags["mandi"] = True
-    elif d in {"Soil Health Card", "Soil Testing"}:
+    elif d == "Soil Health and Nutrient Management":
         flags["soil"] = True
+        flags["knowledge_base"] = True
     elif d in _SCHEME_DOMAINS:
         flags["schemes"] = True
         flags["knowledge_base"] = False
-    # Tool routing remains on the legacy knowledge-base classification. Crop
-    # requirement eligibility is broader because conditional domains may still
-    # need a crop without always using the knowledge-base tool.
-    elif d in _LEGACY_CROP_REQUIRED_DOMAINS:
+    elif d == "Rural Infrastructure":
+        flags["schemes"] = True
+    elif d == "General":
+        pass
+    elif d in {
+        "Insect - Pest Management",
+        "Disease Management",
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices",
+        "Organic and Natural Farming",
+        "Weed Management",
+        "Post-Harvest Management & Storage",
+        "Farm Tools & Mechanisation",
+        "Allied Agricultural Activities",
+        "Animal Husbandry & Livestock",
+        "Fisheries & Aquaculture",
+        "Capacity Building, Extension and Communication",
+        "Irrigation and Water Management",
+    } or d in _LEGACY_CROP_REQUIRED_DOMAINS:
         flags["knowledge_base"] = True
     return flags
 
