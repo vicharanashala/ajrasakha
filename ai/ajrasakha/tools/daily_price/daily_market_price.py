@@ -138,6 +138,66 @@ def _norm_commodity_name(
     return _norm(str(value))
 
 
+def _filter_mc_by_commodity_preference(
+    mc_docs: list[dict],
+    commodity_list: list[str],
+    resolved_aliases: dict[str, list[dict]],
+) -> list[dict]:
+    """
+    Filter markets_commodities documents to prefer exact matches on the requested
+    commodity name or the canonical commodity name, rather than including all
+    distinct variants that happen to share the same alias document.
+    Works generically for all commodities without any hardcoded crop/qualifier lists.
+    """
+    if not mc_docs or not commodity_list:
+        return mc_docs
+
+    alias_info: dict[Any, dict[str, Any]] = {}
+    for raw_name, docs in resolved_aliases.items():
+        for d in docs:
+            if d and "_id" in d:
+                aid = d["_id"]
+                info = alias_info.setdefault(aid, {"targets": set(), "canonical": None})
+                norm_raw = _norm(raw_name)
+                if norm_raw:
+                    info["targets"].add(norm_raw)
+                norm_canon = _norm(d.get("canonical_name"))
+                if norm_canon:
+                    info["canonical"] = norm_canon
+
+    grouped: dict[Any, list[dict]] = {}
+    for d in mc_docs:
+        grouped.setdefault(d.get("commodity_alias_lookup_id"), []).append(d)
+
+    kept: list[dict] = []
+    for aid, docs in grouped.items():
+        info = alias_info.get(aid)
+        if not info:
+            kept.extend(docs)
+            continue
+
+        targets = info["targets"]
+        canonical = info["canonical"]
+
+        # 1. Exact match with user's requested commodity name(s)
+        exact = [d for d in docs if _norm(d.get("commodity_name")) in targets]
+        if exact:
+            kept.extend(exact)
+            continue
+
+        # 2. Match with canonical name from resolved alias
+        if canonical:
+            canonical_match = [d for d in docs if _norm(d.get("commodity_name")) == canonical]
+            if canonical_match:
+                kept.extend(canonical_match)
+                continue
+
+        # 3. Fallback: keep all
+        kept.extend(docs)
+
+    return kept
+
+
 # --------------------------------------------------------------------------
 # SINGLE EXPOSED TOOL — 8 ACTIONS
 # --------------------------------------------------------------------------
@@ -783,6 +843,7 @@ def mandi_price_tool(
                 }
                 logger.info("Named-mandi markets_commodities filter: %s", mc_filter_named)
                 mc_docs_list = list(mc_coll.find(mc_filter_named).max_time_ms(MONGO_MAX_TIME_MS))
+                mc_docs_list = _filter_mc_by_commodity_preference(mc_docs_list, commodity_list, resolved)
                 if not mc_docs_list:
                     return _named_market_unavailable(
                         market_not_found=False,
@@ -797,6 +858,7 @@ def mandi_price_tool(
             }
             logger.info("Narrowing markets_commodities by state+crop: %s", mc_filter)
             mc_docs_list = list(mc_coll.find(mc_filter).max_time_ms(MONGO_MAX_TIME_MS))
+            mc_docs_list = _filter_mc_by_commodity_preference(mc_docs_list, commodity_list, resolved)
             logger.info("Found %d markets_commodities for state+crop.", len(mc_docs_list))
             if not mc_docs_list:
                 return {
@@ -868,6 +930,7 @@ def mandi_price_tool(
                 "market_id": f"$in[{len(market_ids_arg)}]" if market_ids_arg else None,
             })
             mc_docs = list(mc_coll.find(mc_filter_local).max_time_ms(MONGO_MAX_TIME_MS))
+            mc_docs = _filter_mc_by_commodity_preference(mc_docs, commodity_list, resolved)
             logger.info("Found %d markets_commodities documents.", len(mc_docs))
             if not mc_docs:
                 return {
