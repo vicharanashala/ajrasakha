@@ -25,11 +25,13 @@ const SidebarButton = ({
   icon: Icon,
   onClick,
   isActive = false,
+  isNew = false,
 }: {
   label: string;
   icon: any;
   onClick: () => void;
   isActive?: boolean;
+  isNew?: boolean;
 }) => {
   return (
     <button
@@ -52,6 +54,11 @@ const SidebarButton = ({
           isActive ? "" : "text-muted-foreground group-hover:text-foreground"
         }`}
       />
+      {isNew && (
+        <span className="inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500">
+          new
+        </span>
+      )}
       <span className="font-medium">{label}</span>
     </button>
   );
@@ -220,6 +227,7 @@ export const MobileSidebar = ({
               icon={item.icon}
               onClick={() => handleClick(item.id)}
               isActive={item.id === activeTab}
+              isNew={item.id === "closed_answers"}
             />
           ))}
         </nav>
