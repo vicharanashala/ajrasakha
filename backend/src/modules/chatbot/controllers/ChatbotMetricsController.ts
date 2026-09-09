@@ -822,4 +822,16 @@ async getUserQuestionsData(
     return this.chatbotService.listUsersFromDataset(page, pageSize);
   }
 
+  @OpenAPI({
+    summary: 'Logout a user from the chatbot system',
+    description: 'Logs out a user by deleting their active session. Requires the userId of the user to be logged out.',
+  })
+  @Post('/logout-user')
+  @HttpCode(200)
+  @Authorized()
+  async logoutUser(
+    @QueryParam('userId') userId: string
+  ) {
+    return this.chatbotService.logoutUser(userId);
+  }
 }

@@ -558,6 +558,14 @@ export class ChatbotRepository implements IChatbotRepository {
     };
   }
 
+  private async logoutUserFromSession(userId: string, session?: ClientSession): Promise<boolean> {
+    const logoutUser = this.sessionCollection.deleteOne({user: new ObjectId(userId)}, {session});
+    if((await logoutUser).deletedCount === 0){
+      throw new NotFoundError(`No active session found for user with ID: ${userId}`);
+    }
+    return true;
+  }
+
   private async attachActiveSessionCounts(
     users: UserDetailEntry[],
     session?: ClientSession,
@@ -22708,5 +22716,18 @@ async getAllUserMessageIds(
       averageAuditingMinutes,
       averageReroutedCompletionMinutes,
     };
+  }
+
+  async logoutUser(userId: string, session?: ClientSession): Promise<{value: boolean, message: string}> {
+    try {
+      const result = await this.logoutUserFromSession(userId, session);
+      if (result) {
+        return { value: true, message: "User logged out successfully." };
+      } else {
+        return { value: false, message: "Failed to log out user." };
+      }
+    } catch (err) {
+      return { value: false, message: "An error occurred while logging out the user." };
+    }
   }
 }
