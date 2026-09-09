@@ -20,6 +20,14 @@ export class NewSourceService implements INewSourceService {
   async startNewSource(input: StartNewSourceInput): Promise<INewSource> {
     const existing = await this.newSourceRepo.findByAnswerId(input.answerId);
     if (existing) {
+      // A merged record is done for good - not something to reopen for editing, by its
+      // original reviewer or anyone else.
+      if (existing.status === 'merged') {
+        throw new ForbiddenError(
+          "This answer's sources have been merged and can no longer be edited.",
+        );
+      }
+
       // Whoever put this source 'in-progress' owns finishing it - a different expert
       // can't jump in and edit it until it's released back to 'pending' (or completed).
       const ownedByAnotherExpert =
@@ -54,6 +62,16 @@ export class NewSourceService implements INewSourceService {
   }
 
   async completeNewSource(input: CompleteNewSourceInput): Promise<INewSource> {
+    const existing = await this.newSourceRepo.findById(input.id);
+    if (!existing) {
+      throw new NotFoundError(`new_sources record not found with id ${input.id}`);
+    }
+    if (existing.status === 'merged') {
+      throw new ForbiddenError(
+        "This answer's sources have been merged and can no longer be edited.",
+      );
+    }
+
     const updated = await this.newSourceRepo.updateById(input.id, {
       sources: input.sources,
       status: 'completed',

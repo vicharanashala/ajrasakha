@@ -108,6 +108,20 @@ export class NewSourceRepository implements INewSourceRepository {
     return {...result, _id: result._id?.toString()} as INewSource;
   }
 
+  async findById(id: string): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing new_sources id');
+    }
+
+    const result = await this.NewSourceCollection.findOne({_id: new ObjectId(id)});
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
   async releaseToPending(id: string): Promise<INewSource | null> {
     await this.init();
 

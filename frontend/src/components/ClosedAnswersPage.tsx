@@ -407,6 +407,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   // other expert gets a read-only view until it's released back to 'pending'/completed.
   const isLockedByOther =
     answer.newSourceStatus === "in-progress" && !answer.isOwnInProgress;
+  // A 'merged' record is done for good - an admin/moderator override, not something an
+  // expert re-opens by editing sources again.
+  const isMerged = answer.newSourceStatus === "merged";
   // Every existing source's in-progress edits, so picking a different source to edit
   // (e.g. to set its own organization) never drops another source's changes.
   const [drafts, setDrafts] = useState<SourceDraft[]>(() => sources.map(toSourceDraft));
@@ -489,7 +492,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   // source on a different answer - if so, they must confirm switching (which releases
   // that other source back to 'pending') before this one can start.
   const ensureSession = () => {
-    if (sessionStartedRef.current || isLockedByOther) return;
+    if (sessionStartedRef.current || isLockedByOther || isMerged) return;
     sessionStartedRef.current = true;
     findActiveElsewhere(answer._id, {
       onSuccess: (record) => {
@@ -624,14 +627,16 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           editStartedAtRef.current = null;
           setConfirmedIndices(new Set());
         },
-        onError: () => {
-          toast.error("Failed to save source details.");
+        onError: (err) => {
+          toast.error(
+            err instanceof Error ? err.message : "Failed to save source details.",
+          );
         },
       },
     );
   };
 
-  if (isLockedByOther) {
+  if (isLockedByOther || isMerged) {
     return (
       <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
         <header className="flex items-center gap-2">
@@ -643,8 +648,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           </p>
         </header>
         <p className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
-          Another expert is currently reviewing this answer's sources. It'll be
-          editable again once they save or it's released back to Pending.
+          {isMerged
+            ? "This answer's sources have been merged and can no longer be edited."
+            : "Another expert is currently reviewing this answer's sources. It'll be editable again once they save or it's released back to Pending."}
         </p>
         {sources.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">

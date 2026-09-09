@@ -22,6 +22,10 @@ export interface INewSourceRepository {
    *  used so starting an edit never creates a duplicate document for the same answer. */
   findByAnswerId(answerId: string): Promise<INewSource | null>;
 
+  /** Finds a `new_sources` record by its own id — used to check its current status
+   *  (e.g. rejecting a save once it's 'merged') before applying an update to it. */
+  findById(id: string): Promise<INewSource | null>;
+
   /** Sends an 'in-progress' record back to 'pending' (and stamps closedAt) so another
    *  expert can pick it up, when the same expert starts reviewing a different answer. */
   releaseToPending(id: string): Promise<INewSource | null>;
