@@ -10,12 +10,12 @@ export class PopRepository implements IPopRepository {
   private PopCollection: Collection<IPop>;
 
   constructor(
-    @inject(GLOBAL_TYPES.Database)
+    @inject(GLOBAL_TYPES.popDatabase)
     private db: MongoDatabase,
   ) {}
 
   private async init() {
-    this.PopCollection = await this.db.getCollection<IPop>('pop');
+    this.PopCollection = await this.db.getCollection<IPop>('pop_unique_documents');
   }
 
   async findByShareableLink(shareableLink: string): Promise<IPop | null> {
