@@ -329,11 +329,11 @@ export interface INewSourceItem {
   sourceIndex: number;
 }
 
-/** Lifecycle of a `new_sources` record: 'inProgress' from the moment the Edit Source
+/** Lifecycle of a `new_sources` record: 'in-progress' from the moment the Edit Source
  *  modal is opened (timer running), 'completed' once the user saves (timer stopped,
- *  timeTaken recorded). 'pending' is not produced by the Edit Source flow itself — it's
- *  reserved for a future review workflow. */
-export type NewSourceStatus = 'pending' | 'inProgress' | 'completed';
+ *  timeTaken recorded). 'pending', 'flagged', and 'merged' are not produced by the Edit
+ *  Source flow itself — they're reserved for a review workflow. */
+export type NewSourceStatus = 'pending' | 'completed' | 'in-progress' | 'flagged' | 'merged';
 
 /** Where a saved source's link was found in the `pop` collection, checked automatically
  *  against the pop collection when the edit is saved. */

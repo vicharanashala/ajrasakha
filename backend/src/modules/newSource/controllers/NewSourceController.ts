@@ -8,7 +8,7 @@ import {INewSourceService} from '../interfaces/INewSourceService.js';
 
 // Records source edits made on the Closed Answers page's Edit Source modal into the
 // new_sources collection. This deliberately never touches the answers collection.
-// Two-phase: 'start' creates the record ('inProgress') the instant the modal opens so
+// Two-phase: 'start' creates the record ('in-progress') the instant the modal opens so
 // the editing timer is backed by a real document; 'complete' updates it on save.
 @OpenAPI({
   tags: ['NewSource'],

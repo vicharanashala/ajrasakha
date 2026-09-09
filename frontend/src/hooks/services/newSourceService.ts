@@ -20,7 +20,12 @@ export interface NewSourceItem {
   sourceIndex: number;
 }
 
-export type NewSourceStatus = "pending" | "inProgress" | "completed";
+export type NewSourceStatus =
+  | "pending"
+  | "completed"
+  | "in-progress"
+  | "flagged"
+  | "merged";
 
 export interface StartNewSourcePayload {
   answerId: string;
@@ -53,7 +58,7 @@ export interface NewSourceRecord {
 export class NewSourceService {
   private _baseUrl = `${API_BASE_URL}/new-sources`;
 
-  /** Called when the Edit Source modal opens — creates the record as 'inProgress'. */
+  /** Called when the Edit Source modal opens — creates the record as 'in-progress'. */
   async start(payload: StartNewSourcePayload): Promise<NewSourceRecord | null> {
     return apiFetch<NewSourceRecord>(this._baseUrl, {
       method: "POST",

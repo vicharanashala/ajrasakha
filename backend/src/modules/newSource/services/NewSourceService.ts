@@ -21,7 +21,7 @@ export class NewSourceService implements INewSourceService {
       answerId: input.answerId,
       questionId: input.questionId,
       sources: [],
-      status: 'inProgress',
+      status: 'in-progress',
       timeTaken: null,
       reviewArray: [
         {
