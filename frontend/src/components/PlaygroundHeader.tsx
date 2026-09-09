@@ -91,8 +91,11 @@ export function PlaygroundHeader({
             {user && user.role !== "call_agent" && (
               <TabsTrigger
                 value="closed_answers"
-                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className="relative px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
+                <span className="absolute -top-1.5 -left-1.5 z-10 inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500">
+                  new
+                </span>
                 <span>Answer Sources</span>
               </TabsTrigger>
             )}

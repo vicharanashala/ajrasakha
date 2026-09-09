@@ -426,7 +426,6 @@ export interface ClosedAnswerFilters {
   maxSources?: number;
   /** Review states to keep; "none" means answers nobody has started. */
   newSourceStatuses: (
-    | "none"
     | "pending"
     | "in-progress"
     | "completed"

@@ -27,10 +27,10 @@ import {
   UserCheck,
   Minus,
   Flag,
-  GitMerge,
   Undo2,
   ChevronDown,
   History,
+  CheckCheck,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -993,7 +993,7 @@ const NEW_SOURCE_STATUS_LABELS: Record<string, string> = {
   "in-progress": "In Progress",
   completed: "Completed",
   flagged: "Flagged",
-  merged: "Merged",
+  merged: "Approved",
 };
 
 const NEW_SOURCE_STATUS_BADGE_CLASSES: Record<string, string> = {
@@ -1209,16 +1209,7 @@ const StatusChangesList = ({
   const entries = [...statusChanges].reverse();
 
   return (
-    <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
-      <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <History className="h-3.5 w-3.5" />
-        </span>
-        <p className="text-sm font-semibold text-foreground">
-          Status history ({entries.length})
-        </p>
-      </div>
-
+    <CollapsibleBlock icon={History} title="Status history" count={entries.length}>
       <ol className="ml-1 flex flex-col gap-3 border-l border-border/60 pl-4">
         {entries.map((entry, index) => (
           <li key={`${entry.changedAt}-${index}`} className="relative">
@@ -1248,7 +1239,7 @@ const StatusChangesList = ({
           </li>
         ))}
       </ol>
-    </div>
+    </CollapsibleBlock>
   );
 };
 
@@ -1262,6 +1253,7 @@ const STATUS_OVERRIDE_ACTIONS: {
   title: string;
   description: string;
   confirmLabel: string;
+  successMessage: string;
   variant: "secondary" | "destructive" | "default";
 }[] = [
   {
@@ -1272,6 +1264,7 @@ const STATUS_OVERRIDE_ACTIONS: {
     description:
       "The record returns to the queue so an expert can pick it up and redo the sources.",
     confirmLabel: "Move to pending",
+    successMessage: "Review moved back to pending.",
     variant: "secondary",
   },
   {
@@ -1282,16 +1275,18 @@ const STATUS_OVERRIDE_ACTIONS: {
     description:
       "Marks the review as needing attention. It stays visible but is set apart from completed work.",
     confirmLabel: "Flag review",
+    successMessage: "Review flagged.",
     variant: "destructive",
   },
   {
     value: "merged",
-    label: "Merge",
-    icon: GitMerge,
-    title: "Mark this review as merged",
+    label: "Approve",
+    icon: CheckCheck,
+    title: "Approve this review",
     description:
-      "Records that the reviewer's sources have been folded into the answer's own sources.",
-    confirmLabel: "Mark as merged",
+      "Accepts the reviewer's sources as the correct set for this answer and closes the review.",
+    confirmLabel: "Approve review",
+    successMessage: "Review approved.",
     variant: "default",
   },
 ];
@@ -1299,9 +1294,15 @@ const STATUS_OVERRIDE_ACTIONS: {
 const StatusOverrideControl = ({
   answer,
   newSourceRecord,
+  actions = ["pending", "merged", "flagged"],
+  inline = false,
 }: {
   answer: ClosedAnswer;
   newSourceRecord: NewSourceRecord;
+  /** Which overrides to offer here - Flag lives in the section header on its own. */
+  actions?: ("pending" | "merged" | "flagged")[];
+  /** Renders just the buttons, without the bordered "Change status" row. */
+  inline?: boolean;
 }) => {
   const queryClient = useQueryClient();
   const [activeAction, setActiveAction] = useState<
@@ -1326,7 +1327,7 @@ const StatusOverrideControl = ({
       { id: newSourceRecord._id, status: activeAction.value, reason: reason.trim() },
       {
         onSuccess: () => {
-          toast.success(`Status changed to ${activeAction.value}.`);
+          toast.success(activeAction.successMessage);
           setReason("");
           setActiveAction(null);
           queryClient.invalidateQueries({
@@ -1340,11 +1341,21 @@ const StatusOverrideControl = ({
     );
   };
 
+  const visibleActions = STATUS_OVERRIDE_ACTIONS.filter((action) =>
+    actions.includes(action.value),
+  );
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-      <p className={SECTION_LABEL_CLASSES}>Change status</p>
+    <div
+      className={cn(
+        inline
+          ? "flex items-center gap-2"
+          : "flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3",
+      )}
+    >
+      {!inline && <p className={SECTION_LABEL_CLASSES}>Change status</p>}
       <div className="flex flex-wrap gap-2">
-        {STATUS_OVERRIDE_ACTIONS.map((action) => {
+        {visibleActions.map((action) => {
           const Icon = action.icon;
           const isCurrent = newSourceRecord.status === action.value;
 
@@ -1353,8 +1364,14 @@ const StatusOverrideControl = ({
               key={action.value}
               type="button"
               size="sm"
-              variant={action.variant}
-              className="cursor-pointer gap-1.5"
+              // Inline sits beside the status badge in the section header, so it stays
+              // light - a full solid button would outweigh everything around it.
+              variant={inline ? "ghost" : action.variant}
+              className={cn(
+                "cursor-pointer gap-1.5",
+                inline &&
+                  "h-7 px-2 text-xs text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400",
+              )}
               disabled={isCurrent || isPending}
               title={isCurrent ? `Already ${action.value}` : action.title}
               onClick={() => openAction(action)}
@@ -1452,17 +1469,63 @@ const REVIEWER_CARD_STYLES = {
   },
 } as const;
 
-const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
-  <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
-    <div className="flex items-center gap-2">
-      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Users className="h-3.5 w-3.5" />
-      </span>
-      <p className="text-sm font-semibold text-foreground">
-        Reviewers ({reviewArray.length})
-      </p>
-    </div>
+const CollapsibleBlock = ({
+  icon: Icon,
+  title,
+  count,
+  defaultOpen = false,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  count: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
+  return (
+    <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-expanded={isOpen}
+        className="flex cursor-pointer items-center gap-2 text-left"
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <p className="text-sm font-semibold text-foreground">
+          {title} ({count})
+        </p>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform",
+            isOpen ? "rotate-180" : "rotate-0",
+          )}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key={`${title}-body`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
+  <CollapsibleBlock icon={Users} title="Reviewers" count={reviewArray.length}>
     {reviewArray.length > 0 ? (
       <div className="flex flex-wrap items-start gap-4">
         {reviewArray.map((entry, index) => {
@@ -1517,7 +1580,7 @@ const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewAr
         No one has reviewed these sources yet.
       </p>
     )}
-  </div>
+  </CollapsibleBlock>
 );
 
 // Compares the answer's sources as they stand in the answers collection (Before, red)
@@ -1543,16 +1606,26 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
           </span>
           <p className="text-sm font-semibold text-foreground">Source changes</p>
         </div>
-        {recordStatus && (
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
-              NEW_SOURCE_STATUS_BADGE_CLASSES[recordStatus] ?? "bg-muted text-muted-foreground",
-            )}
-          >
-            {NEW_SOURCE_STATUS_LABELS[recordStatus] ?? recordStatus}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {recordStatus && (
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
+                NEW_SOURCE_STATUS_BADGE_CLASSES[recordStatus] ?? "bg-muted text-muted-foreground",
+              )}
+            >
+              {NEW_SOURCE_STATUS_LABELS[recordStatus] ?? recordStatus}
+            </span>
+          )}
+          {newSourceRecord && (
+            <StatusOverrideControl
+              answer={answer}
+              newSourceRecord={newSourceRecord}
+              actions={["flagged"]}
+              inline
+            />
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -1620,7 +1693,11 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
       )}
 
       {newSourceRecord && (
-        <StatusOverrideControl answer={answer} newSourceRecord={newSourceRecord} />
+        <StatusOverrideControl
+          answer={answer}
+          newSourceRecord={newSourceRecord}
+          actions={["pending", "merged"]}
+        />
       )}
     </div>
   );
