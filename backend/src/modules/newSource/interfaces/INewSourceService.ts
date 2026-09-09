@@ -2,9 +2,9 @@ import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
 
 export interface ChangeNewSourceStatusInput {
   id: string;
-  /** Admins/moderators may only send a record to one of these two statuses this way -
+  /** Admins/moderators may only send a record to one of these statuses this way -
    *  'in-progress'/'completed' are set by the edit flow itself, not this override. */
-  status: 'pending' | 'merged';
+  status: 'pending' | 'merged' | 'flagged';
   /** Mandatory - why the status is being overridden. Stored on the record itself. */
   reason: string;
   changedBy: string;
@@ -59,8 +59,8 @@ export interface INewSourceService {
    *  moderator "before/after" comparison view, not part of the start/edit flow. */
   getByAnswerId(answerId: string): Promise<INewSource | null>;
 
-  /** Admin/moderator override to 'pending' or 'merged', with a mandatory reason logged
-   *  to the record's statusChanges. Caller (the controller) has already checked the
-   *  user's role - this only validates the reason and the target status. */
+  /** Admin/moderator override to 'pending', 'merged' or 'flagged', with a mandatory
+   *  reason logged to the record's statusChanges. Caller (the controller) has already
+   *  checked the user's role - this only validates the reason and the target status. */
   changeStatus(input: ChangeNewSourceStatusInput): Promise<INewSource>;
 }

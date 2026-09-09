@@ -11,7 +11,7 @@ export const useChangeNewSourceStatus = () => {
       reason,
     }: {
       id: string;
-      status: "pending" | "merged";
+      status: "pending" | "merged" | "flagged";
       reason: string;
     }) => newSourceService.changeStatus(id, { status, reason }),
   });

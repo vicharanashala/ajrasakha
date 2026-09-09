@@ -1027,14 +1027,15 @@ const SourceChangeItem = ({
   </div>
 );
 
-const STATUS_OVERRIDE_OPTIONS: { value: "pending" | "merged"; label: string }[] = [
+const STATUS_OVERRIDE_OPTIONS: { value: "pending" | "merged" | "flagged"; label: string }[] = [
   { value: "pending", label: "Pending" },
   { value: "merged", label: "Merged" },
+  { value: "flagged", label: "Flagged" },
 ];
 
 // Admin/moderator-only: lets them send a new_sources record back to 'pending' or forward
-// to 'merged', with a mandatory reason logged to the record's statusChanges. Only
-// rendered once a record exists for this answer - there's nothing to override otherwise.
+// to 'merged'/'flagged', with a mandatory reason logged to the record's statusChanges.
+// Only rendered once a record exists for this answer - there's nothing to override otherwise.
 const StatusOverrideControl = ({
   answer,
   newSourceRecord,
@@ -1043,7 +1044,7 @@ const StatusOverrideControl = ({
   newSourceRecord: NewSourceRecord;
 }) => {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<"pending" | "merged">("pending");
+  const [status, setStatus] = useState<"pending" | "merged" | "flagged">("pending");
   const [reason, setReason] = useState("");
   const { mutate: changeStatus, isPending } = useChangeNewSourceStatus();
 
@@ -1074,7 +1075,10 @@ const StatusOverrideControl = ({
     <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5">
       <p className={SECTION_LABEL_CLASSES}>Change Status</p>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-        <Select value={status} onValueChange={value => setStatus(value as "pending" | "merged")}>
+        <Select
+          value={status}
+          onValueChange={value => setStatus(value as "pending" | "merged" | "flagged")}
+        >
           <SelectTrigger className="h-9 w-full sm:w-32">
             <SelectValue />
           </SelectTrigger>

@@ -92,12 +92,12 @@ export class NewSourceController {
     return await this.newSourceService.getByAnswerId(answerId);
   }
 
-  @OpenAPI({summary: "Admin/moderator override of a record's status to 'pending' or 'merged', with a mandatory reason"})
+  @OpenAPI({summary: "Admin/moderator override of a record's status to 'pending', 'merged' or 'flagged', with a mandatory reason"})
   @Patch('/:id/status')
   @Authorized()
   async changeStatus(
     @Param('id') id: string,
-    @Body() body: {status: 'pending' | 'merged'; reason: string},
+    @Body() body: {status: 'pending' | 'merged' | 'flagged'; reason: string},
     @CurrentUser() user: IUser,
   ): Promise<INewSource> {
     if (user.role !== 'admin' && user.role !== 'moderator') {

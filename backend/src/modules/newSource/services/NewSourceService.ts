@@ -114,8 +114,8 @@ export class NewSourceService implements INewSourceService {
   }
 
   async changeStatus(input: ChangeNewSourceStatusInput): Promise<INewSource> {
-    if (input.status !== 'pending' && input.status !== 'merged') {
-      throw new BadRequestError("Status must be 'pending' or 'merged' for this action");
+    if (input.status !== 'pending' && input.status !== 'merged' && input.status !== 'flagged') {
+      throw new BadRequestError("Status must be 'pending', 'merged' or 'flagged' for this action");
     }
     if (!input.reason?.trim()) {
       throw new BadRequestError('A reason is required to change this status');

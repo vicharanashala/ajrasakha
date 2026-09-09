@@ -115,11 +115,11 @@ export class NewSourceService {
     return apiFetch<NewSourceRecord | null>(`${this._baseUrl}/by-answer/${answerId}`);
   }
 
-  /** Admin/moderator override of a record's status to 'pending' or 'merged', with a
-   *  mandatory reason stored on the record's statusChanges. */
+  /** Admin/moderator override of a record's status to 'pending', 'merged' or 'flagged',
+   *  with a mandatory reason stored on the record's statusChanges. */
   async changeStatus(
     id: string,
-    payload: { status: "pending" | "merged"; reason: string },
+    payload: { status: "pending" | "merged" | "flagged"; reason: string },
   ): Promise<NewSourceRecord | null> {
     return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/status`, {
       method: "PATCH",
