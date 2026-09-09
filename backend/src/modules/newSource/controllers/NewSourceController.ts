@@ -18,12 +18,12 @@ import {INewSource, INewSourceItem, IUser} from '#root/shared/interfaces/models.
 import {INewSourceService} from '../interfaces/INewSourceService.js';
 
 // Records source edits made on the Closed Answers page's Edit Source modal into the
-// updated_sources collection. This deliberately never touches the answers collection.
+// new_sources collection. This deliberately never touches the answers collection.
 // Two-phase: 'start' creates the record ('in-progress') the instant the modal opens so
 // the editing timer is backed by a real document; 'complete' updates it on save.
 @OpenAPI({
   tags: ['NewSource'],
-  description: 'Records an edited set of sources for an answer into the updated_sources collection',
+  description: 'Records an edited set of sources for an answer into the new_sources collection',
 })
 @injectable()
 @JsonController('/new-sources')
@@ -33,7 +33,7 @@ export class NewSourceController {
     private readonly newSourceService: INewSourceService,
   ) {}
 
-  @OpenAPI({summary: 'Start an updated_sources record when the Edit Source modal opens'})
+  @OpenAPI({summary: 'Start a new_sources record when the Edit Source modal opens'})
   @Post('/')
   @Authorized()
   async start(
@@ -48,7 +48,7 @@ export class NewSourceController {
     });
   }
 
-  @OpenAPI({summary: 'Complete an updated_sources record when the edit is saved'})
+  @OpenAPI({summary: 'Complete a new_sources record when the edit is saved'})
   @Patch('/:id')
   @Authorized()
   async complete(
@@ -73,7 +73,7 @@ export class NewSourceController {
     return await this.newSourceService.closeNewSource(id, user._id?.toString() ?? '');
   }
 
-  @OpenAPI({summary: "Find the current user's other in-progress updated_sources record, if any"})
+  @OpenAPI({summary: "Find the current user's other in-progress new_sources record, if any"})
   @Get('/active')
   @Authorized()
   async findActive(
@@ -93,7 +93,7 @@ export class NewSourceController {
     return await this.newSourceService.releaseToPending(id);
   }
 
-  @OpenAPI({summary: "Read-only lookup of an answer's updated_sources record, for the moderator before/after view"})
+  @OpenAPI({summary: "Read-only lookup of an answer's new_sources record, for the moderator before/after view"})
   @Get('/by-answer/:answerId')
   @Authorized()
   async getByAnswerId(@Param('answerId') answerId: string): Promise<INewSource | null> {

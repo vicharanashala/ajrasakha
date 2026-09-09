@@ -113,7 +113,7 @@ export class NewSourceService {
     });
   }
 
-  /** Read-only lookup of an answer's updated_sources record, for the moderator
+  /** Read-only lookup of an answer's new_sources record, for the moderator
    *  before/after comparison view. Null when no one has reviewed this answer yet. */
   async getByAnswerId(answerId: string): Promise<NewSourceRecord | null> {
     return apiFetch<NewSourceRecord | null>(`${this._baseUrl}/by-answer/${answerId}`);

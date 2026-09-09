@@ -350,7 +350,7 @@ export interface INewSourceItem {
   sourceIndex: number;
 }
 
-/** Lifecycle of an `updated_sources` record: 'in-progress' from the moment the Edit Source
+/** Lifecycle of a `new_sources` record: 'in-progress' from the moment the Edit Source
  *  modal is opened (timer running), 'completed' once the user saves (timer stopped,
  *  timeTaken recorded). 'pending', 'flagged', and 'merged' are not produced by the Edit
  *  Source flow itself — they're reserved for a review workflow. */
@@ -360,7 +360,7 @@ export type NewSourceStatus = 'pending' | 'completed' | 'in-progress' | 'flagged
  *  checked automatically against it when the edit is saved. */
 export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
 
-/** One user opening the Edit Source modal for an `updated_sources` record. Logged the instant
+/** One user opening the Edit Source modal for a `new_sources` record. Logged the instant
  *  the record is created ('inProgress') — a permanent audit entry, not removed if the
  *  user goes on to complete the edit. Cross-check against the record's own `status` to
  *  see whether this user's edit is still incomplete. closedAt is set separately, whenever
@@ -381,7 +381,7 @@ export interface INewSourceReviewEntry {
   timeTaken: number | null;
 }
 
-/** One admin/moderator override of an `updated_sources` record's status (e.g. sending it
+/** One admin/moderator override of a `new_sources` record's status (e.g. sending it
  *  back to 'pending' or marking it 'merged') - a permanent audit entry, appended to on
  *  every such change rather than overwritten, with the mandatory reason they gave. */
 export interface INewSourceStatusChange {
@@ -392,7 +392,7 @@ export interface INewSourceStatusChange {
   changedAt: Date;
 }
 
-/** A document written to the `updated_sources` collection whenever a user edits a Closed
+/** A document written to the `new_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
  *  `answers` collection — edits are logged here instead. Created (status:
  *  'inProgress') when the modal opens, then updated (status: 'completed', timeTaken)
