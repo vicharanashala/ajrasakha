@@ -481,7 +481,7 @@ export interface ClosedAnswersResponse {
   totalAnswers: number;
 }
 
-export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
+export type SourceType = "hyper_local" | "state" | "central" | "district" | "MODERATOR_REVIEW" | "other";
 
 export interface SourceItem {
   sourceType?: SourceType;

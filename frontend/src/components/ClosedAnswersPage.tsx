@@ -36,13 +36,6 @@ import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { Button } from "@/components/atoms/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/atoms/select";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -95,8 +88,8 @@ import { ConfirmationModal } from "./confirmation-modal";
 import type {
   ClosedAnswer,
   ClosedAnswerFilters as ClosedAnswerFiltersState,
+  Organization,
   SourceItem,
-  SourceType,
 } from "@/types";
 import type {
   NewSourceItem,
@@ -104,13 +97,6 @@ import type {
   NewSourceStatusChange,
   PopMatchStatus,
 } from "@/hooks/services/newSourceService";
-
-const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
-  { value: "hyper_local", label: "Hyper Local" },
-  { value: "state", label: "State" },
-  { value: "central", label: "Central" },
-  { value: "other", label: "Other" },
-];
 
 const EMPTY_SOURCE_FORM: SourceItem = {
   source: "",
@@ -125,6 +111,7 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   hyper_local: "Hyper Local",
   state: "State",
   central: "Central",
+  district: "District",
   MODERATOR_REVIEW: "Moderator Review",
   other: "Other",
 };
@@ -204,7 +191,9 @@ const OrganizationCombobox = ({
 }: {
   id?: string;
   value: string;
-  onChange: (value: string) => void;
+  // Passes the whole organization, not just its name - the caller also derives Source
+  // type from org.type (see AnswerSourcesEditor), which the trigger label doesn't need.
+  onChange: (org: Organization) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -255,7 +244,7 @@ const OrganizationCombobox = ({
                       key={org._id ?? org.org_name}
                       value={org.org_name}
                       onSelect={() => {
-                        onChange(org.org_name);
+                        onChange(org);
                         setOpen(false);
                       }}
                     >
@@ -348,14 +337,22 @@ const SourceRow = ({
   );
 };
 
+// What a lookup hands back to the caller - besides the match id/status, num_pages and
+// shareable_name from pop_unique_documents autofill this source's page/sourceName, which
+// are no longer user-editable (see AnswerSourcesEditor).
+type SourceReferenceLookupResult = {
+  sourceReference: string | undefined;
+  matchStatus: PopMatchStatus;
+  sourceName: string;
+  page: number | string;
+};
+
 const SourceReferenceLookup = ({
   source,
   onFound,
 }: {
   source: string;
-  // id is undefined when the lookup came back not found - matchStatus is still
-  // reported as "notFound" so the caller can record that outcome per source.
-  onFound?: (id: string | undefined, matchStatus: PopMatchStatus) => void;
+  onFound?: (result: SourceReferenceLookupResult) => void;
 }) => {
   const { mutate, data, isPending } = useLookupPopSource();
 
@@ -367,9 +364,19 @@ const SourceReferenceLookup = ({
     mutate(source, {
       onSuccess: (result) => {
         if (result?.found && result._id) {
-          onFound?.(result._id, result.matchStatus ?? "topLevelMatch");
+          onFound?.({
+            sourceReference: result._id,
+            matchStatus: result.matchStatus ?? "topLevelMatch",
+            sourceName: result.shareable_name ?? "",
+            page: result.num_pages ?? "",
+          });
         } else {
-          onFound?.(undefined, "notFound");
+          onFound?.({
+            sourceReference: undefined,
+            matchStatus: "notFound",
+            sourceName: "",
+            page: "",
+          });
         }
       },
     });
@@ -776,60 +783,18 @@ const AnswerSourcesEditor = ({
           <SourceReferenceLookup
             key={editingIndex ?? "new"}
             source={form.source}
-            onFound={(id, matchStatus) => {
-              updateActive({ sourceReference: id, sourceReferenceStatus: matchStatus });
+            onFound={(result) => {
+              updateActive({
+                sourceReference: result.sourceReference,
+                sourceReferenceStatus: result.matchStatus,
+                sourceName: result.sourceName,
+                page: result.page,
+              });
             }}
           />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor={`${fieldId}-type`} className="text-xs">
-              Source type <span className="text-destructive">*</span>
-            </Label>
-            <Select
-              value={form.sourceType ?? ""}
-              onValueChange={(val) => updateField("sourceType", val)}
-            >
-              <SelectTrigger id={`${fieldId}-type`} className="w-full cursor-pointer bg-background">
-                <SelectValue placeholder="Select source type" />
-              </SelectTrigger>
-              <SelectContent>
-                {EDIT_SOURCE_TYPE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor={`${fieldId}-page`} className="text-xs">
-              Page
-            </Label>
-            <Input
-              id={`${fieldId}-page`}
-              className="bg-background"
-              value={form.page ?? ""}
-              onChange={(e) => updateField("page", e.target.value)}
-              placeholder="e.g. 1 or 1,2,3"
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor={`${fieldId}-name`} className="text-xs">
-              Source name
-            </Label>
-            <Input
-              id={`${fieldId}-name`}
-              className="bg-background"
-              value={form.sourceName ?? ""}
-              onChange={(e) => updateField("sourceName", e.target.value)}
-              placeholder="Name shown to reviewers"
-            />
-          </div>
-
           <div className="grid gap-1.5">
             <Label htmlFor={`${fieldId}-org`} className="text-xs">
               Organization
@@ -837,14 +802,46 @@ const AnswerSourcesEditor = ({
             <OrganizationCombobox
               id={`${fieldId}-org`}
               value={form.organization ?? ""}
-              onChange={(val) => updateField("organization", val)}
+              onChange={(org) =>
+                updateActive({ organization: org.org_name, sourceType: org.type })
+              }
             />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label className="text-xs">
+              Source type <span className="text-destructive">*</span>
+            </Label>
+            <p className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90">
+              {form.sourceType
+                ? SOURCE_TYPE_LABELS[form.sourceType] ?? form.sourceType
+                : "Select an organization"}
+            </p>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Page</Label>
+            <p className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90">
+              {form.page || "—"}
+            </p>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Source name</Label>
+            <p
+              className="flex h-9 items-center truncate rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90"
+              title={form.sourceName || undefined}
+            >
+              {form.sourceName || "Fetch source reference to populate"}
+            </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
           <p className="text-xs text-muted-foreground">
-            Source and source type are required, and the source reference must be fetched.
+            Source is required. Selecting an organization sets source type; fetching the
+            source reference sets page and source name - none of these are editable
+            directly.
           </p>
           <div className="flex gap-2">
             <Button

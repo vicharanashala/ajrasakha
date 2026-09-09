@@ -266,7 +266,7 @@ export interface IQuestion {
   autoAllocateFeedback?: boolean;
 }
 
-export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
+export type SourceType = 'hyper_local' | 'state' | 'central' | 'district' | 'other';
 
 export interface SourceItem {
   sourceType?: SourceType;
@@ -323,6 +323,9 @@ export interface IPop {
   _id?: string | ObjectId;
   shareable_name: string;
   shareable_link: string;
+  /** Page count of the source document - autofills a source's `page` field when the
+   *  Fetch Source Reference lookup finds a match (Closed Answers Edit Source modal). */
+  num_pages?: number;
   duplicate_links?: IPopDuplicateLink[];
 }
 
