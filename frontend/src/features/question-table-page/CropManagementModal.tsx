@@ -846,6 +846,7 @@ export const CropManagementModal = ({
   const orgDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isOrgImportOpen, setIsOrgImportOpen] = useState(false);
+  const [isKvkImportOpen, setIsKvkImportOpen] = useState(false);
   const { data: orgData, isLoading: isOrgLoading } = useGetOrganizations(orgSearchQuery, orgPage, orgLimit);
   const { mutateAsync: createOrg } = useCreateOrganization();
   const { mutateAsync: updateOrg } = useUpdateOrganization();
@@ -1824,6 +1825,15 @@ export const CropManagementModal = ({
                       <Upload className="h-3.5 w-3.5" />
                       Import
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsKvkImportOpen(true)}
+                      className="h-8 text-xs shrink-0"
+                    >
+                      <Building2 className="h-3.5 w-3.5" />
+                      Fetch KVKs
+                    </Button>
                   </div>
                   <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 font-semibold text-xs text-gray-500">
                     <div>Organization Name</div>
@@ -2239,6 +2249,12 @@ export const CropManagementModal = ({
       <OrganizationBulkUploadModal
         open={isOrgImportOpen}
         onClose={() => setIsOrgImportOpen(false)}
+      />
+
+      <OrganizationBulkUploadModal
+        open={isKvkImportOpen}
+        onClose={() => setIsKvkImportOpen(false)}
+        source="kvk"
       />
 
       <BulkResultsModal
