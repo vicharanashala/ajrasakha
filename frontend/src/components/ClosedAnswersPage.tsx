@@ -29,6 +29,7 @@ import {
   Flag,
   GitMerge,
   Undo2,
+  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -417,9 +418,17 @@ const toSourceDraft = (source: SourceItem): SourceDraft => ({
 const EMPTY_SOURCE_DRAFT: SourceDraft = { ...EMPTY_SOURCE_FORM, sourceReferenceStatus: null };
 
 // The working area of the page: pick a source (or add one) and edit it in place.
-const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
+const AnswerSourcesEditor = ({
+  answer,
+  startCollapsed = false,
+}: {
+  answer: ClosedAnswer;
+  /** Moderators/admins land on the review, so the edit panel starts folded for them. */
+  startCollapsed?: boolean;
+}) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
+  const [isOpen, setIsOpen] = useState(!startCollapsed);
   // Whoever put this answer's sources 'in-progress' owns finishing the review - any
   // other expert gets a read-only view until it's released back to 'pending'/completed.
   const isLockedByOther =
@@ -683,26 +692,50 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          className="flex cursor-pointer items-center gap-2 text-left"
+        >
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
             <LinkIcon className="h-3.5 w-3.5" />
           </span>
           <p className="text-sm font-semibold text-foreground">
             Sources ({sources.length})
           </p>
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              isOpen ? "rotate-180" : "rotate-0",
+            )}
+          />
+        </button>
         <Button
           type="button"
           variant="secondary"
           size="sm"
           className="cursor-pointer"
-          onClick={startBlankSource}
+          onClick={() => {
+            setIsOpen(true);
+            startBlankSource();
+          }}
         >
           <Plus className="h-3.5 w-3.5" />
           Add source
         </Button>
       </header>
 
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="sources-editor-body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="flex flex-col gap-3 overflow-hidden"
+          >
       {drafts.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
           {drafts.map((source, index) => (
@@ -840,6 +873,10 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           </div>
         </div>
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       <ConfirmationModal
         open={pendingSwitch !== null}
@@ -1572,7 +1609,7 @@ const AnswerDetail = ({
 
     {(isModerator || isAdmin) && <SourceChangesSection answer={answer} />}
 
-    <AnswerSourcesEditor answer={answer} />
+    <AnswerSourcesEditor answer={answer} startCollapsed={isModerator || isAdmin} />
 
     <AnswerBody answer={answer} />
 
