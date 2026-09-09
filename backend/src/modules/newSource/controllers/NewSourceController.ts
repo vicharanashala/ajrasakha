@@ -9,6 +9,7 @@ import {
   QueryParams,
   Authorized,
   CurrentUser,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -53,15 +54,23 @@ export class NewSourceController {
   async complete(
     @Param('id') id: string,
     @Body() body: {sources: INewSourceItem[]; timeTaken: number},
+    @CurrentUser() user: IUser,
   ): Promise<INewSource> {
-    return await this.newSourceService.completeNewSource({id, ...body});
+    return await this.newSourceService.completeNewSource({
+      id,
+      ...body,
+      userId: user._id?.toString() ?? '',
+    });
   }
 
   @OpenAPI({summary: 'Record when the Edit Source modal closed, completed or not'})
   @Patch('/:id/close')
   @Authorized()
-  async close(@Param('id') id: string): Promise<INewSource> {
-    return await this.newSourceService.closeNewSource(id);
+  async close(
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource> {
+    return await this.newSourceService.closeNewSource(id, user._id?.toString() ?? '');
   }
 
   @OpenAPI({summary: "Find the current user's other in-progress new_sources record, if any"})
@@ -82,5 +91,33 @@ export class NewSourceController {
   @Authorized()
   async release(@Param('id') id: string): Promise<INewSource> {
     return await this.newSourceService.releaseToPending(id);
+  }
+
+  @OpenAPI({summary: "Read-only lookup of an answer's new_sources record, for the moderator before/after view"})
+  @Get('/by-answer/:answerId')
+  @Authorized()
+  async getByAnswerId(@Param('answerId') answerId: string): Promise<INewSource | null> {
+    return await this.newSourceService.getByAnswerId(answerId);
+  }
+
+  @OpenAPI({summary: "Admin/moderator override of a record's status to 'pending', 'merged' or 'flagged', with a mandatory reason"})
+  @Patch('/:id/status')
+  @Authorized()
+  async changeStatus(
+    @Param('id') id: string,
+    @Body() body: {status: 'pending' | 'merged' | 'flagged'; reason: string},
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource> {
+    if (user.role !== 'admin' && user.role !== 'moderator') {
+      throw new ForbiddenError('Only admins and moderators can change this status');
+    }
+
+    const changedByName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
+    return await this.newSourceService.changeStatus({
+      id,
+      ...body,
+      changedBy: user._id?.toString() ?? '',
+      changedByName,
+    });
   }
 }

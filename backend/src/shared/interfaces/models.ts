@@ -363,13 +363,29 @@ export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
  *  the modal closes (Cancel, Escape, outside click, or after a successful save) — null
  *  means the modal is still open (or was never explicitly closed, e.g. a page refresh).
  *  isSaved flips to true only once the user's edit is actually completed (saved) — false
- *  plus a set closedAt means they closed the modal without saving. */
+ *  plus a set closedAt means they closed the modal without saving. A record can carry more
+ *  than one entry when different experts pick it up over time (e.g. after a release back
+ *  to 'pending') — each keeps its own timeTaken so moderators/admins can see how long
+ *  every reviewer spent, not just the most recent one. timeTaken is in seconds, set once
+ *  that entry's edit is saved; null until then. */
 export interface INewSourceReviewEntry {
   userId: string;
   name: string;
   startedAt: Date;
   closedAt: Date | null;
   isSaved: boolean;
+  timeTaken: number | null;
+}
+
+/** One admin/moderator override of a `new_sources` record's status (e.g. sending it
+ *  back to 'pending' or marking it 'merged') - a permanent audit entry, appended to on
+ *  every such change rather than overwritten, with the mandatory reason they gave. */
+export interface INewSourceStatusChange {
+  status: NewSourceStatus;
+  reason: string;
+  changedBy: string;
+  changedByName: string;
+  changedAt: Date;
 }
 
 /** A document written to the `new_sources` collection whenever a user edits a Closed
@@ -387,6 +403,9 @@ export interface INewSource {
   status: NewSourceStatus;
   timeTaken: number | null;
   reviewArray: INewSourceReviewEntry[];
+  /** Admin/moderator status overrides (to 'pending' or 'merged'), each with the
+   *  mandatory reason given - see INewSourceStatusChange. Absent until the first one. */
+  statusChanges?: INewSourceStatusChange[];
   createdAt?: Date;
   updatedAt?: Date;
 }

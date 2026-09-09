@@ -43,6 +43,18 @@ export interface NewSourceReviewEntry {
   startedAt: string;
   closedAt: string | null;
   isSaved: boolean;
+  // Seconds spent on this reviewer's own edit, set once they save. A record can carry
+  // more than one entry (different experts pick it up over time, e.g. after a release
+  // back to 'pending'), each with its own timeTaken.
+  timeTaken: number | null;
+}
+
+export interface NewSourceStatusChange {
+  status: NewSourceStatus;
+  reason: string;
+  changedBy: string;
+  changedByName: string;
+  changedAt: string;
 }
 
 export interface NewSourceRecord {
@@ -53,6 +65,7 @@ export interface NewSourceRecord {
   status: NewSourceStatus;
   timeTaken: number | null;
   reviewArray: NewSourceReviewEntry[];
+  statusChanges?: NewSourceStatusChange[];
 }
 
 export class NewSourceService {
@@ -97,6 +110,24 @@ export class NewSourceService {
   async release(id: string): Promise<NewSourceRecord | null> {
     return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/release`, {
       method: "PATCH",
+    });
+  }
+
+  /** Read-only lookup of an answer's new_sources record, for the moderator
+   *  before/after comparison view. Null when no one has reviewed this answer yet. */
+  async getByAnswerId(answerId: string): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord | null>(`${this._baseUrl}/by-answer/${answerId}`);
+  }
+
+  /** Admin/moderator override of a record's status to 'pending', 'merged' or 'flagged',
+   *  with a mandatory reason stored on the record's statusChanges. */
+  async changeStatus(
+    id: string,
+    payload: { status: "pending" | "merged" | "flagged"; reason: string },
+  ): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
     });
   }
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -66,6 +67,8 @@ import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource
 import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
 import { useActiveNewSource } from "@/hooks/api/newSource/useActiveNewSource";
 import { useReleaseNewSource } from "@/hooks/api/newSource/useReleaseNewSource";
+import { useGetNewSourceByAnswerId } from "@/hooks/api/newSource/useGetNewSourceByAnswerId";
+import { useChangeNewSourceStatus } from "@/hooks/api/newSource/useChangeNewSourceStatus";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
@@ -404,6 +407,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   // other expert gets a read-only view until it's released back to 'pending'/completed.
   const isLockedByOther =
     answer.newSourceStatus === "in-progress" && !answer.isOwnInProgress;
+  // A 'merged' record is done for good - an admin/moderator override, not something an
+  // expert re-opens by editing sources again.
+  const isMerged = answer.newSourceStatus === "merged";
   // Every existing source's in-progress edits, so picking a different source to edit
   // (e.g. to set its own organization) never drops another source's changes.
   const [drafts, setDrafts] = useState<SourceDraft[]>(() => sources.map(toSourceDraft));
@@ -486,7 +492,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   // source on a different answer - if so, they must confirm switching (which releases
   // that other source back to 'pending') before this one can start.
   const ensureSession = () => {
-    if (sessionStartedRef.current || isLockedByOther) return;
+    if (sessionStartedRef.current || isLockedByOther || isMerged) return;
     sessionStartedRef.current = true;
     findActiveElsewhere(answer._id, {
       onSuccess: (record) => {
@@ -621,14 +627,16 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           editStartedAtRef.current = null;
           setConfirmedIndices(new Set());
         },
-        onError: () => {
-          toast.error("Failed to save source details.");
+        onError: (err) => {
+          toast.error(
+            err instanceof Error ? err.message : "Failed to save source details.",
+          );
         },
       },
     );
   };
 
-  if (isLockedByOther) {
+  if (isLockedByOther || isMerged) {
     return (
       <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
         <header className="flex items-center gap-2">
@@ -640,8 +648,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           </p>
         </header>
         <p className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
-          Another expert is currently reviewing this answer's sources. It'll be
-          editable again once they save or it's released back to Pending.
+          {isMerged
+            ? "This answer's sources have been merged and can no longer be edited."
+            : "Another expert is currently reviewing this answer's sources. It'll be editable again once they save or it's released back to Pending."}
         </p>
         {sources.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
@@ -1001,7 +1010,202 @@ const AnswerListItem = ({
   );
 };
 
-const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
+// A single read-only source line shared by the Before/After lists below - Before shows
+// the answer's own SourceItem entries, After the new_sources record's NewSourceItem
+// entries; the fields the two have in common are all this needs to display.
+const SourceChangeItem = ({
+  source,
+}: {
+  source: Pick<SourceItem, "source" | "sourceType" | "organization">;
+}) => (
+  <div className="rounded-lg border border-border bg-card px-3 py-2">
+    <p className="truncate text-sm text-foreground">{source.source || "—"}</p>
+    <p className="text-xs text-muted-foreground">
+      {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "No type"}
+      {source.organization ? ` · ${source.organization}` : ""}
+    </p>
+  </div>
+);
+
+const STATUS_OVERRIDE_OPTIONS: { value: "pending" | "merged" | "flagged"; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "merged", label: "Merged" },
+  { value: "flagged", label: "Flagged" },
+];
+
+// Admin/moderator-only: lets them send a new_sources record back to 'pending' or forward
+// to 'merged'/'flagged', with a mandatory reason logged to the record's statusChanges.
+// Only rendered once a record exists for this answer - there's nothing to override otherwise.
+const StatusOverrideControl = ({
+  answer,
+  newSourceRecord,
+}: {
+  answer: ClosedAnswer;
+  newSourceRecord: NewSourceRecord;
+}) => {
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<"pending" | "merged" | "flagged">("pending");
+  const [reason, setReason] = useState("");
+  const { mutate: changeStatus, isPending } = useChangeNewSourceStatus();
+
+  const handleApply = () => {
+    if (!reason.trim()) {
+      toast.error("A reason is required to change this status.");
+      return;
+    }
+
+    changeStatus(
+      { id: newSourceRecord._id, status, reason: reason.trim() },
+      {
+        onSuccess: () => {
+          toast.success(`Status changed to ${status}.`);
+          setReason("");
+          queryClient.invalidateQueries({
+            queryKey: ["new-source-by-answer", answer._id],
+          });
+        },
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to change status.");
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5">
+      <p className={SECTION_LABEL_CLASSES}>Change Status</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        <Select
+          value={status}
+          onValueChange={value => setStatus(value as "pending" | "merged" | "flagged")}
+        >
+          <SelectTrigger className="h-9 w-full sm:w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OVERRIDE_OPTIONS.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          value={reason}
+          onChange={event => setReason(event.target.value)}
+          placeholder="Reason (required)"
+          className="h-9 flex-1"
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-9"
+          onClick={handleApply}
+          disabled={isPending}
+        >
+          {isPending ? "Applying…" : "Apply"}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Formats a duration stored in seconds (NewSourceReviewEntry.timeTaken) as "1h 4m",
+// "12m 5s", or "38s" - null/undefined (not yet saved) renders as an em dash.
+const formatTimeTaken = (seconds?: number | null) => {
+  if (seconds === null || seconds === undefined) return "—";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${secs}s`;
+  return `${secs}s`;
+};
+
+// Moderator/admin-only: every expert who has reviewed this answer's sources (a record
+// can carry more than one entry - e.g. after being released back to 'pending' and picked
+// up by someone else), each with how long that particular reviewer spent.
+const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
+  <div className="flex flex-col gap-1.5 border-t border-border/60 pt-2.5">
+    <p className={SECTION_LABEL_CLASSES}>Reviewers ({reviewArray.length})</p>
+    {reviewArray.length > 0 ? (
+      <div className="flex flex-col gap-1">
+        {reviewArray.map((entry, index) => (
+          <div
+            key={`${entry.userId}-${index}`}
+            className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs"
+          >
+            <span className="truncate text-foreground">{entry.name || "—"}</span>
+            <span className="shrink-0 text-muted-foreground">
+              {entry.isSaved ? formatTimeTaken(entry.timeTaken) : "In progress"}
+            </span>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p className="text-xs text-muted-foreground">No reviewers yet.</p>
+    )}
+  </div>
+);
+
+// Compares the answer's sources as they stand in the answers collection (Before) against
+// what the assigned expert has recorded in new_sources (After), so a moderator/admin can
+// see what changed without opening the edit panel below it. Admins/moderators also get
+// the list of reviewers (with time taken) and a status-override control here, once a
+// new_sources record exists to show/act on.
+const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
+  const { data: newSourceRecord, isLoading } = useGetNewSourceByAnswerId(answer._id, {
+    enabled: true,
+  });
+  const beforeSources = answer.sources ?? [];
+  const afterSources = newSourceRecord?.sources ?? [];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-3.5">
+      <p className="text-sm font-semibold text-foreground">Source Changes</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <p className={SECTION_LABEL_CLASSES}>Before ({beforeSources.length})</p>
+          {beforeSources.length > 0 ? (
+            beforeSources.map((source, index) => (
+              <SourceChangeItem key={index} source={source} />
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground">No sources.</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <p className={SECTION_LABEL_CLASSES}>After ({afterSources.length})</p>
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : afterSources.length > 0 ? (
+            afterSources.map((source, index) => (
+              <SourceChangeItem key={index} source={source} />
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground">No review yet.</p>
+          )}
+        </div>
+      </div>
+
+      {newSourceRecord && <ReviewersList reviewArray={newSourceRecord.reviewArray} />}
+
+      {newSourceRecord && (
+        <StatusOverrideControl answer={answer} newSourceRecord={newSourceRecord} />
+      )}
+    </div>
+  );
+};
+
+const AnswerDetail = ({
+  answer,
+  isModerator,
+  isAdmin,
+}: {
+  answer: ClosedAnswer;
+  isModerator: boolean;
+  isAdmin: boolean;
+}) => (
   <div className="flex flex-col gap-4 p-4 sm:p-5">
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-3">
@@ -1029,6 +1233,8 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
         value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
       />
     </div>
+
+    {(isModerator || isAdmin) && <SourceChangesSection answer={answer} />}
 
     <AnswerSourcesEditor answer={answer} />
 
@@ -1084,10 +1290,9 @@ export const ClosedAnswersPage = () => {
   const [shuffleSeed, setShuffleSeed] = useState(createShuffleSeed);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
-  // Only experts see the new_sources status badge in the list - the whole point is
-  // showing them where each answer stands (Pending/In Progress/etc) before they open it.
   const { data: currentUser } = useGetCurrentUser({});
-  const isExpert = currentUser?.role === "expert";
+  const isModerator = currentUser?.role === "moderator";
+  const isAdmin = currentUser?.role === "admin";
 
   const {
     data,
@@ -1286,7 +1491,7 @@ export const ClosedAnswersPage = () => {
                     key={answer._id}
                     answer={answer}
                     isActive={selectedAnswer?._id === answer._id}
-                    showNewSourceStatus={isExpert}
+                    showNewSourceStatus
                     onSelect={() => setSelectedAnswerId(answer._id)}
                   />
                 ))}
@@ -1316,7 +1521,11 @@ export const ClosedAnswersPage = () => {
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.15, ease: "easeOut" }}
                     >
-                      <AnswerDetail answer={selectedAnswer} />
+                      <AnswerDetail
+                        answer={selectedAnswer}
+                        isModerator={isModerator}
+                        isAdmin={isAdmin}
+                      />
                     </motion.div>
                   ) : (
                     <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
