@@ -398,6 +398,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(
     sources.length > 0 ? 0 : null,
   );
+  // Indices of existing sources the expert has stepped through with "Next". Save only
+  // becomes available once every existing source has been confirmed this way.
+  const [confirmedIndices, setConfirmedIndices] = useState<Set<number>>(new Set());
   const [newEntry, setNewEntry] = useState<SourceDraft>(EMPTY_SOURCE_DRAFT);
   const [newSourceId, setNewSourceId] = useState<string | null>(null);
   const editStartedAtRef = useRef<number | null>(null);
@@ -411,6 +414,14 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const isEditing = editingIndex !== null;
   const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : newEntry;
   const isValid = form.source.trim().length > 0 && Boolean(form.sourceType);
+  // With more than one existing source, step through them with "Next" - Save only
+  // shows up once confirming the one currently open would leave none unconfirmed, so
+  // the last remaining source goes straight to "Save" instead of needing an extra
+  // "Next" click first.
+  const remainingAfterCurrent = new Set(confirmedIndices);
+  if (editingIndex !== null) remainingAfterCurrent.add(editingIndex);
+  const showNext =
+    isEditing && sources.length > 1 && remainingAfterCurrent.size < sources.length;
 
   useEffect(() => {
     newSourceIdRef.current = newSourceId;
@@ -479,6 +490,29 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
     }
   };
 
+  // Confirms the source currently being edited and advances to the next one that
+  // hasn't been confirmed yet, wrapping around. Once every source is confirmed this
+  // way, the button below switches from "Next" to "Save".
+  const handleNext = () => {
+    if (!isValid) {
+      toast.error("Enter a source and select a source type first.");
+      return;
+    }
+    if (editingIndex === null) return;
+
+    const updatedConfirmed = new Set(confirmedIndices);
+    updatedConfirmed.add(editingIndex);
+    setConfirmedIndices(updatedConfirmed);
+
+    if (updatedConfirmed.size < sources.length) {
+      let nextIndex = (editingIndex + 1) % sources.length;
+      while (updatedConfirmed.has(nextIndex)) {
+        nextIndex = (nextIndex + 1) % sources.length;
+      }
+      selectSource(nextIndex);
+    }
+  };
+
   const handleSave = () => {
     if (!isValid) {
       toast.error("Enter a source and select a source type first.");
@@ -517,6 +551,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
           setNewSourceId(null);
           sessionStartedRef.current = false;
           editStartedAtRef.current = null;
+          setConfirmedIndices(new Set());
         },
         onError: () => {
           toast.error("Failed to save source details.");
@@ -672,9 +707,15 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
               size="sm"
               className="cursor-pointer"
               disabled={!isValid || isSaving || isStarting}
-              onClick={handleSave}
+              onClick={showNext ? handleNext : handleSave}
             >
-              {isSaving ? "Saving..." : isEditing ? "Save changes" : "Add source"}
+              {isSaving
+                ? "Saving..."
+                : showNext
+                  ? "Next"
+                  : isEditing
+                    ? "Save changes"
+                    : "Add source"}
             </Button>
           </div>
         </div>
