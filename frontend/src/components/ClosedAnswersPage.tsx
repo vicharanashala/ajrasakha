@@ -1212,16 +1212,7 @@ const StatusChangesList = ({
   const entries = [...statusChanges].reverse();
 
   return (
-    <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
-      <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <History className="h-3.5 w-3.5" />
-        </span>
-        <p className="text-sm font-semibold text-foreground">
-          Status history ({entries.length})
-        </p>
-      </div>
-
+    <CollapsibleBlock icon={History} title="Status history" count={entries.length}>
       <ol className="ml-1 flex flex-col gap-3 border-l border-border/60 pl-4">
         {entries.map((entry, index) => (
           <li key={`${entry.changedAt}-${index}`} className="relative">
@@ -1251,7 +1242,7 @@ const StatusChangesList = ({
           </li>
         ))}
       </ol>
-    </div>
+    </CollapsibleBlock>
   );
 };
 
@@ -1455,17 +1446,63 @@ const REVIEWER_CARD_STYLES = {
   },
 } as const;
 
-const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
-  <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
-    <div className="flex items-center gap-2">
-      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Users className="h-3.5 w-3.5" />
-      </span>
-      <p className="text-sm font-semibold text-foreground">
-        Reviewers ({reviewArray.length})
-      </p>
-    </div>
+const CollapsibleBlock = ({
+  icon: Icon,
+  title,
+  count,
+  defaultOpen = false,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  count: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
+  return (
+    <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-expanded={isOpen}
+        className="flex cursor-pointer items-center gap-2 text-left"
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <p className="text-sm font-semibold text-foreground">
+          {title} ({count})
+        </p>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform",
+            isOpen ? "rotate-180" : "rotate-0",
+          )}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key={`${title}-body`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
+  <CollapsibleBlock icon={Users} title="Reviewers" count={reviewArray.length}>
     {reviewArray.length > 0 ? (
       <div className="flex flex-wrap items-start gap-4">
         {reviewArray.map((entry, index) => {
@@ -1520,7 +1557,7 @@ const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewAr
         No one has reviewed these sources yet.
       </p>
     )}
-  </div>
+  </CollapsibleBlock>
 );
 
 // Compares the answer's sources as they stand in the answers collection (Before, red)
