@@ -14,7 +14,8 @@ export interface PopLookupResult {
 }
 
 export interface IPopService {
-  /** Looks up a source against the pop collection (top-level shareable_link, falling
-   *  back to duplicate_links) and reports which one matched via matchStatus. */
+  /** Looks up a source against the pop_unique_documents collection (top-level
+   *  shareable_link, falling back to duplicate_links) and reports which one matched via
+   *  matchStatus. */
   lookupBySource(source: string): Promise<PopLookupResult>;
 }
