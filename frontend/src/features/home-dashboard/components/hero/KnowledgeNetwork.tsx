@@ -16,8 +16,10 @@ interface KnowledgeNetworkProps {
   progress: number;
   /** Refs to each of the four badge elements (university, expert, scientist, government) */
   badgeRefs: RefObject<HTMLDivElement | null>[];
-  /** Ref to the Ramesh Kumar farmer badge element (convergence destination) */
+  /** Ref to the Ramesh Kumar farmer badge element (convergence destination on PC) */
   phoneRef: RefObject<HTMLDivElement | null>;
+  /** Ref to the smartphone inside farmer cutout (fallback destination on mobile) */
+  phoneFallbackRef?: RefObject<HTMLDivElement | null>;
   /** The container element that this SVG is sized to match */
   containerRef: RefObject<HTMLDivElement | null>;
 }
@@ -101,6 +103,7 @@ const KnowledgeNetwork: React.FC<KnowledgeNetworkProps> = ({
   progress,
   badgeRefs,
   phoneRef,
+  phoneFallbackRef,
   containerRef,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -130,7 +133,16 @@ const KnowledgeNetwork: React.FC<KnowledgeNetworkProps> = ({
       };
     });
 
-    const targetEl = phoneRef.current;
+    let targetEl = phoneRef.current;
+    if (targetEl) {
+      const r = targetEl.getBoundingClientRect();
+      if ((r.width === 0 || r.height === 0 || targetEl.offsetParent === null) && phoneFallbackRef?.current) {
+        targetEl = phoneFallbackRef.current;
+      }
+    } else if (phoneFallbackRef?.current) {
+      targetEl = phoneFallbackRef.current;
+    }
+
     const phone = targetEl
       ? (() => {
           const r = targetEl.getBoundingClientRect();
@@ -147,7 +159,7 @@ const KnowledgeNetwork: React.FC<KnowledgeNetworkProps> = ({
       svgW: cRect.width,
       svgH: cRect.height,
     });
-  }, [badgeRefs, phoneRef, containerRef]);
+  }, [badgeRefs, phoneRef, phoneFallbackRef, containerRef]);
 
   useEffect(() => {
     measure();
@@ -156,13 +168,14 @@ const KnowledgeNetwork: React.FC<KnowledgeNetworkProps> = ({
     if (containerRef.current) ro.observe(containerRef.current);
     badgeRefs.forEach((r) => { if (r.current) ro.observe(r.current); });
     if (phoneRef.current) ro.observe(phoneRef.current);
+    if (phoneFallbackRef?.current) ro.observe(phoneFallbackRef.current);
     window.addEventListener('resize', measure, { passive: true });
 
     return () => {
       ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [measure, badgeRefs, phoneRef, containerRef]);
+  }, [measure, badgeRefs, phoneRef, phoneFallbackRef, containerRef]);
 
   const { badges, phone, svgW, svgH } = coords;
 

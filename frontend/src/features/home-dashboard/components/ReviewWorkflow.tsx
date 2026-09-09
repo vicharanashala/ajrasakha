@@ -74,7 +74,7 @@ export const ReviewWorkflow: React.FC = () => {
   return (
     <div className="review-workflow-container" style={{ padding: "3rem 0" }}>
       {/* Stepper buttons */}
-      <div className="review-progress" style={{ display: "flex", gap: "1rem", marginBottom: "2.5rem", flexWrap: "wrap" }}>
+      <div className="review-progress" style={{ display: "flex", gap: "0.75rem", marginBottom: "2rem", flexWrap: "wrap" }}>
         {STAGES.map((stage, idx) => {
           const isActive = idx === activeStageIndex;
           const isPassed = idx < activeStageIndex;
@@ -83,8 +83,8 @@ export const ReviewWorkflow: React.FC = () => {
               key={stage.id}
               onClick={() => setActiveStageIndex(idx)}
               style={{
-                flex: "1 1 180px",
-                padding: "1rem 1.25rem",
+                flex: "1 1 min(160px, 45%)",
+                padding: "0.85rem 1rem",
                 borderRadius: "14px",
                 border: isActive
                   ? "1px solid #d4ac57"
@@ -119,11 +119,11 @@ export const ReviewWorkflow: React.FC = () => {
         className="review-layout"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: "2rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+          gap: "1.5rem",
           background: "linear-gradient(145deg, #0c3a2a, #061923)",
           color: "#f2efe5",
-          padding: "2.5rem",
+          padding: "clamp(1.25rem, 4vw, 2.5rem)",
           borderRadius: "24px",
           boxShadow: "0 24px 64px rgba(6, 25, 35, 0.3)",
           border: "1px solid rgba(212, 172, 87, 0.3)",
@@ -134,15 +134,15 @@ export const ReviewWorkflow: React.FC = () => {
           <div className="stage-kicker" style={{ color: "#f0d27b", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
             {activeStage.kicker}
           </div>
-          <h3 style={{ fontSize: "1.75rem", color: "#faf8f1", marginBottom: "1rem", fontWeight: 700 }}>
+          <h3 style={{ fontSize: "clamp(1.3rem, 3.5vw, 1.75rem)", color: "#faf8f1", marginBottom: "1rem", fontWeight: 700 }}>
             {activeStage.label}
           </h3>
-          <p style={{ color: "rgba(242, 239, 229, 0.85)", fontSize: "1rem", lineHeight: 1.6, marginBottom: "2rem" }}>
+          <p style={{ color: "rgba(242, 239, 229, 0.85)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "1.5rem" }}>
             {activeStage.body}
           </p>
 
           {/* Stage badge */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(212, 172, 87, 0.15)", border: "1px solid #d4ac57", padding: "8px 16px", borderRadius: "30px", color: "#f0d27b", fontWeight: 600, fontSize: "0.9rem" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(212, 172, 87, 0.15)", border: "1px solid #d4ac57", padding: "8px 16px", borderRadius: "30px", color: "#f0d27b", fontWeight: 600, fontSize: "0.85rem" }}>
             {activeStage.badgeType === "reviewer" && <UserCheck size={18} />}
             {activeStage.badgeType === "moderator" && <ShieldCheck size={18} />}
             {activeStage.badgeType === "consensus" && <Layers size={18} />}
@@ -163,12 +163,12 @@ export const ReviewWorkflow: React.FC = () => {
                 style={{
                   background: "rgba(255, 255, 255, 0.05)",
                   border: "1px solid rgba(255, 255, 255, 0.1)",
-                  padding: "0.9rem 1.25rem",
+                  padding: "0.75rem 1rem",
                   borderRadius: "12px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  fontSize: "0.95rem",
+                  fontSize: "0.9rem",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -182,11 +182,11 @@ export const ReviewWorkflow: React.FC = () => {
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "0.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: "0.75rem", marginTop: "0.5rem" }}>
             {activeStage.metrics.map((m, i) => (
-              <div key={i} style={{ background: "rgba(36, 93, 67, 0.3)", padding: "1rem", borderRadius: "14px", border: "1px solid rgba(140, 172, 130, 0.2)" }}>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "#faf8f1" }}>{m.value}</div>
-                <div style={{ fontSize: "0.8rem", color: "rgba(242, 239, 229, 0.7)" }}>{m.label}</div>
+              <div key={i} style={{ background: "rgba(36, 93, 67, 0.3)", padding: "0.85rem", borderRadius: "14px", border: "1px solid rgba(140, 172, 130, 0.2)" }}>
+                <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "#faf8f1" }}>{m.value}</div>
+                <div style={{ fontSize: "0.75rem", color: "rgba(242, 239, 229, 0.7)" }}>{m.label}</div>
               </div>
             ))}
           </div>
