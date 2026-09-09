@@ -188,6 +188,7 @@ export class AnswerService {
       const listParams: [string, string[]][] = [
         ["authorIds", filters.authorIds],
         ["sourceTypes", filters.sourceTypes],
+        ["sourceReferenceStatuses", filters.sourceReferenceStatuses],
         ["states", filters.states],
         ["crops", filters.crops],
         ["domains", filters.domains],

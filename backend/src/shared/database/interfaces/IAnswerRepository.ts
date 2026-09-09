@@ -23,6 +23,11 @@ export interface ClosedAnswerFilters {
   sourcePresence?: 'with' | 'without';
   /** Source types the answer must carry at least one of. */
   sourceTypes?: string[];
+  /**
+   * Pop lookup outcomes ('notFound' | 'topLevelMatch' | 'duplicateMatch') recorded on
+   * the answer's reviewed sources. Matches when any one source carries the outcome.
+   */
+  sourceReferenceStatuses?: string[];
   /** Inclusive bounds on how many sources the answer carries. */
   minSources?: number;
   maxSources?: number;

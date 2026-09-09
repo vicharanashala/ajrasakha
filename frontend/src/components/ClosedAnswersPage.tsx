@@ -1468,7 +1468,11 @@ export const ClosedAnswersPage = () => {
                 <List className="h-3.5 w-3.5" />
                 Full list
               </Button>
-              <ClosedAnswersFilters filters={filters} onChange={setFilters} />
+              <ClosedAnswersFilters
+                filters={filters}
+                onChange={setFilters}
+                showReferenceStatusFilter={isAdmin}
+              />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1602,6 +1606,7 @@ export const ClosedAnswersPage = () => {
         onSearchChange={setSearch}
         filters={filters}
         onFiltersChange={setFilters}
+        showReferenceStatusFilter={isAdmin}
         hasNextPage={Boolean(hasNextPage)}
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={() => fetchNextPage()}

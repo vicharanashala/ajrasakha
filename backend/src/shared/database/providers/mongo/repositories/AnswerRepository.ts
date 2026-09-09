@@ -1178,6 +1178,13 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage['sources.0'] = {$exists: false};
       }
 
+      // Array field, so $in matches when any one source carries the outcome.
+      if (filters?.sourceReferenceStatuses?.length) {
+        matchStage.sourceReferenceStatuses = {
+          $in: filters.sourceReferenceStatuses,
+        };
+      }
+
       if (filters?.sourceTypes?.length) {
         matchStage['sources.sourceType'] = {$in: filters.sourceTypes};
       }
@@ -1281,7 +1288,7 @@ export class AnswerRepository implements IAnswerRepository {
                 },
               },
               {$limit: 1},
-              {$project: {_id: 0, status: 1}},
+              {$project: {_id: 0, status: 1, 'sources.sourceReferenceStatus': 1}},
             ],
             as: 'completedNewSource',
           },
@@ -1289,6 +1296,14 @@ export class AnswerRepository implements IAnswerRepository {
         {
           $addFields: {
             hasCompletedNewSource: {$gt: [{$size: '$completedNewSource'}, 0]},
+            // Every pop lookup outcome recorded on this answer's reviewed sources, so
+            // matchStage can filter on them like a normal array field.
+            sourceReferenceStatuses: {
+              $ifNull: [
+                {$arrayElemAt: ['$completedNewSource.sources.sourceReferenceStatus', 0]},
+                [],
+              ],
+            },
             reviewStatusPriority: {
               $cond: [
                 {$eq: [{$arrayElemAt: ['$completedNewSource.status', 0]}, 'completed']},
