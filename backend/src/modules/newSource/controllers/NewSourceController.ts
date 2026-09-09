@@ -54,15 +54,23 @@ export class NewSourceController {
   async complete(
     @Param('id') id: string,
     @Body() body: {sources: INewSourceItem[]; timeTaken: number},
+    @CurrentUser() user: IUser,
   ): Promise<INewSource> {
-    return await this.newSourceService.completeNewSource({id, ...body});
+    return await this.newSourceService.completeNewSource({
+      id,
+      ...body,
+      userId: user._id?.toString() ?? '',
+    });
   }
 
   @OpenAPI({summary: 'Record when the Edit Source modal closed, completed or not'})
   @Patch('/:id/close')
   @Authorized()
-  async close(@Param('id') id: string): Promise<INewSource> {
-    return await this.newSourceService.closeNewSource(id);
+  async close(
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource> {
+    return await this.newSourceService.closeNewSource(id, user._id?.toString() ?? '');
   }
 
   @OpenAPI({summary: "Find the current user's other in-progress new_sources record, if any"})

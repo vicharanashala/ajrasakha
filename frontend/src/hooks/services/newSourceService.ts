@@ -43,6 +43,10 @@ export interface NewSourceReviewEntry {
   startedAt: string;
   closedAt: string | null;
   isSaved: boolean;
+  // Seconds spent on this reviewer's own edit, set once they save. A record can carry
+  // more than one entry (different experts pick it up over time, e.g. after a release
+  // back to 'pending'), each with its own timeTaken.
+  timeTaken: number | null;
 }
 
 export interface NewSourceStatusChange {

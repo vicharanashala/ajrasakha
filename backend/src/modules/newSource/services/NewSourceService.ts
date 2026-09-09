@@ -40,6 +40,27 @@ export class NewSourceService implements INewSourceService {
         );
       }
 
+      // A different reviewer than whoever is already logged here is taking over (most
+      // likely a previously-released 'pending' record) - append them a fresh entry
+      // rather than reusing someone else's, so each reviewer's own time is tracked.
+      const hasOpenEntryForUser = existing.reviewArray.some(
+        entry => entry.userId === input.userId && entry.closedAt === null,
+      );
+      if (!hasOpenEntryForUser) {
+        const withNewReviewer = await this.newSourceRepo.appendReviewEntry(
+          existing._id?.toString() ?? '',
+          {
+            userId: input.userId,
+            name: input.userName,
+            startedAt: new Date(),
+            closedAt: null,
+            isSaved: false,
+            timeTaken: null,
+          },
+        );
+        if (withNewReviewer) return withNewReviewer;
+      }
+
       return existing;
     }
 
@@ -56,6 +77,7 @@ export class NewSourceService implements INewSourceService {
           startedAt: new Date(),
           closedAt: null,
           isSaved: false,
+          timeTaken: null,
         },
       ],
     });
@@ -72,7 +94,7 @@ export class NewSourceService implements INewSourceService {
       );
     }
 
-    const updated = await this.newSourceRepo.updateById(input.id, {
+    const updated = await this.newSourceRepo.updateById(input.id, input.userId, {
       sources: input.sources,
       status: 'completed',
       timeTaken: input.timeTaken,
@@ -85,8 +107,8 @@ export class NewSourceService implements INewSourceService {
     return updated;
   }
 
-  async closeNewSource(id: string): Promise<INewSource> {
-    const updated = await this.newSourceRepo.recordClose(id);
+  async closeNewSource(id: string, userId: string): Promise<INewSource> {
+    const updated = await this.newSourceRepo.recordClose(id, userId);
 
     if (!updated) {
       throw new NotFoundError(`new_sources record not found with id ${id}`);

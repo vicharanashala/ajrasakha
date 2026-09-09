@@ -1,5 +1,9 @@
 import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceRepository.js';
-import {INewSource, INewSourceStatusChange} from '#root/shared/interfaces/models.js';
+import {
+  INewSource,
+  INewSourceReviewEntry,
+  INewSourceStatusChange,
+} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {Collection, ObjectId} from 'mongodb';
@@ -35,6 +39,7 @@ export class NewSourceRepository implements INewSourceRepository {
 
   async updateById(
     id: string,
+    userId: string,
     updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
   ): Promise<INewSource | null> {
     await this.init();
@@ -44,12 +49,23 @@ export class NewSourceRepository implements INewSourceRepository {
     }
 
     // updateById is only ever called to complete an edit (see its interface doc comment),
-    // so this is also where the user's reviewArray entry gets marked as saved. Same
-    // index-0 assumption as recordClose — see the comment there.
+    // so this is also where this reviewer's own still-open reviewArray entry (closedAt:
+    // null) gets marked saved, with its own timeTaken - not a hardcoded index, since a
+    // record can carry more than one reviewer's entry.
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
-      {$set: {...updates, 'reviewArray.0.isSaved': true, updatedAt: new Date()}},
-      {returnDocument: 'after'},
+      {
+        $set: {
+          ...updates,
+          'reviewArray.$[reviewer].isSaved': true,
+          'reviewArray.$[reviewer].timeTaken': updates.timeTaken ?? null,
+          updatedAt: new Date(),
+        },
+      },
+      {
+        arrayFilters: [{'reviewer.userId': userId, 'reviewer.closedAt': null}],
+        returnDocument: 'after',
+      },
     );
 
     if (!result) return null;
@@ -57,19 +73,42 @@ export class NewSourceRepository implements INewSourceRepository {
     return {...result, _id: result._id?.toString()} as INewSource;
   }
 
-  async recordClose(id: string): Promise<INewSource | null> {
+  async recordClose(id: string, userId: string): Promise<INewSource | null> {
     await this.init();
 
     if (!id || !isValidObjectId(id)) {
       throw new BadRequestError('Invalid or missing new_sources id');
     }
 
-    // reviewArray always has exactly one entry today — startNewSource always creates a
-    // fresh document per edit session rather than reusing/appending to an existing one —
-    // so index 0 is always the entry to stamp. Revisit if that ever changes.
+    // Targets this reviewer's own still-open entry (closedAt: null), not a hardcoded
+    // index - a record can carry more than one reviewer's entry.
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
-      {$set: {'reviewArray.0.closedAt': new Date(), updatedAt: new Date()}},
+      {$set: {'reviewArray.$[reviewer].closedAt': new Date(), updatedAt: new Date()}},
+      {
+        arrayFilters: [{'reviewer.userId': userId, 'reviewer.closedAt': null}],
+        returnDocument: 'after',
+      },
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
+  async appendReviewEntry(
+    id: string,
+    entry: INewSourceReviewEntry,
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing new_sources id');
+    }
+
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {$push: {reviewArray: entry}, $set: {updatedAt: new Date()}},
       {returnDocument: 'after'},
     );
 
@@ -129,11 +168,21 @@ export class NewSourceRepository implements INewSourceRepository {
       throw new BadRequestError('Invalid or missing new_sources id');
     }
 
-    // Same index-0 assumption as recordClose - see the comment there.
+    // Targets whichever reviewArray entry is still open (closedAt: null) - the owning
+    // reviewer's own, since only they can release their own in-progress record.
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
-      {$set: {status: 'pending', 'reviewArray.0.closedAt': new Date(), updatedAt: new Date()}},
-      {returnDocument: 'after'},
+      {
+        $set: {
+          status: 'pending',
+          'reviewArray.$[reviewer].closedAt': new Date(),
+          updatedAt: new Date(),
+        },
+      },
+      {
+        arrayFilters: [{'reviewer.closedAt': null}],
+        returnDocument: 'after',
+      },
     );
 
     if (!result) return null;

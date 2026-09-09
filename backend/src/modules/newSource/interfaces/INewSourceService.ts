@@ -28,13 +28,19 @@ export interface CompleteNewSourceInput {
   // sources array).
   sources: INewSourceItem[];
   timeTaken: number;
+  /** The user saving this edit — used to record timeTaken on their own reviewArray
+   *  entry, not the record as a whole. */
+  userId: string;
 }
 
 export interface INewSourceService {
   /** Called when the Edit Source modal opens — creates the new_sources record as
    *  'in-progress' so the editing timer is backed by a real document from the start.
    *  If a record already exists for this answer, that one is returned instead so the
-   *  same answer never ends up with more than one new_sources document. */
+   *  same answer never ends up with more than one new_sources document. If a different
+   *  reviewer than whoever is already logged there is now starting a session on it (e.g.
+   *  after it was released back to 'pending'), a new reviewArray entry is appended for
+   *  them, so every reviewer who has touched it - and how long each took - is tracked. */
   startNewSource(input: StartNewSourceInput): Promise<INewSource>;
 
   /** Called when the user saves — records the final sources (each with its own
@@ -44,8 +50,8 @@ export interface INewSourceService {
 
   /** Called whenever the Edit Source modal closes — Cancel, Escape, outside click, or
    *  right after a successful save — regardless of whether the edit was completed.
-   *  Stamps closedAt on the record's reviewArray entry. */
-  closeNewSource(id: string): Promise<INewSource>;
+   *  Stamps closedAt on this user's own reviewArray entry. */
+  closeNewSource(id: string, userId: string): Promise<INewSource>;
 
   /** Called before starting a new edit session — finds this user's other 'in-progress'
    *  record, if any, so the UI can confirm switching away from it before starting. */

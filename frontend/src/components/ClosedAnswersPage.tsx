@@ -1110,10 +1110,49 @@ const StatusOverrideControl = ({
   );
 };
 
+// Formats a duration stored in seconds (NewSourceReviewEntry.timeTaken) as "1h 4m",
+// "12m 5s", or "38s" - null/undefined (not yet saved) renders as an em dash.
+const formatTimeTaken = (seconds?: number | null) => {
+  if (seconds === null || seconds === undefined) return "—";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${secs}s`;
+  return `${secs}s`;
+};
+
+// Moderator/admin-only: every expert who has reviewed this answer's sources (a record
+// can carry more than one entry - e.g. after being released back to 'pending' and picked
+// up by someone else), each with how long that particular reviewer spent.
+const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
+  <div className="flex flex-col gap-1.5 border-t border-border/60 pt-2.5">
+    <p className={SECTION_LABEL_CLASSES}>Reviewers ({reviewArray.length})</p>
+    {reviewArray.length > 0 ? (
+      <div className="flex flex-col gap-1">
+        {reviewArray.map((entry, index) => (
+          <div
+            key={`${entry.userId}-${index}`}
+            className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs"
+          >
+            <span className="truncate text-foreground">{entry.name || "—"}</span>
+            <span className="shrink-0 text-muted-foreground">
+              {entry.isSaved ? formatTimeTaken(entry.timeTaken) : "In progress"}
+            </span>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p className="text-xs text-muted-foreground">No reviewers yet.</p>
+    )}
+  </div>
+);
+
 // Compares the answer's sources as they stand in the answers collection (Before) against
 // what the assigned expert has recorded in new_sources (After), so a moderator/admin can
-// see what changed without opening the edit panel below it. Admins/moderators also get a
-// status-override control here once a new_sources record exists to act on.
+// see what changed without opening the edit panel below it. Admins/moderators also get
+// the list of reviewers (with time taken) and a status-override control here, once a
+// new_sources record exists to show/act on.
 const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
   const { data: newSourceRecord, isLoading } = useGetNewSourceByAnswerId(answer._id, {
     enabled: true,
@@ -1148,6 +1187,8 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
           )}
         </div>
       </div>
+
+      {newSourceRecord && <ReviewersList reviewArray={newSourceRecord.reviewArray} />}
 
       {newSourceRecord && (
         <StatusOverrideControl answer={answer} newSourceRecord={newSourceRecord} />
