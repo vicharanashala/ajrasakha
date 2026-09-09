@@ -280,7 +280,7 @@ useEffect(() => {
 
 const handleLogoutUser = async (userId: string) => {
   try {
-    const result = await logoutUser({ userId });
+    const result = await logoutUser({ userId, username: user?.name || "", email: user?.email || "" });
 
     if (result?.value) {
       toast.success(result.message || "User logged out successfully");

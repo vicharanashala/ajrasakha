@@ -148,9 +148,11 @@ export const useClosedQuestionLocation = ({source, userType, state, district, st
 
 export const useLogoutUser = () => {
   return useMutation({
-    mutationFn: ({ userId }: { userId: string }) => {
+    mutationFn: ({ userId, username, email }: { userId: string, username: string, email: string }) => {
       return chatbotService.logoutUser({
         userId,
+        username,
+        email
       });
     },
   });

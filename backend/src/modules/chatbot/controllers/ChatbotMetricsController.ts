@@ -830,8 +830,75 @@ async getUserQuestionsData(
   @HttpCode(200)
   @Authorized()
   async logoutUser(
-    @QueryParam('userId') userId: string
+    @QueryParam('userId') userId: string,
+    @QueryParam('name') name: string,
+    @QueryParam('email') email: string,
+    @CurrentUser() user: IUser,
   ) {
-    return this.chatbotService.logoutUser(userId);
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ADMIN_REPORT,
+      action: AuditAction.LOGOUT_USER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        endPoint: 'logoutUser',
+        userName: name,
+        userEmail: email,
+        userId: userId,
+      },
+      changes: {
+        before: {
+          loggedIn: "true",
+        }
+      }
+
+    };
+    try {
+      const result = await this.chatbotService.logoutUser(userId);
+    if(result.value === true){
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          before: {
+            loggedIn: "true",
+          },
+          after: {
+            loggedIn: "false",
+          }
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+        
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    }else {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    }
+    }catch(error){
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to logout user',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+    }
+    
   }
 }
