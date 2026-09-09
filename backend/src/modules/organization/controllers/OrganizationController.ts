@@ -4,7 +4,14 @@ import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IOrganizationService} from '../interfaces/IOrganizationService.js';
-import {IOrganization} from '#root/shared/interfaces/models.js';
+import {
+  IOrganization,
+  IOrganizationBulkResult,
+  IOrganizationBulkRow,
+} from '#root/shared/interfaces/models.js';
+
+/** Guards a single import against an oversized payload. */
+const MAX_BULK_ROWS = 5000;
 
 @OpenAPI({
   tags: ['Organizations'],
@@ -40,6 +47,57 @@ export class OrganizationController {
     }
     const organization = await this.organizationService.create(data);
     return {organization};
+  }
+
+  @OpenAPI({
+    summary: 'Find which of the given names already exist for a type',
+  })
+  @Post('/bulk/duplicates')
+  @Authorized(['admin', 'moderator'])
+  async findDuplicates(
+    @Body() data: {type: IOrganization['type']; names: string[]},
+  ): Promise<{organizations: Pick<IOrganization, 'org_name' | 'state'>[]}> {
+    if (!['central', 'state', 'district'].includes(data?.type)) {
+      throw new BadRequestError('Invalid organization type');
+    }
+    if (!Array.isArray(data?.names)) {
+      throw new BadRequestError('No names to check');
+    }
+    if (data.names.length > MAX_BULK_ROWS) {
+      throw new BadRequestError(
+        `A single import is limited to ${MAX_BULK_ROWS} rows`,
+      );
+    }
+    const organizations = await this.organizationService.findExisting(
+      data.type,
+      data.names,
+    );
+    return {organizations};
+  }
+
+  @OpenAPI({summary: 'Bulk import organizations from a parsed sheet'})
+  @Post('/bulk')
+  @Authorized(['admin', 'moderator'])
+  async bulkCreate(
+    @Body() data: {type: IOrganization['type']; rows: IOrganizationBulkRow[]},
+  ): Promise<{
+    results: IOrganizationBulkResult[];
+    created: number;
+    skipped: number;
+    failed: number;
+  }> {
+    if (!['central', 'state', 'district'].includes(data?.type)) {
+      throw new BadRequestError('Invalid organization type');
+    }
+    if (!Array.isArray(data?.rows) || data.rows.length === 0) {
+      throw new BadRequestError('No rows to import');
+    }
+    if (data.rows.length > MAX_BULK_ROWS) {
+      throw new BadRequestError(
+        `A single import is limited to ${MAX_BULK_ROWS} rows`,
+      );
+    }
+    return await this.organizationService.bulkCreate(data.type, data.rows);
   }
 
   @OpenAPI({summary: 'Edit an existing organization'})

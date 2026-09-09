@@ -1,4 +1,9 @@
-import type { OrganizationsResponse } from "@/types";
+import type {
+  Organization,
+  OrganizationBulkResponse,
+  OrganizationBulkRow,
+  OrganizationsResponse,
+} from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
 
@@ -26,6 +31,26 @@ export class OrganizationService {
     return apiFetch<any>(this._baseUrl, {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  async findBulkDuplicates(
+    type: NonNullable<Organization["type"]>,
+    names: string[],
+  ): Promise<{ organizations: Pick<Organization, "org_name" | "state">[] } | null> {
+    return apiFetch<{ organizations: Pick<Organization, "org_name" | "state">[] }>(
+      `${this._baseUrl}/bulk/duplicates`,
+      { method: "POST", body: JSON.stringify({ type, names }) },
+    );
+  }
+
+  async bulkCreate(
+    type: NonNullable<Organization["type"]>,
+    rows: OrganizationBulkRow[],
+  ): Promise<OrganizationBulkResponse | null> {
+    return apiFetch<OrganizationBulkResponse>(`${this._baseUrl}/bulk`, {
+      method: "POST",
+      body: JSON.stringify({ type, rows }),
     });
   }
 

@@ -33,6 +33,7 @@ import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
 import { CropService } from "@/hooks/services/cropService";
 import type { ICropAlias, ICropResponse, IBulkJobResult } from "@/hooks/services/cropService";
 import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
+import { OrganizationBulkUploadModal } from "./OrganizationBulkUploadModal";
 
 const cropServiceForStatus = new CropService();
 import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
@@ -844,6 +845,7 @@ export const CropManagementModal = ({
   const [orgLimit, setOrgLimit] = useState(12);
   const orgDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [isOrgImportOpen, setIsOrgImportOpen] = useState(false);
   const { data: orgData, isLoading: isOrgLoading } = useGetOrganizations(orgSearchQuery, orgPage, orgLimit);
   const { mutateAsync: createOrg } = useCreateOrganization();
   const { mutateAsync: updateOrg } = useUpdateOrganization();
@@ -1456,20 +1458,6 @@ export const CropManagementModal = ({
               Chemicals
             </button>
 
-            {/* Other tab */}
-            <button
-              id="agritech-tab-other"
-              onClick={() => handleTabSwitch("other")}
-              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
-                activeTab === "other"
-                  ? "border-b-blue-500 text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-500/5"
-                  : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-              }`}
-            >
-              <LayoutGrid className={`h-3.5 w-3.5 ${activeTab === "other" ? "text-blue-600 dark:text-blue-400" : ""}`} />
-              Other
-            </button>
-
               {/* Organization tab */}
               <button
                 id="agritech-tab-organization"
@@ -1483,6 +1471,20 @@ export const CropManagementModal = ({
                 <Building2 className={`h-3.5 w-3.5 ${activeTab === "organization" ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
                 Organization
               </button>
+
+            {/* Other tab */}
+            <button
+              id="agritech-tab-other"
+              onClick={() => handleTabSwitch("other")}
+              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
+                activeTab === "other"
+                  ? "border-b-blue-500 text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-500/5"
+                  : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+              }`}
+            >
+              <LayoutGrid className={`h-3.5 w-3.5 ${activeTab === "other" ? "text-blue-600 dark:text-blue-400" : ""}`} />
+              Other
+            </button>
 
             {/* Rail fills remaining width */}
             <div className="flex-1 border-b-2 border-b-gray-100 dark:border-b-gray-800" />
@@ -1800,17 +1802,28 @@ export const CropManagementModal = ({
             {activeTab === "organization" && (
               <>
                 <div className="px-5 pt-3 pb-1">
-                  <div className="relative mb-3">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                    <Input
-                      placeholder="Search organizations..."
-                      value={orgSearchInput}
-                      onChange={handleOrgSearchChange}
-                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
-                    />
-                    {isOrgLoading && (
-                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
-                    )}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      <Input
+                        placeholder="Search organizations..."
+                        value={orgSearchInput}
+                        onChange={handleOrgSearchChange}
+                        className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
+                      />
+                      {isOrgLoading && (
+                        <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsOrgImportOpen(true)}
+                      className="h-8 text-xs shrink-0"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Import
+                    </Button>
                   </div>
                   <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 font-semibold text-xs text-gray-500">
                     <div>Organization Name</div>
@@ -2222,6 +2235,11 @@ export const CropManagementModal = ({
           onClose={() => setAliasManagerCrop(null)}
         />
       )}
+
+      <OrganizationBulkUploadModal
+        open={isOrgImportOpen}
+        onClose={() => setIsOrgImportOpen(false)}
+      />
 
       <BulkResultsModal
         open={bulkResultsOpen}
