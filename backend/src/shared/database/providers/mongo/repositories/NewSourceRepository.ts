@@ -77,4 +77,40 @@ export class NewSourceRepository implements INewSourceRepository {
 
     return {...result, _id: result._id?.toString()} as INewSource;
   }
+
+  async findActiveInProgressByUser(
+    userId: string,
+    excludeAnswerId: string,
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    const result = await this.NewSourceCollection.findOne({
+      status: 'in-progress',
+      answerId: {$ne: excludeAnswerId},
+      'reviewArray.userId': userId,
+    });
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
+  async releaseToPending(id: string): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing new_sources id');
+    }
+
+    // Same index-0 assumption as recordClose - see the comment there.
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {$set: {status: 'pending', 'reviewArray.0.closedAt': new Date(), updatedAt: new Date()}},
+      {returnDocument: 'after'},
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
 }

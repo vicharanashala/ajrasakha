@@ -1,5 +1,15 @@
 import 'reflect-metadata';
-import {JsonController, Post, Patch, Param, Body, Authorized, CurrentUser} from 'routing-controllers';
+import {
+  JsonController,
+  Post,
+  Patch,
+  Get,
+  Param,
+  Body,
+  QueryParams,
+  Authorized,
+  CurrentUser,
+} from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CORE_TYPES} from '#root/modules/core/types.js';
@@ -52,5 +62,25 @@ export class NewSourceController {
   @Authorized()
   async close(@Param('id') id: string): Promise<INewSource> {
     return await this.newSourceService.closeNewSource(id);
+  }
+
+  @OpenAPI({summary: "Find the current user's other in-progress new_sources record, if any"})
+  @Get('/active')
+  @Authorized()
+  async findActive(
+    @QueryParams() query: {excludeAnswerId: string},
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource | null> {
+    return await this.newSourceService.findActiveInProgress(
+      user._id?.toString() ?? '',
+      query.excludeAnswerId,
+    );
+  }
+
+  @OpenAPI({summary: 'Release an in-progress record back to pending for other experts to pick up'})
+  @Patch('/:id/release')
+  @Authorized()
+  async release(@Param('id') id: string): Promise<INewSource> {
+    return await this.newSourceService.releaseToPending(id);
   }
 }

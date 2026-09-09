@@ -33,4 +33,12 @@ export interface INewSourceService {
    *  right after a successful save — regardless of whether the edit was completed.
    *  Stamps closedAt on the record's reviewArray entry. */
   closeNewSource(id: string): Promise<INewSource>;
+
+  /** Called before starting a new edit session — finds this user's other 'in-progress'
+   *  record, if any, so the UI can confirm switching away from it before starting. */
+  findActiveInProgress(userId: string, excludeAnswerId: string): Promise<INewSource | null>;
+
+  /** Called once the user confirms switching answers — sends the previous 'in-progress'
+   *  record back to 'pending' so it becomes available to other experts again. */
+  releaseToPending(id: string): Promise<INewSource>;
 }

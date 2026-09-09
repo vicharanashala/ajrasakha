@@ -58,4 +58,18 @@ export class NewSourceService implements INewSourceService {
 
     return updated;
   }
+
+  async findActiveInProgress(userId: string, excludeAnswerId: string): Promise<INewSource | null> {
+    return await this.newSourceRepo.findActiveInProgressByUser(userId, excludeAnswerId);
+  }
+
+  async releaseToPending(id: string): Promise<INewSource> {
+    const updated = await this.newSourceRepo.releaseToPending(id);
+
+    if (!updated) {
+      throw new NotFoundError(`new_sources record not found with id ${id}`);
+    }
+
+    return updated;
+  }
 }
