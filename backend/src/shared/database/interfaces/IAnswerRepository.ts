@@ -24,6 +24,12 @@ export interface ClosedAnswerFilters {
   /** Source types the answer must carry at least one of. */
   sourceTypes?: string[];
   /**
+   * new_sources record states to keep ('pending' | 'in-progress' | 'completed' |
+   * 'merged' | 'flagged', or 'none' for answers nobody has started). Flagged records
+   * are hidden from the list unless 'flagged' is asked for here.
+   */
+  newSourceStatuses?: string[];
+  /**
    * Pop lookup outcomes ('notFound' | 'topLevelMatch' | 'duplicateMatch') recorded on
    * the answer's reviewed sources. Matches when any one source carries the outcome.
    */

@@ -30,6 +30,7 @@ import {
   GitMerge,
   Undo2,
   ChevronDown,
+  History,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -100,6 +101,7 @@ import type {
 import type {
   NewSourceItem,
   NewSourceRecord,
+  NewSourceStatusChange,
   PopMatchStatus,
 } from "@/hooks/services/newSourceService";
 
@@ -1200,6 +1202,59 @@ const SourceChangeItem = ({
   );
 };
 
+// Moderator/admin-only: every forced status change on the record, newest first, each
+// with who made it and the reason they had to give.
+const StatusChangesList = ({
+  statusChanges,
+}: {
+  statusChanges: NewSourceStatusChange[];
+}) => {
+  const entries = [...statusChanges].reverse();
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <History className="h-3.5 w-3.5" />
+        </span>
+        <p className="text-sm font-semibold text-foreground">
+          Status history ({entries.length})
+        </p>
+      </div>
+
+      <ol className="ml-1 flex flex-col gap-3 border-l border-border/60 pl-4">
+        {entries.map((entry, index) => (
+          <li key={`${entry.changedAt}-${index}`} className="relative">
+            <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-border ring-4 ring-muted/30" />
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
+                  NEW_SOURCE_STATUS_BADGE_CLASSES[entry.status] ??
+                    "bg-muted text-muted-foreground",
+                )}
+              >
+                {NEW_SOURCE_STATUS_LABELS[entry.status] ?? entry.status}
+              </span>
+              <span className="text-xs text-foreground/90">
+                {entry.changedByName || "Unknown user"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {formatClosedAt(entry.changedAt)}
+              </span>
+            </div>
+            {entry.reason && (
+              <p className="mt-1 break-words border-l-2 border-border/60 pl-2 text-xs text-muted-foreground">
+                {entry.reason}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+};
+
 // The three states an admin/moderator can force a record into (see
 // NewSourceService.changeStatus) - 'in-progress' and 'completed' are reached by the
 // reviewer's own flow, not by an override. Each needs a reason, asked for in a modal.
@@ -1563,6 +1618,10 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
 
       {newSourceRecord && <ReviewersList reviewArray={newSourceRecord.reviewArray} />}
 
+      {newSourceRecord?.statusChanges && newSourceRecord.statusChanges.length > 0 && (
+        <StatusChangesList statusChanges={newSourceRecord.statusChanges} />
+      )}
+
       {newSourceRecord && (
         <StatusOverrideControl answer={answer} newSourceRecord={newSourceRecord} />
       )}
@@ -1799,6 +1858,7 @@ export const ClosedAnswersPage = () => {
                 filters={filters}
                 onChange={setFilters}
                 showReferenceStatusFilter={isAdmin}
+                showReviewStatusFilter={isReviewer}
               />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1934,6 +1994,7 @@ export const ClosedAnswersPage = () => {
         filters={filters}
         onFiltersChange={setFilters}
         showReferenceStatusFilter={isAdmin}
+        showReviewStatusFilter={isReviewer}
         hasNextPage={Boolean(hasNextPage)}
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={() => fetchNextPage()}

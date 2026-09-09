@@ -9,6 +9,7 @@ import {
   Hash,
   Layers,
   Link as LinkIcon,
+  ListChecks,
   MapPin,
   RotateCcw,
   Sprout,
@@ -52,6 +53,7 @@ export const EMPTY_CLOSED_ANSWER_FILTERS: ClosedAnswerFilters = {
   sourcePresence: undefined,
   sourceTypes: [],
   sourceReferenceStatuses: [],
+  newSourceStatuses: [],
   minSources: undefined,
   maxSources: undefined,
   states: [],
@@ -68,6 +70,18 @@ const SOURCE_TYPE_FILTER_OPTIONS: { value: SourceType; label: string }[] = [
 ];
 
 const PRIORITY_OPTIONS = ["low", "medium", "high"];
+
+const REVIEW_STATUS_OPTIONS: {
+  value: ClosedAnswerFilters["newSourceStatuses"][number];
+  label: string;
+}[] = [
+  { value: "none", label: "Not started" },
+  { value: "pending", label: "Pending" },
+  { value: "in-progress", label: "In progress" },
+  { value: "completed", label: "Completed" },
+  { value: "merged", label: "Merged" },
+  { value: "flagged", label: "Flagged" },
+];
 
 const REFERENCE_STATUS_OPTIONS: {
   value: ClosedAnswerFilters["sourceReferenceStatuses"][number];
@@ -87,6 +101,7 @@ export const countActiveFilters = (filters: ClosedAnswerFilters) =>
   (filters.sourcePresence ? 1 : 0) +
   (filters.sourceTypes.length > 0 ? 1 : 0) +
   (filters.sourceReferenceStatuses.length > 0 ? 1 : 0) +
+  (filters.newSourceStatuses.length > 0 ? 1 : 0) +
   (filters.minSources !== undefined || filters.maxSources !== undefined ? 1 : 0) +
   (filters.states.length > 0 ? 1 : 0) +
   (filters.crops.length > 0 ? 1 : 0) +
@@ -158,11 +173,14 @@ export const ClosedAnswersFilters = ({
   filters,
   onChange,
   showReferenceStatusFilter = false,
+  showReviewStatusFilter = false,
 }: {
   filters: ClosedAnswerFilters;
   onChange: (next: ClosedAnswerFilters) => void;
   /** Admin-only: filter by the pop lookup outcome recorded on reviewed sources. */
   showReferenceStatusFilter?: boolean;
+  /** Moderator/admin: filter by how far the source review has got. */
+  showReviewStatusFilter?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<ClosedAnswerFilters>(filters);
@@ -297,6 +315,7 @@ export const ClosedAnswersFilters = ({
                     (draft.sourcePresence ? 1 : 0) +
                     (draft.sourceTypes.length > 0 ? 1 : 0) +
                     (draft.sourceReferenceStatuses.length > 0 ? 1 : 0) +
+                    (draft.newSourceStatuses.length > 0 ? 1 : 0) +
                     (draft.minSources !== undefined || draft.maxSources !== undefined
                       ? 1
                       : 0)
@@ -369,6 +388,33 @@ export const ClosedAnswersFilters = ({
                         />
                       </div>
                     </FilterField>
+
+                    {showReviewStatusFilter && (
+                      <FilterField icon={ListChecks} label="Review status">
+                        <MultiSelect
+                          items={REVIEW_STATUS_OPTIONS.map((opt) => ({
+                            value: opt.value,
+                            label: opt.label,
+                          }))}
+                          selected={draft.newSourceStatuses}
+                          onChange={(next) =>
+                            setField(
+                              "newSourceStatuses",
+                              next as ClosedAnswerFilters["newSourceStatuses"],
+                            )
+                          }
+                          getDisplayLabel={(selected) =>
+                            selected.length === 0
+                              ? "Any review state"
+                              : selected.length === 1
+                                ? REVIEW_STATUS_OPTIONS.find(
+                                    (opt) => opt.value === selected[0],
+                                  )?.label ?? "1 selected"
+                                : `${selected.length} selected`
+                          }
+                        />
+                      </FilterField>
+                    )}
 
                     {showReferenceStatusFilter && (
                       <FilterField icon={FileSearch} label="Reference lookup">

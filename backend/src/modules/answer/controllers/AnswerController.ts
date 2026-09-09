@@ -586,6 +586,7 @@ export class AnswerController {
       maxSources?: string;
       shuffleSeed?: string;
       sourceReferenceStatuses?: string;
+      newSourceStatuses?: string;
       states?: string;
       crops?: string;
       domains?: string;
@@ -608,6 +609,7 @@ export class AnswerController {
       maxSources: toCount(query.maxSources),
       shuffleSeed: toSeed(query.shuffleSeed),
       sourceReferenceStatuses: toList(query.sourceReferenceStatuses),
+      newSourceStatuses: toList(query.newSourceStatuses),
       states: toList(query.states),
       crops: toList(query.crops),
       domains: toList(query.domains),

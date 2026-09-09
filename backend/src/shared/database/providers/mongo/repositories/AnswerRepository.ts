@@ -1221,6 +1221,22 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage['question.priority'] = {$in: filters.priorities};
       }
 
+      // Flagged reviews stay out of the list unless someone asks for them by name.
+      const requestedStatuses = filters?.newSourceStatuses ?? [];
+      matchStage.$and = matchStage.$and ?? [];
+      if (!requestedStatuses.includes('flagged')) {
+        // $ne also matches the answers with no record at all, which is what we want.
+        matchStage.$and.push({newSourceRecordStatus: {$ne: 'flagged'}});
+      }
+
+      if (requestedStatuses.length > 0) {
+        // 'none' stands for answers with no record yet, stored as a missing field.
+        const wantedStatuses = requestedStatuses.map(status =>
+          status === 'none' ? null : status,
+        );
+        matchStage.$and.push({newSourceRecordStatus: {$in: wantedStatuses}});
+      }
+
       // Experts shouldn't see answers whose sources have already been reviewed
       // (new_sources.status === 'completed' or 'merged'); moderators/admins should see
       // only those. Other roles get no extra filtering here.
@@ -1281,12 +1297,8 @@ export class AnswerRepository implements IAnswerRepository {
             from: 'new_sources',
             let: {answerIdStr: {$toString: '$_id'}},
             pipeline: [
-              {
-                $match: {
-                  $expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']},
-                  status: {$in: ['completed', 'merged']},
-                },
-              },
+              {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},
+              {$sort: {createdAt: -1}},
               {$limit: 1},
               {$project: {_id: 0, status: 1, 'sources.sourceReferenceStatus': 1}},
             ],
@@ -1295,7 +1307,14 @@ export class AnswerRepository implements IAnswerRepository {
         },
         {
           $addFields: {
-            hasCompletedNewSource: {$gt: [{$size: '$completedNewSource'}, 0]},
+            // The record's own state, or missing when nobody has started this answer.
+            newSourceRecordStatus: {$arrayElemAt: ['$completedNewSource.status', 0]},
+            hasCompletedNewSource: {
+              $in: [
+                {$arrayElemAt: ['$completedNewSource.status', 0]},
+                ['completed', 'merged'],
+              ],
+            },
             // Every pop lookup outcome recorded on this answer's reviewed sources, so
             // matchStage can filter on them like a normal array field.
             sourceReferenceStatuses: {
