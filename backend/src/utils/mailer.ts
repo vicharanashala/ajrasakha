@@ -21,11 +21,6 @@ const SMTP_SECURE = env('SMTP_SECURE')
   ? String(env('SMTP_SECURE')).toLowerCase() === 'true'
   : SMTP_PORT === 465;
 
-// const SMTP_SECURE =
-//   env('SMTP_SECURE') !== undefined
-//     ? String(env('SMTP_SECURE')).toLowerCase() === 'true'
-//     : true; // 465 is implicit TLS — preserve legacy behaviour
-
 /**
  * Builds the nodemailer transport options. When neither `EMAIL_USER` nor
  * `EMAIL_PASS` is configured we return `null` so callers can short-circuit
@@ -60,10 +55,10 @@ export async function sendEmailNotification(
 ) {
   const transportOptions = buildTransportOptions();
   if (!transportOptions) {
-    console.warn(
-      '[mailer] EMAIL_USER/EMAIL_PASS not configured — skipping email.',
-    );
-    return;
+    const errorMsg =
+      '[mailer] EMAIL_USER/EMAIL_PASS not configured — skipping email.';
+    console.warn(errorMsg);
+    throw new Error(errorMsg);
   }
 
   const transporter = nodemailer.createTransport(transportOptions);
@@ -104,10 +99,10 @@ export async function sendEmailWithAttachment(
 ) {
   const transportOptions = buildTransportOptions();
   if (!transportOptions) {
-    console.warn(
-      '[mailer] EMAIL_USER/EMAIL_PASS not configured — skipping email.',
-    );
-    return;
+    const errorMsg =
+      '[mailer] EMAIL_USER/EMAIL_PASS not configured — skipping email.';
+    console.warn(errorMsg);
+    throw new Error(errorMsg);
   }
 
   const transporter = nodemailer.createTransport(transportOptions);
