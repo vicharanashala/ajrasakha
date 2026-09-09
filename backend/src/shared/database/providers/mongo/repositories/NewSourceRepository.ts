@@ -21,7 +21,7 @@ export class NewSourceRepository implements INewSourceRepository {
   ) {}
 
   private async init() {
-    this.NewSourceCollection = await this.db.getCollection<INewSource>('new_sources');
+    this.NewSourceCollection = await this.db.getCollection<INewSource>('updated_sources');
   }
 
   async create(data: Omit<INewSource, '_id' | 'createdAt' | 'updatedAt'>): Promise<INewSource> {
@@ -45,7 +45,7 @@ export class NewSourceRepository implements INewSourceRepository {
     await this.init();
 
     if (!id || !isValidObjectId(id)) {
-      throw new BadRequestError('Invalid or missing new_sources id');
+      throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
     // updateById is only ever called to complete an edit (see its interface doc comment),
@@ -77,7 +77,7 @@ export class NewSourceRepository implements INewSourceRepository {
     await this.init();
 
     if (!id || !isValidObjectId(id)) {
-      throw new BadRequestError('Invalid or missing new_sources id');
+      throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
     // Targets this reviewer's own still-open entry (closedAt: null), not a hardcoded
@@ -103,7 +103,7 @@ export class NewSourceRepository implements INewSourceRepository {
     await this.init();
 
     if (!id || !isValidObjectId(id)) {
-      throw new BadRequestError('Invalid or missing new_sources id');
+      throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
     const result = await this.NewSourceCollection.findOneAndUpdate(
@@ -151,7 +151,7 @@ export class NewSourceRepository implements INewSourceRepository {
     await this.init();
 
     if (!id || !isValidObjectId(id)) {
-      throw new BadRequestError('Invalid or missing new_sources id');
+      throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
     const result = await this.NewSourceCollection.findOne({_id: new ObjectId(id)});
@@ -165,7 +165,7 @@ export class NewSourceRepository implements INewSourceRepository {
     await this.init();
 
     if (!id || !isValidObjectId(id)) {
-      throw new BadRequestError('Invalid or missing new_sources id');
+      throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
     // Targets whichever reviewArray entry is still open (closedAt: null) - the owning
@@ -197,7 +197,7 @@ export class NewSourceRepository implements INewSourceRepository {
     await this.init();
 
     if (!id || !isValidObjectId(id)) {
-      throw new BadRequestError('Invalid or missing new_sources id');
+      throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
     const result = await this.NewSourceCollection.findOneAndUpdate(

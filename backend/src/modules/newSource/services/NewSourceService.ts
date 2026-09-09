@@ -86,7 +86,7 @@ export class NewSourceService implements INewSourceService {
   async completeNewSource(input: CompleteNewSourceInput): Promise<INewSource> {
     const existing = await this.newSourceRepo.findById(input.id);
     if (!existing) {
-      throw new NotFoundError(`new_sources record not found with id ${input.id}`);
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
     }
     if (existing.status === 'merged') {
       throw new ForbiddenError(
@@ -101,7 +101,7 @@ export class NewSourceService implements INewSourceService {
     });
 
     if (!updated) {
-      throw new NotFoundError(`new_sources record not found with id ${input.id}`);
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
     }
 
     return updated;
@@ -111,7 +111,7 @@ export class NewSourceService implements INewSourceService {
     const updated = await this.newSourceRepo.recordClose(id, userId);
 
     if (!updated) {
-      throw new NotFoundError(`new_sources record not found with id ${id}`);
+      throw new NotFoundError(`updated_sources record not found with id ${id}`);
     }
 
     return updated;
@@ -125,7 +125,7 @@ export class NewSourceService implements INewSourceService {
     const updated = await this.newSourceRepo.releaseToPending(id);
 
     if (!updated) {
-      throw new NotFoundError(`new_sources record not found with id ${id}`);
+      throw new NotFoundError(`updated_sources record not found with id ${id}`);
     }
 
     return updated;
@@ -152,7 +152,7 @@ export class NewSourceService implements INewSourceService {
     });
 
     if (!updated) {
-      throw new NotFoundError(`new_sources record not found with id ${input.id}`);
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
     }
 
     return updated;

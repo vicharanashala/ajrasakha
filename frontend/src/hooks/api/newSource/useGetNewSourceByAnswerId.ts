@@ -3,7 +3,7 @@ import { NewSourceService } from "../../services/newSourceService";
 
 const newSourceService = new NewSourceService();
 
-/** Read-only lookup of an answer's new_sources record, for the moderator
+/** Read-only lookup of an answer's updated_sources record, for the moderator
  *  before/after comparison view. Pass enabled: false until that view is shown. */
 export const useGetNewSourceByAnswerId = (
   answerId: string,

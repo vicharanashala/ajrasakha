@@ -8,7 +8,7 @@ export interface PopLookupResult {
   /** Page count of the matched document - autofills the source's `page` field. */
   num_pages?: number;
   /** Where the match was found — 'notFound' when `found` is false. The Edit Source
-   *  modal carries this straight through to the new_sources record's
+   *  modal carries this straight through to the updated_sources record's
    *  sourceReferenceStatus on save. */
   matchStatus?: PopMatchStatus;
 }

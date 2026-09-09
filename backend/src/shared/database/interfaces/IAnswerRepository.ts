@@ -24,7 +24,7 @@ export interface ClosedAnswerFilters {
   /** Source types the answer must carry at least one of. */
   sourceTypes?: string[];
   /**
-   * new_sources record states to keep ('pending' | 'in-progress' | 'completed' |
+   * updated_sources record states to keep ('pending' | 'in-progress' | 'completed' |
    * 'merged' | 'flagged'). 'none' (answers nobody has started) is still accepted for
    * completeness but the UI no longer offers it. Flagged records are hidden from the
    * list unless 'flagged' is asked for here.
@@ -50,14 +50,14 @@ export interface ClosedAnswerFilters {
   priorities?: string[];
   /**
    * The requesting user's role — controls visibility based on the answer's
-   * new_sources review state, not a user-facing query param. Experts don't see
-   * answers whose new_sources record is already 'completed'; moderators/admins
+   * updated_sources review state, not a user-facing query param. Experts don't see
+   * answers whose updated_sources record is already 'completed'; moderators/admins
    * see only those that are.
    */
   viewerRole?: UserRole;
   /**
    * The requesting user's id — not a user-facing query param. Answers where this user
-   * has an 'in-progress' new_sources record are sorted to the top of their list.
+   * has an 'in-progress' updated_sources record are sorted to the top of their list.
    */
   viewerId?: string;
 }

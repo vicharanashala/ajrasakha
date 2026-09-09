@@ -5,10 +5,10 @@ import {
 } from '#root/shared/interfaces/models.js';
 
 export interface INewSourceRepository {
-  /** Inserts a new document into the `new_sources` collection. */
+  /** Inserts a new document into the `updated_sources` collection. */
   create(data: Omit<INewSource, '_id' | 'createdAt' | 'updatedAt'>): Promise<INewSource>;
 
-  /** Updates an existing `new_sources` document by id (e.g. on save, once editing
+  /** Updates an existing `updated_sources` document by id (e.g. on save, once editing
    *  completes) — also marks isSaved and records timeTaken on `userId`'s own still-open
    *  reviewArray entry (the one with closedAt: null), not just the record as a whole, so
    *  each reviewer's own contribution stays attributed to them. */
@@ -33,11 +33,11 @@ export interface INewSourceRepository {
    *  about to start editing — used to detect an abandoned-in-place review elsewhere. */
   findActiveInProgressByUser(userId: string, excludeAnswerId: string): Promise<INewSource | null>;
 
-  /** Finds the existing `new_sources` record for this answer, if one already exists —
+  /** Finds the existing `updated_sources` record for this answer, if one already exists —
    *  used so starting an edit never creates a duplicate document for the same answer. */
   findByAnswerId(answerId: string): Promise<INewSource | null>;
 
-  /** Finds a `new_sources` record by its own id — used to check its current status
+  /** Finds an `updated_sources` record by its own id — used to check its current status
    *  (e.g. rejecting a save once it's 'merged') before applying an update to it. */
   findById(id: string): Promise<INewSource | null>;
 
