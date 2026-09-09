@@ -30,7 +30,7 @@ export function getTimerStartTime(
 ): string {
   // const { submission, authors_history, createdAt } = question;
 
-  const {createdAt} = question
+  const {createdAt} = question || {}
 
   // Check if user is Author: queue[0] AND history.length === 0
   // const isAuthor =

@@ -1,1 +1,1 @@
-export const isDevelopment = import.meta.env.VITE_IS_DEVELPOMENT == "true"
+export const isDevelopment = import.meta.env.VITE_IS_DEVELOPMENT == "true"

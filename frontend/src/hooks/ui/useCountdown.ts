@@ -10,10 +10,11 @@ export function buildHoldCountdownOptions(q: {
   status?: string | null;
   holdAt?: string | null;
   accumulatedHoldMs?: number | null;
-}): CountdownHoldOptions {
+} | null | undefined): CountdownHoldOptions {
+  const safeQ = q || {};
   return {
-    accumulatedHoldMs: q.accumulatedHoldMs ?? 0,
-    holdAt: q.status === "hold" ? q.holdAt ?? undefined : undefined,
+    accumulatedHoldMs: safeQ.accumulatedHoldMs ?? 0,
+    holdAt: safeQ.status === "hold" ? safeQ.holdAt ?? undefined : undefined,
   };
 }
 
