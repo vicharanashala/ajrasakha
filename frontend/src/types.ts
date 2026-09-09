@@ -455,6 +455,9 @@ export interface ClosedAnswer {
   // True when the requesting viewer is the one who put this answer's sources
   // 'in-progress' - false (including for a 'pending'/'completed' record) otherwise.
   isOwnInProgress?: boolean;
+  // True when any reviewed source on this answer had no matching pop document
+  // (sourceReferenceStatus 'notFound'), so the list can flag it.
+  hasNotFoundReference?: boolean;
   createdAt: string;
   updatedAt: string;
   question: ClosedAnswerQuestion;

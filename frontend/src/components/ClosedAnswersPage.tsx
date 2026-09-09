@@ -1005,6 +1005,14 @@ const AnswerListItem = ({
           {newSourceStatus === "in-progress" && !answer.isOwnInProgress ? " · Locked" : ""}
         </span>
       )}
+      {showNewSourceStatus && answer.hasNotFoundReference && (
+        <span
+          className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-red-600 dark:text-red-400"
+          title="A source on this answer had no matching reference"
+        >
+          Not found
+        </span>
+      )}
     </div>
   </motion.button>
   );

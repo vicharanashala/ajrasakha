@@ -1345,7 +1345,7 @@ export class AnswerRepository implements IAnswerRepository {
                   {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},
                   {$sort: {createdAt: -1}},
                   {$limit: 1},
-                  {$project: {_id: 0, status: 1}},
+                  {$project: {_id: 0, status: 1, 'sources.sourceReferenceStatus': 1}},
                 ],
                 as: 'newSourceRecord',
               },
@@ -1353,6 +1353,24 @@ export class AnswerRepository implements IAnswerRepository {
             {
               $addFields: {
                 newSourceStatus: {$arrayElemAt: ['$newSourceRecord.status', 0]},
+                // True when at least one reviewed source failed its pop lookup, so the
+                // list can flag answers whose references still need chasing.
+                hasNotFoundReference: {
+                  $in: [
+                    'notFound',
+                    {
+                      $ifNull: [
+                        {
+                          $arrayElemAt: [
+                            '$newSourceRecord.sources.sourceReferenceStatus',
+                            0,
+                          ],
+                        },
+                        [],
+                      ],
+                    },
+                  ],
+                },
               },
             },
             {
@@ -1395,6 +1413,7 @@ export class AnswerRepository implements IAnswerRepository {
         remarks: ans.remarks,
         sources: ans.sources || [],
         newSourceStatus: ans.newSourceStatus ?? null,
+        hasNotFoundReference: Boolean(ans.hasNotFoundReference),
         // True when THIS viewer is the one who put it 'in-progress' (see isOwnInProgress
         // above, used for sort order) - lets the UI tell "mine, still open" apart from
         // "someone else's, locked" without a second round trip.
