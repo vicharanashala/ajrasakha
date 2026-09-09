@@ -1345,6 +1345,12 @@ export const ClosedAnswersPage = () => {
   const { data: currentUser } = useGetCurrentUser({});
   const isModerator = currentUser?.role === "moderator";
   const isAdmin = currentUser?.role === "admin";
+  // Moderators and admins review what experts recorded; they don't add sources here.
+  const isReviewer = isModerator || isAdmin;
+  const pageTitle = isReviewer ? "Source Reviews" : "Answer Sources";
+  const pageDescription = isReviewer
+    ? "Review the sources experts recorded against each final answer"
+    : "Add and update the sources backing each final answer";
 
   const {
     data,
@@ -1430,10 +1436,10 @@ export const ClosedAnswersPage = () => {
         <header className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-0.5">
             <h2 className="text-lg font-semibold leading-tight text-foreground">
-              Answer Sources
+              {pageTitle}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Add and update the sources backing each final answer
+              {pageDescription}
               {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} answers`}
             </p>
           </div>
