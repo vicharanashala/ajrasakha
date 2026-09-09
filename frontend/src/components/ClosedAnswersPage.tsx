@@ -66,6 +66,7 @@ import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource
 import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
 import { useActiveNewSource } from "@/hooks/api/newSource/useActiveNewSource";
 import { useReleaseNewSource } from "@/hooks/api/newSource/useReleaseNewSource";
+import { useGetNewSourceByAnswerId } from "@/hooks/api/newSource/useGetNewSourceByAnswerId";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
@@ -1001,7 +1002,71 @@ const AnswerListItem = ({
   );
 };
 
-const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
+// A single read-only source line shared by the Before/After lists below - Before shows
+// the answer's own SourceItem entries, After the new_sources record's NewSourceItem
+// entries; the fields the two have in common are all this needs to display.
+const SourceChangeItem = ({
+  source,
+}: {
+  source: Pick<SourceItem, "source" | "sourceType" | "organization">;
+}) => (
+  <div className="rounded-lg border border-border bg-card px-3 py-2">
+    <p className="truncate text-sm text-foreground">{source.source || "—"}</p>
+    <p className="text-xs text-muted-foreground">
+      {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "No type"}
+      {source.organization ? ` · ${source.organization}` : ""}
+    </p>
+  </div>
+);
+
+// Moderator-only: compares the answer's sources as they stand in the answers collection
+// (Before) against what the assigned expert has recorded in new_sources (After), so a
+// moderator can see what changed without opening the edit panel below it.
+const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
+  const { data: newSourceRecord, isLoading } = useGetNewSourceByAnswerId(answer._id, {
+    enabled: true,
+  });
+  const beforeSources = answer.sources ?? [];
+  const afterSources = newSourceRecord?.sources ?? [];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-3.5">
+      <p className="text-sm font-semibold text-foreground">Source Changes</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <p className={SECTION_LABEL_CLASSES}>Before ({beforeSources.length})</p>
+          {beforeSources.length > 0 ? (
+            beforeSources.map((source, index) => (
+              <SourceChangeItem key={index} source={source} />
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground">No sources.</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <p className={SECTION_LABEL_CLASSES}>After ({afterSources.length})</p>
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : afterSources.length > 0 ? (
+            afterSources.map((source, index) => (
+              <SourceChangeItem key={index} source={source} />
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground">No review yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AnswerDetail = ({
+  answer,
+  isModerator,
+}: {
+  answer: ClosedAnswer;
+  isModerator: boolean;
+}) => (
   <div className="flex flex-col gap-4 p-4 sm:p-5">
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-3">
@@ -1029,6 +1094,8 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
         value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
       />
     </div>
+
+    {isModerator && <SourceChangesSection answer={answer} />}
 
     <AnswerSourcesEditor answer={answer} />
 
@@ -1088,6 +1155,7 @@ export const ClosedAnswersPage = () => {
   // showing them where each answer stands (Pending/In Progress/etc) before they open it.
   const { data: currentUser } = useGetCurrentUser({});
   const isExpert = currentUser?.role === "expert";
+  const isModerator = currentUser?.role === "moderator";
 
   const {
     data,
@@ -1316,7 +1384,7 @@ export const ClosedAnswersPage = () => {
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.15, ease: "easeOut" }}
                     >
-                      <AnswerDetail answer={selectedAnswer} />
+                      <AnswerDetail answer={selectedAnswer} isModerator={isModerator} />
                     </motion.div>
                   ) : (
                     <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">

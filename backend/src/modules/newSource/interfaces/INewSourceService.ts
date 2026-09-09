@@ -43,4 +43,8 @@ export interface INewSourceService {
   /** Called once the user confirms switching answers — sends the previous 'in-progress'
    *  record back to 'pending' so it becomes available to other experts again. */
   releaseToPending(id: string): Promise<INewSource>;
+
+  /** Read-only lookup of this answer's new_sources record, if one exists — used by the
+   *  moderator "before/after" comparison view, not part of the start/edit flow. */
+  getByAnswerId(answerId: string): Promise<INewSource | null>;
 }

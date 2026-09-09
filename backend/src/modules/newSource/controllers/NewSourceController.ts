@@ -83,4 +83,11 @@ export class NewSourceController {
   async release(@Param('id') id: string): Promise<INewSource> {
     return await this.newSourceService.releaseToPending(id);
   }
+
+  @OpenAPI({summary: "Read-only lookup of an answer's new_sources record, for the moderator before/after view"})
+  @Get('/by-answer/:answerId')
+  @Authorized()
+  async getByAnswerId(@Param('answerId') answerId: string): Promise<INewSource | null> {
+    return await this.newSourceService.getByAnswerId(answerId);
+  }
 }

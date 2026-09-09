@@ -89,4 +89,8 @@ export class NewSourceService implements INewSourceService {
 
     return updated;
   }
+
+  async getByAnswerId(answerId: string): Promise<INewSource | null> {
+    return await this.newSourceRepo.findByAnswerId(answerId);
+  }
 }
