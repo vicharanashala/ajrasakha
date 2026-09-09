@@ -1010,20 +1010,64 @@ const AnswerListItem = ({
   );
 };
 
+const SOURCE_REFERENCE_STATUS_LABELS: Record<string, string> = {
+  duplicateMatch: "Duplicate match",
+  topLevelMatch: "Top-level match",
+  notFound: "Not found",
+};
+
 // A single read-only source line shared by the Before/After lists below - Before shows
 // the answer's own SourceItem entries, After the new_sources record's NewSourceItem
-// entries; the fields the two have in common are all this needs to display.
+// entries. sourceReferenceStatus only exists on the After (NewSourceItem) side, hence
+// optional here - it simply doesn't render for Before entries.
 const SourceChangeItem = ({
   source,
 }: {
-  source: Pick<SourceItem, "source" | "sourceType" | "organization">;
+  source: Pick<
+    SourceItem,
+    "source" | "sourceType" | "sourceName" | "page" | "organization" | "sourceReference"
+  > & { sourceReferenceStatus?: PopMatchStatus | null };
 }) => (
-  <div className="rounded-lg border border-border bg-card px-3 py-2">
-    <p className="truncate text-sm text-foreground">{source.source || "—"}</p>
-    <p className="text-xs text-muted-foreground">
-      {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "No type"}
-      {source.organization ? ` · ${source.organization}` : ""}
+  <div className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2 text-xs">
+    {source.sourceName && (
+      <p className="truncate text-sm font-medium text-foreground">{source.sourceName}</p>
+    )}
+    <p className="flex gap-1 text-muted-foreground">
+      <span className="shrink-0 font-medium text-foreground/70">Source:</span>
+      {isUrl(source.source) ? (
+        <a
+          href={source.source}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="truncate text-primary hover:underline"
+        >
+          {source.source}
+        </a>
+      ) : (
+        <span className="truncate">{source.source || "—"}</span>
+      )}
     </p>
+    <p className="text-muted-foreground">
+      <span className="font-medium text-foreground/70">Type:</span>{" "}
+      {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "No type"}
+      {source.page !== undefined && source.page !== "" ? ` · Page ${source.page}` : ""}
+    </p>
+    {source.organization && (
+      <p className="truncate text-muted-foreground">
+        <span className="font-medium text-foreground/70">Org:</span> {source.organization}
+      </p>
+    )}
+    {source.sourceReference && (
+      <p className="truncate text-muted-foreground">
+        <span className="font-medium text-foreground/70">Reference:</span> {source.sourceReference}
+      </p>
+    )}
+    {source.sourceReferenceStatus && (
+      <p className="text-muted-foreground">
+        <span className="font-medium text-foreground/70">Match:</span>{" "}
+        {SOURCE_REFERENCE_STATUS_LABELS[source.sourceReferenceStatus] ?? source.sourceReferenceStatus}
+      </p>
+    )}
   </div>
 );
 
@@ -1137,7 +1181,7 @@ const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewAr
           >
             <span className="truncate text-foreground">{entry.name || "—"}</span>
             <span className="shrink-0 text-muted-foreground">
-              {entry.isSaved ? formatTimeTaken(entry.timeTaken) : "In progress"}
+              {entry.isSaved ? `Time taken: ${formatTimeTaken(entry.timeTaken)}` : "In progress"}
             </span>
           </div>
         ))}
