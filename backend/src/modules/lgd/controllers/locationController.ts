@@ -10,6 +10,7 @@ import type {
   ILocationBlock,
   ILocationVillage,
   IKvk,
+  IKvkDirectoryEntry,
   IKvkSyncResult,
   IAuditActor,
   ILocationAudit,
@@ -222,6 +223,15 @@ export class LocationController {
     @QueryParam('districtCode') districtCode: number,
   ): Promise<IKvk[]> {
     return this.locationService.getKvks(districtCode);
+  }
+
+  // Whole KVK directory with state/district names resolved, used as an import
+  // source for the organization directory.
+  @Get('/kvks/directory')
+  @HttpCode(200)
+  @Authorized()
+  async getKvkDirectory(): Promise<IKvkDirectoryEntry[]> {
+    return this.locationService.getKvkDirectory();
   }
 
   // Runs the existing `scripts/create-lgd-kvks-collection.mjs --apply` script,

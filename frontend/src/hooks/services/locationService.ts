@@ -87,6 +87,15 @@ export interface IKvk {
   longitude?: number;
 }
 
+/** A KVK with its LGD codes already resolved to state and district names. */
+export interface IKvkDirectoryEntry {
+  kvkId: string;
+  kvkName: string;
+  kvkAddress?: string;
+  state: string;
+  district: string;
+}
+
 export interface ILocationAudit {
   _id?: string;
   action: "add" | "delete";
@@ -254,6 +263,10 @@ export class LocationService {
     } catch {
       return fallbackVillages(blockCode);
     }
+  }
+
+  async getKvkDirectory(): Promise<IKvkDirectoryEntry[] | null> {
+    return apiFetch<IKvkDirectoryEntry[]>(`${this._baseUrl}/kvks/directory`);
   }
 
   async getKvks(districtCode: number): Promise<IKvk[] | null> {

@@ -16,12 +16,14 @@ import {
 } from "@/components/atoms/select";
 import {
   AlertTriangle,
+  Building2,
   CheckCircle2,
   Copy,
   Download,
   FileSpreadsheet,
   Loader2,
   MinusCircle,
+  RefreshCw,
   Upload,
   X,
   XCircle,
@@ -29,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { useBulkCreateOrganizations } from "@/hooks/api/organization/useBulkCreateOrganizations";
 import { OrganizationService } from "@/hooks/services/organizationService";
+import { LocationService } from "@/hooks/services/locationService";
 import type { OrganizationBulkResult } from "@/types";
 
 type OrgType = "central" | "state" | "district";
@@ -334,10 +337,14 @@ const useStreamedReveal = (total: number, active: boolean) => {
 export const OrganizationBulkUploadModal = ({
   open,
   onClose,
+  source = "file",
 }: {
   open: boolean;
   onClose: () => void;
+  /** "file" uploads a sheet; "kvk" pulls the rows from the KVK directory. */
+  source?: "file" | "kvk";
 }) => {
+  const isKvkSource = source === "kvk";
   const [orgType, setOrgType] = useState<OrgType | "">("");
   const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
@@ -365,8 +372,10 @@ export const OrganizationBulkUploadModal = ({
     if (!open) {
       setOrgType("");
       resetToUpload();
+      return;
     }
-  }, [open, resetToUpload]);
+    if (isKvkSource) setOrgType("district");
+  }, [open, isKvkSource, resetToUpload]);
 
   const rowStates = useMemo(
     () => new Map(rows.map((row) => [row.serial, rowStateOf(row, duplicateKeys)])),
@@ -471,6 +480,44 @@ export const OrganizationBulkUploadModal = ({
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not read that file",
+      );
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  // Pulls the KVK directory and shapes it into preview rows. The KVK address is
+  // used as the organization name, and the LGD codes arrive already resolved to
+  // state and district names.
+  const loadKvkDirectory = async () => {
+    setIsParsing(true);
+    try {
+      const entries =
+        (await new LocationService().getKvkDirectory()) ?? [];
+      if (!entries.length) {
+        toast.error("The KVK directory is empty");
+        return;
+      }
+
+      const parsed: SheetRow[] = entries.map((entry, i) => ({
+        serial: i + 1,
+        sheetRow: i + 1,
+        name: (entry.kvkAddress ?? "").trim(),
+        address: "",
+        state: (entry.state ?? "").trim(),
+        district: (entry.district ?? "").trim(),
+      }));
+
+      setRows(parsed);
+      setRowFilter("all");
+      setFileName(`KVK directory — ${parsed.length} records`);
+      setDuplicateKeys(await fetchDuplicateKeys(parsed));
+      setStep("preview");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not load the KVK directory",
       );
     } finally {
       setIsParsing(false);
@@ -626,16 +673,56 @@ export const OrganizationBulkUploadModal = ({
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            Import Organizations
+            {isKvkSource ? "Import from KVK Directory" : "Import Organizations"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Upload a sheet of organizations. The list type you pick is applied to
-            every row in the file.
+            {isKvkSource
+              ? "Pulls every KVK from the LGD directory, using the KVK address as the organization name and resolving its state and district from the LGD codes."
+              : "Upload a sheet of organizations. The list type you pick is applied to every row in the file."}
           </DialogDescription>
         </DialogHeader>
 
         {/* ── Step 1: list type + file ───────────────────────────────────── */}
-        {step === "upload" && (
+        {step === "upload" && isKvkSource && (
+          <div className="flex flex-col gap-3 py-2">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                Every KVK fetched here is saved with the type{" "}
+                <strong className="font-semibold">District</strong>. Nothing is
+                written until you review the preview and confirm.
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-6 py-10 text-center">
+              {isParsing ? (
+                <>
+                  <Loader2 className="h-6 w-6 animate-spin text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Fetching the KVK directory...
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Building2 className="h-6 w-6 text-gray-400" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Fetch every KVK from the directory
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => void loadKvkDirectory()}
+                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Fetch KVKs
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === "upload" && !isKvkSource && (
           <div className="flex flex-col gap-4 py-1">
             <div className="flex flex-col gap-1.5">
               <label
@@ -888,7 +975,7 @@ export const OrganizationBulkUploadModal = ({
                   onClick={resetToUpload}
                   className="h-8 text-xs"
                 >
-                  Choose another file
+                  {isKvkSource ? "Fetch again" : "Choose another file"}
                 </Button>
                 <Button
                   size="sm"
@@ -1014,7 +1101,7 @@ export const OrganizationBulkUploadModal = ({
                 onClick={resetToUpload}
                 className="h-8 text-xs"
               >
-                Import another file
+                {isKvkSource ? "Fetch again" : "Import another file"}
               </Button>
               <Button
                 size="sm"
