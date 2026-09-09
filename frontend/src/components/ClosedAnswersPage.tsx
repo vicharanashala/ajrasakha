@@ -1239,10 +1239,7 @@ export const ClosedAnswersPage = () => {
   const [shuffleSeed, setShuffleSeed] = useState(createShuffleSeed);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
-  // Only experts see the new_sources status badge in the list - the whole point is
-  // showing them where each answer stands (Pending/In Progress/etc) before they open it.
   const { data: currentUser } = useGetCurrentUser({});
-  const isExpert = currentUser?.role === "expert";
   const isModerator = currentUser?.role === "moderator";
   const isAdmin = currentUser?.role === "admin";
 
@@ -1443,7 +1440,7 @@ export const ClosedAnswersPage = () => {
                     key={answer._id}
                     answer={answer}
                     isActive={selectedAnswer?._id === answer._id}
-                    showNewSourceStatus={isExpert}
+                    showNewSourceStatus
                     onSelect={() => setSelectedAnswerId(answer._id)}
                   />
                 ))}

@@ -1214,8 +1214,8 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage['question.priority'] = {$in: filters.priorities};
       }
 
-      // Experts shouldn't see answers whose sources have already been reviewed and
-      // completed (new_sources.status === 'completed'); moderators/admins should see
+      // Experts shouldn't see answers whose sources have already been reviewed
+      // (new_sources.status === 'completed' or 'merged'); moderators/admins should see
       // only those. Other roles get no extra filtering here.
       if (filters?.viewerRole === 'expert') {
         matchStage.hasCompletedNewSource = false;
@@ -1230,6 +1230,9 @@ export class AnswerRepository implements IAnswerRepository {
       // page-stable order; without a seed the newest answers come first as before.
       // isOwnInProgress (added to basePipeline below) always sorts first, so an expert's
       // own in-progress reviews stay on top regardless of shuffle/date ordering.
+      // reviewStatusPriority (also added to basePipeline below) sorts right after that -
+      // for the moderator/admin list it keeps 'completed' answers above 'merged' ones;
+      // it's absent for experts, where it has no effect on the sort.
       const orderingStages: any[] = filters?.shuffleSeed
         ? [
             {
@@ -1247,9 +1250,9 @@ export class AnswerRepository implements IAnswerRepository {
                 },
               },
             },
-            {$sort: {isOwnInProgress: -1, shuffleKey: 1, _id: 1}},
+            {$sort: {isOwnInProgress: -1, reviewStatusPriority: 1, shuffleKey: 1, _id: 1}},
           ]
-        : [{$sort: {isOwnInProgress: -1, createdAt: -1}}];
+        : [{$sort: {isOwnInProgress: -1, reviewStatusPriority: 1, createdAt: -1}}];
 
       const basePipeline: any[] = [
         {
@@ -1263,6 +1266,9 @@ export class AnswerRepository implements IAnswerRepository {
         {$unwind: '$question'},
         // new_sources.answerId is stored as the plain string form of the answer's _id
         // (see NewSourceService.startNewSource), not an ObjectId, hence the $toString.
+        // 'completed' and 'merged' both count as "reviewed" for the moderator/admin
+        // list - see hasCompletedNewSource below - with 'completed' taking priority in
+        // the sort via reviewStatusPriority.
         {
           $lookup: {
             from: 'new_sources',
@@ -1271,10 +1277,11 @@ export class AnswerRepository implements IAnswerRepository {
               {
                 $match: {
                   $expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']},
-                  status: 'completed',
+                  status: {$in: ['completed', 'merged']},
                 },
               },
               {$limit: 1},
+              {$project: {_id: 0, status: 1}},
             ],
             as: 'completedNewSource',
           },
@@ -1282,6 +1289,13 @@ export class AnswerRepository implements IAnswerRepository {
         {
           $addFields: {
             hasCompletedNewSource: {$gt: [{$size: '$completedNewSource'}, 0]},
+            reviewStatusPriority: {
+              $cond: [
+                {$eq: [{$arrayElemAt: ['$completedNewSource.status', 0]}, 'completed']},
+                0,
+                1,
+              ],
+            },
           },
         },
         {$match: matchStage},
