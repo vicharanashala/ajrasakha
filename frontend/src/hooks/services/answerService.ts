@@ -189,6 +189,7 @@ export class AnswerService {
         ["authorIds", filters.authorIds],
         ["sourceTypes", filters.sourceTypes],
         ["sourceReferenceStatuses", filters.sourceReferenceStatuses],
+        ["newSourceStatuses", filters.newSourceStatuses],
         ["states", filters.states],
         ["crops", filters.crops],
         ["domains", filters.domains],

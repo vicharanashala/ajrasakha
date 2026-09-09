@@ -1799,6 +1799,7 @@ export const ClosedAnswersPage = () => {
                 filters={filters}
                 onChange={setFilters}
                 showReferenceStatusFilter={isAdmin}
+                showReviewStatusFilter={isReviewer}
               />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1934,6 +1935,7 @@ export const ClosedAnswersPage = () => {
         filters={filters}
         onFiltersChange={setFilters}
         showReferenceStatusFilter={isAdmin}
+        showReviewStatusFilter={isReviewer}
         hasNextPage={Boolean(hasNextPage)}
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={() => fetchNextPage()}
