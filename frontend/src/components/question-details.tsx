@@ -26,6 +26,7 @@ import { RerouteTimeline } from "@/features/question_details/components/RerouteT
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
 import { ModeratorQueue } from "@/features/question_details/components/ModeratorQueue";
 import { RoleAssigneeQueue } from "@/features/question_details/components/RoleAssigneeQueue";
+import { QueuesSection } from "@/features/question_details/components/QueuesSection";
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
@@ -345,43 +346,12 @@ export const QuestionDetails = ({
             />
           )}
 
-          {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
-
-          {/* 1. Gate keeper / auditor role queues — always shown (read-only unless the
-                viewer is a moderator/admin who can manage). */}
-          <RoleAssigneeQueue
-            title="Gate Keeper Queue"
-            noun="gate keeper"
-            role="gate_keeper"
+          {/* Horizontal Queues Bar Section */}
+          <QueuesSection
             question={question}
             currentUser={currentUser}
+            reroutequestionDetails={reroutequestionDetails}
           />
-          <RoleAssigneeQueue
-            title="Auditor Queue"
-            noun="auditor"
-            role="auditor"
-            question={question}
-            currentUser={currentUser}
-          />
-
-          {/* 2. Expert allocation queue */}
-          <AllocationTimeline
-            history={question.submission.history}
-            queue={question.submission.queue}
-            currentUser={currentUser}
-            question={question}
-          />
-
-          {/* 3. Moderator queue */}
-          <ModeratorQueue question={question} currentUser={currentUser} />
-
-          {/* 4. Re-route queue */}
-          {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
-            <RerouteTimeline
-              currentUser={currentUser}
-              rerouteData={reroutequestionDetails}
-            />
-          )}
 
           {/* )} */}
           <div className="md:flex items-center justify-between md:mt-12 hidden ">
