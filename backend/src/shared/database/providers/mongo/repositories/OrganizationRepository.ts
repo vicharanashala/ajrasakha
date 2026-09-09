@@ -47,6 +47,15 @@ export class OrganizationRepository implements IOrganizationRepository {
     return {organizations, totalPages};
   }
 
+  async findById(id: string): Promise<IOrganization | null> {
+    await this.init();
+    const {ObjectId} = await import('mongodb');
+    const org = await this.OrganizationCollection.findOne({
+      _id: new ObjectId(id) as any,
+    });
+    return org ? {...org, _id: org._id?.toString()} : null;
+  }
+
   async create(data: Omit<IOrganization, '_id'>): Promise<IOrganization> {
     await this.init();
     const now = new Date();
