@@ -63,12 +63,16 @@ export class QuestionPaeValidationController {
       'Returns paginated questions assigned to the authenticated PAE expert, including their final answers and sources.',
   })
   async getPaeValidationAssignedQuestions(
-    @QueryParams() query: { page?: number; limit?: number },
+    @QueryParams() query: { page?: number; limit?: number; userId?: string },
     @CurrentUser() user: IUser,
   ) {
     const page = Number(query.page) || 1;
     const limit = Math.min(Number(query.limit) || 10, 100);
-    const userId = user._id.toString();
+    // Managers (admin/moderator) may view another PAE's validations (e.g. from the
+    // PAE dashboard); everyone else only sees their own.
+    const isManager = user.role === 'admin' || user.role === 'moderator';
+    const userId =
+      isManager && query.userId ? query.userId : user._id.toString();
     return await this.questionService.getPaeValidationAssignedQuestions(
       userId,
       page,

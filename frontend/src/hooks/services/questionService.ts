@@ -1538,11 +1538,14 @@ export class QuestionService {
    */
   async getPaeValidationAssignedQuestions(
     page: number,
-    limit: number
+    limit: number,
+    userId?: string
   ): Promise<PaeValidationAssignedQuestionsResponse | null> {
     const params = new URLSearchParams();
     params.append("page", String(page));
     params.append("limit", String(limit));
+    // Managers viewing another PAE's dashboard pass that PAE's id.
+    if (userId) params.append("userId", userId);
 
     const res = await apiFetch<
       | {

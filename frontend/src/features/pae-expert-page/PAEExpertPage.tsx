@@ -29,6 +29,8 @@ import {
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetPaeValidationAssignedQuestions } from "@/hooks/api/question/useGetPaeValidationAssignedQuestions";
 import { useProcessPaeValidation } from "@/hooks/api/question/useProcessPaeValidation";
+import { PaeDashboard } from "@/components/PaeDashboard";
+import { LayoutDashboard } from "lucide-react";
 import type {
   PaeValidationQuestionItem,
   PaeValidationSource,
@@ -48,7 +50,7 @@ import { QuestionDetailsDialog } from "../qa-interface-page/QuestionDetailsDialo
 import { toast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
-type TabType = "review" | "validation";
+type TabType = "dashboard" | "review" | "validation";
 
 const normalizeValidationSources = (
   sources: PaeValidationSource[] | undefined,
@@ -981,6 +983,17 @@ export const PAEExpertPage = () => {
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 bg-muted/50 p-1 rounded-lg w-fit">
         <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "dashboard"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          Dashboard
+        </button>
+        <button
           onClick={() => setActiveTab("review")}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
             activeTab === "review"
@@ -1005,7 +1018,9 @@ export const PAEExpertPage = () => {
       </div>
 
       {/* Tab Content */}
-      {activeTab === "review" ? (
+      {activeTab === "dashboard" ? (
+        <PaeDashboard />
+      ) : activeTab === "review" ? (
         <div className="flex flex-col space-y-6">
           <div
             className={`grid grid-cols-1 ${
