@@ -4,16 +4,31 @@ import { RoleAssigneeQueue } from "./RoleAssigneeQueue";
 import { AllocationTimeline } from "./AllocationTimeline";
 import { ModeratorQueue } from "./ModeratorQueue";
 import { RerouteTimeline } from "./RerouteTimeline";
+import { FeedbackReviewTimeline } from "@/components/FeedbackReviewTimeline";
+import PaeValidationReviewTimeline from "@/components/PaeValidationReviewTimeline";
 import {
   ShieldCheck,
   UserCheck,
   Users,
   RefreshCcw,
+  MessageSquareDiff,
+  ClipboardCheck,
   Layers,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
-type QueueTab = "gate_keeper" | "auditor" | "allocation" | "moderator" | "reroute" | "all";
+type QueueTab =
+  | "gate_keeper"
+  | "auditor"
+  | "allocation"
+  | "moderator"
+  | "reroute"
+  | "feedback"
+  | "pae_validation"
+  | "all";
 
 interface QueuesSectionProps {
   question: IQuestionFullData;
@@ -27,6 +42,20 @@ export const QueuesSection = ({
   reroutequestionDetails,
 }: QueuesSectionProps) => {
   const hasReroute = reroutequestionDetails && reroutequestionDetails.length >= 1;
+  const closedStatus = ["closed", "dynamic_closed", "duplicate_closed"].includes(question?.status);
+
+  const showFeedbackQueue = !!question?._id && !!currentUser && currentUser.role !== "expert";
+  const canManageFeedback =
+    currentUser?.role === "admin" ||
+    currentUser?.role === "moderator" ||
+    currentUser?.role === "gate_keeper" ||
+    currentUser?.role === "auditor";
+
+  const showPaeValidationQueue = !!question?._id && !!currentUser && currentUser.role !== "expert" && closedStatus;
+  const canManagePaeValidation =
+    question?.paeValidation !== "completed" &&
+    closedStatus &&
+    (currentUser?.role === "admin" || currentUser?.role === "moderator");
 
   const defaultTab = useMemo<QueueTab>(() => {
     const status = question.status;
@@ -43,14 +72,37 @@ export const QueuesSection = ({
   }, [question.status]);
 
   const [activeTab, setActiveTab] = useState<QueueTab>(defaultTab);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const groupRef = useRef<HTMLDivElement>(null);
+  const [glider, setGlider] = useState({ left: 0, width: 0 });
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   // Sync activeTab if question ID or status changes
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [question._id, defaultTab]);
 
-  const groupRef = useRef<HTMLDivElement>(null);
-  const [glider, setGlider] = useState({ left: 0, width: 0 });
+  const updateScrollButtons = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setCanScrollLeft(scrollLeft > 2);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 2);
+    }
+  };
+
+  useEffect(() => {
+    updateScrollButtons();
+    const el = scrollContainerRef.current;
+    if (el) {
+      el.addEventListener("scroll", updateScrollButtons);
+      window.addEventListener("resize", updateScrollButtons);
+      return () => {
+        el.removeEventListener("scroll", updateScrollButtons);
+        window.removeEventListener("resize", updateScrollButtons);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
@@ -61,26 +113,36 @@ export const QueuesSection = ({
         left: activeBtn.offsetLeft,
         width: activeBtn.offsetWidth,
       });
+      // Scroll active tab into view if needed
+      activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     }
-  }, [activeTab, hasReroute]);
+    updateScrollButtons();
+  }, [activeTab, hasReroute, showFeedbackQueue, showPaeValidationQueue]);
 
-  // Compute status summary labels for badges
+  const scroll = (direction: "left" | "right") => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = direction === "left" ? -220 : 220;
+      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
+  // Compute status summary labels for badges & tooltips
   const gkName = question.assigned_gate_keeper?.name;
   const gkBadge = gkName
     ? question.gateKeeperFinishedAt
-      ? "Completed"
+      ? "Done"
       : gkName.split(" ")[0]
     : "Unassigned";
 
   const auditorName = question.assigned_auditor?.name;
   const auditorBadge = auditorName
     ? question.auditorFinishedAt
-      ? "Completed"
+      ? "Done"
       : auditorName.split(" ")[0]
     : "Unassigned";
 
   const expertCount = question.submission?.queue?.length ?? 0;
-  const allocationBadge = `${expertCount} ${expertCount === 1 ? "Expert" : "Experts"}`;
+  const allocationBadge = `${expertCount}`;
 
   const modName = question.assigned_moderator?.name;
   const modBadge = modName
@@ -89,44 +151,52 @@ export const QueuesSection = ({
       : modName.split(" ")[0]
     : "Unassigned";
 
-  const rerouteBadge = `${reroutequestionDetails?.length ?? 0} ${
-    (reroutequestionDetails?.length ?? 0) === 1 ? "Reroute" : "Reroutes"
-  }`;
+  const rerouteBadge = `${reroutequestionDetails?.length ?? 0}`;
 
   const tabs: {
     id: QueueTab;
     label: string;
+    fullLabel: string;
     icon: typeof ShieldCheck;
     badge: string;
     badgeVariant: "green" | "blue" | "amber" | "muted";
+    tooltip: string;
   }[] = [
     {
       id: "gate_keeper",
       label: "Gate Keeper",
+      fullLabel: "Gate Keeper Queue",
       icon: ShieldCheck,
       badge: gkBadge,
       badgeVariant: gkName ? "green" : "muted",
+      tooltip: gkName ? `Assigned to ${gkName}` : "No Gate Keeper assigned",
     },
     {
       id: "auditor",
       label: "Auditor",
+      fullLabel: "Auditor Queue",
       icon: UserCheck,
       badge: auditorBadge,
       badgeVariant: auditorName ? "green" : "muted",
+      tooltip: auditorName ? `Assigned to ${auditorName}` : "No Auditor assigned",
     },
     {
       id: "allocation",
-      label: "Allocation Queue",
+      label: "Allocation",
+      fullLabel: "Expert Allocation Queue",
       icon: Users,
       badge: allocationBadge,
       badgeVariant: expertCount > 0 ? "blue" : "muted",
+      tooltip: `${expertCount} expert(s) in allocation queue`,
     },
     {
       id: "moderator",
-      label: "Moderator Queue",
+      label: "Moderator",
+      fullLabel: "Moderator Queue",
       icon: UserCheck,
       badge: modBadge,
       badgeVariant: modName ? "green" : "muted",
+      tooltip: modName ? `Assigned to ${modName}` : "No Moderator assigned",
     },
   ];
 
@@ -134,114 +204,194 @@ export const QueuesSection = ({
     tabs.push({
       id: "reroute",
       label: "Re-route",
+      fullLabel: "Re-route Queue History",
       icon: RefreshCcw,
       badge: rerouteBadge,
       badgeVariant: "amber",
+      tooltip: `${reroutequestionDetails?.length ?? 0} re-route event(s)`,
+    });
+  }
+
+  if (showFeedbackQueue) {
+    tabs.push({
+      id: "feedback",
+      label: "Feedback",
+      fullLabel: "Feedback Review Queue",
+      icon: MessageSquareDiff,
+      badge: "Review",
+      badgeVariant: "amber",
+      tooltip: "Feedback Review Timeline & Rounds",
+    });
+  }
+
+  if (showPaeValidationQueue) {
+    tabs.push({
+      id: "pae_validation",
+      label: "PAE Validation",
+      fullLabel: "PAE Validation Review Queue",
+      icon: ClipboardCheck,
+      badge: question?.paeValidation ? String(question.paeValidation).toUpperCase() : "PAE",
+      badgeVariant: question?.paeValidation === "completed" ? "green" : "blue",
+      tooltip: `PAE Validation: ${question?.paeValidation || "Pending"}`,
     });
   }
 
   tabs.push({
     id: "all",
-    label: "All Queues",
+    label: "All",
+    fullLabel: "All Queues Overview",
     icon: Layers,
-    badge: "Overview",
+    badge: "All",
     badgeVariant: "muted",
+    tooltip: "Expand all queue sections simultaneously",
   });
 
   return (
-    <div className="w-full space-y-4 my-4">
-      {/* Horizontal Bar Container */}
-      <div
-        ref={groupRef}
-        className="relative flex w-full items-center gap-1.5 rounded-xl border border-border bg-muted/40 p-1.5 overflow-x-auto scrollbar-hiding flex-nowrap shadow-sm"
-      >
-        {/* Animated Glider Background */}
-        <span
-          className="absolute inset-y-1.5 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
-          style={{ left: glider.left, width: glider.width }}
-        />
-
-        {tabs.map(({ id, label, icon: Icon, badge, badgeVariant }) => {
-          const isActive = activeTab === id;
-          return (
+    <TooltipProvider delayDuration={400}>
+      <div className="w-full space-y-4 my-4">
+        {/* Horizontal Bar Wrapper with Scroll Buttons */}
+        <div className="relative flex items-center w-full group">
+          {/* Scroll Left Button */}
+          {canScrollLeft && (
             <button
-              key={id}
-              data-tab={id}
-              onClick={() => setActiveTab(id)}
-              className={cn(
-                "relative z-10 flex flex-shrink-0 items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer select-none",
-                isActive
-                  ? "text-foreground font-semibold scale-[1.01]"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+              onClick={() => scroll("left")}
+              className="absolute left-1 z-20 p-1 rounded-full bg-background/90 border border-border shadow-md text-foreground hover:bg-muted transition-all"
+              title="Scroll left"
             >
-              <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
-              <span>{label}</span>
-              <span
-                className={cn(
-                  "ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none",
-                  badgeVariant === "green" && "bg-green-500/15 text-green-700 dark:text-green-400",
-                  badgeVariant === "blue" && "bg-blue-500/15 text-blue-700 dark:text-blue-400",
-                  badgeVariant === "amber" && "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-                  badgeVariant === "muted" && "bg-muted-foreground/15 text-muted-foreground"
-                )}
-              >
-                {badge}
-              </span>
+              <ChevronLeft className="h-4 w-4" />
             </button>
-          );
-        })}
+          )}
+
+          {/* Horizontal Bar Container */}
+          <div
+            ref={scrollContainerRef}
+            className="relative flex w-full items-center gap-1.5 rounded-xl border border-border bg-muted/40 p-1.5 overflow-x-auto scrollbar-hiding flex-nowrap shadow-sm scroll-smooth"
+          >
+            <div ref={groupRef} className="relative flex items-center gap-1.5 flex-nowrap min-w-max">
+              {/* Animated Glider Background */}
+              <span
+                className="absolute inset-y-0.5 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
+                style={{ left: glider.left, width: glider.width }}
+              />
+
+              {tabs.map(({ id, label, fullLabel, icon: Icon, badge, badgeVariant, tooltip }) => {
+                const isActive = activeTab === id;
+                return (
+                  <Tooltip key={id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        data-tab={id}
+                        onClick={() => setActiveTab(id)}
+                        className={cn(
+                          "relative z-10 flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer select-none whitespace-nowrap",
+                          isActive
+                            ? "text-foreground font-semibold scale-[1.01]"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                        <span>{label}</span>
+                        <span
+                          className={cn(
+                            "ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none",
+                            badgeVariant === "green" && "bg-green-500/15 text-green-700 dark:text-green-400",
+                            badgeVariant === "blue" && "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+                            badgeVariant === "amber" && "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+                            badgeVariant === "muted" && "bg-muted-foreground/15 text-muted-foreground"
+                          )}
+                        >
+                          {badge}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      <p className="font-semibold">{fullLabel}</p>
+                      <p className="text-muted-foreground">{tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Scroll Right Button */}
+          {canScrollRight && (
+            <button
+              onClick={() => scroll("right")}
+              className="absolute right-1 z-20 p-1 rounded-full bg-background/90 border border-border shadow-md text-foreground hover:bg-muted transition-all"
+              title="Scroll right"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Selected Queue Content Details */}
+        <div className="space-y-6 pt-2">
+          {(activeTab === "gate_keeper" || activeTab === "all") && (
+            <RoleAssigneeQueue
+              title="Gate Keeper Queue"
+              noun="gate keeper"
+              role="gate_keeper"
+              question={question}
+              currentUser={currentUser}
+              initialOpen={true}
+            />
+          )}
+
+          {(activeTab === "auditor" || activeTab === "all") && (
+            <RoleAssigneeQueue
+              title="Auditor Queue"
+              noun="auditor"
+              role="auditor"
+              question={question}
+              currentUser={currentUser}
+              initialOpen={true}
+            />
+          )}
+
+          {(activeTab === "allocation" || activeTab === "all") && (
+            <AllocationTimeline
+              history={question.submission.history}
+              queue={question.submission.queue}
+              currentUser={currentUser}
+              question={question}
+              initialOpen={true}
+            />
+          )}
+
+          {(activeTab === "moderator" || activeTab === "all") && (
+            <ModeratorQueue
+              question={question}
+              currentUser={currentUser}
+              initialOpen={true}
+            />
+          )}
+
+          {hasReroute && (activeTab === "reroute" || activeTab === "all") && (
+            <RerouteTimeline
+              currentUser={currentUser}
+              rerouteData={reroutequestionDetails!}
+            />
+          )}
+
+          {showFeedbackQueue && (activeTab === "feedback" || activeTab === "all") && (
+            <FeedbackReviewTimeline
+              questionId={question._id}
+              canManage={canManageFeedback}
+              initialOpen={true}
+            />
+          )}
+
+          {showPaeValidationQueue && (activeTab === "pae_validation" || activeTab === "all") && (
+            <PaeValidationReviewTimeline
+              questionId={question._id}
+              canManage={canManagePaeValidation}
+              initialOpen={true}
+            />
+          )}
+        </div>
       </div>
-
-      {/* Selected Queue Content Details */}
-      <div className="space-y-6 pt-2">
-        {(activeTab === "gate_keeper" || activeTab === "all") && (
-          <RoleAssigneeQueue
-            title="Gate Keeper Queue"
-            noun="gate keeper"
-            role="gate_keeper"
-            question={question}
-            currentUser={currentUser}
-            initialOpen={true}
-          />
-        )}
-
-        {(activeTab === "auditor" || activeTab === "all") && (
-          <RoleAssigneeQueue
-            title="Auditor Queue"
-            noun="auditor"
-            role="auditor"
-            question={question}
-            currentUser={currentUser}
-            initialOpen={true}
-          />
-        )}
-
-        {(activeTab === "allocation" || activeTab === "all") && (
-          <AllocationTimeline
-            history={question.submission.history}
-            queue={question.submission.queue}
-            currentUser={currentUser}
-            question={question}
-            initialOpen={true}
-          />
-        )}
-
-        {(activeTab === "moderator" || activeTab === "all") && (
-          <ModeratorQueue
-            question={question}
-            currentUser={currentUser}
-            initialOpen={true}
-          />
-        )}
-
-        {hasReroute && (activeTab === "reroute" || activeTab === "all") && (
-          <RerouteTimeline
-            currentUser={currentUser}
-            rerouteData={reroutequestionDetails!}
-          />
-        )}
-      </div>
-    </div>
+    </TooltipProvider>
   );
 };

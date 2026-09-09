@@ -325,28 +325,7 @@ export const QuestionDetails = ({
             <OpenFeedback questionId={question._id || null} currentUser={currentUser} />
           )}
 
-          {/* Feedback-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
-          
-          {question?._id && currentUser && currentUser.role != "expert" && (
-            <FeedbackReviewTimeline
-              questionId={question._id}
-              canManage={
-                currentUser.role === "admin" || currentUser.role === "moderator"||currentUser.role=="gate_keeper"||currentUser.role=="auditor"
-              }
-            />
-          )}
-
-           {/* pae-validation-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
-          {question?._id && currentUser && currentUser.role != "expert" && closedStatus && (
-            <PaeValidationReviewTimeline
-              questionId={question._id}
-              canManage={
-                question?.paeValidation !== 'completed' && closedStatus &&(currentUser.role === "admin" || currentUser.role === "moderator")
-              }
-            />
-          )}
-
-          {/* Horizontal Queues Bar Section */}
+          {/* Horizontal Queues Bar Section (includes Gate Keeper, Auditor, Allocation, Moderator, Re-route, Feedback Queue & PAE Validation) */}
           <QueuesSection
             question={question}
             currentUser={currentUser}
