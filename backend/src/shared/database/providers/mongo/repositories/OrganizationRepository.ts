@@ -19,12 +19,17 @@ export class OrganizationRepository implements IOrganizationRepository {
       await this.db.getCollection<IOrganization>('organizations');
   }
 
-  async search(search?: string, page = 1, limit = 20): Promise<{organizations: IOrganization[], totalPages: number}> {
+  async search(
+    search?: string,
+    page = 1,
+    limit = 20,
+    type?: IOrganization['type'],
+  ): Promise<{organizations: IOrganization[], totalPages: number}> {
     await this.init();
 
-    const filter = search
-      ? {org_name: {$regex: search, $options: 'i'}}
-      : {};
+    const filter: Record<string, unknown> = {};
+    if (search) filter.org_name = {$regex: search, $options: 'i'};
+    if (type) filter.type = type;
 
     const skip = (page - 1) * limit;
 

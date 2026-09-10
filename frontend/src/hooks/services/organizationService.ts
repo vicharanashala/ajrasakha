@@ -16,11 +16,13 @@ export class OrganizationService {
     search: string,
     page = 1,
     limit = 20,
+    type?: NonNullable<Organization["type"]>,
   ): Promise<OrganizationsResponse | null> {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     params.append("page", String(page));
     params.append("limit", String(limit));
+    if (type) params.append("type", type);
 
     return apiFetch<OrganizationsResponse>(
       `${this._baseUrl}?${params.toString()}`,

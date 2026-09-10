@@ -127,6 +127,15 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+// Organization records only ever carry one of these three types (see IOrganization) -
+// letting the combobox filter by it narrows a name search across many same-named orgs
+// down to the level the expert actually means (e.g. "district" vs "state" office).
+const ORG_TYPE_FILTER_OPTIONS: {value: NonNullable<Organization["type"]>; label: string}[] = [
+  {value: "central", label: "Central"},
+  {value: "state", label: "State"},
+  {value: "district", label: "District"},
+];
+
 const SECTION_LABEL_CLASSES =
   "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80";
 
@@ -212,9 +221,16 @@ const OrganizationCombobox = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<
+    NonNullable<Organization["type"]> | undefined
+  >(undefined);
   const debouncedQuery = useDebounce(query);
 
-  const { data, isFetching } = useSearchOrganizations(debouncedQuery, open);
+  const { data, isFetching } = useSearchOrganizations(
+    debouncedQuery,
+    open,
+    typeFilter,
+  );
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
@@ -257,6 +273,29 @@ const OrganizationCombobox = ({
             onValueChange={setQuery}
             placeholder="Search by organization name..."
           />
+          <div className="flex flex-wrap gap-1 border-b border-border/60 p-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={typeFilter === undefined ? "secondary" : "ghost"}
+              className="h-6 cursor-pointer px-2 text-[11px]"
+              onClick={() => setTypeFilter(undefined)}
+            >
+              All types
+            </Button>
+            {ORG_TYPE_FILTER_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                type="button"
+                size="sm"
+                variant={typeFilter === opt.value ? "secondary" : "ghost"}
+                className="h-6 cursor-pointer px-2 text-[11px]"
+                onClick={() => setTypeFilter(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
           <CommandList className="max-h-none min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {isFetching ? (
               <div className="py-6 text-center text-xs text-muted-foreground">
@@ -282,6 +321,11 @@ const OrganizationCombobox = ({
                         )}
                       />
                       <span className="flex-1 truncate">{org.org_name}</span>
+                      {org.type && (
+                        <span className="ml-2 shrink-0 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {SOURCE_TYPE_LABELS[org.type] ?? org.type}
+                        </span>
+                      )}
                       {org.state && (
                         <span className="ml-2 shrink-0 text-xs text-muted-foreground">
                           {org.state}

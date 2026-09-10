@@ -19,8 +19,9 @@ export class OrganizationService implements IOrganizationService {
     search?: string,
     page?: number,
     limit?: number,
+    type?: IOrganization['type'],
   ): Promise<{organizations: IOrganization[], totalPages: number}> {
-    return this.organizationRepo.search(search, page, limit);
+    return this.organizationRepo.search(search, page, limit, type);
   }
 
   async findById(id: string): Promise<IOrganization | null> {

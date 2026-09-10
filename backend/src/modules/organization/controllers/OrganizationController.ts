@@ -72,15 +72,19 @@ export class OrganizationController {
     };
   }
 
-  @OpenAPI({summary: 'Search organizations by name'})
+  @OpenAPI({summary: 'Search organizations by name, optionally filtered by type'})
   @Get('/')
   @Authorized()
   async search(
-    @QueryParams() query: {search?: string; page?: number; limit?: number},
+    @QueryParams()
+    query: {search?: string; page?: number; limit?: number; type?: IOrganization['type']},
   ): Promise<{organizations: IOrganization[], totalPages: number}> {
     const limit = Number(query.limit) || 20;
     const page = Number(query.page) || 1;
-    return await this.organizationService.search(query.search, page, limit);
+    if (query.type && !['central', 'state', 'district'].includes(query.type)) {
+      throw new BadRequestError('Invalid organization type');
+    }
+    return await this.organizationService.search(query.search, page, limit, query.type);
   }
 
   @OpenAPI({summary: 'Add a new organization'})
