@@ -68,6 +68,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async getByQuestionIds(
     questionIds: string[],
     session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
   ): Promise<IQuestionSubmission[]> {
     try {
       await this.init();
@@ -75,10 +76,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         .filter(id => ObjectId.isValid(id))
         .map(id => new ObjectId(id));
       if (!ids.length) return [];
-      return this.QuestionSubmissionCollection.find(
-        {questionId: {$in: ids}},
-        {session},
-      ).toArray();
+
+      const BATCH_SIZE = 500;
+      const results: IQuestionSubmission[] = [];
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        const options: any = {session};
+        if (projection) {
+          options.projection = projection;
+        }
+        const chunk = await this.QuestionSubmissionCollection.find(
+          {questionId: {$in: batch}},
+          options,
+        ).toArray();
+        results.push(...chunk);
+      }
+      return results;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get submissions by questionIds: ${error}`,

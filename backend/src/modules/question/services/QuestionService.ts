@@ -2015,6 +2015,20 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionReportService.generateTatReport(startDate, endDate, opts);
   }
 
+  async streamTatReport(
+    startDate: Date,
+    endDate: Date,
+    outputStream: any,
+    opts: {sources?: string[]; statuses?: string[]; maxReviewers?: number} = {},
+  ): Promise<boolean> {
+    return this.questionReportService.streamTatReport(
+      startDate,
+      endDate,
+      outputStream,
+      opts,
+    );
+  }
+
   async generateOverallQuestionReport(
     startDate?: Date,
     endDate?: Date,

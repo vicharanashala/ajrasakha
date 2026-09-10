@@ -8534,8 +8534,24 @@ export class QuestionRepository implements IQuestionRepository {
       ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
     return this.QuestionCollection.find(match as any)
+      .project({
+        _id: 1,
+        question: 1,
+        source: 1,
+        status: 1,
+        referenceQuestionId: 1,
+        tag: 1,
+        createdAt: 1,
+        closedAt: 1,
+        userId: 1,
+        moderatorId: 1,
+        gateKeeperId: 1,
+        auditorId: 1,
+        firstAllocationAt: 1,
+        moderatorAssignedAt: 1,
+      })
       .sort({ createdAt: 1 })
-      .toArray();
+      .toArray() as any;
   }
 
   /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
