@@ -25,6 +25,7 @@ import {
   GitCompare,
   Users,
   UserCheck,
+  UserMinus,
   Minus,
   Flag,
   Undo2,
@@ -100,6 +101,7 @@ import type {
 import type {
   NewSourceItem,
   NewSourceRecord,
+  NewSourceReviewEntry,
   NewSourceStatusChange,
   PopMatchStatus,
 } from "@/hooks/services/newSourceService";
@@ -1656,6 +1658,13 @@ const REVIEWER_CARD_STYLES = {
     badge:
       "border border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   },
+  // Opened, spent some time, closed without saving anything.
+  idle: {
+    container: "border-border bg-muted/60 dark:bg-muted/30",
+    iconBg: "bg-muted-foreground/15",
+    icon: "text-muted-foreground",
+    badge: "border border-border bg-background text-muted-foreground",
+  },
 } as const;
 
 const CollapsibleBlock = ({
@@ -1713,67 +1722,111 @@ const CollapsibleBlock = ({
   );
 };
 
-const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewArray"] }) => (
-  <CollapsibleBlock icon={Users} title="Reviewers" count={reviewArray.length}>
-    {reviewArray.length > 0 ? (
-      <div className="flex flex-wrap items-start gap-4">
-        {reviewArray.map((entry, index) => {
-          const styles = entry.isSaved
-            ? REVIEWER_CARD_STYLES.saved
-            : REVIEWER_CARD_STYLES.open;
+// An entry is finished once it has a closing time. timeTaken is only written on an
+// expert's save, so a moderator's stint is measured from its own start and close.
+const getReviewEntryDuration = (entry: NewSourceReviewEntry) => {
+  if (entry.timeTaken !== null && entry.timeTaken !== undefined) {
+    return entry.timeTaken;
+  }
+  if (!entry.closedAt) return null;
 
-          return (
-            <div
-              key={`${entry.userId}-${index}`}
-              className="flex flex-col items-center gap-1.5"
-              title={`${entry.name || "Unknown reviewer"} · started ${formatClosedAt(entry.startedAt)}`}
-            >
-              <div
-                className={cn(
-                  "flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-full border-2 p-2 text-center transition-all duration-300 hover:scale-105 hover:shadow-lg",
-                  styles.container,
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full",
-                    styles.iconBg,
-                    styles.icon,
-                  )}
+  const startedAt = new Date(entry.startedAt).getTime();
+  const closedAt = new Date(entry.closedAt).getTime();
+  if (Number.isNaN(startedAt) || Number.isNaN(closedAt)) return null;
+
+  return Math.max(0, Math.round((closedAt - startedAt) / 1000));
+};
+
+// A record can collect a lot of stints - the same person releasing and picking an answer
+// back up - so they read as compact rows with a summary, rather than a wall of avatars.
+const ReviewersList = ({
+  reviewArray,
+}: {
+  reviewArray: NewSourceRecord["reviewArray"];
+}) => {
+  const entries = [...reviewArray].reverse();
+  const uniqueReviewers = new Set(reviewArray.map((entry) => entry.userId)).size;
+  const totalSeconds = reviewArray.reduce(
+    (total, entry) => total + (getReviewEntryDuration(entry) ?? 0),
+    0,
+  );
+
+  return (
+    <CollapsibleBlock icon={Users} title="Reviewers" count={reviewArray.length}>
+      {entries.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            {uniqueReviewers} {uniqueReviewers === 1 ? "person" : "people"} ·{" "}
+            {entries.length} {entries.length === 1 ? "stint" : "stints"} ·{" "}
+            {formatTimeTaken(totalSeconds)} total
+          </p>
+
+          <ul className="max-h-64 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card">
+            {entries.map((entry, index) => {
+              const isOpen = !entry.closedAt;
+              const styles = isOpen
+                ? REVIEWER_CARD_STYLES.open
+                : entry.isSaved
+                  ? REVIEWER_CARD_STYLES.saved
+                  : REVIEWER_CARD_STYLES.idle;
+
+              return (
+                <li
+                  key={`${entry.userId}-${index}`}
+                  className="flex items-center gap-3 border-b border-border/50 px-3 py-2 last:border-b-0"
                 >
-                  {entry.isSaved ? (
-                    <UserCheck className="h-4 w-4" />
-                  ) : (
-                    <Clock className="h-4 w-4" />
-                  )}
-                </span>
-                <p className="w-full truncate px-1 text-[11px] font-semibold text-foreground">
-                  {entry.name || "Unknown"}
-                </p>
-                <p className="w-full truncate px-1 text-[9px] uppercase tracking-wide text-muted-foreground">
-                  {entry.role === "moderator" ? "Moderator" : "Expert"}
-                </p>
-              </div>
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                      styles.iconBg,
+                      styles.icon,
+                    )}
+                  >
+                    {isOpen ? (
+                      <Clock className="h-3.5 w-3.5" />
+                    ) : entry.isSaved ? (
+                      <UserCheck className="h-3.5 w-3.5" />
+                    ) : (
+                      <UserMinus className="h-3.5 w-3.5" />
+                    )}
+                  </span>
 
-              <span
-                className={cn(
-                  "whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                  styles.badge,
-                )}
-              >
-                {entry.isSaved ? formatTimeTaken(entry.timeTaken) : "In progress"}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    ) : (
-      <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-        No one has reviewed these sources yet.
-      </p>
-    )}
-  </CollapsibleBlock>
-);
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <p className="truncate text-xs font-medium text-foreground">
+                      {entry.name || "Unknown reviewer"}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {entry.role === "moderator" ? "Moderator" : "Expert"} ·{" "}
+                      {formatClosedAt(entry.startedAt)}
+                    </p>
+                  </div>
+
+                  <span
+                    className={cn(
+                      "shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                      styles.badge,
+                    )}
+                  >
+                    {isOpen
+                      ? "In progress"
+                      : entry.isSaved
+                        ? `Saved · ${formatTimeTaken(getReviewEntryDuration(entry))}`
+                        : formatTimeTaken(getReviewEntryDuration(entry))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+          No one has reviewed these sources yet.
+        </p>
+      )}
+    </CollapsibleBlock>
+  );
+};
+
 
 // Compares the answer's sources as they stand in the answers collection (Before, red)
 // against what the assigned expert recorded in updated_sources (After, green), so a
