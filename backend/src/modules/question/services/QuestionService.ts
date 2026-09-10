@@ -676,16 +676,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (normalised_crop !== undefined)
         details.normalised_crop = normalised_crop;
 
-      // 🔹 Create Embedding — OUTSIDE transaction
+      // 🔹 Embedding is generated in the background (see processQuestionInBackground),
+      // NOT here. The AI/chatbot upload has a short client timeout and was 504'ing on the
+      // synchronous embedding call, so the question id never made it back to LangGraph.
+      // Deferring it lets this endpoint return the id in well under a second.
       const text = `Question: ${question}`;
-      let textEmbedding: number[] = [];
-
-      if (appConfig.ENABLE_AI_SERVER) {
-        const {embedding} = await this.aiService.getEmbedding(text);
-        textEmbedding = embedding;
-      }
-      logData.embeddingGenerated = textEmbedding.length > 0;
-      logData.vectorLength = textEmbedding.length;
+      const textEmbedding: number[] = [];
+      logData.embeddingGenerated = false;
+      logData.vectorLength = 0;
 
       return this._withTransaction(async (session: ClientSession) => {
         // 🔹 Create Context
@@ -813,6 +811,30 @@ export class QuestionService extends BaseService implements IQuestionService {
   }): Promise<void> {
     const {questionId, source, details, baseQuestion, logData} = params;
     try {
+      // Embedding was deferred out of the request path (so the id returns fast) — generate
+      // it here, before the duplicate pipeline that needs it, and persist it on the question.
+      if (
+        appConfig.ENABLE_AI_SERVER &&
+        (!baseQuestion.embedding || baseQuestion.embedding.length === 0)
+      ) {
+        try {
+          const {embedding} = await this.aiService.getEmbedding(
+            baseQuestion.text || `Question: ${baseQuestion.question}`,
+          );
+          if (embedding?.length) {
+            baseQuestion.embedding = embedding;
+            await this.questionRepo.updateQuestion(questionId, {embedding});
+            logData.embeddingGenerated = true;
+            logData.vectorLength = embedding.length;
+          }
+        } catch (err: any) {
+          console.error(
+            `[processQuestionInBackground] embedding generation failed for questionId=${questionId}:`,
+            err?.message,
+          );
+        }
+      }
+
       if (source === 'AGRI_EXPERT') {
         // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
         // on creation. They are left unallocated (empty queue, no firstAllocationAt)
