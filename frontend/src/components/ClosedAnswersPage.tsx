@@ -594,6 +594,13 @@ const AnswerSourcesEditor = ({
   // A 'merged' record is done for good - an admin/moderator override, not something an
   // expert re-opens by editing sources again.
   const isMerged = answer.newSourceStatus === "merged";
+  // Admins/moderators only get to edit sources directly while the record is under
+  // moderator attention - already reviewed or currently held in moderation. Anything
+  // else (pending, in-progress, flagged) is theirs to look at, not to edit.
+  const isReviewerRestricted =
+    isReviewer &&
+    answer.newSourceStatus !== "review-completed" &&
+    answer.newSourceStatus !== "moderator-in-review";
   // Every existing source's in-progress edits, so picking a different source to edit
   // (e.g. to set its own organization) never drops another source's changes.
   const [drafts, setDrafts] = useState<SourceDraft[]>(() => sources.map(toSourceDraft));
@@ -682,7 +689,7 @@ const AnswerSourcesEditor = ({
   // source on a different answer - if so, they must confirm switching (which releases
   // that other source back to 'pending') before this one can start.
   const ensureSession = () => {
-    if (sessionStartedRef.current || isLockedByOther || isMerged) return;
+    if (sessionStartedRef.current || isLockedByOther || isMerged || isReviewerRestricted) return;
     sessionStartedRef.current = true;
     findActiveElsewhere(answer._id, {
       onSuccess: (record) => {
@@ -701,7 +708,7 @@ const AnswerSourcesEditor = ({
   // expert owns the review. If they still hold one elsewhere, the switch confirmation
   // opens and the action waits for it, so nothing is fetched on a switch they cancel.
   const runWithSession = (action: () => void) => {
-    if (isLockedByOther || isMerged) return;
+    if (isLockedByOther || isMerged || isReviewerRestricted) return;
     if (sessionStartedRef.current && !pendingSwitch) {
       action();
       return;
@@ -858,7 +865,7 @@ const AnswerSourcesEditor = ({
     );
   };
 
-  if (isLockedByOther || isMerged) {
+  if (isLockedByOther || isMerged || isReviewerRestricted) {
     return (
       <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
         <header className="flex items-center gap-2">
@@ -872,7 +879,9 @@ const AnswerSourcesEditor = ({
         <p className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
           {isMerged
             ? "This answer's sources have been merged and can no longer be edited."
-            : "Another expert is currently reviewing this answer's sources. It'll be editable again once they save or it's released back to Pending."}
+            : isReviewerRestricted
+              ? "This answer's sources are read-only here - they can only be edited once it's under moderation."
+              : "Another expert is currently reviewing this answer's sources. It'll be editable again once they save or it's released back to Pending."}
         </p>
         {sources.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
@@ -2102,9 +2111,12 @@ const SourceChangesSection = ({
               onCompleted={() => onStatusChanged?.(advanceToNext)}
             />
           )}
+          {/* Flagging is only offered while the record is under moderator attention -
+              already reviewed or currently held in moderation. Pending/in-progress/
+              merged records are admin/moderator read-only. */}
           {newSourceRecord &&
-            newSourceRecord.status !== "flagged" &&
-            newSourceRecord.status !== "merged" && (
+            (newSourceRecord.status === "review-completed" ||
+              newSourceRecord.status === "moderator-in-review") && (
               <StatusOverrideControl
                 answer={answer}
                 newSourceRecord={newSourceRecord}
@@ -2185,8 +2197,18 @@ const SourceChangesSection = ({
           This review has been approved and is read-only. Its status can no longer be
           changed.
         </p>
+      ) : newSourceRecord &&
+        newSourceRecord.status !== "review-completed" &&
+        newSourceRecord.status !== "moderator-in-review" &&
+        newSourceRecord.status !== "flagged" ? (
+        // Pending/in-progress records aren't under moderator attention yet - admins and
+        // moderators get a read-only view here until an expert completes the review.
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+          This review isn't complete yet, so its status is read-only here.
+        </p>
       ) : (
-        newSourceRecord && (
+        newSourceRecord &&
+        newSourceRecord.status !== "flagged" && (
           <StatusOverrideControl
             answer={answer}
             newSourceRecord={newSourceRecord}
@@ -2344,12 +2366,14 @@ const useModeratorReviewHold = ({
   const answerId = selectedAnswer?._id ?? null;
   const questionId = selectedAnswer?.questionId ?? "";
   const isAlreadyHeld = Boolean(selectedAnswer?.isOwnModeratorReview);
-  // Flagged answers stay flagged until someone unflags them - opening one is a look,
-  // not a claim.
-  const isFlagged = selectedAnswer?.newSourceStatus === "flagged";
-  // Merged is final - opening a merged answer to look at it must not reopen it into
-  // moderation, or releasing that hold later would demote it back to review-completed.
-  const isMerged = selectedAnswer?.newSourceStatus === "merged";
+  // Auto-claiming into moderation is a status change, so it only makes sense from
+  // 'review-completed' (picking it up) or 'moderator-in-review' (this moderator's own
+  // hold, or an attempt on someone else's). Pending/in-progress answers haven't reached
+  // moderation yet, flagged answers stay flagged until unflagged, and merged is final -
+  // opening any of those is a look, not a claim, so their status must stay untouched.
+  const canAutoClaim =
+    selectedAnswer?.newSourceStatus === "review-completed" ||
+    selectedAnswer?.newSourceStatus === "moderator-in-review";
 
   const takeHold = useCallback(
     (targetId: string, targetQuestionId: string) => {
@@ -2385,7 +2409,7 @@ const useModeratorReviewHold = ({
   // Selecting an answer claims it, unless this moderator still holds another one - then
   // the confirmation decides, so nothing is claimed behind their back.
   useEffect(() => {
-    if (!enabled || !answerId || isAlreadyHeld || isFlagged || isMerged) return;
+    if (!enabled || !answerId || isAlreadyHeld || !canAutoClaim) return;
     if (heldAnswerIdRef.current === answerId) return;
 
     findHeldElsewhere(answerId, {
@@ -2404,8 +2428,7 @@ const useModeratorReviewHold = ({
     answerId,
     questionId,
     isAlreadyHeld,
-    isFlagged,
-    isMerged,
+    canAutoClaim,
     findHeldElsewhere,
     takeHold,
   ]);

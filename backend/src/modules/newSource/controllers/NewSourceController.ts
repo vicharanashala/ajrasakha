@@ -45,6 +45,7 @@ export class NewSourceController {
       ...body,
       userId: user._id?.toString() ?? '',
       userName,
+      role: user.role,
     });
   }
 
@@ -60,6 +61,7 @@ export class NewSourceController {
       id,
       ...body,
       userId: user._id?.toString() ?? '',
+      role: user.role,
     });
   }
 

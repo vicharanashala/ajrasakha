@@ -19,6 +19,10 @@ export interface StartNewSourceInput {
    *  reviewArray as the one who started (and, until completed, hasn't finished) it. */
   userId: string;
   userName: string;
+  /** The user's role — admins/moderators editing sources directly (rather than through
+   *  the moderator-review flow) are only allowed to while the record is 'review-completed'
+   *  or 'moderator-in-review'; experts are unaffected by this check. */
+  role?: string;
 }
 
 export interface CompleteNewSourceInput {
@@ -32,6 +36,8 @@ export interface CompleteNewSourceInput {
   /** The user saving this edit — used to record timeTaken on their own reviewArray
    *  entry, not the record as a whole. */
   userId: string;
+  /** Same role gate as StartNewSourceInput.role. */
+  role?: string;
 }
 
 export interface INewSourceService {

@@ -28,6 +28,21 @@ export class NewSourceService implements INewSourceService {
         );
       }
 
+      // Admins/moderators editing sources directly (as opposed to overriding status)
+      // only get to while the record is under moderator attention - already reviewed
+      // or currently held in moderation. Anything else (pending, in-progress, flagged)
+      // is theirs to look at, not to edit.
+      const isReviewerRole = input.role === 'admin' || input.role === 'moderator';
+      if (
+        isReviewerRole &&
+        existing.status !== 'review-completed' &&
+        existing.status !== 'moderator-in-review'
+      ) {
+        throw new ForbiddenError(
+          "This answer's sources can't be edited while its review is in this status.",
+        );
+      }
+
       // Whoever put this source 'in-progress' owns finishing it - a different expert
       // can't jump in and edit it until it's released back to 'pending' (or review-completed).
       const ownedByAnotherExpert =
@@ -116,6 +131,17 @@ export class NewSourceService implements INewSourceService {
       );
     }
 
+    const isReviewerRole = input.role === 'admin' || input.role === 'moderator';
+    if (
+      isReviewerRole &&
+      existing.status !== 'review-completed' &&
+      existing.status !== 'moderator-in-review'
+    ) {
+      throw new ForbiddenError(
+        "This answer's sources can't be edited while its review is in this status.",
+      );
+    }
+
     const updated = await this.newSourceRepo.updateById(input.id, input.userId, {
       sources: input.sources,
       status: 'review-completed',
@@ -150,11 +176,11 @@ export class NewSourceService implements INewSourceService {
       );
     }
 
-    // A flagged record is read-only until someone lifts the flag - opening it must not
-    // quietly take it into moderation, so it comes back untouched. A merged record is
-    // done for good - opening it to look at it must not silently reopen it either, or
-    // releasing that hold later would demote it back to 'review-completed'.
-    if (existing.status === 'flagged' || existing.status === 'merged') {
+    // Taking an answer into moderation is itself a status change, so it's only allowed
+    // from 'review-completed' (picking it up) or 'moderator-in-review' (an existing
+    // hold, handled below). Everything else - pending, in-progress, flagged, merged -
+    // is admin/moderator read-only, so opening it to look must leave it untouched.
+    if (existing.status !== 'review-completed' && existing.status !== 'moderator-in-review') {
       return existing;
     }
 
@@ -262,11 +288,27 @@ export class NewSourceService implements INewSourceService {
     if (!existing) {
       throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
     }
-    // Merged is a final state - once approved, the record is read-only and can't be
-    // overridden to another status from here.
-    if (existing.status === 'merged') {
+
+    // Admin/moderator status overrides only reach a record while it's under moderator
+    // attention - already reviewed, currently held in moderation, or flagged for a
+    // second look. Anything else (pending, in-progress, merged) is read-only from here.
+    const overridableStatuses = ['review-completed', 'moderator-in-review', 'flagged'];
+    if (!overridableStatuses.includes(existing.status)) {
       throw new ForbiddenError(
-        "This answer's sources have been merged and can no longer be changed.",
+        `This answer's sources are '${existing.status}' and can't be changed from here.`,
+      );
+    }
+
+    // A flagged record can only be unflagged - back to the experts ('pending') or back
+    // to the moderator queue ('review-completed'). It can't be sent anywhere else from
+    // this flagged state, 'merged' included.
+    if (
+      existing.status === 'flagged' &&
+      input.status !== 'pending' &&
+      input.status !== 'review-completed'
+    ) {
+      throw new ForbiddenError(
+        "A flagged review can only be unflagged to 'pending' or 'review-completed'.",
       );
     }
 
