@@ -75,6 +75,7 @@ import {
   countActiveFilters,
 } from "./ClosedAnswersFilters";
 import { ClosedAnswersListDialog } from "./ClosedAnswersListDialog";
+import { ClosedAnswersGuide } from "./ClosedAnswersGuide";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
@@ -2552,6 +2553,7 @@ export const ClosedAnswersPage = () => {
                 showReferenceStatusFilter={isAdmin}
                 showReviewStatusFilter={isReviewer}
               />
+              <ClosedAnswersGuide isReviewer={isReviewer} />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
