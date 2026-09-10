@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
+import { Checkbox } from "@/components/atoms/checkbox";
 import { Button } from "@/components/atoms/button";
 import {
   Popover,
@@ -1465,6 +1466,9 @@ const StatusOverrideControl = ({
   newSourceRecord,
   actions = ["pending", "merged", "flagged"],
   inline = false,
+  advanceToNext,
+  onAdvanceToNextChange,
+  onCompleted,
 }: {
   answer: ClosedAnswer;
   newSourceRecord: NewSourceRecord;
@@ -1472,6 +1476,11 @@ const StatusOverrideControl = ({
   actions?: ("pending" | "merged" | "flagged")[];
   /** Renders just the buttons, without the bordered "Change status" row. */
   inline?: boolean;
+  /** Whether finishing here should open the next answer - the toggle only renders on
+   *  the full row, but the header's Flag honours the same choice. */
+  advanceToNext?: boolean;
+  onAdvanceToNextChange?: (next: boolean) => void;
+  onCompleted?: () => void;
 }) => {
   const refreshAnswerSources = useAnswerSourcesRefresh();
   const [activeAction, setActiveAction] = useState<
@@ -1500,6 +1509,7 @@ const StatusOverrideControl = ({
           setReason("");
           setActiveAction(null);
           refreshAnswerSources(answer._id);
+          onCompleted?.();
         },
         onError: (error: Error) => {
           toast.error(error.message || "Failed to change status.");
@@ -1521,7 +1531,19 @@ const StatusOverrideControl = ({
       )}
     >
       {!inline && <p className={SECTION_LABEL_CLASSES}>Change status</p>}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {!inline && onAdvanceToNextChange && (
+          <label className="mr-1 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox
+              checked={advanceToNext}
+              onCheckedChange={(checked) =>
+                onAdvanceToNextChange(checked === true)
+              }
+              className="cursor-pointer"
+            />
+            Open next answer
+          </label>
+        )}
         {visibleActions.map((action) => {
           const Icon = action.icon;
           const isCurrent = newSourceRecord.status === action.value;
@@ -1760,10 +1782,14 @@ const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewAr
 const SourceChangesSection = ({
   answer,
   onHoldReleased,
+  onStatusChanged,
 }: {
   answer: ClosedAnswer;
   onHoldReleased?: () => void;
+  /** Called after any status override, with whether to open the next answer. */
+  onStatusChanged?: (advanceToNext: boolean) => void;
 }) => {
+  const [advanceToNext, setAdvanceToNext] = useState(true);
   const { data: newSourceRecord, isLoading } = useGetNewSourceByAnswerId(answer._id, {
     enabled: true,
   });
@@ -1806,6 +1832,7 @@ const SourceChangesSection = ({
               newSourceRecord={newSourceRecord}
               actions={["flagged"]}
               inline
+              onCompleted={() => onStatusChanged?.(advanceToNext)}
             />
           )}
         </div>
@@ -1880,6 +1907,9 @@ const SourceChangesSection = ({
           answer={answer}
           newSourceRecord={newSourceRecord}
           actions={["pending", "merged"]}
+          advanceToNext={advanceToNext}
+          onAdvanceToNextChange={setAdvanceToNext}
+          onCompleted={() => onStatusChanged?.(advanceToNext)}
         />
       )}
     </div>
@@ -1891,12 +1921,15 @@ const AnswerDetail = ({
   isModerator,
   isAdmin,
   onHoldReleased,
+  onStatusChanged,
 }: {
   answer: ClosedAnswer;
   isModerator: boolean;
   isAdmin: boolean;
   /** Clears the selection when a moderator hands the answer back. */
   onHoldReleased?: () => void;
+  /** Moves on after a status override, per the "Open next answer" choice. */
+  onStatusChanged?: (advanceToNext: boolean) => void;
 }) => (
   <div className="flex flex-col gap-4 p-4 sm:p-5">
     <div className="flex flex-col gap-1.5">
@@ -1927,7 +1960,11 @@ const AnswerDetail = ({
     </div>
 
     {(isModerator || isAdmin) && (
-      <SourceChangesSection answer={answer} onHoldReleased={onHoldReleased} />
+      <SourceChangesSection
+        answer={answer}
+        onHoldReleased={onHoldReleased}
+        onStatusChanged={onStatusChanged}
+      />
     )}
 
     <AnswerSourcesEditor
@@ -2180,6 +2217,32 @@ export const ClosedAnswersPage = () => {
     setPendingClaimId(null);
   };
 
+  // After acting on an answer: step to the next one when the reviewer asked to keep
+  // going, otherwise drop back to the pick-an-answer state.
+  const handleStatusChanged = (advanceToNext: boolean) => {
+    const actedOnId = selectedAnswer?._id;
+    if (actedOnId) {
+      setReleasedAnswerIds((prev) =>
+        prev.includes(actedOnId) ? prev : [...prev, actedOnId],
+      );
+    }
+
+    if (!advanceToNext) {
+      setSelectedAnswerId(null);
+      return;
+    }
+
+    const currentIndex = answers.findIndex((answer) => answer._id === actedOnId);
+    const nextAnswer =
+      answers[currentIndex + 1] ?? answers[currentIndex - 1] ?? null;
+
+    if (nextAnswer) {
+      selectAnswer(nextAnswer._id);
+    } else {
+      setSelectedAnswerId(null);
+    }
+  };
+
   const moveSelection = (offset: number) => {
     if (answers.length === 0) return;
     const currentIndex = answers.findIndex(
@@ -2379,6 +2442,7 @@ export const ClosedAnswersPage = () => {
                         answer={selectedAnswer}
                         isModerator={isModerator}
                         isAdmin={isAdmin}
+                        onStatusChanged={handleStatusChanged}
                         onHoldReleased={() => {
                           setReleasedAnswerIds((prev) =>
                             prev.includes(selectedAnswer._id)
