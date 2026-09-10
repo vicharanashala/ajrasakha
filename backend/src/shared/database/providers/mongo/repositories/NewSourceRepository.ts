@@ -284,13 +284,33 @@ export class NewSourceRepository implements INewSourceRepository {
       throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
+    const changedAt = new Date();
+
+    // Acting on the record ends the moderator's hold on it - their entry is marked
+    // saved and given its own timeTaken (measured from when they opened it), the same
+    // as an expert's own save via updateById, rather than being left null.
+    const existing = await this.NewSourceCollection.findOne({_id: new ObjectId(id)});
+    const openModeratorEntry = existing?.reviewArray.find(
+      reviewer => reviewer.role === 'moderator' && reviewer.closedAt === null,
+    );
+    const timeTaken = openModeratorEntry
+      ? Math.max(
+          0,
+          Math.round(
+            (changedAt.getTime() - new Date(openModeratorEntry.startedAt).getTime()) / 1000,
+          ),
+        )
+      : null;
+
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
       {
         $set: {
           status: entry.status,
-          'reviewArray.$[reviewer].closedAt': new Date(),
-          updatedAt: new Date(),
+          'reviewArray.$[reviewer].closedAt': changedAt,
+          'reviewArray.$[reviewer].isSaved': true,
+          'reviewArray.$[reviewer].timeTaken': timeTaken,
+          updatedAt: changedAt,
         },
         $push: {statusChanges: entry},
       },
