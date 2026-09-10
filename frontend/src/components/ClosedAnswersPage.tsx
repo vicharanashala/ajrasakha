@@ -424,7 +424,6 @@ const SourceReferenceLookup = ({
     <div className="grid gap-1.5">
       <Button
         type="button"
-        variant="secondary"
         size="sm"
         className="w-fit cursor-pointer"
         onClick={handleClick}
@@ -549,7 +548,6 @@ const AnswerSourcesEditor = ({
   // Indices of existing sources the expert has stepped through with "Next". Save only
   // becomes available once every existing source has been confirmed this way.
   const [confirmedIndices, setConfirmedIndices] = useState<Set<number>>(new Set());
-  const [newEntry, setNewEntry] = useState<SourceDraft>(EMPTY_SOURCE_DRAFT);
   const [newSourceId, setNewSourceId] = useState<string | null>(null);
   // The other answer's in-progress updated_sources record this expert still owns, surfaced
   // so they can confirm switching to this answer before it's released back to pending.
@@ -569,7 +567,7 @@ const AnswerSourcesEditor = ({
   const removeAnswerFromList = useRemoveAnswerFromList();
 
   const isEditing = editingIndex !== null;
-  const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : newEntry;
+  const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : EMPTY_SOURCE_DRAFT;
   const isValid =
     form.source.trim().length > 0 &&
     Boolean(form.sourceType) &&
@@ -686,17 +684,13 @@ const AnswerSourcesEditor = ({
     });
   };
 
-  // Merges into whichever source is currently active - an existing one being edited,
-  // or the not-yet-added new entry - so every other source's draft is left untouched.
+  // Merges into the source currently being edited, leaving every other draft untouched.
   const updateActive = (patch: Partial<SourceDraft>) => {
+    if (editingIndex === null) return;
     ensureSession();
-    if (isEditing) {
-      setDrafts((prev) =>
-        prev.map((draft, i) => (i === editingIndex ? { ...draft, ...patch } : draft)),
-      );
-    } else {
-      setNewEntry((prev) => ({ ...prev, ...patch }));
-    }
+    setDrafts((prev) =>
+      prev.map((draft, i) => (i === editingIndex ? { ...draft, ...patch } : draft)),
+    );
   };
 
   const updateField = (field: keyof SourceItem, value: string) => {
@@ -708,20 +702,13 @@ const AnswerSourcesEditor = ({
     setEditingIndex(index);
   };
 
-  const startBlankSource = () => {
-    ensureSession();
-    setEditingIndex(null);
-    setNewEntry(EMPTY_SOURCE_DRAFT);
-  };
-
   const resetForm = () => {
-    if (isEditing) {
-      setDrafts((prev) =>
-        prev.map((draft, i) => (i === editingIndex ? toSourceDraft(sources[editingIndex]) : draft)),
-      );
-    } else {
-      setNewEntry(EMPTY_SOURCE_DRAFT);
-    }
+    if (editingIndex === null) return;
+    setDrafts((prev) =>
+      prev.map((draft, i) =>
+        i === editingIndex ? toSourceDraft(sources[editingIndex]) : draft,
+      ),
+    );
   };
 
   // Confirms the source currently being edited and advances to the next one that
@@ -768,7 +755,7 @@ const AnswerSourcesEditor = ({
     // (from that source's own Fetch Source Reference lookup), plus sourceIndex: its
     // position in the answer's own sources array. Edits are logged to the updated_sources
     // collection - the answer's own sources are never modified here.
-    const finalSources: NewSourceItem[] = (isEditing ? drafts : [...drafts, newEntry]).map(
+    const finalSources: NewSourceItem[] = drafts.map(
       (draft, index) => ({ ...draft, sourceIndex: index }),
     );
 
@@ -851,19 +838,6 @@ const AnswerSourcesEditor = ({
             )}
           />
         </button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="cursor-pointer"
-          onClick={() => {
-            setIsOpen(true);
-            startBlankSource();
-          }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add source
-        </Button>
       </header>
 
       <AnimatePresence initial={false}>
@@ -890,13 +864,13 @@ const AnswerSourcesEditor = ({
         </div>
       ) : (
         <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-          No sources yet - fill the form below to add the first one.
+          This answer has no sources to update.
         </p>
       )}
 
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3.5 shadow-sm">
         <p className={SECTION_LABEL_CLASSES}>
-          {isEditing ? `Editing source ${editingIndex + 1}` : "New source"}
+          {isEditing ? `Editing source ${editingIndex + 1}` : "Select a source above"}
         </p>
 
         <div className="grid gap-1.5">
@@ -928,17 +902,10 @@ const AnswerSourcesEditor = ({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label htmlFor={`${fieldId}-org`} className="text-xs">
-              Organization
-            </Label>
-            <OrganizationCombobox
-              id={`${fieldId}-org`}
-              value={form.organization ?? ""}
-              runWithSession={runWithSession}
-              onChange={(org) =>
-                updateActive({ organization: org.org_name, sourceType: org.type })
-              }
-            />
+            <Label className="text-xs">Page</Label>
+            <p className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90">
+              {form.page || "—"}
+            </p>
           </div>
 
           <div className="grid gap-1.5">
@@ -953,10 +920,17 @@ const AnswerSourcesEditor = ({
           </div>
 
           <div className="grid gap-1.5">
-            <Label className="text-xs">Page</Label>
-            <p className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90">
-              {form.page || "—"}
-            </p>
+            <Label htmlFor={`${fieldId}-org`} className="text-xs">
+              Organization
+            </Label>
+            <OrganizationCombobox
+              id={`${fieldId}-org`}
+              value={form.organization ?? ""}
+              runWithSession={runWithSession}
+              onChange={(org) =>
+                updateActive({ organization: org.org_name, sourceType: org.type })
+              }
+            />
           </div>
 
           <div className="grid gap-1.5">
@@ -994,13 +968,7 @@ const AnswerSourcesEditor = ({
               disabled={!isValid || isSaving || isStarting}
               onClick={showNext ? handleNext : handleSave}
             >
-              {isSaving
-                ? "Saving..."
-                : showNext
-                  ? "Next"
-                  : isEditing
-                    ? "Save changes"
-                    : "Add source"}
+              {isSaving ? "Saving..." : showNext ? "Next" : "Save changes"}
             </Button>
           </div>
         </div>
