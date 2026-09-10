@@ -1238,7 +1238,7 @@ export class AnswerRepository implements IAnswerRepository {
       }
 
       // Experts shouldn't see answers whose sources have already been reviewed
-      // (new_sources.status === 'completed' or 'merged'); moderators/admins should see
+      // (new_sources.status === 'review-completed' or 'merged'); moderators/admins should see
       // only those. Other roles get no extra filtering here.
       if (filters?.viewerRole === 'expert') {
         matchStage.hasCompletedNewSource = false;
@@ -1254,7 +1254,7 @@ export class AnswerRepository implements IAnswerRepository {
       // isOwnInProgress (added to basePipeline below) always sorts first, so an expert's
       // own in-progress reviews stay on top regardless of shuffle/date ordering.
       // reviewStatusPriority (also added to basePipeline below) sorts right after that -
-      // for the moderator/admin list it keeps 'completed' answers above 'merged' ones;
+      // for the moderator/admin list it keeps 'review-completed' answers above 'merged' ones;
       // it's absent for experts, where it has no effect on the sort.
       const orderingStages: any[] = filters?.shuffleSeed
         ? [
@@ -1289,8 +1289,8 @@ export class AnswerRepository implements IAnswerRepository {
         {$unwind: '$question'},
         // new_sources.answerId is stored as the plain string form of the answer's _id
         // (see NewSourceService.startNewSource), not an ObjectId, hence the $toString.
-        // 'completed' and 'merged' both count as "reviewed" for the moderator/admin
-        // list - see hasCompletedNewSource below - with 'completed' taking priority in
+        // 'review-completed' and 'merged' both count as "reviewed" for the moderator/admin
+        // list - see hasCompletedNewSource below - with 'review-completed' taking priority in
         // the sort via reviewStatusPriority.
         {
           $lookup: {
@@ -1312,7 +1312,7 @@ export class AnswerRepository implements IAnswerRepository {
             hasCompletedNewSource: {
               $in: [
                 {$arrayElemAt: ['$completedNewSource.status', 0]},
-                ['completed', 'merged'],
+                ['review-completed', 'merged'],
               ],
             },
             // Every pop lookup outcome recorded on this answer's reviewed sources, so
@@ -1325,7 +1325,7 @@ export class AnswerRepository implements IAnswerRepository {
             },
             reviewStatusPriority: {
               $cond: [
-                {$eq: [{$arrayElemAt: ['$completedNewSource.status', 0]}, 'completed']},
+                {$eq: [{$arrayElemAt: ['$completedNewSource.status', 0]}, 'review-completed']},
                 0,
                 1,
               ],

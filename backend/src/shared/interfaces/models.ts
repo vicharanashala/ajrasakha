@@ -266,7 +266,7 @@ export interface IQuestion {
   autoAllocateFeedback?: boolean;
 }
 
-export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
+export type SourceType = 'hyper_local' | 'state' | 'central' | 'district' | 'other';
 
 export interface SourceItem {
   sourceType?: SourceType;
@@ -305,11 +305,9 @@ export interface IOrganizationBulkResult {
   reason: string;
 }
 
-/** An entry in the `pop` collection, looked up by `shareable_link` to resolve the
- *  Source Reference button on the Edit Source modal (Closed Answers page). */
-/** A duplicate file recorded against a `pop` document. When a source matches one of
- *  these instead of the document's own `shareable_link`, the ORIGINAL document's own
- *  shareable_link/shareable_name should be surfaced, not this duplicate's. */
+/** A duplicate file recorded against a `pop_unique_documents` document. When a source
+ *  matches one of these instead of the document's own `shareable_link`, the ORIGINAL
+ *  document's own shareable_link/shareable_name should be surfaced, not this duplicate's. */
 export interface IPopDuplicateLink {
   zoho_file_id?: string;
   shareable_link: string;
@@ -319,10 +317,16 @@ export interface IPopDuplicateLink {
   row_id?: number;
 }
 
+/** An entry in the `pop_unique_documents` collection (a separate database, see
+ *  POP_DB_URL/POP_DB_NAME), looked up by `shareable_link` to resolve the Source
+ *  Reference button on the Edit Source modal (Closed Answers page). */
 export interface IPop {
   _id?: string | ObjectId;
   shareable_name: string;
   shareable_link: string;
+  /** Page count of the source document - autofills a source's `page` field when the
+   *  Fetch Source Reference lookup finds a match (Closed Answers Edit Source modal). */
+  num_pages?: number;
   duplicate_links?: IPopDuplicateLink[];
 }
 
@@ -330,7 +334,7 @@ export interface IPop {
  *  same fields as SourceItem, plus organization and sourceReference which are not
  *  (yet) part of the answers-collection SourceItem shape. organization and
  *  sourceReferenceStatus are per source (each source on an answer can belong to a
- *  different organization and be checked against the pop collection independently).
+ *  different organization and be checked against pop_unique_documents independently).
  *  sourceIndex is that source's position in the *answer's own* `sources` array (in the
  *  `answers` collection), so a reviewer can map this entry back to it - it is not an
  *  index into this document's own `sources` array, which may not be saved in the same
@@ -347,13 +351,13 @@ export interface INewSourceItem {
 }
 
 /** Lifecycle of a `new_sources` record: 'in-progress' from the moment the Edit Source
- *  modal is opened (timer running), 'completed' once the user saves (timer stopped,
+ *  modal is opened (timer running), 'review-completed' once the user saves (timer stopped,
  *  timeTaken recorded). 'pending', 'flagged', and 'merged' are not produced by the Edit
  *  Source flow itself — they're reserved for a review workflow. */
-export type NewSourceStatus = 'pending' | 'completed' | 'in-progress' | 'flagged' | 'merged';
+export type NewSourceStatus = 'pending' | 'review-completed' | 'in-progress' | 'flagged' | 'merged';
 
-/** Where a saved source's link was found in the `pop` collection, checked automatically
- *  against the pop collection when the edit is saved. */
+/** Where a saved source's link was found in the `pop_unique_documents` collection,
+ *  checked automatically against it when the edit is saved. */
 export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
 
 /** One user opening the Edit Source modal for a `new_sources` record. Logged the instant
@@ -391,10 +395,10 @@ export interface INewSourceStatusChange {
 /** A document written to the `new_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
  *  `answers` collection — edits are logged here instead. Created (status:
- *  'inProgress') when the modal opens, then updated (status: 'completed', timeTaken)
+ *  'inProgress') when the modal opens, then updated (status: 'review-completed', timeTaken)
  *  when the user saves. sourceReferenceStatus lives on each entry in `sources`, not
  *  here, since every source on the answer is saved together and each is checked
- *  against the pop collection independently. */
+ *  against pop_unique_documents independently. */
 export interface INewSource {
   _id?: string | ObjectId;
   answerId: string | ObjectId;

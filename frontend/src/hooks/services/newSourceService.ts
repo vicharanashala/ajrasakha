@@ -22,7 +22,7 @@ export interface NewSourceItem {
 
 export type NewSourceStatus =
   | "pending"
-  | "completed"
+  | "review-completed"
   | "in-progress"
   | "flagged"
   | "merged";
@@ -79,7 +79,7 @@ export class NewSourceService {
     });
   }
 
-  /** Called when the user saves — stops the timer and marks the record 'completed'. */
+  /** Called when the user saves — stops the timer and marks the record 'review-completed'. */
   async complete(
     id: string,
     payload: CompleteNewSourcePayload,

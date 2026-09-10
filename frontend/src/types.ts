@@ -428,7 +428,7 @@ export interface ClosedAnswerFilters {
   newSourceStatuses: (
     | "pending"
     | "in-progress"
-    | "completed"
+    | "review-completed"
     | "merged"
     | "flagged"
   )[];
@@ -461,9 +461,9 @@ export interface ClosedAnswer {
   // The answer's own new_sources record status, if one exists (there's at most one per
   // answer - see NewSourceService.startNewSource's dedup). Null when no one has started
   // reviewing this answer's sources yet.
-  newSourceStatus?: "pending" | "completed" | "in-progress" | "flagged" | "merged" | null;
+  newSourceStatus?: "pending" | "review-completed" | "in-progress" | "flagged" | "merged" | null;
   // True when the requesting viewer is the one who put this answer's sources
-  // 'in-progress' - false (including for a 'pending'/'completed' record) otherwise.
+  // 'in-progress' - false (including for a 'pending'/'review-completed' record) otherwise.
   isOwnInProgress?: boolean;
   // True when any reviewed source on this answer had no matching pop document
   // (sourceReferenceStatus 'notFound'), so the list can flag it.
@@ -480,7 +480,7 @@ export interface ClosedAnswersResponse {
   totalAnswers: number;
 }
 
-export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
+export type SourceType = "hyper_local" | "state" | "central" | "district" | "MODERATOR_REVIEW" | "other";
 
 export interface SourceItem {
   sourceType?: SourceType;

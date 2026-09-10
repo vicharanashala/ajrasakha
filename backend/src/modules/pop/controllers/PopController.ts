@@ -10,7 +10,7 @@ import {IPopService, PopLookupResult} from '../interfaces/IPopService.js';
 // would otherwise shadow this controller's route entirely.
 @OpenAPI({
   tags: ['SourceReference'],
-  description: 'Looks up a source against the pop collection (sharable_link) for the Edit Source modal',
+  description: 'Looks up a source against the pop_unique_documents collection (shareable_link) for the Edit Source modal',
 })
 @injectable()
 @JsonController('/source-reference')
@@ -20,7 +20,7 @@ export class PopController {
     private readonly popService: IPopService,
   ) {}
 
-  @OpenAPI({summary: 'Look up a source against the pop collection by sharable_link'})
+  @OpenAPI({summary: 'Look up a source against the pop_unique_documents collection by shareable_link'})
   @Get('/')
   @Authorized()
   async lookup(

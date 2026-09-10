@@ -24,7 +24,7 @@ export interface ClosedAnswerFilters {
   /** Source types the answer must carry at least one of. */
   sourceTypes?: string[];
   /**
-   * new_sources record states to keep ('pending' | 'in-progress' | 'completed' |
+   * new_sources record states to keep ('pending' | 'in-progress' | 'review-completed' |
    * 'merged' | 'flagged'). 'none' (answers nobody has started) is still accepted for
    * completeness but the UI no longer offers it. Flagged records are hidden from the
    * list unless 'flagged' is asked for here.
@@ -51,7 +51,7 @@ export interface ClosedAnswerFilters {
   /**
    * The requesting user's role — controls visibility based on the answer's
    * new_sources review state, not a user-facing query param. Experts don't see
-   * answers whose new_sources record is already 'completed'; moderators/admins
+   * answers whose new_sources record is already 'review-completed'; moderators/admins
    * see only those that are.
    */
   viewerRole?: UserRole;
