@@ -154,7 +154,11 @@ export class NewSourceController {
   @Authorized()
   async changeStatus(
     @Param('id') id: string,
-    @Body() body: {status: 'pending' | 'merged' | 'flagged'; reason: string},
+    @Body()
+    body: {
+      status: 'pending' | 'merged' | 'flagged' | 'review-completed';
+      reason: string;
+    },
     @CurrentUser() user: IUser,
   ): Promise<INewSource> {
     if (user.role !== 'admin' && user.role !== 'moderator') {

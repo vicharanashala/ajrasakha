@@ -1246,9 +1246,15 @@ export class AnswerRepository implements IAnswerRepository {
         filters?.viewerRole === 'moderator' ||
         filters?.viewerRole === 'admin'
       ) {
-        matchStage.hasCompletedNewSource = true;
+        // Left alone, the reviewer list is the reviewed set (review-completed, merged
+        // or their own moderator-in-review). Asking for statuses by name overrides that
+        // - otherwise picking 'Flagged' (or 'Pending') would filter to a set the
+        // default gate has already excluded, and come back empty.
+        if (requestedStatuses.length === 0) {
+          matchStage.hasCompletedNewSource = true;
+        }
         // Whoever took an answer into moderator review owns finishing it - it stays in
-        // their own list and disappears from every other moderator's.
+        // their own list and disappears from every other moderator's, filter or not.
         matchStage.$and.push({
           $or: [
             {newSourceRecordStatus: {$ne: 'moderator-in-review'}},

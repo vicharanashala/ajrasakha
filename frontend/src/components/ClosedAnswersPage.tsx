@@ -32,11 +32,13 @@ import {
   ChevronDown,
   History,
   CheckCheck,
+  FlagOff,
   MousePointerClick,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { Checkbox } from "@/components/atoms/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
 import { Button } from "@/components/atoms/button";
 import {
   Popover,
@@ -1424,6 +1426,183 @@ const STATUS_OVERRIDE_ACTIONS: {
   },
 ];
 
+// Where a flagged record goes once the flag is lifted - the two paths send it to very
+// different places, so each spells out the consequence in the dialog.
+const UNFLAG_TARGETS: {
+  value: "pending" | "review-completed";
+  label: string;
+  detail: string;
+}[] = [
+  {
+    value: "pending",
+    label: "Send back to the experts",
+    detail:
+      "Status becomes Pending. The answer returns to the expert list so an expert can redo the sources, and leaves the moderator list until they finish.",
+  },
+  {
+    value: "review-completed",
+    label: "Keep it with the moderators",
+    detail:
+      "Status becomes Review Completed. The answer stays on the moderator list as a finished expert review, ready for someone to take into moderation again.",
+  },
+];
+
+const UnflagControl = ({
+  answer,
+  newSourceRecord,
+  onCompleted,
+}: {
+  answer: ClosedAnswer;
+  newSourceRecord: NewSourceRecord;
+  onCompleted?: () => void;
+}) => {
+  const refreshAnswerSources = useAnswerSourcesRefresh();
+  const [isOpen, setIsOpen] = useState(false);
+  const [target, setTarget] = useState<"pending" | "review-completed">(
+    "review-completed",
+  );
+  const [reason, setReason] = useState("");
+  const { mutate: changeStatus, isPending } = useChangeNewSourceStatus();
+
+  if (newSourceRecord.status !== "flagged") return null;
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setReason("");
+      setTarget("review-completed");
+    }
+    setIsOpen(nextOpen);
+  };
+
+  const handleConfirm = () => {
+    if (!reason.trim()) {
+      toast.error("A reason is required to unflag this review.");
+      return;
+    }
+
+    changeStatus(
+      { id: newSourceRecord._id, status: target, reason: reason.trim() },
+      {
+        onSuccess: () => {
+          toast.success(
+            target === "pending"
+              ? "Unflagged and sent back to the experts."
+              : "Unflagged and kept with the moderators.",
+          );
+          setIsOpen(false);
+          refreshAnswerSources(answer._id);
+          onCompleted?.();
+        },
+        onError: (error: Error) =>
+          toast.error(error.message || "Failed to unflag this review."),
+      },
+    );
+  };
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="h-7 cursor-pointer gap-1.5 px-2 text-xs"
+        onClick={() => handleOpenChange(true)}
+      >
+        <FlagOff className="h-3.5 w-3.5" />
+        Unflag
+      </Button>
+
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        <DialogContent className="w-[95vw] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FlagOff className="h-4 w-4" />
+              Unflag this review
+            </DialogTitle>
+            <DialogDescription>
+              Choose where the answer goes once the flag is lifted.
+            </DialogDescription>
+          </DialogHeader>
+
+          <RadioGroup
+            value={target}
+            onValueChange={(value) =>
+              setTarget(value as "pending" | "review-completed")
+            }
+            className="grid gap-2"
+          >
+            {UNFLAG_TARGETS.map((option) => (
+              <label
+                key={option.value}
+                htmlFor={`unflag-${option.value}`}
+                className={cn(
+                  "flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors",
+                  target === option.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-accent/50",
+                )}
+              >
+                <RadioGroupItem
+                  id={`unflag-${option.value}`}
+                  value={option.value}
+                  className="mt-0.5 cursor-pointer"
+                />
+                <span className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-foreground">
+                    {option.label}
+                  </span>
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    {option.detail}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="unflag-reason" className="text-xs">
+              Reason <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="unflag-reason"
+              autoFocus
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Why is the flag being lifted?"
+              className="bg-background"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => setIsOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="cursor-pointer"
+              disabled={!reason.trim() || isPending}
+              onClick={handleConfirm}
+            >
+              {isPending
+                ? "Unflagging…"
+                : target === "pending"
+                  ? "Unflag and send back"
+                  : "Unflag and keep"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
 const ReleaseHoldControl = ({
   answer,
   newSourceRecord,
@@ -1879,7 +2058,14 @@ const SourceChangesSection = ({
               onReleased={onHoldReleased}
             />
           )}
-          {newSourceRecord && (
+          {newSourceRecord && newSourceRecord.status === "flagged" && (
+            <UnflagControl
+              answer={answer}
+              newSourceRecord={newSourceRecord}
+              onCompleted={() => onStatusChanged?.(advanceToNext)}
+            />
+          )}
+          {newSourceRecord && newSourceRecord.status !== "flagged" && (
             <StatusOverrideControl
               answer={answer}
               newSourceRecord={newSourceRecord}
@@ -2112,6 +2298,9 @@ const useModeratorReviewHold = ({
   const answerId = selectedAnswer?._id ?? null;
   const questionId = selectedAnswer?.questionId ?? "";
   const isAlreadyHeld = Boolean(selectedAnswer?.isOwnModeratorReview);
+  // Flagged answers stay flagged until someone unflags them - opening one is a look,
+  // not a claim.
+  const isFlagged = selectedAnswer?.newSourceStatus === "flagged";
 
   const takeHold = useCallback(
     (targetId: string, targetQuestionId: string) => {
@@ -2138,7 +2327,7 @@ const useModeratorReviewHold = ({
   // Selecting an answer claims it, unless this moderator still holds another one - then
   // the confirmation decides, so nothing is claimed behind their back.
   useEffect(() => {
-    if (!enabled || !answerId || isAlreadyHeld) return;
+    if (!enabled || !answerId || isAlreadyHeld || isFlagged) return;
     if (heldAnswerIdRef.current === answerId) return;
 
     findHeldElsewhere(answerId, {
@@ -2152,7 +2341,15 @@ const useModeratorReviewHold = ({
       // Fail open - a failed check shouldn't stop the review.
       onError: () => takeHold(answerId, questionId),
     });
-  }, [enabled, answerId, questionId, isAlreadyHeld, findHeldElsewhere, takeHold]);
+  }, [
+    enabled,
+    answerId,
+    questionId,
+    isAlreadyHeld,
+    isFlagged,
+    findHeldElsewhere,
+    takeHold,
+  ]);
 
   const confirmSwitch = () => {
     if (!pendingSwitch || !answerId) return;

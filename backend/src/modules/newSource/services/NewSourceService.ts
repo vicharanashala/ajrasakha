@@ -150,6 +150,12 @@ export class NewSourceService implements INewSourceService {
       );
     }
 
+    // A flagged record is read-only until someone lifts the flag - opening it must not
+    // quietly take it into moderation, so it comes back untouched.
+    if (existing.status === 'flagged') {
+      return existing;
+    }
+
     if (existing.status === 'moderator-in-review') {
       const heldByAnother = !existing.reviewArray.some(
         entry =>
@@ -240,8 +246,11 @@ export class NewSourceService implements INewSourceService {
   }
 
   async changeStatus(input: ChangeNewSourceStatusInput): Promise<INewSource> {
-    if (input.status !== 'pending' && input.status !== 'merged' && input.status !== 'flagged') {
-      throw new BadRequestError("Status must be 'pending', 'merged' or 'flagged' for this action");
+    const allowedStatuses = ['pending', 'merged', 'flagged', 'review-completed'];
+    if (!allowedStatuses.includes(input.status)) {
+      throw new BadRequestError(
+        "Status must be 'pending', 'merged', 'flagged' or 'review-completed' for this action",
+      );
     }
     if (!input.reason?.trim()) {
       throw new BadRequestError('A reason is required to change this status');

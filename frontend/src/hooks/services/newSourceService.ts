@@ -154,7 +154,10 @@ export class NewSourceService {
    *  with a mandatory reason stored on the record's statusChanges. */
   async changeStatus(
     id: string,
-    payload: { status: "pending" | "merged" | "flagged"; reason: string },
+    payload: {
+      status: "pending" | "merged" | "flagged" | "review-completed";
+      reason: string;
+    },
   ): Promise<NewSourceRecord | null> {
     return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/status`, {
       method: "PATCH",

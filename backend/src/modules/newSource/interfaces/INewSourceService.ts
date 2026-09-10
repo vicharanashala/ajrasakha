@@ -3,8 +3,9 @@ import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
 export interface ChangeNewSourceStatusInput {
   id: string;
   /** Admins/moderators may only send a record to one of these statuses this way -
-   *  'in-progress'/'review-completed' are set by the edit flow itself, not this override. */
-  status: 'pending' | 'merged' | 'flagged';
+   *  'in-progress' is set by the edit flow itself. 'review-completed' is here for
+   *  unflagging: it hands a flagged record back to the moderator list untouched. */
+  status: 'pending' | 'merged' | 'flagged' | 'review-completed';
   /** Mandatory - why the status is being overridden. Stored on the record itself. */
   reason: string;
   changedBy: string;
