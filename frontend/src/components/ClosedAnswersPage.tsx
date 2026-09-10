@@ -472,7 +472,7 @@ const AnswerSourcesEditor = ({
   const [confirmedIndices, setConfirmedIndices] = useState<Set<number>>(new Set());
   const [newEntry, setNewEntry] = useState<SourceDraft>(EMPTY_SOURCE_DRAFT);
   const [newSourceId, setNewSourceId] = useState<string | null>(null);
-  // The other answer's in-progress new_sources record this expert still owns, surfaced
+  // The other answer's in-progress updated_sources record this expert still owns, surfaced
   // so they can confirm switching to this answer before it's released back to pending.
   const [pendingSwitch, setPendingSwitch] = useState<NewSourceRecord | null>(null);
   const editStartedAtRef = useRef<number | null>(null);
@@ -514,7 +514,7 @@ const AnswerSourcesEditor = ({
     [closeNewSource],
   );
 
-  // Creates the new_sources record as 'in-progress' on the first edit, giving
+  // Creates the updated_sources record as 'in-progress' on the first edit, giving
   // timeTaken a real start point without logging a record for idle browsing.
   const beginSession = () => {
     editStartedAtRef.current = Date.now();
@@ -660,7 +660,7 @@ const AnswerSourcesEditor = ({
     // Every source on the answer is saved together - not just the one being edited -
     // each carrying its own organization, sourceReference and sourceReferenceStatus
     // (from that source's own Fetch Source Reference lookup), plus sourceIndex: its
-    // position in the answer's own sources array. Edits are logged to the new_sources
+    // position in the answer's own sources array. Edits are logged to the updated_sources
     // collection - the answer's own sources are never modified here.
     const finalSources: NewSourceItem[] = (isEditing ? drafts : [...drafts, newEntry]).map(
       (draft, index) => ({ ...draft, sourceIndex: index }),
@@ -1604,7 +1604,7 @@ const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewAr
 );
 
 // Compares the answer's sources as they stand in the answers collection (Before, red)
-// against what the assigned expert recorded in new_sources (After, green), so a
+// against what the assigned expert recorded in updated_sources (After, green), so a
 // moderator/admin can see what changed without opening the edit panel below it, plus
 // the reviewer queue and the status-override control.
 const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {

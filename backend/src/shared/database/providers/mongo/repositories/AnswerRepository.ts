@@ -1238,7 +1238,7 @@ export class AnswerRepository implements IAnswerRepository {
       }
 
       // Experts shouldn't see answers whose sources have already been reviewed
-      // (new_sources.status === 'review-completed' or 'merged'); moderators/admins should see
+      // (updated_sources.status === 'review-completed' or 'merged'); moderators/admins should see
       // only those. Other roles get no extra filtering here.
       if (filters?.viewerRole === 'expert') {
         matchStage.hasCompletedNewSource = false;
@@ -1287,14 +1287,14 @@ export class AnswerRepository implements IAnswerRepository {
           },
         },
         {$unwind: '$question'},
-        // new_sources.answerId is stored as the plain string form of the answer's _id
+        // updated_sources.answerId is stored as the plain string form of the answer's _id
         // (see NewSourceService.startNewSource), not an ObjectId, hence the $toString.
         // 'review-completed' and 'merged' both count as "reviewed" for the moderator/admin
         // list - see hasCompletedNewSource below - with 'review-completed' taking priority in
         // the sort via reviewStatusPriority.
         {
           $lookup: {
-            from: 'new_sources',
+            from: 'updated_sources',
             let: {answerIdStr: {$toString: '$_id'}},
             pipeline: [
               {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},
@@ -1333,12 +1333,12 @@ export class AnswerRepository implements IAnswerRepository {
           },
         },
         {$match: matchStage},
-        // Whichever answer this viewer currently has 'in-progress' in new_sources sorts
+        // Whichever answer this viewer currently has 'in-progress' in updated_sources sorts
         // to the top of their list - see orderingStages above. Scoped to matchStage's
         // filtered set, not every answer, so this is cheap even without an index.
         {
           $lookup: {
-            from: 'new_sources',
+            from: 'updated_sources',
             let: {answerIdStr: {$toString: '$_id'}},
             pipeline: [
               {
@@ -1367,13 +1367,13 @@ export class AnswerRepository implements IAnswerRepository {
             ...orderingStages,
             {$skip: skip},
             {$limit: limit},
-            // Surfaces the answer's own new_sources record status (whatever it is -
+            // Surfaces the answer's own updated_sources record status (whatever it is -
             // there's at most one per answer, see NewSourceService.startNewSource's
             // dedup) so the list can show reviewers where each answer stands, not just
             // filter by it. Only run on the page being returned, not the count query.
             {
               $lookup: {
-                from: 'new_sources',
+                from: 'updated_sources',
                 let: {answerIdStr: {$toString: '$_id'}},
                 pipeline: [
                   {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},

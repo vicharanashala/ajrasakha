@@ -77,7 +77,7 @@ const REVIEW_STATUS_OPTIONS: {
 }[] = [
   { value: "pending", label: "Pending" },
   { value: "in-progress", label: "In progress" },
-  { value: "completed", label: "Completed" },
+  { value: "review-completed", label: "Review completed" },
   { value: "merged", label: "Approved" },
   { value: "flagged", label: "Flagged" },
 ];

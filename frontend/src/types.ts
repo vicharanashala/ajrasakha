@@ -458,7 +458,7 @@ export interface ClosedAnswer {
   approvalCount: number;
   remarks?: string;
   sources: SourceItem[];
-  // The answer's own new_sources record status, if one exists (there's at most one per
+  // The answer's own updated_sources record status, if one exists (there's at most one per
   // answer - see NewSourceService.startNewSource's dedup). Null when no one has started
   // reviewing this answer's sources yet.
   newSourceStatus?: "pending" | "review-completed" | "in-progress" | "flagged" | "merged" | null;

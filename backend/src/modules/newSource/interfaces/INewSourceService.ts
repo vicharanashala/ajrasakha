@@ -34,10 +34,10 @@ export interface CompleteNewSourceInput {
 }
 
 export interface INewSourceService {
-  /** Called when the Edit Source modal opens — creates the new_sources record as
+  /** Called when the Edit Source modal opens — creates the updated_sources record as
    *  'in-progress' so the editing timer is backed by a real document from the start.
    *  If a record already exists for this answer, that one is returned instead so the
-   *  same answer never ends up with more than one new_sources document. If a different
+   *  same answer never ends up with more than one updated_sources document. If a different
    *  reviewer than whoever is already logged there is now starting a session on it (e.g.
    *  after it was released back to 'pending'), a new reviewArray entry is appended for
    *  them, so every reviewer who has touched it - and how long each took - is tracked. */
@@ -61,7 +61,7 @@ export interface INewSourceService {
    *  record back to 'pending' so it becomes available to other experts again. */
   releaseToPending(id: string): Promise<INewSource>;
 
-  /** Read-only lookup of this answer's new_sources record, if one exists — used by the
+  /** Read-only lookup of this answer's updated_sources record, if one exists — used by the
    *  moderator "before/after" comparison view, not part of the start/edit flow. */
   getByAnswerId(answerId: string): Promise<INewSource | null>;
 
