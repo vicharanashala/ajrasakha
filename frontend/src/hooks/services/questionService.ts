@@ -137,6 +137,32 @@ export type PaeValidationAssignedQuestionsResponse = {
   currentPage: number;
 };
 
+/** One row of the PAE answering-flow (gate-keeper style) dashboard. */
+export type PaeAnswerDashboardQuestion = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  createdAt?: string;
+  /** true = the PAE has submitted an answer; false = still pending. */
+  submitted: boolean;
+  details?: { state?: string; crop?: string };
+};
+
+export type PaeAnswerDashboardResponse = {
+  assignedCount: number;
+  submittedCount: number;
+  /** Feedback / validation bucket counts (shown as their own cards). */
+  feedbackAssigned: number;
+  feedbackPending: number;
+  feedbackCompleted: number;
+  /** The PAE's completed validation questions (up to 50, newest first). */
+  feedbackCompletedQuestions: PaeAnswerDashboardQuestion[];
+  questions: PaeAnswerDashboardQuestion[];
+  totalPages: number;
+  totalCount: number;
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   /** Per-status counts for the received section — accurate DB totals for tab badges. */
@@ -1536,6 +1562,24 @@ export class QuestionService {
    * Fetch paginated questions assigned to the current PAE expert for validation.
    * Returns questions with their final answers and sources included.
    */
+  /** Gate-keeper-style dashboard for a PAE's answering flow. */
+  async getPaeAnswerDashboard(
+    page: number,
+    limit: number,
+    options?: { search?: string; userId?: string; startDate?: string; endDate?: string }
+  ): Promise<PaeAnswerDashboardResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    if (options?.search) params.append("search", options.search);
+    if (options?.userId) params.append("userId", options.userId);
+    if (options?.startDate) params.append("startDate", options.startDate);
+    if (options?.endDate) params.append("endDate", options.endDate);
+    return apiFetch<PaeAnswerDashboardResponse>(
+      `${this._baseUrl}/pae/answer-dashboard?${params.toString()}`
+    );
+  }
+
   async getPaeValidationAssignedQuestions(
     page: number,
     limit: number,

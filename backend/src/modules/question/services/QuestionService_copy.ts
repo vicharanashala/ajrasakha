@@ -447,6 +447,24 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.findUnknownQuestionGeo();
   }
 
+  async getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    return this.questionRepo.getPaeAnswerDashboard(
+      userId,
+      page,
+      limit,
+      search,
+      startDate,
+      endDate,
+    );
+  }
+
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,

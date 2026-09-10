@@ -80,6 +80,53 @@ export class QuestionPaeValidationController {
     );
   }
 
+  @Get('/pae/answer-dashboard')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary:
+      "Gate-keeper-style dashboard for a PAE's answering flow (assigned/submitted/pending + question list)",
+  })
+  async getPaeAnswerDashboard(
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      userId?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 11, 100);
+    // Managers (admin/moderator) may view another PAE; everyone else sees their own.
+    const isManager = user.role === 'admin' || user.role === 'moderator';
+    const userId =
+      isManager && query.userId ? query.userId : user._id.toString();
+
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (query.startDate) {
+      startDate = new Date(query.startDate);
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return await this.questionService.getPaeAnswerDashboard(
+      userId,
+      page,
+      limit,
+      query.search,
+      startDate,
+      endDate,
+    );
+  }
+
   @Post('/pae/validations/process')
   @HttpCode(200)
   @Authorized()

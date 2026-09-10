@@ -869,6 +869,25 @@ export interface IQuestionService {
     limit: number,
   ): Promise<PaeValidationAssignedQuestionsResponse>;
 
+  getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    feedbackAssigned: number;
+    feedbackPending: number;
+    feedbackCompleted: number;
+    feedbackCompletedQuestions: any[];
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
+
   /**
    * Process a PAE validation decision (approve or provide feedback).
    * 
