@@ -22,6 +22,9 @@ export interface CallQuery {
     extracted_domain?: string | string[];
     extracted_season?: string;
     standardized_domains?: string[];
+    farmerPhone?: string;
+    farmerName?: string;
+    [key: string]: any;
   };
   question: string;
   answer: string;
@@ -92,6 +95,7 @@ export interface CallDetails {
   caller: CallParticipant;
   agent: CallParticipant;
   recording?: CallRecording;
+  recordings?: CallRecording[];
   QA_pairs?: QAPairs;
   queryIds?: (string | ObjectId)[];
   queries?: CallQuery[];
@@ -125,6 +129,18 @@ export interface ICallDetailsRepository {
   create(details: CallDetails, session?: ClientSession): Promise<string>;
   getByCallUuid(callUuid: string, session?: ClientSession): Promise<CallDetails | null>;
   getAll(session?: ClientSession): Promise<CallDetails[]>;
+  getHistory(
+    params: {
+      limit?: number;
+      offset?: number;
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+      direction?: string;
+      agentId?: string;
+    },
+    session?: ClientSession
+  ): Promise<CallDetails[]>;
   addQueryToCall(callUuid: string, queryData: Partial<CallQuery>, session?: ClientSession): Promise<string>;
   getQueriesByCallUuid(callUuid: string, session?: ClientSession): Promise<CallQuery[]>;
   getQueriesByIds(queryIds?: (string | ObjectId)[], fallbackCallUuid?: string, session?: ClientSession): Promise<CallQuery[]>;

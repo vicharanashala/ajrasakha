@@ -62,6 +62,8 @@ export interface QAMetadata {
   extracted_domain?: string | string[];
   standardized_domains?: string | string[];
   extracted_season: string;
+  farmerPhone?: string;
+  farmerName?: string;
 }
 
 

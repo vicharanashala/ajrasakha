@@ -304,6 +304,7 @@ export class PlivoService {
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
     if (params.status) queryParams.append('status', params.status);
+    if (params.direction) queryParams.append('direction', params.direction);
     if (params.agentId) queryParams.append('agentId', params.agentId);
 
     const url = `${this._baseUrl}/history${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
@@ -567,6 +568,25 @@ export class PlivoService {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(blobUrl);
+  }
+
+  async saveCallAnswered(payload: {
+    callUuid: string;
+    phoneNumber?: string;
+    direction?: string;
+    agentUserId?: string;
+  }): Promise<{ success: boolean; farmerProfile?: any }> {
+    try {
+      const url = `${this._baseUrl}/call-answered`;
+      const response = await apiFetch<{ success: boolean; farmerProfile?: any }>(url, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return response || { success: false };
+    } catch (err) {
+      console.warn("⚠️ [PlivoApi] Failed to save call answered state:", err);
+      return { success: false };
+    }
   }
 
   async getAllCredentials(): Promise<PlivoAgentCredential[]> {

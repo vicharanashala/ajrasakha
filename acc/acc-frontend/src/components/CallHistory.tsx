@@ -269,7 +269,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
   // Pagination
   const [page, setPage] = useState(0);
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   // Farmer Details
   const [selectedCallForDetails, setSelectedCallForDetails] = useState<
@@ -473,7 +473,15 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         status: statusFilter || undefined,
         direction: directionFilter || undefined,
       });
-      setCalls(data);
+      let filtered = data;
+      if (directionFilter) {
+        filtered = filtered.filter(
+          (call) =>
+            String(call.direction || "").toLowerCase() ===
+            directionFilter.toLowerCase(),
+        );
+      }
+      setCalls(filtered);
     } catch (err: any) {
       setError(err.message || "Failed to fetch call history");
       console.error("Error fetching call history:", err);
@@ -484,7 +492,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
   useEffect(() => {
     fetchCallHistory();
-  }, [page]);
+  }, [page, limit]);
 
   const handleRefresh = () => {
     setPage(0);
@@ -624,7 +632,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         lower.includes("phone.plivo.com") ||
         lower.includes("endpoint") ||
         clean.includes("8031150392") ||
-        clean.includes("15551234567")
+        clean.includes("15551234567") ||
+        /[a-zA-Z]/.test(lower)
       );
     };
 
@@ -715,10 +724,15 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   };
 
   const formatPhoneNumber = (phoneNumber: string) => {
+    if (!phoneNumber) return "N/A";
+    const s = String(phoneNumber).toLowerCase();
     if (
-      phoneNumber.includes("sip:annamuser1293525305518427216@phone.plivo.com")
+      s.startsWith("sip:") ||
+      s.includes("@phone.plivo.com") ||
+      s.includes("endpoint") ||
+      /[a-zA-Z]/.test(s)
     ) {
-      return "Expert";
+      return "Call Agent (Softphone)";
     }
     return phoneNumber;
   };
@@ -1379,9 +1393,26 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
             {/* Pagination */}
             {calls.length > 0 && (
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Showing {page * limit + 1} to {page * limit + calls.length} calls
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>
+                    Showing {page * limit + 1} to {page * limit + calls.length} calls
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">Per page:</span>
+                    <select
+                      value={limit}
+                      onChange={(e) => {
+                        setLimit(Number(e.target.value));
+                        setPage(0);
+                      }}
+                      className="text-xs border rounded px-1.5 py-0.5 bg-background text-foreground"
+                    >
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -1400,7 +1431,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                     variant="outline"
                     size="sm"
                     onClick={() => setPage((p) => p + 1)}
-                    disabled={calls.length === 0 || loading}
+                    disabled={calls.length < limit || loading}
                   >
                     Next
                     <ChevronRight className="h-4 w-4" />

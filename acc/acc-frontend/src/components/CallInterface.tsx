@@ -984,11 +984,15 @@ export const CallInterface = () => {
         toast.info("Updated extracted data with your corrections.");
       }
 
-      // Step 4: Auto-save farmer profile if present
-      const targetPhone = (callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || activeProfileRef.current?.phoneNo || extractedData?.extracted_phone || "").trim();
+      // Step 4: Auto-save farmer profile if present on real calls
+      const targetCallUuid = callUuid || lastCallUuid || lastCallUuidRef.current || undefined;
+      const isRealCall = Boolean(targetCallUuid && !targetCallUuid.startsWith("testing_"));
+      const targetPhone = isRealCall
+        ? (callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || activeProfileRef.current?.phoneNo || extractedData?.extracted_phone || "").trim()
+        : "";
       const farmerProfileToPersist = activeProfileRef.current || (extractedFarmerProfile ? { ...extractedFarmerProfile } : null);
 
-      if (targetPhone && farmerProfileToPersist) {
+      if (isRealCall && targetPhone && farmerProfileToPersist) {
         try {
           const profilePayload = {
             ...farmerProfileToPersist,
@@ -1006,6 +1010,8 @@ export const CallInterface = () => {
         }
       }
 
+      const resolvedFarmerName = activeProfileRef.current?.farmerName || extractedFarmerProfile?.farmerName || extractedData?.extracted_name || "";
+
       // Step 5: Resume and get answer with guaranteed targetCallUuid
       const metadata = {
         extracted_query: editableQuery,
@@ -1017,9 +1023,10 @@ export const CallInterface = () => {
         standardized_domains: finalDomain,
         extracted_domain: finalDomain,
         extracted_season: editableSeason,
+        farmerPhone: isRealCall && targetPhone ? targetPhone : undefined,
+        farmerName: isRealCall && resolvedFarmerName ? resolvedFarmerName : undefined,
       };
 
-      const targetCallUuid = callUuid || lastCallUuid || lastCallUuidRef.current || undefined;
       console.log(`🚀 [ACC-AGENT] Resuming with callUuid=${targetCallUuid}, metadata=`, metadata);
 
       const result = await resumeAndGetAnswer({

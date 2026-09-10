@@ -201,10 +201,15 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       if (result) {
         const queries = await this.getQueriesByIds(result.queryIds, callUuid, session);
         result.queries = queries;
-        if (result.from) {
+        const effectivePhone = result.direction === 'outbound' ? (result.to || result.from) : (result.from || result.to);
+        if (effectivePhone) {
           try {
             const farmersColl = await this.db.getCollection('Farmers_info');
-            const farmerDoc: any = await farmersColl.findOne({ phoneNo: result.from }, { session });
+            let farmerDoc: any = await farmersColl.findOne({ phoneNo: effectivePhone }, { session });
+            if (!farmerDoc) {
+              const fallbackColl = await this.db.getCollection('farmer_details');
+              farmerDoc = await fallbackColl.findOne({ phoneNo: effectivePhone }, { session });
+            }
             if (farmerDoc) {
               (result as any).farmerProfile = farmerDoc.profile || farmerDoc;
             }
@@ -226,11 +231,20 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     try {
       await this.init();
       const result = await this.callDetailsCollection
-        .find({}, { session })
+        .find(
+          {
+            callUuid: { $not: /^testing_/ },
+            $or: [
+              { from: { $exists: true, $nin: [null, '', 'unknown', 'undefined', 'Unknown'] } },
+              { to: { $exists: true, $nin: [null, '', 'unknown', 'undefined', 'Unknown'] } }
+            ]
+          },
+          { session }
+        )
         .sort({ createdAt: -1 })
         .toArray();
 
-      const phoneNumbers = [...new Set(result.map(c => c.from).filter(Boolean))];
+      const phoneNumbers = [...new Set(result.map(c => (c.direction === 'outbound' ? (c.to || c.from) : (c.from || c.to))).filter(Boolean))];
       const farmersMap = new Map<string, any>();
 
       if (phoneNumbers.length > 0) {
@@ -266,14 +280,126 @@ export class CallDetailsRepository implements ICallDetailsRepository {
 
       for (const call of result) {
         call.queries = await this.getQueriesByIds(call.queryIds, call.callUuid, session);
-        if (call.from && farmersMap.has(call.from)) {
-          (call as any).farmerProfile = farmersMap.get(call.from);
+        const effectivePhone = call.direction === 'outbound' ? (call.to || call.from) : (call.from || call.to);
+        if (effectivePhone && farmersMap.has(effectivePhone)) {
+          (call as any).farmerProfile = farmersMap.get(effectivePhone);
         }
       }
       return result;
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getAll: Error retrieving all records:`, error.stack || error);
       throw new InternalServerError(`Failed to get all call details: ${error}`);
+    }
+  }
+
+  async getHistory(
+    params: {
+      limit?: number;
+      offset?: number;
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+      direction?: string;
+      agentId?: string;
+    },
+    session?: ClientSession
+  ): Promise<CallDetails[]> {
+    try {
+      await this.init();
+      const filter: any = {
+        callUuid: { $not: /^testing_/ },
+        $or: [
+          { from: { $exists: true, $nin: [null, '', 'unknown', 'undefined', 'Unknown'] } },
+          { to: { $exists: true, $nin: [null, '', 'unknown', 'undefined', 'Unknown'] } }
+        ]
+      };
+
+      if (params.direction) {
+        filter.direction = { $regex: new RegExp(`^${params.direction.trim()}$`, 'i') };
+      }
+
+      if (params.status) {
+        filter.status = params.status;
+      }
+
+      if (params.agentId) {
+        const idStr = String(params.agentId);
+        const orClauses: any[] = [{ 'agent.userid': idStr }];
+        if (ObjectId.isValid(idStr)) {
+          orClauses.push({ 'agent.userid': new ObjectId(idStr) });
+        }
+        filter.$and = filter.$and || [];
+        filter.$and.push({ $or: orClauses });
+      }
+
+      if (params.startDate || params.endDate) {
+        const dateFilter: any = {};
+        if (params.startDate) {
+          dateFilter.$gte = new Date(params.startDate);
+        }
+        if (params.endDate) {
+          const end = new Date(params.endDate);
+          end.setHours(23, 59, 59, 999);
+          dateFilter.$lte = end;
+        }
+        filter.createdAt = dateFilter;
+      }
+
+      const limit = Number(params.limit) || 20;
+      const offset = Number(params.offset) || 0;
+
+      const result = await this.callDetailsCollection
+        .find(filter, { session })
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .toArray();
+
+      const phoneNumbers = [...new Set(result.map(c => (c.direction === 'outbound' ? (c.to || c.from) : (c.from || c.to))).filter(Boolean))];
+      const farmersMap = new Map<string, any>();
+
+      if (phoneNumbers.length > 0) {
+        try {
+          const farmersColl = await this.db.getCollection('Farmers_info');
+          const farmerDocs = await farmersColl.find(
+            { phoneNo: { $in: phoneNumbers } },
+            { session }
+          ).toArray();
+
+          for (const doc of farmerDocs) {
+            if (doc.phoneNo) farmersMap.set(doc.phoneNo, doc.profile || doc);
+          }
+
+          const missingPhones = phoneNumbers.filter(p => !farmersMap.has(p));
+          if (missingPhones.length > 0) {
+            const fallbackColl = await this.db.getCollection('farmer_details');
+            const fallbackDocs = await fallbackColl.find(
+              { phoneNo: { $in: missingPhones } },
+              { session }
+            ).toArray();
+            for (const doc of fallbackDocs) {
+              if (doc.phoneNo && !farmersMap.has(doc.phoneNo)) {
+                farmersMap.set(doc.phoneNo, doc.profile || doc);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[CallDetailsRepository] Error populating farmer profiles in getHistory:', e);
+        }
+      }
+
+      for (const call of result) {
+        call.queries = await this.getQueriesByIds(call.queryIds, call.callUuid, session);
+        const effectivePhone = call.direction === 'outbound' ? (call.to || call.from) : (call.from || call.to);
+        if (effectivePhone && farmersMap.has(effectivePhone)) {
+          (call as any).farmerProfile = farmersMap.get(effectivePhone);
+        }
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getHistory: Error retrieving history:`, error.stack || error);
+      throw new InternalServerError(`Failed to get call history: ${error}`);
     }
   }
 
@@ -717,7 +843,26 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       await this.init();
       const { startDate, endDate, search, domain, state, district, block, crop, season, limit, offset } = params;
 
-      const matchCriteria: any = {};
+      // Find all call UUIDs that have valid phone numbers and are not test calls
+      const validCallDocs = await this.callDetailsCollection.find(
+        {
+          callUuid: { $not: /^testing_/ },
+          $or: [
+            { from: { $exists: true, $nin: [null, '', 'unknown', 'undefined', 'Unknown'] } },
+            { to: { $exists: true, $nin: [null, '', 'unknown', 'undefined', 'Unknown'] } }
+          ]
+        },
+        { projection: { callUuid: 1 }, session }
+      ).toArray();
+      const validCallUuidList = validCallDocs.map(c => c.callUuid).filter(Boolean);
+
+      const matchCriteria: any = {
+        callUuid: { $not: /^testing_/ },
+        $or: [
+          { callUuid: { $in: validCallUuidList } },
+          { 'metadata.farmerPhone': { $exists: true, $nin: [null, '', 'unknown', 'undefined', 'Unknown'] } }
+        ]
+      };
       if (startDate || endDate) {
         matchCriteria.createdAt = {};
         if (startDate) matchCriteria.createdAt.$gte = startDate;
@@ -831,7 +976,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       const callUuidSet = [...new Set(queryDocs.map(q => q.callUuid).filter(Boolean))];
       const callDocs = await this.callDetailsCollection.find(
         { callUuid: { $in: callUuidSet } },
-        { projection: { callUuid: 1, from: 1, createdAt: 1 }, session }
+        { projection: { callUuid: 1, from: 1, to: 1, direction: 1, createdAt: 1 }, session }
       ).toArray();
 
       const callMap = new Map<string, any>();
@@ -841,9 +986,14 @@ export class CallDetailsRepository implements ICallDetailsRepository {
 
       const enrichedQueries = queryDocs.map(qDoc => {
         const parentCall = callMap.get(qDoc.callUuid);
+        const isOutbound = parentCall?.direction === 'outbound';
+        const effectivePhone = isOutbound
+          ? (parentCall?.to || parentCall?.from || '')
+          : (parentCall?.from || parentCall?.to || '');
+
         return {
           ...qDoc,
-          from: parentCall?.from || '',
+          from: effectivePhone || (qDoc.metadata as any)?.farmerPhone || '',
           createdAt: qDoc.createdAt || parentCall?.createdAt
         };
       });

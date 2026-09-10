@@ -103,6 +103,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const activeCallUuidRef = useRef<string | null>(null);
   const lastCallUuidRef = useRef<string | null>(null);
+  const activeCallInfoRef = useRef<{ number: string; direction: string } | null>(null);
   const isHangingUpRef = useRef(false);
 
   // Active call duration timer
@@ -308,6 +309,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCallStatus("incoming");
         const currentCallId = callUuid || _extraHeaders?.call_uuid || callerID;
         activeCallUuidRef.current = currentCallId;
+        activeCallInfoRef.current = { number: callerPhone, direction: "inbound" };
 
         setTranscripts([]);
         setFarmerDetectedLanguage(null);
@@ -340,6 +342,16 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setActiveCall((prev) =>
             prev ? { ...prev, uuid: answeredCallUuid } : { uuid: answeredCallUuid, number: "Unknown", direction: "inbound", timestamp: new Date().toISOString() }
           );
+
+          const currentPhone = activeCallInfoRef.current?.number || activeCall?.number || null;
+          const currentDir = activeCallInfoRef.current?.direction || activeCall?.direction || "inbound";
+          const agentIdVal = currentUser?.agent || (currentUser?._id ? String(currentUser._id) : undefined);
+          plivoApi.saveCallAnswered({
+            callUuid: answeredCallUuid,
+            phoneNumber: currentPhone || undefined,
+            direction: currentDir,
+            agentUserId: agentIdVal,
+          }).catch((e) => console.warn("Failed to notify call answered:", e));
         }
 
         connectWebSocket();
@@ -353,6 +365,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return;
         }
         activeCallUuidRef.current = null;
+        activeCallInfoRef.current = null;
         setCallStatus("ended");
         setActiveCall(null);
         setIsMuted(false);
@@ -419,6 +432,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         const callId = `outbound_${Date.now()}`;
         activeCallUuidRef.current = callId;
+        activeCallInfoRef.current = { number: formattedNumber, direction: "outbound" };
 
         setActiveCall({
           uuid: callId,
@@ -485,6 +499,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
     activeCallUuidRef.current = null;
+    activeCallInfoRef.current = null;
     setCallStatus("ended");
     setActiveCall(null);
     setIsMuted(false);

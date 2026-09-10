@@ -15,6 +15,7 @@ import { PLIVO_TYPES } from '../../plivo/types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { PlivoService } from '../../plivo/services/PlivoService.js';
 import type { ICallDetailsRepository, CallQuery } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallFarmerRepository, FarmerProfile } from '#shared/database/interfaces/IFarmerRepository.js';
 
 @OpenAPI({
   tags: ['acc-agent'],
@@ -30,6 +31,8 @@ export class AccAgentController {
     private readonly callDetailsRepository: ICallDetailsRepository,
     @inject(PLIVO_TYPES.PlivoService)
     private readonly plivoService: PlivoService,
+    @inject(PLIVO_TYPES.CallFarmerRepository)
+    private readonly callFarmerRepository: ICallFarmerRepository,
   ) { }
 
   @Post('/acc-agent/thread')
@@ -132,7 +135,14 @@ export class AccAgentController {
   @Authorized()
   @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
   async resumeAccAgentAndGetAnswer(
-    @Body() body: { threadId: string; callUuid?: string; metadata?: CallQuery['metadata'] }
+    @Body() body: {
+      threadId: string;
+      callUuid?: string;
+      metadata?: CallQuery['metadata'] & {
+        farmerPhone?: string;
+        farmerName?: string;
+      };
+    }
   ): Promise<any> {
     try {
       // 1. Resume the agent
@@ -154,6 +164,10 @@ export class AccAgentController {
 
         const threadValues = threadState?.values || {};
         const meta = body.metadata || {};
+
+        const isTestCall = !body.callUuid || body.callUuid.startsWith('testing_');
+        const farmerPhone = (!isTestCall && (meta as any).farmerPhone) ? String((meta as any).farmerPhone).trim() : '';
+        const farmerName = (!isTestCall && (meta as any).farmerName) ? String((meta as any).farmerName).trim() : '';
 
         const extractedQuery = meta.extracted_query || threadValues.extracted_query || '';
         const extractedCrop = meta.extracted_crop || threadValues.extracted_crop || '';
@@ -184,13 +198,20 @@ export class AccAgentController {
           console.warn(`[AccAgentController] Call details document not found for callUuid: ${body.callUuid}. Creating new document with agent.userid: ${agentUserIdStr}`);
           await this.callDetailsRepository.create({
             callUuid: body.callUuid,
-            from: inMemoryMeta?.from,
+            from: inMemoryMeta?.from || (isTestCall ? undefined : (farmerPhone || undefined)),
             to: inMemoryMeta?.to,
             status: 'completed',
-            direction: 'inbound',
+            direction: inMemoryMeta?.direction || 'inbound',
             caller: { transcript: this.plivoService.getTranscript(body.callUuid, 'inbound'), translation: this.plivoService.getTranslation(body.callUuid, 'inbound'), detectedLanguage: this.plivoService.getDetectedLanguage(body.callUuid, 'inbound') },
             agent: { transcript: this.plivoService.getTranscript(body.callUuid, 'outbound'), translation: this.plivoService.getTranslation(body.callUuid, 'outbound'), detectedLanguage: this.plivoService.getDetectedLanguage(body.callUuid, 'outbound'), userid: agentUserIdObj }
           });
+        } else if (!isTestCall && farmerPhone) {
+          const isOutbound = existingCallDetails.direction === 'outbound';
+          if (isOutbound && (!existingCallDetails.to || existingCallDetails.to === 'unknown')) {
+            await this.callDetailsRepository.updateCallDetails(body.callUuid, { to: farmerPhone });
+          } else if (!isOutbound && (!existingCallDetails.from || existingCallDetails.from === 'unknown')) {
+            await this.callDetailsRepository.updateCallDetails(body.callUuid, { from: farmerPhone });
+          }
         }
 
         // Add individual query with its own metadata to call_queries collection
@@ -205,6 +226,8 @@ export class AccAgentController {
             extracted_domain: standardizedDomains,
             extracted_season: extractedSeason,
             standardized_domains: standardizedDomains,
+            ...(!isTestCall && farmerPhone ? { farmerPhone } : {}),
+            ...(!isTestCall && farmerName ? { farmerName } : {}),
           },
           question: extractedQuery,
           answer: finalAnswerMarkdown,
@@ -216,6 +239,36 @@ export class AccAgentController {
           weather
         });
         console.log(`✅ [AccAgentController] Saved question and metadata to call_queries for callUuid: ${body.callUuid}`);
+
+        // If real call with farmer phone, upsert Farmers_info with confirmed profile
+        if (!isTestCall && farmerPhone) {
+          try {
+            const existingFarmer = await this.callFarmerRepository.findByPhoneNo(farmerPhone);
+            const profileData: FarmerProfile = {
+              farmerName: farmerName || existingFarmer?.profile?.farmerName || '',
+              phoneNo: farmerPhone,
+              primaryCrop: extractedCrop || existingFarmer?.profile?.primaryCrop || (existingFarmer?.profile as any)?.crop || '',
+              state: extractedState || existingFarmer?.profile?.state || '',
+              district: extractedDistrict || existingFarmer?.profile?.district || '',
+              blockName: extractedBlock || existingFarmer?.profile?.blockName || '',
+              villageName: extractedVillage || existingFarmer?.profile?.villageName || '',
+            };
+
+            if (existingFarmer) {
+              await this.callFarmerRepository.update(farmerPhone, {
+                ...existingFarmer.profile,
+                ...profileData,
+              });
+            } else if (farmerName || extractedCrop || extractedState) {
+              await this.callFarmerRepository.create({
+                phoneNo: farmerPhone,
+                profile: profileData,
+              });
+            }
+          } catch (farmerErr) {
+            console.warn(`[AccAgentController] Non-fatal error updating farmer profile for ${farmerPhone}:`, farmerErr);
+          }
+        }
       }
 
       // 4. Return the full thread state

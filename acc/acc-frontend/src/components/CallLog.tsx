@@ -258,8 +258,7 @@ export const CallLog = () => {
 
   // Pagination
   const [page, setPage] = useState(0);
-  const [totalCalls, setTotalCalls] = useState(0);
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   // Farmer / call details expansion
   const [selectedCallForDetails, setSelectedCallForDetails] = useState<
@@ -313,14 +312,18 @@ export const CallLog = () => {
       // already fetched. This only filters within the current page of
       // results — ask backend to add real agentId filtering on /plivo/history
       // once that's in place, this client-side filter can be removed.
-      const filtered = agentFilter
-        ? data.filter((call) => call.agentUserId === agentFilter)
-        : data;
+      let filtered = data;
+      if (agentFilter) {
+        filtered = filtered.filter((call) => call.agentUserId === agentFilter);
+      }
+      if (directionFilter) {
+        filtered = filtered.filter(
+          (call) =>
+            String(call.direction || "").toLowerCase() ===
+            directionFilter.toLowerCase(),
+        );
+      }
       setCalls(filtered);
-      // Note: Backend doesn't return total count, so we'll estimate based on returned data
-      setTotalCalls(
-        data.length === limit ? (page + 2) * limit : (page + 1) * limit,
-      );
     } catch (err: any) {
       setError(err.message || "Failed to fetch call log");
       console.error("Error fetching call log:", err);
@@ -331,7 +334,7 @@ export const CallLog = () => {
 
   useEffect(() => {
     fetchCallLog();
-  }, [page]);
+  }, [page, limit]);
 
   const handleRefresh = () => {
     setPage(0);
@@ -397,10 +400,15 @@ export const CallLog = () => {
   };
 
   const formatPhoneNumber = (phoneNumber: string) => {
+    if (!phoneNumber) return "N/A";
+    const s = String(phoneNumber).toLowerCase();
     if (
-      phoneNumber?.includes("sip:annamuser1293525305518427216@phone.plivo.com")
+      s.startsWith("sip:") ||
+      s.includes("@phone.plivo.com") ||
+      s.includes("endpoint") ||
+      /[a-zA-Z]/.test(s)
     ) {
-      return "Expert";
+      return "Call Agent (Softphone)";
     }
     return phoneNumber;
   };
@@ -1001,11 +1009,26 @@ export const CallLog = () => {
 
             {/* Pagination */}
             {calls.length > 0 && (
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Showing {page * limit + 1} to{" "}
-                  {Math.min((page + 1) * limit, totalCalls)} of {totalCalls}{" "}
-                  calls
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>
+                    Showing {page * limit + 1} to {page * limit + calls.length} calls
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">Per page:</span>
+                    <select
+                      value={limit}
+                      onChange={(e) => {
+                        setLimit(Number(e.target.value));
+                        setPage(0);
+                      }}
+                      className="text-xs border rounded px-1.5 py-0.5 bg-background text-foreground"
+                    >
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -1017,7 +1040,9 @@ export const CallLog = () => {
                     <ChevronLeft className="h-4 w-4" />
                     Previous
                   </Button>
-                  <div className="text-sm">Page {page + 1}</div>
+                  <div className="text-sm font-medium px-2.5 py-1 bg-muted/60 dark:bg-zinc-800 rounded-md border text-zinc-900 dark:text-zinc-100">
+                    Page {page + 1}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"

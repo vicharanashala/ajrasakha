@@ -35,6 +35,28 @@ import { STORAGE_TYPES } from '#root/modules/storage/types.js';
 import { BsnlSmsService } from '#root/modules/sms/services/BsnlSmsService.js';
 import { SMS_TYPES } from '#root/modules/sms/types.js';
 
+function maskPhone(phoneStr: string): string {
+  if (!phoneStr) return '';
+  const digitsOnly = phoneStr.replace(/\D/g, '');
+  if (digitsOnly.length <= 3) return phoneStr;
+  const last3 = digitsOnly.slice(-3);
+  const maskedPrefix = '*'.repeat(digitsOnly.length - 3);
+  return maskedPrefix + last3;
+}
+
+function stripMarkdown(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/^#+\s+/gm, '')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/^[\s]*[-*+]\s+/gm, '')
+    .replace(/^[\s]*\d+\.\s+/gm, '')
+    .trim();
+}
+
 @OpenAPI({
   tags: ['plivo'],
   description: 'Operations for managing Plivo calls',
@@ -485,6 +507,88 @@ export class PlivoController {
 
 
 
+  @Post('/call-answered')
+  @HttpCode(200)
+  @OpenAPI({ summary: 'Save call answered state immediately when call connects in browser' })
+  async handleBrowserCallAnswered(
+    @Body() body: { callUuid: string; phoneNumber?: string; direction?: string; agentUserId?: string },
+    @CurrentUser() currentUser?: IUser
+  ): Promise<any> {
+    try {
+      const { callUuid, phoneNumber, direction, agentUserId } = body;
+      if (!callUuid) {
+        return { success: false, message: 'callUuid is required' };
+      }
+
+      const isTestCall = callUuid.startsWith('testing_');
+      let farmerProfile: any = null;
+
+      if (!isTestCall && phoneNumber && phoneNumber.toLowerCase() !== 'unknown') {
+        try {
+          const farmerDoc = await this.callFarmerRepository.findByPhoneNo(phoneNumber);
+          if (farmerDoc) {
+            farmerProfile = farmerDoc.profile || farmerDoc;
+          }
+        } catch (fErr) {
+          console.warn(`[PlivoController] Failed to lookup farmer for ${phoneNumber}:`, fErr);
+        }
+      }
+
+      const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
+      const isOutbound = direction === 'outbound' || existingCall?.direction === 'outbound';
+      const myPlivoNumber = appConfig.plivo.plivo_number;
+
+      const fromNumber = isOutbound
+        ? (existingCall?.from || myPlivoNumber)
+        : (phoneNumber || existingCall?.from || '');
+      const toNumber = isOutbound
+        ? (phoneNumber || existingCall?.to || '')
+        : (existingCall?.to || myPlivoNumber);
+
+      const agentId = agentUserId || (currentUser?._id ? currentUser._id.toString() : existingCall?.agent?.userid?.toString());
+      const agentObj: any = {
+        transcript: existingCall?.agent?.transcript || '',
+        translation: existingCall?.agent?.translation || '',
+        detectedLanguage: existingCall?.agent?.detectedLanguage || '',
+      };
+      if (agentId) {
+        agentObj.userid = agentId;
+      }
+
+      if (!existingCall) {
+        await this.callDetailsRepository.create({
+          callUuid,
+          from: fromNumber,
+          to: toNumber,
+          direction: direction || (isOutbound ? 'outbound' : 'inbound'),
+          status: 'connected',
+          caller: {
+            transcript: '',
+            translation: '',
+            detectedLanguage: '',
+          },
+          agent: agentObj,
+        });
+      } else {
+        await this.callDetailsRepository.updateCallDetails(callUuid, {
+          status: 'connected',
+          ...(fromNumber ? { from: fromNumber } : {}),
+          ...(toNumber ? { to: toNumber } : {}),
+          direction: direction || existingCall.direction || (isOutbound ? 'outbound' : 'inbound'),
+          agent: {
+            ...existingCall.agent,
+            ...agentObj,
+          }
+        });
+      }
+
+      return { success: true, farmerProfile };
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error in call-answered endpoint:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   @Post('/webhook/call-answered')
   @HttpCode(200)
   @UseBefore(urlencoded({ extended: true }))
@@ -529,14 +633,15 @@ export class PlivoController {
 
   @Get('/history')
   @HttpCode(200)
-  @OpenAPI({ summary: 'Get call history from Plivo' })
+  @OpenAPI({ summary: 'Get call history from database' })
   async getHistory(
     @QueryParam('limit') limit: number = 20,
     @QueryParam('offset') offset: number = 0,
     @QueryParam('startDate') startDate?: string,
     @QueryParam('endDate') endDate?: string,
     @QueryParam('status') status?: string,
-    @QueryParam('direction') direction?: string
+    @QueryParam('direction') direction?: string,
+    @QueryParam('agentId') agentId?: string
   ): Promise<Array<{
     uuid: string;
     from: string;
@@ -548,238 +653,71 @@ export class PlivoController {
     agentUserId?: string;
     agentUsername?: string;
     agentEmail?: string;
+    farmerProfile?: any;
     callDetails?: any;
   }>> {
     try {
-      const requestedLimit = Number(limit) || 20;
-      const plivoQuery: any = {
-        limit: Math.min(Math.max(requestedLimit * 3, 60), 100),
-        offset: Number(offset)
-      };
-
-      if (startDate) plivoQuery.start_time = startDate;
-      if (endDate) plivoQuery.end_time = endDate;
-      if (status) plivoQuery.status = status;
-      if (direction) plivoQuery.call_direction = direction;
-
-      const response = await this.client.calls.list(plivoQuery);
-
-      const rawHistory = (response as any)
-        .filter((item: any) => item.callUuid)
-        .map((call: any) => ({
-          uuid: call.callUuid,
-          from: call.fromNumber,
-          to: call.toNumber,
-          duration: call.callDuration,
-          status: call.callState,
-          startTime: call.initiationTime,
-          direction: call.callDirection
-        }));
-
-      // Helper function to identify SIP URIs
-      const isSipUri = (val: string) => {
-        const s = String(val || '').toLowerCase();
-        return s.startsWith('sip:') || s.includes('@phone.plivo.com') || s.includes('endpoint');
-      };
-
-      const initialMainCalls: any[] = [];
-      const bridgeLegs: any[] = [];
-
-      for (const call of rawHistory) {
-        const fromStr = String(call.from || '');
-        const toStr = String(call.to || '');
-        const dirStr = String(call.direction || '').toLowerCase();
-
-        // 1. Inbound SIP bridge leg: Plivo dialing out to agent WebRTC SIP
-        if (dirStr === 'outbound' && isSipUri(toStr)) {
-          bridgeLegs.push({ ...call, legType: 'inbound_sip_bridge' });
-          continue;
-        }
-
-        // 2. Primary Outbound Agent leg: WebRTC calling into Plivo to redial farmer
-        if (isSipUri(fromStr)) {
-          initialMainCalls.push({
-            ...call,
-            direction: 'outbound',
-            from: appConfig.plivo.plivo_number || call.from,
-            originalFrom: call.from,
-            isOutboundAgentLeg: true,
-          });
-          continue;
-        }
-
-        // 3. Normal inbound farmer call or outbound PSTN leg
-        initialMainCalls.push(call);
-      }
-
-      // Deduplicate Outbound Calls:
-      // Match and merge any secondary outbound PSTN child leg into its primary outbound agent leg
-      const finalMainCalls: any[] = [];
-      const outboundAgentLegs = initialMainCalls.filter(c => c.isOutboundAgentLeg);
-      const otherCalls = initialMainCalls.filter(c => !c.isOutboundAgentLeg);
-
-      for (const agentCall of outboundAgentLegs) {
-        const agentTime = agentCall.startTime ? new Date(agentCall.startTime).getTime() : 0;
-        const targetTo = String(agentCall.to || '').replace(/[^\d]/g, '');
-
-        let matchedPstnLegIndex = otherCalls.findIndex(c => {
-          if (c.direction === 'outbound') {
-            const pstnTo = String(c.to || '').replace(/[^\d]/g, '');
-            const pstnTime = c.startTime ? new Date(c.startTime).getTime() : 0;
-            const diff = Math.abs(agentTime - pstnTime);
-            return diff <= 90000 && (pstnTo.endsWith(targetTo) || targetTo.endsWith(pstnTo) || pstnTo === targetTo);
-          }
-          return false;
-        });
-
-        if (matchedPstnLegIndex !== -1) {
-          const pstnLeg = otherCalls[matchedPstnLegIndex];
-          otherCalls.splice(matchedPstnLegIndex, 1);
-          bridgeLegs.push({ ...pstnLeg, legType: 'outbound_pstn_bridge', parentUuid: agentCall.uuid });
-        }
-
-        finalMainCalls.push(agentCall);
-      }
-
-      finalMainCalls.push(...otherCalls);
-
-      finalMainCalls.sort((a, b) => {
-        const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
-        const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
-        return timeB - timeA;
+      const dbCalls = await this.callDetailsRepository.getHistory({
+        limit: Number(limit) || 20,
+        offset: Number(offset) || 0,
+        startDate,
+        endDate,
+        status,
+        direction,
+        agentId
       });
 
-      // Map matching SIP / bridge legs to their parent main calls
-      const matchedSipUuidsByMainUuid = new Map<string, string[]>();
+      const myPlivoNumber = appConfig.plivo.plivo_number || '+918031150392';
+      const formattedCalls: any[] = [];
 
-      for (const bridgeCall of bridgeLegs) {
-        if (bridgeCall.parentUuid) {
-          const list = matchedSipUuidsByMainUuid.get(bridgeCall.parentUuid) || [];
-          list.push(bridgeCall.uuid);
-          matchedSipUuidsByMainUuid.set(bridgeCall.parentUuid, list);
-        } else {
-          const bridgeTime = bridgeCall.startTime ? new Date(bridgeCall.startTime).getTime() : 0;
-          let bestMatch: any = null;
-          let minDiff = Infinity;
+      for (const call of dbCalls) {
+        let agentUserIdStr = call.agent?.userid ? call.agent.userid.toString() : this.plivoService.getCallAgent(call.callUuid);
+        let agentName = call.agent?.username;
+        let agentEmail = call.agent?.email;
 
-          for (const mainCall of finalMainCalls) {
-            if (mainCall.direction === 'inbound') {
-              const mainTime = mainCall.startTime ? new Date(mainCall.startTime).getTime() : 0;
-              const diff = Math.abs(mainTime - bridgeTime);
-              if (diff <= 90000 && diff < minDiff) {
-                minDiff = diff;
-                bestMatch = mainCall;
-              }
+        if (agentUserIdStr && (!agentName || !agentEmail)) {
+          try {
+            const agentUser = await this.userRepository.findById(agentUserIdStr);
+            if (agentUser) {
+              agentName = [agentUser.firstName, agentUser.lastName].filter(Boolean).join(' ') || agentUser.agent || agentUser.email;
+              agentEmail = agentUser.email;
             }
-          }
-
-          if (bestMatch) {
-            const list = matchedSipUuidsByMainUuid.get(bestMatch.uuid) || [];
-            list.push(bridgeCall.uuid);
-            matchedSipUuidsByMainUuid.set(bestMatch.uuid, list);
+          } catch (userErr) {
+            console.warn(`[PLIVO-CONTROLLER] Could not resolve user details for agent ${agentUserIdStr}:`, userErr);
           }
         }
+
+        const isOutbound = String(call.direction || '').toLowerCase() === 'outbound';
+
+        formattedCalls.push({
+          uuid: call.callUuid,
+          from: call.from || (isOutbound ? myPlivoNumber : 'unknown'),
+          to: call.to || (isOutbound ? 'unknown' : myPlivoNumber),
+          duration: call.duration || 0,
+          status: call.status || 'completed',
+          startTime: new Date(call.createdAt || call.updatedAt || Date.now()).toISOString(),
+          direction: isOutbound ? 'outbound' : (call.direction || 'inbound'),
+          agentUserId: agentUserIdStr,
+          agentUsername: agentName,
+          agentEmail: agentEmail,
+          farmerProfile: (call as any).farmerProfile,
+          callDetails: {
+            caller: call.caller,
+            agent: {
+              ...call.agent,
+              userid: agentUserIdStr,
+              username: agentName,
+              email: agentEmail
+            },
+            recording: call.recording,
+            recordings: call.recordings || (call.recording ? [call.recording] : []),
+            queries: call.queries,
+            QA_pairs: call.QA_pairs
+          }
+        });
       }
 
-      await Promise.all(
-        finalMainCalls.map(async (item) => {
-          try {
-            let details = await this.callDetailsRepository.getByCallUuid(item.uuid);
-            const associatedSipUuids = matchedSipUuidsByMainUuid.get(item.uuid) || [];
-
-            for (const sipUuid of associatedSipUuids) {
-              try {
-                const sipDetails = await this.callDetailsRepository.getByCallUuid(sipUuid);
-                if (sipDetails) {
-                  if (!details) {
-                    details = {
-                      ...sipDetails,
-                      callUuid: item.uuid,
-                      from: item.from,
-                      to: item.to,
-                      direction: item.direction
-                    };
-                  } else {
-                    // Merge queries if parent has none
-                    if ((!details.queries || details.queries.length === 0) && sipDetails.queries && sipDetails.queries.length > 0) {
-                      details.queries = sipDetails.queries;
-                      details.queryIds = sipDetails.queryIds;
-                    }
-                    // Merge QA_pairs if parent has none or has empty fields (legacy support)
-                    if (!details.QA_pairs && sipDetails.QA_pairs) {
-                      details.QA_pairs = sipDetails.QA_pairs;
-                    } else if (details.QA_pairs && sipDetails.QA_pairs) {
-                      if ((!details.QA_pairs.QnA || details.QA_pairs.QnA.length === 0) && sipDetails.QA_pairs.QnA?.length > 0) {
-                        details.QA_pairs.QnA = sipDetails.QA_pairs.QnA;
-                      }
-                      if (!details.QA_pairs.metadata?.extracted_crop && sipDetails.QA_pairs.metadata?.extracted_crop) {
-                        details.QA_pairs.metadata = { ...details.QA_pairs.metadata, ...sipDetails.QA_pairs.metadata };
-                      }
-                    }
-                    // Merge transcripts if parent has none
-                    if (!details.caller?.transcript && sipDetails.caller?.transcript) {
-                      details.caller = sipDetails.caller;
-                    }
-                    if (!details.agent?.transcript && sipDetails.agent?.transcript) {
-                      details.agent = sipDetails.agent;
-                    }
-                  }
-                }
-              } catch (sipErr) {
-                console.warn(`[PLIVO-CONTROLLER] Error fetching sip details for ${sipUuid}:`, sipErr);
-              }
-            }
-
-            if (details) {
-              // If this is an outbound call or was initiated via SIP softphone
-              if (item.isOutboundAgentLeg || item.originalFrom || isSipUri(details.from || '') || isSipUri(item.from || '')) {
-                item.direction = 'outbound';
-                item.from = appConfig.plivo.plivo_number || item.from;
-
-                // If this legacy DB record was stored with raw SIP from or direction='inbound', swap caller and agent so Farmer and Expert display accurately
-                if (isSipUri(details.from || '') || details.direction === 'inbound') {
-                  const tempCaller = details.caller;
-                  details.caller = details.agent;
-                  details.agent = tempCaller;
-                }
-                details.direction = 'outbound';
-                details.from = appConfig.plivo.plivo_number || details.from;
-              } else if (details.direction) {
-                item.direction = details.direction;
-              }
-              item.callDetails = details;
-            }
-
-            let agentUserIdStr = details?.agent?.userid ? details.agent.userid.toString() : this.plivoService.getCallAgent(item.uuid);
-
-            if (agentUserIdStr) {
-              try {
-                const agentUser = await this.userRepository.findById(agentUserIdStr);
-                if (agentUser) {
-                  const fullName = [agentUser.firstName, agentUser.lastName].filter(Boolean).join(' ') || agentUser.agent || agentUser.email;
-
-                  item.agentUserId = agentUserIdStr;
-                  item.agentUsername = fullName;
-                  item.agentEmail = agentUser.email;
-
-                  if (item.callDetails) {
-                    item.callDetails.agent = item.callDetails.agent || { transcript: '', translation: '', detectedLanguage: 'unknown' };
-                    item.callDetails.agent.userid = agentUserIdStr;
-                    item.callDetails.agent.username = fullName;
-                    item.callDetails.agent.email = agentUser.email;
-                  }
-                }
-              } catch (userErr) {
-                console.warn(`[PLIVO-CONTROLLER] Could not resolve user details for agent ${agentUserIdStr}:`, userErr);
-              }
-            }
-          } catch (e) {
-            console.error(`[PLIVO-CONTROLLER] Could not fetch details for ${item.uuid}`);
-          }
-        })
-      );
-
-      return finalMainCalls.slice(0, requestedLimit);
+      return formattedCalls;
     } catch (error: any) {
       console.error('❌ Error fetching call history:', error);
       throw new InternalServerError('Failed to fetch call history');
@@ -984,7 +922,17 @@ export class PlivoController {
       const enrichedQueries = [];
 
       for (const qItem of queries) {
-        const phone = qItem.from || '';
+        const isTestCall = !qItem.callUuid || qItem.callUuid.startsWith('testing_');
+        let phone = isTestCall ? '' : (qItem.from || qItem.metadata?.farmerPhone || '');
+        if (phone.toLowerCase() === 'unknown' || phone.toLowerCase() === 'undefined') {
+          phone = '';
+        }
+
+        // Do not include testing calls or calls where from and to are empty
+        if (isTestCall || !phone) {
+          continue;
+        }
+
         let farmer: any = null;
 
         if (phone) {
@@ -1001,18 +949,20 @@ export class PlivoController {
         }
 
         const metadata = qItem.metadata || {};
-        const farmerName = farmer?.profile?.farmerName || '';
+        const farmerName = isTestCall ? '' : (farmer?.profile?.farmerName || metadata.farmerName || metadata.extracted_name || '');
         const blockName = metadata.extracted_block || farmer?.profile?.blockName || '';
         const stateName = metadata.extracted_state || farmer?.profile?.state || '';
         const districtName = metadata.extracted_district || farmer?.profile?.district || '';
+        const cropName = metadata.extracted_crop || farmer?.profile?.primaryCrop || farmer?.profile?.crop || '';
 
         enrichedQueries.push({
           id: qItem._id ? qItem._id.toString() : '',
           callUuid: qItem.callUuid,
           createdAt: qItem.createdAt,
-          phone,
+          phone: maskPhone(phone),
+          rawPhone: phone,
           farmerName,
-          crop: metadata.extracted_crop || '',
+          crop: cropName,
           state: stateName,
           district: districtName,
           block: blockName,
@@ -1098,28 +1048,6 @@ export class PlivoController {
         'Source Link'
       ];
 
-      const maskPhone = (phoneStr: string) => {
-        if (!phoneStr) return '';
-        const digitsOnly = phoneStr.replace(/\D/g, '');
-        if (digitsOnly.length <= 3) return phoneStr;
-        const last3 = digitsOnly.slice(-3);
-        const maskedPrefix = '*'.repeat(digitsOnly.length - 3);
-        return maskedPrefix + last3;
-      };
-
-      const stripMarkdown = (text: string): string => {
-        if (!text) return '';
-        return text
-          .replace(/^#+\s+/gm, '')
-          .replace(/(\*\*|__)(.*?)\1/g, '$2')
-          .replace(/(\*|_)(.*?)\1/g, '$2')
-          .replace(/`([^`]+)`/g, '$1')
-          .replace(/```[\s\S]*?```/g, '')
-          .replace(/^[\s]*[-*+]\s+/gm, '')
-          .replace(/^[\s]*\d+\.\s+/gm, '')
-          .trim();
-      };
-
       const escapeCSV = (field: any) => {
         if (field === null || field === undefined) return '""';
         let str = String(field).replace(/"/g, '""');
@@ -1133,7 +1061,17 @@ export class PlivoController {
       const phoneToFarmerCache = new Map<string, any>();
 
       for (const qItem of queries) {
-        const phone = qItem.from || '';
+        const isTestCall = !qItem.callUuid || qItem.callUuid.startsWith('testing_');
+        let phone = isTestCall ? '' : (qItem.from || qItem.metadata?.farmerPhone || '');
+        if (phone.toLowerCase() === 'unknown' || phone.toLowerCase() === 'undefined') {
+          phone = '';
+        }
+
+        // Do not include testing calls or calls where from and to are empty
+        if (isTestCall || !phone) {
+          continue;
+        }
+
         let farmer: any = null;
 
         if (phone) {
@@ -1150,10 +1088,11 @@ export class PlivoController {
         }
 
         const metadata = qItem.metadata || {};
-        const farmerName = farmer?.profile?.farmerName || '';
+        const farmerName = isTestCall ? '' : (farmer?.profile?.farmerName || metadata.farmerName || metadata.extracted_name || '');
         const blockName = metadata.extracted_block || farmer?.profile?.blockName || '';
         const stateName = metadata.extracted_state || farmer?.profile?.state || '';
         const districtName = metadata.extracted_district || farmer?.profile?.district || '';
+        const cropName = metadata.extracted_crop || farmer?.profile?.primaryCrop || farmer?.profile?.crop || '';
 
         const domainStr = Array.isArray(metadata.extracted_domain)
           ? metadata.extracted_domain.join('; ')
@@ -1164,7 +1103,7 @@ export class PlivoController {
           escapeCSV(qItem.createdAt ? (qItem.createdAt instanceof Date ? qItem.createdAt.toISOString() : new Date(qItem.createdAt).toISOString()) : ''),
           escapeCSV(maskPhone(phone)),
           escapeCSV(farmerName),
-          escapeCSV(metadata.extracted_crop || ''),
+          escapeCSV(cropName),
           escapeCSV(stateName),
           escapeCSV(districtName),
           escapeCSV(blockName),

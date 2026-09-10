@@ -16,20 +16,12 @@ function getPhoneVariations(raw: string): string[] {
   const variations = new Set<string>();
   variations.add(clean);
   if (digits) variations.add(digits);
-  if (digits.length === 10) {
-    variations.add(`+91${digits}`);
-    variations.add(`91${digits}`);
-    variations.add(`0${digits}`);
-  } else if (digits.length === 12 && digits.startsWith('91')) {
-    const core = digits.slice(2);
-    variations.add(core);
-    variations.add(`+${digits}`);
-    variations.add(`0${core}`);
-  } else if (digits.length === 11 && digits.startsWith('0')) {
-    const core = digits.slice(1);
-    variations.add(core);
-    variations.add(`+91${core}`);
-    variations.add(`91${core}`);
+  const last10 = digits.length >= 10 ? digits.slice(-10) : (digits.length > 0 ? digits : '');
+  if (last10) {
+    variations.add(last10);
+    variations.add(`+91${last10}`);
+    variations.add(`91${last10}`);
+    variations.add(`0${last10}`);
   }
   return [...variations].filter(Boolean);
 }
@@ -56,33 +48,69 @@ export class CallFarmerRepository implements ICallFarmerRepository {
     try {
       await this.init();
       const phoneVariants = getPhoneVariations(phoneNo);
-      const rawDoc = await this.callFarmersCollection.findOne(
-        {
-          $or: [
-            { phoneNo: { $in: phoneVariants } },
-            { "profile.phoneNo": { $in: phoneVariants } }
-          ]
-        },
-        { session },
-      ) as any;
+      const digits = phoneNo.replace(/\D/g, '');
+      const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+      const phoneRegex = last10 ? new RegExp(last10 + '$') : null;
+
+      const orConditions: any[] = [
+        { phoneNo: { $in: phoneVariants } },
+        { "profile.phoneNo": { $in: phoneVariants } },
+        { phoneNumber: { $in: phoneVariants } },
+        { "profile.phoneNumber": { $in: phoneVariants } },
+        { phone: { $in: phoneVariants } },
+        { "profile.phone": { $in: phoneVariants } },
+        { mobile: { $in: phoneVariants } },
+        { "profile.mobile": { $in: phoneVariants } }
+      ];
+      if (phoneRegex) {
+        orConditions.push(
+          { phoneNo: phoneRegex },
+          { "profile.phoneNo": phoneRegex },
+          { phoneNumber: phoneRegex },
+          { "profile.phoneNumber": phoneRegex },
+          { phone: phoneRegex },
+          { "profile.phone": phoneRegex }
+        );
+      }
+
+      const queryMatch = { $or: orConditions };
+
+      let rawDoc = await this.callFarmersCollection.findOne(queryMatch, { session }) as any;
+
+      if (!rawDoc) {
+        try {
+          const fallbackColl = await this.db.getCollection('farmer_details');
+          rawDoc = await fallbackColl.findOne(queryMatch, { session }) as any;
+        } catch {
+          // ignore fallback error
+        }
+      }
+
       if (!rawDoc) {
         return null;
       }
       const profile = rawDoc.profile || rawDoc;
+      const farmerName = profile.farmerName || profile.extracted_name || profile.name || profile.fullName || profile.FarmerName || rawDoc.farmerName || rawDoc.name || rawDoc.fullName || rawDoc.FarmerName || '';
+      const blockName = profile.blockName || profile.block || profile.extracted_block || profile.address?.block || rawDoc.blockName || rawDoc.block || '';
+      const villageName = profile.villageName || profile.village || profile.extracted_village || profile.address?.village || rawDoc.villageName || rawDoc.village || '';
+      const districtName = profile.district || profile.extracted_district || profile.address?.district || rawDoc.district || '';
+      const stateName = profile.state || profile.extracted_state || profile.address?.state || rawDoc.state || '';
+      const cropName = profile.primaryCrop || profile.crop || profile.extracted_primary_crop || rawDoc.primaryCrop || rawDoc.crop || '';
+
       return {
         _id: rawDoc._id?.toString(),
         phoneNo: rawDoc.phoneNo || phoneNo,
         profile: {
-          farmerName: profile.farmerName || profile.extracted_name || profile.name || '',
-          phoneNo: profile.phoneNo || phoneNo,
+          farmerName,
+          phoneNo: rawDoc.phoneNo || phoneNo,
           age: profile.age !== undefined && profile.age !== null ? Number(profile.age) : undefined,
           gender: profile.gender || '',
-          villageName: profile.villageName || profile.village || '',
-          blockName: profile.blockName || profile.block || '',
-          district: profile.district || '',
-          state: profile.state || '',
-          primaryCrop: profile.primaryCrop || profile.extracted_primary_crop || profile.crop || '',
-          secondaryCrop: profile.secondaryCrop || (Array.isArray(profile.extracted_secondary_crops) ? profile.extracted_secondary_crops.join(', ') : (profile.extracted_secondary_crops || profile.extracted_secondary_crop || (Array.isArray(profile.cropsCultivated) ? profile.cropsCultivated.filter((c: string) => c !== (profile.primaryCrop || profile.extracted_primary_crop || profile.crop)).join(', ') : ''))),
+          villageName,
+          blockName,
+          district: districtName,
+          state: stateName,
+          primaryCrop: cropName,
+          secondaryCrop: profile.secondaryCrop || (Array.isArray(profile.extracted_secondary_crops) ? profile.extracted_secondary_crops.join(', ') : (profile.extracted_secondary_crops || profile.extracted_secondary_crop || (Array.isArray(profile.cropsCultivated) ? profile.cropsCultivated.filter((c: string) => c !== cropName).join(', ') : ''))),
           languagePreference: profile.languagePreference || profile.extracted_language_preference || profile.extracted_language || profile.language || '',
           yearsOfExperience: profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null ? Number(profile.yearsOfExperience) : (profile.extracted_years_of_experience !== undefined && profile.extracted_years_of_experience !== null ? Number(profile.extracted_years_of_experience) : undefined),
           highestEducatedPerson: profile.highestEducatedPerson || profile.extracted_highest_education || profile.extracted_highest_educated || '',
