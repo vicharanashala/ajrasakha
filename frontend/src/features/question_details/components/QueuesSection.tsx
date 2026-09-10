@@ -198,19 +198,16 @@ export const QueuesSection = ({
       badgeVariant: modName ? "green" : "muted",
       tooltip: modName ? `Assigned to ${modName}` : "No Moderator assigned",
     },
-  ];
-
-  if (hasReroute) {
-    tabs.push({
+    {
       id: "reroute",
       label: "Re-route",
       fullLabel: "Re-route Queue History",
       icon: RefreshCcw,
       badge: rerouteBadge,
-      badgeVariant: "amber",
+      badgeVariant: (reroutequestionDetails?.length ?? 0) > 0 ? "amber" : "muted",
       tooltip: `${reroutequestionDetails?.length ?? 0} re-route event(s)`,
-    });
-  }
+    },
+  ];
 
   if (showFeedbackQueue) {
     tabs.push({
@@ -368,10 +365,10 @@ export const QueuesSection = ({
             />
           )}
 
-          {hasReroute && (activeTab === "reroute" || activeTab === "all") && (
+          {(activeTab === "reroute" || activeTab === "all") && (
             <RerouteTimeline
               currentUser={currentUser}
-              rerouteData={reroutequestionDetails!}
+              rerouteData={reroutequestionDetails ?? []}
             />
           )}
 
