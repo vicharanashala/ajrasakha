@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: farmer-feedback-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - farmer-feedback-network
+
+  whatsapp-bot:
+    build:
+      context: ..
+      dockerfile: docker/whatsapp-bot.Dockerfile
+    container_name: farmer-feedback-whatsapp-bot
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/farmer_feedback
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+      - FLASK_ENV=production
+    depends_on:
+      - mongodb
+    networks:
+      - farmer-feedback-network
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: farmer-feedback-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/farmer_feedback
+      - DATABASE_NAME=farmer_feedback
+      - BACKEND_URL=http://localhost:8000
+      - FRONTEND_URL=http://localhost:3000
+      - AUTO_FLAG_THRESHOLD=0.60
+      - AUTO_FLAG_MIN_RESPONSES=10
+    depends_on:
+      - mongodb
+    networks:
+      - farmer-feedback-network
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    container_name: farmer-feedback-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend
+    networks:
+      - farmer-feedback-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  farmer-feedback-network:
+    driver: bridge
