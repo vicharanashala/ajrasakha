@@ -1,0 +1,77 @@
+# =========================================================
+# Cisco IOS Show Command Outputs - Fault 1: Missing VLAN on Trunk
+# Symptom: Guest PC connected to SW2 has no network/internet access
+# Root Cause: VLAN 20 omitted from allowed list on trunk SW1 Fa0/1
+# =========================================================
+
+=== SHOW RUNNING-CONFIG R1-BranchRouter ===
+hostname R1-BranchRouter
+ip domain-name smartbranch.local
+
+ip dhcp pool EMPLOYEE_POOL
+ network 10.10.10.0 255.255.255.0
+ default-router 10.10.10.1
+ dns-server 10.10.30.10
+
+ip dhcp pool GUEST_POOL
+ network 10.10.20.0 255.255.255.0
+ default-router 10.10.20.1
+ dns-server 8.8.8.8
+
+ip dhcp pool MGMT_POOL
+ network 10.10.99.0 255.255.255.0
+ default-router 10.10.99.1
+
+interface GigabitEthernet0/0.10
+ encapsulation dot1Q 10
+ ip address 10.10.10.1 255.255.255.0
+ ip nat inside
+!
+interface GigabitEthernet0/0.20
+ encapsulation dot1Q 20
+ ip address 10.10.20.1 255.255.255.0
+ ip nat inside
+ ip access-group GUEST_ISOLATION_ACL in
+!
+interface GigabitEthernet0/0.30
+ encapsulation dot1Q 30
+ ip address 10.10.30.1 255.255.255.0
+ ip nat inside
+!
+interface GigabitEthernet0/0.99
+ encapsulation dot1Q 99 native
+ ip address 10.10.99.1 255.255.255.0
+ ip nat inside
+!
+interface GigabitEthernet0/1
+ ip address 203.0.113.2 255.255.255.252
+ ip nat outside
+!
+ip nat inside source list NAT_ACL interface GigabitEthernet0/1 overload
+ip route 0.0.0.0 0.0.0.0 203.0.113.1
+
+ip access-list extended GUEST_ISOLATION_ACL
+ permit udp 10.10.20.0 0.0.0.255 host 10.10.30.10 eq domain
+ deny ip 10.10.20.0 0.0.0.255 10.10.30.0 0.0.0.255
+ deny ip 10.10.20.0 0.0.0.255 10.10.99.0 0.0.0.255
+ permit ip 10.10.20.0 0.0.0.255 any
+
+line vty 0 15
+ transport input ssh
+ access-class 10 in
+
+=== SHOW INTERFACES TRUNK SW1-CoreSwitch ===
+Port        Mode         Encapsulation  Status        Native vlan
+Gi0/1       on           802.1q         trunking      99
+Fa0/1       on           802.1q         trunking      99
+
+Port        Vlans allowed on trunk
+Gi0/1       10,20,30,99
+Fa0/1       10,30,99
+
+=== SHOW INTERFACES TRUNK SW2-AccessSwitch ===
+Port        Mode         Encapsulation  Status        Native vlan
+Fa0/1       on           802.1q         trunking      99
+
+Port        Vlans allowed on trunk
+Fa0/1       10,20,30,99

@@ -1,0 +1,120 @@
+{
+  "site_name": "SmartBranch360",
+  "domain_name": "smartbranch.local",
+  "vlans": [
+    {
+      "id": 10,
+      "name": "Employee",
+      "subnet": "10.10.10.0/24",
+      "gateway": "10.10.10.1",
+      "dhcp_enabled": true,
+      "dhcp_pool_name": "EMPLOYEE_POOL",
+      "dhcp_start_ip": "10.10.10.50",
+      "dhcp_end_ip": "10.10.10.254",
+      "dns_server": "10.10.30.10"
+    },
+    {
+      "id": 20,
+      "name": "Guest",
+      "subnet": "10.10.20.0/24",
+      "gateway": "10.10.20.1",
+      "dhcp_enabled": true,
+      "dhcp_pool_name": "GUEST_POOL",
+      "dhcp_start_ip": "10.10.20.50",
+      "dhcp_end_ip": "10.10.20.254",
+      "dns_server": "8.8.8.8"
+    },
+    {
+      "id": 30,
+      "name": "Server",
+      "subnet": "10.10.30.0/24",
+      "gateway": "10.10.30.1",
+      "dhcp_enabled": false,
+      "static_devices": [
+        {
+          "name": "Internal_Server",
+          "ip": "10.10.30.10",
+          "services": ["HTTP", "DNS"]
+        }
+      ]
+    },
+    {
+      "id": 99,
+      "name": "Management",
+      "subnet": "10.10.99.0/24",
+      "gateway": "10.10.99.1",
+      "dhcp_enabled": true,
+      "dhcp_pool_name": "MGMT_POOL",
+      "static_devices": [
+        {
+          "name": "SW1_SVI",
+          "ip": "10.10.99.2"
+        },
+        {
+          "name": "SW2_SVI",
+          "ip": "10.10.99.3"
+        },
+        {
+          "name": "Admin_PC",
+          "ip": "10.10.99.10"
+        }
+      ]
+    }
+  ],
+  "wan": {
+    "interface": "GigabitEthernet0/1",
+    "ip": "203.0.113.2/30",
+    "gateway": "203.0.113.1",
+    "nat_enabled": true,
+    "nat_type": "Dynamic PAT (Overload)"
+  },
+  "trunks": [
+    {
+      "switch": "SW1",
+      "interface": "GigabitEthernet0/1",
+      "allowed_vlans": [10, 20, 30, 99],
+      "native_vlan": 99
+    },
+    {
+      "switch": "SW1",
+      "interface": "FastEthernet0/1",
+      "allowed_vlans": [10, 20, 30, 99],
+      "native_vlan": 99
+    },
+    {
+      "switch": "SW2",
+      "interface": "FastEthernet0/1",
+      "allowed_vlans": [10, 20, 30, 99],
+      "native_vlan": 99
+    }
+  ],
+  "security_rules": [
+    {
+      "id": "SEC-01",
+      "description": "Guest VLAN isolation from Server VLAN",
+      "src_vlan": 20,
+      "dst_vlan": 30,
+      "action": "DENY"
+    },
+    {
+      "id": "SEC-02",
+      "description": "Guest VLAN isolation from Management VLAN",
+      "src_vlan": 20,
+      "dst_vlan": 99,
+      "action": "DENY"
+    },
+    {
+      "id": "SEC-03",
+      "description": "Guest VLAN internet access",
+      "src_vlan": 20,
+      "dst_vlan": "ANY_WAN",
+      "action": "PERMIT"
+    },
+    {
+      "id": "SEC-04",
+      "description": "SSH device management restricted to Management VLAN",
+      "allowed_mgmt_subnet": "10.10.99.0/24",
+      "transport": "SSH_ONLY"
+    }
+  ]
+}
