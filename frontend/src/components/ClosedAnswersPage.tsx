@@ -439,7 +439,7 @@ const AnswerSourcesEditor = ({
   const fieldId = useId();
   const [isOpen, setIsOpen] = useState(!startCollapsed);
   // Whoever put this answer's sources 'in-progress' owns finishing the review - any
-  // other expert gets a read-only view until it's released back to 'pending'/completed.
+  // other expert gets a read-only view until it's released back to 'pending'/review-completed.
   const isLockedByOther =
     answer.newSourceStatus === "in-progress" && !answer.isOwnInProgress;
   // A 'merged' record is done for good - an admin/moderator override, not something an
@@ -991,7 +991,7 @@ const AnswerBody = ({ answer }: { answer: ClosedAnswer }) => {
 const NEW_SOURCE_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   "in-progress": "In Progress",
-  completed: "Completed",
+  "review-completed": "Review Completed",
   flagged: "Flagged",
   merged: "Approved",
 };
@@ -999,7 +999,7 @@ const NEW_SOURCE_STATUS_LABELS: Record<string, string> = {
 const NEW_SOURCE_STATUS_BADGE_CLASSES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
   "in-progress": "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  completed: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "review-completed": "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   flagged: "bg-red-500/15 text-red-600 dark:text-red-400",
   merged: "bg-primary/15 text-primary",
 };
@@ -1244,7 +1244,7 @@ const StatusChangesList = ({
 };
 
 // The three states an admin/moderator can force a record into (see
-// NewSourceService.changeStatus) - 'in-progress' and 'completed' are reached by the
+// NewSourceService.changeStatus) - 'in-progress' and 'review-completed' are reached by the
 // reviewer's own flow, not by an override. Each needs a reason, asked for in a modal.
 const STATUS_OVERRIDE_ACTIONS: {
   value: "pending" | "merged" | "flagged";

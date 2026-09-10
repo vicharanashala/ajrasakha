@@ -3,7 +3,7 @@ import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
 export interface ChangeNewSourceStatusInput {
   id: string;
   /** Admins/moderators may only send a record to one of these statuses this way -
-   *  'in-progress'/'completed' are set by the edit flow itself, not this override. */
+   *  'in-progress'/'review-completed' are set by the edit flow itself, not this override. */
   status: 'pending' | 'merged' | 'flagged';
   /** Mandatory - why the status is being overridden. Stored on the record itself. */
   reason: string;
@@ -45,7 +45,7 @@ export interface INewSourceService {
 
   /** Called when the user saves — records the final sources (each with its own
    *  organization/sourceReferenceStatus/sourceIndex), stops the timer into timeTaken,
-   *  and marks the record 'completed'. */
+   *  and marks the record 'review-completed'. */
   completeNewSource(input: CompleteNewSourceInput): Promise<INewSource>;
 
   /** Called whenever the Edit Source modal closes — Cancel, Escape, outside click, or

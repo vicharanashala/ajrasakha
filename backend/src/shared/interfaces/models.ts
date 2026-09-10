@@ -351,10 +351,10 @@ export interface INewSourceItem {
 }
 
 /** Lifecycle of a `new_sources` record: 'in-progress' from the moment the Edit Source
- *  modal is opened (timer running), 'completed' once the user saves (timer stopped,
+ *  modal is opened (timer running), 'review-completed' once the user saves (timer stopped,
  *  timeTaken recorded). 'pending', 'flagged', and 'merged' are not produced by the Edit
  *  Source flow itself — they're reserved for a review workflow. */
-export type NewSourceStatus = 'pending' | 'completed' | 'in-progress' | 'flagged' | 'merged';
+export type NewSourceStatus = 'pending' | 'review-completed' | 'in-progress' | 'flagged' | 'merged';
 
 /** Where a saved source's link was found in the `pop_unique_documents` collection,
  *  checked automatically against it when the edit is saved. */
@@ -395,7 +395,7 @@ export interface INewSourceStatusChange {
 /** A document written to the `new_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
  *  `answers` collection — edits are logged here instead. Created (status:
- *  'inProgress') when the modal opens, then updated (status: 'completed', timeTaken)
+ *  'inProgress') when the modal opens, then updated (status: 'review-completed', timeTaken)
  *  when the user saves. sourceReferenceStatus lives on each entry in `sources`, not
  *  here, since every source on the answer is saved together and each is checked
  *  against pop_unique_documents independently. */

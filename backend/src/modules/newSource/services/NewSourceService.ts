@@ -29,7 +29,7 @@ export class NewSourceService implements INewSourceService {
       }
 
       // Whoever put this source 'in-progress' owns finishing it - a different expert
-      // can't jump in and edit it until it's released back to 'pending' (or completed).
+      // can't jump in and edit it until it's released back to 'pending' (or review-completed).
       const ownedByAnotherExpert =
         existing.status === 'in-progress' &&
         !existing.reviewArray.some(entry => entry.userId === input.userId);
@@ -96,7 +96,7 @@ export class NewSourceService implements INewSourceService {
 
     const updated = await this.newSourceRepo.updateById(input.id, input.userId, {
       sources: input.sources,
-      status: 'completed',
+      status: 'review-completed',
       timeTaken: input.timeTaken,
     });
 
