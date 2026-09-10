@@ -57,6 +57,18 @@ export interface INewSourceService {
    *  record, if any, so the UI can confirm switching away from it before starting. */
   findActiveInProgress(userId: string, excludeAnswerId: string): Promise<INewSource | null>;
 
+  /** Takes an answer into 'moderator-in-review' for this moderator/admin. */
+  startModeratorReview(input: StartNewSourceInput): Promise<INewSource>;
+
+  /** The record this moderator holds on another answer, if any. */
+  findActiveModeratorReview(
+    userId: string,
+    excludeAnswerId: string,
+  ): Promise<INewSource | null>;
+
+  /** Releases this moderator's hold back to 'review-completed'. */
+  releaseModeratorReview(id: string, userId: string): Promise<INewSource>;
+
   /** Called once the user confirms switching answers — sends the previous 'in-progress'
    *  record back to 'pending' so it becomes available to other experts again. */
   releaseToPending(id: string): Promise<INewSource>;

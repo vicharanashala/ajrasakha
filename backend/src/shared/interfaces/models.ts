@@ -355,7 +355,13 @@ export interface INewSourceItem {
  *  modal is opened (timer running), 'review-completed' once the user saves (timer stopped,
  *  timeTaken recorded). 'pending', 'flagged', and 'merged' are not produced by the Edit
  *  Source flow itself — they're reserved for a review workflow. */
-export type NewSourceStatus = 'pending' | 'review-completed' | 'in-progress' | 'flagged' | 'merged';
+export type NewSourceStatus =
+  | 'pending'
+  | 'review-completed'
+  | 'in-progress'
+  | 'moderator-in-review'
+  | 'flagged'
+  | 'merged';
 
 /** Where a saved source's link was found in the `pop_unique_documents` collection,
  *  checked automatically against it when the edit is saved. */
@@ -376,6 +382,9 @@ export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
 export interface INewSourceReviewEntry {
   userId: string;
   name: string;
+  /** Which side of the workflow this entry belongs to. Absent on entries written before
+   *  moderator review existed, which were all experts. */
+  role?: 'expert' | 'moderator';
   startedAt: Date;
   closedAt: Date | null;
   isSaved: boolean;

@@ -93,6 +93,55 @@ export class NewSourceController {
     return await this.newSourceService.releaseToPending(id);
   }
 
+  @OpenAPI({
+    summary:
+      'Take an answer into moderator review, hiding it from other moderators until acted on',
+  })
+  @Post('/moderator-review')
+  @Authorized()
+  async startModeratorReview(
+    @Body() body: {answerId: string; questionId: string},
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource> {
+    const userName =
+      [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
+    return await this.newSourceService.startModeratorReview({
+      ...body,
+      userId: user._id?.toString() ?? '',
+      userName,
+    });
+  }
+
+  @OpenAPI({
+    summary: "Find the moderator's other answer held in moderator review, if any",
+  })
+  @Get('/moderator-review/active')
+  @Authorized()
+  async findActiveModeratorReview(
+    @QueryParams() query: {excludeAnswerId: string},
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource | null> {
+    return await this.newSourceService.findActiveModeratorReview(
+      user._id?.toString() ?? '',
+      query.excludeAnswerId,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Release a moderator review back to review-completed for other moderators',
+  })
+  @Patch('/:id/moderator-review/release')
+  @Authorized()
+  async releaseModeratorReview(
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource> {
+    return await this.newSourceService.releaseModeratorReview(
+      id,
+      user._id?.toString() ?? '',
+    );
+  }
+
   @OpenAPI({summary: "Read-only lookup of an answer's updated_sources record, for the moderator before/after view"})
   @Get('/by-answer/:answerId')
   @Authorized()

@@ -134,6 +134,59 @@ export class NewSourceRepository implements INewSourceRepository {
     return {...result, _id: result._id?.toString()} as INewSource;
   }
 
+  async findActiveModeratorReviewByUser(
+    userId: string,
+    excludeAnswerId: string,
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    const result = await this.NewSourceCollection.findOne({
+      status: 'moderator-in-review',
+      answerId: {$ne: excludeAnswerId},
+      reviewArray: {
+        $elemMatch: {userId, role: 'moderator', closedAt: null},
+      },
+    });
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
+  async releaseModeratorReview(
+    id: string,
+    userId: string,
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing updated_sources id');
+    }
+
+    // Only this moderator's own open entry is closed - an expert's entry on the same
+    // record is history and stays as it was.
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {
+        $set: {
+          status: 'review-completed',
+          'reviewArray.$[reviewer].closedAt': new Date(),
+          updatedAt: new Date(),
+        },
+      },
+      {
+        arrayFilters: [
+          {'reviewer.userId': userId, 'reviewer.role': 'moderator', 'reviewer.closedAt': null},
+        ],
+        returnDocument: 'after',
+      },
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
   async findByAnswerId(answerId: string): Promise<INewSource | null> {
     await this.init();
 
@@ -224,10 +277,19 @@ export class NewSourceRepository implements INewSourceRepository {
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
       {
-        $set: {status: entry.status, updatedAt: new Date()},
+        $set: {
+          status: entry.status,
+          'reviewArray.$[reviewer].closedAt': new Date(),
+          updatedAt: new Date(),
+        },
         $push: {statusChanges: entry},
       },
-      {returnDocument: 'after'},
+      {
+        // Acting on the record ends the moderator's hold on it - their entry closes
+        // alongside the status change rather than needing a separate release.
+        arrayFilters: [{'reviewer.role': 'moderator', 'reviewer.closedAt': null}],
+        returnDocument: 'after',
+      },
     );
 
     if (!result) return null;

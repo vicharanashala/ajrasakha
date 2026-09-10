@@ -429,6 +429,7 @@ export interface ClosedAnswerFilters {
     | "pending"
     | "in-progress"
     | "review-completed"
+    | "moderator-in-review"
     | "merged"
     | "flagged"
   )[];
@@ -461,10 +462,19 @@ export interface ClosedAnswer {
   // The answer's own updated_sources record status, if one exists (there's at most one per
   // answer - see NewSourceService.startNewSource's dedup). Null when no one has started
   // reviewing this answer's sources yet.
-  newSourceStatus?: "pending" | "review-completed" | "in-progress" | "flagged" | "merged" | null;
+  newSourceStatus?: | "pending"
+    | "review-completed"
+    | "in-progress"
+    | "moderator-in-review"
+    | "flagged"
+    | "merged"
+    | null;
   // True when the requesting viewer is the one who put this answer's sources
   // 'in-progress' - false (including for a 'pending'/'review-completed' record) otherwise.
   isOwnInProgress?: boolean;
+  // True when this viewer is the moderator/admin currently holding the answer in
+  // 'moderator-in-review' - nobody else sees it while that hold is open.
+  isOwnModeratorReview?: boolean;
   // True when any reviewed source on this answer had no matching pop document
   // (sourceReferenceStatus 'notFound'), so the list can flag it.
   hasNotFoundReference?: boolean;

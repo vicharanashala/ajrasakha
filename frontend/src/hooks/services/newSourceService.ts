@@ -23,6 +23,7 @@ export interface NewSourceItem {
 export type NewSourceStatus =
   | "pending"
   | "review-completed"
+  | "moderator-in-review"
   | "in-progress"
   | "flagged"
   | "merged";
@@ -40,6 +41,8 @@ export interface CompleteNewSourcePayload {
 export interface NewSourceReviewEntry {
   userId: string;
   name: string;
+  /** Absent on entries written before moderator review existed - those were experts. */
+  role?: "expert" | "moderator";
   startedAt: string;
   closedAt: string | null;
   isSaved: boolean;
@@ -107,6 +110,34 @@ export class NewSourceService {
 
   /** Called once the user confirms switching answers — sends the previous 'in-progress'
    *  record back to 'pending' so another expert can pick it up. */
+  /** Moderator/admin opening an answer - takes it into 'moderator-in-review'. */
+  async startModeratorReview(
+    payload: StartNewSourcePayload,
+  ): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord>(`${this._baseUrl}/moderator-review`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /** The answer this moderator is already holding elsewhere, if any. */
+  async findActiveModeratorReview(
+    excludeAnswerId: string,
+  ): Promise<NewSourceRecord | null> {
+    const params = new URLSearchParams({ excludeAnswerId });
+    return apiFetch<NewSourceRecord | null>(
+      `${this._baseUrl}/moderator-review/active?${params.toString()}`,
+    );
+  }
+
+  /** Hands the hold back so another moderator can take the answer. */
+  async releaseModeratorReview(id: string): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord>(
+      `${this._baseUrl}/${id}/moderator-review/release`,
+      { method: "PATCH" },
+    );
+  }
+
   async release(id: string): Promise<NewSourceRecord | null> {
     return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/release`, {
       method: "PATCH",

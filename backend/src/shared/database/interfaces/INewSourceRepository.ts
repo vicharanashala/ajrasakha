@@ -18,6 +18,17 @@ export interface INewSourceRepository {
     updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
   ): Promise<INewSource | null>;
 
+  /** Finds the record this moderator currently holds in 'moderator-in-review' on some
+   *  other answer, so the UI can ask them to confirm switching. */
+  findActiveModeratorReviewByUser(
+    userId: string,
+    excludeAnswerId: string,
+  ): Promise<INewSource | null>;
+
+  /** Hands a moderator's hold back: status returns to 'review-completed' and their own
+   *  still-open reviewArray entry is closed, so another moderator can pick it up. */
+  releaseModeratorReview(id: string, userId: string): Promise<INewSource | null>;
+
   /** Sets just the record's status, without touching reviewArray or timeTaken — used
    *  when a reviewer picks a released record back up and it returns to 'in-progress'. */
   setStatus(id: string, status: INewSource['status']): Promise<INewSource | null>;

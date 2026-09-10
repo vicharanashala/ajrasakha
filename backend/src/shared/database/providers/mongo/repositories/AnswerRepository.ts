@@ -1237,16 +1237,26 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage.$and.push({newSourceRecordStatus: {$in: wantedStatuses}});
       }
 
-      // Experts shouldn't see answers whose sources have already been reviewed
-      // (updated_sources.status === 'review-completed' or 'merged'); moderators/admins should see
-      // only those. Other roles get no extra filtering here.
-      if (filters?.viewerRole === 'expert') {
-        matchStage.hasCompletedNewSource = false;
-      } else if (
+      // Moderators/admins review what's been done, so they see only reviewed answers
+      // (updated_sources.status 'review-completed', 'merged' or their own
+      // 'moderator-in-review'). Everyone else is here to add sources, so a reviewed
+      // answer leaves their list - keyed off the reviewer roles rather than 'expert'
+      // alone, so testers and other source-adding roles get the same list.
+      if (
         filters?.viewerRole === 'moderator' ||
         filters?.viewerRole === 'admin'
       ) {
         matchStage.hasCompletedNewSource = true;
+        // Whoever took an answer into moderator review owns finishing it - it stays in
+        // their own list and disappears from every other moderator's.
+        matchStage.$and.push({
+          $or: [
+            {newSourceRecordStatus: {$ne: 'moderator-in-review'}},
+            {isOwnModeratorReview: true},
+          ],
+        });
+      } else {
+        matchStage.hasCompletedNewSource = false;
       }
 
       // A seeded key derived from the document's creation time gives a shuffled but
@@ -1273,9 +1283,9 @@ export class AnswerRepository implements IAnswerRepository {
                 },
               },
             },
-            {$sort: {isOwnInProgress: -1, reviewStatusPriority: 1, shuffleKey: 1, _id: 1}},
+            {$sort: {isOwnInProgress: -1, isOwnModeratorReview: -1, reviewStatusPriority: 1, shuffleKey: 1, _id: 1}},
           ]
-        : [{$sort: {isOwnInProgress: -1, reviewStatusPriority: 1, createdAt: -1}}];
+        : [{$sort: {isOwnInProgress: -1, isOwnModeratorReview: -1, reviewStatusPriority: 1, createdAt: -1}}];
 
       const basePipeline: any[] = [
         {
@@ -1300,7 +1310,16 @@ export class AnswerRepository implements IAnswerRepository {
               {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},
               {$sort: {createdAt: -1}},
               {$limit: 1},
-              {$project: {_id: 0, status: 1, 'sources.sourceReferenceStatus': 1}},
+              {
+                $project: {
+                  _id: 0,
+                  status: 1,
+                  'sources.sourceReferenceStatus': 1,
+                  'reviewArray.userId': 1,
+                  'reviewArray.role': 1,
+                  'reviewArray.closedAt': 1,
+                },
+              },
             ],
             as: 'completedNewSource',
           },
@@ -1312,7 +1331,34 @@ export class AnswerRepository implements IAnswerRepository {
             hasCompletedNewSource: {
               $in: [
                 {$arrayElemAt: ['$completedNewSource.status', 0]},
-                ['review-completed', 'merged'],
+                ['review-completed', 'merged', 'moderator-in-review'],
+              ],
+            },
+            // True when THIS viewer is the moderator holding the answer - used both to
+            // keep it in their list and to hide it from every other moderator.
+            isOwnModeratorReview: {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: {
+                        $ifNull: [
+                          {$arrayElemAt: ['$completedNewSource.reviewArray', 0]},
+                          [],
+                        ],
+                      },
+                      as: 'entry',
+                      cond: {
+                        $and: [
+                          {$eq: ['$$entry.userId', filters?.viewerId ?? null]},
+                          {$eq: ['$$entry.role', 'moderator']},
+                          {$eq: ['$$entry.closedAt', null]},
+                        ],
+                      },
+                    },
+                  },
+                },
+                0,
               ],
             },
             // Every pop lookup outcome recorded on this answer's reviewed sources, so
@@ -1452,6 +1498,8 @@ export class AnswerRepository implements IAnswerRepository {
         // above, used for sort order) - lets the UI tell "mine, still open" apart from
         // "someone else's, locked" without a second round trip.
         isOwnInProgress: Boolean(ans.isOwnInProgress),
+        // True when this viewer is the moderator currently holding the answer.
+        isOwnModeratorReview: Boolean(ans.isOwnModeratorReview),
         createdAt: ans.createdAt?.toISOString(),
         updatedAt: ans.updatedAt?.toISOString(),
         question: {

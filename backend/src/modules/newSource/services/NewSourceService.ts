@@ -53,6 +53,7 @@ export class NewSourceService implements INewSourceService {
         const withNewReviewer = await this.newSourceRepo.appendReviewEntry(existingId, {
           userId: input.userId,
           name: input.userName,
+          role: 'expert',
           startedAt: new Date(),
           closedAt: null,
           isSaved: false,
@@ -86,6 +87,7 @@ export class NewSourceService implements INewSourceService {
         {
           userId: input.userId,
           name: input.userName,
+          role: 'expert',
           startedAt: new Date(),
           closedAt: null,
           isSaved: false,
@@ -121,6 +123,88 @@ export class NewSourceService implements INewSourceService {
 
   async closeNewSource(id: string, userId: string): Promise<INewSource> {
     const updated = await this.newSourceRepo.recordClose(id, userId);
+
+    if (!updated) {
+      throw new NotFoundError(`updated_sources record not found with id ${id}`);
+    }
+
+    return updated;
+  }
+
+  /** A moderator/admin opening an answer takes it into 'moderator-in-review', which
+   *  hides it from every other moderator until they act on it or release it. */
+  async startModeratorReview(input: StartNewSourceInput): Promise<INewSource> {
+    const existing = await this.newSourceRepo.findByAnswerId(input.answerId);
+
+    if (!existing) {
+      throw new NotFoundError(
+        `No source review exists for answer ${input.answerId}`,
+      );
+    }
+
+    if (existing.status === 'moderator-in-review') {
+      const heldByAnother = !existing.reviewArray.some(
+        entry =>
+          entry.userId === input.userId &&
+          entry.role === 'moderator' &&
+          entry.closedAt === null,
+      );
+      if (heldByAnother) {
+        throw new ForbiddenError(
+          'Another moderator is already reviewing this answer.',
+        );
+      }
+      return existing;
+    }
+
+    const existingId = existing._id?.toString() ?? '';
+    const hasOpenEntry = existing.reviewArray.some(
+      entry =>
+        entry.userId === input.userId &&
+        entry.role === 'moderator' &&
+        entry.closedAt === null,
+    );
+
+    if (!hasOpenEntry) {
+      await this.newSourceRepo.appendReviewEntry(existingId, {
+        userId: input.userId,
+        name: input.userName,
+        role: 'moderator',
+        startedAt: new Date(),
+        closedAt: null,
+        isSaved: false,
+        timeTaken: null,
+      });
+    }
+
+    const updated = await this.newSourceRepo.setStatus(
+      existingId,
+      'moderator-in-review',
+    );
+
+    if (!updated) {
+      throw new NotFoundError(
+        `updated_sources record not found with id ${existingId}`,
+      );
+    }
+
+    return updated;
+  }
+
+  async findActiveModeratorReview(
+    userId: string,
+    excludeAnswerId: string,
+  ): Promise<INewSource | null> {
+    return await this.newSourceRepo.findActiveModeratorReviewByUser(
+      userId,
+      excludeAnswerId,
+    );
+  }
+
+  /** Hands the hold back without acting on the record - it returns to
+   *  'review-completed' so another moderator can take it. */
+  async releaseModeratorReview(id: string, userId: string): Promise<INewSource> {
+    const updated = await this.newSourceRepo.releaseModeratorReview(id, userId);
 
     if (!updated) {
       throw new NotFoundError(`updated_sources record not found with id ${id}`);

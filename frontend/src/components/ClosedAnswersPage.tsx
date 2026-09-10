@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -31,6 +31,7 @@ import {
   ChevronDown,
   History,
   CheckCheck,
+  MousePointerClick,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -85,8 +86,12 @@ import { useDebounce } from "@/hooks/ui/useDebounce";
 import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
 import { ConfirmationModal } from "./confirmation-modal";
+import { useStartModeratorReview } from "@/hooks/api/newSource/useStartModeratorReview";
+import { useActiveModeratorReview } from "@/hooks/api/newSource/useActiveModeratorReview";
+import { useReleaseModeratorReview } from "@/hooks/api/newSource/useReleaseModeratorReview";
 import type {
   ClosedAnswer,
+  ClosedAnswersResponse,
   ClosedAnswerFilters as ClosedAnswerFiltersState,
   Organization,
   SourceItem,
@@ -471,13 +476,54 @@ const useAnswerSourcesRefresh = () => {
   );
 };
 
+// A saved review leaves the expert's list straight away: invalidation alone waits on a
+// round trip, so the answer is dropped from the cached pages first and the refetch that
+// follows just confirms it.
+const useRemoveAnswerFromList = () => {
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (answerId: string) => {
+      queryClient.setQueriesData<InfiniteData<ClosedAnswersResponse | null>>(
+        { queryKey: ["closed-answers"] },
+        (data) => {
+          if (!data) return data;
+
+          let removed = 0;
+          const pages = data.pages.map((page) => {
+            if (!page) return page;
+            const answers = page.answers.filter((entry) => entry._id !== answerId);
+            removed += page.answers.length - answers.length;
+            return { ...page, answers };
+          });
+
+          if (removed === 0) return data;
+
+          return {
+            ...data,
+            pages: pages.map((page, index) =>
+              page && index === 0
+                ? { ...page, totalAnswers: Math.max(0, page.totalAnswers - removed) }
+                : page,
+            ),
+          };
+        },
+      );
+    },
+    [queryClient],
+  );
+};
+
 const AnswerSourcesEditor = ({
   answer,
   startCollapsed = false,
+  isReviewer = false,
 }: {
   answer: ClosedAnswer;
   /** Moderators/admins land on the review, so the edit panel starts folded for them. */
   startCollapsed?: boolean;
+  /** Moderators/admins keep reviewed answers in their list, experts don't. */
+  isReviewer?: boolean;
 }) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
@@ -515,6 +561,7 @@ const AnswerSourcesEditor = ({
   const { mutate: findActiveElsewhere } = useActiveNewSource();
   const { mutate: releaseNewSource, isPending: isReleasing } = useReleaseNewSource();
   const refreshAnswerSources = useAnswerSourcesRefresh();
+  const removeAnswerFromList = useRemoveAnswerFromList();
 
   const isEditing = editingIndex !== null;
   const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : newEntry;
@@ -729,6 +776,9 @@ const AnswerSourcesEditor = ({
       {
         onSuccess: () => {
           toast.success("Source details saved.");
+          // Reviewed answers drop out of the expert's list, so take it off screen now
+          // rather than after the refetch lands.
+          if (!isReviewer) removeAnswerFromList(answer._id);
           closeNewSource(newSourceId, {
             onSuccess: () => refreshAnswerSources(answer._id),
           });
@@ -1070,6 +1120,7 @@ const NEW_SOURCE_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   "in-progress": "In Progress",
   "review-completed": "Review Completed",
+  "moderator-in-review": "In Moderation",
   flagged: "Flagged",
   merged: "Approved",
 };
@@ -1078,6 +1129,7 @@ const NEW_SOURCE_STATUS_BADGE_CLASSES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
   "in-progress": "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   "review-completed": "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "moderator-in-review": "bg-blue-500/15 text-blue-600 dark:text-blue-400",
   flagged: "bg-red-500/15 text-red-600 dark:text-red-400",
   merged: "bg-primary/15 text-primary",
 };
@@ -1369,6 +1421,45 @@ const STATUS_OVERRIDE_ACTIONS: {
   },
 ];
 
+const ReleaseHoldControl = ({
+  answer,
+  newSourceRecord,
+  onReleased,
+}: {
+  answer: ClosedAnswer;
+  newSourceRecord: NewSourceRecord;
+  onReleased?: () => void;
+}) => {
+  const refreshAnswerSources = useAnswerSourcesRefresh();
+  const { mutate: releaseModeratorReview, isPending } = useReleaseModeratorReview();
+
+  if (newSourceRecord.status !== "moderator-in-review") return null;
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="sm"
+      className="h-7 cursor-pointer gap-1.5 px-2 text-xs"
+      disabled={isPending}
+      title="Hand this answer back so another moderator can review it"
+      onClick={() =>
+        releaseModeratorReview(newSourceRecord._id, {
+          onSuccess: () => {
+            toast.success("Answer released for other moderators.");
+            refreshAnswerSources(answer._id);
+            onReleased?.();
+          },
+          onError: () => toast.error("Couldn't release this answer. Try again."),
+        })
+      }
+    >
+      <Undo2 className="h-3.5 w-3.5" />
+      {isPending ? "Releasing…" : "Release"}
+    </Button>
+  );
+};
+
 const StatusOverrideControl = ({
   answer,
   newSourceRecord,
@@ -1637,6 +1728,9 @@ const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewAr
                 <p className="w-full truncate px-1 text-[11px] font-semibold text-foreground">
                   {entry.name || "Unknown"}
                 </p>
+                <p className="w-full truncate px-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+                  {entry.role === "moderator" ? "Moderator" : "Expert"}
+                </p>
               </div>
 
               <span
@@ -1663,7 +1757,13 @@ const ReviewersList = ({ reviewArray }: { reviewArray: NewSourceRecord["reviewAr
 // against what the assigned expert recorded in updated_sources (After, green), so a
 // moderator/admin can see what changed without opening the edit panel below it, plus
 // the reviewer queue and the status-override control.
-const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
+const SourceChangesSection = ({
+  answer,
+  onHoldReleased,
+}: {
+  answer: ClosedAnswer;
+  onHoldReleased?: () => void;
+}) => {
   const { data: newSourceRecord, isLoading } = useGetNewSourceByAnswerId(answer._id, {
     enabled: true,
   });
@@ -1692,6 +1792,13 @@ const SourceChangesSection = ({ answer }: { answer: ClosedAnswer }) => {
             >
               {NEW_SOURCE_STATUS_LABELS[recordStatus] ?? recordStatus}
             </span>
+          )}
+          {newSourceRecord && (
+            <ReleaseHoldControl
+              answer={answer}
+              newSourceRecord={newSourceRecord}
+              onReleased={onHoldReleased}
+            />
           )}
           {newSourceRecord && (
             <StatusOverrideControl
@@ -1783,10 +1890,13 @@ const AnswerDetail = ({
   answer,
   isModerator,
   isAdmin,
+  onHoldReleased,
 }: {
   answer: ClosedAnswer;
   isModerator: boolean;
   isAdmin: boolean;
+  /** Clears the selection when a moderator hands the answer back. */
+  onHoldReleased?: () => void;
 }) => (
   <div className="flex flex-col gap-4 p-4 sm:p-5">
     <div className="flex flex-col gap-1.5">
@@ -1816,9 +1926,15 @@ const AnswerDetail = ({
       />
     </div>
 
-    {(isModerator || isAdmin) && <SourceChangesSection answer={answer} />}
+    {(isModerator || isAdmin) && (
+      <SourceChangesSection answer={answer} onHoldReleased={onHoldReleased} />
+    )}
 
-    <AnswerSourcesEditor answer={answer} startCollapsed={isModerator || isAdmin} />
+    <AnswerSourcesEditor
+      answer={answer}
+      startCollapsed={isModerator || isAdmin}
+      isReviewer={isModerator || isAdmin}
+    />
 
     <AnswerBody answer={answer} />
 
@@ -1853,6 +1969,27 @@ const Kbd = ({
 const TOOLTIP_KBD_CLASSES =
   "border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground";
 
+// Shown once per browser: taking an answer into moderation makes that reviewer
+// responsible for it, so the first claim explains what they are signing up for.
+const MODERATION_NOTICE_KEY = "answer-sources:moderation-notice-seen";
+
+const hasSeenModerationNotice = () => {
+  try {
+    return localStorage.getItem(MODERATION_NOTICE_KEY) === "1";
+  } catch {
+    // Storage blocked (private window, blocked cookies) - don't nag on every click.
+    return true;
+  }
+};
+
+const markModerationNoticeSeen = () => {
+  try {
+    localStorage.setItem(MODERATION_NOTICE_KEY, "1");
+  } catch {
+    // Nothing to do - the notice just shows again next time.
+  }
+};
+
 const ANSWERS_PAGE_SIZE = 20;
 
 // A fresh seed reshuffles the list; the same seed keeps paging stable while scrolling.
@@ -1862,6 +1999,91 @@ const createShuffleSeed = () => Math.floor(Math.random() * 999982) + 1;
 // the viewport and only the list and detail panes scroll.
 const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]";
 
+// Holds the answer a moderator/admin opens, so no other moderator sees it while they
+// work on it - the mirror of the expert's in-progress lock.
+const useModeratorReviewHold = ({
+  enabled,
+  selectedAnswer,
+  onReleased,
+}: {
+  enabled: boolean;
+  selectedAnswer: ClosedAnswer | null;
+  onReleased: () => void;
+}) => {
+  const [pendingSwitch, setPendingSwitch] = useState<NewSourceRecord | null>(null);
+  const heldAnswerIdRef = useRef<string | null>(null);
+  const refreshAnswerSources = useAnswerSourcesRefresh();
+
+  const { mutate: startModeratorReview } = useStartModeratorReview();
+  const { mutate: findHeldElsewhere } = useActiveModeratorReview();
+  const { mutate: releaseModeratorReview, isPending: isReleasing } =
+    useReleaseModeratorReview();
+
+  const answerId = selectedAnswer?._id ?? null;
+  const questionId = selectedAnswer?.questionId ?? "";
+  const isAlreadyHeld = Boolean(selectedAnswer?.isOwnModeratorReview);
+
+  const takeHold = useCallback(
+    (targetId: string, targetQuestionId: string) => {
+      startModeratorReview(
+        { answerId: targetId, questionId: targetQuestionId },
+        {
+          onSuccess: () => {
+            heldAnswerIdRef.current = targetId;
+            refreshAnswerSources(targetId);
+          },
+          onError: (err) => {
+            toast.error(
+              err instanceof Error
+                ? err.message
+                : "Another moderator is already reviewing this answer.",
+            );
+          },
+        },
+      );
+    },
+    [startModeratorReview, refreshAnswerSources],
+  );
+
+  // Selecting an answer claims it, unless this moderator still holds another one - then
+  // the confirmation decides, so nothing is claimed behind their back.
+  useEffect(() => {
+    if (!enabled || !answerId || isAlreadyHeld) return;
+    if (heldAnswerIdRef.current === answerId) return;
+
+    findHeldElsewhere(answerId, {
+      onSuccess: (record) => {
+        if (record) {
+          setPendingSwitch(record);
+        } else {
+          takeHold(answerId, questionId);
+        }
+      },
+      // Fail open - a failed check shouldn't stop the review.
+      onError: () => takeHold(answerId, questionId),
+    });
+  }, [enabled, answerId, questionId, isAlreadyHeld, findHeldElsewhere, takeHold]);
+
+  const confirmSwitch = () => {
+    if (!pendingSwitch || !answerId) return;
+    releaseModeratorReview(pendingSwitch._id, {
+      onSuccess: () => {
+        setPendingSwitch(null);
+        refreshAnswerSources();
+        takeHold(answerId, questionId);
+      },
+      onError: () => toast.error("Couldn't release the other answer. Try again."),
+    });
+  };
+
+  const cancelSwitch = () => {
+    setPendingSwitch(null);
+    onReleased();
+  };
+
+  return { pendingSwitch, confirmSwitch, cancelSwitch, isReleasing };
+};
+
 export const ClosedAnswersPage = () => {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<ClosedAnswerFiltersState>(
@@ -1869,6 +2091,10 @@ export const ClosedAnswersPage = () => {
   );
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const [isListOpen, setIsListOpen] = useState(false);
+  const [pendingClaimId, setPendingClaimId] = useState<string | null>(null);
+  // Answers this reviewer just handed back - ignored while the refetch catches up, so a
+  // released answer doesn't flash back open.
+  const [releasedAnswerIds, setReleasedAnswerIds] = useState<string[]>([]);
   const [shuffleSeed, setShuffleSeed] = useState(createShuffleSeed);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -1897,9 +2123,26 @@ export const ClosedAnswersPage = () => {
 
   const answers = data?.pages.flatMap((page) => page?.answers ?? []) ?? [];
   const totalAnswers = data?.pages?.[0]?.totalAnswers ?? 0;
+  // A moderator already holding an answer lands back on it; otherwise nothing is picked
+  // for them, since opening an answer claims it. Experts have no such side effect, so
+  // the first answer is opened for them as before.
+  const heldAnswer = isReviewer
+    ? answers.find(
+        (answer) =>
+          answer.isOwnModeratorReview && !releasedAnswerIds.includes(answer._id),
+      )
+    : undefined;
   const selectedAnswer =
-    answers.find((answer) => answer._id === selectedAnswerId) ?? answers[0] ?? null;
+    answers.find((answer) => answer._id === selectedAnswerId) ??
+    (isReviewer ? heldAnswer ?? null : answers[0] ?? null);
   const hasActiveFilters = countActiveFilters(filters) > 0;
+
+  const moderatorHold = useModeratorReviewHold({
+    enabled: isReviewer,
+    selectedAnswer,
+    // A moderator who backs out of the switch keeps the answer they already hold.
+    onReleased: () => setSelectedAnswerId(null),
+  });
 
   // Fetches the next page once the sentinel at the end of the list scrolls into view.
   const loadMoreRef = useCallback(
@@ -1919,6 +2162,24 @@ export const ClosedAnswersPage = () => {
   );
 
   // Moves the selection one row and keeps the newly selected row in view.
+  // Every way of choosing an answer goes through here, so the first-claim notice can't
+  // be side-stepped by the arrow keys or the full-list dialog.
+  const selectAnswer = (answerId: string) => {
+    setReleasedAnswerIds((prev) => prev.filter((id) => id !== answerId));
+    if (isReviewer && !hasSeenModerationNotice()) {
+      setPendingClaimId(answerId);
+      return;
+    }
+    setSelectedAnswerId(answerId);
+  };
+
+  const confirmClaim = () => {
+    if (!pendingClaimId) return;
+    markModerationNoticeSeen();
+    setSelectedAnswerId(pendingClaimId);
+    setPendingClaimId(null);
+  };
+
   const moveSelection = (offset: number) => {
     if (answers.length === 0) return;
     const currentIndex = answers.findIndex(
@@ -1931,7 +2192,7 @@ export const ClosedAnswersPage = () => {
     const nextAnswer = answers[nextIndex];
     if (!nextAnswer) return;
 
-    setSelectedAnswerId(nextAnswer._id);
+    selectAnswer(nextAnswer._id);
     document
       .querySelector(`[data-answer-id="${nextAnswer._id}"]`)
       ?.scrollIntoView({ block: "nearest" });
@@ -2085,7 +2346,7 @@ export const ClosedAnswersPage = () => {
                     answer={answer}
                     isActive={selectedAnswer?._id === answer._id}
                     showNewSourceStatus
-                    onSelect={() => setSelectedAnswerId(answer._id)}
+                    onSelect={() => selectAnswer(answer._id)}
                   />
                 ))}
                 <div
@@ -2118,11 +2379,38 @@ export const ClosedAnswersPage = () => {
                         answer={selectedAnswer}
                         isModerator={isModerator}
                         isAdmin={isAdmin}
+                        onHoldReleased={() => {
+                          setReleasedAnswerIds((prev) =>
+                            prev.includes(selectedAnswer._id)
+                              ? prev
+                              : [...prev, selectedAnswer._id],
+                          );
+                          setSelectedAnswerId(null);
+                        }}
                       />
                     </motion.div>
                   ) : (
-                    <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-                      Select an answer to add its sources.
+                    <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <MousePointerClick className="h-6 w-6" />
+                      </span>
+                      <div className="flex max-w-sm flex-col gap-1.5">
+                        <p className="text-sm font-semibold text-foreground">
+                          {isReviewer
+                            ? "Pick an answer to review"
+                            : "Pick an answer to work on"}
+                        </p>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {isReviewer
+                            ? "Choose one from the list to compare the expert's sources against the answer's own. It stays held in moderation while you have it open, so no one else picks it up."
+                            : "Choose one from the list to add or update the sources backing that answer."}
+                        </p>
+                      </div>
+                      <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Kbd>↑</Kbd>
+                        <Kbd>↓</Kbd>
+                        to move through the list
+                      </span>
                     </div>
                   )}
                 </AnimatePresence>
@@ -2138,7 +2426,7 @@ export const ClosedAnswersPage = () => {
         answers={answers}
         totalAnswers={totalAnswers}
         selectedAnswerId={selectedAnswer?._id}
-        onSelect={setSelectedAnswerId}
+        onSelect={selectAnswer}
         search={search}
         onSearchChange={setSearch}
         filters={filters}
@@ -2149,6 +2437,31 @@ export const ClosedAnswersPage = () => {
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={() => fetchNextPage()}
         formatClosedAt={formatClosedAt}
+      />
+
+      <ConfirmationModal
+        open={pendingClaimId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingClaimId(null);
+        }}
+        title="Take this answer into moderation?"
+        description="Opening it marks the answer In Moderation under your name and hides it from other moderators. You're then responsible for approving or flagging it - or you can release it later to hand it back."
+        confirmText="Got it, open it"
+        cancelText="Not now"
+        onConfirm={confirmClaim}
+      />
+
+      <ConfirmationModal
+        open={moderatorHold.pendingSwitch !== null}
+        onOpenChange={(open) => {
+          if (!open) moderatorHold.cancelSwitch();
+        }}
+        title="Review this answer instead?"
+        description="You still hold another answer in moderation. Opening this one sends that answer back so another moderator can pick it up."
+        confirmText="Switch anyway"
+        cancelText="Stay there"
+        isLoading={moderatorHold.isReleasing}
+        onConfirm={moderatorHold.confirmSwitch}
       />
 
     </MotionConfig>
