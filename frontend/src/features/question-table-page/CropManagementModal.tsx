@@ -972,6 +972,9 @@ export const CropManagementModal = ({
   const [bulkResultsOpen, setBulkResultsOpen] = useState(false);
   const [bulkResultsType, setBulkResultsType] = useState<CropUploadType>("crop");
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+  // Pending CSV awaiting the "are these <type>?" confirmation before it uploads.
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
 
   // Poll the job until it finishes, then surface the per-entry results modal.
   const pollBulkJob = (jobId: string, type: CropUploadType) => {
@@ -1004,7 +1007,14 @@ export const CropManagementModal = ({
     tick();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Clear the pending file + reset the picker (used on cancel / after upload).
+  const resetPendingUpload = () => {
+    setPendingUploadFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Selecting a file validates it, then asks for confirmation of the type before uploading.
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -1025,6 +1035,15 @@ export const CropManagementModal = ({
         return;
       }
     }
+    // Hold the file and confirm the type before actually uploading.
+    setPendingUploadFile(file);
+    setConfirmUploadOpen(true);
+  };
+
+  // Runs the actual bulk upload for the confirmed pending file.
+  const runBulkUpload = async () => {
+    const file = pendingUploadFile;
+    if (!file) return;
     const type = activeType as CropUploadType;
     try {
       const res = await bulkUploadCrops({ file, type });
@@ -1035,7 +1054,8 @@ export const CropManagementModal = ({
     } catch (err: any) {
       toast.error(err?.message || "Failed to upload CSV");
     } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setConfirmUploadOpen(false);
+      resetPendingUpload();
     }
   };
 
@@ -1546,6 +1566,23 @@ export const CropManagementModal = ({
                     confirmText="Create"
                     isLoading={isSaving}
                     onConfirm={handleSave}
+                  />
+                  {/* Confirm the entry type before a bulk CSV upload runs. */}
+                  <ConfirmationModal
+                    open={confirmUploadOpen}
+                    onOpenChange={(v) => {
+                      setConfirmUploadOpen(v);
+                      if (!v) resetPendingUpload();
+                    }}
+                    title={`Are you sure these are ${
+                      isChemical ? "Chemicals" : activeTab === "crop" ? "Crops" : labelOf(activeType || activeTab)
+                    }?`}
+                    description={`This CSV will be uploaded as "${
+                      isChemical ? "Chemicals" : activeTab === "crop" ? "Crops" : labelOf(activeType || activeTab)
+                    }". Please make sure you upload the respective type only.`}
+                    confirmText="Yes, Upload"
+                    isLoading={isBulkUploading || isProcessingBulk}
+                    onConfirm={runBulkUpload}
                   />
                 </div>
               </div>
