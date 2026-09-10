@@ -420,6 +420,22 @@ const toSourceDraft = (source: SourceItem): SourceDraft => ({
 const EMPTY_SOURCE_DRAFT: SourceDraft = { ...EMPTY_SOURCE_FORM, sourceReferenceStatus: null };
 
 // The working area of the page: pick a source (or add one) and edit it in place.
+// Every action on this page changes what the list badges and the review panel show, so
+// both queries are invalidated together rather than leaving stale state behind.
+const useAnswerSourcesRefresh = () => {
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (answerId?: string) => {
+      queryClient.invalidateQueries({ queryKey: ["closed-answers"] });
+      queryClient.invalidateQueries({
+        queryKey: answerId ? ["new-source-by-answer", answerId] : ["new-source-by-answer"],
+      });
+    },
+    [queryClient],
+  );
+};
+
 const AnswerSourcesEditor = ({
   answer,
   startCollapsed = false,
@@ -461,6 +477,7 @@ const AnswerSourcesEditor = ({
   const { mutate: closeNewSource } = useCloseNewSource();
   const { mutate: findActiveElsewhere } = useActiveNewSource();
   const { mutate: releaseNewSource, isPending: isReleasing } = useReleaseNewSource();
+  const refreshAnswerSources = useAnswerSourcesRefresh();
 
   const isEditing = editingIndex !== null;
   const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : newEntry;
@@ -499,6 +516,7 @@ const AnswerSourcesEditor = ({
       {
         onSuccess: (result) => {
           if (result?._id) setNewSourceId(result._id);
+          refreshAnswerSources(answer._id);
         },
         // Belt-and-suspenders: the list already hides editing behind isLockedByOther,
         // but another expert could still have started reviewing this answer moments
@@ -546,6 +564,7 @@ const AnswerSourcesEditor = ({
     releaseNewSource(pendingSwitch._id, {
       onSuccess: () => {
         setPendingSwitch(null);
+        refreshAnswerSources();
         beginSession();
       },
       onError: () => {
@@ -649,11 +668,14 @@ const AnswerSourcesEditor = ({
       {
         onSuccess: () => {
           toast.success("Source details saved.");
-          closeNewSource(newSourceId);
+          closeNewSource(newSourceId, {
+            onSuccess: () => refreshAnswerSources(answer._id),
+          });
           setNewSourceId(null);
           sessionStartedRef.current = false;
           editStartedAtRef.current = null;
           setConfirmedIndices(new Set());
+          refreshAnswerSources(answer._id);
         },
         onError: (err) => {
           toast.error(
@@ -1307,7 +1329,7 @@ const StatusOverrideControl = ({
   /** Renders just the buttons, without the bordered "Change status" row. */
   inline?: boolean;
 }) => {
-  const queryClient = useQueryClient();
+  const refreshAnswerSources = useAnswerSourcesRefresh();
   const [activeAction, setActiveAction] = useState<
     (typeof STATUS_OVERRIDE_ACTIONS)[number] | null
   >(null);
@@ -1333,9 +1355,7 @@ const StatusOverrideControl = ({
           toast.success(activeAction.successMessage);
           setReason("");
           setActiveAction(null);
-          queryClient.invalidateQueries({
-            queryKey: ["new-source-by-answer", answer._id],
-          });
+          refreshAnswerSources(answer._id);
         },
         onError: (error: Error) => {
           toast.error(error.message || "Failed to change status.");
