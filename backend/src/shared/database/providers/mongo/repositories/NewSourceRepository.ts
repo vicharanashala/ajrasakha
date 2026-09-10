@@ -80,13 +80,20 @@ export class NewSourceRepository implements INewSourceRepository {
       throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
-    // Targets this reviewer's own still-open entry (closedAt: null), not a hardcoded
-    // index - a record can carry more than one reviewer's entry.
+    // Targets this reviewer's own still-open expert entry (closedAt: null), not a
+    // hardcoded index - a record can carry several entries, including a moderator hold
+    // by the same person, which this must leave alone.
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
       {$set: {'reviewArray.$[reviewer].closedAt': new Date(), updatedAt: new Date()}},
       {
-        arrayFilters: [{'reviewer.userId': userId, 'reviewer.closedAt': null}],
+        arrayFilters: [
+          {
+            'reviewer.userId': userId,
+            'reviewer.closedAt': null,
+            'reviewer.role': {$ne: 'moderator'},
+          },
+        ],
         returnDocument: 'after',
       },
     );
@@ -242,8 +249,9 @@ export class NewSourceRepository implements INewSourceRepository {
       throw new BadRequestError('Invalid or missing updated_sources id');
     }
 
-    // Targets whichever reviewArray entry is still open (closedAt: null) - the owning
-    // reviewer's own, since only they can release their own in-progress record.
+    // Targets whichever expert entry is still open (closedAt: null) - the owning
+    // reviewer's own, since only they can release their own in-progress record. A
+    // moderator hold is closed by its own release, not this one.
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
       {
@@ -254,7 +262,9 @@ export class NewSourceRepository implements INewSourceRepository {
         },
       },
       {
-        arrayFilters: [{'reviewer.closedAt': null}],
+        arrayFilters: [
+          {'reviewer.closedAt': null, 'reviewer.role': {$ne: 'moderator'}},
+        ],
         returnDocument: 'after',
       },
     );

@@ -32,7 +32,12 @@ export class NewSourceService implements INewSourceService {
       // can't jump in and edit it until it's released back to 'pending' (or review-completed).
       const ownedByAnotherExpert =
         existing.status === 'in-progress' &&
-        !existing.reviewArray.some(entry => entry.userId === input.userId);
+        !existing.reviewArray.some(
+          entry =>
+            entry.userId === input.userId &&
+            entry.role !== 'moderator' &&
+            entry.closedAt === null,
+        );
 
       if (ownedByAnotherExpert) {
         throw new ForbiddenError(
@@ -46,7 +51,10 @@ export class NewSourceService implements INewSourceService {
       // likely a previously-released 'pending' record) - append them a fresh entry
       // rather than reusing someone else's, so each reviewer's own time is tracked.
       const hasOpenEntryForUser = existing.reviewArray.some(
-        entry => entry.userId === input.userId && entry.closedAt === null,
+        entry =>
+          entry.userId === input.userId &&
+          entry.role !== 'moderator' &&
+          entry.closedAt === null,
       );
       let reopened = existing;
       if (!hasOpenEntryForUser) {
