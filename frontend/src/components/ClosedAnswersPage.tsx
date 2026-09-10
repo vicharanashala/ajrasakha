@@ -188,18 +188,34 @@ const OrganizationCombobox = ({
   id,
   value,
   onChange,
+  runWithSession,
 }: {
   id?: string;
   value: string;
   // Passes the whole organization, not just its name - the caller also derives Source
   // type from org.type (see AnswerSourcesEditor), which the trigger label doesn't need.
   onChange: (org: Organization) => void;
+  /** Opens the list only once this expert owns the review - the search query is tied to
+   *  the popover being open, so a pending switch confirmation makes no request. */
+  runWithSession?: (action: () => void) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query);
 
   const { data, isFetching } = useSearchOrganizations(debouncedQuery, open);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setOpen(false);
+      return;
+    }
+    if (runWithSession) {
+      runWithSession(() => setOpen(true));
+      return;
+    }
+    setOpen(true);
+  };
   const organizations = data?.organizations ?? [];
 
   return (
@@ -207,7 +223,7 @@ const OrganizationCombobox = ({
     // the Dialog's `pointer-events: none` on <body>: it renders but nothing inside is
     // clickable or scrollable. modal makes the Popover re-enable pointer-events on
     // itself, the same way the Source Type Select already does.
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={open} onOpenChange={handleOpenChange} modal>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -350,17 +366,17 @@ type SourceReferenceLookupResult = {
 const SourceReferenceLookup = ({
   source,
   onFound,
+  runWithSession,
 }: {
   source: string;
   onFound?: (result: SourceReferenceLookupResult) => void;
+  /** Runs the lookup only once this expert owns the review - if they still hold one on
+   *  another answer, the switch confirmation opens first and no request is made. */
+  runWithSession?: (action: () => void) => void;
 }) => {
   const { mutate, data, isPending } = useLookupPopSource();
 
-  const handleClick = () => {
-    if (!source.trim()) {
-      toast.error("Enter a Source first.");
-      return;
-    }
+  const fetchReference = () => {
     mutate(source, {
       onSuccess: (result) => {
         if (result?.found && result._id) {
@@ -380,6 +396,18 @@ const SourceReferenceLookup = ({
         }
       },
     });
+  };
+
+  const handleClick = () => {
+    if (!source.trim()) {
+      toast.error("Enter a Source first.");
+      return;
+    }
+    if (runWithSession) {
+      runWithSession(fetchReference);
+      return;
+    }
+    fetchReference();
   };
 
   return (
@@ -477,6 +505,8 @@ const AnswerSourcesEditor = ({
   const [pendingSwitch, setPendingSwitch] = useState<NewSourceRecord | null>(null);
   const editStartedAtRef = useRef<number | null>(null);
   const sessionStartedRef = useRef(false);
+  // A backend action parked until the review session is open - see runWithSession.
+  const deferredActionRef = useRef<(() => void) | null>(null);
   const newSourceIdRef = useRef<string | null>(null);
 
   const { mutate: startNewSource, isPending: isStarting } = useStartNewSource();
@@ -524,6 +554,7 @@ const AnswerSourcesEditor = ({
         onSuccess: (result) => {
           if (result?._id) setNewSourceId(result._id);
           refreshAnswerSources(answer._id);
+          runDeferredAction();
         },
         // Belt-and-suspenders: the list already hides editing behind isLockedByOther,
         // but another expert could still have started reviewing this answer moments
@@ -536,6 +567,7 @@ const AnswerSourcesEditor = ({
               : "This answer is already being reviewed by another expert.",
           );
           sessionStartedRef.current = false;
+          deferredActionRef.current = null;
         },
       },
     );
@@ -560,8 +592,30 @@ const AnswerSourcesEditor = ({
     });
   };
 
+  // Defers an action that hits the backend (the source reference lookup) until this
+  // expert owns the review. If they still hold one elsewhere, the switch confirmation
+  // opens and the action waits for it, so nothing is fetched on a switch they cancel.
+  const runWithSession = (action: () => void) => {
+    if (isLockedByOther || isMerged) return;
+    if (sessionStartedRef.current && !pendingSwitch) {
+      action();
+      return;
+    }
+    deferredActionRef.current = action;
+    ensureSession();
+  };
+
+  // Runs whatever was waiting on the session, once.
+  const runDeferredAction = () => {
+    const action = deferredActionRef.current;
+    deferredActionRef.current = null;
+    action?.();
+  };
+
   const cancelSwitch = () => {
     setPendingSwitch(null);
+    // A cancelled switch drops the queued lookup - nothing was fetched for it.
+    deferredActionRef.current = null;
     // Let the next edit re-run the ownership check rather than getting stuck unstarted.
     sessionStartedRef.current = false;
   };
@@ -805,6 +859,7 @@ const AnswerSourcesEditor = ({
           <SourceReferenceLookup
             key={editingIndex ?? "new"}
             source={form.source}
+            runWithSession={runWithSession}
             onFound={(result) => {
               updateActive({
                 sourceReference: result.sourceReference,
@@ -824,6 +879,7 @@ const AnswerSourcesEditor = ({
             <OrganizationCombobox
               id={`${fieldId}-org`}
               value={form.organization ?? ""}
+              runWithSession={runWithSession}
               onChange={(org) =>
                 updateActive({ organization: org.org_name, sourceType: org.type })
               }
