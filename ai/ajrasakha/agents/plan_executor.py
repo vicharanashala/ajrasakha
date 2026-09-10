@@ -60,6 +60,7 @@ class MandiUnavailableContext(NamedTuple):
     reason: str
     crop_name: str
     mandi_name: str
+    is_district: bool = False
     
 def _compute_tools_used(plan: PlannerPlan) -> list[str]:
     """Compute the list of tools used based on plan flags.
@@ -343,10 +344,22 @@ def _daily_price_unavailable_context(
         if (tool_data.get("nearby_markets") or {}).get("price_records"):
             return None
 
+    # Check if answer is a custom synthesized message from the tool (not empty,
+    # not just a raw error message, and not the generic single-line fallback).
+    raw_error = str((tool_data or {}).get("error") or "").strip() if isinstance(tool_data, dict) else ""
+    is_generic_fallback = (
+        not answer
+        or (raw_error and answer == raw_error)
+        or answer.startswith("Mandi price data is not available")
+    )
+    if not is_generic_fallback:
+        # A tailored answer was synthesized by the tool — let assemble_answer_body deliver it.
+        return None
+
     diagnostic = " ".join(
         part
         for part in (
-            answer,
+            answer if is_generic_fallback else "",
             json.dumps(tool_data, ensure_ascii=False, default=str) if tool_data is not None else "",
         )
         if part
@@ -359,13 +372,25 @@ def _daily_price_unavailable_context(
     crop_name = str(entities.get("crop") or "Crop").strip() or "Crop"
     district = str(entities.get("district") or "").strip()
     state = str(entities.get("state") or "").strip()
-    mandi_name = _first_mandi_name(tool_data) or district or state or "Mandi"
+    named_mandi = _first_mandi_name(tool_data)
+    is_district = False
+    if named_mandi:
+        mandi_name = named_mandi
+    elif district:
+        mandi_name = district
+        is_district = True
+    elif state:
+        mandi_name = state
+        is_district = True
+    else:
+        mandi_name = "Mandi"
+
     reason = (
         "mandi_unavailable"
         if any(marker in diagnostic for marker in _MANDI_MISSING_MARKERS)
         else "crop_price_unavailable"
     )
-    return MandiUnavailableContext(reason, crop_name, mandi_name)
+    return MandiUnavailableContext(reason, crop_name, mandi_name, is_district=is_district)
 
 
 def mandi_unavailable_context(state: AjraSakhaState) -> MandiUnavailableContext | None:

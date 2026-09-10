@@ -25,6 +25,7 @@ async def mandi_unavailable_reply_node(state: AjraSakhaState) -> dict:
         reason=context.reason,
         crop_name=context.crop_name,
         mandi_name=context.mandi_name,
+        is_district=getattr(context, "is_district", False),
     )
     trace_event(
         "mandi_unavailable_reply",

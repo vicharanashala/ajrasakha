@@ -1032,52 +1032,66 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - lookback_days: integer or null (past N days; preferred for past durations like 'last 7 days')
 - from_date: string or null (e.g. "13-Aug-2026")
 - to_date: string or null (e.g. "13-Aug-2026")
-- market_name: string or null
+- market_name: string or null (place, city, district, or mandi name, e.g. "Cuddalore", "Chengannur", "Azadpur")
+- search_by_apmc: boolean (true = query mentions "apmc", "mandi", "mand", "market", "hat", "haat"; false = query mentions a district/city/place without APMC keyword)
 - state: string or null (only if the farmer named a state)
 - sort_order: "highest" or "lowest" or null (only for get_extreme_arrival)
 
 Server Actions and Parameters:
 - "get_today_price" — Today's / latest commodity price.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, search_by_apmc.
 
-- "get_price_with_nearby" — Named mandi's price AND prices from nearby markets.
+- "get_price_with_nearby" — Named mandi's price AND prices from nearby markets. Use when a specific mandi/APMC is named (search_by_apmc=true).
   Params: commodity_name (required), market_name (required), state, lat, long, nearest_market, radius_km, from_date, to_date.
 
 - "get_price_history" — Historical prices over a date range or past N days.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, search_by_apmc.
 
 - "get_price_summary" — Aggregated min/max/modal price statistics.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, search_by_apmc.
 
-- "get_highest_price" — Find the highest/best commodity price (highest modal/max price) across markets, state, named mandi, on a specific date, yesterday, today, date interval, or past period.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+- "get_highest_price" — Find the highest/best commodity price (highest modal/max price) across markets, district, state, or named mandi.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, search_by_apmc.
 
-- "get_lowest_price" — Find the lowest/cheapest commodity price (lowest modal/min price) across markets, state, named mandi, on a specific date, yesterday, today, date interval, or past period.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+- "get_lowest_price" — Find the lowest/cheapest commodity price (lowest modal/min price) across markets, district, state, or named mandi.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, search_by_apmc.
 
 - "get_today_arrival" — Today's arrival quantity for a commodity.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, search_by_apmc.
 
 - "get_arrival_history" — Historical arrival quantities over a date range.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, search_by_apmc.
 
 - "get_extreme_arrival" — Highest or lowest arrival across markets/dates.
-  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, sort_order ("highest" or "lowest").
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, sort_order ("highest" or "lowest"), search_by_apmc.
 
 - "search_markets" — Search for mandis/APMCs by name and state (required).
   Params: state (required), market_name, lat, long, nearest_market, radius_km, commodity_name (optional).
 
 Rules:
+- search_by_apmc: boolean.
+  * Set to true if the farmer explicitly mentions "apmc", "mandi", "mand", "market", "hat", "haat", "bazar", or "sabzi mandi" (e.g. "Cuddalore APMC", "Chengannur Market", "Ludhiana mandi", "Sonarpur hat").
+  * Set to false if the farmer asks for a place/city/district without those keywords (e.g. "in Cuddalore, Tamil Nadu", "in Ludhiana", "in Cuddalore district", "Banana price in Cuddalore", "price of onion in Rupnagar, Punjab").
+- market_name: string or null.
+  * ALWAYS extract the place, city, district, or mandi name mentioned in the query into market_name (e.g. "Cuddalore", "Ludhiana", "Chengannur", "Azadpur", "Rupnagar").
+  * Do NOT set market_name to null just because it is a district or city without the word "mandi" or "apmc"! Instead, put the place name in market_name and set search_by_apmc=false. The server uses search_by_apmc=false to search across all APMCs in that district, falling back to coordinates if needed.
+  * Strip trailing "district" from market_name (e.g. "Alappuzha district" -> "Alappuzha").
+  * Only set market_name to null if no specific place, city, district, or mandi was mentioned at all (e.g. "tomato price near me").
+  * Never put state names (Bihar, Assam, Kerala, Tamil Nadu, Punjab) into market_name — put them in state.
 - Default single price question without named mandi: action="get_today_price", nearest_market=true
-- ONLY highest / single highest / maximum / best selling / max / peak / highest modal price alone (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_highest_price".
-- ONLY lowest / single lowest / minimum / cheapest / min / least / lowest modal price alone (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_lowest_price".
-- If the farmer asks for BOTH minimum and maximum price (or min and max price, min-max range) today, currently, or on a specific date / at a named market (e.g. "What is the minimum and maximum price of coconut at Chengannur Market today", "min and max price of tomato today") → ALWAYS use action="get_today_price" (or "get_price_with_nearby" if a specific mandi is named). Every price record already contains modal_price, min_price, and max_price. Do NOT use get_price_summary, get_highest_price, or get_lowest_price for single-day or today's min and max price questions.
-- If the farmer names a SPECIFIC mandi/APMC and asks for general today's/current/latest/specific date price (including modal, min, max, or minimum and maximum price) → use action="get_price_with_nearby".
-- If the farmer specifies a PARTICULAR DATE (e.g. "19th august", "13 august", "20 august", "13-Aug"):
-  Set BOTH from_date and to_date to that date using the current year from Today's Date (e.g. "19-Aug-2026").
+- ONLY highest / single highest / maximum / best selling / max / peak / highest modal price alone (with or without named mandi, district, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_highest_price".
+- ONLY lowest / single lowest / minimum / cheapest / min / least / lowest modal price alone (with or without named mandi, district, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_lowest_price".
+- If the farmer asks for BOTH minimum and maximum price (or min and max price, min-max range) today, currently, or on a specific date / at a named market (e.g. "What is the minimum and maximum price of coconut at Chengannur Market today", "min and max price of tomato today") → ALWAYS use action="get_today_price" (or "get_price_with_nearby" if a specific mandi is named with search_by_apmc=true). Every price record already contains modal_price, min_price, and max_price. Do NOT use get_price_summary, get_highest_price, or get_lowest_price for single-day or today's min and max price questions.
+- If the farmer names a SPECIFIC mandi/APMC (search_by_apmc=true) and asks for general today's/current/latest/specific date price (including modal, min, max, or minimum and maximum price) → use action="get_price_with_nearby".
+- If the farmer specifies a PARTICULAR DATE (e.g. "19th august", "13 august", "20 august", "13-Aug", "9 september"):
+  Set BOTH from_date and to_date to that date using the current year from Today's Date (e.g. "09-Sep-2026").
   If asking for ONLY highest price on that date, use action="get_highest_price".
   If asking for ONLY lowest price on that date, use action="get_lowest_price".
   If asking for general price or min and max price at a specific mandi on that date, use action="get_price_with_nearby".
+- CRITICAL — Date rule: If NO date is mentioned and NO week/month/history/lookback period is mentioned in the query:
+  * ALWAYS set BOTH from_date and to_date to Today's Date (using the exact date from the "Today's Date: <date>" context above, e.g. "10-Sep-2026"), and leave lookback_days=null.
+  * For example, "What is the highest price of Banana in Cuddalore, Tamil Nadu", "What is the minimum price of Banana in Cuddalore", "Banana price in Cuddalore mandi", "Minimum price of Potato in Perumbavoor market", "price of onion in Rupnagar, Punjab", "tomato rate in Ludhiana" do NOT mention any date or week, so ALWAYS set from_date and to_date to Today's Date.
+  * ONLY set lookback_days or a multi-day date range if the farmer explicitly asks for "last week", "past 7 days", "last 10 days", "this week", "history", "trend", "past month", etc.
 - Use action as an ARRAY only when the farmer clearly asks for two different things in one query
   (max 3 actions). Examples: today's price AND list nearby mandis; today vs last week prices.
 - Do NOT add search_markets together with get_today_price unless the farmer explicitly asks
@@ -1090,52 +1104,58 @@ Rules:
 - Arrival over days / arrival history → get_arrival_history
 - Highest or lowest arrival → get_extreme_arrival + sort_order
 - Which markets / mandi near me / nearby market / find APMC / list mandis → search_markets
-- market_name is ONLY for a named mandi/APMC (e.g. Azadpur, Sontoli, Perumbavoor, Aluva, Chengannur). Never put state names (Bihar, Assam, Kerala) or district names (e.g. Alappuzha, Ludhiana, Patna, Rohtak, Anantapur, Kottayam when referring to a district/region, e.g. "in Alappuzha district", "Rohtak district") or crop names in market_name.
-- If the user names or implies a district (e.g. "Alappuzha district", "in Rohtak district", "cabbage price in Alappuzha district, Kerala"), leave market_name=null, nearest_market=true, and use action="get_today_price" (or historical action if requested).
-- CRITICAL — city/town without mandi keyword: If the query says "in <City>, <State>" or "in <City>" and does NOT include the word "mandi", "market", or "apmc" right next to that city name, treat the city as a district/location — set market_name=null, nearest_market=true. The city is the area to search IN, not a named mandi. Examples that are location-only (market_name=null): "price of onion in Rupnagar, Punjab", "tomato rate in Ludhiana", "wheat price in Patiala". Examples that ARE a named mandi (market_name=<city>): "onion price in Rupnagar mandi", "tomato price at Ludhiana market", "wheat price in Patiala APMC".
-- state is ONLY for Indian states (e.g. Bihar, Assam, Kerala, Maharashtra, Punjab).
+- state is ONLY for Indian states (e.g. Bihar, Assam, Kerala, Maharashtra, Punjab, Tamil Nadu).
 - Omit unused filters as null
 - Never invent actions outside the list above
 
 Examples:
+Query: What is the highest price of Banana in Cuddalore, Tamil Nadu?
+{"action":"get_highest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
+
+Query: What is the minimum price of Banana in Cuddalore, Tamil Nadu?
+{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
+
+Query: What is the minimum price of Banana in Cuddalore, Tamil Nadu on 2026-09-09
+{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"09-Sep-2026","to_date":"09-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
+
 Query: What is today's market price of cabbage in Alappuzha district, Kerala?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Kerala","sort_order":null}
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Alappuzha","search_by_apmc":false,"state":"Kerala","sort_order":null}
 
 Query: Tomato price in Rohtak district
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rohtak","search_by_apmc":false,"state":null,"sort_order":null}
 
 Query: What is the price of onion in Rupnagar, Punjab?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Punjab","sort_order":null}
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rupnagar","search_by_apmc":false,"state":"Punjab","sort_order":null}
 
 Query: tomato rate in Ludhiana
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Ludhiana","search_by_apmc":false,"state":null,"sort_order":null}
 
 Query: onion price in Rupnagar mandi
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Rupnagar","state":null,"sort_order":null}
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rupnagar","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: What is the minimum and maximum price of coconut at Chengannur Market today
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Chengannur","state":null,"sort_order":null}
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Chengannur","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: Minimum and maximum price of wheat in Ludhiana mandi today
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Ludhiana","state":null,"sort_order":null}
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Ludhiana","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: What is the min and max price of tomato today?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":null,"search_by_apmc":false,"state":null,"sort_order":null}
 
 Query: highest modal price of onion in bihar on 19th august
-{"action":"get_highest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"19-Aug-2026","to_date":"19-Aug-2026","market_name":null,"state":"Bihar","sort_order":null}
+{"action":"get_highest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"19-Aug-2026","to_date":"19-Aug-2026","market_name":null,"search_by_apmc":false,"state":"Bihar","sort_order":null}
 
 Query: Minimum price of Potato in Perumbavoor market
-{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":"Perumbavoor","state":null,"sort_order":null}
+{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Perumbavoor","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: Lowest price of onion in Azadpur mandi today
-{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Azadpur","state":null,"sort_order":null}
+{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Azadpur","state":null,"sort_order":null}
 
 Query: Maximum price of wheat in Aluva market
-{"action":"get_highest_price","nearest_market":false,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":"Aluva","state":null,"sort_order":null}
+{"action":"get_highest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Aluva","state":null,"sort_order":null}
 
 Query: What is wheat price near me today?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":null,"state":null,"sort_order":null}
 
 Query: 13 august potato price in Aluva Market, Kerala
 {"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"13-Aug-2026","to_date":"13-Aug-2026","market_name":"Aluva","state":"Kerala","sort_order":null}

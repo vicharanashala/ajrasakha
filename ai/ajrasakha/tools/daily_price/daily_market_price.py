@@ -214,6 +214,7 @@ def mandi_price_tool(
     radius_km: Optional[float] = None,
     market_name: Optional[str] = None,
     state: Optional[str] = None,
+    search_by_apmc: Optional[bool] = False,
     # --- date filters (mutually exclusive; lookback_days takes priority) ---
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
@@ -288,6 +289,8 @@ def mandi_price_tool(
         radius_km     : Search radius in kilometres (applied after state narrowing).
         market_name   : Free-text match on market name / aliases.
         state         : Required standardized state name (exact match, no regex).
+        search_by_apmc: True = user asked for specific APMC/mandi/market/haat.
+                        False = query asked for location/district without APMC keyword (search by district only, fallback to lat/long).
         from_date     : Inclusive start date (e.g. "27-Jun-2025", "2025-06-27").
         to_date       : Inclusive end date.
         lookback_days : Fetch records from the past N days.
@@ -297,10 +300,11 @@ def mandi_price_tool(
     state = _norm(state)
     market_name = _norm(market_name)
     commodity_name = _norm_commodity_name(commodity_name)
+    tool_search_by_apmc = bool(search_by_apmc)
 
     logger.info(
-        "mandi_price_tool called | action=%s, commodity_name=%s, market_name=%s, state=%s, lat=%s, long=%s, nearest_market=%s, radius_km=%s, from_date=%s, to_date=%s, lookback_days=%s, sort_by=%s, sort_order=%s",
-        action, commodity_name, market_name, state, lat, long, nearest_market, radius_km, from_date, to_date, lookback_days, sort_by, sort_order
+        "mandi_price_tool called | action=%s, commodity_name=%s, market_name=%s, state=%s, lat=%s, long=%s, nearest_market=%s, radius_km=%s, search_by_apmc=%s, from_date=%s, to_date=%s, lookback_days=%s, sort_by=%s, sort_order=%s",
+        action, commodity_name, market_name, state, lat, long, nearest_market, radius_km, tool_search_by_apmc, from_date, to_date, lookback_days, sort_by, sort_order
     )
 
     # ======================================================================
@@ -750,6 +754,7 @@ def mandi_price_tool(
         to_date: Optional[str] = None,
         lookback_days: Optional[int] = None,
         latest_price_fallback: bool = False,
+        search_by_apmc: Optional[bool] = None,
     ) -> dict:
         """
         Orchestrated flow (avoids $near hangs):
@@ -777,7 +782,7 @@ def mandi_price_tool(
         mc_coll = markets_commodities_col()
         pr_coll = price_records_col()
 
-        explicit_market_query = bool(market_name and str(market_name).strip())
+        use_apmc_search = tool_search_by_apmc if search_by_apmc is None else bool(search_by_apmc)
         crop_label = (
             str(commodity_list[0])
             if len(commodity_list) == 1
@@ -814,42 +819,80 @@ def mandi_price_tool(
         # name rather than a specific mandi name (set later if needed).
         _district_raw_docs: list[dict] = []
 
-        if explicit_market_query:
-            # Named mandi: resolve the mandi first, then check crop at that mandi only.
-            market_search = _do_search_markets(
-                market_name=market_name,
-                state=state,
-                nearest_market=False,
-                market_ids=None,
-            )
-            matched_mandi_docs = market_search.get("_raw_docs") or []
-            if not matched_mandi_docs:
-                # No mandi found by that name — try it as a district name.
+        if not use_apmc_search:
+            # Query did not ask for a specific APMC (search_by_apmc is False).
+            # Search strictly by district first; if no district matches, fallback to lat_long.
+            explicit_market_query = False
+            if market_name and str(market_name).strip() and str(market_name).strip().lower() not in {"all", "general", "any"}:
                 _district_raw_docs = _resolve_district_markets(market_name, state)
-                if not _district_raw_docs:
-                    return _named_market_unavailable(market_not_found=True, matched_docs=[])
-                logger.info(
-                    "market_name=%r not found as mandi; resolved as district with %d APMCs — "
-                    "switching to district-cascade mode.",
-                    market_name, len(_district_raw_docs),
-                )
-                # Fall through to the state-wide mc lookup so cascade stages can run.
-                explicit_market_query = False
-            else:
-                named_market_ids = [d["_id"] for d in matched_mandi_docs]
-                mc_filter_named: dict[str, Any] = {
-                    "commodity_alias_lookup_id": {"$in": alias_ids},
-                    "market_id": {"$in": named_market_ids},
-                }
-                logger.info("Named-mandi markets_commodities filter: %s", mc_filter_named)
-                mc_docs_list = list(mc_coll.find(mc_filter_named).max_time_ms(MONGO_MAX_TIME_MS))
-                mc_docs_list = _filter_mc_by_commodity_preference(mc_docs_list, commodity_list, resolved)
-                if not mc_docs_list:
-                    return _named_market_unavailable(
-                        market_not_found=False,
-                        matched_docs=matched_mandi_docs,
+                if _district_raw_docs:
+                    logger.info(
+                        "search_by_apmc=False: resolved market_name=%r as district with %d APMCs.",
+                        market_name, len(_district_raw_docs),
                     )
-                candidate_market_ids = named_market_ids
+                else:
+                    logger.info(
+                        "search_by_apmc=False: market_name=%r not found as district; will fallback to lat_long/state.",
+                        market_name,
+                    )
+        else:
+            explicit_market_query = bool(
+                market_name
+                and str(market_name).strip()
+                and str(market_name).strip().lower() not in {"all", "general", "any"}
+            )
+            if explicit_market_query:
+                # Named mandi: resolve the mandi first, then check crop at that mandi only.
+                market_search = _do_search_markets(
+                    market_name=market_name,
+                    state=state,
+                    nearest_market=False,
+                    market_ids=None,
+                )
+                matched_mandi_docs = market_search.get("_raw_docs") or []
+                if not matched_mandi_docs:
+                    # No mandi found by that name — try it as a district name.
+                    _district_raw_docs = _resolve_district_markets(market_name, state)
+                    if not _district_raw_docs:
+                        return _named_market_unavailable(market_not_found=True, matched_docs=[])
+                    logger.info(
+                        "market_name=%r not found as mandi; resolved as district with %d APMCs — "
+                        "switching to district-cascade mode.",
+                        market_name, len(_district_raw_docs),
+                    )
+                    # Fall through to the state-wide mc lookup so cascade stages can run.
+                    explicit_market_query = False
+                else:
+                    named_market_ids = [d["_id"] for d in matched_mandi_docs]
+                    mc_filter_named: dict[str, Any] = {
+                        "commodity_alias_lookup_id": {"$in": alias_ids},
+                        "market_id": {"$in": named_market_ids},
+                    }
+                    logger.info("Named-mandi markets_commodities filter: %s", mc_filter_named)
+                    mc_docs_list = list(mc_coll.find(mc_filter_named).max_time_ms(MONGO_MAX_TIME_MS))
+                    mc_docs_list = _filter_mc_by_commodity_preference(mc_docs_list, commodity_list, resolved)
+                    if not mc_docs_list:
+                        # The named mandi exists but has no data for this crop.
+                        # Before returning not-found, check if this name is also a district
+                        # and whether other APMCs in that district carry the crop.
+                        # e.g. "Cuddalore" matches "Cuddalore APMC" but the user likely
+                        # means the Cuddalore district — so try all district APMCs first.
+                        _district_raw_docs = _resolve_district_markets(market_name, state)
+                        if _district_raw_docs:
+                            logger.info(
+                                "market_name=%r matched mandi but has no crop data; "
+                                "also resolves as a district with %d APMCs — switching to district-cascade mode.",
+                                market_name, len(_district_raw_docs),
+                            )
+                            # Switch to district-cascade so the stage loop can try all district APMCs.
+                            explicit_market_query = False
+                        else:
+                            return _named_market_unavailable(
+                                market_not_found=False,
+                                matched_docs=matched_mandi_docs,
+                            )
+                    else:
+                        candidate_market_ids = named_market_ids
 
         if not explicit_market_query:
             mc_filter = {
@@ -975,6 +1018,25 @@ def mandi_price_tool(
                 mkt = mandi_by_id.get(mid) if mid else None
                 formatted.append(_serialize_price_record(pr, mc, mkt))
 
+            # Post-filter: if exact commodity_name matches exist for the user's requested
+            # commodity, keep only those records. This ensures that when user asks for
+            # "banana", records like "banana - green" are excluded even if they share the
+            # same alias group. Only fall back to all records if NO exact match exists.
+            if commodity_list:
+                requested_names = {_norm(c) for c in commodity_list if _norm(c)}
+                exact_matches = [
+                    r for r in formatted
+                    if _norm(r.get("commodity_name")) in requested_names
+                ]
+                if exact_matches:
+                    logger.info(
+                        "Post-filter: kept %d exact commodity match records (from %d total). "
+                        "Excluded variants: %s",
+                        len(exact_matches), len(formatted),
+                        sorted({r.get("commodity_name") for r in formatted} - {r.get("commodity_name") for r in exact_matches}),
+                    )
+                    formatted = exact_matches
+
             stats = _compute_stats(formatted)
             return {
                 "stats":                  stats,
@@ -982,6 +1044,7 @@ def mandi_price_tool(
                 "price_records":          formatted[:15],
                 "total_records_returned": len(formatted),
             }
+
 
         def _has_price_rows(payload: Any) -> bool:
             return (
@@ -1037,7 +1100,7 @@ def mandi_price_tool(
             if _district_raw_docs:
                 # market_name was a district name — try its APMCs before generic geo search
                 stages.append(("district_markets", market_name, lat, long, True))
-            elif market_name and str(market_name).strip():
+            elif market_name and str(market_name).strip() and use_apmc_search:
                 stages.append(("market_name", market_name, None, None, False))
             if lat is not None and long is not None:
                 stages.append(("lat_long", None, lat, long, nearest_market if nearest_market else True))
@@ -1074,16 +1137,20 @@ def mandi_price_tool(
 
             # ── district_markets stage: prices from APMCs in the user's district ──────
             if priority_label == "district_markets":
-                # Rank district mandis by distance when coordinates are available.
+                # For district search, evaluate all APMCs in the district to ensure full coverage
+                # rather than arbitrarily truncating to top 5.
                 if stage_lat is not None and stage_lon is not None:
-                    d_docs = _rank_markets_by_distance(
-                        _district_raw_docs,
-                        stage_lat, stage_lon,
-                        nearest_market=True,
-                        radius_km=radius_km,
-                    )
+                    scored = []
+                    for doc in _district_raw_docs:
+                        coords = _market_lat_lon(doc)
+                        dist = _haversine_km(stage_lat, stage_lon, coords[0], coords[1]) if coords else 99999.0
+                        if radius_km is not None and dist > float(radius_km):
+                            continue
+                        scored.append((dist, doc))
+                    scored.sort(key=lambda item: item[0])
+                    d_docs = [doc for _, doc in scored]
                 else:
-                    d_docs = _district_raw_docs[:DEFAULT_TOP_N_NEAREST]
+                    d_docs = _district_raw_docs  # all APMCs in the district
                 if not d_docs:
                     logger.info(
                         "district_markets: no mandis in range for district '%s'; skipping.",
@@ -1136,6 +1203,7 @@ def mandi_price_tool(
 
             stage_mandi = {d["_id"]: d for d in stage_docs}
             stage_ids = list(stage_mandi.keys())
+
             stage_result = _fetch_with_optional_latest(stage_ids, stage_mandi)
             if _has_price_rows(stage_result):
                 result = stage_result
@@ -1154,6 +1222,26 @@ def mandi_price_tool(
                 priority_label,
             )
             if explicit_market_query and priority_label == "market_name":
+                # Named mandi found but no price records for this crop+date.
+                # Before giving up, check if market_name is also a district name
+                # and inject a district_markets stage to try all APMCs in that district.
+                # This is the common case: "Cuddalore" matches "Cuddalore APMC" but the
+                # user means the Cuddalore district — other APMCs there may have data.
+                if not _district_raw_docs:
+                    _district_raw_docs.extend(_resolve_district_markets(market_name, state))
+                if _district_raw_docs:
+                    logger.info(
+                        "market_name=%r mandi found but no price records; "
+                        "trying as district with %d APMCs before falling to state.",
+                        market_name, len(_district_raw_docs),
+                    )
+                    # Inject district_markets + state stages to continue cascade
+                    remaining_stages = [("district_markets", market_name, lat, long, True), ("state", None, None, None, False)]
+                    explicit_market_query = False
+                    # Append remaining stages and continue cascade
+                    stages.extend(remaining_stages)
+                    continue
+                # No district found either — return not-found
                 result = _named_market_unavailable(market_not_found=False, matched_docs=stage_docs)
                 if isinstance(stage_result, dict) and stage_result.get("resolution"):
                     result["resolution"].update(stage_result["resolution"])
@@ -1578,6 +1666,7 @@ def mandi_price_tool(
             from_date=from_date, to_date=to_date,
             lookback_days=eff_lookback,
             latest_price_fallback=True,
+            search_by_apmc=True,
         )
         if not named_result.get("error"):
             named_result["action"] = "get_today_price"
@@ -1634,6 +1723,7 @@ def mandi_price_tool(
                 to_date=to_date,
                 lookback_days=eff_lookback,
                 latest_price_fallback=True,  # fallback to latest prices for nearby markets
+                search_by_apmc=False,
             )
 
             if (

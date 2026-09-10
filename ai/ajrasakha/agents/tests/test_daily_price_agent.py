@@ -813,8 +813,8 @@ def test_normalize_intent_district_query_sets_market_name_none():
         {"action": "get_today_price", "market_name": "Alappuzha", "state": "Kerala"},
         "What is today's market price of cabbage in Alappuzha district, Kerala?",
     )
-    assert intent["market_name"] is None
-    assert intent["nearest_market"] is True
+    assert intent["market_name"] == "Alappuzha"
+    assert intent["search_by_apmc"] is False
     assert intent["action"] == "get_today_price"
 
 
@@ -823,8 +823,8 @@ def test_normalize_intent_district_in_market_name_cleared():
         {"action": "get_price_with_nearby", "market_name": "Rohtak district"},
         "Tomato price in Rohtak district",
     )
-    assert intent["market_name"] is None
-    assert intent["nearest_market"] is True
+    assert intent["market_name"] == "Rohtak"
+    assert intent["search_by_apmc"] is False
     assert intent["action"] == "get_today_price"
 
 

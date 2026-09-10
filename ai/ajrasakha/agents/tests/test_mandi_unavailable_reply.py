@@ -135,3 +135,30 @@ async def test_terminal_node_returns_localized_catalog_content():
     assert "Paddy" in text
     assert "Pathankot" in text
     assert get_testing_disclaimer("English", "English") in text
+
+
+def test_synthesized_district_unavailable_answer_routes_to_assemble():
+    state = _state_with_daily_price(
+        {
+            "answer": "Wheat price data is not available for Cuddalore district or Tamil Nadu state in our database.",
+            "tool_data": {
+                "error": "No markets_commodities entries matched crop=['wheat'] in state=tamil nadu."
+            },
+        },
+        district="Cuddalore",
+    )
+    assert mandi_unavailable_context(state) is None
+    assert route_after_execute(state) == "assemble_answer_body"
+
+
+def test_district_catalog_fallback_formats_as_district():
+    content = build_mandi_unavailable_content(
+        "English",
+        "English",
+        reason="crop_price_unavailable",
+        crop_name="Wheat",
+        mandi_name="Cuddalore",
+        is_district=True,
+    )
+    assert "Cuddalore district" in content
+    assert "Cuddalore mandi" not in content
