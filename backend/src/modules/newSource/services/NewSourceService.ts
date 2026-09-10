@@ -40,28 +40,40 @@ export class NewSourceService implements INewSourceService {
         );
       }
 
+      const existingId = existing._id?.toString() ?? '';
+
       // A different reviewer than whoever is already logged here is taking over (most
       // likely a previously-released 'pending' record) - append them a fresh entry
       // rather than reusing someone else's, so each reviewer's own time is tracked.
       const hasOpenEntryForUser = existing.reviewArray.some(
         entry => entry.userId === input.userId && entry.closedAt === null,
       );
+      let reopened = existing;
       if (!hasOpenEntryForUser) {
-        const withNewReviewer = await this.newSourceRepo.appendReviewEntry(
-          existing._id?.toString() ?? '',
-          {
-            userId: input.userId,
-            name: input.userName,
-            startedAt: new Date(),
-            closedAt: null,
-            isSaved: false,
-            timeTaken: null,
-          },
-        );
-        if (withNewReviewer) return withNewReviewer;
+        const withNewReviewer = await this.newSourceRepo.appendReviewEntry(existingId, {
+          userId: input.userId,
+          name: input.userName,
+          startedAt: new Date(),
+          closedAt: null,
+          isSaved: false,
+          timeTaken: null,
+        });
+        if (withNewReviewer) reopened = withNewReviewer;
       }
 
-      return existing;
+      // Picking a record back up puts it in-progress again - without this a released
+      // 'pending' record (or a re-edited 'review-completed' one) stays in its old state
+      // and never locks to the expert now working on it. 'flagged' is left alone so a
+      // moderator's flag isn't silently cleared by someone opening the editor.
+      if (reopened.status === 'pending' || reopened.status === 'review-completed') {
+        const inProgress = await this.newSourceRepo.setStatus(
+          existingId,
+          'in-progress',
+        );
+        if (inProgress) return inProgress;
+      }
+
+      return reopened;
     }
 
     return await this.newSourceRepo.create({

@@ -18,6 +18,10 @@ export interface INewSourceRepository {
     updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
   ): Promise<INewSource | null>;
 
+  /** Sets just the record's status, without touching reviewArray or timeTaken — used
+   *  when a reviewer picks a released record back up and it returns to 'in-progress'. */
+  setStatus(id: string, status: INewSource['status']): Promise<INewSource | null>;
+
   /** Stamps closedAt on `userId`'s own still-open reviewArray entry when the Edit Source
    *  modal closes — independent of updateById, since the modal can close without the
    *  edit being completed. */

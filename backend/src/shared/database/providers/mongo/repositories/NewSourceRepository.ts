@@ -161,6 +161,27 @@ export class NewSourceRepository implements INewSourceRepository {
     return {...result, _id: result._id?.toString()} as INewSource;
   }
 
+  async setStatus(
+    id: string,
+    status: INewSource['status'],
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing updated_sources id');
+    }
+
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {$set: {status, updatedAt: new Date()}},
+      {returnDocument: 'after'},
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
   async releaseToPending(id: string): Promise<INewSource | null> {
     await this.init();
 
