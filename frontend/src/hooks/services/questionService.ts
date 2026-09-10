@@ -1048,6 +1048,7 @@ export class QuestionService {
     startDate?: string;
     endDate?: string;
     allUsers?: string;
+    totalCount?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.startDate) {
@@ -1085,6 +1086,9 @@ export class QuestionService {
     }
     if (filters.allUsers && filters.allUsers !== "all") {
       params.append("allUsers", filters.allUsers);
+    }
+    if (filters.totalCount) {
+      params.append("totalCount", filters.totalCount);
     }
 
     // Get the current Firebase user and token

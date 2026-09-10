@@ -647,6 +647,7 @@ export interface IQuestionService {
     startDate?: string;
     endDate?: string;
     allUsers?: string;
+    totalCount?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
