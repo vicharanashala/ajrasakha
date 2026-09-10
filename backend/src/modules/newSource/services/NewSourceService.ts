@@ -151,8 +151,10 @@ export class NewSourceService implements INewSourceService {
     }
 
     // A flagged record is read-only until someone lifts the flag - opening it must not
-    // quietly take it into moderation, so it comes back untouched.
-    if (existing.status === 'flagged') {
+    // quietly take it into moderation, so it comes back untouched. A merged record is
+    // done for good - opening it to look at it must not silently reopen it either, or
+    // releasing that hold later would demote it back to 'review-completed'.
+    if (existing.status === 'flagged' || existing.status === 'merged') {
       return existing;
     }
 
@@ -254,6 +256,18 @@ export class NewSourceService implements INewSourceService {
     }
     if (!input.reason?.trim()) {
       throw new BadRequestError('A reason is required to change this status');
+    }
+
+    const existing = await this.newSourceRepo.findById(input.id);
+    if (!existing) {
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
+    }
+    // Merged is a final state - once approved, the record is read-only and can't be
+    // overridden to another status from here.
+    if (existing.status === 'merged') {
+      throw new ForbiddenError(
+        "This answer's sources have been merged and can no longer be changed.",
+      );
     }
 
     const updated = await this.newSourceRepo.changeStatusWithReason(input.id, {

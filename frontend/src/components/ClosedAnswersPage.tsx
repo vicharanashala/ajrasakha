@@ -2058,15 +2058,17 @@ const SourceChangesSection = ({
               onCompleted={() => onStatusChanged?.(advanceToNext)}
             />
           )}
-          {newSourceRecord && newSourceRecord.status !== "flagged" && (
-            <StatusOverrideControl
-              answer={answer}
-              newSourceRecord={newSourceRecord}
-              actions={["flagged"]}
-              inline
-              onCompleted={() => onStatusChanged?.(advanceToNext)}
-            />
-          )}
+          {newSourceRecord &&
+            newSourceRecord.status !== "flagged" &&
+            newSourceRecord.status !== "merged" && (
+              <StatusOverrideControl
+                answer={answer}
+                newSourceRecord={newSourceRecord}
+                actions={["flagged"]}
+                inline
+                onCompleted={() => onStatusChanged?.(advanceToNext)}
+              />
+            )}
         </div>
       </div>
 
@@ -2134,15 +2136,22 @@ const SourceChangesSection = ({
         <StatusChangesList statusChanges={newSourceRecord.statusChanges} />
       )}
 
-      {newSourceRecord && (
-        <StatusOverrideControl
-          answer={answer}
-          newSourceRecord={newSourceRecord}
-          actions={["pending", "merged"]}
-          advanceToNext={advanceToNext}
-          onAdvanceToNextChange={setAdvanceToNext}
-          onCompleted={() => onStatusChanged?.(advanceToNext)}
-        />
+      {newSourceRecord && newSourceRecord.status === "merged" ? (
+        <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs text-primary">
+          This review has been approved and is read-only. Its status can no longer be
+          changed.
+        </p>
+      ) : (
+        newSourceRecord && (
+          <StatusOverrideControl
+            answer={answer}
+            newSourceRecord={newSourceRecord}
+            actions={["pending", "merged"]}
+            advanceToNext={advanceToNext}
+            onAdvanceToNextChange={setAdvanceToNext}
+            onCompleted={() => onStatusChanged?.(advanceToNext)}
+          />
+        )
       )}
     </div>
   );
@@ -2294,6 +2303,9 @@ const useModeratorReviewHold = ({
   // Flagged answers stay flagged until someone unflags them - opening one is a look,
   // not a claim.
   const isFlagged = selectedAnswer?.newSourceStatus === "flagged";
+  // Merged is final - opening a merged answer to look at it must not reopen it into
+  // moderation, or releasing that hold later would demote it back to review-completed.
+  const isMerged = selectedAnswer?.newSourceStatus === "merged";
 
   const takeHold = useCallback(
     (targetId: string, targetQuestionId: string) => {
@@ -2329,7 +2341,7 @@ const useModeratorReviewHold = ({
   // Selecting an answer claims it, unless this moderator still holds another one - then
   // the confirmation decides, so nothing is claimed behind their back.
   useEffect(() => {
-    if (!enabled || !answerId || isAlreadyHeld || isFlagged) return;
+    if (!enabled || !answerId || isAlreadyHeld || isFlagged || isMerged) return;
     if (heldAnswerIdRef.current === answerId) return;
 
     findHeldElsewhere(answerId, {
@@ -2349,6 +2361,7 @@ const useModeratorReviewHold = ({
     questionId,
     isAlreadyHeld,
     isFlagged,
+    isMerged,
     findHeldElsewhere,
     takeHold,
   ]);
