@@ -22,6 +22,7 @@ const sanitizeSources = (sources: INewSourceItem[]): INewSourceItem[] =>
     page: item.page,
     sourceReferenceStatus: item.sourceReferenceStatus,
     sourceIndex: item.sourceIndex,
+    missedFields: item.missedFields ?? [],
   }));
 
 @injectable()

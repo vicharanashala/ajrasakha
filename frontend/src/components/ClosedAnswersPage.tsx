@@ -436,6 +436,9 @@ type SourceReferenceLookupResult = {
   sourceName: string;
   yearOfRelease: number | string;
   sourceLink: string;
+  // Which of year_of_release/live_source_link/shareable_name were identified as missing
+  // on the matched document when it was first fetched - empty when nothing was missing.
+  missedFields: PopRequiredField[];
 };
 
 const POP_FIELD_LABELS: Record<PopRequiredField, string> = {
@@ -566,6 +569,10 @@ const SourceReferenceLookup = ({
     id: string;
     fields: PopRequiredField[];
   } | null>(null);
+  // Which fields were missing when the match was first fetched, kept around so it still
+  // reaches emitFound after the modal resolves them (by then the fresh lookup result's
+  // own missingFields is empty).
+  const identifiedMissingFieldsRef = useRef<PopRequiredField[]>([]);
 
   const emitFound = (result: PopLookupResult) => {
     if (result.found && result._id) {
@@ -575,6 +582,7 @@ const SourceReferenceLookup = ({
         sourceName: result.shareable_name ?? "",
         yearOfRelease: result.year_of_release ?? "",
         sourceLink: result.live_source_link || result.shareable_link || "",
+        missedFields: identifiedMissingFieldsRef.current,
       });
     } else {
       onFound?.({
@@ -583,6 +591,7 @@ const SourceReferenceLookup = ({
         sourceName: "",
         yearOfRelease: "",
         sourceLink: "",
+        missedFields: [],
       });
     }
   };
@@ -592,6 +601,7 @@ const SourceReferenceLookup = ({
       onSuccess: (result) => {
         if (!result) return;
         setDisplayResult(result);
+        identifiedMissingFieldsRef.current = result.missingFields ?? [];
 
         // A match missing year_of_release/live_source_link/shareable_name is held back
         // until the reviewer fills those in - the modal's onSaved is what actually
@@ -636,14 +646,32 @@ const SourceReferenceLookup = ({
       {displayResult?.found && !displayResult.missingFields?.length && (
         <div className="grid gap-0.5 rounded-md border border-border/60 bg-muted/30 p-2 text-xs">
           <p className="font-medium text-foreground/90">{displayResult.shareable_name}</p>
-          <a
-            href={displayResult.live_source_link || displayResult.shareable_link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="break-all text-primary hover:underline"
-          >
-            {displayResult.live_source_link || displayResult.shareable_link}
-          </a>
+          {displayResult.live_source_link && (
+            <p className="flex min-w-0 gap-1 text-muted-foreground">
+              <span className="shrink-0">Original link:</span>
+              <a
+                href={displayResult.live_source_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-w-0 break-all text-primary hover:underline"
+              >
+                {displayResult.live_source_link}
+              </a>
+            </p>
+          )}
+          {displayResult.shareable_link && (
+            <p className="flex min-w-0 gap-1 text-muted-foreground">
+              <span className="shrink-0">Annam.AI Archived Link:</span>
+              <a
+                href={displayResult.shareable_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-w-0 break-all text-primary hover:underline"
+              >
+                {displayResult.shareable_link}
+              </a>
+            </p>
+          )}
           <p className="text-muted-foreground">
             {displayResult.year_of_release
               ? `Year of release: ${displayResult.year_of_release}`
@@ -686,6 +714,9 @@ type SourceDraft = {
   sourceReferenceId?: string;
   sourceReferenceStatus: PopMatchStatus | null;
   pages: string;
+  // Which of year_of_release/live_source_link/shareable_name were identified as missing
+  // on the matched document when this source was fetched - persisted as-is on save.
+  missedFields: PopRequiredField[];
 };
 
 const toSourceDraft = (source: SourceItem): SourceDraft => ({
@@ -699,6 +730,7 @@ const toSourceDraft = (source: SourceItem): SourceDraft => ({
   sourceReferenceId: source.sourceReference ?? undefined,
   sourceReferenceStatus: null,
   pages: "",
+  missedFields: [],
 });
 
 const EMPTY_SOURCE_DRAFT: SourceDraft = {
@@ -712,6 +744,7 @@ const EMPTY_SOURCE_DRAFT: SourceDraft = {
   sourceReferenceId: undefined,
   sourceReferenceStatus: null,
   pages: "",
+  missedFields: [],
 };
 
 // The working area of the page: pick a source (or add one) and edit it in place.
@@ -1032,6 +1065,7 @@ const AnswerSourcesEditor = ({
       page: parsePageNumbers(draft.pages),
       sourceReferenceStatus: draft.sourceReferenceStatus,
       sourceIndex: index,
+      missedFields: draft.missedFields,
     }));
 
     completeNewSource(
@@ -1187,6 +1221,7 @@ const AnswerSourcesEditor = ({
                 sourceName: result.sourceName,
                 yearOfRelease: result.yearOfRelease,
                 sourceLink: result.sourceLink,
+                missedFields: result.missedFields,
               });
             }}
           />

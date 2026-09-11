@@ -349,6 +349,11 @@ export interface INewSourceItem {
   page?: number[];
   sourceReferenceStatus: PopMatchStatus | null;
   sourceIndex: number;
+  /** Which of year_of_release/live_source_link/shareable_name were identified as
+   *  missing on the matched pop_unique_documents document when this source was fetched
+   *  (see PopService.lookupBySource/updateMissingFields) - empty when nothing was
+   *  missing. Persisted here as a record of what the reviewer had to fill in. */
+  missedFields?: PopRequiredField[];
   // The fields below are populated for display only (NewSourceService.getByAnswerId,
   // used by the moderator Before/After view) by looking up `organization`/`source` -
   // they are never persisted and are stripped before a save (see

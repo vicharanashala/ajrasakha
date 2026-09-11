@@ -1,5 +1,6 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
+import type { PopRequiredField } from "./popService";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -19,6 +20,10 @@ export interface NewSourceItem {
   page?: number[];
   sourceReferenceStatus: PopMatchStatus | null;
   sourceIndex: number;
+  // Which of year_of_release/live_source_link/shareable_name were identified as missing
+  // on the matched pop_unique_documents document when this source was fetched - empty
+  // when nothing was missing.
+  missedFields?: PopRequiredField[];
   // Populated for display only (getByAnswerId, used by the moderator Before/After view) -
   // never sent when saving.
   organizationName?: string;
