@@ -5486,6 +5486,18 @@ export class QuestionService extends BaseService implements IQuestionService {
    * Ports scripts/timebound-question-cycle-report.js. Timings come from the submission
    * history work-log; timestamps are written in IST. Returns null when nothing matched.
    */
+  async streamTatReport(
+    startDate: Date,
+    endDate: Date,
+    outputStream: any,
+    opts: {sources?: string[]; statuses?: string[]; maxReviewers?: number} = {},
+  ): Promise<boolean> {
+    const data = await this.generateTatReport(startDate, endDate, opts);
+    if (!data) return false;
+    outputStream.write(Buffer.from(data));
+    return true;
+  }
+
   async generateTatReport(
     startDate: Date,
     endDate: Date,
