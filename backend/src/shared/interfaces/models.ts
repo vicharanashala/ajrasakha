@@ -407,6 +407,19 @@ export interface INewSourceReviewEntry {
   closedAt: Date | null;
   isSaved: boolean;
   timeTaken: number | null;
+  /** The pop_unique_documents documents this stint found incomplete, each with what was
+   *  blank and what the reviewer filled in. Absent when nothing was missing. */
+  missingPopDocuments?: IMissingPopDocument[];
+}
+
+/** One incomplete pop_unique_documents document a reviewer hit during a stint: which of
+ *  the required fields were blank on it (before) and what they saved onto it (after).
+ *  updatedFields stays empty when the reviewer closed the modal without filling it in. */
+export interface IMissingPopDocument {
+  /** The pop_unique_documents document's own _id. */
+  popId: string;
+  missingFields: PopRequiredField[];
+  updatedFields?: Partial<Record<PopRequiredField, string>>;
 }
 
 /** One admin/moderator override of a `updated_sources` record's status (e.g. sending it

@@ -34,6 +34,7 @@ import {
   CheckCheck,
   FlagOff,
   MousePointerClick,
+  AlertTriangle,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -83,6 +84,7 @@ import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
 import { useUpdatePopMissingFields } from "@/hooks/api/pop/useUpdatePopMissingFields";
 import { useStartNewSource } from "@/hooks/api/newSource/useStartNewSource";
 import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource";
+import { useRecordMissingPopDocument } from "@/hooks/api/newSource/useRecordMissingPopDocument";
 import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
 import { useActiveNewSource } from "@/hooks/api/newSource/useActiveNewSource";
 import { useReleaseNewSource } from "@/hooks/api/newSource/useReleaseNewSource";
@@ -441,10 +443,51 @@ type SourceReferenceLookupResult = {
   missedFields: PopRequiredField[];
 };
 
+// Display labels only - the pop document's own field names (year_of_release,
+// live_source_link) are unchanged.
 const POP_FIELD_LABELS: Record<PopRequiredField, string> = {
-  year_of_release: "Year of release",
-  live_source_link: "Live source link",
+  year_of_release: "Year of publication",
+  live_source_link: "Original link",
   shareable_name: "Document name",
+};
+
+// These values are written to the shared pop repository, so each field is checked
+// against its own rule rather than just being non-empty - a typo here follows every
+// answer that cites the document.
+const validatePopField = (field: PopRequiredField, rawValue: string): string | null => {
+  const value = rawValue.trim();
+  if (!value) return `${POP_FIELD_LABELS[field]} is required.`;
+
+  if (field === "year_of_release") {
+    if (!/^\d{4}$/.test(value)) return "Enter a 4-digit year, for example 2019.";
+
+    const year = Number(value);
+    const currentYear = new Date().getFullYear();
+    if (year < 1900 || year > currentYear) {
+      return `Enter a year between 1900 and ${currentYear}.`;
+    }
+    return null;
+  }
+
+  if (field === "live_source_link") {
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      return "Enter a full link, for example https://example.com/document.pdf";
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "The link must start with http:// or https://";
+    }
+    if (!parsed.hostname.includes(".")) {
+      return "Enter a full link, for example https://example.com/document.pdf";
+    }
+    return null;
+  }
+
+  if (value.length < 3) return "Enter at least 3 characters.";
+  if (value.length > 200) return "Keep the name under 200 characters.";
+  return null;
 };
 
 // Shown when a match is found but is missing one or more of year_of_release/
@@ -460,26 +503,53 @@ const PopMissingFieldsModal = ({
   open: boolean;
   popId: string | null;
   missingFields: PopRequiredField[];
-  onSaved: (result: PopLookupResult) => void;
+  onSaved: (
+    result: PopLookupResult,
+    values: Partial<Record<PopRequiredField, string>>,
+  ) => void;
   onCancel: () => void;
 }) => {
   const [values, setValues] = useState<Partial<Record<PopRequiredField, string>>>({});
+  // A field only shows its error once the reviewer has left it or tried to save, so
+  // typing a year doesn't flash an error on every keystroke.
+  const [touchedFields, setTouchedFields] = useState<PopRequiredField[]>([]);
   const { mutate, isPending } = useUpdatePopMissingFields();
 
   useEffect(() => {
-    if (open) setValues({});
+    if (open) {
+      setValues({});
+      setTouchedFields([]);
+    }
   }, [open]);
+
+  const errors = missingFields.reduce<Partial<Record<PopRequiredField, string>>>(
+    (all, field) => {
+      const error = validatePopField(field, values[field] ?? "");
+      if (error) all[field] = error;
+      return all;
+    },
+    {},
+  );
+  const hasErrors = Object.keys(errors).length > 0;
+
+  const markTouched = (field: PopRequiredField) =>
+    setTouchedFields((prev) => (prev.includes(field) ? prev : [...prev, field]));
 
   const handleSave = () => {
     if (!popId) return;
-    const unfilled = missingFields.find((field) => !values[field]?.trim());
-    if (unfilled) {
-      toast.error(`Enter ${POP_FIELD_LABELS[unfilled].toLowerCase()} to continue.`);
+    if (hasErrors) {
+      setTouchedFields(missingFields);
       return;
     }
 
+    // Only the trimmed values reach the pop repository - stray whitespace would
+    // otherwise be saved onto the shared document.
+    const trimmedValues = Object.fromEntries(
+      missingFields.map((field) => [field, (values[field] ?? "").trim()]),
+    ) as Record<PopRequiredField, string>;
+
     mutate(
-      { id: popId, fields: values as Record<PopRequiredField, string> },
+      { id: popId, fields: trimmedValues },
       {
         onSuccess: (result) => {
           if (!result) {
@@ -487,7 +557,7 @@ const PopMissingFieldsModal = ({
             return;
           }
           toast.success("Document details saved.");
-          onSaved(result);
+          onSaved(result, trimmedValues);
         },
         onError: (error: Error) =>
           toast.error(error.message || "Failed to update this document."),
@@ -505,26 +575,59 @@ const PopMissingFieldsModal = ({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+            Saving writes these values to the document in our pop repository, not just to
+            this answer. Every answer that cites this document will use them from now on,
+            so please double-check each value before you save.
+          </p>
+        </div>
+
         <div className="grid gap-3">
-          {missingFields.map((field, index) => (
-            <div key={field} className="grid gap-1.5">
-              <Label htmlFor={`pop-missing-${field}`} className="text-xs">
-                {POP_FIELD_LABELS[field]} <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id={`pop-missing-${field}`}
-                autoFocus={index === 0}
-                value={values[field] ?? ""}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, [field]: e.target.value }))
-                }
-                placeholder={
-                  field === "live_source_link" ? "https://..." : POP_FIELD_LABELS[field]
-                }
-                className="bg-background"
-              />
-            </div>
-          ))}
+          {missingFields.map((field, index) => {
+            const error = touchedFields.includes(field) ? errors[field] : undefined;
+
+            return (
+              <div key={field} className="grid gap-1.5">
+                <Label htmlFor={`pop-missing-${field}`} className="text-xs">
+                  {POP_FIELD_LABELS[field]} <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id={`pop-missing-${field}`}
+                  autoFocus={index === 0}
+                  value={values[field] ?? ""}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, [field]: e.target.value }))
+                  }
+                  onBlur={() => markTouched(field)}
+                  inputMode={field === "year_of_release" ? "numeric" : undefined}
+                  maxLength={field === "year_of_release" ? 4 : undefined}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? `pop-missing-${field}-error` : undefined}
+                  placeholder={
+                    field === "live_source_link"
+                      ? "https://example.com/document.pdf"
+                      : field === "year_of_release"
+                        ? "2019"
+                        : POP_FIELD_LABELS[field]
+                  }
+                  className={cn(
+                    "bg-background",
+                    error && "border-destructive focus-visible:ring-destructive/30",
+                  )}
+                />
+                {error && (
+                  <p
+                    id={`pop-missing-${field}-error`}
+                    className="text-xs text-destructive"
+                  >
+                    {error}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <DialogFooter>
@@ -556,14 +659,19 @@ const SourceReferenceLookup = ({
   source,
   onFound,
   runWithSession,
+  answerId,
 }: {
   source: string;
   onFound?: (result: SourceReferenceLookupResult) => void;
   /** Runs the lookup only once this expert owns the review - if they still hold one on
    *  another answer, the switch confirmation opens first and no request is made. */
   runWithSession?: (action: () => void) => void;
+  /** The answer being reviewed - an incomplete pop document is logged against whichever
+   *  updated_sources record currently backs it. */
+  answerId: string;
 }) => {
   const { mutate, isPending } = useLookupPopSource();
+  const { mutate: recordMissingPopDocument } = useRecordMissingPopDocument();
   const [displayResult, setDisplayResult] = useState<PopLookupResult | null>(null);
   const [missingModal, setMissingModal] = useState<{
     id: string;
@@ -596,6 +704,18 @@ const SourceReferenceLookup = ({
     }
   };
 
+  // Writes the gap to this reviewer's own stint in updated_sources: once when it is
+  // found (values still blank), again with what they saved, so an abandoned edit still
+  // leaves a record of which document was incomplete and what was missing on it.
+  const logMissingPopDocument = (
+    popId: string,
+    fields: PopRequiredField[],
+    updatedFields?: Partial<Record<PopRequiredField, string>>,
+  ) => {
+    if (!popId || fields.length === 0) return;
+    recordMissingPopDocument({ answerId, popId, missingFields: fields, updatedFields });
+  };
+
   const fetchReference = () => {
     mutate(source, {
       onSuccess: (result) => {
@@ -607,6 +727,7 @@ const SourceReferenceLookup = ({
         // until the reviewer fills those in - the modal's onSaved is what actually
         // resolves this lookup, not this success callback.
         if (result.found && result._id && result.missingFields?.length) {
+          logMissingPopDocument(result._id, result.missingFields);
           setMissingModal({ id: result._id, fields: result.missingFields });
           return;
         }
@@ -685,8 +806,13 @@ const SourceReferenceLookup = ({
         open={missingModal !== null}
         popId={missingModal?.id ?? null}
         missingFields={missingModal?.fields ?? []}
-        onSaved={(result) => {
+        onSaved={(result, values) => {
           setDisplayResult(result);
+          logMissingPopDocument(
+            missingModal?.id ?? "",
+            identifiedMissingFieldsRef.current,
+            values,
+          );
           setMissingModal(null);
           emitFound(result);
         }}
@@ -906,7 +1032,10 @@ const AnswerSourcesEditor = ({
       { answerId: answer._id, questionId: answer.questionId ?? "" },
       {
         onSuccess: (result) => {
-          if (result?._id) setNewSourceId(result._id);
+          if (result?._id) {
+            newSourceIdRef.current = result._id;
+            setNewSourceId(result._id);
+          }
           refreshAnswerSources(answer._id);
           runDeferredAction();
         },
@@ -1214,6 +1343,7 @@ const AnswerSourcesEditor = ({
             key={editingIndex ?? "new"}
             source={form.source}
             runWithSession={runWithSession}
+            answerId={answer._id}
             onFound={(result) => {
               updateActive({
                 sourceReferenceId: result.sourceReferenceId,
@@ -2338,6 +2468,15 @@ const ReviewersList = ({
                       {entry.role === "moderator" ? "Moderator" : "Expert"} ·{" "}
                       {formatClosedAt(entry.startedAt)}
                     </p>
+                    {(entry.missingPopDocuments ?? []).length > 0 && (
+                      <p className="truncate text-[11px] text-amber-600 dark:text-amber-400">
+                        {(entry.missingPopDocuments ?? []).length} incomplete{" "}
+                        {(entry.missingPopDocuments ?? []).length === 1
+                          ? "document"
+                          : "documents"}{" "}
+                        handled
+                      </p>
+                    )}
                   </div>
 
                   <span
@@ -2367,6 +2506,80 @@ const ReviewersList = ({
 };
 
 
+// Required fields missing on a matched pop document are filled in by the expert during
+// review and saved to the shared pop repository, not just to this answer - a moderator
+// sees here which document was incomplete, what was blank on it and what it now holds.
+const PopFieldUpdatesSection = ({
+  reviewArray,
+}: {
+  reviewArray: NewSourceRecord["reviewArray"];
+}) => {
+  const updates = reviewArray.flatMap((entry) =>
+    (entry.missingPopDocuments ?? []).map((document) => ({
+      reviewerName: entry.name,
+      document,
+    })),
+  );
+
+  if (updates.length === 0) return null;
+
+  return (
+    <CollapsibleBlock
+      icon={FileSearch}
+      title="Document details filled in"
+      count={updates.length}
+    >
+      <div className="flex flex-col gap-2">
+        <p className="text-xs text-muted-foreground">
+          Saved to the pop repository, so every answer citing these documents now uses
+          them.
+        </p>
+
+        {updates.map(({ reviewerName, document }, index) => (
+          <div
+            key={`${document.popId}-${index}`}
+            className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
+          >
+            <p className="min-w-0 break-all text-xs font-medium text-foreground">
+              Document {document.popId}
+              {reviewerName ? ` · ${reviewerName}` : ""}
+            </p>
+
+            {document.missingFields.map((field) => {
+              const value = document.updatedFields?.[field]?.trim();
+
+              return (
+                <div
+                  key={field}
+                  className="grid gap-2 sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)_1rem_minmax(0,1fr)] sm:items-center"
+                >
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {POP_FIELD_LABELS[field]}
+                  </span>
+                  <span className="min-w-0 break-all rounded-md border border-red-500/30 bg-red-500/5 px-2 py-1 text-[11px] text-red-700 dark:text-red-300">
+                    Missing
+                  </span>
+                  <ArrowRight className="hidden h-3.5 w-3.5 justify-self-center text-muted-foreground/50 sm:block" />
+                  <span
+                    className={cn(
+                      "min-w-0 break-all rounded-md border px-2 py-1 text-[11px]",
+                      value
+                        ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
+                        : "border-border bg-muted/40 text-muted-foreground",
+                    )}
+                  >
+                    {value || "Not filled in"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </CollapsibleBlock>
+  );
+};
+
 // Compares the answer's sources as they stand in the answers collection (Before, red)
 // against what the assigned expert recorded in updated_sources (After, green), so a
 // moderator/admin can see what changed without opening the edit panel below it, plus
@@ -2388,6 +2601,10 @@ const SourceChangesSection = ({
   const beforeSources = answer.sources ?? [];
   const afterSources = newSourceRecord?.sources ?? [];
   const recordStatus = newSourceRecord?.status;
+  // The moderator currently holding this record - their stint is the open one.
+  const moderatorHold = newSourceRecord?.reviewArray.find(
+    (entry) => entry.role === "moderator" && !entry.closedAt,
+  );
   // Rows are paired by position, so each source lines up with its reviewed counterpart.
   const pairCount = Math.max(beforeSources.length, afterSources.length);
 
@@ -2409,6 +2626,13 @@ const SourceChangesSection = ({
               )}
             >
               {NEW_SOURCE_STATUS_LABELS[recordStatus] ?? recordStatus}
+            </span>
+          )}
+          {recordStatus === "moderator-in-review" && moderatorHold && (
+            <span className="flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <UserCheck className="h-3 w-3" />
+              With {moderatorHold.name || "a moderator"} · since{" "}
+              {formatClosedAt(moderatorHold.startedAt)}
             </span>
           )}
           {newSourceRecord && (
@@ -2498,6 +2722,10 @@ const SourceChangesSection = ({
             })
           )}
         </div>
+      )}
+
+      {newSourceRecord && (
+        <PopFieldUpdatesSection reviewArray={newSourceRecord.reviewArray} />
       )}
 
       {newSourceRecord && <ReviewersList reviewArray={newSourceRecord.reviewArray} />}

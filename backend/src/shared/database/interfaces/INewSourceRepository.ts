@@ -1,4 +1,5 @@
 import {
+  IMissingPopDocument,
   INewSource,
   INewSourceReviewEntry,
   INewSourceStatusChange,
@@ -16,6 +17,15 @@ export interface INewSourceRepository {
     id: string,
     userId: string,
     updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
+  ): Promise<INewSource | null>;
+
+  /** Replaces the incomplete pop documents logged on `userId`'s own still-open
+   *  reviewArray entry - the service merges the new one in, so a stint that hits several
+   *  incomplete documents keeps all of them. */
+  setMissingPopDocuments(
+    id: string,
+    userId: string,
+    missingPopDocuments: IMissingPopDocument[],
   ): Promise<INewSource | null>;
 
   /** Finds the record this moderator currently holds in 'moderator-in-review' on some

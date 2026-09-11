@@ -1,6 +1,11 @@
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceRepository.js';
-import {IAnswerSourceDetail, INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
+import {
+  IAnswerSourceDetail,
+  IMissingPopDocument,
+  INewSource,
+  INewSourceItem,
+} from '#root/shared/interfaces/models.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IOrganizationService} from '#root/modules/organization/interfaces/IOrganizationService.js';
 import {IPopService} from '#root/modules/pop/interfaces/IPopService.js';
@@ -12,6 +17,7 @@ import {
   ChangeNewSourceStatusInput,
   CompleteNewSourceInput,
   INewSourceService,
+  RecordMissingPopDocumentInput,
   StartNewSourceInput,
 } from '../interfaces/INewSourceService.js';
 
@@ -193,6 +199,61 @@ export class NewSourceService implements INewSourceService {
 
     if (!updated) {
       throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
+    }
+
+    return updated;
+  }
+
+  /** A stint can hit several incomplete pop documents, and each is logged twice - once
+   *  when found, once with the values filled in - so entries are merged by popId rather
+   *  than appended blindly. */
+  async recordMissingPopDocument(
+    input: RecordMissingPopDocumentInput,
+  ): Promise<INewSource> {
+    if (!input.popId) {
+      throw new BadRequestError('A pop document id is required');
+    }
+    if (input.missingFields.length === 0) {
+      throw new BadRequestError('At least one missing field is required');
+    }
+
+    const record = await this.newSourceRepo.findByAnswerId(input.answerId);
+    if (!record) {
+      throw new NotFoundError(
+        `updated_sources record not found for answer ${input.answerId}`,
+      );
+    }
+
+    const openEntry = record.reviewArray.find(
+      reviewer =>
+        reviewer.userId === input.userId &&
+        reviewer.closedAt === null &&
+        reviewer.role !== 'moderator',
+    );
+    if (!openEntry) {
+      throw new NotFoundError('No open review found for this user on this record');
+    }
+
+    const existing = openEntry.missingPopDocuments ?? [];
+    const current = existing.find(entry => entry.popId === input.popId);
+    const merged: IMissingPopDocument = {
+      popId: input.popId,
+      missingFields: input.missingFields,
+      updatedFields: input.updatedFields ?? current?.updatedFields ?? {},
+    };
+
+    const updated = await this.newSourceRepo.setMissingPopDocuments(
+      record._id?.toString() ?? '',
+      input.userId,
+      current
+        ? existing.map(entry => (entry.popId === input.popId ? merged : entry))
+        : [...existing, merged],
+    );
+
+    if (!updated) {
+      throw new NotFoundError(
+        `updated_sources record not found for answer ${input.answerId}`,
+      );
     }
 
     return updated;

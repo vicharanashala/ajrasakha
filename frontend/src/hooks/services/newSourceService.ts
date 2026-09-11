@@ -54,6 +54,16 @@ export interface CompleteNewSourcePayload {
   timeTaken: number;
 }
 
+// One incomplete pop document hit during a stint: which required fields were blank on
+// it (before) and what the reviewer saved onto them (after, empty while unfilled).
+export interface MissingPopDocument {
+  popId: string;
+  missingFields: PopRequiredField[];
+  updatedFields?: Partial<Record<PopRequiredField, string>>;
+}
+
+export type RecordMissingPopDocumentPayload = MissingPopDocument;
+
 export interface NewSourceReviewEntry {
   userId: string;
   name: string;
@@ -62,6 +72,9 @@ export interface NewSourceReviewEntry {
   startedAt: string;
   closedAt: string | null;
   isSaved: boolean;
+  // The pop documents this stint found incomplete, with what was blank and what was
+  // filled in - absent when nothing was missing.
+  missingPopDocuments?: MissingPopDocument[];
   // Seconds spent on this reviewer's own edit, set once they save. A record can carry
   // more than one entry (different experts pick it up over time, e.g. after a release
   // back to 'pending'), each with its own timeTaken.
@@ -107,6 +120,22 @@ export class NewSourceService {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
+  }
+
+  /** Called as soon as a fetched pop document is found to be missing required fields,
+   *  and again with the saved values once the reviewer fills them in — logged on this
+   *  reviewer's own stint, so the gap is auditable even if the edit is never saved. */
+  async recordMissingPopDocument(
+    answerId: string,
+    payload: RecordMissingPopDocumentPayload,
+  ): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord>(
+      `${this._baseUrl}/by-answer/${answerId}/missing-fields`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+    );
   }
 
   /** Called whenever the Edit Source modal closes, completed or not — stamps closedAt

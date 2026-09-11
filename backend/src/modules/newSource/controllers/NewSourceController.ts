@@ -14,7 +14,12 @@ import {
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CORE_TYPES} from '#root/modules/core/types.js';
-import {INewSource, INewSourceItem, IUser} from '#root/shared/interfaces/models.js';
+import {
+  INewSource,
+  INewSourceItem,
+  IUser,
+  PopRequiredField,
+} from '#root/shared/interfaces/models.js';
 import {INewSourceService} from '../interfaces/INewSourceService.js';
 
 // Records source edits made on the Closed Answers page's Edit Source modal into the
@@ -73,6 +78,31 @@ export class NewSourceController {
     @CurrentUser() user: IUser,
   ): Promise<INewSource> {
     return await this.newSourceService.closeNewSource(id, user._id?.toString() ?? '');
+  }
+
+  @OpenAPI({
+    summary:
+      'Log an incomplete pop document, and the values filled in for it, against the current reviewer\'s stint',
+  })
+  @Patch('/by-answer/:answerId/missing-fields')
+  @Authorized()
+  async recordMissingPopDocument(
+    @Param('answerId') answerId: string,
+    @Body()
+    body: {
+      popId: string;
+      missingFields: PopRequiredField[];
+      updatedFields?: Partial<Record<PopRequiredField, string>>;
+    },
+    @CurrentUser() user: IUser,
+  ): Promise<INewSource> {
+    return await this.newSourceService.recordMissingPopDocument({
+      answerId,
+      popId: body.popId,
+      missingFields: body.missingFields ?? [],
+      updatedFields: body.updatedFields,
+      userId: user._id?.toString() ?? '',
+    });
   }
 
   @OpenAPI({summary: "Find the current user's other in-progress updated_sources record, if any"})

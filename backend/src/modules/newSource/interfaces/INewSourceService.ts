@@ -1,4 +1,8 @@
-import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
+import {
+  INewSource,
+  INewSourceItem,
+  PopRequiredField,
+} from '#root/shared/interfaces/models.js';
 
 export interface ChangeNewSourceStatusInput {
   id: string;
@@ -40,6 +44,22 @@ export interface CompleteNewSourceInput {
   role?: string;
 }
 
+export interface RecordMissingPopDocumentInput {
+  /** Keyed by answer, not by updated_sources id: the editor can be holding a record id
+   *  from a record that no longer exists, and the gap still has to be logged against
+   *  whatever record now backs this answer. */
+  answerId: string;
+  /** The reviewer whose open stint this is logged against. */
+  userId: string;
+  /** The incomplete pop_unique_documents document's own _id. */
+  popId: string;
+  /** Which of year_of_release/live_source_link/shareable_name were blank on it. */
+  missingFields: PopRequiredField[];
+  /** What the reviewer saved onto those fields - omitted while the gap has only been
+   *  found, sent once they fill it in. */
+  updatedFields?: Partial<Record<PopRequiredField, string>>;
+}
+
 export interface INewSourceService {
   /** Called when the Edit Source modal opens — creates the updated_sources record as
    *  'in-progress' so the editing timer is backed by a real document from the start.
@@ -54,6 +74,11 @@ export interface INewSourceService {
    *  organization/sourceReferenceStatus/sourceIndex), stops the timer into timeTaken,
    *  and marks the record 'review-completed'. */
   completeNewSource(input: CompleteNewSourceInput): Promise<INewSource>;
+
+  /** Called as soon as a fetched pop document is found to be missing required fields,
+   *  and again with the saved values once the reviewer fills them in - both land on the
+   *  same entry of this reviewer's own open stint, keyed by popId. */
+  recordMissingPopDocument(input: RecordMissingPopDocumentInput): Promise<INewSource>;
 
   /** Called whenever the Edit Source modal closes — Cancel, Escape, outside click, or
    *  right after a successful save — regardless of whether the edit was completed.

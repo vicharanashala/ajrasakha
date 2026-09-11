@@ -1,5 +1,6 @@
 import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceRepository.js';
 import {
+  IMissingPopDocument,
   INewSource,
   INewSourceReviewEntry,
   INewSourceStatusChange,
@@ -64,6 +65,42 @@ export class NewSourceRepository implements INewSourceRepository {
       },
       {
         arrayFilters: [{'reviewer.userId': userId, 'reviewer.closedAt': null}],
+        returnDocument: 'after',
+      },
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
+  async setMissingPopDocuments(
+    id: string,
+    userId: string,
+    missingPopDocuments: IMissingPopDocument[],
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing updated_sources id');
+    }
+
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {
+        $set: {
+          'reviewArray.$[reviewer].missingPopDocuments': missingPopDocuments,
+          updatedAt: new Date(),
+        },
+      },
+      {
+        arrayFilters: [
+          {
+            'reviewer.userId': userId,
+            'reviewer.closedAt': null,
+            'reviewer.role': {$ne: 'moderator'},
+          },
+        ],
         returnDocument: 'after',
       },
     );
