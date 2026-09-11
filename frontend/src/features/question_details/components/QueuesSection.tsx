@@ -315,7 +315,7 @@ export const QueuesSection = ({
             onMouseLeave={handleMouseLeaveOrUp}
             onMouseUp={handleMouseLeaveOrUp}
             onMouseMove={handleMouseMove}
-            className="relative flex w-full items-center gap-1 sm:gap-1.5 rounded-xl border border-border bg-muted/40 p-1.5 overflow-x-auto overflow-y-hidden flex-nowrap shadow-sm touch-pan-x active:cursor-grabbing select-none"
+            className="relative flex w-full items-center gap-1 sm:gap-1.5 rounded-xl border border-border bg-muted/40 p-1.5 overflow-x-auto overflow-y-hidden flex-nowrap shadow-sm touch-pan-x active:cursor-grabbing select-none scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scrollbar-hiding"
           >
             <div ref={groupRef} className="relative flex items-center gap-1 sm:gap-1.5 flex-nowrap min-w-max">
               {/* Animated Glider Background */}
