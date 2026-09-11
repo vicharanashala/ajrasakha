@@ -438,6 +438,8 @@ type SourceReferenceLookupResult = {
   sourceName: string;
   yearOfRelease: number | string;
   sourceLink: string;
+  /** The matched document's own Annam.AI archived copy, when it has one. */
+  archivedLink: string;
   // Which of year_of_release/live_source_link/shareable_name were identified as missing
   // on the matched document when it was first fetched - empty when nothing was missing.
   missedFields: PopRequiredField[];
@@ -660,6 +662,7 @@ const SourceReferenceLookup = ({
   onFound,
   runWithSession,
   answerId,
+  className,
 }: {
   source: string;
   onFound?: (result: SourceReferenceLookupResult) => void;
@@ -669,10 +672,10 @@ const SourceReferenceLookup = ({
   /** The answer being reviewed - an incomplete pop document is logged against whichever
    *  updated_sources record currently backs it. */
   answerId: string;
+  className?: string;
 }) => {
   const { mutate, isPending } = useLookupPopSource();
   const { mutate: recordMissingPopDocument } = useRecordMissingPopDocument();
-  const [displayResult, setDisplayResult] = useState<PopLookupResult | null>(null);
   const [missingModal, setMissingModal] = useState<{
     id: string;
     fields: PopRequiredField[];
@@ -690,6 +693,7 @@ const SourceReferenceLookup = ({
         sourceName: result.shareable_name ?? "",
         yearOfRelease: result.year_of_release ?? "",
         sourceLink: result.live_source_link || result.shareable_link || "",
+        archivedLink: result.shareable_link ?? "",
         missedFields: identifiedMissingFieldsRef.current,
       });
     } else {
@@ -699,6 +703,7 @@ const SourceReferenceLookup = ({
         sourceName: "",
         yearOfRelease: "",
         sourceLink: "",
+        archivedLink: "",
         missedFields: [],
       });
     }
@@ -720,7 +725,6 @@ const SourceReferenceLookup = ({
     mutate(source, {
       onSuccess: (result) => {
         if (!result) return;
-        setDisplayResult(result);
         identifiedMissingFieldsRef.current = result.missingFields ?? [];
 
         // A match missing year_of_release/live_source_link/shareable_name is held back
@@ -750,64 +754,23 @@ const SourceReferenceLookup = ({
   };
 
   return (
-    <div className="grid gap-1.5">
+    <div className={cn("flex", className)}>
       <Button
         type="button"
         size="sm"
-        className="w-fit cursor-pointer"
+        className="h-9 w-full cursor-pointer whitespace-nowrap sm:w-auto"
         onClick={handleClick}
         disabled={isPending}
       >
         <FileSearch className="h-3.5 w-3.5" />
         {isPending ? "Checking..." : "Fetch source reference"}
       </Button>
-      {displayResult && !displayResult.found && (
-        <p className="text-xs text-destructive">Source not found.</p>
-      )}
-      {displayResult?.found && !displayResult.missingFields?.length && (
-        <div className="grid gap-0.5 rounded-md border border-border/60 bg-muted/30 p-2 text-xs">
-          <p className="font-medium text-foreground/90">{displayResult.shareable_name}</p>
-          {displayResult.live_source_link && (
-            <p className="flex min-w-0 gap-1 text-muted-foreground">
-              <span className="shrink-0">Original link:</span>
-              <a
-                href={displayResult.live_source_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-w-0 break-all text-primary hover:underline"
-              >
-                {displayResult.live_source_link}
-              </a>
-            </p>
-          )}
-          {displayResult.shareable_link && (
-            <p className="flex min-w-0 gap-1 text-muted-foreground">
-              <span className="shrink-0">Annam.AI Archived Link:</span>
-              <a
-                href={displayResult.shareable_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-w-0 break-all text-primary hover:underline"
-              >
-                {displayResult.shareable_link}
-              </a>
-            </p>
-          )}
-          <p className="text-muted-foreground">
-            {displayResult.year_of_release
-              ? `Year of release: ${displayResult.year_of_release}`
-              : "Year of release unavailable"}
-            {displayResult._id ? ` · ID: ${displayResult._id}` : ""}
-          </p>
-        </div>
-      )}
 
       <PopMissingFieldsModal
         open={missingModal !== null}
         popId={missingModal?.id ?? null}
         missingFields={missingModal?.fields ?? []}
         onSaved={(result, values) => {
-          setDisplayResult(result);
           logMissingPopDocument(
             missingModal?.id ?? "",
             identifiedMissingFieldsRef.current,
@@ -835,6 +798,7 @@ type SourceDraft = {
   sourceName?: string;
   yearOfRelease?: string | number;
   sourceLink?: string;
+  archivedLink?: string;
   organizationName?: string;
   organizationId?: string;
   sourceReferenceId?: string;
@@ -851,6 +815,7 @@ const toSourceDraft = (source: SourceItem): SourceDraft => ({
   sourceName: source.sourceName ?? "",
   yearOfRelease: source.yearOfRelease ?? "",
   sourceLink: "",
+  archivedLink: "",
   organizationName: source.organization ?? "",
   organizationId: undefined,
   sourceReferenceId: source.sourceReference ?? undefined,
@@ -859,12 +824,73 @@ const toSourceDraft = (source: SourceItem): SourceDraft => ({
   missedFields: [],
 });
 
+type SourceFieldKey =
+  | "source"
+  | "sourceReference"
+  | "organization"
+  | "sourceType"
+  | "pages";
+
+const SOURCE_FIELD_KEYS: SourceFieldKey[] = [
+  "source",
+  "sourceReference",
+  "organization",
+  "sourceType",
+  "pages",
+];
+
+// Page input accepts single pages and ranges, e.g. "4" or "4, 7, 10-12".
+const PAGE_INPUT_PATTERN = /^\d+(\s*-\s*\d+)?(\s*,\s*\d+(\s*-\s*\d+)?)*$/;
+
+// Each field is checked on its own so the reviewer sees what is missing under that
+// input, rather than one combined message when Save does nothing.
+const validateSourceDraft = (
+  draft: SourceDraft,
+): Partial<Record<SourceFieldKey, string>> => {
+  const errors: Partial<Record<SourceFieldKey, string>> = {};
+
+  const source = draft.source.trim();
+  if (!source) {
+    errors.source = "Enter the source link or document name.";
+  } else if (source.length < 3) {
+    errors.source = "Enter at least 3 characters.";
+  }
+
+  if (draft.sourceReferenceStatus === "notFound") {
+    errors.sourceReference =
+      "This source isn't in the repository - check the link or document name and fetch again.";
+  } else if (!draft.sourceReferenceId) {
+    errors.sourceReference = "Fetch the source reference to confirm this document.";
+  }
+
+  if (!draft.organizationId) {
+    errors.organization = "Select the organization that published this document.";
+  } else if (!draft.sourceType) {
+    // Source type is copied from the chosen organization, so a blank one means that
+    // organization record has no type and the source can't be saved against it.
+    errors.sourceType =
+      "This organization has no source type set. Pick another organization, or ask an admin to set its type.";
+  }
+
+  const pages = draft.pages.trim();
+  if (!pages) {
+    errors.pages = "Enter at least one page number.";
+  } else if (!PAGE_INPUT_PATTERN.test(pages)) {
+    errors.pages = "Use page numbers or ranges, for example 4 or 4, 7, 10-12.";
+  } else if (parsePageNumbers(pages).some((page) => page < 1)) {
+    errors.pages = "Page numbers start at 1.";
+  }
+
+  return errors;
+};
+
 const EMPTY_SOURCE_DRAFT: SourceDraft = {
   source: "",
   sourceType: undefined,
   sourceName: "",
   yearOfRelease: "",
   sourceLink: "",
+  archivedLink: "",
   organizationName: "",
   organizationId: undefined,
   sourceReferenceId: undefined,
@@ -975,6 +1001,9 @@ const AnswerSourcesEditor = ({
   // Indices of existing sources the expert has stepped through with "Next". Save only
   // becomes available once every existing source has been confirmed this way.
   const [confirmedIndices, setConfirmedIndices] = useState<Set<number>>(new Set());
+  // Which fields of the source being edited have been interacted with, so errors only
+  // appear once they are useful. Cleared whenever another source is opened.
+  const [touchedFields, setTouchedFields] = useState<SourceFieldKey[]>([]);
   const [newSourceId, setNewSourceId] = useState<string | null>(null);
   // The other answer's in-progress updated_sources record this expert still owns, surfaced
   // so they can confirm switching to this answer before it's released back to pending.
@@ -995,13 +1024,16 @@ const AnswerSourcesEditor = ({
 
   const isEditing = editingIndex !== null;
   const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : EMPTY_SOURCE_DRAFT;
-  const isValid =
-    form.source.trim().length > 0 &&
-    Boolean(form.sourceType) &&
-    Boolean(form.organizationId) &&
-    Boolean(form.sourceReferenceId) &&
-    form.sourceReferenceStatus !== null &&
-    form.pages.trim().length > 0;
+  const fieldErrors = validateSourceDraft(form);
+  const isValid = isEditing && Object.keys(fieldErrors).length === 0;
+  // A field shows its error once the reviewer has left it, acted on it, or pressed
+  // Save - so nothing is flagged red before they have had a chance to fill it in.
+  // A fetched match is what fills the read-only panel below the Source field.
+  const isMatched = Boolean(form.sourceReferenceId);
+  const errorFor = (field: SourceFieldKey) =>
+    touchedFields.includes(field) ? fieldErrors[field] : undefined;
+  const markTouched = (field: SourceFieldKey) =>
+    setTouchedFields((prev) => (prev.includes(field) ? prev : [...prev, field]));
   // With more than one existing source, step through them with "Next" - Save only
   // shows up once confirming the one currently open would leave none unconfirmed, so
   // the last remaining source goes straight to "Save" instead of needing an extra
@@ -1133,10 +1165,12 @@ const AnswerSourcesEditor = ({
   const selectSource = (index: number) => {
     ensureSession();
     setEditingIndex(index);
+    setTouchedFields([]);
   };
 
   const resetForm = () => {
     if (editingIndex === null) return;
+    setTouchedFields([]);
     setDrafts((prev) =>
       prev.map((draft, i) =>
         i === editingIndex ? toSourceDraft(sources[editingIndex]) : draft,
@@ -1149,7 +1183,8 @@ const AnswerSourcesEditor = ({
   // way, the button below switches from "Next" to "Save".
   const handleNext = () => {
     if (!isValid) {
-      toast.error("Enter a source, select an organization, fetch the source reference, and enter at least one page.");
+      setTouchedFields(SOURCE_FIELD_KEYS);
+      toast.error("Fix the highlighted fields to continue.");
       return;
     }
     if (editingIndex === null) return;
@@ -1169,7 +1204,8 @@ const AnswerSourcesEditor = ({
 
   const handleSave = () => {
     if (!isValid) {
-      toast.error("Enter a source, select an organization, fetch the source reference, and enter at least one page.");
+      setTouchedFields(SOURCE_FIELD_KEYS);
+      toast.error("Fix the highlighted fields to continue.");
       return;
     }
     if (!newSourceId) {
@@ -1331,51 +1367,109 @@ const AnswerSourcesEditor = ({
           <Label htmlFor={`${fieldId}-source`} className="text-xs">
             Source <span className="text-destructive">*</span>
           </Label>
-          <Input
-            id={`${fieldId}-source`}
-            className="bg-background"
-            value={form.source}
-            onChange={(e) => updateField("source", e.target.value)}
-            placeholder="https://... or the document name"
-            required
-          />
-          <SourceReferenceLookup
-            key={editingIndex ?? "new"}
-            source={form.source}
-            runWithSession={runWithSession}
-            answerId={answer._id}
-            onFound={(result) => {
-              updateActive({
-                sourceReferenceId: result.sourceReferenceId,
-                sourceReferenceStatus: result.matchStatus,
-                sourceName: result.sourceName,
-                yearOfRelease: result.yearOfRelease,
-                sourceLink: result.sourceLink,
-                missedFields: result.missedFields,
-              });
-            }}
-          />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <Input
+              id={`${fieldId}-source`}
+              value={form.source}
+              onChange={(e) => updateField("source", e.target.value)}
+              onBlur={() => markTouched("source")}
+              placeholder="https://... or the document name"
+              aria-invalid={Boolean(errorFor("source"))}
+              aria-describedby={
+                errorFor("source") ? `${fieldId}-source-error` : undefined
+              }
+              className={cn(
+                "bg-background sm:flex-1",
+                errorFor("source") &&
+                  "border-destructive focus-visible:ring-destructive/30",
+              )}
+            />
+            <SourceReferenceLookup
+              key={editingIndex ?? "new"}
+              source={form.source}
+              runWithSession={runWithSession}
+              answerId={answer._id}
+              className="sm:shrink-0"
+              onFound={(result) => {
+                markTouched("sourceReference");
+                updateActive({
+                  sourceReferenceId: result.sourceReferenceId,
+                  sourceReferenceStatus: result.matchStatus,
+                  sourceName: result.sourceName,
+                  yearOfRelease: result.yearOfRelease,
+                  sourceLink: result.sourceLink,
+                  archivedLink: result.archivedLink,
+                  missedFields: result.missedFields,
+                });
+              }}
+            />
+          </div>
+          {(errorFor("source") || errorFor("sourceReference")) && (
+            <p id={`${fieldId}-source-error`} className="text-xs text-destructive">
+              {errorFor("source") ?? errorFor("sourceReference")}
+            </p>
+          )}
+        </div>
+
+        {/* Filled in by the lookup above - shown so the reviewer can check the match
+            before saving, never typed into directly. */}
+        <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/30 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className={SECTION_LABEL_CLASSES}>From the matched document</p>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
+                isMatched
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  : "bg-muted text-muted-foreground",
+              )}
+            >
+              {isMatched ? "Matched" : "Not fetched"}
+            </span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ReadOnlyField
+              label="Source name"
+              value={form.sourceName}
+              placeholder="Not fetched yet"
+            />
+            <ReadOnlyField
+              label="Year of release"
+              value={form.yearOfRelease ? String(form.yearOfRelease) : ""}
+              placeholder="Not fetched yet"
+            />
+          </div>
+
+          {(form.sourceLink || form.archivedLink) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              {form.sourceLink && (
+                <a
+                  href={form.sourceLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Original link
+                </a>
+              )}
+              {form.archivedLink && (
+                <a
+                  href={form.archivedLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Annam.AI archived copy
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label className="text-xs">Year of release</Label>
-            <p className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90">
-              {form.yearOfRelease || "—"}
-            </p>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-xs">
-              Source type <span className="text-destructive">*</span>
-            </Label>
-            <p className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90">
-              {form.sourceType
-                ? SOURCE_TYPE_LABELS[form.sourceType] ?? form.sourceType
-                : "Select an organization"}
-            </p>
-          </div>
-
           <div className="grid gap-1.5">
             <Label htmlFor={`${fieldId}-org`} className="text-xs">
               Organization <span className="text-destructive">*</span>
@@ -1384,45 +1478,67 @@ const AnswerSourcesEditor = ({
               id={`${fieldId}-org`}
               value={form.organizationName ?? ""}
               runWithSession={runWithSession}
-              onChange={(org) =>
+              onChange={(org) => {
+                markTouched("organization");
+                markTouched("sourceType");
                 updateActive({
                   organizationId: org._id,
                   organizationName: org.org_name,
                   sourceType: org.type,
-                })
-              }
+                });
+              }}
             />
+            {errorFor("organization") && (
+              <p className="text-xs text-destructive">{errorFor("organization")}</p>
+            )}
           </div>
 
-          <div className="grid gap-1.5">
-            <Label className="text-xs">Source name</Label>
-            <p
-              className="flex h-9 items-center truncate rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90"
-              title={form.sourceName || undefined}
-            >
-              {form.sourceName || "Fetch source reference to populate"}
-            </p>
-          </div>
+          <ReadOnlyField
+            label="Source type"
+            value={
+              form.sourceType
+                ? SOURCE_TYPE_LABELS[form.sourceType] ?? form.sourceType
+                : ""
+            }
+            placeholder="Set by the organization"
+            required
+            error={errorFor("sourceType")}
+          />
+        </div>
 
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label htmlFor={`${fieldId}-pages`} className="text-xs">
-              Page(s) <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id={`${fieldId}-pages`}
-              className="bg-background"
-              value={form.pages}
-              onChange={(e) => updateField("pages", e.target.value)}
-              placeholder="e.g. 4 or 4, 7, 10-12"
-            />
-          </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${fieldId}-pages`} className="text-xs">
+            Page(s) <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id={`${fieldId}-pages`}
+            value={form.pages}
+            onChange={(e) => updateField("pages", e.target.value)}
+            onBlur={() => markTouched("pages")}
+            placeholder="e.g. 4 or 4, 7, 10-12"
+            aria-invalid={Boolean(errorFor("pages"))}
+            aria-describedby={`${fieldId}-pages-hint`}
+            className={cn(
+              "bg-background",
+              errorFor("pages") &&
+                "border-destructive focus-visible:ring-destructive/30",
+            )}
+          />
+          <p
+            id={`${fieldId}-pages-hint`}
+            className={cn(
+              "text-xs",
+              errorFor("pages") ? "text-destructive" : "text-muted-foreground",
+            )}
+          >
+            {errorFor("pages") ??
+              "Page numbers aren't part of either document, so they're entered manually."}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
           <p className="text-xs text-muted-foreground">
-            Source and page(s) are required. Selecting an organization sets source type;
-            fetching the source reference sets source name and year of release. Page(s)
-            aren't part of either document, so they're entered manually.
+            Fields marked <span className="text-destructive">*</span> are required.
           </p>
           <div className="flex gap-2">
             <Button
@@ -1439,7 +1555,7 @@ const AnswerSourcesEditor = ({
               type="button"
               size="sm"
               className="cursor-pointer"
-              disabled={!isValid || isSaving || isStarting}
+              disabled={isSaving || isStarting}
               onClick={showNext ? handleNext : handleSave}
             >
               {isSaving ? "Saving..." : showNext ? "Next" : "Save changes"}
@@ -1467,6 +1583,41 @@ const AnswerSourcesEditor = ({
     </section>
   );
 };
+
+// A value that comes from the matched document or the selected organization - shown for
+// checking, never edited here.
+const ReadOnlyField = ({
+  label,
+  value,
+  placeholder,
+  error,
+  required = false,
+}: {
+  label: string;
+  value?: string;
+  placeholder: string;
+  required?: boolean;
+  /** Set when the value this field mirrors can't be resolved, e.g. an organization
+   *  with no source type. */
+  error?: string;
+}) => (
+  <div className="grid gap-1.5">
+    <Label className="text-xs text-muted-foreground">
+      {label} {required && <span className="text-destructive">*</span>}
+    </Label>
+    <p
+      title={value || undefined}
+      className={cn(
+        "flex h-9 items-center truncate rounded-md border bg-muted/40 px-3 text-sm",
+        error ? "border-destructive" : "border-border",
+        value ? "text-foreground/90" : "text-muted-foreground",
+      )}
+    >
+      {value || placeholder}
+    </p>
+    {error && <p className="text-xs text-destructive">{error}</p>}
+  </div>
+);
 
 const DetailFact = ({ label, value }: { label: string; value: string }) => (
   <div className="flex min-w-0 flex-col gap-0.5">
