@@ -31,6 +31,42 @@ export interface ITestersDashboardSummaryQuery {
     staticSubTypes?: string;
 }
 
+// Mirrors backend's ReleaseHealthMetric/ReleaseHealthBucket/ReleaseHealthResult
+// (backend/src/modules/dashboard/testersDashboard/kpis.ts)
+export interface ITestersDashboardReleaseHealthMetric {
+    key: string;
+    label: string;
+    // This metric's weight within its own bucket (0-1).
+    weight: number;
+    // 0-100 health score.
+    value: number;
+}
+
+export interface ITestersDashboardReleaseHealthBucket {
+    key: string;
+    label: string;
+    // This bucket's weight within the overall Release Health score (0-1).
+    weight: number;
+    // 0-100, the weighted average of this bucket's own metrics.
+    score: number;
+    metrics: ITestersDashboardReleaseHealthMetric[];
+}
+
+// Mirrors backend's ReleaseHealthDecision.
+export type ITestersDashboardReleaseHealthDecision = "GO" | "GO_WITH_CONDITIONS" | "NO_GO";
+
+export interface ITestersDashboardReleaseHealthResult {
+    score: number;
+    buckets: ITestersDashboardReleaseHealthBucket[];
+    // Score-only GO / GO WITH CONDITIONS / NO-GO call (>=95 / >=90 / below
+    // 90) - see backend's releaseHealthDecision() for the important caveat:
+    // the business plan's full rule also requires all mandatory release
+    // gates (rollback tested, monitoring active, backup available, no
+    // critical blocking defect, etc.) to PASS, which the test sheet has no
+    // data for yet - this is score-only until that data exists.
+    decision: ITestersDashboardReleaseHealthDecision;
+}
+
 // Mirrors backend's KpiSummary (backend/src/modules/dashboard/testersDashboard/kpis.ts)
 export interface ITestersDashboardKpiSummary {
     N: number;
@@ -39,10 +75,9 @@ export interface ITestersDashboardKpiSummary {
         A_sci: number;
         A_dom: number;
         S_lnk: number;
-        E_exp: number;
+        Q_frm: number;
         Q_trn: number;
-        C_chn: number;
-        C_chn_sampleSize: number;
+        S_sla: number;
     };
     experienceScore: number;
     experienceBreakdown: {
@@ -60,6 +95,8 @@ export interface ITestersDashboardKpiSummary {
     failRate: number;
     totalFailed: number;
     sciCorrectCount: number;
+    scientificAccuracyApplicableCount: number;
+    scientificAccuracyAllRows: number;
     voiceSuccess: {
         score: number;
         sampleSize: number;
@@ -82,14 +119,26 @@ export interface ITestersDashboardKpiSummary {
         countDuplicateFailure: number;
         countCriticalBugs: number;
     };
-    releaseHealth: number;
-    releaseBreakdown: {
-        passRate: number;
-        criticalDefects: number;
-        criticalDefectRate: number;
-        dataIntegrityFailures: number;
-        dataIntegrityRate: number;
+    // Critical Failures card v2 (Failures/Successes tabs) - mirrors backend's
+    // CriticalFailureCategoriesResult (kpis.ts).
+    criticalFailureCategories: {
+        categories: {
+            key: string;
+            label: string;
+            successLabel: string;
+            failureCount: number;
+            successCount: number;
+        }[];
+        failuresTotal: number;
+        successesTotal: number;
+        distinctFailureRows: number;
+        distinctSuccessRows: number;
     };
+    releaseHealth: number;
+    // Mirrors backend's ReleaseHealthResult - the 6-bucket weighted model
+    // (25/20/20/15/10/10%) replacing the old Pass Rate - Critical Defect
+    // Rate - Data Integrity Rate formula.
+    releaseHealthBreakdown: ITestersDashboardReleaseHealthResult;
     slaBreakdown: {
         validRows: number;
         withinSlaCount: number;
@@ -119,37 +168,44 @@ export interface ITestersDashboardPreviousPeriodStats {
     rangeLabel: string;
 }
 
-// Mirrors backend's ModulePerformanceMetric
+// Mirrors backend's AceModuleSubMetric
 // (backend/src/modules/dashboard/testersDashboard/diagnostics.ts)
-export interface ITestersDashboardModulePerformanceMetric {
-    value: number;
+export interface ITestersDashboardAceModuleSubMetric {
+    key: string;
+    label: string;
+    // Null when this sub-metric had zero applicable (non-blank/NA, per its
+    // own scoping) rows - skipped from the module's overallScore average
+    // entirely server-side, never treated as a 0.
+    value: number | null;
     applicable: number;
 }
 
-// Mirrors backend's ModulePerformanceEntry - one of the 6 Overall Module
-// Performance buckets (GDB, Unique Questions, Outreach, and Dynamic's
-// Weather/Mandi Prices/Government Schemes sub-types competing directly, not
-// nested under a separate Dynamic-as-a-whole entry).
-export interface ITestersDashboardModulePerformanceEntry {
-    bucket: string;
-    totalRows: number;
+// Mirrors backend's AceModuleEntry - one of the 6 ACE modules (Farmer
+// Interaction, Agri Advisory, Knowledge & GDB, Dynamic Advisory,
+// Multilingual & Voice, Communication & Notifications), each scored from its
+// own related columns rather than a Type-of-Question row grouping.
+export interface ITestersDashboardAceModuleEntry {
+    key: string;
+    label: string;
+    subMetrics: ITestersDashboardAceModuleSubMetric[];
+    // Distinct rows applicable to at least one of this module's sub-metrics
+    // - what MIN_ROWS_FOR_WEAKEST_MODULE eligibility is gated on server-side.
+    applicableRowCount: number;
     eligible: boolean;
-    passRate: ITestersDashboardModulePerformanceMetric | null;
-    scientificAccuracy: ITestersDashboardModulePerformanceMetric | null;
-    // Null for GDB/Unique Questions/Outreach (not applicable to those
-    // buckets, never averaged in) - only real for the 3 Dynamic sub-types.
-    domainAccuracy: ITestersDashboardModulePerformanceMetric | null;
-    translationQuality: ITestersDashboardModulePerformanceMetric | null;
-    voicePerformance: ITestersDashboardModulePerformanceMetric | null;
-    slaCompliance: ITestersDashboardModulePerformanceMetric | null;
-    notificationExperience: ITestersDashboardModulePerformanceMetric | null;
-    criticalFailureRate: ITestersDashboardModulePerformanceMetric | null;
     overallScore: number | null;
-    metricsUsedCount: number;
-    // The 1-2 lowest-scoring applicable metrics behind overallScore, by
-    // label - genuinely derived from this bucket's own numbers server-side,
+    // The 1-2 lowest-scoring applicable sub-metrics behind overallScore, by
+    // label - genuinely derived from this module's own numbers server-side,
     // not hardcoded here.
     weakestMetricLabels: string[];
+}
+
+// Mirrors backend's AceComingSoonModule - one of modules 8-10 (Review &
+// Quality, Farmer Context, ACE Platform & Integrations), built but not yet
+// scoreable with the sheet's current columns. No score/row-count fields -
+// the card renders these as "Coming soon" instead.
+export interface ITestersDashboardComingSoonModule {
+    key: string;
+    label: string;
 }
 
 // Mirrors backend's DiagnosticsResult
@@ -158,17 +214,18 @@ export interface ITestersDashboardDiagnostics {
     stageStats: { name: string; avg: number }[];
     bottleneckName: string;
     bottleneckTime: number;
-    // All 6 buckets in the fixed grouping order (GDB, Unique Questions,
-    // Outreach, then Dynamic's 3 sub-types together) - NOT sorted by score.
-    // weakestModule below is independent of this array's order.
-    modulePerformance: ITestersDashboardModulePerformanceEntry[];
+    // All 6 ACE modules in the fixed ACE_MODULE_KEYS order - NOT sorted by
+    // score. weakestModule below is independent of this array's order.
+    modulePerformance: ITestersDashboardAceModuleEntry[];
+    // Modules 8-10, unscored - rendered after modulePerformance as "Coming
+    // soon", never eligible/considered for weakestModule.
+    comingSoonModules: ITestersDashboardComingSoonModule[];
     weakestModule: string;
     weakestModuleRowCount: number;
-    // The weakest eligible bucket's overallScore - the headline number the
-    // Weakest Module card shows, replacing the old Scientific-Accuracy-only
-    // percentage.
+    // The weakest eligible module's overallScore - the headline number the
+    // Weakest Module card shows.
     weakestModuleScore: number | null;
-    // The weakest eligible bucket's weakestMetricLabels - kept for API
+    // The weakest eligible module's weakestMetricLabels - kept for API
     // completeness, but the card's headline text no longer reads from this
     // (it shows a fixed methodology explanation instead, the same for every
     // module - see TestersDashboard.tsx).
