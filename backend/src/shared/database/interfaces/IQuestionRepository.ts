@@ -698,6 +698,21 @@ export interface IQuestionRepository {
     totalPages: number;
     totalCount: number;
   }>;
+  getModeratorDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
   setRoleAssignee(
     questionId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',
@@ -839,4 +854,10 @@ export interface IQuestionRepository {
    * Get available PAE experts count (lightweight query)
    */
   getAvailablePaeExpertsCount(): Promise<number>;
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  updateNormalisedCrop(questionId: string, normalisedCrop: string): Promise<{ modifiedCount: number }>;
 }

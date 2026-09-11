@@ -18,6 +18,7 @@ import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
+import { ModeratorDashboard } from "./ModeratorDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
@@ -325,6 +326,21 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <GateKeeperAuditorDashboard />
+                </TabsContent>
+              )}
+              {user && user.role === "moderator" && (
+                <TabsContent
+                  value="moderatorDashboard"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ModeratorDashboard />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (

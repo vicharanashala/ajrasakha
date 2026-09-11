@@ -17,10 +17,14 @@ import nodemailer from 'nodemailer';
 const SMTP_SERVICE: string | null = env('SMTP_SERVICE') || null;
 const SMTP_HOST = env('SMTP_HOST') || 'smtp.zoho.in';
 const SMTP_PORT = Number(env('SMTP_PORT') || 465);
-const SMTP_SECURE =
-  env('SMTP_SECURE') !== undefined
-    ? String(env('SMTP_SECURE')).toLowerCase() === 'true'
-    : true; // 465 is implicit TLS — preserve legacy behaviour
+const SMTP_SECURE = env('SMTP_SECURE')
+  ? String(env('SMTP_SECURE')).toLowerCase() === 'true'
+  : SMTP_PORT === 465;
+
+// const SMTP_SECURE =
+//   env('SMTP_SECURE') !== undefined
+//     ? String(env('SMTP_SECURE')).toLowerCase() === 'true'
+//     : true; // 465 is implicit TLS — preserve legacy behaviour
 
 /**
  * Builds the nodemailer transport options. When neither `EMAIL_USER` nor

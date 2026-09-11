@@ -107,6 +107,16 @@ export class CropController {
   // IMPORTANT: these static routes must come BEFORE /:cropId to avoid being
   // swallowed by the wildcard param route.
 
+  // Extensible crop-side categories (weed/pest/disease/…) the UI renders dynamically.
+  // Declared before '/:cropId' so it isn't swallowed by the wildcard param route.
+  @Get('/entry-types')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List the crop-side entry categories (known + custom) for the UI.' })
+  async getEntryTypes(): Promise<{ types: string[] }> {
+    return { types: await this.cropService.getEntryTypes() };
+  }
+
   @Get('/bulk-status')
   @HttpCode(200)
   @Authorized()
@@ -125,48 +135,50 @@ export class CropController {
 
   // ─── DOWNLOAD CROPS AS EXCEL ─────────────────────────────────────────────
 
-  @OpenAPI({ summary: 'Download crops or chemicals list as Excel' })
+  @OpenAPI({ summary: 'Download the AgriTech Management list as Excel (optionally filtered by type)' })
   @Get('/download')
   @HttpCode(200)
   @Authorized()
   @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   async downloadCrops(
-    @QueryParams() query: { type?: 'crop' | 'chemical' },
+    @QueryParams() query: { type?: string },
     @Res() response: any,
   ): Promise<Buffer> {
-    const type = query.type;
+    // No type → download everything (all AgriTech entries across every type).
+    const type = query.type && query.type.trim() ? query.type.trim() : undefined;
     const { crops } = await this.cropService.getAllCrops({ limit: 100000, sort: 'name_asc', type });
+
+    const HEADERS = [
+      'Name', 'Type', 'Scientific Name', 'Status', 'Crops',
+      'Language', 'Region', 'English Name', 'Native Name',
+    ];
+    // Crop-level columns (the first 5) are merged vertically across an entry's alias rows.
+    const MERGE_COLS = 5;
+
+    const cropLevel = (crop: any, first: boolean): Record<string, string> => ({
+      Name: first ? crop.name : '',
+      Type: first ? (crop.type ?? 'crop') : '',
+      'Scientific Name': first ? (crop.scientificName ?? '') : '',
+      Status: first ? (crop.status ?? '') : '',
+      Crops: first ? (crop.crops ?? []).join(', ') : '',
+    });
 
     const rows: Record<string, string>[] = [];
     const merges: XLSX.Range[] = [];
     // row 0 in the sheet is the header; data rows start at index 1
     let currentDataRow = 1;
-    // number of leading columns to merge per crop (Name for crops; Name+Status+Crops for chemicals)
-    const mergeColCount = type === 'chemical' ? 3 : 1;
 
     for (const crop of crops) {
       const aliases = crop.aliases ?? [];
       const startRow = currentDataRow;
 
       if (aliases.length === 0) {
-        const row: Record<string, string> = { Name: crop.name };
-        if (type === 'chemical') {
-          row['Status'] = crop.status ?? '';
-          row['Crops'] = (crop.crops ?? []).join(', ');
-        }
-        rows.push({ ...row, Language: '', Region: '', 'English Name': '', 'Native Name': '' });
+        rows.push({ ...cropLevel(crop, true), Language: '', Region: '', 'English Name': '', 'Native Name': '' });
         currentDataRow++;
       } else {
         for (let i = 0; i < aliases.length; i++) {
           const alias = aliases[i];
-          const row: Record<string, string> = {};
-
-          // Only populate crop-level fields on the first alias row
-          row['Name'] = i === 0 ? crop.name : '';
-          if (type === 'chemical') {
-            row['Status'] = i === 0 ? (crop.status ?? '') : '';
-            row['Crops'] = i === 0 ? (crop.crops ?? []).join(', ') : '';
-          }
+          const row: Record<string, string> = { ...cropLevel(crop, i === 0) };
 
           if (typeof alias === 'string') {
             row['Language'] = '';
@@ -186,16 +198,17 @@ export class CropController {
 
         // Merge crop-level columns vertically across all alias rows for this crop
         if (aliases.length > 1) {
-          for (let c = 0; c < mergeColCount; c++) {
+          for (let c = 0; c < MERGE_COLS; c++) {
             merges.push({ s: { r: startRow, c }, e: { r: currentDataRow - 1, c } });
           }
         }
       }
     }
 
-    const sheetName = type === 'chemical' ? 'Chemicals' : 'Crops';
-    const filename = type === 'chemical' ? 'chemicals_list.xlsx' : 'crops_list.xlsx';
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const label = type ? type.charAt(0).toUpperCase() + type.slice(1) : 'AgriTech';
+    const sheetName = label.slice(0, 31);
+    const filename = type ? `${type}_list.xlsx` : 'agritech_management.xlsx';
+    const ws = XLSX.utils.json_to_sheet(rows, { header: HEADERS });
     if (merges.length > 0) ws['!merges'] = merges;
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -306,13 +319,21 @@ export class CropController {
         throw new BadRequestError(err?.message || 'Failed to parse CSV file');
       }
 
-      const uploadType = body?.type === 'chemical' ? 'chemical' : 'crop';
+      const isChemical = body?.type === 'chemical';
+      // Crop-side uploads keep whatever type the tab sent (crop/weed/pest/disease or a
+      // custom "Other" type); default to 'crop' when none was provided.
+      const cropType =
+        body?.type && body.type.trim() ? body.type : 'crop';
 
-      const jobId = uploadType === 'chemical'
+      const jobId = isChemical
         ? startChemicalBulkProcessing(rows, userId, actor, this.auditTrailsService)
-        : startCropBulkProcessing(rows, userId, actor, this.auditTrailsService);
+        : startCropBulkProcessing(rows, userId, actor, this.auditTrailsService, cropType);
 
-      const label = uploadType === 'chemical' ? 'Chemicals' : 'Crops';
+      const label = isChemical
+        ? 'Chemicals'
+        : cropType === 'crop'
+          ? 'Crops'
+          : 'Entries';
 
       return {
         success: true,
@@ -327,6 +348,7 @@ export class CropController {
     if (!body?.name || typeof body.name !== 'string' || !body.name.trim()) {
       throw new BadRequestError('Crop name is required');
     }
+
 
     let crop;
     let auditPayload: ModeratorAuditTrail = {

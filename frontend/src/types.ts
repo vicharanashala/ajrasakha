@@ -667,6 +667,8 @@ export interface IQuestionFullData {
       [key: string]: string;
     };
     text: string;
+    /** The reference question's approved final-answer text. */
+    answer?: string;
     sources?: SourceItem[];
   };
   originalQuestion?: string;

@@ -850,10 +850,28 @@ export interface ICropAlias {
 
 export type CropType = 'crop' | 'chemical' | (string & {});
 
+/** Crop-side entry types that share the crop structure (title-casing, alias merge,
+ *  uniqueness). 'chemical' is handled separately and is intentionally not listed here.
+ *
+ *  ── To add a new category (e.g. 'insect') just append it here. It automatically
+ *     flows to type validation, the /crops/entry-types endpoint, and the whole UI
+ *     (add-form category dropdown, the "Other" tab filter, bulk upload). ── */
+export const CROP_ENTRY_TYPES = ['crop', 'weed', 'pest', 'disease'] as const;
+export type CropEntryType = (typeof CROP_ENTRY_TYPES)[number];
+
+/** The extensible categories shown under the "Other" grouping in the UI — every
+ *  crop-side type except the primary 'crop'. Served by /crops/entry-types. */
+export const CROP_OTHER_TYPES: string[] = CROP_ENTRY_TYPES.filter(t => t !== 'crop');
+
+/** Every type accepted by the crop create/update endpoints (crop-side + chemical). */
+export const ALLOWED_CROP_TYPES = [...CROP_ENTRY_TYPES, 'chemical'] as const;
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  type?: CropType; // 'crop' (default) | 'chemical' | any custom string
+  type?: CropType; // 'crop' (default) | 'weed' | 'pest' | 'disease' | 'chemical'
+  /** Optional scientific (binomial) name, e.g. "Oryza sativa". Stored as entered. */
+  scientificName?: string | null;
   status?: string; // only relevant when type === 'chemical', any custom string
   aliases: (ICropAlias | string)[]; // string = legacy format; ICropAlias = new format
   crops?: string[]; // associated crops (only for type === 'chemical')

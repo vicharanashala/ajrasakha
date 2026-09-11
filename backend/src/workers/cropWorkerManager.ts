@@ -30,6 +30,8 @@ export const startCropBulkProcessing = (
   userId: string,
   actor: any,
   auditService: IAuditTrailsService,
+  // Crop-side entry type: 'crop' (default) | 'weed' | 'pest' | 'disease'.
+  type: string = 'crop',
 ): string => {
   const jobId = Date.now().toString();
 
@@ -54,6 +56,7 @@ export const startCropBulkProcessing = (
     workerData: {
       rows,
       userId,
+      type,
       mongoUri: process.env.DB_URL!,
       dbName: process.env.DB_NAME!,
     },

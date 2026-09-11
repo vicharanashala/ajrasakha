@@ -127,7 +127,7 @@ export class QuestionAllocationController {
       limit?: number;
       search?: string;
       userId?: string;
-      role?: 'gate_keeper' | 'auditor';
+      role?: 'gate_keeper' | 'auditor' | 'moderator';
       startDate?: string;
       endDate?: string;
       dateFilterType?: 'assigned' | 'completed' | 'both';
@@ -137,17 +137,21 @@ export class QuestionAllocationController {
     const viewingOther =
       isManager &&
       !!query.userId &&
-      (query.role === 'gate_keeper' || query.role === 'auditor');
+      (query.role === 'gate_keeper' ||
+        query.role === 'auditor' ||
+        query.role === 'moderator');
 
     const targetUserId = viewingOther ? query.userId! : user._id.toString();
     const role = viewingOther
       ? query.role!
-      : user.role === 'gate_keeper' || user.role === 'auditor'
+      : user.role === 'gate_keeper' ||
+          user.role === 'auditor' ||
+          user.role === 'moderator'
         ? user.role
         : null;
     if (!role) {
       throw new BadRequestError(
-        'This dashboard is only available for gate keepers and auditors.',
+        'This dashboard is only available for gate keepers, auditors and moderators.',
       );
     }
     const page = Number(query.page) || 1;
@@ -1080,7 +1084,10 @@ export class QuestionAllocationController {
         index,
       );
 
-      if ((result?.history?.length ?? 0) === 0) {
+      if (
+        (result?.history?.length ?? 0) === 0 &&
+        (result?.queue?.length ?? 0) === 0
+      ) {
         await this.questionService.updateQuestion(questionId, {
           firstAllocationAt: null as any,
         });
