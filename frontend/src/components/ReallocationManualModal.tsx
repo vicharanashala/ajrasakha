@@ -24,7 +24,7 @@ import {
 } from "./atoms/select";
 import { useGetReallocationPreview } from "../hooks/api/question/useGetReallocationPreview";
 import { useManualReallocate } from "../hooks/api/question/useManualReallocate";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { Loader2, AlertCircle, Zap } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { cn } from "@/lib/utils";

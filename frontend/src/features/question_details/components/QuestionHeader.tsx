@@ -10,7 +10,7 @@ import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useConfirmDuplicate } from "@/hooks/api/answer/useConfirmDuplicate";
 import { Textarea } from "@/components/atoms/textarea";

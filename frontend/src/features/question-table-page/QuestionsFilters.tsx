@@ -53,7 +53,7 @@ import type {
   QuestionStatus,
   UserRole,
 } from "@/types";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";

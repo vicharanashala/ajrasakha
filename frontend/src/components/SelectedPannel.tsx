@@ -2,7 +2,7 @@ import AvatarComponent from "./avatar-component";
 import type { ReRouteStatus, SourceItem } from "@/types";
 import { useState } from "react";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   ApproveAnswerDialog,
   clearApproveAnswerDraft,

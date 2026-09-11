@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+
 import {
   MessageSquareDiff,
   CheckCircle2,
@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./atoms/dialog";
+import { toast } from "@/shared/components/toast";
 
 const qs = new QuestionService();
 
@@ -105,12 +106,20 @@ export const FeedbackReviewTimeline = ({
 
   const remove = useMutation({
     mutationFn: (index: number) => qs.removeFeedbackReviewer(questionId, index),
-    onSuccess: () => {
+    onMutate: ()=>{
+      const toastId = toast.loading('Removing reviewer...')
+      return {toastId}
+    },
+    onSuccess: (_,__,context) => {
+      if(context?.toastId)toast.dismiss(context.toastId)
       toast.success("Reviewer removed");
       queryClient.invalidateQueries({ queryKey: ["feedback-timeline", questionId] });
       queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
     },
-    onError: (e: any) => toast.error(e?.message || "Failed to remove reviewer"),
+    onError: (e: any,_,context) =>{
+      if(context?.toastId)toast.dismiss(context.toastId)
+      toast.error(e?.message || "Failed to remove reviewer");
+    } 
   });
 
   const closeModal = () => {

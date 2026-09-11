@@ -36,7 +36,7 @@ import { FeedbackReviewTimeline } from "./FeedbackReviewTimeline";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubmissionHistoryModal } from "./submission-history-model";
 import PaeValidationReviewTimeline from "./PaeValidationReviewTimeline";

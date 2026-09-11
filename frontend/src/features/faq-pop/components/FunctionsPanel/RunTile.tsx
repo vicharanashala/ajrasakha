@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { toast } from 'sonner';
+import { toast } from '@/shared/components/toast';
 import { Square } from 'lucide-react';
 import { getNextState, getJob, stopJob } from '../../api';
 import PipelineOutput, {

@@ -86,7 +86,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 const EMPTY_VALUE = "Not provided";
@@ -485,14 +485,17 @@ export function UserDetailsView({
     isVerified: boolean,
   ) => {
     setVerifyingUserId(userId);
+    let toastId;
 
     try {
+      toastId = toast.loading(isVerified ? "Verifying user..." : "Updating verification status...");
       const response = await verifyUserMutation.mutateAsync({
         userId,
         source,
         isVerified,
       });
 
+      if (toastId) toast.dismiss(toastId);
       toast.success(
         response?.message ||
           (isVerified
@@ -500,6 +503,7 @@ export function UserDetailsView({
             : "User marked unverified successfully"),
       );
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error?.message || "Failed to update verification status");
     } finally {
       setVerifyingUserId(null);
