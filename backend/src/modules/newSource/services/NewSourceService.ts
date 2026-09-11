@@ -5,6 +5,8 @@ import {
   IMissingPopDocument,
   INewSource,
   INewSourceItem,
+  ModeratorActionType,
+  NewSourceStatus,
 } from '#root/shared/interfaces/models.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IOrganizationService} from '#root/modules/organization/interfaces/IOrganizationService.js';
@@ -20,6 +22,18 @@ import {
   RecordMissingPopDocumentInput,
   StartNewSourceInput,
 } from '../interfaces/INewSourceService.js';
+
+// The same status change means different things depending on where the record came
+// from: leaving 'flagged' is an unflag, while arriving at 'flagged' is a flag.
+const toModeratorAction = (
+  currentStatus: NewSourceStatus,
+  nextStatus: ChangeNewSourceStatusInput['status'],
+): ModeratorActionType => {
+  if (currentStatus === 'flagged') return 'unflag';
+  if (nextStatus === 'flagged') return 'flag';
+  if (nextStatus === 'merged') return 'approve';
+  return 'pending';
+};
 
 // Only these fields are ever persisted on a source item - organizationName, sourceName,
 // sourceLink and yearOfRelease are populated for display only (see populateSources) and
@@ -349,8 +363,21 @@ export class NewSourceService implements INewSourceService {
 
   /** Hands the hold back without acting on the record - it returns to
    *  'review-completed' so another moderator can take it. */
-  async releaseModeratorReview(id: string, userId: string): Promise<INewSource> {
-    const updated = await this.newSourceRepo.releaseModeratorReview(id, userId);
+  async releaseModeratorReview(
+    id: string,
+    userId: string,
+    userName: string,
+  ): Promise<INewSource> {
+    // A release asks for no reason, but it still belongs in the same audit trail as
+    // every other moderator action on the record.
+    const updated = await this.newSourceRepo.releaseModeratorReview(id, userId, {
+      action: 'release',
+      status: 'review-completed',
+      reason: '',
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: new Date(),
+    });
 
     if (!updated) {
       throw new NotFoundError(`updated_sources record not found with id ${id}`);
@@ -468,6 +495,7 @@ export class NewSourceService implements INewSourceService {
     }
 
     const updated = await this.newSourceRepo.changeStatusWithReason(input.id, {
+      action: toModeratorAction(existing.status, input.status),
       status: input.status,
       reason: input.reason.trim(),
       changedBy: input.changedBy,

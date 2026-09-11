@@ -423,10 +423,23 @@ export interface IMissingPopDocument {
   updatedFields?: Partial<Record<PopRequiredField, string>>;
 }
 
-/** One admin/moderator override of a `updated_sources` record's status (e.g. sending it
- *  back to 'pending' or marking it 'merged') - a permanent audit entry, appended to on
- *  every such change rather than overwritten, with the mandatory reason they gave. */
-export interface INewSourceStatusChange {
+/** What a moderator/admin did to a `updated_sources` record. 'pending' hands it back to
+ *  the experts, 'approve' merges the reviewed sources onto the answer, 'flag'/'unflag'
+ *  raise and clear a flag, and 'release' gives up a hold so another moderator can pick
+ *  the record up. */
+export type ModeratorActionType =
+  | 'pending'
+  | 'approve'
+  | 'flag'
+  | 'unflag'
+  | 'release';
+
+/** One moderator/admin action on a `updated_sources` record - a permanent audit entry,
+ *  appended to on every action rather than overwritten. reason is what they typed in the
+ *  confirmation modal; it is empty for a release, which asks for none. */
+export interface IModeratorAction {
+  action: ModeratorActionType;
+  /** The status the record was left in by this action. */
   status: NewSourceStatus;
   reason: string;
   changedBy: string;
@@ -449,9 +462,9 @@ export interface INewSource {
   status: NewSourceStatus;
   timeTaken: number | null;
   reviewArray: INewSourceReviewEntry[];
-  /** Admin/moderator status overrides (to 'pending' or 'merged'), each with the
-   *  mandatory reason given - see INewSourceStatusChange. Absent until the first one. */
-  statusChanges?: INewSourceStatusChange[];
+  /** Every moderator/admin action taken on this record - see IModeratorAction. Absent
+   *  until the first one. */
+  moderatorActions?: IModeratorAction[];
   createdAt?: Date;
   updatedAt?: Date;
 }

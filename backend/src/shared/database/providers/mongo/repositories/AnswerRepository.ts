@@ -1333,7 +1333,7 @@ export class AnswerRepository implements IAnswerRepository {
                 $project: {
                   _id: 0,
                   status: 1,
-                  'statusChanges.status': 1,
+                  'moderatorActions.action': 1,
                   'sources.sourceReferenceStatus': 1,
                   'reviewArray.userId': 1,
                   'reviewArray.role': 1,
@@ -1382,14 +1382,14 @@ export class AnswerRepository implements IAnswerRepository {
               ],
             },
             // True when a moderator has sent this record back to 'pending' at least
-            // once - the record's own statusChanges is the only trace of that, since
+            // once - the record's own moderatorActions is the only trace of that, since
             // the status itself moves on as experts pick it back up.
             wasSentBackToPending: {
               $in: [
                 'pending',
                 {
                   $ifNull: [
-                    {$arrayElemAt: ['$completedNewSource.statusChanges.status', 0]},
+                    {$arrayElemAt: ['$completedNewSource.moderatorActions.action', 0]},
                     [],
                   ],
                 },

@@ -109,7 +109,8 @@ import type {
   NewSourceItem,
   NewSourceRecord,
   NewSourceReviewEntry,
-  NewSourceStatusChange,
+  ModeratorAction,
+  ModeratorActionType,
   PopMatchStatus,
 } from "@/hooks/services/newSourceService";
 import type { PopLookupResult, PopRequiredField } from "@/hooks/services/popService";
@@ -1975,17 +1976,33 @@ const SourceChangeItem = ({
   );
 };
 
-// Moderator/admin-only: every forced status change on the record, newest first, each
-// with who made it and the reason they had to give.
-const StatusChangesList = ({
-  statusChanges,
+const MODERATOR_ACTION_LABELS: Record<ModeratorActionType, string> = {
+  pending: "Moved to pending",
+  approve: "Approved",
+  flag: "Flagged",
+  unflag: "Unflagged",
+  release: "Released",
+};
+
+const MODERATOR_ACTION_BADGE_CLASSES: Record<ModeratorActionType, string> = {
+  pending: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  approve: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  flag: "bg-destructive/10 text-destructive",
+  unflag: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  release: "bg-muted text-muted-foreground",
+};
+
+// Moderator/admin-only: every action a moderator has taken on the record - flag, unflag,
+// move to pending, approve, release - newest first, with who did it and their reason.
+const ModeratorActionsList = ({
+  moderatorActions,
 }: {
-  statusChanges: NewSourceStatusChange[];
+  moderatorActions: ModeratorAction[];
 }) => {
-  const entries = [...statusChanges].reverse();
+  const entries = [...moderatorActions].reverse();
 
   return (
-    <CollapsibleBlock icon={History} title="Status history" count={entries.length}>
+    <CollapsibleBlock icon={History} title="Moderator actions" count={entries.length}>
       <ol className="ml-1 flex flex-col gap-3 border-l border-border/60 pl-4">
         {entries.map((entry, index) => (
           <li key={`${entry.changedAt}-${index}`} className="relative">
@@ -1994,11 +2011,11 @@ const StatusChangesList = ({
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
-                  NEW_SOURCE_STATUS_BADGE_CLASSES[entry.status] ??
+                  MODERATOR_ACTION_BADGE_CLASSES[entry.action] ??
                     "bg-muted text-muted-foreground",
                 )}
               >
-                {NEW_SOURCE_STATUS_LABELS[entry.status] ?? entry.status}
+                {MODERATOR_ACTION_LABELS[entry.action] ?? entry.status}
               </span>
               <span className="text-xs text-foreground/90">
                 {entry.changedByName || "Unknown user"}
@@ -2884,9 +2901,10 @@ const SourceChangesSection = ({
 
       {newSourceRecord && <ReviewersList reviewArray={newSourceRecord.reviewArray} />}
 
-      {newSourceRecord?.statusChanges && newSourceRecord.statusChanges.length > 0 && (
-        <StatusChangesList statusChanges={newSourceRecord.statusChanges} />
-      )}
+      {newSourceRecord?.moderatorActions &&
+        newSourceRecord.moderatorActions.length > 0 && (
+          <ModeratorActionsList moderatorActions={newSourceRecord.moderatorActions} />
+        )}
 
       {newSourceRecord && newSourceRecord.status === "merged" ? (
         <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs text-primary">

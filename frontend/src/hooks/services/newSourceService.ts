@@ -83,7 +83,18 @@ export interface NewSourceReviewEntry {
   timeTaken: number | null;
 }
 
-export interface NewSourceStatusChange {
+// What a moderator/admin did to the record. 'release' is the only one without a reason,
+// since releasing a hold asks for none.
+export type ModeratorActionType =
+  | "pending"
+  | "approve"
+  | "flag"
+  | "unflag"
+  | "release";
+
+export interface ModeratorAction {
+  action: ModeratorActionType;
+  /** The status the record was left in by this action. */
   status: NewSourceStatus;
   reason: string;
   changedBy: string;
@@ -99,7 +110,7 @@ export interface NewSourceRecord {
   status: NewSourceStatus;
   timeTaken: number | null;
   reviewArray: NewSourceReviewEntry[];
-  statusChanges?: NewSourceStatusChange[];
+  moderatorActions?: ModeratorAction[];
 }
 
 export class NewSourceService {
@@ -198,7 +209,7 @@ export class NewSourceService {
   }
 
   /** Admin/moderator override of a record's status to 'pending', 'merged' or 'flagged',
-   *  with a mandatory reason stored on the record's statusChanges. */
+   *  with a mandatory reason stored on the record's moderatorActions. */
   async changeStatus(
     id: string,
     payload: {

@@ -37,7 +37,7 @@ export interface ClosedAnswerFilters {
   sourceReferenceStatuses?: string[];
   /**
    * Keeps only answers whose updated_sources record was sent back to 'pending' by a
-   * moderator at least once (a statusChanges entry with status 'pending'), so the
+   * moderator at least once (a moderatorActions entry with action 'pending'), so the
    * answers handed back from moderation can be picked out of the queue.
    */
   sentBackToPending?: boolean;

@@ -1,8 +1,8 @@
 import {
   IMissingPopDocument,
   INewSource,
+  IModeratorAction,
   INewSourceReviewEntry,
-  INewSourceStatusChange,
 } from '#root/shared/interfaces/models.js';
 
 export interface INewSourceRepository {
@@ -36,8 +36,13 @@ export interface INewSourceRepository {
   ): Promise<INewSource | null>;
 
   /** Hands a moderator's hold back: status returns to 'review-completed' and their own
-   *  still-open reviewArray entry is closed, so another moderator can pick it up. */
-  releaseModeratorReview(id: string, userId: string): Promise<INewSource | null>;
+   *  still-open reviewArray entry is closed, so another moderator can pick it up. The
+   *  release is logged to moderatorActions like every other moderator action. */
+  releaseModeratorReview(
+    id: string,
+    userId: string,
+    action: IModeratorAction,
+  ): Promise<INewSource | null>;
 
   /** Sets just the record's status, without touching reviewArray or timeTaken — used
    *  when a reviewer picks a released record back up and it returns to 'in-progress'. */
@@ -71,6 +76,6 @@ export interface INewSourceRepository {
   releaseToPending(id: string): Promise<INewSource | null>;
 
   /** An admin/moderator override of a record's status (to 'pending' or 'merged'), with
-   *  the mandatory reason appended to statusChanges rather than replacing history. */
-  changeStatusWithReason(id: string, entry: INewSourceStatusChange): Promise<INewSource | null>;
+   *  the action appended to moderatorActions rather than replacing history. */
+  changeStatusWithReason(id: string, entry: IModeratorAction): Promise<INewSource | null>;
 }

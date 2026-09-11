@@ -168,9 +168,12 @@ export class NewSourceController {
     @Param('id') id: string,
     @CurrentUser() user: IUser,
   ): Promise<INewSource> {
+    const userName =
+      [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
     return await this.newSourceService.releaseModeratorReview(
       id,
       user._id?.toString() ?? '',
+      userName,
     );
   }
 

@@ -98,8 +98,13 @@ export interface INewSourceService {
     excludeAnswerId: string,
   ): Promise<INewSource | null>;
 
-  /** Releases this moderator's hold back to 'review-completed'. */
-  releaseModeratorReview(id: string, userId: string): Promise<INewSource>;
+  /** Releases this moderator's hold back to 'review-completed', logging the release to
+   *  moderatorActions. */
+  releaseModeratorReview(
+    id: string,
+    userId: string,
+    userName: string,
+  ): Promise<INewSource>;
 
   /** Called once the user confirms switching answers — sends the previous 'in-progress'
    *  record back to 'pending' so it becomes available to other experts again. */
@@ -110,7 +115,7 @@ export interface INewSourceService {
   getByAnswerId(answerId: string): Promise<INewSource | null>;
 
   /** Admin/moderator override to 'pending', 'merged' or 'flagged', with a mandatory
-   *  reason logged to the record's statusChanges. Caller (the controller) has already
+   *  reason logged to the record's moderatorActions. Caller (the controller) has already
    *  checked the user's role - this only validates the reason and the target status. */
   changeStatus(input: ChangeNewSourceStatusInput): Promise<INewSource>;
 }

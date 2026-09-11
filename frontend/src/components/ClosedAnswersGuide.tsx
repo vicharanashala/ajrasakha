@@ -190,8 +190,8 @@ const REVIEWER_GUIDE: GuideSection[] = [
         body: "Each row is one stint - who opened it, **Expert** or **Moderator**, when they started, how long they spent:\n\n- **green** - saved changes\n- **muted** - opened it, saved nothing\n- **amber** - the stint still open right now",
       },
       {
-        title: "Status history",
-        body: "Every override is listed **newest first** with who made it and the reason they gave, so a flag or a send-back is always accountable.",
+        title: "Moderator actions",
+        body: "Every moderator action - **flag**, **unflag**, **move to pending**, **approve**, **release** - is listed **newest first** with who did it and the reason they gave, so nothing that happens to a review is anonymous.",
       },
     ],
   },

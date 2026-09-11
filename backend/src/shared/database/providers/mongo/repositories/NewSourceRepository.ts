@@ -2,8 +2,8 @@ import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceR
 import {
   IMissingPopDocument,
   INewSource,
+  IModeratorAction,
   INewSourceReviewEntry,
-  INewSourceStatusChange,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
@@ -200,6 +200,7 @@ export class NewSourceRepository implements INewSourceRepository {
   async releaseModeratorReview(
     id: string,
     userId: string,
+    action: IModeratorAction,
   ): Promise<INewSource | null> {
     await this.init();
 
@@ -217,6 +218,7 @@ export class NewSourceRepository implements INewSourceRepository {
           'reviewArray.$[reviewer].closedAt': new Date(),
           updatedAt: new Date(),
         },
+        $push: {moderatorActions: action},
       },
       {
         arrayFilters: [
@@ -313,7 +315,7 @@ export class NewSourceRepository implements INewSourceRepository {
 
   async changeStatusWithReason(
     id: string,
-    entry: INewSourceStatusChange,
+    entry: IModeratorAction,
   ): Promise<INewSource | null> {
     await this.init();
 
@@ -349,7 +351,7 @@ export class NewSourceRepository implements INewSourceRepository {
           'reviewArray.$[reviewer].timeTaken': timeTaken,
           updatedAt: changedAt,
         },
-        $push: {statusChanges: entry},
+        $push: {moderatorActions: entry},
       },
       {
         // Acting on the record ends the moderator's hold on it - their entry closes
