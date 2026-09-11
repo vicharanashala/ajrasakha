@@ -854,4 +854,10 @@ export interface IQuestionRepository {
    * Get available PAE experts count (lightweight query)
    */
   getAvailablePaeExpertsCount(): Promise<number>;
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  updateNormalisedCrop(questionId: string, normalisedCrop: string): Promise<{ modifiedCount: number }>;
 }

@@ -636,45 +636,20 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.details = details;
       logData.source = source;
 
-      // ─── Normalize crop against crop_master DB ───────────────────────────
+      // ─── Extract raw crop name for background processing ───────────────────
+      // Crop normalization (DB lookup) is deferred to processQuestionInBackground
+      // to avoid blocking the response. This significantly improves response time.
       const rawCropName =
         typeof details.crop === 'string'
           ? details.crop
           : details.crop?.name || '';
-      let normalised_crop: string | undefined;
-      if (rawCropName.trim()) {
-        try {
-          const existingCrop =
-            await this.cropRepository.findByNameOrAlias(rawCropName);
-          if (existingCrop) {
-            normalised_crop = existingCrop.name;
-            logData.cropNormalization = {
-              original: rawCropName,
-              resolved: existingCrop.name,
-              action:
-                rawCropName.trim().toLowerCase() === existingCrop.name
-                  ? 'EXACT_MATCH'
-                  : 'ALIAS_RESOLVED',
-            };
-          } else {
-            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
-            logData.cropNormalization = {
-              original: rawCropName,
-              action: 'NOT_FOUND',
-            };
-          }
-        } catch (cropError: any) {
-          console.error('Crop normalization warning:', cropError.message);
-          logData.cropNormalizationError = cropError.message;
-        }
-      }
+
       // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
       details.crop = toTitleCase(rawCropName);
       details.state = toTitleCase(details.state);
       if (typeof details.district === 'string')
         details.district = toTitleCase(details.district);
-      if (normalised_crop !== undefined)
-        details.normalised_crop = normalised_crop;
+      // NOTE: normalised_crop will be set in processQuestionInBackground after DB lookup
 
       // 🔹 Embedding is generated in the background (see processQuestionInBackground),
       // NOT here. The AI/chatbot upload has a short client timeout and was 504'ing on the
@@ -765,8 +740,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
+        // 🔹 Kick off background processing (duplicate check, expert allocation, crop normalization, notifications)
         const questionId = savedQuestion._id.toString();
+        const originalCropName = body.details?.crop;
         setImmediate(() => {
           this.processQuestionInBackground({
             questionId,
@@ -774,6 +750,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             details,
             baseQuestion: {...baseQuestion, _id: savedQuestion._id},
             logData,
+            rawCropName: typeof originalCropName === 'string' ? originalCropName : originalCropName?.name || '',
           }).catch((err: any) =>
             console.error(
               `[addQuestion] Background processing failed for questionId=${questionId}:`,
@@ -808,9 +785,46 @@ export class QuestionService extends BaseService implements IQuestionService {
     details: IQuestion['details'];
     baseQuestion: IQuestion;
     logData: Record<string, any>;
+    rawCropName?: string;
   }): Promise<void> {
-    const {questionId, source, details, baseQuestion, logData} = params;
+    const {questionId, source, details, baseQuestion, logData, rawCropName} = params;
     try {
+      // ─── Crop normalization ─────────────────────────────────────────────────
+      // This was moved from addQuestion to avoid blocking the response.
+      // Normalize crop against crop_master DB and update only the normalised_crop field.
+      if (rawCropName?.trim()) {
+        try {
+          const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+          if (existingCrop) {
+            const normalisedCrop = existingCrop.name;
+            logData.cropNormalization = {
+              original: rawCropName,
+              resolved: existingCrop.name,
+              action:
+                rawCropName.trim().toLowerCase() === existingCrop.name
+                  ? 'EXACT_MATCH'
+                  : 'ALIAS_RESOLVED',
+            };
+            // Use updateNormalisedCrop to update only the normalised_crop field
+            // without replacing the entire details object
+            await this.questionRepo.updateNormalisedCrop(questionId, normalisedCrop);
+          } else {
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+            logData.cropNormalization = {
+              original: rawCropName,
+              action: 'NOT_FOUND',
+            };
+          }
+        } catch (cropError: any) {
+          console.error(
+            `[processQuestionInBackground] crop normalization failed for questionId=${questionId}:`,
+            cropError.message,
+          );
+          logData.cropNormalizationError = cropError.message;
+        }
+      }
+
+      // ─── Embedding generation ───────────────────────────────────────────────
       // Embedding was deferred out of the request path (so the id returns fast) — generate
       // it here, before the duplicate pipeline that needs it, and persist it on the question.
       if (

@@ -9727,4 +9727,22 @@ export class QuestionRepository implements IQuestionRepository {
       },
     });
   }
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  async updateNormalisedCrop(
+    questionId: string,
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
 }
