@@ -211,24 +211,34 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       const queueBecameEmpty =
         removedFirstExpert && (questionSubmission.queue?.length ?? 0) === 1;
       if (queueBecameEmpty) {
-        // No experts left — the question is no longer allocated to anyone. Clear
+        // No experts left — if this was still at author level (no history), clear
         // firstAllocationAt so it falls back into the never-allocated queue and can
         // be re-picked for allocation.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$unset: {firstAllocationAt: ''}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {_id: new ObjectId(questionId)},
+            {$unset: {firstAllocationAt: ''}},
+            {session},
+          );
+        }
       } else if (removedFirstExpert) {
         // Allocation shifts to the next expert (now the head of the queue). Ensure
-        // firstAllocationAt is set if it was missing/null, so the now-allocated
+        // firstAllocationAt is set only if it was missing/null at author level, so the now-allocated
         // question isn't treated as never-allocated. Only set when absent to
         // preserve the original first-allocation timestamp when it already exists.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$set: {firstAllocationAt: new Date()}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {
+              _id: new ObjectId(questionId),
+              $or: [
+                {firstAllocationAt: {$exists: false}},
+                {firstAllocationAt: null},
+              ],
+            },
+            {$set: {firstAllocationAt: new Date()}},
+            {session},
+          );
+        }
       }
 
       if (shouldCreateNextHistoryEntry) {
