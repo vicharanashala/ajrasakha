@@ -6,6 +6,13 @@ const API_BASE_URL = env.apiBaseUrl();
 export interface IZohoTicketStatus {
     ticketId: string;
     status: string;
+    // The ticket's Team field in Zoho Desk (not the individual assignee) -
+    // null when Zoho has no team set on the ticket.
+    team: string | null;
+    // Zoho's short human-facing ticket number (e.g. "539") - distinct from
+    // the long internal ticket id used for lookups/links. Null when Zoho
+    // hasn't returned one yet (e.g. not synced).
+    ticketNumber: string | null;
     lastCheckedAt: string;
 }
 

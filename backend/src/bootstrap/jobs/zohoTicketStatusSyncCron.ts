@@ -8,7 +8,7 @@ import { TestersDashboardService } from '#root/modules/dashboard/services/Tester
 // matter closer to real-time. Reads the ticket URLs straight from the
 // already-synced Testers Dashboard data (the "Defect ID / Bug Ref" links),
 // rather than re-fetching the sheet itself.
-cron.schedule('1,31 * * * *', async () => {
+cron.schedule('*/11 * * * *', async () => {
     console.log('<<CRON>> Running Zoho ticket status sync...');
 
     try {

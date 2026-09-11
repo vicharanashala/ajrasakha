@@ -87,8 +87,13 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
         // are gentler on Zoho's rate limits than firing them all at once.
         for (const ticketId of uniqueIds) {
             try {
+                // `?include=team` embeds the ticket's Team as {id, name}
+                // directly on the response - the dedicated /api/v1/teams
+                // resolver endpoint needs a broader OAuth scope than this
+                // token has (confirmed: 403 SCOPE_MISMATCH), but this embed
+                // works with the ticket-read scope already granted.
                 const response = await fetch(
-                    `https://${ZOHO_API_DOMAIN}/api/v1/tickets/${ticketId}`,
+                    `https://${ZOHO_API_DOMAIN}/api/v1/tickets/${ticketId}?include=team`,
                     {
                         headers: {
                             Authorization: `Zoho-oauthtoken ${token}`,
@@ -105,10 +110,17 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
                     continue;
                 }
 
-                const data = (await response.json()) as { id: string; status: string };
+                const data = (await response.json()) as {
+                    id: string;
+                    status: string;
+                    ticketNumber?: string;
+                    team?: { id: string; name: string } | null;
+                };
                 this.cache[ticketId] = {
                     ticketId,
                     status: data.status,
+                    team: data.team?.name ?? null,
+                    ticketNumber: data.ticketNumber ?? null,
                     lastCheckedAt: new Date().toISOString(),
                 };
             } catch (err) {
