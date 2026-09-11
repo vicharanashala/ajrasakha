@@ -955,16 +955,6 @@ const useRemoveAnswerFromList = () => {
   );
 };
 
-// A save is the end of a real piece of work, so the confirmation says so - varied a
-// little to stay warm over a long session, without getting silly about it.
-const SAVE_CELEBRATIONS = [
-  "Sources locked in",
-  "That's another one done",
-  "Sources recorded",
-  "Good work - saved",
-  "One more off the pile",
-];
-
 const AnswerSourcesEditor = ({
   answer,
   startCollapsed = false,
@@ -1243,20 +1233,13 @@ const AnswerSourcesEditor = ({
       {
         onSuccess: () => {
           const savedSourceCount = finalSources.length;
-          toast.success(
-            isReviewer
-              ? "Source details saved."
-              : SAVE_CELEBRATIONS[
-                  Math.floor(Math.random() * SAVE_CELEBRATIONS.length)
-                ],
-            {
-              description: isReviewer
-                ? "Your changes to this answer's sources are saved."
-                : `${savedSourceCount} ${
-                    savedSourceCount === 1 ? "source" : "sources"
-                  } on this answer are on their way to the moderators.`,
-            },
-          );
+          toast.success("Sources updated", {
+            description: isReviewer
+              ? "Your changes to this answer's sources are saved."
+              : `${savedSourceCount} ${
+                  savedSourceCount === 1 ? "source" : "sources"
+                } on this answer are on their way to the moderators.`,
+          });
           // Reviewed answers drop out of the expert's list, so take it off screen now
           // rather than after the refetch lands.
           if (!isReviewer) removeAnswerFromList(answer._id);
