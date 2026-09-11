@@ -58,7 +58,7 @@ export class NewSourceRepository implements INewSourceRepository {
       {
         $set: {
           ...updates,
-          'reviewArray.$[reviewer].isSaved': true,
+          'reviewArray.$[reviewer].isActionTaken': true,
           'reviewArray.$[reviewer].timeTaken': updates.timeTaken ?? null,
           updatedAt: new Date(),
         },
@@ -345,7 +345,7 @@ export class NewSourceRepository implements INewSourceRepository {
         $set: {
           status: entry.status,
           'reviewArray.$[reviewer].closedAt': changedAt,
-          'reviewArray.$[reviewer].isSaved': true,
+          'reviewArray.$[reviewer].isActionTaken': true,
           'reviewArray.$[reviewer].timeTaken': timeTaken,
           updatedAt: changedAt,
         },

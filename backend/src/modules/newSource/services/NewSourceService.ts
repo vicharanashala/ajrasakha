@@ -128,7 +128,7 @@ export class NewSourceService implements INewSourceService {
           role: 'expert',
           startedAt: new Date(),
           closedAt: null,
-          isSaved: false,
+          isActionTaken: false,
           timeTaken: null,
         });
         if (withNewReviewer) reopened = withNewReviewer;
@@ -162,7 +162,7 @@ export class NewSourceService implements INewSourceService {
           role: 'expert',
           startedAt: new Date(),
           closedAt: null,
-          isSaved: false,
+          isActionTaken: false,
           timeTaken: null,
         },
       ],
@@ -318,7 +318,7 @@ export class NewSourceService implements INewSourceService {
         role: 'moderator',
         startedAt: new Date(),
         closedAt: null,
-        isSaved: false,
+        isActionTaken: false,
         timeTaken: null,
       });
     }

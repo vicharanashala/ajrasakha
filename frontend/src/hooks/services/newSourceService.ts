@@ -71,7 +71,9 @@ export interface NewSourceReviewEntry {
   role?: "expert" | "moderator";
   startedAt: string;
   closedAt: string | null;
-  isSaved: boolean;
+  // True once this stint actually did something - an expert saving their edit, or a
+  // moderator acting on the record.
+  isActionTaken: boolean;
   // The pop documents this stint found incomplete, with what was blank and what was
   // filled in - absent when nothing was missing.
   missingPopDocuments?: MissingPopDocument[];

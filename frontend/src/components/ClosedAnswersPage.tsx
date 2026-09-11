@@ -2464,7 +2464,8 @@ const formatTimeTaken = (seconds?: number | null) => {
 // can carry more than one entry - e.g. after being released back to 'pending' and picked
 // up by someone else), laid out like the allocation queue on the question details page.
 const REVIEWER_CARD_STYLES = {
-  saved: {
+  // This stint did something - an expert saved their edit, or a moderator acted.
+  actioned: {
     container: "border-green-300 bg-green-100 dark:border-green-700 dark:bg-green-900/30",
     iconBg: "bg-green-200 dark:bg-green-800/40",
     icon: "text-green-700 dark:text-green-400",
@@ -2478,7 +2479,7 @@ const REVIEWER_CARD_STYLES = {
     badge:
       "border border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   },
-  // Opened, spent some time, closed without saving anything.
+  // Opened, spent some time, closed without doing anything.
   idle: {
     container: "border-border bg-muted/60 dark:bg-muted/30",
     iconBg: "bg-muted-foreground/15",
@@ -2586,8 +2587,8 @@ const ReviewersList = ({
               const isOpen = !entry.closedAt;
               const styles = isOpen
                 ? REVIEWER_CARD_STYLES.open
-                : entry.isSaved
-                  ? REVIEWER_CARD_STYLES.saved
+                : entry.isActionTaken
+                  ? REVIEWER_CARD_STYLES.actioned
                   : REVIEWER_CARD_STYLES.idle;
 
               return (
@@ -2604,7 +2605,7 @@ const ReviewersList = ({
                   >
                     {isOpen ? (
                       <Clock className="h-3.5 w-3.5" />
-                    ) : entry.isSaved ? (
+                    ) : entry.isActionTaken ? (
                       <UserCheck className="h-3.5 w-3.5" />
                     ) : (
                       <UserMinus className="h-3.5 w-3.5" />
@@ -2638,8 +2639,10 @@ const ReviewersList = ({
                   >
                     {isOpen
                       ? "In progress"
-                      : entry.isSaved
-                        ? `Saved · ${formatTimeTaken(getReviewEntryDuration(entry))}`
+                      : entry.isActionTaken
+                        ? `${entry.role === "moderator" ? "Acted" : "Saved"} · ${formatTimeTaken(
+                            getReviewEntryDuration(entry),
+                          )}`
                         : formatTimeTaken(getReviewEntryDuration(entry))}
                   </span>
                 </li>

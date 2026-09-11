@@ -391,8 +391,9 @@ export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
  *  see whether this user's edit is still incomplete. closedAt is set separately, whenever
  *  the modal closes (Cancel, Escape, outside click, or after a successful save) — null
  *  means the modal is still open (or was never explicitly closed, e.g. a page refresh).
- *  isSaved flips to true only once the user's edit is actually completed (saved) — false
- *  plus a set closedAt means they closed the modal without saving. A record can carry more
+ *  isActionTaken flips to true once this stint actually changed something - an expert
+ *  saving their edit, or a moderator acting on the record - so false plus a set closedAt
+ *  means they opened it and left without doing anything. A record can carry more
  *  than one entry when different experts pick it up over time (e.g. after a release back
  *  to 'pending') — each keeps its own timeTaken so moderators/admins can see how long
  *  every reviewer spent, not just the most recent one. timeTaken is in seconds, set once
@@ -405,7 +406,7 @@ export interface INewSourceReviewEntry {
   role?: 'expert' | 'moderator';
   startedAt: Date;
   closedAt: Date | null;
-  isSaved: boolean;
+  isActionTaken: boolean;
   timeTaken: number | null;
   /** The pop_unique_documents documents this stint found incomplete, each with what was
    *  blank and what the reviewer filled in. Absent when nothing was missing. */

@@ -10,7 +10,7 @@ export interface INewSourceRepository {
   create(data: Omit<INewSource, '_id' | 'createdAt' | 'updatedAt'>): Promise<INewSource>;
 
   /** Updates an existing `updated_sources` document by id (e.g. on save, once editing
-   *  completes) — also marks isSaved and records timeTaken on `userId`'s own still-open
+   *  completes) — also marks isActionTaken and records timeTaken on `userId`'s own still-open
    *  reviewArray entry (the one with closedAt: null), not just the record as a whole, so
    *  each reviewer's own contribution stays attributed to them. */
   updateById(
