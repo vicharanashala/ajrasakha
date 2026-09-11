@@ -24,15 +24,18 @@ describe('TestersDashboardService.getSummary', () => {
     it('returns the full unfiltered dataset\'s KPIs matching kpis.test.ts\'s already-verified numbers', async () => {
         const result = await service.getSummary({});
         expect(result.success).toBe(true);
-        expect(result.totalRecords).toBe(11193);
+        expect(result.totalRecords).toBe(17872);
         // Cross-checked against kpis.test.ts's "matches independently-computed
         // Executive Summary numbers" test for the full unfiltered dataset.
-        expect(result.kpis.trustScore).toBe(55);
-        expect(result.kpis.experienceScore).toBe(51);
-        expect(result.kpis.passRate).toBe(59);
-        expect(result.kpis.criticalFailuresToday).toBe(1582);
-        expect(result.kpis.criticalBreakdown.countNotifFailure).toBe(842);
-        expect(result.kpis.releaseHealth).toBe(55);
+        expect(result.kpis.trustScore).toBe(94);
+        expect(result.kpis.experienceScore).toBe(82);
+        expect(result.kpis.passRate).toBe(61);
+        expect(result.kpis.criticalFailuresToday).toBe(2552);
+        expect(result.kpis.criticalBreakdown.countNotifFailure).toBe(950);
+        // Release Health v2 (6-bucket weighted model) - see kpis.test.ts's
+        // "matches independently-computed 6-bucket breakdown" for the full
+        // per-bucket verification against the live CSV.
+        expect(result.kpis.releaseHealth).toBe(83);
     });
 
     it('an empty query behaves identically to explicit EMPTY_FILTERS', async () => {
@@ -68,12 +71,12 @@ describe('TestersDashboardService.getSummary', () => {
         const expectedRows = applyFilters(rawRecords.records, { ...EMPTY_FILTERS, type: 'GDB' }, false, undefined, undefined);
         const expectedKpis = calculateKpis(expectedRows);
 
-        expect(expectedRows.length).toBe(3127); // matches filters.test.ts's verified GDB count
+        expect(expectedRows.length).toBe(4396); // matches filters.test.ts's verified GDB count
         expect(result.kpis).toEqual(expectedKpis);
-        expect(result.kpis.N).toBe(3127);
+        expect(result.kpis.N).toBe(4396);
         // totalRecords is always the FULL dataset count, not the filtered
         // count - the filter narrows the KPIs, not the reported total.
-        expect(result.totalRecords).toBe(11193);
+        expect(result.totalRecords).toBe(17872);
     });
 
     it('combining status=Pass + severity=Critical filters matches direct computation', async () => {
@@ -104,16 +107,18 @@ describe('TestersDashboardService.getSummary', () => {
         const expectedDiagnostics = calculateDiagnostics(expectedRows);
 
         expect(result.diagnostics).toEqual(expectedDiagnostics);
-        // Overall Module Performance is scoped to the GDB filter - only the
-        // GDB bucket should have any rows, confirming diagnostics really ran
-        // over the filtered rows, not the full unfiltered dataset.
-        const byBucket = Object.fromEntries(result.diagnostics.modulePerformance.map((m) => [m.bucket, m.totalRows]));
-        expect(byBucket['GDB']).toBe(expectedRows.length);
-        expect(byBucket['Unique Questions']).toBe(0);
-        expect(byBucket['Outreach']).toBe(0);
-        expect(byBucket['Dynamic - Weather']).toBe(0);
-        expect(byBucket['Dynamic - Mandi Prices']).toBe(0);
-        expect(byBucket['Dynamic - Government Schemes']).toBe(0);
+        // Overall Module Performance's 6 ACE modules are column-scoped, not
+        // Type-of-Question-bucket-scoped (unlike the old GDB/Unique
+        // Questions/Outreach/Dynamic sub-type system this replaced), so a
+        // type=GDB filter no longer isolates a single "GDB bucket" the way
+        // it used to - every module still runs, just over the GDB-only rows.
+        // Dynamic Advisory's 3 domain sub-metrics ARE still Question-
+        // Category-scoped (dynamicSubBucketFor), and a GDB-typed row can
+        // never resolve to a Dynamic sub-bucket - confirms that scoping
+        // genuinely ran over the filtered (GDB-only) rows.
+        const dynamicAdvisory = result.diagnostics.modulePerformance.find((m) => m.key === 'dynamic_advisory')!;
+        expect(dynamicAdvisory.applicableRowCount).toBe(0);
+        expect(dynamicAdvisory.subMetrics.every((sm) => sm.applicable === 0)).toBe(true);
     });
 
     it('type=GDB filter produces the same chartData as calling applyFilters+calculateChartData directly', async () => {

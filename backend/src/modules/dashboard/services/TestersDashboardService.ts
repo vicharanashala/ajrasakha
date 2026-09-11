@@ -35,13 +35,10 @@ const SERVICE_ACCOUNT_PATH =
 //   [{"id":"...","tab":"Test Log_1","label":"1.0"},
 //    {"id":"...","tab":"Test Log","label":"2.0"},
 //    {"id":"...","tab":"Test Log","label":"3.0"}]
-// Replaces the old TESTERS_DASHBOARD_SHEET_ID/_TAB (+ _2 variants) pair of
-// env vars, which hardcoded "exactly 2 sheets" into the config shape itself
-// - adding Sheet 3.0 (or any future sheet) is now a config change, not a
-// code change. Order matters only in that whichever entry is first to
-// produce usable rows becomes the header baseline (see
-// sheetMerge.ts's mergeSheetSources) - list the most reliable/established
-// sheet first.
+// Adding a sheet is a config change, not a code change. Order matters only
+// in that whichever entry is first to produce usable rows becomes the
+// header baseline (see sheetMerge.ts's mergeSheetSources) - list the most
+// reliable/established sheet first.
 function parseSheetSources(): SheetSourceConfig[] {
     const raw = process.env.TESTERS_DASHBOARD_SHEETS || '';
     if (!raw.trim()) return [];
@@ -94,8 +91,8 @@ export class TestersDashboardService implements ITestersDashboardService {
                 return reject(err);
             }
 
-            // Same quirk as the original tool: the real header row starts with
-            // "Test ID," further down the file, past some boilerplate rows.
+            // The real header row starts with "Test ID," further down the
+            // file, past some boilerplate rows.
             const headerIndex = fileContent.indexOf('Test ID,');
             if (headerIndex !== -1) {
                 fileContent = fileContent.substring(headerIndex);
@@ -162,10 +159,9 @@ export class TestersDashboardService implements ITestersDashboardService {
     private buildFiltersFromQuery(query: GetTestersDashboardQuery): TestersDashboardFilters {
         return {
             // query.dateRange is typed as plain `string` (see
-            // TestersDashboardValidators.ts's comment on why), but
-            // @IsIn(['all', 'today', '7days', '30days', 'custom']) has
-            // already guaranteed it's one of those exact values by the time
-            // this runs, so the cast is safe.
+            // TestersDashboardValidators.ts), but @IsIn(['all', 'today',
+            // '7days', '30days', 'custom']) already guarantees it's one of
+            // those exact values by the time this runs, so the cast is safe.
             dateRange: (query.dateRange ?? EMPTY_FILTERS.dateRange) as TestersDashboardFilters['dateRange'],
             type: query.type ?? EMPTY_FILTERS.type,
             category: query.category ?? EMPTY_FILTERS.category,
@@ -176,20 +172,16 @@ export class TestersDashboardService implements ITestersDashboardService {
             status: query.status ?? EMPTY_FILTERS.status,
             severity: query.severity ?? EMPTY_FILTERS.severity,
             // Wire format is a comma-separated string (see
-            // TestersDashboardValidators.ts's comment on dynamicSubTypes);
-            // parsed into the string[] TestersDashboardFilters expects here,
-            // once, so every downstream consumer (applyFilters,
-            // getPreviousPeriodRows via calculatePreviousPeriodStats) just
-            // sees a plain array like every other filter dimension.
+            // TestersDashboardValidators.ts) - parsed into the string[]
+            // TestersDashboardFilters expects here, once, so every
+            // downstream consumer sees a plain array.
             dynamicSubTypes: query.dynamicSubTypes
                 ? query.dynamicSubTypes
                       .split(',')
                       .map((s) => s.trim())
                       .filter(Boolean)
                 : EMPTY_FILTERS.dynamicSubTypes,
-            // @IsIn(['all', 'Dynamic', 'Static']) on GetTestersDashboardQuery
-            // has already guaranteed this is one of those exact values by the
-            // time this runs (same cast rationale as dateRange above).
+            // Same cast rationale as dateRange above (@IsIn guarantees it).
             typeBranch: (query.typeBranch ?? EMPTY_FILTERS.typeBranch) as TestersDashboardFilters['typeBranch'],
             // Same comma-separated wire format as dynamicSubTypes above.
             staticSubTypes: query.staticSubTypes
@@ -225,12 +217,7 @@ export class TestersDashboardService implements ITestersDashboardService {
 
         const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
         const kpis = calculateKpis(filteredRows);
-        // Same filtered rows kpis just used - Biggest Bottleneck/Weakest
-        // Modules/Open Critical Defects all apply to whatever the user is
-        // currently looking at, not the unfiltered dataset.
         const diagnostics = calculateDiagnostics(filteredRows);
-        // Same filtered rows again - the trend chart plots the currently
-        // filtered view's daily scores, not the unfiltered dataset's.
         const chartData = calculateChartData(filteredRows);
         // Deliberately over the UNFILTERED records, same non-date filters -
         // getPreviousPeriodRows applies filters.type/category/etc itself,
@@ -304,11 +291,7 @@ export class TestersDashboardService implements ITestersDashboardService {
         // Fetch every configured sheet independently - one sheet's fetch
         // failing (network/auth/API error) must not be fatal to the whole
         // sync, so each gets its own try/catch rather than one wrapping the
-        // whole loop. This generalizes what used to be an asymmetric
-        // contract (Sheet 1.0's fetch was NOT wrapped in try/catch at all
-        // and its failure aborted the entire sync; only Sheet 2.0's fetch
-        // was "optional") - every sheet, including whichever one ends up
-        // first in the array, is now treated as independently skippable.
+        // whole loop.
         const fetchResults: SheetFetchResult[] = [];
         for (const source of SHEET_SOURCES) {
             try {

@@ -5,15 +5,6 @@
 // calls - TestersDashboardService.syncFromSheet() does the fetching and
 // passes already-fetched raw rows (or null on failure) into
 // mergeSheetSources() below.
-//
-// Generalizes what was originally a hardcoded pairwise Sheet-1-vs-Sheet-2
-// merge (see git history) into an N-way merge: whichever configured sheet
-// is first to produce usable rows becomes the header baseline, and every
-// other sheet - regardless of how many are configured - is compared
-// against that same baseline. Added for Sheet 3.0 (see sheetMerge.test.ts
-// and the sync commit this shipped in for the real-data investigation that
-// justified its header quirks and confirmed no Type of Question/Question
-// Category value mapping was needed).
 
 export interface SheetSourceConfig {
     id: string;
@@ -32,9 +23,9 @@ export interface SheetFetchResult {
 
 // Column B === "Test Date" is present and unambiguous in every known
 // sheet's real header row regardless of column-A quirks (see
-// SHEET_HEADER_QUIRKS below, which is exactly why anchoring on column A
-// instead would be unreliable) - finds the real header row past each
-// sheet's boilerplate rows (e.g. "Prepared by: ... Version: 1.0").
+// SHEET_HEADER_QUIRKS below - anchoring on column A instead would be
+// unreliable) - finds the real header row past each sheet's boilerplate
+// rows (e.g. "Prepared by: ... Version: 1.0").
 export function findHeaderRowIndex(rows: string[][]): number {
     for (let i = 0; i < rows.length; i++) {
         const secondCell = (rows[i][1] || '').trim();
@@ -43,13 +34,11 @@ export function findHeaderRowIndex(rows: string[][]): number {
     return -1;
 }
 
-// Sheet headers can differ cosmetically without being a real mismatch -
-// Sheet 2.0 (and 3.0) append " (HH:MM:SS)" to 14 Assignment/Completion Time
-// column headers (Author, Reviewer1-5, Moderator) - none of these raw
-// timestamp fields are used in any calculation, only their derived
-// "* TAT (mins) [Auto]" columns are, and those already match exactly.
-// Stripping this suffix before comparing means this known-cosmetic
-// difference alone never blocks an otherwise-safe merge.
+// Some sheets append " (HH:MM:SS)" to Assignment/Completion Time column
+// headers - a cosmetic difference, since none of those raw timestamp fields
+// are used in any calculation (only their derived "* TAT (mins) [Auto]"
+// columns are, and those already match exactly). Stripping the suffix
+// before comparing means this never blocks an otherwise-safe merge.
 export function normalizeHeaderCellForComparison(cell: string): string {
     return cell.trim().replace(/\s*\(HH:MM:SS\)\s*$/, '');
 }
@@ -75,14 +64,11 @@ export interface SheetHeaderQuirks {
     headerRenames?: Record<string, string>;
 }
 
-// Sheet 2.0's confirmed quirks (10-Aug header-alignment work): column A's
-// header is blank instead of "Test ID", and "Thread ID" is Sheet 2.0's name
-// for what Sheet 1.0 calls "Question ID" (same field, confirmed same
-// position/content, just renamed). Sheet 3.0 was independently verified
-// (real header fetched and compared against 1.0 via headersMatch() before
-// this was written - see the sync commit this shipped in) to have the
-// EXACT SAME two quirks, not a new one of its own - hence it shares this
-// one entry rather than getting a near-duplicate.
+// Sheet 2.0's confirmed quirks: column A's header is blank instead of
+// "Test ID", and "Thread ID" is Sheet 2.0's name for what Sheet 1.0 calls
+// "Question ID" (same field, just renamed). Sheet 3.0 has the exact same
+// two quirks, not a new one of its own, hence it shares this entry rather
+// than getting a near-duplicate.
 const SHARED_QUIRKS_2_0_STYLE: SheetHeaderQuirks = {
     blankFirstColumnHeader: 'Test ID',
     headerRenames: { 'Thread ID': 'Question ID' },
@@ -128,14 +114,11 @@ export interface MergeResult {
 
 // Merges N already-fetched sheets' raw rows into one dataset. Whichever
 // sheet is first (in `results` order) to produce usable rows becomes the
-// header baseline every later sheet is compared against - a generalization
-// of the old pairwise "Sheet 1 vs Sheet 2" comparison to N sheets, with no
-// hardcoded assumption about which position is "the mandatory one": if the
+// header baseline every later sheet is compared against - no hardcoded
+// assumption about which position is "the mandatory one": if the
 // first-configured sheet fails, the next one to succeed becomes the
-// baseline instead, and the sync still proceeds with whatever sheets DO
-// produce usable, header-matching rows - a single sheet failing (fetch
-// error, missing header row, or a real header mismatch) is never fatal to
-// the others.
+// baseline instead. A single sheet failing (fetch error, missing header
+// row, or a real header mismatch) is never fatal to the others.
 export function mergeSheetSources(results: SheetFetchResult[]): MergeResult {
     let baselineHeader: string[] | null = null;
     let baselineLabel = '';

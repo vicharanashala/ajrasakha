@@ -2,25 +2,11 @@
 // 9 filter dimensions, the "vs previous period" date-window calculation,
 // and filter-dropdown option building.
 //
-// Ported near-verbatim from frontend/src/features/testersDashboard/TestersDashboard.tsx
-// (Phase 2 of moving KPI/diagnostics/chart calculation server-side - see
-// normalize.ts for Phase 1's normalizers, which these compose).
-//
-// Deliberately scoped to filtering/window-math only, not KPI aggregation:
-// the frontend's previousPeriodStats also computes pass rate, scientific
-// accuracy, voice success etc. over the previous-period rows - that's
-// KPI-calculation logic (Phase 3, alongside calculateTrustScore /
-// calculateExperienceScore), not filtering, so it's intentionally left out
-// here. getPreviousPeriodRows() below returns the previous-period ROWS;
-// Phase 3's KPI functions will run over whatever rows this returns.
-//
-// NOTE for Phase 3: two KPI-level fixes have landed directly in the
-// frontend since Phase 1 (not yet ported anywhere) - countNotifFailure
-// recognizing "no"/"NO" as a notification failure, and E_exp recognizing
-// "displayed" (not just "yes"/"y") as a correct Expert Name match. When
-// calculateTrustScore/criticalFailuresToday are ported, port the CURRENT
-// (fixed) frontend versions, not the older versions from before those
-// fixes.
+// Deliberately scoped to filtering/window-math only, not KPI aggregation -
+// pass rate, scientific accuracy, voice success etc. over the previous-period
+// rows are computed by kpis.ts. getPreviousPeriodRows() below returns the
+// previous-period ROWS; kpis.ts's functions run over whatever rows this
+// returns.
 
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
 import {
@@ -40,17 +26,10 @@ import { dynamicSubBucketFor, type DynamicSubBucket } from './diagnostics.js';
 
 export type TestersDashboardDateRange = 'all' | 'today' | '7days' | '30days' | 'custom';
 
-// Whole-branch selection for the frontend's Dynamic/Static tree control
-// (TestersDashboard.tsx) that replaced the old single "Type of Question"
-// dropdown. Named `typeBranch`, NOT `category` - `category` on this same
-// interface already means the unrelated "Question Category" filter
-// dimension, so reusing that name here would collide with it.
+// Named `typeBranch`, NOT `category` - `category` on this same interface
+// already means the unrelated "Question Category" filter dimension.
 export type TypeBranch = 'all' | 'Dynamic' | 'Static';
 
-// Mirrors EMPTY_FILTERS - dateRange plus the 9 filter dimensions' current
-// selections, plus dynamicSubTypes. Every non-dateRange, non-dynamicSubTypes
-// field is a normalized filter value (as produced by that field's
-// normalizer) or "all" for no filter.
 export interface TestersDashboardFilters {
     dateRange: TestersDashboardDateRange;
     type: string;
@@ -61,37 +40,25 @@ export interface TestersDashboardFilters {
     tester: string;
     status: string;
     severity: string;
-    // Multi-select OR filter on Dynamic's sub-components (Weather/Mandi
-    // Prices/Government Schemes - see dynamicSubBucketFor in
-    // diagnostics.ts), independent of the `type` filter above - a user can
-    // filter directly on sub-components without also setting type=Dynamic.
-    // Empty array = no filter (match all rows). Deliberately NOT one of the
-    // 9 NonDateFilterKey dimensions below: those are all single-select,
-    // exact-match-after-normalize fields driven by FILTER_FIELDS: this is a
-    // bespoke multi-value OR filter with no single raw column to normalize
-    // against.
+    // Multi-select OR filter on Dynamic's sub-components (see
+    // dynamicSubBucketFor in diagnostics.ts), independent of the `type`
+    // field above - a user can filter by sub-component without also
+    // setting type=Dynamic. Empty array = no filter.
     dynamicSubTypes: string[];
-    // Dynamic/Static tree filter (see TypeBranch above) - 'Dynamic' or
-    // 'Static' selects that whole branch; 'all' means the tree isn't
-    // engaged at all. Deliberately independent of the legacy `type` field
-    // (kept above for API back-compat) rather than replacing it.
+    // 'Dynamic' or 'Static' selects that whole branch; 'all' means the tree
+    // isn't engaged. Independent of the legacy `type` field (kept for API
+    // back-compat) rather than replacing it.
     //
-    // "Static Dynamic" is deliberately left out of both branches below -
-    // not forced into either one. Hemanth has now confirmed it should be
-    // removed entirely ("You can remove static dynamic category"), so this
-    // is final, not a placeholder pending his answer - matches
-    // moduleGroupFor in diagnostics.ts and the Type of Question dropdown
-    // whitelist above no longer including it either. "UX Feedback" remains
+    // "Static Dynamic" is deliberately left out of both branches - confirmed
+    // removed for good, matches moduleGroupFor in diagnostics.ts and the
+    // Type of Question dropdown whitelist below. "UX Feedback" remains
     // genuinely unresolved (TODO) - still pending clarification on where,
     // if anywhere, it should fit.
     typeBranch: TypeBranch;
-    // Multi-select OR filter on Static's sub-types - GDB/Unique/Outreach
-    // (matching normalizeTypeOfQuestion's output) - structurally identical
-    // to dynamicSubTypes above (same OR-across-array semantics, same
-    // independent-of-typeBranch matching pattern below), just for Static's
-    // 3 sub-types instead of Dynamic's. Empty array = no narrowing; when
-    // typeBranch === 'Static' with an empty array, matches the whole
-    // branch (all 3 combined) - see applyNonDateFilters below.
+    // Multi-select OR filter on Static's sub-types - GDB/Unique/Outreach.
+    // Empty array = no narrowing; when typeBranch === 'Static' with an
+    // empty array, matches the whole branch (all 3 combined) - see
+    // applyNonDateFilters below.
     staticSubTypes: string[];
 }
 
@@ -110,15 +77,13 @@ export const EMPTY_FILTERS: TestersDashboardFilters = {
     staticSubTypes: [],
 };
 
-// Static branch's confirmed sub-types (GDB/Unique/Outreach) - matches
-// normalizeTypeOfQuestion's output for these three. Used both to match a
-// whole-branch Static selection (no staticSubTypes chosen) and to validate
-// the staticSubTypes array's contents.
+// Static branch's confirmed sub-types - matches normalizeTypeOfQuestion's
+// output for these three. Used both to match a whole-branch Static
+// selection (no staticSubTypes chosen) and to validate staticSubTypes.
 const STATIC_SUB_TYPES = new Set(['GDB', 'Unique', 'Outreach']);
 
-// typeBranch is also excluded here (alongside dynamicSubTypes/
-// staticSubTypes) - none of these 3 are single-select, exact-match-after-
-// normalize dimensions driven by FILTER_FIELDS below, so they have no
+// typeBranch/dynamicSubTypes/staticSubTypes are multi-value or tree
+// selections, not single-select exact-match dimensions, so they have no
 // place in a per-field dropdown-options record.
 type NonDateFilterKey = Exclude<keyof TestersDashboardFilters, 'dateRange' | 'dynamicSubTypes' | 'typeBranch' | 'staticSubTypes'>;
 
@@ -126,20 +91,12 @@ interface FilterFieldConfig {
     key: NonDateFilterKey;
     csvKey: string;
     normalize?: (value?: string) => string;
-    // Most fields treat NA/NIL as "missing data", not a real thing to
-    // filter by, so it's excluded from the dropdown by default. Overall
-    // Test Status is the exception - NA is a consistent, real status
-    // option there, not random corruption, so it stays selectable.
-    // (Build/Version used to be a similar exception, but normalizeBuildVersion
-    // now folds every real value - NA included - into the single canonical
-    // "1.0", so there's no distinct "NA" output left for this flag to keep.)
+    // Most fields treat NA/NIL as missing data, excluded from the dropdown.
+    // Overall Test Status is the exception - NA is a real, selectable status
+    // there, not missing data.
     keepNA?: boolean;
 }
 
-// Order matches the frontend's Executive Summary layout: Type of Question,
-// Question Category, Build/Version, then the remaining filters. Sprint/Cycle
-// omitted per the frontend's design - the source data never had real
-// sprint identifiers anyway.
 const FILTER_FIELDS: FilterFieldConfig[] = [
     { key: 'type', csvKey: 'Type of Question', normalize: normalizeTypeOfQuestion },
     { key: 'category', csvKey: 'Question Category', normalize: normalizeQuestionCategory },
@@ -151,11 +108,8 @@ const FILTER_FIELDS: FilterFieldConfig[] = [
     { key: 'severity', csvKey: 'Defect Severity', normalize: normalizeDefectSeverity },
 ];
 
-// Matches the corrected header (was "Respo nse Time (mins) [Auto]" with a
-// stray space typo - fixed in the live sheet, see the 10-Aug
-// header-alignment work with Test Log 2.0). Not used by filtering itself,
-// but re-exported here since getPreviousPeriodRows' callers (Phase 3) will
-// need it for the same rows this returns.
+// Not used by filtering itself, but re-exported here since
+// getPreviousPeriodRows' callers need it for the same rows this returns.
 export const RESPONSE_TIME_KEY = 'Response Time (mins) [Auto] (HH:MM:SS)';
 
 // Applies the 9 non-date filter dimensions plus the optional "exclude
@@ -174,7 +128,16 @@ export function applyNonDateFilters(
                 !matchesAny(r['Question Saved in DB?'], ['not saved']) &&
                 !matchesAny(r['Answer Saved in DB?'], ['not saved']) &&
                 !matchesAny(r['Q-ID Consistent Across Systems?'], ['wrongly identified as duplicate']) &&
-                normalizeDefectSeverity(r['Defect Severity']) !== 'Critical',
+                normalizeDefectSeverity(r['Defect Severity']) !== 'Critical' &&
+                // A row with no identifiable Type of Question (blank, orphan
+                // Dynamic, "Quality Checking", "Static Dynamic", or a leaked
+                // tester name) can't be attributed to any real module, so it's
+                // treated as a failure too. Reuses the exact same classifiers
+                // the Dynamic/Static branch filters below use (dynamicSubBucketFor,
+                // STATIC_SUB_TYPES) rather than re-deriving the taxonomy, so this
+                // can't drift from how Dynamic/Static are defined elsewhere.
+                (dynamicSubBucketFor(r['Question Category'], r['Type of Question']) !== null ||
+                    STATIC_SUB_TYPES.has(normalizeTypeOfQuestion(r['Type of Question']))),
         );
     }
     for (const field of FILTER_FIELDS) {
@@ -187,11 +150,8 @@ export function applyNonDateFilters(
             }
         }
     }
-    // OR logic across the selected sub-types (e.g. Weather+Mandi selected
-    // means rows matching either) - independent of the `type` filter above,
-    // so a row doesn't need type=Dynamic to match here too. A row with no
-    // resolvable sub-bucket (dynamicSubBucketFor returns null) never
-    // matches a non-empty selection.
+    // OR logic across the selected sub-types, independent of the `type`
+    // filter above - a row doesn't need type=Dynamic to match here too.
     if (filters.dynamicSubTypes.length > 0) {
         const allowed = new Set<DynamicSubBucket>(filters.dynamicSubTypes as DynamicSubBucket[]);
         out = out.filter((r) => {
@@ -200,33 +160,23 @@ export function applyNonDateFilters(
         });
     }
 
-    // OR logic across Static's selected sub-types - structurally identical
-    // to the dynamicSubTypes block above (independent of typeBranch, a row
-    // just needs its normalized Type of Question in the selected set).
+    // OR logic across Static's selected sub-types - independent of
+    // typeBranch, a row just needs its normalized Type of Question in the
+    // selected set.
     if (filters.staticSubTypes.length > 0) {
         const allowed = new Set(filters.staticSubTypes);
         out = out.filter((r) => allowed.has(normalizeTypeOfQuestion(r['Type of Question'])));
     }
 
-    // Dynamic/Static tree filter (TypeBranch) - the frontend restructure of
-    // the old single "Type of Question" dropdown into a two-branch tree.
-    // Only handles the "whole branch, no sub-type chosen" case here:
-    //   - typeBranch='Dynamic'/'Static' with dynamicSubTypes/staticSubTypes
-    //     already narrows rows via the two OR blocks above, so there's
-    //     nothing left to do for those cases - handled before this runs.
-    //   - typeBranch='Dynamic' with dynamicSubTypes EMPTY means "match all
-    //     of Dynamic" - reuses the exact same exact-match logic as the
-    //     legacy `type` FILTER_FIELDS dimension above (normalizeTypeOfQuestion
-    //     === 'Dynamic'), NOT diagnostics.ts's moduleGroupFor "contains
-    //     dynamic" fuzzy match - that's a separate, already-correct system
-    //     for the Weakest Modules card and is intentionally left untouched.
-    //   - typeBranch='Static' with staticSubTypes EMPTY means "match all of
-    //     GDB+Unique+Outreach combined".
-    // Static Dynamic and UX Feedback rows never match either branch - see
-    // the comment on typeBranch above (Static Dynamic: confirmed excluded
-    // for good; UX Feedback: still pending).
+    // Whole-branch selection (no sub-type chosen) - typeBranch with a
+    // non-empty dynamicSubTypes/staticSubTypes is already handled by the two
+    // OR blocks above. Dynamic matches dynamicSubBucketFor returning
+    // non-null - the SAME classifier the Dynamic sub-type OR block above
+    // uses, deliberately, so the whole-branch count is always exactly the
+    // sum of its 3 sub-types, the same guarantee Static already has (one
+    // classifier drives both levels for both branches).
     if (filters.typeBranch === 'Dynamic' && filters.dynamicSubTypes.length === 0) {
-        out = out.filter((r) => normalizeTypeOfQuestion(r['Type of Question']) === 'Dynamic');
+        out = out.filter((r) => dynamicSubBucketFor(r['Question Category'], r['Type of Question']) !== null);
     } else if (filters.typeBranch === 'Static' && filters.staticSubTypes.length === 0) {
         out = out.filter((r) => STATIC_SUB_TYPES.has(normalizeTypeOfQuestion(r['Type of Question'])));
     }
@@ -351,10 +301,9 @@ export function getPreviousPeriodWindow(
 
 // Returns the rows falling in the previous-period window (same non-date
 // filters as the current view, shifted date window) - or null when there's
-// no well-defined previous period (see getPreviousPeriodWindow). This is
-// the filtering half of the frontend's previousPeriodStats; Phase 3's KPI
-// functions will run over whatever rows this returns to produce the actual
-// "vs previous period" metrics.
+// no well-defined previous period (see getPreviousPeriodWindow). kpis.ts's
+// functions run over whatever rows this returns to produce the "vs previous
+// period" metrics.
 export function getPreviousPeriodRows(
     allRecords: TestersDashboardRecord[],
     filters: TestersDashboardFilters,
@@ -384,44 +333,33 @@ export function buildFilterOptions(allRecords: TestersDashboardRecord[]): Record
             .filter((v) => v !== '' && v !== 'NIL' && (field.keepNA || v !== 'NA'))
             .sort((a, b) => a.localeCompare(b));
 
-        // Type of Question: exactly these 4 confirmed real top-level
-        // values, in this fixed display order (not alphabetical). "Static
-        // Dynamic" was briefly its own 5th top-level bucket per an earlier
-        // confirmation from Hemanth, but he later explicitly reversed that
-        // ("You can remove static dynamic category") - it's excluded here
-        // now, same as diagnostics.ts's moduleGroupFor no longer bucketing
-        // it. The underlying rows aren't deleted or reassigned anywhere -
-        // they just no longer appear as a selectable Type of Question
-        // filter option. Weather/Mandi/Scheme also stay excluded from this
-        // top-level list (they're Dynamic subtypes, only visible via
-        // Weakest Modules' Dynamic sub-breakdown - see dynamicSubBucketFor
-        // in diagnostics.ts). All 4 are always shown regardless of how many
-        // currently have rows in a given data snapshot - same "confirmed
-        // real category, possibly just empty right now" treatment
-        // "Outreach" originally got. Hardcoding the list (rather than
-        // filtering `unique` down to a whitelist) also means any leaked
-        // garbage value - e.g. the "Ithagani Shireesha" / "Lavanya
-        // Mathialagan" column-shift leaks - is excluded by construction,
-        // not by filtering it out after the fact.
+        // Type of Question: exactly these 4 confirmed real top-level values,
+        // in this fixed display order (not alphabetical). "Static Dynamic"
+        // is confirmed removed for good (matches moduleGroupFor). Weather/
+        // Mandi/Scheme stay excluded from this top-level list (they're
+        // Dynamic subtypes, only visible via Weakest Modules' Dynamic
+        // sub-breakdown - see dynamicSubBucketFor in diagnostics.ts). All 4
+        // are always shown regardless of how many currently have rows.
+        // Hardcoding the list (rather than filtering `unique` down to a
+        // whitelist) means any leaked garbage value is excluded by
+        // construction - the "Ithagani Shireesha"/"Lavanya Mathialagan"
+        // column-shift leaks are additionally normalized to '' at the source
+        // (normalizeTypeOfQuestion's KNOWN_LEAKED_TESTER_NAMES).
         if (field.key === 'type') {
             unique = ['GDB', 'Unique', 'Outreach', 'Dynamic'];
         }
 
         // "General" is an invalid/unclassified placeholder value, not a real
         // Question Category - excluded so it can't be selected as a filter
-        // option, same treatment as the other category cleanups this
-        // session (word-order swaps, spelling merges).
+        // option.
         if (field.key === 'category') {
             unique = unique.filter((v) => v !== 'General');
         }
 
         // Same whitelist principle as Type of Question above: Channel
-        // Tested has exactly 3 confirmed real values. normalizeChannel's
-        // title-case fallback passes anything unrecognized straight
-        // through unchanged, so a stray value ("English" - 2 real rows,
-        // not an actual channel) shows up as a bogus selectable option.
-        // Whitelisting means the next garbage value - not just "English"
-        // specifically - is excluded automatically too.
+        // Tested has exactly 3 confirmed real values - a stray leaked value
+        // ("English") would otherwise pass through normalizeChannel's
+        // title-case fallback unchanged and show up as a bogus option.
         if (field.key === 'channel') {
             const KNOWN_CHANNEL_VALUES = new Set(['Web App', 'WhatsApp', 'Both']);
             unique = unique.filter((v) => KNOWN_CHANNEL_VALUES.has(v));

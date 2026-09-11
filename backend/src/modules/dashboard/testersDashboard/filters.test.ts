@@ -14,6 +14,8 @@ import {
     getPreviousPeriodRows,
     buildFilterOptions,
 } from './filters.js';
+import { normalizeTypeOfQuestion, normalizeDefectSeverity, matchesAny } from './normalize.js';
+import { dynamicSubBucketFor } from './diagnostics.js';
 
 // Loads the real live CSV the same way TestersDashboardService.parseCSV
 // does (find the "Test ID," header row, skip boilerplate rows above it,
@@ -126,38 +128,93 @@ describe('applyNonDateFilters - each of the 9 dimensions against real data', () 
         expect(both).toBeGreaterThan(0);
     });
 
-    it('excludeFailures drops rows with a DB-save failure, wrongly-flagged duplicate, or Critical defect', () => {
-        // Independently computed against the real CSV: 469 of 11193 rows
-        // have "not saved" in Question/Answer Saved in DB?, are flagged
-        // "wrongly identified as duplicate", or have Critical severity.
+    it('excludeFailures drops rows with a DB-save failure, wrongly-flagged duplicate, Critical defect, or no identifiable Type of Question', () => {
+        // Independently computed against the real CSV: of 15413 rows, 12973
+        // survive all 5 conditions - the other 2440 fail at least one of
+        // them (DB-save failure, wrongly-flagged duplicate, Critical
+        // severity, or resolving to neither a Dynamic sub-bucket nor a
+        // Static sub-type).
         const withFailures = applyNonDateFilters(records, EMPTY_FILTERS, false).length;
         const withoutFailures = applyNonDateFilters(records, EMPTY_FILTERS, true).length;
         expect(withFailures).toBe(records.length);
-        expect(withoutFailures).toBe(10724);
-        expect(withFailures - withoutFailures).toBe(469);
+        expect(withoutFailures).toBe(12973);
+        expect(withFailures - withoutFailures).toBe(2440);
+    });
+
+    it('excludeFailures also drops rows with no identifiable Type of Question (blank, orphan Dynamic, Quality Checking, Static Dynamic, leaked tester names)', () => {
+        // 1718 real rows resolve to neither a Dynamic sub-bucket
+        // (dynamicSubBucketFor) nor a Static sub-type (GDB/Unique/Outreach) -
+        // independently re-derived by classifying every row directly, not
+        // just inferred from the aggregate count above. Not all 1718 are
+        // "new" drops - some already failed one of the first 4 conditions -
+        // but every one of them must be excluded from the clean set.
+        //
+        // Cross-checked by array index rather than Test ID: 566 Test ID
+        // values are duplicated across distinct rows in the real sheet (a
+        // pre-existing data-quality issue unrelated to this filter), so Test
+        // ID can't be used as a unique correlation key here.
+        const unresolvedIndexes = new Set(
+            records
+                .map((r, i) => i)
+                .filter((i) => {
+                    const r = records[i];
+                    const sub = dynamicSubBucketFor(r['Question Category'], r['Type of Question']);
+                    const norm = normalizeTypeOfQuestion(r['Type of Question']);
+                    return sub === null && !['GDB', 'Unique', 'Outreach'].includes(norm);
+                }),
+        );
+        expect(unresolvedIndexes.size).toBe(1718);
+
+        const withoutFailures = applyNonDateFilters(
+            records.map((r, i) => ({ ...r, __idx: i })) as unknown as TestersDashboardRecord[],
+            EMPTY_FILTERS,
+            true,
+        );
+        const leakedThrough = withoutFailures.filter((r) => unresolvedIndexes.has((r as unknown as { __idx: number }).__idx));
+        expect(leakedThrough.length).toBe(0);
+    });
+
+    it('a row with a resolvable Type of Question still passes excludeFailures when the other 4 conditions are clean', () => {
+        const gdbRow = records.find(
+            (r) =>
+                normalizeTypeOfQuestion(r['Type of Question']) === 'GDB' &&
+                !matchesAny(r['Question Saved in DB?'], ['not saved']) &&
+                !matchesAny(r['Answer Saved in DB?'], ['not saved']) &&
+                !matchesAny(r['Q-ID Consistent Across Systems?'], ['wrongly identified as duplicate']) &&
+                normalizeDefectSeverity(r['Defect Severity']) !== 'Critical',
+        );
+        expect(gdbRow).toBeDefined();
+        const out = applyNonDateFilters([gdbRow!], EMPTY_FILTERS, true);
+        expect(out.length).toBe(1);
     });
 });
 
 describe('applyNonDateFilters - dynamicSubTypes (multi-select OR) against real data', () => {
-    // Every count below was independently re-derived via a from-scratch
-    // reimplementation of the Weather/climate, Mandi/market, Scheme
-    // classification (NOT calling dynamicSubBucketFor or
-    // applyNonDateFilters) against this exact same live CSV immediately
-    // before writing these assertions - re-derive with a one-off script
-    // against backend/data/testers-dashboard/updated.csv to spot-check,
-    // since (like every other real-data count in this file) this WILL
-    // drift as the live sheet keeps changing.
+    // Every count below was independently re-derived by calling
+    // applyNonDateFilters/dynamicSubBucketFor directly against this exact
+    // same live CSV immediately before writing these assertions -
+    // re-derive with a one-off script against
+    // backend/data/testers-dashboard/updated.csv to spot-check, since (like
+    // every other real-data count in this file) this WILL drift as the live
+    // sheet keeps changing.
+    //
+    // These also moved since dynamicSubBucketFor started gating on
+    // moduleGroupFor(typeOfQuestion) === 'Dynamic' first: 585 rows that
+    // aren't Dynamic-typed at all (really GDB/Unique/Outreach/blank/Quality
+    // Checking/Static Dynamic) no longer wrongly resolve to a sub-bucket
+    // just because their Question Category mentions a Dynamic-sounding
+    // keyword - see dynamicSubBucketFor's own comment in diagnostics.ts.
     it('empty/unset dynamicSubTypes applies no filter (matches EMPTY_FILTERS behavior)', () => {
         const out = applyNonDateFilters(records, EMPTY_FILTERS, false);
         expect(out.length).toBe(records.length);
     });
 
     it('single sub-type: Weather, Mandi Prices, Government Schemes each match their own real count', () => {
-        expect(applyNonDateFilters(records, { ...EMPTY_FILTERS, dynamicSubTypes: ['Weather'] }, false).length).toBe(287);
-        expect(applyNonDateFilters(records, { ...EMPTY_FILTERS, dynamicSubTypes: ['Mandi Prices'] }, false).length).toBe(280);
+        expect(applyNonDateFilters(records, { ...EMPTY_FILTERS, dynamicSubTypes: ['Weather'] }, false).length).toBe(1790);
+        expect(applyNonDateFilters(records, { ...EMPTY_FILTERS, dynamicSubTypes: ['Mandi Prices'] }, false).length).toBe(613);
         expect(
             applyNonDateFilters(records, { ...EMPTY_FILTERS, dynamicSubTypes: ['Government Schemes'] }, false).length,
-        ).toBe(11);
+        ).toBe(648);
     });
 
     it('multiple sub-types combine with OR logic, not AND - Weather+Mandi is their disjoint union', () => {
@@ -172,7 +229,7 @@ describe('applyNonDateFilters - dynamicSubTypes (multi-select OR) against real d
         // Weather and Mandi Prices are disjoint sets - OR logic means their
         // combination is exactly the sum, not less (which AND logic, or a
         // bug matching only rows satisfying both, would produce).
-        expect(combined).toBe(567);
+        expect(combined).toBe(2403);
         expect(combined).toBe(weatherOnly + mandiOnly);
     });
 
@@ -180,17 +237,21 @@ describe('applyNonDateFilters - dynamicSubTypes (multi-select OR) against real d
         expect(
             applyNonDateFilters(records, { ...EMPTY_FILTERS, dynamicSubTypes: ['Weather', 'Government Schemes'] }, false)
                 .length,
-        ).toBe(298);
+        ).toBe(2438);
     });
 
-    it('all three sub-types selected matches their full combined real count', () => {
-        expect(
-            applyNonDateFilters(
-                records,
-                { ...EMPTY_FILTERS, dynamicSubTypes: ['Weather', 'Mandi Prices', 'Government Schemes'] },
-                false,
-            ).length,
-        ).toBe(578);
+    it('all three sub-types selected matches their full combined real count, and equals the whole-branch Dynamic filter', () => {
+        const all3 = applyNonDateFilters(
+            records,
+            { ...EMPTY_FILTERS, dynamicSubTypes: ['Weather', 'Mandi Prices', 'Government Schemes'] },
+            false,
+        ).length;
+        const wholeBranch = applyNonDateFilters(records, { ...EMPTY_FILTERS, typeBranch: 'Dynamic' }, false).length;
+        expect(all3).toBe(3051);
+        // The fix under test: the whole-branch Dynamic filter and the sum of
+        // its 3 sub-types must be exactly equal, the same guarantee Static
+        // already had (one classifier, dynamicSubBucketFor, drives both).
+        expect(wholeBranch).toBe(all3);
     });
 
     it('is independent of the `type` filter - Weather matches without type=Dynamic being set', () => {
@@ -200,11 +261,12 @@ describe('applyNonDateFilters - dynamicSubTypes (multi-select OR) against real d
             { ...EMPTY_FILTERS, type: 'Dynamic', dynamicSubTypes: ['Weather'] },
             false,
         ).length;
-        // Weather-classified rows exist outside type=Dynamic too (a row can
-        // resolve to a sub-bucket via Question Category alone, regardless of
-        // its Type of Question) - selecting the sub-type alone must not
+        // Weather-classified rows exist outside the legacy `type` field's
+        // narrower exact-match "Dynamic" too (dynamicSubBucketFor also
+        // matches compound values like "WEATHER DYNAMIC" via moduleGroupFor's
+        // "contains dynamic" logic) - selecting the sub-type alone must not
         // silently require type=Dynamic too.
-        expect(weatherAlone).toBe(287);
+        expect(weatherAlone).toBe(1790);
         expect(weatherAlone).toBeGreaterThan(weatherWithTypeDynamic);
     });
 });

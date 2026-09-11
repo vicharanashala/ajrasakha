@@ -7,6 +7,7 @@ import {
     isYes,
     isNo,
     timeToMinutes,
+    RESPONSE_TIME_PARSE_CAP_MINUTES,
     normalizeBuildVersion,
     normalizeDefectSeverity,
     toTitleCase,
@@ -17,6 +18,11 @@ import {
     normalizeSlaStatus,
     normalizeTesterName,
     isSourceLinkRelevant,
+    isSourceLinkApplicable,
+    isSourceLinkExplicitlyIrrelevant,
+    isScientificallyCorrect,
+    isQuestionFramedApplicable,
+    isQuestionWellFramed,
     voiceQualityScore,
     parseTestDateToISO,
     getTodayIST,
@@ -67,6 +73,9 @@ describe('normalize / matchesAny / isNAlike / isYes / isNo', () => {
 });
 
 describe('timeToMinutes', () => {
+    it('RESPONSE_TIME_PARSE_CAP_MINUTES is 100,000 (~69 days)', () => {
+        expect(RESPONSE_TIME_PARSE_CAP_MINUTES).toBe(100000);
+    });
     it('returns null for blank/NA-like values', () => {
         expect(timeToMinutes('')).toBeNull();
         expect(timeToMinutes('NA')).toBeNull();
@@ -85,8 +94,12 @@ describe('timeToMinutes', () => {
     });
     it('rejects out-of-bound numeric values (corrupted data)', () => {
         expect(timeToMinutes('-5')).toBeNull();
-        expect(timeToMinutes('100000')).toBeNull();
-        expect(timeToMinutes('5000')).toBe(5000); // inclusive upper bound
+        expect(timeToMinutes('100000')).toBe(100000); // inclusive upper bound
+        expect(timeToMinutes('100000.01')).toBeNull(); // just over the bound
+        // Real corrupted values from the live sheet (formula errors) - up to
+        // 66,761,611.4 min (~127 years) - land far past the bound.
+        expect(timeToMinutes('66505895.8')).toBeNull();
+        expect(timeToMinutes('10080')).toBe(10080); // no longer the boundary, just an ordinary in-bounds value
     });
     // "0:00:10": 679 occurrences, "0:00:00": 763 - HH:MM:SS format.
     it('parses HH:MM:SS values', () => {
@@ -94,17 +107,28 @@ describe('timeToMinutes', () => {
         expect(timeToMinutes('0:00:30')).toBeCloseTo(0.5, 5);
         expect(timeToMinutes('1:30:00')).toBe(90);
     });
+    // A live-data investigation found a clean gap between genuine long
+    // delays and corrupted values: 97 real rows fall between 7 and ~61 days
+    // (max 87,578.1 min), while the next-smallest corrupted value is
+    // ~66.5 million minutes - a ~760x gap. The old 10,080-min (7-day) cap
+    // wrongly rejected all 97 of those genuine rows as if they were
+    // corrupted; RESPONSE_TIME_PARSE_CAP_MINUTES (100,000) now keeps them.
+    it('accepts genuine multi-day values up to ~69 days, previously rejected by the old 10,080-min cap', () => {
+        expect(timeToMinutes('83:35:00')).toBeCloseTo(5015, 5); // 3.5 days - was already in-bounds
+        expect(timeToMinutes('169:31:00')).toBeCloseTo(10171, 5); // 7.06 days - just over the OLD bound, now fine
+        expect(timeToMinutes('341:04:32')).toBeCloseTo(20464.53, 1); // 14.2 days - real live-sheet row
+        expect(timeToMinutes('1459:38:06')).toBeCloseTo(87578.1, 1); // ~60.8 days - the largest genuine value found
+    });
     // Sheet 2.0 introduced H:MM:SS values with a leading minus sign
     // (timezone/formula artifact) and some corrupted multi-million-minute
     // values - 872 real rows in the live CSV, up to "-1109610:43:00"
     // (-66,576,557 minutes). The plain-numeric branch already had this
     // bound; the colon-parsed branch did not, so these silently corrupted
     // every average built from Response Time.
-    it('rejects out-of-bound HH:MM:SS values (negative or >5000 minutes)', () => {
+    it('rejects out-of-bound HH:MM:SS values (negative or beyond the 100,000-min cap)', () => {
         expect(timeToMinutes('-15:37:14')).toBeNull();
         expect(timeToMinutes('-1109610:43:00')).toBeNull();
-        expect(timeToMinutes('341:04:32')).toBeNull(); // 20464.53 min - real but > bound
-        expect(timeToMinutes('83:35:00')).toBeNull(); // 5015.00 min - just over the bound
+        expect(timeToMinutes('2000000:00:00')).toBeNull(); // 120 million min - far past the cap
     });
     // "-0:00:03" (and similar "-0:xx:xx" values, 4 real rows) is NOT a
     // corrupted value worth rejecting: `parseFloat("-0") || 0` coerces the
@@ -119,7 +143,7 @@ describe('timeToMinutes', () => {
     });
     it('rejects out-of-bound MM:SS values', () => {
         expect(timeToMinutes('-5:00')).toBeNull();
-        expect(timeToMinutes('99999:00')).toBeNull();
+        expect(timeToMinutes('100001:00')).toBeNull();
     });
 });
 
@@ -426,30 +450,113 @@ describe('normalizeTesterName', () => {
     });
 });
 
-describe('isSourceLinkRelevant', () => {
-    it('matches the dominant real positive value and its casings', () => {
-        expect(isSourceLinkRelevant('Provided & Relevant')).toBe(true); // 3364
+describe('isSourceLinkApplicable / isSourceLinkRelevant / isSourceLinkExplicitlyIrrelevant', () => {
+    it('isSourceLinkRelevant matches the dominant "Provided & Relevant"-style positive value and its casings', () => {
+        expect(isSourceLinkRelevant('Provided & Relevant')).toBe(true); // 3450
         expect(isSourceLinkRelevant('Provided and relevant')).toBe(true); // 509
         expect(isSourceLinkRelevant('provided and relevant')).toBe(true); // 68
         expect(isSourceLinkRelevant('Provided and Relevant')).toBe(true); // 40
     });
-    it('matches known typo variants', () => {
+    it('isSourceLinkRelevant matches known typo variants of the "relevant" style', () => {
         expect(isSourceLinkRelevant('Provioded and relevant')).toBe(true); // 7
         expect(isSourceLinkRelevant('Provided & Revelant')).toBe(true); // 2
         expect(isSourceLinkRelevant('Provident and relevant')).toBe(true); // 2
     });
-    it('rejects irrelevant/not-provided values even though they contain "relevant"', () => {
-        expect(isSourceLinkRelevant('Provided & Irrelevant')).toBe(false); // 25
-        expect(isSourceLinkRelevant('Not Provided')).toBe(false); // 13
-        expect(isSourceLinkRelevant('Provided & Not Relevant')).toBe(false); // 2
+    // Testers answer this question two different ways - a plain "Yes"/"No"
+    // affirmative, or a "Provided & Relevant"-style value - both meaning the
+    // same thing. 5,052 real rows use the "Yes" style (3076+1018+958), so
+    // treating only the "relevant" style as positive wrongly counted them as
+    // incorrect.
+    it('isSourceLinkRelevant also matches a plain "Yes" and its casings/typo, same meaning as "Provided & Relevant"', () => {
+        expect(isSourceLinkRelevant('Yes')).toBe(true); // 3076
+        expect(isSourceLinkRelevant('yes')).toBe(true); // 1018
+        expect(isSourceLinkRelevant('YES')).toBe(true); // 958
+        expect(isSourceLinkRelevant('YTES')).toBe(true); // 1 - typo
     });
-    it('rejects plain affirmatives and unrelated text that lack the word "relevant"', () => {
-        // "Yes"/"yes"/"YES": 1164+953+651 - a plain yes is NOT treated as
-        // confirming link relevance by this function (that's handled
-        // elsewhere via isYes for other fields, not this one).
-        expect(isSourceLinkRelevant('Yes')).toBe(false);
-        expect(isSourceLinkRelevant('Successfully Identified as Duplicate')).toBe(false); // 32
-        expect(isSourceLinkRelevant('YTES')).toBe(false); // 1 - typo, no known mapping
+    it('isSourceLinkRelevant matches a bare "Provided" (no relevance qualifier given)', () => {
+        expect(isSourceLinkRelevant('Provided')).toBe(true); // 3
+    });
+    it('isSourceLinkRelevant rejects irrelevant/not-provided/no values, exact-match not substring - "Provided & Not Relevant" must not false-match on "relevant"', () => {
+        expect(isSourceLinkRelevant('Provided & Irrelevant')).toBe(false); // 25
+        expect(isSourceLinkRelevant('Provided & Not Relevant')).toBe(false); // 2
+        expect(isSourceLinkRelevant('Not Provided')).toBe(false); // 13
+        expect(isSourceLinkRelevant('No')).toBe(false); // 4
+        expect(isSourceLinkRelevant('no')).toBe(false); // 16
+        expect(isSourceLinkRelevant('NO')).toBe(false); // 3
+    });
+    it('isSourceLinkExplicitlyIrrelevant identifies the confirmed negative values', () => {
+        expect(isSourceLinkExplicitlyIrrelevant('Provided & Irrelevant')).toBe(true);
+        expect(isSourceLinkExplicitlyIrrelevant('Provided & Not Relevant')).toBe(true);
+        expect(isSourceLinkExplicitlyIrrelevant('Not Provided')).toBe(true);
+        expect(isSourceLinkExplicitlyIrrelevant('No')).toBe(true);
+        expect(isSourceLinkExplicitlyIrrelevant('Provided & Relevant')).toBe(false);
+        expect(isSourceLinkExplicitlyIrrelevant('')).toBe(false);
+    });
+    it('isSourceLinkApplicable excludes blank/NA', () => {
+        expect(isSourceLinkApplicable('')).toBe(false);
+        expect(isSourceLinkApplicable('NA')).toBe(false);
+    });
+    it('isSourceLinkApplicable excludes the leaked "Successfully Identified as Duplicate" (from Q-ID Consistent) and "0:00:00" (leaked time) values', () => {
+        expect(isSourceLinkApplicable('Successfully Identified as Duplicate')).toBe(false); // 32
+        expect(isSourceLinkApplicable('0:00:00')).toBe(false); // 1
+        // Neither leaked value counts as relevant either, in case applicability were bypassed.
+        expect(isSourceLinkRelevant('Successfully Identified as Duplicate')).toBe(false);
+        expect(isSourceLinkRelevant('0:00:00')).toBe(false);
+    });
+    it('isSourceLinkApplicable is true for every other real value, including negatives', () => {
+        expect(isSourceLinkApplicable('Provided & Relevant')).toBe(true);
+        expect(isSourceLinkApplicable('Not Provided')).toBe(true);
+    });
+});
+
+describe('isScientificallyCorrect', () => {
+    it('matches "correct" and its casing variants', () => {
+        expect(isScientificallyCorrect('Correct')).toBe(true);
+        expect(isScientificallyCorrect('CORRECT')).toBe(true);
+        expect(isScientificallyCorrect('correct')).toBe(true);
+    });
+    it('also matches a plain "yes"/"y" - shared by every Scientific Accuracy consumer on the dashboard', () => {
+        expect(isScientificallyCorrect('Yes')).toBe(true);
+        expect(isScientificallyCorrect('yes')).toBe(true);
+        expect(isScientificallyCorrect('y')).toBe(true);
+    });
+    it('rejects Incorrect/Partially Correct - only the exact positive value counts', () => {
+        expect(isScientificallyCorrect('Incorrect')).toBe(false);
+        expect(isScientificallyCorrect('Partially Correct')).toBe(false);
+        expect(isScientificallyCorrect('')).toBe(false);
+    });
+});
+
+describe('isQuestionFramedApplicable / isQuestionWellFramed', () => {
+    it('isQuestionFramedApplicable excludes blank/NA', () => {
+        expect(isQuestionFramedApplicable('')).toBe(false);
+        expect(isQuestionFramedApplicable('NA')).toBe(false);
+        expect(isQuestionFramedApplicable('NIL')).toBe(false);
+    });
+    it('isQuestionFramedApplicable excludes the leaked "English" Language Tested value (11 rows)', () => {
+        expect(isQuestionFramedApplicable('English')).toBe(false);
+        expect(isQuestionFramedApplicable('english')).toBe(false);
+    });
+    it('isQuestionFramedApplicable is true for any other real value, including negatives/ambiguous ones', () => {
+        expect(isQuestionFramedApplicable('Well Framed')).toBe(true);
+        expect(isQuestionFramedApplicable('Incorrectly Framed')).toBe(true);
+        expect(isQuestionFramedApplicable('Ambiguous')).toBe(true);
+    });
+    it('isQuestionWellFramed matches "Well Framed" and its casing variants', () => {
+        expect(isQuestionWellFramed('Well Framed')).toBe(true); // 12498
+        expect(isQuestionWellFramed('well Framed')).toBe(true); // 943
+    });
+    it('isQuestionWellFramed also matches a plain "yes"/"y"', () => {
+        expect(isQuestionWellFramed('Yes')).toBe(true);
+        expect(isQuestionWellFramed('yes')).toBe(true); // 21
+    });
+    it('isQuestionWellFramed rejects "not well framed" despite containing the substring "well framed"', () => {
+        expect(isQuestionWellFramed('not well framed')).toBe(false); // 1
+        expect(isQuestionWellFramed('Not Well Framed')).toBe(false);
+    });
+    it('isQuestionWellFramed rejects Incorrectly Framed/Ambiguous - only the exact positive value counts', () => {
+        expect(isQuestionWellFramed('Incorrectly Framed')).toBe(false); // 5
+        expect(isQuestionWellFramed('Ambiguous')).toBe(false); // 44
     });
 });
 

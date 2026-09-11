@@ -1,35 +1,10 @@
 // Diagnostics for the Testers Dashboard - Biggest Bottleneck (TAT stage
-// averages), Overall Module Performance / Weakest Module (6 buckets: GDB,
-// Unique Questions, Outreach, and Dynamic's Weather/Mandi Prices/Government
-// Schemes sub-types competing directly, not nested under a separate
-// Dynamic-as-a-whole entry), and the Open Critical Defects ticket list.
+// averages), Overall Module Performance / Weakest Module (the 6 ACE modules
+// below), and the Open Critical Defects ticket list.
 //
-// Ported near-verbatim from frontend/src/features/testersDashboard/TestersDashboard.tsx
-// (Phase 4 of moving KPI/diagnostics/chart calculation server-side - see
-// normalize.ts (Phase 1), filters.ts (Phase 2), and kpis.ts (Phase 3), which
-// this composes rather than duplicates).
-//
-// This ports the CURRENT frontend versions of moduleGroupFor and
-// dynamicSubBucketFor, which already include two fixes landed directly in
-// the frontend earlier:
-//   - moduleGroupFor matches any Type of Question value containing
-//     "dynamic" (case-insensitive), not just the exact string "Dynamic" -
-//     this is what correctly buckets Test Log 2.0's "WEATHER DYNAMIC" /
-//     "MANDI DYNAMIC" / "SCHEME DYNAMIC" rows (~550 rows that an exact-match
-//     check was previously silently excluding). "STATIC DYNAMIC" rows are
-//     deliberately excluded from this "contains dynamic" match (see
-//     moduleGroupFor below) - per Hemanth's later confirmation ("You can
-//     remove static dynamic category"), they don't belong in the plain
-//     Dynamic bucket either, so they're routed to null/unmatched instead.
-//   - dynamicSubBucketFor falls back to reading the sub-bucket signal
-//     directly from Type of Question when Question Category doesn't
-//     resolve it - Test Log 2.0 rows often leave Question Category
-//     blank/unclear but carry the sub-bucket in Type of Question instead
-//     (e.g. "WEATHER DYNAMIC" -> Weather).
-//
-// Deliberately excludes live Zoho ticket-status matching - that stays a
-// frontend-only concern (it calls a separate Zoho endpoint on a timer).
-// This only ports "which tickets exist and what's their severity."
+// Deliberately excludes live Zoho ticket-status matching - that's a
+// frontend-only concern (it calls a separate Zoho endpoint on a timer). This
+// only surfaces "which tickets exist and what's their severity."
 
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
 import {
@@ -39,13 +14,13 @@ import {
     normalize,
     isNAlike,
     isYes,
-    normalizeTestStatus,
+    isScientificallyCorrect,
+    isQuestionFramedApplicable,
+    isQuestionWellFramed,
+    isSourceLinkApplicable,
+    isSourceLinkRelevant,
     normalizeDefectSeverity,
     normalizeTypeOfQuestion,
-    translationQualityPct,
-    calculateSlaCompliance,
-    calculateVoiceSuccess,
-    calculateNotificationExperience,
 } from './normalize.js';
 
 export interface TatStage {
@@ -68,34 +43,18 @@ export type ModuleGroup = 'GDB' | 'Dynamic' | 'Unique Questions' | 'Outreach';
 export type DynamicSubBucket = 'Weather' | 'Mandi Prices' | 'Government Schemes';
 
 // Maps a row's Type of Question into one of the four top-level Weakest
-// Module buckets. GDP/Dynmic/Uniuqe typos are already collapsed by
-// normalizeTypeOfQuestion() above, so this only needs to match the
-// canonical spellings. "Quality Checking" isn't mapped to any bucket yet -
-// pending clarification from Hemanth/team. Returning null for unmapped
-// values keeps them out of the buckets rather than silently mis-grouping
-// them.
+// Module buckets. "Quality Checking" isn't mapped to any bucket yet -
+// TODO: pending clarification from the team on where it belongs. Returning
+// null for unmapped values keeps them out of the buckets rather than
+// silently mis-grouping them.
 //
-// Test Log 2.0 introduced compound Type of Question values ("WEATHER
-// DYNAMIC", "MANDI DYNAMIC", "SCHEME DYNAMIC", "STATIC DYNAMIC") that
-// normalizeTypeOfQuestion() title-cases but doesn't collapse to plain
-// "Dynamic". Matching "contains dynamic" (case-insensitive) catches the
-// WEATHER/MANDI/SCHEME_DYNAMIC compound values and the plain "Dynamic"/
-// "Dynmic" rows alike - an exact `=== "Dynamic"` check was previously
-// silently excluding all ~550 of the compound-value rows.
-//
-// "STATIC DYNAMIC" is a deliberate exception to that "contains dynamic"
-// match: Hemanth first had it promoted to its own top-level module, then
-// later explicitly reversed that ("You can remove static dynamic
-// category") - so rather than falling into the general Dynamic bucket (its
-// value DOES contain the substring "dynamic") or keeping its own bucket, it
-// must return null here, same as any other unrecognized value. This check
-// has to run before the general "contains dynamic" check below, since that
-// substring also matches "static dynamic" - without this exclusion, static
-// dynamic rows would silently get absorbed into plain Dynamic instead of
-// being excluded from every module entirely. The rows themselves are not
-// dropped or reassigned anywhere upstream (normalizeTypeOfQuestion,
-// applyNonDateFilters, N/total counts) - they simply form no ModuleGroup,
-// so Weakest Modules shows their absence rather than a phantom bucket.
+// Matches "contains dynamic" (case-insensitive), not just the exact string
+// "Dynamic", so compound values like "WEATHER DYNAMIC" bucket correctly.
+// "Static Dynamic" is a deliberate exception - confirmed removed from the
+// taxonomy entirely, so it must return null here rather than falling into
+// the general Dynamic bucket (its value DOES contain the substring
+// "dynamic"). This check has to run before the general "contains dynamic"
+// check below, since that substring also matches "static dynamic".
 export function moduleGroupFor(typeOfQuestion?: string): ModuleGroup | null {
     const t = normalizeTypeOfQuestion(typeOfQuestion);
     if (t === 'GDB') return 'GDB';
@@ -107,20 +66,48 @@ export function moduleGroupFor(typeOfQuestion?: string): ModuleGroup | null {
 }
 
 // Maps a Dynamic-type row into one of Dynamic's three sub-buckets: Weather,
-// Mandi Prices, and Government Schemes. Static Dynamic rows never reach
-// this function - moduleGroupFor already excludes them (returns null)
-// before this is called, so they can't leak in through the Dynamic bucket
-// either. "Market information" and "Sowing time & weather" are folded
-// into their closest obvious parent (Mandi Prices / Weather) as a working
-// default - flag to Nandan if these should be kept separate instead.
+// Mandi Prices, and Government Schemes. Gates on EITHER
+// moduleGroupFor(typeOfQuestion) === 'Dynamic', OR Type of Question being
+// blank/empty - a row has to genuinely BE Dynamic-typed, OR never have had a
+// Type of Question tag at all, before its Question Category/Type of
+// Question text is even consulted for which sub-bucket it falls into.
 //
-// Question Category (Sheet 1.0's signal) is checked first and is
-// unchanged. Test Log 2.0 rows often leave Question Category blank/unclear
-// but carry the sub-bucket directly in Type of Question instead (e.g.
-// "WEATHER DYNAMIC" -> Weather) - typeOfQuestion is only consulted as a
-// fallback when category didn't already resolve to a bucket, so Sheet
-// 1.0's existing behavior is untouched.
+// The blank-type fallback exists because Sheet 1.0-era rows predate the
+// Type of Question column entirely - a live-CSV investigation confirmed 85
+// Weather / 43 Mandi Prices rows with a blank Type of Question, a clearly
+// domain-matching Question Category (e.g. "Climate, Weather and Stress
+// Management"), AND query text that genuinely asks about that domain (e.g.
+// "Will it rain tomorrow?"). Gating purely on moduleGroupFor was wrongly
+// discarding all of them as if they were unrelated static rows.
+//
+// Deliberately NOT relaxed for any other null-returning Type of Question
+// (GDB/Unique/Outreach/Static Dynamic/Quality Checking/leaked tester names)
+// - the same investigation confirmed those are a DIFFERENT, much larger
+// pattern: cross-contamination leaks, where a single Dynamic-typed test row
+// gets a value written into all 3 domain-correctness columns
+// (Weather/Mandi/Scheme) regardless of which one is actually relevant. A
+// GDB/Outreach-typed row with a real Weather Q Answered Correctly? value is
+// one of those leaks, not a genuine weather answer - it must stay excluded.
+//
+// Known unresolved gap: Government Schemes has 16 more genuinely
+// scheme-related rows (query text confirms it) tagged Outreach, not blank -
+// this fix does NOT recover those, since relaxing the gate for Outreach
+// would also let its much larger cross-contamination leak back in. Left
+// excluded pending a more targeted fix (e.g. keying off Query Text itself).
+//
+// This is also what keeps the standalone Dynamic sub-type filter
+// (filters.ts) consistent with the whole-branch Dynamic filter, which
+// matches this same function returning non-null - do not remove this gate
+// without updating both.
+//
+// Question Category is checked first, falling back to Type of Question when
+// category doesn't resolve a bucket (some rows leave Question Category
+// blank/unclear but carry the sub-bucket directly in Type of Question
+// instead, e.g. "WEATHER DYNAMIC" -> Weather).
 export function dynamicSubBucketFor(category?: string, typeOfQuestion?: string): DynamicSubBucket | null {
+    const isBlankType = !(typeOfQuestion || '').trim();
+    if (moduleGroupFor(typeOfQuestion) !== 'Dynamic' && !isBlankType) return null;
+
     const c = normalize(category);
     if (c) {
         if (c.includes('climate') || c.includes('weather')) return 'Weather';
@@ -128,6 +115,9 @@ export function dynamicSubBucketFor(category?: string, typeOfQuestion?: string):
         if (c.includes('scheme')) return 'Government Schemes';
     }
 
+    // Blank-Type-of-Question rows have nothing left to fall back to here
+    // (typeOfQuestion is empty by definition) - Category alone is what can
+    // rescue them, above.
     const t = normalize(typeOfQuestion);
     if (t) {
         if (t.includes('weather')) return 'Weather';
@@ -136,6 +126,19 @@ export function dynamicSubBucketFor(category?: string, typeOfQuestion?: string):
     }
 
     return null;
+}
+
+// Rows eligible for Scientific Accuracy scoring: any row with a recognized
+// Type of Question - GDB, Unique, Outreach, OR Dynamic (moduleGroupFor
+// non-null) - Static and Dynamic alike. Rows with no real Type of Question
+// tag at all (blank, "Quality Checking", "Static Dynamic", leaked tester
+// names) are excluded - they were never Static OR Dynamic, just
+// untagged/garbage rows that happen to have a value in this field. Shared
+// by Trust Score's A_sci (kpis.ts), Agri Advisory, and Knowledge & GDB's
+// Scientific Accuracy sub-metric below, so the three scopes can't drift
+// apart if this rule changes again.
+export function isScientificAccuracyEligible(typeOfQuestion?: string): boolean {
+    return moduleGroupFor(typeOfQuestion) !== null;
 }
 
 // Require a minimum sample size before a bucket is eligible to "win" the
@@ -155,254 +158,317 @@ export interface OpenTicket {
     severity: string;
 }
 
-// Overall Module Performance - replaces the old single-metric ("Answer
-// Scientifically Correct?" only, ÷ all rows including blank/NA - a real,
-// unfixed NA-exclusion bug the rest of this codebase's other metrics had
-// already been fixed for) Weakest Module logic with an 8-sub-metric blend,
-// validated against live data before this was wired in (see this session's
-// prototype investigation). Dynamic is no longer a single competing bucket
-// - per that investigation's finding, blending Weather/Mandi
-// Prices/Government Schemes together hid Mandi Prices' real weakness behind
-// Weather and Government Schemes' much stronger numbers - so the 3 Dynamic
-// sub-types compete directly alongside GDB/Unique Questions/Outreach, 6
-// buckets total, not 4.
-export type ModulePerformanceBucket =
-    | 'GDB'
-    | 'Unique Questions'
-    | 'Outreach'
-    | 'Dynamic - Weather'
-    | 'Dynamic - Mandi Prices'
-    | 'Dynamic - Government Schemes';
+// Overall Module Performance / Weakest Module: the 6 ACE modules below, each
+// scored from its own related columns rather than by grouping rows into a
+// Type-of-Question bucket (the old GDB/Unique Questions/Outreach/Dynamic
+// sub-type system this replaces). The business module list numbers 1-10,
+// but only 1-6 are built here - see calculateAceModulePerformance's comment
+// for why 7-10 are deliberately left out (module 7 doesn't exist at all;
+// modules 8-10 are ACE_COMING_SOON_MODULES below, unscored rather than
+// hidden).
+export type AceModuleKey =
+    | 'farmer_interaction'
+    | 'agri_advisory'
+    | 'knowledge_gdb'
+    | 'dynamic_advisory'
+    | 'multilingual_voice'
+    | 'communication_notifications';
 
-export const MODULE_PERFORMANCE_BUCKETS: ModulePerformanceBucket[] = [
-    'GDB',
-    'Unique Questions',
-    'Outreach',
-    'Dynamic - Weather',
-    'Dynamic - Mandi Prices',
-    'Dynamic - Government Schemes',
+// Fixed display/computation order - mirrors the old MODULE_PERFORMANCE_BUCKETS
+// pattern (not sorted by score; see DiagnosticsResult.modulePerformance).
+export const ACE_MODULE_KEYS: AceModuleKey[] = [
+    'farmer_interaction',
+    'agri_advisory',
+    'knowledge_gdb',
+    'dynamic_advisory',
+    'multilingual_voice',
+    'communication_notifications',
 ];
 
-// Domain Accuracy's single source field per bucket - deliberately NOT the
-// blended 3-field average calculateTrustScore's A_dom uses at the
-// whole-Dynamic level (that blend is what hid Mandi Prices' weakness).
-// GDB/Unique Questions/Outreach have no entry here - Domain Accuracy is
-// structurally not applicable to them, not merely absent data, so they
-// never compute or average in this metric at all (see
-// buildModulePerformanceEntry below).
-const MODULE_PERFORMANCE_DOMAIN_FIELD: Partial<Record<ModulePerformanceBucket, string>> = {
-    'Dynamic - Weather': 'Weather Q Answered Correctly?',
-    'Dynamic - Mandi Prices': 'Mandi Price Q Correct?',
-    'Dynamic - Government Schemes': 'Scheme Q Correct?',
-};
+export type AceComingSoonModuleKey = 'review_quality' | 'farmer_context' | 'ace_platform_integrations';
 
-export interface ModulePerformanceMetric {
-    value: number;
-    // Row count the metric's own denominator was computed over - NOT
-    // necessarily the bucket's total row count, since every metric here
-    // (except Critical Failure Rate) excludes blank/NA rows from its own
-    // denominator. Reported alongside value so a metric backed by a thin
-    // sample is visibly distinguishable from one backed by most of the
-    // bucket.
+export interface AceComingSoonModule {
+    key: AceComingSoonModuleKey;
+    label: string;
+}
+
+// Modules 8-10 of the business's 10-module list (module 7 doesn't exist -
+// the list jumps 6 straight to 8, see the comment above
+// calculateAceModulePerformance) - built but never scoreable with the
+// sheet's current columns, so the Weakest Modules card lists them as
+// "Coming soon" instead of hiding them. Never eligible for weakestModule
+// (calculateDiagnostics only reduces over modulePerformance, not this list).
+export const ACE_COMING_SOON_MODULES: AceComingSoonModule[] = [
+    { key: 'review_quality', label: 'Review & Quality' },
+    { key: 'farmer_context', label: 'Farmer Context' },
+    { key: 'ace_platform_integrations', label: 'ACE Platform & Integrations' },
+];
+
+export interface AceModuleSubMetric {
+    key: string;
+    label: string;
+    // Null when this sub-metric had zero applicable (non-blank/NA, per its
+    // own scoping) rows - skipped from the module's overallScore average
+    // entirely, never treated as a 0.
+    value: number | null;
+    // Row count this sub-metric's own denominator was computed over - not
+    // necessarily the same rows another sub-metric in this module used
+    // (e.g. Multilingual & Voice's 5 sub-metrics each read a different
+    // column, blank on different subsets of rows).
     applicable: number;
 }
 
-// One label per metric, used both for display and to derive
-// weakestMetricLabels below - kept as a single ordered list so the pairing
-// between a metric's key and its display label can't drift apart.
-const MODULE_PERFORMANCE_METRIC_LABELS: { key: keyof ModulePerformanceMetrics; label: string }[] = [
-    { key: 'passRate', label: 'Pass Rate' },
-    { key: 'scientificAccuracy', label: 'Scientific Accuracy' },
-    { key: 'domainAccuracy', label: 'Domain Accuracy' },
-    { key: 'translationQuality', label: 'Translation Quality' },
-    { key: 'voicePerformance', label: 'Voice Performance' },
-    { key: 'slaCompliance', label: 'SLA Compliance' },
-    { key: 'notificationExperience', label: 'Notification Experience' },
-    { key: 'criticalFailureRate', label: 'Critical Failure Rate' },
-];
-
-interface ModulePerformanceMetrics {
-    passRate: ModulePerformanceMetric | null;
-    scientificAccuracy: ModulePerformanceMetric | null;
-    domainAccuracy: ModulePerformanceMetric | null;
-    translationQuality: ModulePerformanceMetric | null;
-    voicePerformance: ModulePerformanceMetric | null;
-    slaCompliance: ModulePerformanceMetric | null;
-    notificationExperience: ModulePerformanceMetric | null;
-    criticalFailureRate: ModulePerformanceMetric | null;
-}
-
-export interface ModulePerformanceEntry extends ModulePerformanceMetrics {
-    bucket: ModulePerformanceBucket;
-    totalRows: number;
+export interface AceModuleEntry {
+    key: AceModuleKey;
+    label: string;
+    subMetrics: AceModuleSubMetric[];
+    // Distinct rows applicable to AT LEAST ONE of this module's sub-metrics.
+    // Unlike the old bucket system (one row set per bucket), an ACE module's
+    // sub-metrics each scope to their own column/rows, so there's no single
+    // "the module's rows" - this union is the closest equivalent, and what
+    // MIN_ROWS_FOR_WEAKEST_MODULE gates eligibility on.
+    applicableRowCount: number;
     eligible: boolean;
-    // Average of only the metrics with real applicable data for this bucket
-    // - a metric that's null (zero applicable rows, or structurally not
-    // applicable like Domain Accuracy on non-Dynamic buckets) is skipped
-    // entirely, never treated as a 0. Null only when NO metric had any
-    // applicable data at all (degenerate/empty bucket).
+    // Average of only the sub-metrics with real applicable data - null only
+    // when NO sub-metric had any applicable data at all (degenerate/empty
+    // module).
     overallScore: number | null;
-    // How many of the 8 metrics actually fed into overallScore - lets a
-    // consumer tell a score built from a full 8-metric blend apart from one
-    // built from only 6 or 7 (e.g. GDB/Unique Questions/Outreach always
-    // exclude Domain Accuracy, so they max out at 7).
-    metricsUsedCount: number;
-    // The 1-2 lowest-scoring applicable metrics behind overallScore, by
-    // label - genuinely derived by ranking this bucket's own applicable
-    // metric values, not a hardcoded guess, so it stays correct as the live
-    // data shifts. Empty only when overallScore is null.
+    // The 1-2 lowest-scoring applicable sub-metrics behind overallScore, by
+    // label - genuinely derived by ranking this module's own applicable
+    // sub-metric values, not a hardcoded guess. Empty only when overallScore
+    // is null.
     weakestMetricLabels: string[];
 }
 
-function metricOrNull(value: number, applicable: number): ModulePerformanceMetric | null {
-    return applicable ? { value, applicable } : null;
+interface AceSubMetricInput {
+    key: string;
+    label: string;
+    // Pre-filtered to this sub-metric's own applicable (non-blank/NA, or
+    // otherwise scoped) rows - the caller decides applicability, since it
+    // varies per sub-metric (isNAlike alone for most, but
+    // isQuestionFramedApplicable/isSourceLinkApplicable for a couple).
+    applicableRows: TestersDashboardRecord[];
+    isPositive: (r: TestersDashboardRecord) => boolean;
 }
 
-// Computes all 8 Overall Module Performance sub-metrics for one bucket's
-// rows, then averages whichever ones have real applicable data into
-// overallScore. Reuses the exact same shared formulas the rest of the
-// dashboard already uses for Translation Quality/Voice Performance/SLA
-// Compliance/Notification Experience (translationQualityPct/
-// calculateVoiceSuccess/calculateSlaCompliance/calculateNotificationExperience,
-// all in normalize.ts) rather than re-deriving them - see normalize.ts's
-// header comment for why those 4 live there now. Pass Rate/Scientific
-// Accuracy/Critical Failure Rate mirror kpis.ts's own inline formulas
-// (calculateKpis' totalPassed/totalFailed/passRate, calculateTrustScore's
-// A_sci, calculateKpis' criticalDefectRate) - not extracted into shared
-// functions since kpis.ts never exposed them as standalone functions to
-// begin with.
-export function buildModulePerformanceEntry(bucket: ModulePerformanceBucket, rows: TestersDashboardRecord[]): ModulePerformanceEntry {
-    const totalRows = rows.length;
-    const eligible = totalRows >= MIN_ROWS_FOR_WEAKEST_MODULE;
+function buildAceModule(key: AceModuleKey, label: string, subMetricInputs: AceSubMetricInput[]): AceModuleEntry {
+    const subMetrics: AceModuleSubMetric[] = subMetricInputs.map(({ key: mKey, label: mLabel, applicableRows, isPositive }) => ({
+        key: mKey,
+        label: mLabel,
+        value: applicableRows.length ? pct(applicableRows.filter(isPositive).length, applicableRows.length) : null,
+        applicable: applicableRows.length,
+    }));
 
-    // Pass Rate - Pass ÷ (Pass + Fail), NA-excluded (Partial/NA/other
-    // non-Pass/Fail statuses are excluded from the denominator, same as
-    // calculateKpis' passRate).
-    const passedCount = rows.filter((r) => normalizeTestStatus(r['Overall Test Status']) === 'Pass').length;
-    const failedCount = rows.filter((r) => normalizeTestStatus(r['Overall Test Status']) === 'Fail').length;
-    const passRate = metricOrNull(pct(passedCount, passedCount + failedCount), passedCount + failedCount);
+    // Union of rows applicable to at least one sub-metric - see
+    // AceModuleEntry.applicableRowCount's comment for why this is the
+    // module-level sample-size stand-in used for eligibility.
+    const applicableRowSet = new Set<TestersDashboardRecord>();
+    subMetricInputs.forEach(({ applicableRows }) => applicableRows.forEach((r) => applicableRowSet.add(r)));
+    const applicableRowCount = applicableRowSet.size;
+    const eligible = applicableRowCount >= MIN_ROWS_FOR_WEAKEST_MODULE;
 
-    // Scientific Accuracy - Correct ÷ Applicable (non-blank), same formula
-    // as calculateTrustScore's A_sci.
-    const sciApplicable = rows.filter((r) => !isNAlike(r['Answer Scientifically Correct?']));
-    const scientificAccuracy = metricOrNull(
-        pct(sciApplicable.filter((r) => matchesAny(r['Answer Scientifically Correct?'], ['correct'])).length, sciApplicable.length),
-        sciApplicable.length,
-    );
-
-    // Domain Accuracy - single-field only, scoped per bucket (see
-    // MODULE_PERFORMANCE_DOMAIN_FIELD above). Structurally not applicable
-    // to GDB/Unique Questions/Outreach - domainField is undefined for
-    // those, so this metric is skipped entirely (stays null), never
-    // computed against 0 or defaulted to any value.
-    const domainField = MODULE_PERFORMANCE_DOMAIN_FIELD[bucket];
-    let domainAccuracy: ModulePerformanceMetric | null = null;
-    if (domainField) {
-        const domainApplicable = rows.filter((r) => !isNAlike(r[domainField]));
-        domainAccuracy = metricOrNull(
-            pct(domainApplicable.filter((r) => isYes(r[domainField])).length, domainApplicable.length),
-            domainApplicable.length,
-        );
-    }
-
-    // Translation Quality - shared formula (normalize.ts).
-    const translation = translationQualityPct(rows);
-    const translationQuality = metricOrNull(translation.pct, translation.applicable);
-
-    // Voice Performance - calculateVoiceSuccess()'s blended 0-10 score,
-    // converted to a percentage (score ÷ 10 × 100), applicable = combined
-    // input+output reading count.
-    const voice = calculateVoiceSuccess(rows);
-    const voicePerformance = metricOrNull(Math.round((voice.score / 10) * 1000) / 10, voice.sampleSize);
-
-    // SLA Compliance - calculateSlaCompliance(), scoped to this bucket's rows.
-    const sla = calculateSlaCompliance(rows);
-    const slaCompliance = metricOrNull(sla.withinSlaPct, sla.rows.length);
-
-    // Notification Experience - calculateNotificationExperience() (the
-    // fixed N_exp formula: all 3 conditions required, NA-excluded), scoped
-    // to this bucket's rows.
-    const notification = calculateNotificationExperience(rows);
-    const notificationExperience = metricOrNull(notification.pct, notification.applicable);
-
-    // Critical Failure Rate, converted positive - 100 minus the % of this
-    // bucket's rows with Critical severity. Denominator is every row in the
-    // bucket, NOT NA-scoped like the other 7 metrics - a blank Defect
-    // Severity simply isn't Critical, same as calculateKpis'
-    // criticalDefectRate. Never null for a non-empty bucket (unlike every
-    // other metric here, its denominator can't be zero unless the bucket
-    // itself is empty).
-    const criticalCount = rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'Critical').length;
-    const criticalFailureRate = metricOrNull(totalRows ? 100 - pct(criticalCount, totalRows) : 0, totalRows);
-
-    const metrics: ModulePerformanceMetrics = {
-        passRate,
-        scientificAccuracy,
-        domainAccuracy,
-        translationQuality,
-        voicePerformance,
-        slaCompliance,
-        notificationExperience,
-        criticalFailureRate,
-    };
-
-    // Overall Module Score = average of only the metrics with real
-    // applicable data - skip true N/A metrics entirely (domainAccuracy on
-    // GDB/Unique Questions/Outreach, or any metric with zero applicable
-    // rows), never treat them as a 0.
-    const scoreableEntries = MODULE_PERFORMANCE_METRIC_LABELS.filter(({ key }) => metrics[key] !== null).map(
-        ({ key, label }) => ({ label, metric: metrics[key] as ModulePerformanceMetric }),
-    );
-    const overallScore = scoreableEntries.length
-        ? Math.round((scoreableEntries.reduce((sum, { metric }) => sum + metric.value, 0) / scoreableEntries.length) * 10) / 10
+    const scoreable = subMetrics.filter((m): m is AceModuleSubMetric & { value: number } => m.value !== null);
+    const overallScore = scoreable.length
+        ? Math.round((scoreable.reduce((sum, m) => sum + m.value, 0) / scoreable.length) * 10) / 10
         : null;
 
-    // "Mainly affected by X [and Y]" - the lowest 1-2 applicable metrics by
-    // value, genuinely derived from this bucket's own numbers (not a
-    // hardcoded label per bucket), so it stays correct as the live data
-    // shifts.
-    const weakestMetricLabels = [...scoreableEntries]
-        .sort((a, b) => a.metric.value - b.metric.value)
-        .slice(0, 2)
-        .map(({ label }) => label);
+    // "Mainly affected by X [and Y]" - the lowest 1-2 applicable sub-metrics
+    // by value, genuinely derived from this module's own numbers, not a
+    // hardcoded label per module.
+    const weakestMetricLabels = [...scoreable].sort((a, b) => a.value - b.value).slice(0, 2).map((m) => m.label);
 
-    return {
-        bucket,
-        totalRows,
-        eligible,
-        ...metrics,
-        overallScore,
-        metricsUsedCount: scoreableEntries.length,
-        weakestMetricLabels,
+    return { key, label, subMetrics, applicableRowCount, eligible, overallScore, weakestMetricLabels };
+}
+
+// Computes all 6 ACE modules over the given (already filtered) rows. The
+// business module list numbers 1-10; modules 7-10 are deliberately NOT built
+// here, pending clarification:
+//  - Module 7 is missing from the business list entirely (numbering jumps
+//    6 straight to 8).
+//  - Module 8 (Review & Quality): the sheet only has Review TAT (speed, not
+//    quality) and Expert Name - nothing measures review quality itself yet.
+//  - Module 9 (Farmer Context): no columns exist for farmer profile,
+//    location, crop, or season.
+//  - Module 10 (ACE Platform & Integrations): the DB-save/Q-ID columns
+//    measure test-time data storage, not API/platform health, so they are
+//    not a valid proxy for this module.
+export function calculateAceModulePerformance(rows: TestersDashboardRecord[]): AceModuleEntry[] {
+    // 1. Farmer Interaction - Question Correctly Framed?
+    const farmerInteraction = buildAceModule('farmer_interaction', 'Farmer Interaction', [
+        {
+            key: 'question_framed',
+            label: 'Question Correctly Framed',
+            applicableRows: rows.filter((r) => isQuestionFramedApplicable(r['Question Correctly Framed?'])),
+            isPositive: (r) => isQuestionWellFramed(r['Question Correctly Framed?']),
+        },
+    ]);
+
+    // 2. Agri Advisory - Answer Scientifically Correct?, scoped via
+    // isScientificAccuracyEligible (any recognized Type of Question - Static
+    // or Dynamic alike) - same scoping AND "correct" definition
+    // (isScientificallyCorrect - accepts a plain yes/y too) as Trust Score's
+    // own A_sci (kpis.ts). No longer Static-only - a Dynamic row with a real
+    // answer now counts here too.
+    const agriAdvisory = buildAceModule('agri_advisory', 'Agri Advisory', [
+        {
+            key: 'scientific_accuracy_static',
+            label: 'Scientific Accuracy',
+            applicableRows: rows.filter(
+                (r) => isScientificAccuracyEligible(r['Type of Question']) && !isNAlike(r['Answer Scientifically Correct?']),
+            ),
+            isPositive: (r) => isScientificallyCorrect(r['Answer Scientifically Correct?']),
+        },
+    ]);
+
+    // 3. Knowledge & GDB - Correct Source Links (global, same
+    // isSourceLinkApplicable/isSourceLinkRelevant matching as Trust Score's
+    // S_lnk) averaged with Scientific Accuracy - now identical in both
+    // scoping (isScientificAccuracyEligible) AND match rule
+    // (isScientificallyCorrect) to Agri Advisory/A_sci. Used to keep its own
+    // "correct"-only match left over from when this sub-metric was scoped to
+    // GDB rows only - that meant a "Yes" answer counted as correct in Agri
+    // Advisory but not here, for no principled reason once both share the
+    // same eligible-row scope. All three now reuse the exact same functions,
+    // so they can't drift apart again.
+    const knowledgeGdb = buildAceModule('knowledge_gdb', 'Knowledge & GDB', [
+        {
+            key: 'correct_source_links',
+            label: 'Correct Source Links',
+            applicableRows: rows.filter((r) => isSourceLinkApplicable(r['Correct Source Links Provided?'])),
+            isPositive: (r) => isSourceLinkRelevant(r['Correct Source Links Provided?']),
+        },
+        {
+            key: 'scientific_accuracy_gdb',
+            label: 'Scientific Accuracy',
+            applicableRows: rows.filter(
+                (r) => isScientificAccuracyEligible(r['Type of Question']) && !isNAlike(r['Answer Scientifically Correct?']),
+            ),
+            isPositive: (r) => isScientificallyCorrect(r['Answer Scientifically Correct?']),
+        },
+    ]);
+
+    // 4. Dynamic Advisory - Weather/Mandi/Scheme accuracy, each scoped to
+    // its own Question Category bucket via dynamicSubBucketFor (same
+    // scoping as Trust Score's A_dom). Unlike A_dom, a sub-metric with zero
+    // applicable rows is SKIPPED from the average here rather than
+    // defaulting to 100 - Weakest Module must never let an empty domain
+    // masquerade as a perfect score.
+    const domainApplicableRows = (bucket: DynamicSubBucket, field: string) => {
+        const bucketRows = rows.filter((r) => dynamicSubBucketFor(r['Question Category'], r['Type of Question']) === bucket);
+        return bucketRows.filter((r) => !isNAlike(r[field]));
     };
+    const dynamicAdvisory = buildAceModule('dynamic_advisory', 'Dynamic Advisory', [
+        {
+            key: 'weather_accuracy',
+            label: 'Weather Accuracy',
+            applicableRows: domainApplicableRows('Weather', 'Weather Q Answered Correctly?'),
+            isPositive: (r) => isYes(r['Weather Q Answered Correctly?']),
+        },
+        {
+            key: 'mandi_accuracy',
+            label: 'Mandi Accuracy',
+            applicableRows: domainApplicableRows('Mandi Prices', 'Mandi Price Q Correct?'),
+            isPositive: (r) => isYes(r['Mandi Price Q Correct?']),
+        },
+        {
+            key: 'scheme_accuracy',
+            label: 'Scheme Accuracy',
+            applicableRows: domainApplicableRows('Government Schemes', 'Scheme Q Correct?'),
+            isPositive: (r) => isYes(r['Scheme Q Correct?']),
+        },
+    ]);
+
+    // 5. Multilingual & Voice - Translation Quality (mirrors
+    // translationQualityPct's own ['correct','good'] definition in
+    // normalize.ts) averaged with Voice Input/Output Quality (Clear-only,
+    // stricter than calculateVoiceSuccess's 0-10 scale) and Voice
+    // Input/Output Working.
+    const multilingualVoice = buildAceModule('multilingual_voice', 'Multilingual & Voice', [
+        {
+            key: 'translation_quality',
+            label: 'Translation Quality',
+            applicableRows: rows.filter((r) => !isNAlike(r['Translation Quality'])),
+            isPositive: (r) => matchesAny(r['Translation Quality'], ['correct', 'good']),
+        },
+        {
+            key: 'voice_input_quality',
+            label: 'Voice Input Quality (Clear)',
+            applicableRows: rows.filter((r) => !isNAlike(r['Voice Input Quality'])),
+            isPositive: (r) => matchesAny(r['Voice Input Quality'], ['clear']),
+        },
+        {
+            key: 'voice_output_quality',
+            label: 'Voice Output Quality (Clear)',
+            applicableRows: rows.filter((r) => !isNAlike(r['Voice Output Quality'])),
+            isPositive: (r) => matchesAny(r['Voice Output Quality'], ['clear']),
+        },
+        {
+            key: 'voice_input_working',
+            label: 'Voice Input Working',
+            applicableRows: rows.filter((r) => !isNAlike(r['Voice Input Working?'])),
+            isPositive: (r) => isYes(r['Voice Input Working?']),
+        },
+        {
+            key: 'voice_output_working',
+            label: 'Voice Output Working',
+            applicableRows: rows.filter((r) => !isNAlike(r['Voice Output Working?'])),
+            isPositive: (r) => isYes(r['Voice Output Working?']),
+        },
+    ]);
+
+    // 6. Communication & Notifications - Notification Success (Received on
+    // Time only - the standalone KPI's own definition, kpis.ts's
+    // notificationSuccessPct) averaged with Notification Experience (N_exp -
+    // all 3 conditions required: received/same-thread/correct-Q-ID, mirrors
+    // calculateNotificationExperience in normalize.ts).
+    const communicationNotifications = buildAceModule('communication_notifications', 'Communication & Notifications', [
+        {
+            key: 'notification_success',
+            label: 'Notification Success',
+            applicableRows: rows.filter((r) => !isNAlike(r['Notification Received?'])),
+            isPositive: (r) => matchesAny(r['Notification Received?'], ['received on time']),
+        },
+        {
+            key: 'notification_experience',
+            label: 'Notification Experience',
+            applicableRows: rows.filter(
+                (r) =>
+                    !isNAlike(r['Notification Received?']) &&
+                    !isNAlike(r['Notification on Same Thread?']) &&
+                    !isNAlike(r['Notification Linked Correct Q-ID?']),
+            ),
+            isPositive: (r) =>
+                matchesAny(r['Notification Received?'], ['received on time', 'received late', 'yes']) &&
+                isYes(r['Notification on Same Thread?']) &&
+                isYes(r['Notification Linked Correct Q-ID?']),
+        },
+    ]);
+
+    return [farmerInteraction, agriAdvisory, knowledgeGdb, dynamicAdvisory, multilingualVoice, communicationNotifications];
 }
 
 export interface DiagnosticsResult {
     stageStats: TatStageStat[];
     bottleneckName: string;
     bottleneckTime: number;
-    // All 6 Overall Module Performance buckets, in the fixed
-    // MODULE_PERFORMANCE_BUCKETS grouping order (GDB, Unique Questions,
-    // Outreach, then Dynamic's 3 sub-types together) - NOT sorted by score.
-    // Per Hemanth's confirmation, scattering Dynamic's 3 sub-types apart by
-    // score made the breakdown list hard to scan; this is display order
-    // only and is deliberately independent of weakestModule below, which
-    // still picks the lowest-scoring eligible bucket regardless of where it
-    // falls in this fixed order. Dynamic's 3 sub-types are first-class
-    // entries here, not nested under a separate breakdown - see
-    // ModulePerformanceBucket's own comment for why.
-    modulePerformance: ModulePerformanceEntry[];
-    weakestModule: ModulePerformanceBucket | 'None';
+    // All 6 ACE modules, in the fixed ACE_MODULE_KEYS order (Farmer
+    // Interaction, Agri Advisory, Knowledge & GDB, Dynamic Advisory,
+    // Multilingual & Voice, Communication & Notifications) - NOT sorted by
+    // score, and independent of weakestModule below, which still picks the
+    // lowest-scoring eligible module regardless of display order.
+    modulePerformance: AceModuleEntry[];
+    // Modules 8-10 - unscored, listed after modulePerformance for the
+    // Weakest Modules card to render as "Coming soon". Static (doesn't
+    // depend on rows) and always ACE_COMING_SOON_MODULES verbatim - never
+    // considered by the weakestModule reduction below, which only ever
+    // looks at modulePerformance.
+    comingSoonModules: AceComingSoonModule[];
+    weakestModule: string;
     weakestModuleRowCount: number;
-    // The weakest eligible bucket's overallScore (0-100, or null if no
-    // bucket is eligible) - the headline number the Weakest Module card
-    // shows now, replacing the old Scientific-Accuracy-only percentage.
     weakestModuleScore: number | null;
-    // The weakest eligible bucket's weakestMetricLabels - kept for callers
-    // that want the specific sub-metric breakdown, but the card itself no
-    // longer surfaces this in its headline text (per Hemanth's confirmation
-    // it read as module-specific commentary rather than an explanation of
-    // the method - replaced with a fixed, methodology-only line instead).
+    // The weakest eligible module's weakestMetricLabels - kept for callers
+    // that want the specific sub-metric breakdown, though the card itself
+    // shows a fixed, methodology-only line instead.
     weakestModuleReason: string[];
     // Total critical/high defects by severity, independent of whether a
     // ticket URL was logged - a critical defect with no ticket URL logged
@@ -411,8 +477,8 @@ export interface DiagnosticsResult {
     openTickets: OpenTicket[];
 }
 
-// Biggest Bottleneck, Overall Module Performance / Weakest Module (6
-// buckets), and the Open Critical Defects ticket list, all computed over the
+// Biggest Bottleneck, Overall Module Performance / Weakest Module (the 6 ACE
+// modules), and the Open Critical Defects ticket list, all computed over the
 // given (already filtered) rows.
 export function calculateDiagnostics(rows: TestersDashboardRecord[]): DiagnosticsResult {
     const stageStats: TatStageStat[] = TAT_STAGES.map((stage) => {
@@ -437,62 +503,17 @@ export function calculateDiagnostics(rows: TestersDashboardRecord[]): Diagnostic
         }
     });
 
-    // Overall Module Performance: GDB/Unique Questions/Outreach bucket via
-    // moduleGroupFor as before; Dynamic no longer forms its own bucket here
-    // - it's immediately split into its 3 sub-types via dynamicSubBucketFor,
-    // and those 3 compete directly as first-class buckets (see
-    // ModulePerformanceBucket's comment for why). "Static Dynamic" rows,
-    // and any Dynamic row whose sub-type dynamicSubBucketFor can't resolve,
-    // never enter any of the 6 buckets - simply absent from Overall Module
-    // Performance rather than forming their own entry or a phantom count,
-    // same treatment moduleGroupFor/dynamicSubBucketFor already gave them.
-    const moduleBuckets: Record<ModuleGroup, TestersDashboardRecord[]> = {
-        GDB: [],
-        Dynamic: [],
-        'Unique Questions': [],
-        Outreach: [],
-    };
-    rows.forEach((r) => {
-        const group = moduleGroupFor(r['Type of Question']);
-        if (group) moduleBuckets[group].push(r);
-    });
+    // The 6 ACE modules - see calculateAceModulePerformance's comment for
+    // what each one scores and why modules 7-10 aren't built yet.
+    const modulePerformance: AceModuleEntry[] = calculateAceModulePerformance(rows);
 
-    const dynamicSubBuckets: Record<DynamicSubBucket, TestersDashboardRecord[]> = {
-        Weather: [],
-        'Mandi Prices': [],
-        'Government Schemes': [],
-    };
-    moduleBuckets['Dynamic'].forEach((r) => {
-        const sub = dynamicSubBucketFor(r['Question Category'], r['Type of Question']);
-        if (sub) dynamicSubBuckets[sub].push(r);
-    });
-
-    const modulePerformanceRowsByBucket: Record<ModulePerformanceBucket, TestersDashboardRecord[]> = {
-        GDB: moduleBuckets['GDB'],
-        'Unique Questions': moduleBuckets['Unique Questions'],
-        Outreach: moduleBuckets['Outreach'],
-        'Dynamic - Weather': dynamicSubBuckets['Weather'],
-        'Dynamic - Mandi Prices': dynamicSubBuckets['Mandi Prices'],
-        'Dynamic - Government Schemes': dynamicSubBuckets['Government Schemes'],
-    };
-    const modulePerformanceByBucket = Object.fromEntries(
-        MODULE_PERFORMANCE_BUCKETS.map((bucket) => [bucket, buildModulePerformanceEntry(bucket, modulePerformanceRowsByBucket[bucket])]),
-    ) as Record<ModulePerformanceBucket, ModulePerformanceEntry>;
-
-    // Fixed grouping order (GDB, Unique Questions, Outreach, then Dynamic's
-    // 3 sub-types together) - NOT sorted by score. Deliberately independent
-    // of weakestModule below: that still picks the single lowest-scoring
-    // eligible bucket via its own reduce over this same array, regardless
-    // of where that bucket happens to fall in this fixed display order.
-    const modulePerformance: ModulePerformanceEntry[] = MODULE_PERFORMANCE_BUCKETS.map((b) => modulePerformanceByBucket[b]);
-
-    const weakestEntry = modulePerformance.reduce<ModulePerformanceEntry | null>((weakest, m) => {
+    const weakestEntry = modulePerformance.reduce<AceModuleEntry | null>((weakest, m) => {
         if (!m.eligible || m.overallScore === null) return weakest;
         if (!weakest || m.overallScore < weakest.overallScore!) return m;
         return weakest;
     }, null);
-    const weakestModule: ModulePerformanceBucket | 'None' = weakestEntry ? weakestEntry.bucket : 'None';
-    const weakestModuleRowCount = weakestEntry ? weakestEntry.totalRows : 0;
+    const weakestModule: string = weakestEntry ? weakestEntry.label : 'None';
+    const weakestModuleRowCount = weakestEntry ? weakestEntry.applicableRowCount : 0;
     const weakestModuleScore = weakestEntry ? weakestEntry.overallScore : null;
     const weakestModuleReason = weakestEntry ? weakestEntry.weakestMetricLabels : [];
 
@@ -519,6 +540,7 @@ export function calculateDiagnostics(rows: TestersDashboardRecord[]): Diagnostic
         bottleneckName,
         bottleneckTime,
         modulePerformance,
+        comingSoonModules: ACE_COMING_SOON_MODULES,
         weakestModule,
         weakestModuleRowCount,
         weakestModuleScore,

@@ -14,14 +14,13 @@ export class GetTestersDashboardQuery {
   })
   // Deliberately typed as plain `string`, NOT TestersDashboardDateRange (a
   // string-literal union). TypeScript erases type aliases at compile time,
-  // so a property typed with a union has no runtime constructor for
+  // so a union-typed property has no runtime constructor for
   // emitDecoratorMetadata to reflect - routing-controllers then treats the
   // param as "not a primitive" and tries JSON.parse() on the raw query
-  // string, which throws a 400 for every value including valid ones (e.g.
-  // "7days" -> "cannot be parsed into JSON"). @IsIn still fully validates
-  // the allowed values at runtime regardless of the compile-time type;
-  // TestersDashboardService casts to TestersDashboardDateRange after this
-  // validation has already run.
+  // string, throwing a 400 for every value including valid ones. @IsIn
+  // still fully validates the allowed values at runtime regardless of the
+  // compile-time type; TestersDashboardService casts to
+  // TestersDashboardDateRange after validation has already run.
   @IsOptional()
   @IsIn(['all', 'today', '7days', '30days', 'custom'])
   dateRange?: string;
@@ -90,12 +89,11 @@ export class GetTestersDashboardQuery {
       'type=Dynamic. Omitted/empty means no filter.',
   })
   // A true array-typed query param (@IsArray()) would need the frontend to
-  // send repeated keys (?dynamicSubTypes=Weather&dynamicSubTypes=Mandi...),
-  // which adds client-side serialization complexity for no real benefit
-  // here - a single comma-separated string is simpler on both ends and
-  // avoids relying on this endpoint's array/union-type query parsing (see
-  // dateRange's comment above on this same class for a related quirk).
-  // Parsed into a string[] in TestersDashboardService.buildFiltersFromQuery.
+  // send repeated keys (?dynamicSubTypes=Weather&dynamicSubTypes=Mandi...) -
+  // a single comma-separated string is simpler on both ends and avoids this
+  // endpoint's array/union-type query parsing (see dateRange's comment
+  // above). Parsed into a string[] in
+  // TestersDashboardService.buildFiltersFromQuery.
   @IsOptional()
   @IsString()
   dynamicSubTypes?: string;
@@ -125,13 +123,10 @@ export class GetTestersDashboardQuery {
     example: 'true',
     description: 'Exclude rows with a DB-save failure, a wrongly-flagged duplicate, or a Critical defect - "true" or "false"',
   })
-  // Query params always arrive as strings and this app's routing-controllers
-  // setup doesn't enable implicit type conversion, so @IsBoolean() would
-  // reject every real request (e.g. ?excludeFailures=true is the string
-  // "true", not a boolean). @IsBooleanString() + string type matches the
-  // existing convention elsewhere in this codebase (see
-  // QuestionVaidators.ts's isRequiredAiInitialAnswer/isOutreachQuestion) -
-  // the consumer compares against the literal string "true".
+  // Query params always arrive as strings and this app doesn't enable
+  // implicit type conversion, so @IsBoolean() would reject every real
+  // request (?excludeFailures=true is the string "true", not a boolean).
+  // The consumer compares against the literal string "true".
   @IsOptional()
   @IsBooleanString()
   excludeFailures?: string;
