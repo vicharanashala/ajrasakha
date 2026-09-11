@@ -29,7 +29,10 @@ export interface NewSourceItem {
   organizationName?: string;
   organizationType?: string;
   sourceName?: string;
-  sourceLink?: string;
+  // The matched document's live_source_link.
+  originalLink?: string | null;
+  // The matched document's own shareable_link (the Annam.AI archive).
+  archivedLink?: string | null;
   yearOfRelease?: string | number | null;
 }
 

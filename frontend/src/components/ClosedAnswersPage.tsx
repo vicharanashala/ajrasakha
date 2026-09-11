@@ -1528,13 +1528,16 @@ const SOURCE_REFERENCE_STATUS_LABELS: Record<string, string> = {
 // current sources, green for what the reviewer recorded. Before comes from the answer's
 // own SourceItem (a raw `source` link/text, a plain-string `organization` name); After
 // comes from the updated_sources NewSourceItem, already populated (by
-// NewSourceService.getByAnswerId) with organizationName/sourceName/sourceLink/
-// yearOfRelease looked up from the organization/pop_unique_documents _ids it actually
-// stores - sourceReferenceStatus and the populated fields simply don't render for
-// Before entries.
+// NewSourceService.getByAnswerId) with organizationName/sourceName/originalLink/
+// archivedLink/yearOfRelease looked up from the organization/pop_unique_documents _ids
+// it actually stores (its own `source` is that document's _id, never shown directly) -
+// sourceReferenceStatus and the populated fields simply don't render for Before entries.
 type ReviewSource = {
   source?: string;
-  sourceLink?: string;
+  /** After only - the matched document's live_source_link. */
+  originalLink?: string | null;
+  /** After only - the matched document's own shareable_link (the Annam.AI archive). */
+  archivedLink?: string | null;
   sourceType?: string;
   sourceName?: string;
   page?: string | number | number[];
@@ -1610,27 +1613,54 @@ const SourceChangeItem = ({
         )}
       </div>
 
-      {(() => {
-        // Before carries the raw source text/link; After has no raw text (its `source`
-        // is a pop_unique_documents _id) - the matched document's own link stands in.
-        const displaySource = source.source || source.sourceLink;
-        return displaySource ? (
+      {side === "before" ? (
+        // Before carries the raw source text/link as entered on the answer.
+        source.source && (
           <SourceDetailLine label="Source">
-            {isUrl(displaySource) ? (
+            {isUrl(source.source) ? (
               <a
-                href={displaySource}
+                href={source.source}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
               >
-                {displaySource}
+                {source.source}
               </a>
             ) : (
-              displaySource
+              source.source
             )}
           </SourceDetailLine>
-        ) : null;
-      })()}
+        )
+      ) : (
+        // After's own `source` is a pop_unique_documents _id, never shown directly -
+        // the matched document's two links stand in instead.
+        <>
+          {source.originalLink && (
+            <SourceDetailLine label="Original link">
+              <a
+                href={source.originalLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {source.originalLink}
+              </a>
+            </SourceDetailLine>
+          )}
+          {source.archivedLink && (
+            <SourceDetailLine label="Annam.AI Archived Link">
+              <a
+                href={source.archivedLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {source.archivedLink}
+              </a>
+            </SourceDetailLine>
+          )}
+        </>
+      )}
 
       {source.page !== undefined && source.page !== "" && (
         <SourceDetailLine label="Page">
@@ -2558,11 +2588,9 @@ const AnswerDetail = ({
       />
     )}
 
-    <AnswerSourcesEditor
-      answer={answer}
-      startCollapsed={isModerator || isAdmin}
-      isReviewer={isModerator || isAdmin}
-    />
+    {/* Moderators/admins review sources via SourceChangesSection's Before/After view
+        above - they don't edit an answer's sources, so this editor is expert-only. */}
+    {!(isModerator || isAdmin) && <AnswerSourcesEditor answer={answer} />}
 
     <AnswerBody answer={answer} />
 

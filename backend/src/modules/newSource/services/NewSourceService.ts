@@ -292,8 +292,8 @@ export class NewSourceService implements INewSourceService {
   }
 
   // Looks up organizationName/organizationType from `organization` and
-  // sourceName/sourceLink/yearOfRelease from `source` for display in the moderator
-  // Before/After view - these are never persisted (see sanitizeSources).
+  // sourceName/originalLink/archivedLink/yearOfRelease from `source` for display in the
+  // moderator Before/After view - these are never persisted (see sanitizeSources).
   private async populateSources(sources: INewSourceItem[]): Promise<INewSourceItem[]> {
     return await Promise.all(
       sources.map(async item => {
@@ -309,7 +309,8 @@ export class NewSourceService implements INewSourceService {
           organizationName: organization?.org_name,
           organizationType: organization?.type,
           sourceName: pop?.shareable_name,
-          sourceLink: pop?.live_source_link || pop?.shareable_link,
+          originalLink: pop?.live_source_link,
+          archivedLink: pop?.shareable_link,
           yearOfRelease: pop?.year_of_release,
         };
       }),
