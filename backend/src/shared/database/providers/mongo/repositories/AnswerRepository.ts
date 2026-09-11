@@ -1238,20 +1238,26 @@ export class AnswerRepository implements IAnswerRepository {
       }
 
       // Moderators/admins review what's been done, so they see only reviewed answers
-      // (updated_sources.status 'review-completed', 'merged' or their own
-      // 'moderator-in-review'). Everyone else is here to add sources, so a reviewed
-      // answer leaves their list - keyed off the reviewer roles rather than 'expert'
-      // alone, so testers and other source-adding roles get the same list.
+      // (updated_sources.status 'review-completed' or their own 'moderator-in-review')
+      // by default - 'merged' ("Approved") is excluded from that default too, same as
+      // 'flagged', and only shows up when asked for by name. Everyone else is here to
+      // add sources, so a reviewed answer leaves their list - keyed off the reviewer
+      // roles rather than 'expert' alone, so testers and other source-adding roles get
+      // the same list.
       if (
         filters?.viewerRole === 'moderator' ||
         filters?.viewerRole === 'admin'
       ) {
-        // Left alone, the reviewer list is the reviewed set (review-completed, merged
-        // or their own moderator-in-review). Asking for statuses by name overrides that
-        // - otherwise picking 'Flagged' (or 'Pending') would filter to a set the
-        // default gate has already excluded, and come back empty.
+        // Left alone, the reviewer list is the reviewed-but-not-yet-approved set
+        // (review-completed or their own moderator-in-review). Asking for statuses by
+        // name overrides that - otherwise picking 'Flagged' (or 'Pending') would filter
+        // to a set the default gate has already excluded, and come back empty.
         if (requestedStatuses.length === 0) {
           matchStage.hasCompletedNewSource = true;
+          // 'merged' ("Approved" in the UI) reviews stay out of the default list too,
+          // same treatment as 'flagged' above - asking for it by name
+          // (newSourceStatuses=merged) is the only way to see them.
+          matchStage.$and.push({newSourceRecordStatus: {$ne: 'merged'}});
         }
         // Whoever took an answer into moderator review owns finishing it - it stays in
         // their own list and disappears from every other moderator's, filter or not.
