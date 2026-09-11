@@ -10,13 +10,13 @@ export interface INewSourceRepository {
   create(data: Omit<INewSource, '_id' | 'createdAt' | 'updatedAt'>): Promise<INewSource>;
 
   /** Updates an existing `updated_sources` document by id (e.g. on save, once editing
-   *  completes) — also marks isActionTaken and records timeTaken on `userId`'s own still-open
-   *  reviewArray entry (the one with closedAt: null), not just the record as a whole, so
-   *  each reviewer's own contribution stays attributed to them. */
+   *  completes) — also marks isActionTaken on `userId`'s own still-open reviewArray entry
+   *  (the one with closedAt: null), not just the record as a whole, so each reviewer's
+   *  own contribution stays attributed to them. */
   updateById(
     id: string,
     userId: string,
-    updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
+    updates: Partial<Pick<INewSource, 'sources' | 'status'>>,
   ): Promise<INewSource | null>;
 
   /** Replaces the incomplete pop documents logged on `userId`'s own still-open
@@ -44,7 +44,7 @@ export interface INewSourceRepository {
     action: IModeratorAction,
   ): Promise<INewSource | null>;
 
-  /** Sets just the record's status, without touching reviewArray or timeTaken — used
+  /** Sets just the record's status, without touching reviewArray — used
    *  when a reviewer picks a released record back up and it returns to 'in-progress'. */
   setStatus(id: string, status: INewSource['status']): Promise<INewSource | null>;
 

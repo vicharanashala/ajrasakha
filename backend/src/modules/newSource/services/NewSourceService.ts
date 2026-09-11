@@ -143,7 +143,6 @@ export class NewSourceService implements INewSourceService {
           startedAt: new Date(),
           closedAt: null,
           isActionTaken: false,
-          timeTaken: null,
         });
         if (withNewReviewer) reopened = withNewReviewer;
       }
@@ -168,7 +167,6 @@ export class NewSourceService implements INewSourceService {
       questionId: input.questionId,
       sources: [],
       status: 'in-progress',
-      timeTaken: null,
       reviewArray: [
         {
           userId: input.userId,
@@ -177,7 +175,6 @@ export class NewSourceService implements INewSourceService {
           startedAt: new Date(),
           closedAt: null,
           isActionTaken: false,
-          timeTaken: null,
         },
       ],
     });
@@ -208,7 +205,6 @@ export class NewSourceService implements INewSourceService {
     const updated = await this.newSourceRepo.updateById(input.id, input.userId, {
       sources: sanitizeSources(input.sources),
       status: 'review-completed',
-      timeTaken: input.timeTaken,
     });
 
     if (!updated) {
@@ -333,7 +329,6 @@ export class NewSourceService implements INewSourceService {
         startedAt: new Date(),
         closedAt: null,
         isActionTaken: false,
-        timeTaken: null,
       });
     }
 

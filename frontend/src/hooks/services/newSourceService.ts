@@ -51,7 +51,6 @@ export interface StartNewSourcePayload {
 
 export interface CompleteNewSourcePayload {
   sources: NewSourceItem[];
-  timeTaken: number;
 }
 
 // One incomplete pop document hit during a stint: which required fields were blank on
@@ -77,10 +76,6 @@ export interface NewSourceReviewEntry {
   // The pop documents this stint found incomplete, with what was blank and what was
   // filled in - absent when nothing was missing.
   missingPopDocuments?: MissingPopDocument[];
-  // Seconds spent on this reviewer's own edit, set once they save. A record can carry
-  // more than one entry (different experts pick it up over time, e.g. after a release
-  // back to 'pending'), each with its own timeTaken.
-  timeTaken: number | null;
 }
 
 // What a moderator/admin did to the record. 'release' is the only one without a reason,
@@ -108,7 +103,6 @@ export interface NewSourceRecord {
   questionId: string;
   sources: NewSourceItem[];
   status: NewSourceStatus;
-  timeTaken: number | null;
   reviewArray: NewSourceReviewEntry[];
   moderatorActions?: ModeratorAction[];
 }

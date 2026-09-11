@@ -41,7 +41,7 @@ export class NewSourceRepository implements INewSourceRepository {
   async updateById(
     id: string,
     userId: string,
-    updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
+    updates: Partial<Pick<INewSource, 'sources' | 'status'>>,
   ): Promise<INewSource | null> {
     await this.init();
 
@@ -51,15 +51,14 @@ export class NewSourceRepository implements INewSourceRepository {
 
     // updateById is only ever called to complete an edit (see its interface doc comment),
     // so this is also where this reviewer's own still-open reviewArray entry (closedAt:
-    // null) gets marked saved, with its own timeTaken - not a hardcoded index, since a
-    // record can carry more than one reviewer's entry.
+    // null) gets marked as having taken action - not a hardcoded index, since a record
+    // can carry more than one reviewer's entry.
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
       {
         $set: {
           ...updates,
           'reviewArray.$[reviewer].isActionTaken': true,
-          'reviewArray.$[reviewer].timeTaken': updates.timeTaken ?? null,
           updatedAt: new Date(),
         },
       },
@@ -325,22 +324,6 @@ export class NewSourceRepository implements INewSourceRepository {
 
     const changedAt = new Date();
 
-    // Acting on the record ends the moderator's hold on it - their entry is marked
-    // saved and given its own timeTaken (measured from when they opened it), the same
-    // as an expert's own save via updateById, rather than being left null.
-    const existing = await this.NewSourceCollection.findOne({_id: new ObjectId(id)});
-    const openModeratorEntry = existing?.reviewArray.find(
-      reviewer => reviewer.role === 'moderator' && reviewer.closedAt === null,
-    );
-    const timeTaken = openModeratorEntry
-      ? Math.max(
-          0,
-          Math.round(
-            (changedAt.getTime() - new Date(openModeratorEntry.startedAt).getTime()) / 1000,
-          ),
-        )
-      : null;
-
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
       {
@@ -348,7 +331,6 @@ export class NewSourceRepository implements INewSourceRepository {
           status: entry.status,
           'reviewArray.$[reviewer].closedAt': changedAt,
           'reviewArray.$[reviewer].isActionTaken': true,
-          'reviewArray.$[reviewer].timeTaken': timeTaken,
           updatedAt: changedAt,
         },
         $push: {moderatorActions: entry},

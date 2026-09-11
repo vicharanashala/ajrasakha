@@ -59,7 +59,7 @@ export class NewSourceController {
   @Authorized()
   async complete(
     @Param('id') id: string,
-    @Body() body: {sources: INewSourceItem[]; timeTaken: number},
+    @Body() body: {sources: INewSourceItem[]},
     @CurrentUser() user: IUser,
   ): Promise<INewSource> {
     return await this.newSourceService.completeNewSource({

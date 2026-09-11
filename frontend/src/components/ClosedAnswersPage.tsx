@@ -999,7 +999,6 @@ const AnswerSourcesEditor = ({
   // The other answer's in-progress updated_sources record this expert still owns, surfaced
   // so they can confirm switching to this answer before it's released back to pending.
   const [pendingSwitch, setPendingSwitch] = useState<NewSourceRecord | null>(null);
-  const editStartedAtRef = useRef<number | null>(null);
   const sessionStartedRef = useRef(false);
   // A backend action parked until the review session is open - see runWithSession.
   const deferredActionRef = useRef<(() => void) | null>(null);
@@ -1047,10 +1046,9 @@ const AnswerSourcesEditor = ({
     [closeNewSource],
   );
 
-  // Creates the updated_sources record as 'in-progress' on the first edit, giving
-  // timeTaken a real start point without logging a record for idle browsing.
+  // Creates the updated_sources record as 'in-progress' on the first edit, so the
+  // stint has a real start time without logging a record for idle browsing.
   const beginSession = () => {
-    editStartedAtRef.current = Date.now();
     startNewSource(
       { answerId: answer._id, questionId: answer.questionId ?? "" },
       {
@@ -1205,11 +1203,6 @@ const AnswerSourcesEditor = ({
       return;
     }
 
-    // timeTaken is stored in seconds, not raw milliseconds.
-    const timeTaken = editStartedAtRef.current
-      ? Math.round((Date.now() - editStartedAtRef.current) / 1000)
-      : 0;
-
     // Every source on the answer is saved together - not just the one being edited -
     // each carrying only the organization/pop_unique_documents _ids it resolved to, its
     // manually-entered pages, and sourceReferenceStatus, plus sourceIndex: its position
@@ -1228,7 +1221,6 @@ const AnswerSourcesEditor = ({
       {
         id: newSourceId,
         sources: finalSources,
-        timeTaken,
       },
       {
         onSuccess: () => {
@@ -2448,8 +2440,8 @@ const StatusOverrideControl = ({
   );
 };
 
-// Formats a duration stored in seconds (NewSourceReviewEntry.timeTaken) as "1h 4m",
-// "12m 5s", or "38s" - null/undefined (not yet saved) renders as an em dash.
+// Formats a duration in seconds as "1h 4m", "12m 5s" or "38s" - null/undefined (a stint
+// that hasn't closed yet) renders as an em dash.
 const formatTimeTaken = (seconds?: number | null) => {
   if (seconds === null || seconds === undefined) return "—";
   const hours = Math.floor(seconds / 3600);
@@ -2543,12 +2535,9 @@ const CollapsibleBlock = ({
   );
 };
 
-// An entry is finished once it has a closing time. timeTaken is only written on an
-// expert's save, so a moderator's stint is measured from its own start and close.
+// How long a stint took, measured from its own start and close rather than stored - an
+// entry is only finished once it has a closing time.
 const getReviewEntryDuration = (entry: NewSourceReviewEntry) => {
-  if (entry.timeTaken !== null && entry.timeTaken !== undefined) {
-    return entry.timeTaken;
-  }
   if (!entry.closedAt) return null;
 
   const startedAt = new Date(entry.startedAt).getTime();

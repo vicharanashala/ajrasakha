@@ -36,9 +36,8 @@ export interface CompleteNewSourceInput {
   // Fetch Source Reference lookup) and sourceIndex (its position in the answer's own
   // sources array).
   sources: INewSourceItem[];
-  timeTaken: number;
-  /** The user saving this edit — used to record timeTaken on their own reviewArray
-   *  entry, not the record as a whole. */
+  /** The user saving this edit — their own reviewArray entry is the one marked as
+   *  actioned, not the record as a whole. */
   userId: string;
   /** Same role gate as StartNewSourceInput.role. */
   role?: string;
@@ -71,8 +70,8 @@ export interface INewSourceService {
   startNewSource(input: StartNewSourceInput): Promise<INewSource>;
 
   /** Called when the user saves — records the final sources (each with its own
-   *  organization/sourceReferenceStatus/sourceIndex), stops the timer into timeTaken,
-   *  and marks the record 'review-completed'. */
+   *  organization/sourceReferenceStatus/sourceIndex) and marks the record
+   *  'review-completed'. */
   completeNewSource(input: CompleteNewSourceInput): Promise<INewSource>;
 
   /** Called as soon as a fetched pop document is found to be missing required fields,

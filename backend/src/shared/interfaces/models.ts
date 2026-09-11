@@ -370,8 +370,7 @@ export interface INewSourceItem {
 
 
 /** Lifecycle of a `updated_sources` record: 'in-progress' from the moment the Edit Source
- *  modal is opened (timer running), 'review-completed' once the user saves (timer stopped,
- *  timeTaken recorded). 'pending', 'flagged', and 'merged' are not produced by the Edit
+ *  modal is opened, 'review-completed' once the user saves. 'pending', 'flagged', and 'merged' are not produced by the Edit
  *  Source flow itself — they're reserved for a review workflow. */
 export type NewSourceStatus =
   | 'pending'
@@ -395,9 +394,8 @@ export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
  *  saving their edit, or a moderator acting on the record - so false plus a set closedAt
  *  means they opened it and left without doing anything. A record can carry more
  *  than one entry when different experts pick it up over time (e.g. after a release back
- *  to 'pending') — each keeps its own timeTaken so moderators/admins can see how long
- *  every reviewer spent, not just the most recent one. timeTaken is in seconds, set once
- *  that entry's edit is saved; null until then. */
+ *  to 'pending') — how long each reviewer spent is read from that entry's own
+ *  startedAt/closedAt rather than being stored. */
 export interface INewSourceReviewEntry {
   userId: string;
   name: string;
@@ -407,7 +405,6 @@ export interface INewSourceReviewEntry {
   startedAt: Date;
   closedAt: Date | null;
   isActionTaken: boolean;
-  timeTaken: number | null;
   /** The pop_unique_documents documents this stint found incomplete, each with what was
    *  blank and what the reviewer filled in. Absent when nothing was missing. */
   missingPopDocuments?: IMissingPopDocument[];
@@ -450,7 +447,7 @@ export interface IModeratorAction {
 /** A document written to the `updated_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
  *  `answers` collection — edits are logged here instead. Created (status:
- *  'inProgress') when the modal opens, then updated (status: 'review-completed', timeTaken)
+ *  'inProgress') when the modal opens, then updated (status: 'review-completed')
  *  when the user saves. sourceReferenceStatus lives on each entry in `sources`, not
  *  here, since every source on the answer is saved together and each is checked
  *  against pop_unique_documents independently. */
@@ -460,7 +457,6 @@ export interface INewSource {
   questionId: string | ObjectId;
   sources: INewSourceItem[];
   status: NewSourceStatus;
-  timeTaken: number | null;
   reviewArray: INewSourceReviewEntry[];
   /** Every moderator/admin action taken on this record - see IModeratorAction. Absent
    *  until the first one. */
