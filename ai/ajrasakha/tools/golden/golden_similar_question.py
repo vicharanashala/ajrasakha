@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 try:
     from .golden_core import (
         MONGODB_QUESTION_EMBEDDING_INDEX,
+        MONGODB_VECTOR_INDEX,
         PENDING_DUPLICATE_STATUSES,
         QuestionAnswerPair,
         _embed_text,
@@ -23,6 +24,7 @@ try:
 except ImportError:
     from golden_core import (
         MONGODB_QUESTION_EMBEDDING_INDEX,
+        MONGODB_VECTOR_INDEX,
         PENDING_DUPLICATE_STATUSES,
         QuestionAnswerPair,
         _embed_text,
@@ -305,8 +307,10 @@ async def _vector_search_all_statuses(
         pending_pipeline = [
             {
                 "$vectorSearch": {
-                    "index": MONGODB_QUESTION_EMBEDDING_INDEX,
-                    "path": "question_embedding",
+                    # pending docs are only sparsely backfilled with "question_embedding";
+                    # "embedding" is populated on all of them, so search that instead.
+                    "index": MONGODB_VECTOR_INDEX,
+                    "path": "embedding",
                     "queryVector": query_vector,
                     "numCandidates": max(50, top_k * 10),
                     "limit": top_k * 2,

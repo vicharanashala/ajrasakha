@@ -1436,6 +1436,10 @@ async def execute_plan_node(
     
     logger.info("execute_plan_node: computed actual tools_used=%s", actual_tools_used)
 
+    # Gemma judged the query against the GDB match; keep only the side it picked. Applied
+    # after tools_used is computed, so the reviewer record still reflects what really ran.
+    specialist_results = _apply_answer_source(specialist_results)
+
     # Step 3: Upload to reviewer with actual tools_used
     reviewer_calls = await build_reviewer_upload_with_tools_used(
         plan,
@@ -1518,6 +1522,63 @@ async def execute_plan_node(
     audit = _golden_audit_from_messages(out["messages"])
     if audit:
         out["golden_retrieval_audit"] = audit
+    return out
+
+
+def _apply_answer_source(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """Serve the side Gemma picked when GDB and a live tool both produced an answer.
+
+    /v1/gdb/search judges the farmer's query against the match it found and returns the
+    verdict on `classification_audit.answer_source`. Without this, `assemble_answer_body`
+    hits its blanket "GDB + specialist tool" rule and sends the turn to the 2-hour expert
+    queue — which is how a perfect GDB duplicate and a working mandi answer both ended up
+    discarded. Emptying the losing message means that rule is never reached.
+
+    We trust the verdict outright: GDB wins even when GDB came back empty (the farmer then
+    gets the disclaimer, which is the honest answer for a question the archive should have
+    covered). BOTH, a missing verdict, and anything unrecognised leave the turn untouched.
+    """
+    gdb_msgs = [
+        m for m in messages
+        if isinstance(m, ToolMessage) and (getattr(m, "name", None) or "") == "gdb"
+    ]
+    if not gdb_msgs:
+        return messages
+
+    text = _message_to_text(gdb_msgs[-1])
+    source = ""
+    if text and text.upper() not in _GDB_EMPTY_SENTINELS:
+        try:
+            payload = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            payload = None
+        if isinstance(payload, dict):
+            audit = payload.get("classification_audit")
+            if isinstance(audit, dict):
+                source = str(audit.get("answer_source") or "").strip().upper()
+    if source not in {"GDB", "DYNAMIC"}:
+        return messages
+
+    out: list[BaseMessage] = []
+    for msg in messages:
+        name = getattr(msg, "name", None) or ""
+        loses = (
+            (source == "GDB" and name in _SPECIALIST_TOOL_NAMES)
+            or (source == "DYNAMIC" and name == "gdb")
+        )
+        if isinstance(msg, ToolMessage) and loses:
+            logger.info(
+                "answer_source=%s — dropping %s tool result from the answer body",
+                source,
+                name,
+            )
+            # Keep the message (tools_used and the audit trail still see it); empty it so
+            # _gdb_has_usable_data / _turn_has_specialist_tool_message read it as absent.
+            out.append(
+                ToolMessage(content="", tool_call_id=msg.tool_call_id, name=name)
+            )
+        else:
+            out.append(msg)
     return out
 
 
