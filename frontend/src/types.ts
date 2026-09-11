@@ -433,6 +433,8 @@ export interface ClosedAnswerFilters {
     | "merged"
     | "flagged"
   )[];
+  /** Keeps only answers a moderator has sent back to Pending at least once. */
+  sentBackToPending?: boolean;
   /** Pop lookup outcomes recorded on the answer's reviewed sources. */
   sourceReferenceStatuses: ("notFound" | "topLevelMatch" | "duplicateMatch")[];
   /** Orders results by a seeded shuffle instead of newest first. */

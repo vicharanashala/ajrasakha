@@ -11,6 +11,7 @@ import {
   Link as LinkIcon,
   ListChecks,
   MapPin,
+  Undo2,
   RotateCcw,
   Sprout,
   User as UserIcon,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
+import { Checkbox } from "@/components/atoms/checkbox";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import {
@@ -54,6 +56,7 @@ export const EMPTY_CLOSED_ANSWER_FILTERS: ClosedAnswerFilters = {
   sourceTypes: [],
   sourceReferenceStatuses: [],
   newSourceStatuses: [],
+  sentBackToPending: false,
   minSources: undefined,
   maxSources: undefined,
   states: [],
@@ -102,6 +105,7 @@ export const countActiveFilters = (filters: ClosedAnswerFilters) =>
   (filters.sourceTypes.length > 0 ? 1 : 0) +
   (filters.sourceReferenceStatuses.length > 0 ? 1 : 0) +
   (filters.newSourceStatuses.length > 0 ? 1 : 0) +
+  (filters.sentBackToPending ? 1 : 0) +
   (filters.minSources !== undefined || filters.maxSources !== undefined ? 1 : 0) +
   (filters.states.length > 0 ? 1 : 0) +
   (filters.crops.length > 0 ? 1 : 0) +
@@ -316,6 +320,7 @@ export const ClosedAnswersFilters = ({
                     (draft.sourceTypes.length > 0 ? 1 : 0) +
                     (draft.sourceReferenceStatuses.length > 0 ? 1 : 0) +
                     (draft.newSourceStatuses.length > 0 ? 1 : 0) +
+                    (draft.sentBackToPending ? 1 : 0) +
                     (draft.minSources !== undefined || draft.maxSources !== undefined
                       ? 1
                       : 0)
@@ -387,6 +392,27 @@ export const ClosedAnswersFilters = ({
                           }
                         />
                       </div>
+                    </FilterField>
+
+                    <FilterField icon={Undo2} label="Returned from moderation">
+                      <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-background p-2.5">
+                        <Checkbox
+                          className="mt-0.5 cursor-pointer"
+                          checked={draft.sentBackToPending === true}
+                          onCheckedChange={(checked) =>
+                            setField("sentBackToPending", checked === true)
+                          }
+                        />
+                        <span className="grid gap-0.5">
+                          <span className="text-xs font-medium text-foreground">
+                            Sent back to Pending by a moderator
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Only answers a moderator handed back from review at least
+                            once.
+                          </span>
+                        </span>
+                      </label>
                     </FilterField>
 
                     {showReviewStatusFilter && (

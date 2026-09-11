@@ -587,6 +587,7 @@ export class AnswerController {
       shuffleSeed?: string;
       sourceReferenceStatuses?: string;
       newSourceStatuses?: string;
+      sentBackToPending?: string;
       states?: string;
       crops?: string;
       domains?: string;
@@ -610,6 +611,7 @@ export class AnswerController {
       shuffleSeed: toSeed(query.shuffleSeed),
       sourceReferenceStatuses: toList(query.sourceReferenceStatuses),
       newSourceStatuses: toList(query.newSourceStatuses),
+      sentBackToPending: query.sentBackToPending === 'true',
       states: toList(query.states),
       crops: toList(query.crops),
       domains: toList(query.domains),

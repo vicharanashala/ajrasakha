@@ -1223,6 +1223,10 @@ export class AnswerRepository implements IAnswerRepository {
 
       // Flagged reviews stay out of the list unless someone asks for them by name.
       const requestedStatuses = filters?.newSourceStatuses ?? [];
+      const wantsSentBackToPending = filters?.sentBackToPending === true;
+      if (wantsSentBackToPending) {
+        matchStage.wasSentBackToPending = true;
+      }
       matchStage.$and = matchStage.$and ?? [];
       if (!requestedStatuses.includes('flagged')) {
         // $ne also matches the answers with no record at all, which is what we want.
@@ -1252,7 +1256,10 @@ export class AnswerRepository implements IAnswerRepository {
         // (review-completed or their own moderator-in-review). Asking for statuses by
         // name overrides that - otherwise picking 'Flagged' (or 'Pending') would filter
         // to a set the default gate has already excluded, and come back empty.
-        if (requestedStatuses.length === 0) {
+        // Answers handed back to 'pending' are no longer "completed", so asking for
+        // them has to lift the default reviewed-only gate the same way naming a status
+        // does - otherwise the two conditions cancel out and nothing comes back.
+        if (requestedStatuses.length === 0 && !wantsSentBackToPending) {
           matchStage.hasCompletedNewSource = true;
           // 'merged' ("Approved" in the UI) reviews stay out of the default list too,
           // same treatment as 'flagged' above - asking for it by name
@@ -1326,6 +1333,7 @@ export class AnswerRepository implements IAnswerRepository {
                 $project: {
                   _id: 0,
                   status: 1,
+                  'statusChanges.status': 1,
                   'sources.sourceReferenceStatus': 1,
                   'reviewArray.userId': 1,
                   'reviewArray.role': 1,
@@ -1371,6 +1379,20 @@ export class AnswerRepository implements IAnswerRepository {
                   },
                 },
                 0,
+              ],
+            },
+            // True when a moderator has sent this record back to 'pending' at least
+            // once - the record's own statusChanges is the only trace of that, since
+            // the status itself moves on as experts pick it back up.
+            wasSentBackToPending: {
+              $in: [
+                'pending',
+                {
+                  $ifNull: [
+                    {$arrayElemAt: ['$completedNewSource.statusChanges.status', 0]},
+                    [],
+                  ],
+                },
               ],
             },
             // Every pop lookup outcome recorded on this answer's reviewed sources, so
