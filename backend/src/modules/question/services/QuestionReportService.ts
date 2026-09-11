@@ -705,8 +705,12 @@ export class QuestionReportService
     duplicateQuestions?: string;
     startDate?: string;
     endDate?: string;
-    /** All Users to filter questions by. */
+    /** Approvers to filter/sample by. Each entry is "userId" or "userId:count"
+     *  (an explicit per-user question count). */
     allUsers?: string;
+    /** Total questions to sample across the selected approvers (default 50). Users
+     *  without an explicit count share this equally; shortfalls redistribute. */
+    totalCount?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Build filter query
@@ -815,45 +819,141 @@ export class QuestionReportService
         filters.status === 'dynamic_closed' ||
         filters.status === 'duplicate_closed' ||
         filters.status === 'all-closed';
-      // `allUsers` is a comma-separated list of user (approvedBy) ids.
-      const allUserIds =
+      // `allUsers` entries are "userId" or "userId:count" (an explicit per-user count).
+      const parsedApprovers =
         filters.allUsers && filters.allUsers !== 'all'
           ? filters.allUsers
               .split(',')
               .map(s => s.trim())
               .filter(Boolean)
+              .map(entry => {
+                const [rawId, rawCount] = entry.split(':');
+                const id = (rawId ?? '').trim();
+                const n = Number((rawCount ?? '').trim());
+                return {
+                  id,
+                  count: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined,
+                };
+              })
+              .filter(u => u.id)
           : [];
-      const filterByAllUsers = allUserIds.length > 0;
-      // Answer / Sources / All Users details only exist on a closed question's final
-      // answer, so they are included for closed reports or when filtering by all users.
-      const includeAnswerDetails = isClosedStatus || filterByAllUsers;
-      const questionLimit = includeAnswerDetails ? 50 : undefined;
-
-      // All Users filter (= final answer's approvedBy): restrict to the closed questions
-      // those users approved. Final answers only exist for closed questions, so this
-      // also scopes the report to closed questions.
-      if (filterByAllUsers) {
-        const approvedQuestionIds =
-          await this.answerRepo.getFinalAnswerQuestionIdsByApprover(
-            allUserIds,
-            session,
-          );
-        if (!approvedQuestionIds.length) {
-          console.log('No closed questions approved by the selected user(s)');
-          return null;
-        }
-        query._id = {
-          $in: approvedQuestionIds.map((id: string) => new ObjectId(id)),
-        };
-      }
-
-      // Get questions from repository
-      const questions = await this.questionRepo.getQuestionsByFilters(
-        query,
-        session,
-        filters.duplicateQuestions === 'true',
-        questionLimit,
+      const approverIds = parsedApprovers.map(u => u.id);
+      const explicitCounts = new Map<string, number>(
+        parsedApprovers
+          .filter(u => u.count !== undefined)
+          .map(u => [u.id, u.count as number]),
       );
+      const filterByAllUsers = approverIds.length > 0;
+      // Answer / Sources / All Users details only exist on a closed question's final
+      // answer, so they are included for closed reports or when filtering by approvers.
+      const includeAnswerDetails = isClosedStatus || filterByAllUsers;
+      // Total questions to sample (default 50, capped at 50). Approvers without an
+      // explicit count share this equally; shortfalls redistribute to approvers who have more.
+      const totalToSample = Math.min(
+        50,
+        Number(filters.totalCount) > 0
+          ? Math.floor(Number(filters.totalCount))
+          : 50,
+      );
+
+      // Fisher–Yates shuffle (new array) — used to pick questions randomly.
+      const shuffle = <T>(arr: T[]): T[] => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+
+      let questions: IQuestion[];
+
+      if (filterByAllUsers) {
+        // Build each approver's candidate pool (date/status-filtered), in random order.
+        const poolByUser = new Map<string, IQuestion[]>();
+        const availableByUser = new Map<string, number>();
+        for (const uid of approverIds) {
+          const approvedIds =
+            await this.answerRepo.getFinalAnswerQuestionIdsByApprover(
+              [uid],
+              session,
+            );
+          if (!approvedIds.length) {
+            poolByUser.set(uid, []);
+            availableByUser.set(uid, 0);
+            continue;
+          }
+          const userQuery = {
+            ...query,
+            _id: {$in: approvedIds.map((id: string) => new ObjectId(id))},
+          };
+          const cand = await this.questionRepo.getQuestionsByFilters(
+            userQuery,
+            session,
+            filters.duplicateQuestions === 'true',
+          );
+          const pool = shuffle(cand ?? []);
+          poolByUser.set(uid, pool);
+          availableByUser.set(uid, pool.length);
+        }
+
+        // Decide how many to take from each approver.
+        const alloc = new Map<string, number>(approverIds.map(id => [id, 0]));
+        let used = 0;
+        // 1) Honour explicit per-user counts (capped by what's available).
+        for (const uid of approverIds) {
+          if (explicitCounts.has(uid)) {
+            const take = Math.min(
+              explicitCounts.get(uid) as number,
+              availableByUser.get(uid) ?? 0,
+            );
+            alloc.set(uid, take);
+            used += take;
+          }
+        }
+        // 2) Spread the remaining total round-robin, preferring approvers WITHOUT an
+        //    explicit count; overflow spills to anyone with spare questions (so a user
+        //    short on questions is covered by the others).
+        let remaining = Math.max(0, totalToSample - used);
+        while (remaining > 0) {
+          const withoutExplicit = approverIds.filter(
+            id =>
+              !explicitCounts.has(id) &&
+              (alloc.get(id) ?? 0) < (availableByUser.get(id) ?? 0),
+          );
+          const pool =
+            withoutExplicit.length > 0
+              ? withoutExplicit
+              : approverIds.filter(
+                  id => (alloc.get(id) ?? 0) < (availableByUser.get(id) ?? 0),
+                );
+          if (pool.length === 0) break;
+          for (const uid of pool) {
+            if (remaining <= 0) break;
+            alloc.set(uid, (alloc.get(uid) ?? 0) + 1);
+            remaining--;
+          }
+        }
+
+        // 3) Take each approver's allocated slice from their shuffled pool.
+        questions = [];
+        for (const uid of approverIds) {
+          const take = alloc.get(uid) ?? 0;
+          if (take > 0)
+            questions.push(...(poolByUser.get(uid) ?? []).slice(0, take));
+        }
+      } else {
+        // No approver filter: fetch the date/status-filtered questions, and for closed
+        // reports randomly sample up to the total (default 50) instead of the first N.
+        const cand = await this.questionRepo.getQuestionsByFilters(
+          query,
+          session,
+          filters.duplicateQuestions === 'true',
+        );
+        questions = includeAnswerDetails
+          ? shuffle(cand ?? []).slice(0, totalToSample)
+          : cand ?? [];
+      }
 
       if (!questions || questions.length === 0) {
         console.log('No questions found for given filters');

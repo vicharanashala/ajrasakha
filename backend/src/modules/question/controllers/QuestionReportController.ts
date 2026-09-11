@@ -289,6 +289,7 @@ export class QuestionReportController {
       startDate?: string;
       endDate?: string;
       allUsers?: string;
+      totalCount?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -320,6 +321,7 @@ export class QuestionReportController {
         startDate: query.startDate,
         endDate: query.endDate,
         allUsers: query.allUsers,
+        totalCount: query.totalCount,
       });
     } catch (err: any) {
       auditPayload = {

@@ -2598,6 +2598,8 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
+        /** The reference question's approved final-answer text (shown in "Reference Question"). */
+        answer: string;
         sources: {
           source: string;
           page?: string | number | null;
@@ -2629,7 +2631,7 @@ export class QuestionRepository implements IQuestionRepository {
             ) as any,
             this.AnswersCollection.findOne(
               { questionId: refId, isFinalAnswer: true },
-              { projection: { sources: 1 } },
+              { projection: { sources: 1, answer: 1 } },
             ) as any,
           ]);
 
@@ -2639,6 +2641,7 @@ export class QuestionRepository implements IQuestionRepository {
               status: refQuestion.status || '',
               details: refQuestion.details || {},
               text: refQuestion.text || '',
+              answer: refFinalAnswer?.answer || '',
               sources: refFinalAnswer?.sources || [],
             };
           }
@@ -9723,5 +9726,23 @@ export class QuestionRepository implements IQuestionRepository {
         $lt: [{ $size: { $ifNull: ['$assignedValidationQuestions', []] } }, 3],
       },
     });
+  }
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  async updateNormalisedCrop(
+    questionId: string,
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
   }
 }

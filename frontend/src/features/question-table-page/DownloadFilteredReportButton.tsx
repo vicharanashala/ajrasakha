@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/atoms/select";
 import { Label } from "@/components/atoms/label";
+import { Input } from "@/components/atoms/input";
 import { Separator } from "@/components/atoms/separator";
 import { Checkbox } from "@/components/atoms/checkbox";
 import { STATES, SEASONS, DOMAINS, STATUS, SOURCES } from "@/components/MetaData";
@@ -66,6 +67,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     status: string;
     source: string;
     allUsers: string[];
+    /** Optional per-approver question count (userId -> count string). */
+    userCounts: Record<string, string>;
+    /** Total questions to sample across approvers (default 50). */
+    totalCount: string;
     hiddenQuestions: boolean;
     duplicateQuestions: boolean;
     startTime: Date | undefined;
@@ -79,6 +84,8 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     status: "all",
     source: "all",
     allUsers: [],
+    userCounts: {},
+    totalCount: "50",
     hiddenQuestions: false,
     duplicateQuestions: false,
     ...getDefaultDates(),
@@ -106,7 +113,20 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
         domain: filters.domain,
         status: filters.status,
         source: filters.source,
-        allUsers: filters.allUsers.length > 0 ? filters.allUsers.join(",") : "all",
+        // Each approver is sent as "id" or "id:count" (explicit per-user count).
+        allUsers:
+          filters.allUsers.length > 0
+            ? filters.allUsers
+                .map(id => {
+                  const c = (filters.userCounts[id] ?? "").trim();
+                  return c && Number(c) > 0 ? `${id}:${Math.floor(Number(c))}` : id;
+                })
+                .join(",")
+            : "all",
+        totalCount:
+          (filters.totalCount ?? "").trim() && Number(filters.totalCount) > 0
+            ? String(Math.floor(Number(filters.totalCount)))
+            : undefined,
         hiddenQuestions: filters.hiddenQuestions,
         duplicateQuestions: filters.duplicateQuestions,
         startDate: toDateString(filters.startTime),
@@ -201,6 +221,8 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       status: "all",
       source: "all",
       allUsers: [],
+      userCounts: {},
+      totalCount: "50",
       hiddenQuestions: false,
       duplicateQuestions: false,
       ...getDefaultDates(),
@@ -536,25 +558,64 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                 )}
               </div>
               {filters.allUsers.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {filters.allUsers.map(id => {
-                    const name = (usersByRole ?? []).find(m => m._id === id)?.name ?? id;
-                    return (
-                      <span
-                        key={id}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-md"
-                      >
-                        <span>{name}</span>
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAllUsersToggle(id);
-                          }}
-                        />
-                      </span>
-                    );
-                  })}
+                <div className="mt-2 space-y-2">
+                  {/* Total questions — split equally across approvers who have no explicit count */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                      Total questions (max 50)
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={filters.totalCount}
+                      onChange={(e) => {
+                        // Cap the total at 50.
+                        const raw = e.target.value;
+                        const n = Number(raw);
+                        const next = raw === "" ? "" : Number.isFinite(n) ? String(Math.min(50, Math.max(1, Math.floor(n)))) : filters.totalCount;
+                        setFilters(prev => ({ ...prev, totalCount: next }));
+                      }}
+                      placeholder="50"
+                      className="h-8 w-24"
+                    />
+                  </div>
+                  {/* Per-approver rows with an optional count (blank = share of the total) */}
+                  <div className="space-y-1">
+                    {filters.allUsers.map(id => {
+                      const name = (usersByRole ?? []).find(m => m._id === id)?.name ?? id;
+                      return (
+                        <div key={id} className="flex items-center gap-2">
+                          <span className="flex-1 truncate inline-flex items-center px-2 py-1 bg-primary/10 text-primary text-xs rounded-md">
+                            {name}
+                          </span>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={filters.userCounts[id] ?? ""}
+                            onChange={(e) =>
+                              setFilters(prev => ({
+                                ...prev,
+                                userCounts: { ...prev.userCounts, [id]: e.target.value },
+                              }))
+                            }
+                            placeholder="auto"
+                            className="h-8 w-20 text-xs"
+                          />
+                          <X
+                            className="h-3.5 w-3.5 cursor-pointer hover:text-destructive shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAllUsersToggle(id);
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Leave a count blank to split the total equally. Questions are picked randomly; if someone data not available, the rest fill from others.
+                  </p>
                 </div>
               )}
             </div>
