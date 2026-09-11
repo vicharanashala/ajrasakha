@@ -447,6 +447,17 @@ export interface PreviousAnswersItem {
   newAnswer: string;
   modifiedAt?: Date;
 }
+/** A source entry as written to the answer's own `source_details` (see
+ *  NewSourceService.changeStatus) - the same organization/source/page/sourceIndex shape
+ *  as a `updated_sources` INewSourceItem, stripped of its sourceReferenceStatus/
+ *  missedFields/display-only fields since those don't belong on the answer itself. */
+export interface IAnswerSourceDetail {
+  organization?: string;
+  source?: string;
+  page?: number[];
+  sourceIndex: number;
+}
+
 export interface IAnswer {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -461,6 +472,10 @@ export interface IAnswer {
   reRouted?: boolean;
   modifications?: PreviousAnswersItem[];
   sources: SourceItem[];
+  /** Written once the answer's updated_sources review is merged (see
+   *  NewSourceService.changeStatus) - the finalized organization/source/page/sourceIndex
+   *  for each source, copied from that record's `sources` array. */
+  source_details?: IAnswerSourceDetail[];
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;

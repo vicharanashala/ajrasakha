@@ -1,10 +1,11 @@
+import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceRepository.js';
-import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
+import {IAnswerSourceDetail, INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IOrganizationService} from '#root/modules/organization/interfaces/IOrganizationService.js';
 import {IPopService} from '#root/modules/pop/interfaces/IPopService.js';
 import {inject, injectable} from 'inversify';
-import {BadRequestError, ForbiddenError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, ForbiddenError, InternalServerError, NotFoundError} from 'routing-controllers';
 import {
   ChangeNewSourceStatusInput,
   CompleteNewSourceInput,
@@ -25,6 +26,17 @@ const sanitizeSources = (sources: INewSourceItem[]): INewSourceItem[] =>
     missedFields: item.missedFields ?? [],
   }));
 
+// The subset of a source item written to the answer's own `source_details` once its
+// review is merged (see changeStatus) - no sourceReferenceStatus/missedFields/display
+// fields, those belong to the review record, not the answer.
+const toAnswerSourceDetails = (sources: INewSourceItem[]): IAnswerSourceDetail[] =>
+  sources.map(item => ({
+    organization: item.organization,
+    source: item.source,
+    page: item.page,
+    sourceIndex: item.sourceIndex,
+  }));
+
 @injectable()
 export class NewSourceService implements INewSourceService {
   constructor(
@@ -34,6 +46,8 @@ export class NewSourceService implements INewSourceService {
     private readonly organizationService: IOrganizationService,
     @inject(CORE_TYPES.PopService)
     private readonly popService: IPopService,
+    @inject(CORE_TYPES.AnswerRepository)
+    private readonly answerRepo: IAnswerRepository,
   ) {}
 
   async startNewSource(input: StartNewSourceInput): Promise<INewSource> {
@@ -360,6 +374,29 @@ export class NewSourceService implements INewSourceService {
       throw new ForbiddenError(
         "A flagged review can only be unflagged to 'pending' or 'review-completed'.",
       );
+    }
+
+    // Merging finalizes this review's sources onto the answer itself - write
+    // source_details on the answers collection FIRST, and only flip the status if that
+    // write actually lands. A merge that doesn't move here needs the answer to keep
+    // reflecting the previous status, not a merge with nothing to show for it.
+    if (input.status === 'merged') {
+      const sourceDetails = toAnswerSourceDetails(existing.sources);
+      let writeResult;
+      try {
+        writeResult = await this.answerRepo.updateAnswer(existing.answerId.toString(), {
+          source_details: sourceDetails,
+        });
+      } catch (error) {
+        throw new InternalServerError(
+          `Failed to write source details to the answer - status was not changed to 'merged'. ${error}`,
+        );
+      }
+      if (!writeResult || writeResult.modifiedCount === 0) {
+        throw new InternalServerError(
+          "Failed to write source details to the answer - status was not changed to 'merged'.",
+        );
+      }
     }
 
     const updated = await this.newSourceRepo.changeStatusWithReason(input.id, {
