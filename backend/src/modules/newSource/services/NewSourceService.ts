@@ -1,6 +1,8 @@
 import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceRepository.js';
-import {INewSource} from '#root/shared/interfaces/models.js';
+import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
+import {IOrganizationService} from '#root/modules/organization/interfaces/IOrganizationService.js';
+import {IPopService} from '#root/modules/pop/interfaces/IPopService.js';
 import {inject, injectable} from 'inversify';
 import {BadRequestError, ForbiddenError, NotFoundError} from 'routing-controllers';
 import {
@@ -10,11 +12,27 @@ import {
   StartNewSourceInput,
 } from '../interfaces/INewSourceService.js';
 
+// Only these fields are ever persisted on a source item - organizationName, sourceName,
+// sourceLink and yearOfRelease are populated for display only (see populateSources) and
+// must never be written back, however the frontend's draft object happens to be shaped.
+const sanitizeSources = (sources: INewSourceItem[]): INewSourceItem[] =>
+  sources.map(item => ({
+    organization: item.organization,
+    source: item.source,
+    page: item.page,
+    sourceReferenceStatus: item.sourceReferenceStatus,
+    sourceIndex: item.sourceIndex,
+  }));
+
 @injectable()
 export class NewSourceService implements INewSourceService {
   constructor(
     @inject(CORE_TYPES.NewSourceRepository)
     private readonly newSourceRepo: INewSourceRepository,
+    @inject(CORE_TYPES.OrganizationService)
+    private readonly organizationService: IOrganizationService,
+    @inject(CORE_TYPES.PopService)
+    private readonly popService: IPopService,
   ) {}
 
   async startNewSource(input: StartNewSourceInput): Promise<INewSource> {
@@ -146,7 +164,7 @@ export class NewSourceService implements INewSourceService {
     }
 
     const updated = await this.newSourceRepo.updateById(input.id, input.userId, {
-      sources: input.sources,
+      sources: sanitizeSources(input.sources),
       status: 'review-completed',
       timeTaken: input.timeTaken,
     });
@@ -272,8 +290,35 @@ export class NewSourceService implements INewSourceService {
     return updated;
   }
 
+  // Looks up organizationName/organizationType from `organization` and
+  // sourceName/sourceLink/yearOfRelease from `source` for display in the moderator
+  // Before/After view - these are never persisted (see sanitizeSources).
+  private async populateSources(sources: INewSourceItem[]): Promise<INewSourceItem[]> {
+    return await Promise.all(
+      sources.map(async item => {
+        const [organization, pop] = await Promise.all([
+          item.organization
+            ? this.organizationService.findById(item.organization).catch(() => null)
+            : null,
+          item.source ? this.popService.findById(item.source).catch(() => null) : null,
+        ]);
+
+        return {
+          ...item,
+          organizationName: organization?.org_name,
+          organizationType: organization?.type,
+          sourceName: pop?.shareable_name,
+          sourceLink: pop?.live_source_link || pop?.shareable_link,
+          yearOfRelease: pop?.year_of_release,
+        };
+      }),
+    );
+  }
+
   async getByAnswerId(answerId: string): Promise<INewSource | null> {
-    return await this.newSourceRepo.findByAnswerId(answerId);
+    const record = await this.newSourceRepo.findByAnswerId(answerId);
+    if (!record) return null;
+    return {...record, sources: await this.populateSources(record.sources)};
   }
 
   async changeStatus(input: ChangeNewSourceStatusInput): Promise<INewSource> {

@@ -324,35 +324,40 @@ export interface IPop {
   _id?: string | ObjectId;
   shareable_name: string;
   shareable_link: string;
-  /** The source document's year of release - autofills a source's `yearOfRelease` field
-   *  when the Fetch Source Reference lookup finds a match (Closed Answers Edit Source
-   *  modal). */
-  year_of_release?: string | number;
+  year_of_release?: string | number | null;
+  live_source_link?: string | null;
   duplicate_links?: IPopDuplicateLink[];
 }
 
-/** A source entry as captured by the Edit Source modal (Closed Answers page) — the
- *  same fields as SourceItem, plus organization and sourceReference which are not
- *  (yet) part of the answers-collection SourceItem shape. organization and
- *  sourceReferenceStatus are per source (each source on an answer can belong to a
- *  different organization and be checked against pop_unique_documents independently).
+export type PopRequiredField = 'year_of_release' | 'live_source_link' | 'shareable_name';
+
+/** A source entry as saved on a `updated_sources` record (Closed Answers Edit Source
+ *  modal). organization/source are references — the Organization document's and the
+ *  matched pop_unique_documents document's own _ids — not copies of their data;
+ *  everything else about them is looked up from those documents when a record needs to
+ *  be displayed (see NewSourceService.getByAnswerId), never persisted here. page is
+ *  entered by the reviewer, since it isn't part of either referenced document.
  *  sourceIndex is that source's position in the *answer's own* `sources` array (in the
  *  `answers` collection), so a reviewer can map this entry back to it - it is not an
  *  index into this document's own `sources` array, which may not be saved in the same
  *  order or with the same length. */
 export interface INewSourceItem {
-  source: string;
-  sourceType?: SourceType;
-  sourceName?: string;
-  page?: string | number;
-  /** The source document's year of release, from the matched pop_unique_documents
-   *  entry's own year_of_release (Fetch Source Reference lookup). */
-  yearOfRelease?: string | number;
+  /** The Organization document's own _id. */
   organization?: string;
   /** The matched pop_unique_documents document's own _id. */
-  sourceReference?: string;
+  source?: string;
+  page?: number[];
   sourceReferenceStatus: PopMatchStatus | null;
   sourceIndex: number;
+  // The fields below are populated for display only (NewSourceService.getByAnswerId,
+  // used by the moderator Before/After view) by looking up `organization`/`source` -
+  // they are never persisted and are stripped before a save (see
+  // NewSourceService.completeNewSource).
+  organizationName?: string;
+  organizationType?: SourceType;
+  sourceName?: string;
+  sourceLink?: string;
+  yearOfRelease?: string | number | null;
 }
 
 

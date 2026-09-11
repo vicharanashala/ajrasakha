@@ -5,22 +5,27 @@ const API_BASE_URL = env.apiBaseUrl();
 
 export type PopMatchStatus = "duplicateMatch" | "topLevelMatch" | "notFound";
 
-// organization and sourceReferenceStatus are per source - each source on an answer can
-// belong to a different organization and is checked against the pop collection on its
-// own. sourceIndex is that source's position in the *answer's own* `sources` array (in
-// the answers collection), so a reviewer can map this entry back to it.
+// organization and source are references (the Organization document's and the matched
+// pop_unique_documents document's own _ids) rather than copies of their data - anything
+// else about them is looked up from those documents when displaying a record, not stored
+// here. page is manually entered by the reviewer, since it isn't part of either
+// referenced document. sourceIndex is that source's position in the *answer's own*
+// `sources` array (in the answers collection), so a reviewer can map this entry back to it.
 export interface NewSourceItem {
-  source: string;
-  sourceType?: string;
-  sourceName?: string;
-  page?: string | number;
-  // The matched pop_unique_documents entry's own year of release.
-  yearOfRelease?: string | number;
+  // The Organization document's own _id.
   organization?: string;
   // The matched pop_unique_documents document's own _id.
-  sourceReference?: string;
+  source?: string;
+  page?: number[];
   sourceReferenceStatus: PopMatchStatus | null;
   sourceIndex: number;
+  // Populated for display only (getByAnswerId, used by the moderator Before/After view) -
+  // never sent when saving.
+  organizationName?: string;
+  organizationType?: string;
+  sourceName?: string;
+  sourceLink?: string;
+  yearOfRelease?: string | number | null;
 }
 
 export type NewSourceStatus =

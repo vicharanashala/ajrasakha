@@ -1,8 +1,9 @@
 import 'reflect-metadata';
-import {JsonController, Get, QueryParams, Authorized} from 'routing-controllers';
+import {JsonController, Get, Patch, Param, Body, QueryParams, Authorized} from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CORE_TYPES} from '#root/modules/core/types.js';
+import {PopRequiredField} from '#root/shared/interfaces/models.js';
 import {IPopService, PopLookupResult} from '../interfaces/IPopService.js';
 
 // NOTE: this deliberately does NOT live at '/pop' — '/api/pop' is already claimed by the
@@ -31,5 +32,18 @@ export class PopController {
     }
 
     return await this.popService.lookupBySource(query.source);
+  }
+
+  @OpenAPI({
+    summary:
+      'Fill in previously-missing year_of_release/live_source_link/shareable_name on a matched pop_unique_documents document',
+  })
+  @Patch('/:id')
+  @Authorized()
+  async updateMissingFields(
+    @Param('id') id: string,
+    @Body() body: Partial<Record<PopRequiredField, string | number>>,
+  ): Promise<PopLookupResult> {
+    return await this.popService.updateMissingFields(id, body);
   }
 }

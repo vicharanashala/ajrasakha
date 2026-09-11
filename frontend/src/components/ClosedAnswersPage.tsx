@@ -80,6 +80,7 @@ import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
+import { useUpdatePopMissingFields } from "@/hooks/api/pop/useUpdatePopMissingFields";
 import { useStartNewSource } from "@/hooks/api/newSource/useStartNewSource";
 import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource";
 import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
@@ -100,6 +101,7 @@ import type {
   ClosedAnswerFilters as ClosedAnswerFiltersState,
   Organization,
   SourceItem,
+  SourceType,
 } from "@/types";
 import type {
   NewSourceItem,
@@ -108,16 +110,7 @@ import type {
   NewSourceStatusChange,
   PopMatchStatus,
 } from "@/hooks/services/newSourceService";
-
-const EMPTY_SOURCE_FORM: SourceItem = {
-  source: "",
-  sourceType: undefined,
-  sourceName: "",
-  page: "",
-  yearOfRelease: "",
-  organization: "",
-  sourceReference: "",
-};
+import type { PopLookupResult, PopRequiredField } from "@/hooks/services/popService";
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   hyper_local: "Hyper Local",
@@ -141,6 +134,31 @@ const SECTION_LABEL_CLASSES =
   "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80";
 
 const isUrl = (value: string) => /^https?:\/\//i.test(value);
+
+// Turns free text like "4" or "4, 7, 10-12" into the canonical number[] the backend
+// stores - the natural way to type a page reference isn't a dynamic array of number
+// inputs, so this is parsed from one text field instead.
+const parsePageNumbers = (input: string): number[] => {
+  const pages = new Set<number>();
+  for (const part of input.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    const rangeMatch = trimmed.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      for (let page = Math.min(start, end); page <= Math.max(start, end); page++) {
+        pages.add(page);
+      }
+      continue;
+    }
+
+    const page = Number(trimmed);
+    if (Number.isFinite(page)) pages.add(page);
+  }
+  return Array.from(pages).sort((a, b) => a - b);
+};
 
 /** True when focus sits in a field, so list navigation stays out of typing. */
 const isTypingTarget = (target: EventTarget | null) => {
@@ -194,17 +212,6 @@ export const formatAiTags = (text: string) => {
 
   return formatted || "—";
 };
-
-// Copies an existing source into the form shape, keeping optional fields as strings for controlled inputs.
-const toSourceForm = (source: SourceItem): SourceItem => ({
-  source: source.source ?? "",
-  sourceType: source.sourceType,
-  sourceName: source.sourceName ?? "",
-  page: source.page ?? "",
-  yearOfRelease: source.yearOfRelease ?? "",
-  organization: source.organization ?? "",
-  sourceReference: source.sourceReference ?? "",
-});
 
 const OrganizationCombobox = ({
   id,
@@ -351,7 +358,14 @@ const SourceRow = ({
   isActive,
   onSelect,
 }: {
-  source: SourceItem;
+  // Structural, not SourceItem, so this also accepts a SourceDraft (the editing list) -
+  // only these fields are actually used here.
+  source: {
+    sourceType?: SourceType;
+    sourceName?: string;
+    source: string;
+    yearOfRelease?: string | number;
+  };
   index: number;
   isActive: boolean;
   onSelect: () => void;
@@ -412,14 +426,127 @@ const SourceRow = ({
   );
 };
 
-// What a lookup hands back to the caller - besides the match id/status, year_of_release
-// and shareable_name from pop_unique_documents autofill this source's yearOfRelease/
-// sourceName, which are no longer user-editable (see AnswerSourcesEditor).
+// What a lookup hands back to the caller once a usable match is confirmed (immediately,
+// or after the missing-fields modal is saved) - besides the match id/status,
+// year_of_release/shareable_name/live_source_link from pop_unique_documents autofill
+// this source's display-only fields (see AnswerSourcesEditor).
 type SourceReferenceLookupResult = {
-  sourceReference: string | undefined;
+  sourceReferenceId: string | undefined;
   matchStatus: PopMatchStatus;
   sourceName: string;
   yearOfRelease: number | string;
+  sourceLink: string;
+};
+
+const POP_FIELD_LABELS: Record<PopRequiredField, string> = {
+  year_of_release: "Year of release",
+  live_source_link: "Live source link",
+  shareable_name: "Document name",
+};
+
+// Shown when a match is found but is missing one or more of year_of_release/
+// live_source_link/shareable_name - the reviewer fills them in before the match is used,
+// so a source is never saved against an incomplete pop_unique_documents record.
+const PopMissingFieldsModal = ({
+  open,
+  popId,
+  missingFields,
+  onSaved,
+  onCancel,
+}: {
+  open: boolean;
+  popId: string | null;
+  missingFields: PopRequiredField[];
+  onSaved: (result: PopLookupResult) => void;
+  onCancel: () => void;
+}) => {
+  const [values, setValues] = useState<Partial<Record<PopRequiredField, string>>>({});
+  const { mutate, isPending } = useUpdatePopMissingFields();
+
+  useEffect(() => {
+    if (open) setValues({});
+  }, [open]);
+
+  const handleSave = () => {
+    if (!popId) return;
+    const unfilled = missingFields.find((field) => !values[field]?.trim());
+    if (unfilled) {
+      toast.error(`Enter ${POP_FIELD_LABELS[unfilled].toLowerCase()} to continue.`);
+      return;
+    }
+
+    mutate(
+      { id: popId, fields: values as Record<PopRequiredField, string> },
+      {
+        onSuccess: (result) => {
+          if (!result) {
+            toast.error("Failed to update this document. Try again.");
+            return;
+          }
+          toast.success("Document details saved.");
+          onSaved(result);
+        },
+        onError: (error: Error) =>
+          toast.error(error.message || "Failed to update this document."),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
+      <DialogContent className="w-[95vw] sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Missing document details</DialogTitle>
+          <DialogDescription>
+            This matched document is missing some details - fill them in to continue.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          {missingFields.map((field, index) => (
+            <div key={field} className="grid gap-1.5">
+              <Label htmlFor={`pop-missing-${field}`} className="text-xs">
+                {POP_FIELD_LABELS[field]} <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id={`pop-missing-${field}`}
+                autoFocus={index === 0}
+                value={values[field] ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, [field]: e.target.value }))
+                }
+                placeholder={
+                  field === "live_source_link" ? "https://..." : POP_FIELD_LABELS[field]
+                }
+                className="bg-background"
+              />
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="cursor-pointer"
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="cursor-pointer"
+            disabled={isPending}
+            onClick={handleSave}
+          >
+            {isPending ? "Saving..." : "Save and continue"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 const SourceReferenceLookup = ({
@@ -433,26 +560,48 @@ const SourceReferenceLookup = ({
    *  another answer, the switch confirmation opens first and no request is made. */
   runWithSession?: (action: () => void) => void;
 }) => {
-  const { mutate, data, isPending } = useLookupPopSource();
+  const { mutate, isPending } = useLookupPopSource();
+  const [displayResult, setDisplayResult] = useState<PopLookupResult | null>(null);
+  const [missingModal, setMissingModal] = useState<{
+    id: string;
+    fields: PopRequiredField[];
+  } | null>(null);
+
+  const emitFound = (result: PopLookupResult) => {
+    if (result.found && result._id) {
+      onFound?.({
+        sourceReferenceId: result._id,
+        matchStatus: result.matchStatus ?? "topLevelMatch",
+        sourceName: result.shareable_name ?? "",
+        yearOfRelease: result.year_of_release ?? "",
+        sourceLink: result.live_source_link || result.shareable_link || "",
+      });
+    } else {
+      onFound?.({
+        sourceReferenceId: undefined,
+        matchStatus: "notFound",
+        sourceName: "",
+        yearOfRelease: "",
+        sourceLink: "",
+      });
+    }
+  };
 
   const fetchReference = () => {
     mutate(source, {
       onSuccess: (result) => {
-        if (result?.found && result._id) {
-          onFound?.({
-            sourceReference: result._id,
-            matchStatus: result.matchStatus ?? "topLevelMatch",
-            sourceName: result.shareable_name ?? "",
-            yearOfRelease: result.year_of_release ?? "",
-          });
-        } else {
-          onFound?.({
-            sourceReference: undefined,
-            matchStatus: "notFound",
-            sourceName: "",
-            yearOfRelease: "",
-          });
+        if (!result) return;
+        setDisplayResult(result);
+
+        // A match missing year_of_release/live_source_link/shareable_name is held back
+        // until the reviewer fills those in - the modal's onSaved is what actually
+        // resolves this lookup, not this success callback.
+        if (result.found && result._id && result.missingFields?.length) {
+          setMissingModal({ id: result._id, fields: result.missingFields });
+          return;
         }
+
+        emitFound(result);
       },
     });
   };
@@ -481,40 +630,89 @@ const SourceReferenceLookup = ({
         <FileSearch className="h-3.5 w-3.5" />
         {isPending ? "Checking..." : "Fetch source reference"}
       </Button>
-      {data && !data.found && (
+      {displayResult && !displayResult.found && (
         <p className="text-xs text-destructive">Source not found.</p>
       )}
-      {data?.found && (
+      {displayResult?.found && !displayResult.missingFields?.length && (
         <div className="grid gap-0.5 rounded-md border border-border/60 bg-muted/30 p-2 text-xs">
-          <p className="font-medium text-foreground/90">{data.shareable_name}</p>
+          <p className="font-medium text-foreground/90">{displayResult.shareable_name}</p>
           <a
-            href={data.shareable_link}
+            href={displayResult.live_source_link || displayResult.shareable_link}
             target="_blank"
             rel="noopener noreferrer"
             className="break-all text-primary hover:underline"
           >
-            {data.shareable_link}
+            {displayResult.live_source_link || displayResult.shareable_link}
           </a>
           <p className="text-muted-foreground">
-            {data.year_of_release ? `Year of release: ${data.year_of_release}` : "Year of release unavailable"}
-            {data._id ? ` · ID: ${data._id}` : ""}
+            {displayResult.year_of_release
+              ? `Year of release: ${displayResult.year_of_release}`
+              : "Year of release unavailable"}
+            {displayResult._id ? ` · ID: ${displayResult._id}` : ""}
           </p>
         </div>
       )}
+
+      <PopMissingFieldsModal
+        open={missingModal !== null}
+        popId={missingModal?.id ?? null}
+        missingFields={missingModal?.fields ?? []}
+        onSaved={(result) => {
+          setDisplayResult(result);
+          setMissingModal(null);
+          emitFound(result);
+        }}
+        onCancel={() => setMissingModal(null)}
+      />
     </div>
   );
 };
 
-// A source entry as edited in this session - adds the ephemeral sourceReferenceStatus
-// (from that source's own Fetch Source Reference lookup) that SourceItem doesn't carry.
-type SourceDraft = SourceItem & { sourceReferenceStatus: PopMatchStatus | null };
+// A source entry as edited in this session. `source` is the raw text/link typed in to
+// search pop_unique_documents - only used for the Fetch button, never saved as-is.
+// `organizationId`/`sourceReferenceId` are what actually get saved (as `organization`/
+// `source` on the updated_sources item); everything else here (sourceType, sourceName,
+// yearOfRelease, sourceLink, organizationName) is display-only, filled in by the
+// Organization combobox and the Fetch Source Reference lookup. `pages` is manually typed
+// by the reviewer, since neither referenced document carries page numbers.
+type SourceDraft = {
+  source: string;
+  sourceType?: SourceType;
+  sourceName?: string;
+  yearOfRelease?: string | number;
+  sourceLink?: string;
+  organizationName?: string;
+  organizationId?: string;
+  sourceReferenceId?: string;
+  sourceReferenceStatus: PopMatchStatus | null;
+  pages: string;
+};
 
 const toSourceDraft = (source: SourceItem): SourceDraft => ({
-  ...toSourceForm(source),
+  source: source.source ?? "",
+  sourceType: source.sourceType,
+  sourceName: source.sourceName ?? "",
+  yearOfRelease: source.yearOfRelease ?? "",
+  sourceLink: "",
+  organizationName: source.organization ?? "",
+  organizationId: undefined,
+  sourceReferenceId: source.sourceReference ?? undefined,
   sourceReferenceStatus: null,
+  pages: "",
 });
 
-const EMPTY_SOURCE_DRAFT: SourceDraft = { ...EMPTY_SOURCE_FORM, sourceReferenceStatus: null };
+const EMPTY_SOURCE_DRAFT: SourceDraft = {
+  source: "",
+  sourceType: undefined,
+  sourceName: "",
+  yearOfRelease: "",
+  sourceLink: "",
+  organizationName: "",
+  organizationId: undefined,
+  sourceReferenceId: undefined,
+  sourceReferenceStatus: null,
+  pages: "",
+};
 
 // The working area of the page: pick a source (or add one) and edit it in place.
 // Every action on this page changes what the list badges and the review panel show, so
@@ -641,7 +839,10 @@ const AnswerSourcesEditor = ({
   const isValid =
     form.source.trim().length > 0 &&
     Boolean(form.sourceType) &&
-    form.sourceReferenceStatus !== null;
+    Boolean(form.organizationId) &&
+    Boolean(form.sourceReferenceId) &&
+    form.sourceReferenceStatus !== null &&
+    form.pages.trim().length > 0;
   // With more than one existing source, step through them with "Next" - Save only
   // shows up once confirming the one currently open would leave none unconfirmed, so
   // the last remaining source goes straight to "Save" instead of needing an extra
@@ -763,7 +964,7 @@ const AnswerSourcesEditor = ({
     );
   };
 
-  const updateField = (field: keyof SourceItem, value: string) => {
+  const updateField = (field: keyof SourceDraft, value: string) => {
     updateActive({ [field]: value } as Partial<SourceDraft>);
   };
 
@@ -786,7 +987,7 @@ const AnswerSourcesEditor = ({
   // way, the button below switches from "Next" to "Save".
   const handleNext = () => {
     if (!isValid) {
-      toast.error("Enter a source, select a source type, and fetch the source reference first.");
+      toast.error("Enter a source, select an organization, fetch the source reference, and enter at least one page.");
       return;
     }
     if (editingIndex === null) return;
@@ -806,7 +1007,7 @@ const AnswerSourcesEditor = ({
 
   const handleSave = () => {
     if (!isValid) {
-      toast.error("Enter a source, select a source type, and fetch the source reference first.");
+      toast.error("Enter a source, select an organization, fetch the source reference, and enter at least one page.");
       return;
     }
     if (!newSourceId) {
@@ -821,13 +1022,17 @@ const AnswerSourcesEditor = ({
       : 0;
 
     // Every source on the answer is saved together - not just the one being edited -
-    // each carrying its own organization, sourceReference and sourceReferenceStatus
-    // (from that source's own Fetch Source Reference lookup), plus sourceIndex: its
-    // position in the answer's own sources array. Edits are logged to the updated_sources
+    // each carrying only the organization/pop_unique_documents _ids it resolved to, its
+    // manually-entered pages, and sourceReferenceStatus, plus sourceIndex: its position
+    // in the answer's own sources array. Edits are logged to the updated_sources
     // collection - the answer's own sources are never modified here.
-    const finalSources: NewSourceItem[] = drafts.map(
-      (draft, index) => ({ ...draft, sourceIndex: index }),
-    );
+    const finalSources: NewSourceItem[] = drafts.map((draft, index) => ({
+      organization: draft.organizationId,
+      source: draft.sourceReferenceId,
+      page: parsePageNumbers(draft.pages),
+      sourceReferenceStatus: draft.sourceReferenceStatus,
+      sourceIndex: index,
+    }));
 
     completeNewSource(
       {
@@ -977,10 +1182,11 @@ const AnswerSourcesEditor = ({
             runWithSession={runWithSession}
             onFound={(result) => {
               updateActive({
-                sourceReference: result.sourceReference,
+                sourceReferenceId: result.sourceReferenceId,
                 sourceReferenceStatus: result.matchStatus,
                 sourceName: result.sourceName,
                 yearOfRelease: result.yearOfRelease,
+                sourceLink: result.sourceLink,
               });
             }}
           />
@@ -1007,14 +1213,18 @@ const AnswerSourcesEditor = ({
 
           <div className="grid gap-1.5">
             <Label htmlFor={`${fieldId}-org`} className="text-xs">
-              Organization
+              Organization <span className="text-destructive">*</span>
             </Label>
             <OrganizationCombobox
               id={`${fieldId}-org`}
-              value={form.organization ?? ""}
+              value={form.organizationName ?? ""}
               runWithSession={runWithSession}
               onChange={(org) =>
-                updateActive({ organization: org.org_name, sourceType: org.type })
+                updateActive({
+                  organizationId: org._id,
+                  organizationName: org.org_name,
+                  sourceType: org.type,
+                })
               }
             />
           </div>
@@ -1028,13 +1238,26 @@ const AnswerSourcesEditor = ({
               {form.sourceName || "Fetch source reference to populate"}
             </p>
           </div>
+
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label htmlFor={`${fieldId}-pages`} className="text-xs">
+              Page(s) <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id={`${fieldId}-pages`}
+              className="bg-background"
+              value={form.pages}
+              onChange={(e) => updateField("pages", e.target.value)}
+              placeholder="e.g. 4 or 4, 7, 10-12"
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
           <p className="text-xs text-muted-foreground">
-            Source is required. Selecting an organization sets source type; fetching the
-            source reference sets page and source name - none of these are editable
-            directly.
+            Source and page(s) are required. Selecting an organization sets source type;
+            fetching the source reference sets source name and year of release. Page(s)
+            aren't part of either document, so they're entered manually.
           </p>
           <div className="flex gap-2">
             <Button
@@ -1267,17 +1490,22 @@ const SOURCE_REFERENCE_STATUS_LABELS: Record<string, string> = {
 };
 
 // One entry in the Before/After comparison. `side` colours it: red for the answer's
-// current sources, green for what the reviewer recorded. Accepts both SourceItem
-// (Before) and NewSourceItem (After) shapes - sourceReferenceStatus only exists on the
-// latter and simply doesn't render for Before entries.
+// current sources, green for what the reviewer recorded. Before comes from the answer's
+// own SourceItem (a raw `source` link/text, a plain-string `organization` name); After
+// comes from the updated_sources NewSourceItem, already populated (by
+// NewSourceService.getByAnswerId) with organizationName/sourceName/sourceLink/
+// yearOfRelease looked up from the organization/pop_unique_documents _ids it actually
+// stores - sourceReferenceStatus and the populated fields simply don't render for
+// Before entries.
 type ReviewSource = {
-  source: string;
+  source?: string;
+  sourceLink?: string;
   sourceType?: string;
   sourceName?: string;
-  page?: string | number;
-  yearOfRelease?: string | number;
+  page?: string | number | number[];
+  yearOfRelease?: string | number | null;
   organization?: string;
-  sourceReference?: string;
+  organizationName?: string;
   sourceReferenceStatus?: PopMatchStatus | null;
 };
 
@@ -1347,29 +1575,41 @@ const SourceChangeItem = ({
         )}
       </div>
 
-      <SourceDetailLine label="Source">
-        {isUrl(source.source) ? (
-          <a
-            href={source.source}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            {source.source}
-          </a>
-        ) : (
-          source.source || "—"
-        )}
-      </SourceDetailLine>
+      {(() => {
+        // Before carries the raw source text/link; After has no raw text (its `source`
+        // is a pop_unique_documents _id) - the matched document's own link stands in.
+        const displaySource = source.source || source.sourceLink;
+        return displaySource ? (
+          <SourceDetailLine label="Source">
+            {isUrl(displaySource) ? (
+              <a
+                href={displaySource}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {displaySource}
+              </a>
+            ) : (
+              displaySource
+            )}
+          </SourceDetailLine>
+        ) : null;
+      })()}
 
-      {source.yearOfRelease !== undefined && source.yearOfRelease !== "" && (
+      {source.page !== undefined && source.page !== "" && (
+        <SourceDetailLine label="Page">
+          {Array.isArray(source.page) ? source.page.join(", ") : source.page}
+        </SourceDetailLine>
+      )}
+      {source.yearOfRelease !== undefined && source.yearOfRelease !== "" && source.yearOfRelease !== null && (
         <SourceDetailLine label="Year of release">{source.yearOfRelease}</SourceDetailLine>
       )}
-      {source.organization && (
-        <SourceDetailLine label="Org">{source.organization}</SourceDetailLine>
-      )}
-      {source.sourceReference && (
-        <SourceDetailLine label="Reference">{source.sourceReference}</SourceDetailLine>
+      {(source.organizationName || source.organization) && (
+        // After's `organization` is the Organization document's _id, not a name - only
+        // show it when there's no populated name to fall back to (Before still carries
+        // organization as a plain name string).
+        <SourceDetailLine label="Org">{source.organizationName || source.organization}</SourceDetailLine>
       )}
       {source.sourceReferenceStatus && (
         <SourceDetailLine label="Match">
