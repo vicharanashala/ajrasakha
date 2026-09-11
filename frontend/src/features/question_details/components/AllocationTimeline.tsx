@@ -33,6 +33,7 @@ interface AllocationTimelineProps {
   history: ISubmission["history"];
   currentUser: IUser;
   question: IQuestionFullData;
+  initialOpen?: boolean;
 }
 
 export const AllocationTimeline = ({
@@ -40,8 +41,9 @@ export const AllocationTimeline = ({
   queue,
   history,
   question,
+  initialOpen = false,
 }: AllocationTimelineProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isExpanded, setIsExpanded] = useState(false);
   const INITIAL_DISPLAY_COUNT = 12;
   const [isFlipped, setIsFlipped] = useState(false);
