@@ -45,14 +45,17 @@ export class NewSourceService implements INewSourceService {
 
       // Whoever put this source 'in-progress' owns finishing it - a different expert
       // can't jump in and edit it until it's released back to 'pending' (or review-completed).
+      // Ownership is decided by who currently holds the OPEN entry, not by whether this
+      // user's own entry happens to still be open - switching to another answer closes
+      // this user's entry (see closeNewSource), and coming back to resume should not
+      // read as someone else having taken it over.
+      const openExpertEntry = existing.reviewArray.find(
+        entry => entry.role !== 'moderator' && entry.closedAt === null,
+      );
       const ownedByAnotherExpert =
         existing.status === 'in-progress' &&
-        !existing.reviewArray.some(
-          entry =>
-            entry.userId === input.userId &&
-            entry.role !== 'moderator' &&
-            entry.closedAt === null,
-        );
+        openExpertEntry !== undefined &&
+        openExpertEntry.userId !== input.userId;
 
       if (ownedByAnotherExpert) {
         throw new ForbiddenError(
