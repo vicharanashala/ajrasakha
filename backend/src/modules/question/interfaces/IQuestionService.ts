@@ -550,7 +550,7 @@ export interface IQuestionService {
   /** Manually (re)assign the gate keeper / auditor for a question. */
   getRoleAssigneeDashboard(
     userId: string,
-    role: 'gate_keeper' | 'auditor',
+    role: 'gate_keeper' | 'auditor' | 'moderator',
     page: number,
     limit: number,
     search?: string,
@@ -633,6 +633,16 @@ export interface IQuestionService {
       maxReviewers?: number;
     }
   ): Promise<ArrayBuffer | null>;
+  streamTatReport(
+    startDate: Date,
+    endDate: Date,
+    outputStream: any,
+    opts?: {
+      sources?: string[];
+      statuses?: string[];
+      maxReviewers?: number;
+    }
+  ): Promise<boolean>;
   generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;
@@ -647,6 +657,7 @@ export interface IQuestionService {
     startDate?: string;
     endDate?: string;
     allUsers?: string;
+    totalCount?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,

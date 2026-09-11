@@ -30,23 +30,22 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
-/** GateKeeper/Auditor check-in / check-out control. Kept as its own component so its
+/** Moderator check-in / check-out control. Kept as its own component so its
  *  per-second timer re-render stays isolated here and does NOT re-render the
  *  whole Dashboard (which would restart all the card count-up animations).
- *  Reuses the existing check-in + block/unblock endpoints; for a gatekeeper/auditor,
+ *  Reuses the existing check-in + block/unblock endpoints; for a moderator,
  *  isBlocked is the availability flag (checked-in = not blocked). */
-const GateKeeperAuditorCheckInControl = ({ user }: { user?: IUser | null }) => {
+const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
   const { checkIn, isPending: isCheckingIn } = useCheckIn();
   const blockUser = useBlockUser();
 
-  const isGateKeeperOrAuditor =
-    user?.role === "gate_keeper" || user?.role === "auditor";
+  const isModerator = user?.role === "moderator";
 
   // Local, optimistic state seeded from the server. Check-in/checkout updates
   // ONLY this state (no global ["user"] invalidation), so just this control
   // re-renders — the dashboard and its cards are never re-rendered/re-animated.
   const [checkedIn, setCheckedIn] = useState(
-    () => isGateKeeperOrAuditor && user?.isBlocked === false,
+    () => isModerator && user?.isBlocked === false,
   );
   const [checkedInAt, setCheckedInAt] = useState<number | null>(() =>
     user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
@@ -57,11 +56,11 @@ const GateKeeperAuditorCheckInControl = ({ user }: { user?: IUser | null }) => {
   // Re-sync with the server only when /me genuinely changes (initial load,
   // window-focus refetch, etc.) — not on our own optimistic toggles.
   useEffect(() => {
-    setCheckedIn(isGateKeeperOrAuditor && user?.isBlocked === false);
+    setCheckedIn(isModerator && user?.isBlocked === false);
     setCheckedInAt(
       user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
     );
-  }, [isGateKeeperOrAuditor, user?.isBlocked, user?.lastCheckInAt]);
+  }, [isModerator, user?.isBlocked, user?.lastCheckInAt]);
 
   useEffect(() => {
     if (!checkedIn || !checkedInAt) {
@@ -82,7 +81,7 @@ const GateKeeperAuditorCheckInControl = ({ user }: { user?: IUser | null }) => {
     return () => clearInterval(interval);
   }, [checkedIn, checkedInAt]);
 
-  if (!isGateKeeperOrAuditor) return null;
+  if (!isModerator) return null;
 
   const handleCheckIn = async () => {
     if (!user?._id || busy) return;
@@ -137,10 +136,9 @@ const GateKeeperAuditorCheckInControl = ({ user }: { user?: IUser | null }) => {
 
 const QUESTIONS_LIMIT = 11;
 
-interface GateKeeperAuditorDashboardProps {
-  /** When set (manager viewing another user), show that user's dashboard instead of the logged-in user's. */
+interface ModeratorDashboardProps {
+  /** When set (manager viewing another moderator), show that moderator's dashboard instead of the logged-in user's. */
   userId?: string;
-  role?: "gate_keeper" | "auditor";
   userName?: string;
   goBack?: () => void;
 }
@@ -150,32 +148,32 @@ const statusBadgeClass = (status: string) => {
     case "closed":
     case "dynamic_closed":
     case "duplicate_closed":
+    case "pass":
+    case "passed":
       return "bg-gray-500/10 text-gray-600 border-gray-500/30";
     case "duplicate":
     case "queue_duplicate":
     case "duplicate_confirmed":
       return "bg-orange-500/10 text-orange-600 border-orange-500/30";
+    case "in-review":
+      return "bg-blue-500/10 text-blue-600 border-blue-500/30";
+    case "re-routed":
+      return "bg-purple-500/10 text-purple-600 border-purple-500/30";
     case "dynamic":
       return "bg-yellow-500/10 text-yellow-600 border-yellow-500/30";
-    case "auditor_review":
-      return "bg-indigo-500/10 text-indigo-600 border-indigo-500/30";
     default:
       return "bg-muted text-foreground";
   }
 };
 
-export const GateKeeperAuditorDashboard = ({
+export const ModeratorDashboard = ({
   userId,
-  role,
   userName,
   goBack,
-}: GateKeeperAuditorDashboardProps = {}) => {
+}: ModeratorDashboardProps = {}) => {
   const { data: currentUser } = useGetCurrentUser({});
-  // "Viewing other" mode = a manager opened a specific gate keeper/auditor from User Management.
-  const viewingOther = !!userId && !!role;
-  const effectiveRole = viewingOther ? role : currentUser?.role;
-  const isAuditor = effectiveRole === "auditor";
-  const nounTitle = isAuditor ? "Auditor" : "Gate Keeper";
+  // "Viewing other" mode = a manager opened a specific moderator from User Management.
+  const viewingOther = !!userId;
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -194,12 +192,9 @@ export const GateKeeperAuditorDashboard = ({
     QUESTIONS_LIMIT,
     debouncedSearch,
     {
-      enabled: viewingOther
-        ? true
-        : currentUser?.role === "gate_keeper" ||
-          currentUser?.role === "auditor",
+      enabled: viewingOther ? true : currentUser?.role === "moderator",
       userId,
-      role,
+      role: "moderator",
       startDate,
       endDate,
       dateFilterType,
@@ -218,7 +213,7 @@ export const GateKeeperAuditorDashboard = ({
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId || null);
 
-  // The gate keeper / auditor whose history/lifecycle/hours we show — the viewed user
+  // The moderator whose history/lifecycle/hours we show — the viewed user
   // when a manager opened them, otherwise the logged-in user.
   const targetUserId = viewingOther ? userId : currentUser?._id;
 
@@ -307,11 +302,10 @@ export const GateKeeperAuditorDashboard = ({
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              {nounTitle} {viewingOther ? "Performance" : "Dashboard"}
+              Moderator {viewingOther ? "Performance" : "Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Monitor {viewingOther ? `${nounTitle.toLowerCase()}` : "your"}{" "}
-              performance:{" "}
+              Monitor {viewingOther ? "moderator" : "your"} performance:{" "}
               {viewingOther
                 ? userName ?? ""
                 : `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`}
@@ -319,7 +313,7 @@ export const GateKeeperAuditorDashboard = ({
           </div>
 
           <div className="flex items-center gap-4">
-            <GateKeeperAuditorCheckInControl user={currentUser} />
+            <ModeratorCheckInControl user={currentUser} />
           </div>
         </div>
 
@@ -349,13 +343,13 @@ export const GateKeeperAuditorDashboard = ({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">
-                    Submitted Questions
+                    Completed Questions
                   </p>
                   <p className="text-3xl font-bold text-foreground">
                     {submittedCount}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
-                    Questions you have finished
+                    Questions closed or passed
                   </p>
                 </div>
                 <CheckCircle className="w-8 h-8 opacity-60 text-green-400" />
@@ -374,7 +368,7 @@ export const GateKeeperAuditorDashboard = ({
                     {pendingCount}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
-                    Assigned but not yet finished
+                    Assigned but not yet closed
                   </p>
                 </div>
                 <ListTodo className="w-8 h-8 opacity-60 text-red-400" />
@@ -452,7 +446,7 @@ export const GateKeeperAuditorDashboard = ({
                   <TableHead className="text-center w-24">Source</TableHead>
                   <TableHead className="text-left">Question Text</TableHead>
                   <TableHead className="text-center w-40">Status</TableHead>
-                  <TableHead className="text-center w-28">Submitted</TableHead>
+                  <TableHead className="text-center w-28">Completed</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -474,9 +468,7 @@ export const GateKeeperAuditorDashboard = ({
                   </TableRow>
                 ) : (
                   questions.map((q, index) => {
-                    const finishedAt = isAuditor
-                      ? q.auditorFinishedAt
-                      : q.gateKeeperFinishedAt;
+                    const finishedAt = q.moderatorCompletedAt;
                     return (
                       <TableRow
                         key={String(q._id ?? index)}
@@ -503,11 +495,6 @@ export const GateKeeperAuditorDashboard = ({
                           {(q as any).isFeedbackQuestion ? (
                             <span className="mr-1.5 font-semibold text-red-500">
                               (Feed Back)
-                            </span>
-                          ) : q.source === "AJRASAKHA" ||
-                            q.source === "WHATSAPP" ? (
-                            <span className="mr-1.5 font-semibold text-red-500">
-                              
                             </span>
                           ) : null}
                           {q.question}

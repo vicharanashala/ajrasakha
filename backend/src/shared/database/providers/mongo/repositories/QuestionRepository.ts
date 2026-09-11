@@ -2598,6 +2598,8 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
+        /** The reference question's approved final-answer text (shown in "Reference Question"). */
+        answer: string;
         sources: {
           source: string;
           page?: string | number | null;
@@ -2629,7 +2631,7 @@ export class QuestionRepository implements IQuestionRepository {
             ) as any,
             this.AnswersCollection.findOne(
               { questionId: refId, isFinalAnswer: true },
-              { projection: { sources: 1 } },
+              { projection: { sources: 1, answer: 1 } },
             ) as any,
           ]);
 
@@ -2639,6 +2641,7 @@ export class QuestionRepository implements IQuestionRepository {
               status: refQuestion.status || '',
               details: refQuestion.details || {},
               text: refQuestion.text || '',
+              answer: refFinalAnswer?.answer || '',
               sources: refFinalAnswer?.sources || [],
             };
           }
@@ -8531,8 +8534,24 @@ export class QuestionRepository implements IQuestionRepository {
       ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
     return this.QuestionCollection.find(match as any)
+      .project({
+        _id: 1,
+        question: 1,
+        source: 1,
+        status: 1,
+        referenceQuestionId: 1,
+        tag: 1,
+        createdAt: 1,
+        closedAt: 1,
+        userId: 1,
+        moderatorId: 1,
+        gateKeeperId: 1,
+        auditorId: 1,
+        firstAllocationAt: 1,
+        moderatorAssignedAt: 1,
+      })
       .sort({ createdAt: 1 })
-      .toArray();
+      .toArray() as any;
   }
 
   /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
@@ -8671,6 +8690,111 @@ export class QuestionRepository implements IQuestionRepository {
       submittedCount,
       // Stringify _id so the client gets a plain id (avoids "[object Object]" in URLs).
       questions: questions.map(q => ({ ...q, _id: q._id?.toString() })),
+      totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
+    };
+  }
+
+  /** Dashboard for a single moderator: assigned + completed counts and a paginated
+   *  list of the questions they hold (moderatorId). Unlike gate keeper / auditor,
+   *  a moderator has no persisted "finished" field — a question is treated as
+   *  completed once it is closed or passed (moderatorCompletedAt = closedAt || passedAt),
+   *  so completion filters/counts run over closedAt / passedAt instead of a single field. */
+  async getModeratorDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType: 'assigned' | 'completed' | 'both' = 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }> {
+    await this.init();
+    if (!isValidObjectId(userId)) {
+      return { assignedCount: 0, submittedCount: 0, questions: [], totalPages: 0, totalCount: 0 };
+    }
+    const oid = new ObjectId(userId);
+
+    // A moderator "completes" a question when it is closed or passed.
+    const completedOr = [{ closedAt: { $ne: null } }, { passedAt: { $ne: null } }];
+    const range =
+      startDate && endDate ? { $gte: startDate, $lte: endDate } : null;
+
+    // Date-window clauses (ANDed into a match) depending on the selected filter type.
+    const dateClauses = (): Record<string, unknown>[] => {
+      if (!range) return [];
+      if (dateFilterType === 'assigned') return [{ moderatorAssignedAt: range }];
+      if (dateFilterType === 'completed') {
+        return [{ $or: [{ closedAt: range }, { passedAt: range }] }];
+      }
+      // 'both' — assigned OR completed within the range.
+      return [
+        {
+          $or: [
+            { moderatorAssignedAt: range },
+            { closedAt: range },
+            { passedAt: range },
+          ],
+        },
+      ];
+    };
+
+    const baseMatch: Record<string, unknown> = { moderatorId: oid };
+    if (search && search.trim()) {
+      baseMatch.question = {
+        $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        $options: 'i',
+      };
+    }
+    const baseDate = dateClauses();
+    if (baseDate.length) baseMatch.$and = baseDate;
+
+    const assignedCountMatch: Record<string, unknown> = { moderatorId: oid };
+    const assignedDate = dateClauses();
+    if (assignedDate.length) assignedCountMatch.$and = assignedDate;
+
+    // Completed (closed/passed) count — completion $or plus any date window, ANDed
+    // together so the two $or groups don't collide at the top level.
+    const submittedCountMatch: Record<string, unknown> = {
+      moderatorId: oid,
+      $and: [{ $or: completedOr }, ...dateClauses()],
+    };
+
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
+
+    const [assignedCount, submittedCount, totalCount, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments(assignedCountMatch as any),
+      this.QuestionCollection.countDocuments(submittedCountMatch as any),
+      this.QuestionCollection.countDocuments(baseMatch as any),
+      this.QuestionCollection.find(baseMatch as any, {
+        projection: {
+          _id: 1, question: 1, status: 1, source: 1, priority: 1, createdAt: 1,
+          moderatorAssignedAt: 1, closedAt: 1, passedAt: 1,
+          'details.state': 1, 'details.crop': 1,
+        },
+      })
+        .sort({ moderatorAssignedAt: -1, createdAt: -1 } as any)
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .toArray(),
+    ]);
+
+    return {
+      assignedCount,
+      submittedCount,
+      questions: questions.map(q => ({
+        ...q,
+        _id: q._id?.toString(),
+        // Surface the computed completion time so the client can show a "done" marker.
+        moderatorCompletedAt: (q as any).closedAt ?? (q as any).passedAt ?? null,
+      })),
       totalCount,
       totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
     };
@@ -9618,5 +9742,23 @@ export class QuestionRepository implements IQuestionRepository {
         $lt: [{ $size: { $ifNull: ['$assignedValidationQuestions', []] } }, 3],
       },
     });
+  }
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  async updateNormalisedCrop(
+    questionId: string,
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
   }
 }

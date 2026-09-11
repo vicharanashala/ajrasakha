@@ -31,6 +31,7 @@ import {
 } from "./atoms/select";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
+import { ModeratorDashboard } from "./ModeratorDashboard";
 import { Dashboard } from "./dashboard";
 import { Button } from "./atoms/button";
 import { UserFiltersDialog } from "./UserFiltersDialog";
@@ -224,6 +225,18 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
               <GateKeeperAuditorDashboard
                 userId={selectExpertId}
                 role={selectedRole}
+                userName={
+                  `${selectedUser?.firstName ?? selectedUser?.userName ?? ""} ${selectedUser?.lastName ?? ""}`.trim()
+                }
+                goBack={goBack}
+              />
+            );
+          }
+          // Moderators get their own moderator-scoped dashboard.
+          if (selectedRole === "moderator") {
+            return (
+              <ModeratorDashboard
+                userId={selectExpertId}
                 userName={
                   `${selectedUser?.firstName ?? selectedUser?.userName ?? ""} ${selectedUser?.lastName ?? ""}`.trim()
                 }

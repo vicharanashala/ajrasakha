@@ -636,56 +636,29 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.details = details;
       logData.source = source;
 
-      // ─── Normalize crop against crop_master DB ───────────────────────────
+      // ─── Extract raw crop name for background processing ───────────────────
+      // Crop normalization (DB lookup) is deferred to processQuestionInBackground
+      // to avoid blocking the response. This significantly improves response time.
       const rawCropName =
         typeof details.crop === 'string'
           ? details.crop
           : details.crop?.name || '';
-      let normalised_crop: string | undefined;
-      if (rawCropName.trim()) {
-        try {
-          const existingCrop =
-            await this.cropRepository.findByNameOrAlias(rawCropName);
-          if (existingCrop) {
-            normalised_crop = existingCrop.name;
-            logData.cropNormalization = {
-              original: rawCropName,
-              resolved: existingCrop.name,
-              action:
-                rawCropName.trim().toLowerCase() === existingCrop.name
-                  ? 'EXACT_MATCH'
-                  : 'ALIAS_RESOLVED',
-            };
-          } else {
-            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
-            logData.cropNormalization = {
-              original: rawCropName,
-              action: 'NOT_FOUND',
-            };
-          }
-        } catch (cropError: any) {
-          console.error('Crop normalization warning:', cropError.message);
-          logData.cropNormalizationError = cropError.message;
-        }
-      }
+
       // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
       details.crop = toTitleCase(rawCropName);
       details.state = toTitleCase(details.state);
       if (typeof details.district === 'string')
         details.district = toTitleCase(details.district);
-      if (normalised_crop !== undefined)
-        details.normalised_crop = normalised_crop;
+      // NOTE: normalised_crop will be set in processQuestionInBackground after DB lookup
 
-      // 🔹 Create Embedding — OUTSIDE transaction
+      // 🔹 Embedding is generated in the background (see processQuestionInBackground),
+      // NOT here. The AI/chatbot upload has a short client timeout and was 504'ing on the
+      // synchronous embedding call, so the question id never made it back to LangGraph.
+      // Deferring it lets this endpoint return the id in well under a second.
       const text = `Question: ${question}`;
-      let textEmbedding: number[] = [];
-
-      if (appConfig.ENABLE_AI_SERVER) {
-        const {embedding} = await this.aiService.getEmbedding(text);
-        textEmbedding = embedding;
-      }
-      logData.embeddingGenerated = textEmbedding.length > 0;
-      logData.vectorLength = textEmbedding.length;
+      const textEmbedding: number[] = [];
+      logData.embeddingGenerated = false;
+      logData.vectorLength = 0;
 
       return this._withTransaction(async (session: ClientSession) => {
         // 🔹 Create Context
@@ -767,8 +740,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
+        // 🔹 Kick off background processing (duplicate check, expert allocation, crop normalization, notifications)
         const questionId = savedQuestion._id.toString();
+        const originalCropName = body.details?.crop;
         setImmediate(() => {
           this.processQuestionInBackground({
             questionId,
@@ -776,6 +750,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             details,
             baseQuestion: {...baseQuestion, _id: savedQuestion._id},
             logData,
+            rawCropName: typeof originalCropName === 'string' ? originalCropName : originalCropName?.name || '',
           }).catch((err: any) =>
             console.error(
               `[addQuestion] Background processing failed for questionId=${questionId}:`,
@@ -810,9 +785,70 @@ export class QuestionService extends BaseService implements IQuestionService {
     details: IQuestion['details'];
     baseQuestion: IQuestion;
     logData: Record<string, any>;
+    rawCropName?: string;
   }): Promise<void> {
-    const {questionId, source, details, baseQuestion, logData} = params;
+    const {questionId, source, details, baseQuestion, logData, rawCropName} = params;
     try {
+      // ─── Crop normalization ─────────────────────────────────────────────────
+      // This was moved from addQuestion to avoid blocking the response.
+      // Normalize crop against crop_master DB and update only the normalised_crop field.
+      if (rawCropName?.trim()) {
+        try {
+          const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+          if (existingCrop) {
+            const normalisedCrop = existingCrop.name;
+            logData.cropNormalization = {
+              original: rawCropName,
+              resolved: existingCrop.name,
+              action:
+                rawCropName.trim().toLowerCase() === existingCrop.name
+                  ? 'EXACT_MATCH'
+                  : 'ALIAS_RESOLVED',
+            };
+            // Use updateNormalisedCrop to update only the normalised_crop field
+            // without replacing the entire details object
+            await this.questionRepo.updateNormalisedCrop(questionId, normalisedCrop);
+          } else {
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+            logData.cropNormalization = {
+              original: rawCropName,
+              action: 'NOT_FOUND',
+            };
+          }
+        } catch (cropError: any) {
+          console.error(
+            `[processQuestionInBackground] crop normalization failed for questionId=${questionId}:`,
+            cropError.message,
+          );
+          logData.cropNormalizationError = cropError.message;
+        }
+      }
+
+      // ─── Embedding generation ───────────────────────────────────────────────
+      // Embedding was deferred out of the request path (so the id returns fast) — generate
+      // it here, before the duplicate pipeline that needs it, and persist it on the question.
+      if (
+        appConfig.ENABLE_AI_SERVER &&
+        (!baseQuestion.embedding || baseQuestion.embedding.length === 0)
+      ) {
+        try {
+          const {embedding} = await this.aiService.getEmbedding(
+            baseQuestion.text || `Question: ${baseQuestion.question}`,
+          );
+          if (embedding?.length) {
+            baseQuestion.embedding = embedding;
+            await this.questionRepo.updateQuestion(questionId, {embedding});
+            logData.embeddingGenerated = true;
+            logData.vectorLength = embedding.length;
+          }
+        } catch (err: any) {
+          console.error(
+            `[processQuestionInBackground] embedding generation failed for questionId=${questionId}:`,
+            err?.message,
+          );
+        }
+      }
+
       if (source === 'AGRI_EXPERT') {
         // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
         // on creation. They are left unallocated (empty queue, no firstAllocationAt)
@@ -1829,7 +1865,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getRoleAssigneeDashboard(
     userId: string,
-    role: 'gate_keeper' | 'auditor',
+    role: 'gate_keeper' | 'auditor' | 'moderator',
     page: number,
     limit: number,
     search?: string,
@@ -1991,6 +2027,20 @@ export class QuestionService extends BaseService implements IQuestionService {
     opts: {sources?: string[]; statuses?: string[]; maxReviewers?: number} = {},
   ): Promise<ArrayBuffer | null> {
     return this.questionReportService.generateTatReport(startDate, endDate, opts);
+  }
+
+  async streamTatReport(
+    startDate: Date,
+    endDate: Date,
+    outputStream: any,
+    opts: {sources?: string[]; statuses?: string[]; maxReviewers?: number} = {},
+  ): Promise<boolean> {
+    return this.questionReportService.streamTatReport(
+      startDate,
+      endDate,
+      outputStream,
+      opts,
+    );
   }
 
   async generateOverallQuestionReport(

@@ -68,6 +68,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async getByQuestionIds(
     questionIds: string[],
     session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
   ): Promise<IQuestionSubmission[]> {
     try {
       await this.init();
@@ -75,10 +76,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         .filter(id => ObjectId.isValid(id))
         .map(id => new ObjectId(id));
       if (!ids.length) return [];
-      return this.QuestionSubmissionCollection.find(
-        {questionId: {$in: ids}},
-        {session},
-      ).toArray();
+
+      const BATCH_SIZE = 500;
+      const results: IQuestionSubmission[] = [];
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        const options: any = {session};
+        if (projection) {
+          options.projection = projection;
+        }
+        const chunk = await this.QuestionSubmissionCollection.find(
+          {questionId: {$in: batch}},
+          options,
+        ).toArray();
+        results.push(...chunk);
+      }
+      return results;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get submissions by questionIds: ${error}`,
@@ -211,24 +224,34 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       const queueBecameEmpty =
         removedFirstExpert && (questionSubmission.queue?.length ?? 0) === 1;
       if (queueBecameEmpty) {
-        // No experts left — the question is no longer allocated to anyone. Clear
+        // No experts left — if this was still at author level (no history), clear
         // firstAllocationAt so it falls back into the never-allocated queue and can
         // be re-picked for allocation.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$unset: {firstAllocationAt: ''}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {_id: new ObjectId(questionId)},
+            {$unset: {firstAllocationAt: ''}},
+            {session},
+          );
+        }
       } else if (removedFirstExpert) {
         // Allocation shifts to the next expert (now the head of the queue). Ensure
-        // firstAllocationAt is set if it was missing/null, so the now-allocated
+        // firstAllocationAt is set only if it was missing/null at author level, so the now-allocated
         // question isn't treated as never-allocated. Only set when absent to
         // preserve the original first-allocation timestamp when it already exists.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$set: {firstAllocationAt: new Date()}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {
+              _id: new ObjectId(questionId),
+              $or: [
+                {firstAllocationAt: {$exists: false}},
+                {firstAllocationAt: null},
+              ],
+            },
+            {$set: {firstAllocationAt: new Date()}},
+            {session},
+          );
+        }
       }
 
       if (shouldCreateNextHistoryEntry) {

@@ -122,7 +122,11 @@ export interface IUserRepository {
    * @param ids - Array of user IDs to find.
    * @returns A promise that resolves to an array of users.
    */
-  getUsersByIds(ids: string[], session?: ClientSession): Promise<IUser[]>;
+  getUsersByIds(
+    ids: string[],
+    session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
+  ): Promise<IUser[]>;
   /**
    * Finds all users.
    * @returns A promise that resolves to an array of users.
