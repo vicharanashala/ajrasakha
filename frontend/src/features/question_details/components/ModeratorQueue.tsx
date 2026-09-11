@@ -205,7 +205,7 @@ export const ModeratorQueue = ({
               <UserCheck className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
+              <h2 className="text-xl sm:text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
                 Moderator Queue
               </h2>
               <p className="text-sm text-muted-foreground mt-1">

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import type { IQuestionFullData, IUser, IRerouteHistoryResponse } from "@/types";
 import { RoleAssigneeQueue } from "./RoleAssigneeQueue";
 import { AllocationTimeline } from "./AllocationTimeline";
@@ -78,33 +78,25 @@ export const QueuesSection = ({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  // Mouse drag-to-scroll state
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftState, setScrollLeftState] = useState(0);
+
   // Sync activeTab if question ID or status changes
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [question._id, defaultTab]);
 
-  const updateScrollButtons = () => {
+  const updateScrollButtons = useCallback(() => {
     if (scrollContainerRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setCanScrollLeft(scrollLeft > 2);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 2);
-    }
-  };
-
-  useEffect(() => {
-    updateScrollButtons();
-    const el = scrollContainerRef.current;
-    if (el) {
-      el.addEventListener("scroll", updateScrollButtons);
-      window.addEventListener("resize", updateScrollButtons);
-      return () => {
-        el.removeEventListener("scroll", updateScrollButtons);
-        window.removeEventListener("resize", updateScrollButtons);
-      };
+      setCanScrollLeft(scrollLeft > 4);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 4);
     }
   }, []);
 
-  useEffect(() => {
+  const updateGlider = useCallback(() => {
     const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
       `[data-tab="${activeTab}"]`
     );
@@ -113,17 +105,74 @@ export const QueuesSection = ({
         left: activeBtn.offsetLeft,
         width: activeBtn.offsetWidth,
       });
-      // Scroll active tab into view if needed
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    updateGlider();
+    updateScrollButtons();
+
+    const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
+      `[data-tab="${activeTab}"]`
+    );
+    if (activeBtn) {
       activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     }
-    updateScrollButtons();
-  }, [activeTab, hasReroute, showFeedbackQueue, showPaeValidationQueue]);
+  }, [activeTab, hasReroute, showFeedbackQueue, showPaeValidationQueue, updateGlider, updateScrollButtons]);
+
+  // Recalculate glider & scroll buttons dynamically on resize
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const group = groupRef.current;
+
+    const handleResize = () => {
+      updateGlider();
+      updateScrollButtons();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    let ro: ResizeObserver | null = null;
+    if (group) {
+      ro = new ResizeObserver(handleResize);
+      ro.observe(group);
+    }
+
+    if (container) {
+      container.addEventListener("scroll", updateScrollButtons, { passive: true });
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (ro) ro.disconnect();
+      if (container) container.removeEventListener("scroll", updateScrollButtons);
+    };
+  }, [updateGlider, updateScrollButtons]);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
-      const scrollAmount = direction === "left" ? -220 : 220;
+      const scrollAmount = direction === "left" ? -240 : 240;
       scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    setIsMouseDown(true);
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setScrollLeftState(scrollContainerRef.current.scrollLeft);
+  };
+
+  const handleMouseLeaveOrUp = () => {
+    setIsMouseDown(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isMouseDown || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    scrollContainerRef.current.scrollLeft = scrollLeftState - walk;
   };
 
   // Compute status summary labels for badges & tooltips
@@ -245,14 +294,14 @@ export const QueuesSection = ({
 
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="w-full space-y-4 my-4">
-        {/* Horizontal Bar Wrapper with Scroll Buttons */}
-        <div className="relative flex items-center w-full group">
+      <div className="w-full max-w-full space-y-4 my-4 overflow-x-hidden">
+        {/* Horizontal Bar Wrapper with Responsive Scroll Controls */}
+        <div className="relative flex items-center w-full max-w-full group">
           {/* Scroll Left Button */}
           {canScrollLeft && (
             <button
               onClick={() => scroll("left")}
-              className="absolute left-1 z-20 p-1 rounded-full bg-background/90 border border-border shadow-md text-foreground hover:bg-muted transition-all"
+              className="hidden md:flex absolute left-1 z-30 p-1.5 rounded-full bg-background/90 backdrop-blur-md border border-border shadow-md text-foreground hover:bg-muted transition-all duration-200"
               title="Scroll left"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -262,9 +311,13 @@ export const QueuesSection = ({
           {/* Horizontal Bar Container */}
           <div
             ref={scrollContainerRef}
-            className="relative flex w-full items-center gap-1.5 rounded-xl border border-border bg-muted/40 p-1.5 overflow-x-auto scrollbar-hiding flex-nowrap shadow-sm scroll-smooth"
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeaveOrUp}
+            onMouseUp={handleMouseLeaveOrUp}
+            onMouseMove={handleMouseMove}
+            className="relative flex w-full items-center gap-1 sm:gap-1.5 rounded-xl border border-border bg-muted/40 p-1.5 overflow-x-auto overflow-y-hidden flex-nowrap shadow-sm touch-pan-x active:cursor-grabbing select-none"
           >
-            <div ref={groupRef} className="relative flex items-center gap-1.5 flex-nowrap min-w-max">
+            <div ref={groupRef} className="relative flex items-center gap-1 sm:gap-1.5 flex-nowrap min-w-max">
               {/* Animated Glider Background */}
               <span
                 className="absolute inset-y-0.5 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
@@ -280,17 +333,17 @@ export const QueuesSection = ({
                         data-tab={id}
                         onClick={() => setActiveTab(id)}
                         className={cn(
-                          "relative z-10 flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer select-none whitespace-nowrap",
+                          "relative z-10 flex flex-shrink-0 items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer select-none whitespace-nowrap",
                           isActive
                             ? "text-foreground font-semibold scale-[1.01]"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                        <Icon className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
                         <span>{label}</span>
                         <span
                           className={cn(
-                            "ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none",
+                            "ml-0.5 sm:ml-1 rounded-full px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold leading-none",
                             badgeVariant === "green" && "bg-green-500/15 text-green-700 dark:text-green-400",
                             badgeVariant === "blue" && "bg-blue-500/15 text-blue-700 dark:text-blue-400",
                             badgeVariant === "amber" && "bg-amber-500/15 text-amber-700 dark:text-amber-400",
@@ -315,7 +368,7 @@ export const QueuesSection = ({
           {canScrollRight && (
             <button
               onClick={() => scroll("right")}
-              className="absolute right-1 z-20 p-1 rounded-full bg-background/90 border border-border shadow-md text-foreground hover:bg-muted transition-all"
+              className="hidden md:flex absolute right-1 z-30 p-1.5 rounded-full bg-background/90 backdrop-blur-md border border-border shadow-md text-foreground hover:bg-muted transition-all duration-200"
               title="Scroll right"
             >
               <ChevronRight className="h-4 w-4" />

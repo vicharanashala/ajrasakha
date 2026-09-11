@@ -239,7 +239,7 @@ export const QuestionDetails = ({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="mx-auto p-6 pt-0 grid gap-6"
+          className="mx-auto p-3 sm:p-6 pt-0 grid gap-4 sm:gap-6 w-full max-w-full overflow-x-hidden"
         >
           <QuestionHeader
             question={question}
