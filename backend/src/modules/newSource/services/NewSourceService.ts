@@ -4,7 +4,9 @@ import {IAnswerSourceDetail, INewSource, INewSourceItem} from '#root/shared/inte
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IOrganizationService} from '#root/modules/organization/interfaces/IOrganizationService.js';
 import {IPopService} from '#root/modules/pop/interfaces/IPopService.js';
+import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {inject, injectable} from 'inversify';
+import {ObjectId} from 'mongodb';
 import {BadRequestError, ForbiddenError, InternalServerError, NotFoundError} from 'routing-controllers';
 import {
   ChangeNewSourceStatusInput,
@@ -28,11 +30,16 @@ const sanitizeSources = (sources: INewSourceItem[]): INewSourceItem[] =>
 
 // The subset of a source item written to the answer's own `source_details` once its
 // review is merged (see changeStatus) - no sourceReferenceStatus/missedFields/display
-// fields, those belong to the review record, not the answer.
+// fields, those belong to the review record, not the answer. organization/source are
+// stored as real ObjectIds here (they're plain id strings on INewSourceItem) since this
+// is the shape actually persisted to MongoDB.
 const toAnswerSourceDetails = (sources: INewSourceItem[]): IAnswerSourceDetail[] =>
   sources.map(item => ({
-    organization: item.organization,
-    source: item.source,
+    organization:
+      item.organization && isValidObjectId(item.organization)
+        ? new ObjectId(item.organization)
+        : undefined,
+    source: item.source && isValidObjectId(item.source) ? new ObjectId(item.source) : undefined,
     page: item.page,
     sourceIndex: item.sourceIndex,
   }));

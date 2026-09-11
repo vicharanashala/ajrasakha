@@ -450,10 +450,12 @@ export interface PreviousAnswersItem {
 /** A source entry as written to the answer's own `source_details` (see
  *  NewSourceService.changeStatus) - the same organization/source/page/sourceIndex shape
  *  as a `updated_sources` INewSourceItem, stripped of its sourceReferenceStatus/
- *  missedFields/display-only fields since those don't belong on the answer itself. */
+ *  missedFields/display-only fields since those don't belong on the answer itself.
+ *  organization/source are stored as real ObjectIds here (unlike INewSourceItem, which
+ *  keeps them as strings) since this is the shape actually persisted to MongoDB. */
 export interface IAnswerSourceDetail {
-  organization?: string;
-  source?: string;
+  organization?: ObjectId;
+  source?: ObjectId;
   page?: number[];
   sourceIndex: number;
 }
