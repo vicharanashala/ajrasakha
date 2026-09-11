@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Any, Optional, Dict, List, Union
 
+import json
 import requests
 
 # Ensure ajrasakha package directory is in sys.path
@@ -81,6 +82,93 @@ LOCATION_UNRESOLVED_MESSAGE = (
     "Latitude, Longitude is not available for a given district, "
     "so that we are unable to retrieve lat long to provide accurate advisory."
 )
+
+_STATION_ID_FILE = os.path.join(_current_dir, "station_id.json")
+_AWS_STATION_ID_FILE = os.path.join(_current_dir, "aws_station_id.json")
+
+_CACHED_CITY_STATIONS: list[dict[str, Any]] | None = None
+_CACHED_AWS_STATIONS: list[dict[str, Any]] | None = None
+
+
+def _load_stations_index() -> None:
+    """Load station_id.json and aws_station_id.json once into in-memory lists."""
+    global _CACHED_CITY_STATIONS, _CACHED_AWS_STATIONS
+    if _CACHED_CITY_STATIONS is None:
+        try:
+            with open(_STATION_ID_FILE, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+                _CACHED_CITY_STATIONS = [
+                    s for s in raw
+                    if isinstance(s, dict) and s.get("latitude") is not None and s.get("longitude") is not None
+                ]
+        except Exception as err:
+            logger.warning("Failed to load station_id.json from %s: %s", _STATION_ID_FILE, err)
+            _CACHED_CITY_STATIONS = []
+
+    if _CACHED_AWS_STATIONS is None:
+        try:
+            with open(_AWS_STATION_ID_FILE, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+                _CACHED_AWS_STATIONS = [
+                    s for s in raw
+                    if isinstance(s, dict) and s.get("latitude") is not None and s.get("longitude") is not None
+                ]
+        except Exception as err:
+            logger.warning("Failed to load aws_station_id.json from %s: %s", _AWS_STATION_ID_FILE, err)
+            _CACHED_AWS_STATIONS = []
+
+
+def find_nearest_stations_by_lat_lon(lat: float, lon: float) -> dict[str, Any]:
+    """
+    Find nearest station from station_id.json (City/Observatory) and aws_station_id.json (IMD AWS).
+    Calculates great-circle distance (km) using Haversine formula.
+    """
+    _load_stations_index()
+
+    nearest_city = None
+    for s in (_CACHED_CITY_STATIONS or []):
+        try:
+            slat = float(s["latitude"])
+            slon = float(s["longitude"])
+            d = _haversine_km(lat, lon, slat, slon)
+            if nearest_city is None or d < nearest_city[0]:
+                nearest_city = (d, s)
+        except (ValueError, TypeError):
+            continue
+
+    nearest_aws = None
+    for s in (_CACHED_AWS_STATIONS or []):
+        try:
+            slat = float(s["latitude"])
+            slon = float(s["longitude"])
+            d = _haversine_km(lat, lon, slat, slon)
+            if nearest_aws is None or d < nearest_aws[0]:
+                nearest_aws = (d, s)
+        except (ValueError, TypeError):
+            continue
+
+    out: dict[str, Any] = {}
+    if nearest_city:
+        d, s = nearest_city
+        out["nearest_city_station"] = {
+            "station_id": s.get("station_id"),
+            "station_name": s.get("station_name"),
+            "distance_km": round(d, 2),
+            "latitude": s.get("latitude"),
+            "longitude": s.get("longitude"),
+        }
+    if nearest_aws:
+        d, s = nearest_aws
+        out["nearest_aws_station"] = {
+            "station_id": s.get("station_id"),
+            "station_name": s.get("station_name"),
+            "district": s.get("district"),
+            "state": s.get("state"),
+            "distance_km": round(d, 2),
+            "latitude": s.get("latitude"),
+            "longitude": s.get("longitude"),
+        }
+    return out
 
 
 def _label_data_source(raw: Any) -> str:
@@ -1277,6 +1365,14 @@ async def get_current_and_forecast_info(
             res_dict["to_date"] = to_date or datetime.now().strftime("%Y-%m-%d")
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
+        # Nearest stations lookup from station_id.json and aws_station_id.json
+        nearest_st_map = find_nearest_stations_by_lat_lon(actual_lat, actual_lon)
+        if nearest_st_map:
+            res_dict["nearest_stations"] = nearest_st_map
+            if nearest_st_map.get("nearest_city_station"):
+                res_dict["nearest_city_station"] = nearest_st_map["nearest_city_station"]
+            if nearest_st_map.get("nearest_aws_station"):
+                res_dict["nearest_aws_station"] = nearest_st_map["nearest_aws_station"]
         # Only attach IMD current station when Annam AWS is NOT available
         if data_source_today != "ws" and isinstance(imd_current, dict) and imd_current.get("success"):
             res_dict["imd_current_weather"] = imd_current
@@ -1662,6 +1758,14 @@ async def get_rainfall_and_monsoon_info(
             res_dict["to_date"] = to_date or today_str
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
+        # Nearest stations lookup from station_id.json and aws_station_id.json
+        nearest_st_map = find_nearest_stations_by_lat_lon(actual_lat, actual_lon)
+        if nearest_st_map:
+            res_dict["nearest_stations"] = nearest_st_map
+            if nearest_st_map.get("nearest_city_station"):
+                res_dict["nearest_city_station"] = nearest_st_map["nearest_city_station"]
+            if nearest_st_map.get("nearest_aws_station"):
+                res_dict["nearest_aws_station"] = nearest_st_map["nearest_aws_station"]
         return res_dict
 
     def _safe_run():

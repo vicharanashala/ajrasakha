@@ -157,6 +157,20 @@ def _extract_primary_station(data: dict[str, Any], fallback_location: str = "Loc
         elif dist is None and st_name and st_name != "N/A":
             candidates.append((25.0, st_name))
 
+    # 6. Check nearest_stations from station_id.json / aws_station_id.json
+    nst = data.get("nearest_stations") or {}
+    if isinstance(nst, dict):
+        city_s = nst.get("nearest_city_station") or data.get("nearest_city_station")
+        if isinstance(city_s, dict) and city_s.get("station_name"):
+            cdist = city_s.get("distance_km")
+            if cdist is not None and float(cdist) <= 50.0:
+                candidates.append((float(cdist), city_s.get("station_name")))
+        aws_s = nst.get("nearest_aws_station") or data.get("nearest_aws_station")
+        if isinstance(aws_s, dict) and aws_s.get("station_name"):
+            adist = aws_s.get("distance_km")
+            if adist is not None and float(adist) <= 50.0:
+                candidates.append((float(adist), aws_s.get("station_name")))
+
     if candidates:
         candidates.sort(key=lambda x: x[0])
         best_dist, best_name = candidates[0]

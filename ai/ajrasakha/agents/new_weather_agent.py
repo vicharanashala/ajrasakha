@@ -15,6 +15,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
+from ajrasakha.agents.config import MINIMAX_API_KEY, MINIMAX_BASE_URL, MINIMAX_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_error, trace_llm_request, trace_llm_response
 from ajrasakha.agents.prompts import NEW_WEATHER_ANSWER_PROMPT, NEW_WEATHER_INTENT_PROMPT
 from ajrasakha.agents.tool_output_formatters import format_new_weather_tool_dict
@@ -35,10 +36,8 @@ from fastmcp import Client
 
 USE_MCP_SERVER = os.getenv("USE_WEATHER_MCP_SERVER", "true").lower() == "true"
 WEATHER_MCP_URL = os.getenv("WEATHER_MCP_URL", "http://127.0.0.1:8007/mcp").strip()
-# Same Gemma endpoint pattern as market_agent (WEATHER_GEMMA_BASE_URL).
-WEATHER_GEMMA_BASE_URL = os.getenv("WEATHER_GEMMA_BASE_URL", "http://100.100.108.44:8014/v1")
-WEATHER_INTENT_MODEL = os.getenv("WEATHER_INTENT_MODEL", "google/gemma-4-E4B-it")
-WEATHER_ANSWER_MODEL = os.getenv("WEATHER_ANSWER_MODEL", WEATHER_INTENT_MODEL)
+WEATHER_INTENT_MODEL = os.getenv("WEATHER_INTENT_MODEL", MINIMAX_MODEL)
+WEATHER_ANSWER_MODEL = os.getenv("WEATHER_ANSWER_MODEL", MINIMAX_MODEL)
 
 _ALLOWED_WEATHER_TOOLS = frozenset({
     "get_weather_alerts",
@@ -411,37 +410,53 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
         "include_nearby_stations": include_nearby if tool in {"get_weather_nowcast", "get_location_weather"} else None,
         "radius_km": radius_km if tool in {"get_weather_nowcast", "get_location_weather"} else None,
         "crop_name": crop_name if tool == "get_sowing_weather_guide" else None,
-        "source": "gemma",
+        "source": "minimax",
     }
     return out
 
 
-async def _gemma_weather_chat(
+def _strip_reasoning_and_thinking(text: str) -> str:
+    """Remove any thinking / reasoning tags or internal thought prefixes."""
+    if not text:
+        return ""
+    # Strip <think>...</think> or similar XML-like thinking blocks
+    cleaned = re.sub(r"(?is)<think>.*?</think>", "", text)
+    cleaned = re.sub(r"(?is)<reasoning>.*?</reasoning>", "", cleaned)
+    # Strip thought markers or chains at the start
+    cleaned = re.sub(r"(?is)^(?:Thought|Thinking Process|Internal Reasoning):\s*.*?\n\n", "", cleaned)
+    return cleaned.strip()
+
+
+async def _minimax_weather_chat(
     *,
     trace_name: str,
     user_content: str,
-    max_tokens: int = 400,
+    max_tokens: int = 1500,
     temperature: float = 0.0,
     query: str | None = None,
     model: str | None = None,
-    timeout: float = 10.0,
+    timeout: float = 45.0,
+    is_intent: bool = False,
 ) -> str | None:
-    model_name = model or WEATHER_INTENT_MODEL
+    model_name = model or (WEATHER_INTENT_MODEL if is_intent else WEATHER_ANSWER_MODEL)
     trace_llm_request(
         trace_name,
         model=model_name,
         messages=[HumanMessage(content=user_content)],
         query=query,
-        api_base=WEATHER_GEMMA_BASE_URL,
+        api_base=MINIMAX_BASE_URL,
     )
-    url = f"{WEATHER_GEMMA_BASE_URL.rstrip('/')}/chat/completions"
+    url = f"{MINIMAX_BASE_URL.rstrip('/')}/chat/completions"
     payload = {
         "model": model_name,
         "messages": [{"role": "user", "content": user_content}],
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {MINIMAX_API_KEY}",
+    }
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=payload, headers=headers, timeout=timeout)
@@ -453,19 +468,27 @@ async def _gemma_weather_chat(
                 )
                 return None
             result = response.json()
-            message = result["choices"][0]["message"]
+            choices = result.get("choices") or []
+            if not choices:
+                return None
+            message = choices[0].get("message") or {}
             content = (message.get("content") or "").strip()
             reasoning = (message.get("reasoning") or "").strip()
-            raw = content or reasoning
-            # Gemma sometimes puts JSON only in reasoning; combine like market_agent.
-            if content and reasoning and "{" not in content and "{" in reasoning:
-                raw = f"{content}\n{reasoning}"
-            elif not content and reasoning:
-                raw = reasoning
-            trace_llm_response(trace_name, output=raw, source="gemma")
-            return raw
+
+            if is_intent:
+                # For intent extraction, prefer content; fallback to reasoning if content is empty or lacks JSON
+                raw = content
+                if (not content or "{" not in content) and reasoning and "{" in reasoning:
+                    raw = reasoning
+                trace_llm_response(trace_name, output=raw, reasoning=reasoning, source="minimax")
+                return raw
+            else:
+                # For answer formation: strictly NEVER leak reasoning / internal thoughts into user output
+                clean_content = _strip_reasoning_and_thinking(content)
+                trace_llm_response(trace_name, output=clean_content, reasoning=reasoning, source="minimax")
+                return clean_content
     except Exception as exc:
-        logger.warning("Gemma %s failed: %s", trace_name, exc)
+        logger.warning("MiniMax %s failed: %s", trace_name, exc)
         trace_llm_error(trace_name, error=f"{type(exc).__name__}: {exc}")
         return None
 
@@ -522,7 +545,7 @@ def _extract_weather_answer_facts(text: str) -> set[str]:
 
 
 def _weather_answer_preserves_facts(source: str, candidate: str) -> bool:
-    """True when Gemma output is a valid answer without hallucinations."""
+    """True when LLM output is a valid answer without hallucinations or leaked reasoning."""
     if not candidate or not candidate.strip():
         return False
     cand_clean = candidate.strip()
@@ -532,7 +555,9 @@ def _weather_answer_preserves_facts(source: str, candidate: str) -> bool:
     if "as an ai" in cand_lower or "i do not have access" in cand_lower or "language model" in cand_lower:
         return False
     if any(thought_marker in cand_lower for thought_marker in (
-        "the user wants", "thought process", "constraint check", "execution step", "let's re-read", "i need to extract"
+        "the user wants", "thought process", "constraint check", "execution step",
+        "let's re-read", "i need to extract", "internal reasoning", "thinking process",
+        "<think>", "</think>", "<reasoning>", "</reasoning>",
     )):
         return False
     for d in ("day 2", "day 3", "day 4", "day 5"):
@@ -623,7 +648,7 @@ def _ensure_weather_answer_spacing(text: str) -> str:
 
 
 async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
-    """Return a complete bullet-style answer from server JSON; Gemma may only rephrase."""
+    """Return a complete bullet-style answer from server JSON; MiniMax may only rephrase."""
     full_answer = build_full_weather_answer(tool_result)
     if not full_answer:
         return _weather_tool_unavailable_answer(tool_result)
@@ -635,22 +660,22 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
         f"{full_answer}\n\n"
         "Answer:"
     )
-    prompt_tokens_est = int(len(user_content) / 3.0) + 50
-    safe_max_tokens = max(250, min(800, 4050 - prompt_tokens_est))
 
-    answer = await _gemma_weather_chat(
+    answer = await _minimax_weather_chat(
         trace_name="new_weather_answer",
         user_content=user_content,
-        max_tokens=safe_max_tokens,
+        max_tokens=2048,
         temperature=0.0,
         query=query,
         model=WEATHER_ANSWER_MODEL,
-        timeout=45.0,
+        timeout=60.0,
+        is_intent=False,
     )
     is_past_rain_q = bool(re.search(r"\b(?:past|last|previous)\s+24\s*(?:hours?|hrs?)\b|\bhow\s+much\s+rain(?:fall)?\b|\brecorded\s+rain(?:fall)?\b", query, re.I))
 
     if answer and answer.strip() and _weather_answer_preserves_facts(full_answer, answer):
-        clean_ans = re.split(r"\n(?=The user wants me to|\*\*Constraint Checklist|\*\*Execution Steps)", answer)[0].strip()
+        clean_ans = _strip_reasoning_and_thinking(answer)
+        clean_ans = re.split(r"\n(?=The user wants me to|\*\*Constraint Checklist|\*\*Execution Steps)", clean_ans)[0].strip()
         if is_past_rain_q:
             clean_ans = re.sub(r"(?im)^(?:Yes,\s+there\s+is\s+a\s+chance\s+of\s+rain|No\s+(?:significant\s+)?rain\s+is\s+expected|Rain\s+forecast:)[^\n]*\n*", "", clean_ans).strip()
             clean_ans = re.sub(r"(?im)^\s*[\*\-]?\s*(?:Departure|Departure\s+from\s+normal)\s*:\s*[+\-0-9%]+\.?\s*$\n?", "", clean_ans).strip()
@@ -658,7 +683,7 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
 
     if answer and answer.strip():
         logger.info(
-            "Gemma weather answer dropped facts; using full deterministic formatter output."
+            "MiniMax weather answer dropped facts or leaked reasoning; using full deterministic formatter output."
         )
     det_ans = full_answer
     if is_past_rain_q:
@@ -668,7 +693,7 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
 
 
 async def extract_weather_intent(query: str) -> dict[str, Any]:
-    """Ask Gemma for tool + params; fall back to programmatic heuristics on failure."""
+    """Ask MiniMax for tool + params; fall back to programmatic heuristics on failure."""
     today_str = date.today().strftime("%Y-%m-%d")
     user_content = (
         f"{NEW_WEATHER_INTENT_PROMPT}\n\n"
@@ -676,14 +701,15 @@ async def extract_weather_intent(query: str) -> dict[str, Any]:
         f"Query: {query}\n"
         "JSON:"
     )
-    raw_text = await _gemma_weather_chat(
+    raw_text = await _minimax_weather_chat(
         trace_name="new_weather_intent",
         user_content=user_content,
-        max_tokens=400,
+        max_tokens=1024,
         temperature=0.0,
         query=query,
         model=WEATHER_INTENT_MODEL,
-        timeout=10.0,
+        timeout=30.0,
+        is_intent=True,
     )
     parsed = _extract_json_object(raw_text or "")
     intent = _normalize_weather_intent(parsed, query)
@@ -1025,11 +1051,11 @@ async def new_weather(
                 }, ensure_ascii=False)
             lat, lon = clat, clon
 
-        # Gemma-first tool + variable extraction; programmatic heuristics on failure.
+        # MiniMax-first tool + variable extraction; programmatic heuristics on failure.
         intent = await extract_weather_intent(query)
         tool_name = intent.get("tool") or route_weather_query_by_heuristics(query)
 
-        # Prefer explicit tool args, then Gemma, then programmatic extracts.
+        # Prefer explicit tool args, then MiniMax, then programmatic extracts.
         if not target_date and intent.get("target_date"):
             eff_target_date = intent["target_date"]
         if not from_date and intent.get("from_date"):
