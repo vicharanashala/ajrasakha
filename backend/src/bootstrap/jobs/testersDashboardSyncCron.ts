@@ -3,7 +3,7 @@ import { getContainer } from '../loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { TestersDashboardService } from '#root/modules/dashboard/services/TestersDashboardService.js';
 
-cron.schedule('*/30 * * * *', async () => {
+cron.schedule('*/10 * * * *', async () => {
     console.log('<<CRON>> Running Testers Dashboard sheet sync...');
 
     try {
