@@ -29,7 +29,7 @@ export class PopService implements IPopService {
       _id: pop._id?.toString(),
       shareable_name: pop.shareable_name,
       shareable_link: pop.shareable_link,
-      num_pages: pop.num_pages,
+      year_of_release: pop.year_of_release,
       matchStatus,
     };
   }

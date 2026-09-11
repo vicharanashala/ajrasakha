@@ -324,9 +324,10 @@ export interface IPop {
   _id?: string | ObjectId;
   shareable_name: string;
   shareable_link: string;
-  /** Page count of the source document - autofills a source's `page` field when the
-   *  Fetch Source Reference lookup finds a match (Closed Answers Edit Source modal). */
-  num_pages?: number;
+  /** The source document's year of release - autofills a source's `yearOfRelease` field
+   *  when the Fetch Source Reference lookup finds a match (Closed Answers Edit Source
+   *  modal). */
+  year_of_release?: string | number;
   duplicate_links?: IPopDuplicateLink[];
 }
 
@@ -344,7 +345,11 @@ export interface INewSourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   page?: string | number;
+  /** The source document's year of release, from the matched pop_unique_documents
+   *  entry's own year_of_release (Fetch Source Reference lookup). */
+  yearOfRelease?: string | number;
   organization?: string;
+  /** The matched pop_unique_documents document's own _id. */
   sourceReference?: string;
   sourceReferenceStatus: PopMatchStatus | null;
   sourceIndex: number;

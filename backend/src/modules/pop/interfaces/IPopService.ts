@@ -5,8 +5,9 @@ export interface PopLookupResult {
   _id?: string;
   shareable_name?: string;
   shareable_link?: string;
-  /** Page count of the matched document - autofills the source's `page` field. */
-  num_pages?: number;
+  /** The matched document's year of release - autofills the source's `yearOfRelease`
+   *  field. */
+  year_of_release?: string | number;
   /** Where the match was found — 'notFound' when `found` is false. The Edit Source
    *  modal carries this straight through to the updated_sources record's
    *  sourceReferenceStatus on save. */

@@ -9,7 +9,7 @@ export interface PopLookupResult {
   _id?: string;
   shareable_name?: string;
   shareable_link?: string;
-  num_pages?: number;
+  year_of_release?: string | number;
   matchStatus?: PopMatchStatus;
 }
 

@@ -497,7 +497,10 @@ export interface SourceItem {
   sourceName?: string;
   source: string;
   page?: string | number;
+  // The matched pop_unique_documents entry's own year of release.
+  yearOfRelease?: string | number;
   organization?: string;
+  // The matched pop_unique_documents document's own _id.
   sourceReference?: string;
 }
 

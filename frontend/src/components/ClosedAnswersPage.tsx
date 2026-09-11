@@ -114,6 +114,7 @@ const EMPTY_SOURCE_FORM: SourceItem = {
   sourceType: undefined,
   sourceName: "",
   page: "",
+  yearOfRelease: "",
   organization: "",
   sourceReference: "",
 };
@@ -200,6 +201,7 @@ const toSourceForm = (source: SourceItem): SourceItem => ({
   sourceType: source.sourceType,
   sourceName: source.sourceName ?? "",
   page: source.page ?? "",
+  yearOfRelease: source.yearOfRelease ?? "",
   organization: source.organization ?? "",
   sourceReference: source.sourceReference ?? "",
 });
@@ -384,7 +386,9 @@ const SourceRow = ({
           </span>
           <span className="truncate text-[11px] text-muted-foreground">
             {typeLabel}
-            {source.page !== undefined && source.page !== "" ? ` \u00b7 Page ${source.page}` : ""}
+            {source.yearOfRelease !== undefined && source.yearOfRelease !== ""
+              ? ` \u00b7 Year ${source.yearOfRelease}`
+              : ""}
           </span>
         </span>
         {isActive && (
@@ -408,14 +412,14 @@ const SourceRow = ({
   );
 };
 
-// What a lookup hands back to the caller - besides the match id/status, num_pages and
-// shareable_name from pop_unique_documents autofill this source's page/sourceName, which
-// are no longer user-editable (see AnswerSourcesEditor).
+// What a lookup hands back to the caller - besides the match id/status, year_of_release
+// and shareable_name from pop_unique_documents autofill this source's yearOfRelease/
+// sourceName, which are no longer user-editable (see AnswerSourcesEditor).
 type SourceReferenceLookupResult = {
   sourceReference: string | undefined;
   matchStatus: PopMatchStatus;
   sourceName: string;
-  page: number | string;
+  yearOfRelease: number | string;
 };
 
 const SourceReferenceLookup = ({
@@ -439,14 +443,14 @@ const SourceReferenceLookup = ({
             sourceReference: result._id,
             matchStatus: result.matchStatus ?? "topLevelMatch",
             sourceName: result.shareable_name ?? "",
-            page: result.num_pages ?? "",
+            yearOfRelease: result.year_of_release ?? "",
           });
         } else {
           onFound?.({
             sourceReference: undefined,
             matchStatus: "notFound",
             sourceName: "",
-            page: "",
+            yearOfRelease: "",
           });
         }
       },
@@ -491,6 +495,10 @@ const SourceReferenceLookup = ({
           >
             {data.shareable_link}
           </a>
+          <p className="text-muted-foreground">
+            {data.year_of_release ? `Year of release: ${data.year_of_release}` : "Year of release unavailable"}
+            {data._id ? ` · ID: ${data._id}` : ""}
+          </p>
         </div>
       )}
     </div>
@@ -972,7 +980,7 @@ const AnswerSourcesEditor = ({
                 sourceReference: result.sourceReference,
                 sourceReferenceStatus: result.matchStatus,
                 sourceName: result.sourceName,
-                page: result.page,
+                yearOfRelease: result.yearOfRelease,
               });
             }}
           />
@@ -980,9 +988,9 @@ const AnswerSourcesEditor = ({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label className="text-xs">Page</Label>
+            <Label className="text-xs">Year of release</Label>
             <p className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-foreground/90">
-              {form.page || "—"}
+              {form.yearOfRelease || "—"}
             </p>
           </div>
 
@@ -1267,6 +1275,7 @@ type ReviewSource = {
   sourceType?: string;
   sourceName?: string;
   page?: string | number;
+  yearOfRelease?: string | number;
   organization?: string;
   sourceReference?: string;
   sourceReferenceStatus?: PopMatchStatus | null;
@@ -1353,8 +1362,8 @@ const SourceChangeItem = ({
         )}
       </SourceDetailLine>
 
-      {source.page !== undefined && source.page !== "" && (
-        <SourceDetailLine label="Page">{source.page}</SourceDetailLine>
+      {source.yearOfRelease !== undefined && source.yearOfRelease !== "" && (
+        <SourceDetailLine label="Year of release">{source.yearOfRelease}</SourceDetailLine>
       )}
       {source.organization && (
         <SourceDetailLine label="Org">{source.organization}</SourceDetailLine>
