@@ -743,6 +743,11 @@ const SourceReferenceLookup = ({
 
         emitFound(result);
       },
+      onError: (err: any) => {
+        toast.error("Database Error", {
+          description: "Could not connect to the POP dashboard database. Please try again later.",
+        });
+      },
     });
   };
 

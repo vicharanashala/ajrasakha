@@ -1,7 +1,7 @@
 import {IPopRepository} from '#root/shared/database/interfaces/IPopRepository.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {inject, injectable} from 'inversify';
-import {BadRequestError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, NotFoundError, InternalServerError} from 'routing-controllers';
 import {IPop, PopMatchStatus, PopRequiredField} from '#root/shared/interfaces/models.js';
 import {IPopService, PopLookupResult} from '../interfaces/IPopService.js';
 
@@ -36,7 +36,12 @@ export class PopService implements IPopService {
   }
 
   async lookupBySource(source: string): Promise<PopLookupResult> {
-    const pop = await this.popRepo.findByShareableLink(source);
+    let pop;
+    try {
+      pop = await this.popRepo.findByShareableLink(source);
+    } catch (err: any) {
+      throw new InternalServerError(`Database connection error while accessing POP dashboard database: ${err.message}`);
+    }
 
     if (!pop) {
       return {found: false, matchStatus: 'notFound'};
