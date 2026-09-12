@@ -1,0 +1,117 @@
+diff --git a/backend/src/modules/feedback/routes.js b/backend/src/modules/feedback/routes.js
+new file mode 100644
+--- /dev/null
++++ b/backend/src/modules/feedback/routes.js
+@@ -0,0 +1,307 @@
++const express = require('express');
++const router = express.Router();
++const mongoose = require('mongoose');
++
++/**
++ * Feedback Schema
++ */
++const feedbackSchema = new mongoose.Schema({
++  gdb_entry_id: { type: String, required: true, index: true },
++  farmer_id: { type: String, required: true, index: true },
++  message_id: { type: String },
++  response: { type: String, enum: ['1', '2'], required: true },
++  state: String,
++  language: String,
++  domain: String,
++  source: { type: String, enum: ['web', 'whatsapp', 'chat'], default: 'web' },
++  timestamp: { type: Date, default: Date.now, index: true },
++  status: { type: String, enum: ['captured', 'flagged', 'reviewed'], default: 'captured' }
++});
++
++const Feedback = mongoose.models.Feedback || mongoose.model('Feedback', feedbackSchema);
++
++router.post('/', async (req, res) => {
++  try {
++    const { gdb_entry_id, farmer_id, message_id, response, state, language, domain, source = 'web' } = req.body;
++
++    if (!gdb_entry_id || !farmer_id || !response) {
++      return res.status(400).json({ success: false, message: 'gdb_entry_id, farmer_id, and response are required' });
++    }
++
++    if (!['1', '2'].includes(response)) {
++      return res.status(400).json({ success: false, message: 'Response must be "1" or "2"' });
++    }
++
++    const feedback = new Feedback({ gdb_entry_id, farmer_id, message_id, response, state, language, domain, source });
++    await feedback.save();
++
++    res.status(201).json({ success: true, message: 'Feedback recorded', data: { id: feedback._id, gdb_entry_id, response } });
++  } catch (error) {
++    console.error('Feedback error:', error);
++    res.status(500).json({ success: false, message: 'Server error' });
++  }
++});
++
++router.get('/stats/overview', async (req, res) => {
++  try {
++    const stats = await Feedback.aggregate([
++      { $group: { _id: null, total: { $sum: 1 }, helpful: { $sum: { $cond: [{ $eq: ['$response', '1'] }, 1, 0] } } } }
++    ]);
++    const { total = 0, helpful = 0 } = stats[0] || {};
++    res.json({ success: true, data: { total_feedback: total, helpful_count: helpful, helpfulness_score: total > 0 ? Math.round((helpful / total) * 10000) / 100 : 0 } });
++  } catch (error) {
++    res.status(500).json({ success: false, message: 'Server error' });
++  }
++});
++
++router.get('/stats/breakdown/:field', async (req, res) => {
++  try {
++    const { field } = req.params;
++    const validFields = ['domain', 'language', 'state', 'source'];
++    if (!validFields.includes(field)) return res.status(400).json({ success: false, message: `Invalid field` });
++
++    const breakdown = await Feedback.aggregate([
++      { $match: { [field]: { $ne: null } } },
++      { $group: { _id: `$${field}`, total: { $sum: 1 }, helpful: { $sum: { $cond: [{ $eq: ['$response', '1'] }, 1, 0] } } } },
++      { $addFields: { helpfulness_score: { $cond: [{ $gt: ['$total', 0] }, { $multiply: [{ $divide: ['$helpful', '$total'] }, 100] }, 0] } } },
++      { $sort: { total: -1 } }
++    ]);
++
++    res.json({ success: true, data: breakdown.map(b => ({ [field]: b._id, total_responses: b.total, helpful_count: b.helpful, helpfulness_score: Math.round(b.helpfulness_score * 100) / 100 })) });
++  } catch (error) {
++    res.status(500).json({ success: false, message: 'Server error' });
++  }
++});
++
++router.get('/entries', async (req, res) => {
++  try {
++    const { domain, language, sort_by = 'helpfulness_score', order = 'asc', limit = 50, offset = 0 } = req.query;
++    const match = {}; if (domain) match.domain = domain; if (language) match.language = language;
++
++    const entries = await Feedback.aggregate([
++      { $match: match },
++      { $group: { _id: '$gdb_entry_id', total: { $sum: 1 }, helpful: { $sum: { $cond: [{ $eq: ['$response', '1'] }, 1, 0] } }, domain: { $first: '$domain' }, last: { $max: '$timestamp' } } },
++      { $addFields: { helpfulness_score: { $cond: [{ $gt: ['$total', 0] }, { $multiply: [{ $divide: ['$helpful', '$total'] }, 100] }, 0] } } },
++      { $sort: { [sort_by]: order === 'desc' ? -1 : 1 } },
++      { $skip: parseInt(offset) }, { $limit: parseInt(limit) }
++    ]);
++
++    res.json({ success: true, data: entries.map(e => ({ gdb_entry_id: e._id, domain: e.domain, total_responses: e.total, helpful_count: e.helpful, helpfulness_score: Math.round(e.helpfulness_score * 100) / 100 })) });
++  } catch (error) {
++    res.status(500).json({ success: false, message: 'Server error' });
++  }
++});
++
++router.get('/flagged', async (req, res) => {
++  try {
++    const { threshold = 60, min_responses = 10 } = req.query;
++    const flagged = await Feedback.aggregate([
++      { $group: { _id: '$gdb_entry_id', total: { $sum: 1 }, helpful: { $sum: { $cond: [{ $eq: ['$response', '1'] }, 1, 0] } }, domain: { $first: '$domain' } } },
++      { $addFields: { score: { $cond: [{ $gt: ['$total', 0] }, { $multiply: [{ $divide: ['$helpful', '$total'] }, 100] }, 0] }, priority: { $subtract: [100, { $cond: [{ $gt: ['$total', 0] }, { $multiply: [{ $divide: ['$helpful', '$total'] }, 100] }, 0] }] } } },
++      { $match: { total: { $gte: parseInt(min_responses) }, score: { $lt: parseInt(threshold) } } },
++      { $sort: { priority: -1 } }
++    ]);
++
++    res.json({ success: true, data: flagged.map(f => ({ gdb_entry_id: f._id, domain: f.domain, total_responses: f.total, helpful_count: f.helpful, helpfulness_score: Math.round(f.score * 100) / 100 })) });
++  } catch (error) {
++    res.status(500).json({ success: false, message: 'Server error' });
++  }
++});
++
++module.exports = router;
++module.exports.Feedback = Feedback;
