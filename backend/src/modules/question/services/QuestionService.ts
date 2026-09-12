@@ -2783,6 +2783,26 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
+  /** Gate-keeper-style dashboard for a PAE's answering flow: assigned + submitted
+   *  counts and a paginated list of their questions, each flagged submitted/pending. */
+  async getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    return this.questionRepo.getPaeAnswerDashboard(
+      userId,
+      page,
+      limit,
+      search,
+      startDate,
+      endDate,
+    );
+  }
+
   async processPaeValidation(
     paeExpertId: string,
     questionId: string,

@@ -63,16 +63,67 @@ export class QuestionPaeValidationController {
       'Returns paginated questions assigned to the authenticated PAE expert, including their final answers and sources.',
   })
   async getPaeValidationAssignedQuestions(
-    @QueryParams() query: { page?: number; limit?: number },
+    @QueryParams() query: { page?: number; limit?: number; userId?: string },
     @CurrentUser() user: IUser,
   ) {
     const page = Number(query.page) || 1;
     const limit = Math.min(Number(query.limit) || 10, 100);
-    const userId = user._id.toString();
+    // Managers (admin/moderator) may view another PAE's validations (e.g. from the
+    // PAE dashboard); everyone else only sees their own.
+    const isManager = user.role === 'admin' || user.role === 'moderator';
+    const userId =
+      isManager && query.userId ? query.userId : user._id.toString();
     return await this.questionService.getPaeValidationAssignedQuestions(
       userId,
       page,
       limit,
+    );
+  }
+
+  @Get('/pae/answer-dashboard')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary:
+      "Gate-keeper-style dashboard for a PAE's answering flow (assigned/submitted/pending + question list)",
+  })
+  async getPaeAnswerDashboard(
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      userId?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 11, 100);
+    // Managers (admin/moderator) may view another PAE; everyone else sees their own.
+    const isManager = user.role === 'admin' || user.role === 'moderator';
+    const userId =
+      isManager && query.userId ? query.userId : user._id.toString();
+
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (query.startDate) {
+      startDate = new Date(query.startDate);
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return await this.questionService.getPaeAnswerDashboard(
+      userId,
+      page,
+      limit,
+      query.search,
+      startDate,
+      endDate,
     );
   }
 

@@ -29,6 +29,9 @@ import {
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetPaeValidationAssignedQuestions } from "@/hooks/api/question/useGetPaeValidationAssignedQuestions";
 import { useProcessPaeValidation } from "@/hooks/api/question/useProcessPaeValidation";
+// PAE-account Dashboard tab is hidden for now (shown from User Management only).
+// import { PaeDashboard } from "@/components/PaeDashboard";
+// import { LayoutDashboard } from "lucide-react";
 import type {
   PaeValidationQuestionItem,
   PaeValidationSource,
@@ -48,7 +51,7 @@ import { QuestionDetailsDialog } from "../qa-interface-page/QuestionDetailsDialo
 import { toast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
-type TabType = "review" | "validation";
+type TabType = "dashboard" | "review" | "validation";
 
 const normalizeValidationSources = (
   sources: PaeValidationSource[] | undefined,
@@ -980,6 +983,19 @@ export const PAEExpertPage = () => {
     <div className="mx-auto px-4 md:px-6 bg-transparent py-4">
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 bg-muted/50 p-1 rounded-lg w-fit">
+        {/* Dashboard tab hidden on the PAE's own account for now — the PAE dashboard
+            is shown from User Management only. Re-enable this button to restore it. */}
+        {/* <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "dashboard"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          Dashboard
+        </button> */}
         <button
           onClick={() => setActiveTab("review")}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
@@ -1005,6 +1021,10 @@ export const PAEExpertPage = () => {
       </div>
 
       {/* Tab Content */}
+      {/* PAE-account Dashboard tab hidden for now — restore the branch below to re-enable.
+      {activeTab === "dashboard" ? (
+        <PaeDashboard />
+      ) : activeTab === "review" ? ( ... )} */}
       {activeTab === "review" ? (
         <div className="flex flex-col space-y-6">
           <div
