@@ -698,6 +698,10 @@ const SourceReferenceLookup = ({
         missedFields: identifiedMissingFieldsRef.current,
       });
     } else {
+      toast.error("Source not found", {
+        description:
+          "No matching document in the repository. You can still save this source as not found.",
+      });
       onFound?.({
         sourceReferenceId: undefined,
         matchStatus: "notFound",
@@ -857,10 +861,10 @@ const validateSourceDraft = (
     errors.source = "Enter at least 3 characters.";
   }
 
-  if (draft.sourceReferenceStatus === "notFound") {
-    errors.sourceReference =
-      "This source isn't in the repository - check the link or document name and fetch again.";
-  } else if (!draft.sourceReferenceId) {
+  // "notFound" is a valid, saveable outcome - it just means this source isn't in the
+  // repository yet, which is flagged (badge/status) rather than blocked. Only a source
+  // that has never been fetched at all is a hard stop.
+  if (!draft.sourceReferenceId && draft.sourceReferenceStatus !== "notFound") {
     errors.sourceReference = "Fetch the source reference to confirm this document.";
   }
 
@@ -1020,6 +1024,7 @@ const AnswerSourcesEditor = ({
   // Save - so nothing is flagged red before they have had a chance to fill it in.
   // A fetched match is what fills the read-only panel below the Source field.
   const isMatched = Boolean(form.sourceReferenceId);
+  const isNotFound = !isMatched && form.sourceReferenceStatus === "notFound";
   const errorFor = (field: SourceFieldKey) =>
     touchedFields.includes(field) ? fieldErrors[field] : undefined;
   const markTouched = (field: SourceFieldKey) =>
@@ -1397,10 +1402,12 @@ const AnswerSourcesEditor = ({
                 "rounded-full px-2 py-0.5 text-[10px] font-medium leading-none",
                 isMatched
                   ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted text-muted-foreground",
+                  : isNotFound
+                    ? "bg-red-500/15 text-red-700 dark:text-red-400"
+                    : "bg-muted text-muted-foreground",
               )}
             >
-              {isMatched ? "Matched" : "Not fetched"}
+              {isMatched ? "Matched" : isNotFound ? "Not found" : "Not fetched"}
             </span>
           </div>
 
