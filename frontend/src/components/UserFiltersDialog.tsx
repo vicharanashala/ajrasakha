@@ -246,7 +246,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
           <Button variant="outline" onClick={handleReset}>
             Reset
           </Button>
-          <Button onClick={handleApply}>Apply Filters</Button>
+          <Button className="ml-2" onClick={handleApply}>Apply Filters</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
