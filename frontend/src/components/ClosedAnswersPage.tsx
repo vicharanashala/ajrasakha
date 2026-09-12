@@ -856,7 +856,7 @@ const validateSourceDraft = (
 
   const source = draft.source.trim();
   if (!source) {
-    errors.source = "Enter the source link or document name.";
+    errors.source = "Enter the source link.";
   } else if (source.length < 3) {
     errors.source = "Enter at least 3 characters.";
   }

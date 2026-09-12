@@ -263,10 +263,7 @@ const GUIDE_SHORTCUTS: GuideSection = {
       title: "Move through the list",
       body: "**Up** and **Down** arrows step through answers without touching the mouse. They're ignored while you're typing in a field.",
     },
-    {
-      title: "Shuffle",
-      body: "Press **S** to reshuffle the list into a different order.",
-    },
+    
   ],
 };
 
