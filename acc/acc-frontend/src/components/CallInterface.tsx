@@ -25,6 +25,8 @@ import {
   Pencil,
   Trash2,
   X,
+  Mic,
+  Loader2,
 } from "lucide-react";
 import WeatherWidget from "./WeatherWidget";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
@@ -33,6 +35,8 @@ import { useAccAgentUpdateState } from "@/hooks/api/acc-agent/useAccAgentUpdateS
 import { useAccAgentResume } from "@/hooks/api/acc-agent/useAccAgentResume";
 import SarvamTranslatePairDropdown from "@/components/SarvamTranslatePairDropdown";
 import { renderMarkdown } from "@/utils/markdownRenderer";
+import { transcribeAudioWithSarvamDetailed } from "@/hooks/services/sarvamSttService";
+import { translateService } from "@/hooks/services/translateService";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import {
@@ -480,6 +484,13 @@ export const CallInterface = () => {
   const [simOriginalText, setSimOriginalText] = useState("");
   const [showOriginalInput, setShowOriginalInput] = useState(false);
 
+  // Simulation voice mic recording state
+  const [isSimRecording, setIsSimRecording] = useState(false);
+  const [isSimProcessingAudio, setIsSimProcessingAudio] = useState(false);
+  const simMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const simAudioChunksRef = useRef<Blob[]>([]);
+  const simStreamRef = useRef<MediaStream | null>(null);
+
   // Test mode message inline editing state
   const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
   const [editRole, setEditRole] = useState<"inbound" | "outbound">("inbound");
@@ -593,9 +604,35 @@ export const CallInterface = () => {
     setIsSimulatingMode(false);
     setSimText("");
     setSimOriginalText("");
+    if (simMediaRecorderRef.current && simMediaRecorderRef.current.state !== "inactive") {
+      try {
+        simMediaRecorderRef.current.stop();
+      } catch (e) {}
+    }
+    if (simStreamRef.current) {
+      simStreamRef.current.getTracks().forEach((track) => track.stop());
+      simStreamRef.current = null;
+    }
+    setIsSimRecording(false);
+    setIsSimProcessingAudio(false);
     handleCancelEditMessage();
     toast.success("Conversation cleared");
   };
+
+  // Clean up media recorder stream on unmount
+  useEffect(() => {
+    return () => {
+      if (simMediaRecorderRef.current && simMediaRecorderRef.current.state !== "inactive") {
+        try {
+          simMediaRecorderRef.current.stop();
+        } catch (e) {}
+      }
+      if (simStreamRef.current) {
+        simStreamRef.current.getTracks().forEach((track) => track.stop());
+        simStreamRef.current = null;
+      }
+    };
+  }, []);
 
 
   const handleLoadTestTranscript = () => {
@@ -679,25 +716,48 @@ export const CallInterface = () => {
     toast.success(`Loaded test transcript with UUID: ${mockCallUuid}. Click 'Extract & Verify' to test AI response.`);
   };
 
-  const handleAddSimulatedMessage = () => {
-    if (!simText.trim()) {
+  const handleAddSimulatedMessage = async () => {
+    const rawText = simText.trim();
+    if (!rawText) {
       toast.error("Please enter a message to simulate.");
       return;
     }
 
+    // Check if user typed regional script (non-ASCII Indic characters)
+    const isRegional = /[^\x00-\x7F]/.test(rawText);
+    let englishText = rawText;
+    let originalText = simOriginalText.trim();
+    let detectedLanguage = "en-IN";
+
+    if (isRegional) {
+      originalText = rawText;
+      detectedLanguage = "auto";
+      try {
+        const translated = await translateService(rawText, "en-IN", "auto");
+        if (translated) {
+          englishText = translated;
+        }
+      } catch (transErr) {
+        console.warn("Failed to translate typed regional text:", transErr);
+      }
+    } else if (originalText) {
+      detectedLanguage = "custom";
+    }
+
     const newMsg: CallTranscript = {
       track: simRole,
-      text: simText.trim(),
-      originalText: simOriginalText.trim() || "",
-      translatedText: simText.trim(),
-      detectedLanguage: simOriginalText.trim() ? "custom" : "en-IN",
+      text: englishText,
+      originalText: originalText,
+      translatedText: englishText,
+      detectedLanguage: detectedLanguage,
       timestamp: new Date().toISOString(),
     };
 
     setTranscriptsList((prev) => [...prev, newMsg]);
 
     // Ensure callUuid & mock state is initialized if not present
-    if (!callUuid) {
+    let currentUuid = callUuidRef.current || callUuid;
+    if (!currentUuid) {
       const now = new Date();
       const dateStr = now.getFullYear().toString() +
         String(now.getMonth() + 1).padStart(2, '0') +
@@ -716,6 +776,130 @@ export const CallInterface = () => {
     setSimText("");
     setSimOriginalText("");
     toast.success(`Added ${simRole === "inbound" ? "Farmer" : "Agent"} message to conversation.`);
+  };
+
+  const handleToggleSimMic = async () => {
+    // If currently recording, stop it to trigger onstop processing
+    if (isSimRecording) {
+      if (simMediaRecorderRef.current && simMediaRecorderRef.current.state !== "inactive") {
+        simMediaRecorderRef.current.stop();
+      }
+      setIsSimRecording(false);
+      return;
+    }
+
+    // Start voice recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      simStreamRef.current = stream;
+      simAudioChunksRef.current = [];
+
+      const mediaRecorder = new MediaRecorder(stream);
+      simMediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          simAudioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        stream.getTracks().forEach((track) => track.stop());
+        simStreamRef.current = null;
+
+        const audioBlob = new Blob(simAudioChunksRef.current, { type: "audio/webm" });
+        if (audioBlob.size < 500) {
+          toast.info("Audio recording was too short.");
+          return;
+        }
+
+        setIsSimProcessingAudio(true);
+        const processingToastId = toast.loading("Transcribing regional speech & translating to English...");
+
+        try {
+          // Step 1: Transcribe with Sarvam Saaras v3 STT & detect regional language
+          const sttRes = await transcribeAudioWithSarvamDetailed(audioBlob, "unknown");
+          const nativeTranscript = sttRes.transcript.trim();
+          const detectedLang = sttRes.languageCode || "unknown";
+
+          if (!nativeTranscript) {
+            toast.dismiss(processingToastId);
+            toast.error("No speech detected.");
+            return;
+          }
+
+          // Step 2: Determine if translation is needed
+          const isNonEnglish = detectedLang !== "en-IN" || /[^\x00-\x7F]/.test(nativeTranscript);
+          let englishText = nativeTranscript;
+
+          if (isNonEnglish) {
+            try {
+              englishText = await translateService(nativeTranscript, "en-IN", detectedLang);
+            } catch (transErr: any) {
+              console.warn("Translation failed, using native transcript:", transErr);
+              englishText = nativeTranscript;
+            }
+          }
+
+          // Step 3: Ensure mock call UUID & state is initialized if not present
+          let currentUuid = callUuidRef.current || callUuid;
+          if (!currentUuid) {
+            const now = new Date();
+            const dateStr =
+              now.getFullYear().toString() +
+              String(now.getMonth() + 1).padStart(2, "0") +
+              String(now.getDate()).padStart(2, "0") +
+              "_" +
+              String(now.getHours()).padStart(2, "0") +
+              String(now.getMinutes()).padStart(2, "0") +
+              String(now.getSeconds()).padStart(2, "0");
+            currentUuid = `testing_${dateStr}`;
+            setCallUuid(currentUuid);
+            setLastCallUuid(currentUuid);
+            callUuidRef.current = currentUuid;
+            lastCallUuidRef.current = currentUuid;
+            setCallPhoneNumber("+919999999999");
+            setLastCallPhoneNumber("+919999999999");
+            callPhoneNumberRef.current = "+919999999999";
+            lastCallPhoneNumberRef.current = "+919999999999";
+          }
+
+          // Step 4: Append new message to conversation with both translated and original regional text
+          const newMsg: CallTranscript = {
+            track: simRole,
+            text: englishText,
+            translatedText: englishText,
+            originalText: isNonEnglish ? nativeTranscript : (nativeTranscript !== englishText ? nativeTranscript : ""),
+            detectedLanguage: detectedLang || "auto",
+            timestamp: new Date().toISOString(),
+          };
+
+          setTranscriptsList((prev) => [...prev, newMsg]);
+          setIsSimulatingMode(true);
+
+          toast.dismiss(processingToastId);
+          toast.success(
+            `Added ${simRole === "inbound" ? "Farmer" : "Agent"} message (${detectedLang.toUpperCase()}) with English translation.`
+          );
+        } catch (err: any) {
+          console.error("Simulation voice error:", err);
+          toast.dismiss(processingToastId);
+          toast.error(err.message || "Failed to process voice recording.");
+        } finally {
+          setIsSimProcessingAudio(false);
+        }
+      };
+
+      mediaRecorder.start(250);
+      setIsSimRecording(true);
+      toast.info("Listening... Speak in any regional language (Kannada, Marathi, Hindi, etc.). Click mic again to finish & send.");
+    } catch (err: any) {
+      console.error("Microphone access error:", err);
+      toast.error("Could not access microphone. Please check browser microphone permissions.");
+      setIsSimRecording(false);
+      setIsSimProcessingAudio(false);
+    }
   };
 
   const handleResetQuestions = () => {
@@ -1557,11 +1741,53 @@ export const CallInterface = () => {
                         }}
                         placeholder={`Type simulated ${simRole === "inbound" ? "Farmer query..." : "Agent response..."}`}
                         className="h-8.5 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-inner focus-visible:ring-amber-500"
+                        disabled={isSimProcessingAudio}
                       />
+
+                      {/* Mic Voice Button */}
+                      <Button
+                        type="button"
+                        onClick={handleToggleSimMic}
+                        disabled={isSimProcessingAudio}
+                        size="sm"
+                        className={`h-8.5 px-2.5 text-xs rounded-lg flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                          isSimRecording
+                            ? "bg-red-600 hover:bg-red-700 text-white animate-pulse ring-2 ring-red-400 shadow-md"
+                            : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800/60"
+                        }`}
+                        title={
+                          isSimRecording
+                            ? "Recording voice... Click to finish and send"
+                            : isSimProcessingAudio
+                              ? "Transcribing & translating..."
+                              : "Speak in regional language (Kannada, Marathi, Hindi, etc.)"
+                        }
+                      >
+                        {isSimProcessingAudio ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600 dark:text-amber-400" />
+                            <span className="hidden sm:inline font-medium">Processing...</span>
+                          </>
+                        ) : isSimRecording ? (
+                          <>
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                            </span>
+                            <Mic className="h-3.5 w-3.5" />
+                            <span className="font-bold">Stop</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline font-medium">Voice</span>
+                          </>
+                        )}
+                      </Button>
 
                       <Button
                         onClick={handleAddSimulatedMessage}
-                        disabled={!simText.trim()}
+                        disabled={!simText.trim() || isSimProcessingAudio}
                         size="sm"
                         className="h-8.5 px-3.5 text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-sm rounded-lg flex items-center gap-1.5 shrink-0 transition-all"
                       >

@@ -1,6 +1,8 @@
 import admin from 'firebase-admin';
 import { appConfig } from './app.js';
 
+const STORAGE_APP_NAME = 'gcp-recordings-storage-app';
+
 function getServiceAccount(): admin.ServiceAccount {
   const { projectId, clientEmail, privateKey } = appConfig.firebase;
 
@@ -13,11 +15,16 @@ function getServiceAccount(): admin.ServiceAccount {
   return { projectId, clientEmail, privateKey };
 }
 
-export function ensureFirebaseAdminInitialized(): void {
-  if (admin.apps.length) {
-    return;
-  }
+function getStorageServiceAccount(): admin.ServiceAccount | null {
+  const { projectId, clientEmail, privateKey } = appConfig.storage;
 
+  if (projectId && clientEmail && privateKey) {
+    return { projectId, clientEmail, privateKey };
+  }
+  return null;
+}
+
+export function ensureFirebaseAdminInitialized(): void {
   // Set STORAGE_EMULATOR_HOST for @google-cloud/storage when running local Firebase emulator
   const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || process.env.STORAGE_EMULATOR_HOST;
   if (emulatorHost) {
@@ -26,12 +33,26 @@ export function ensureFirebaseAdminInitialized(): void {
     process.env.FIREBASE_STORAGE_EMULATOR_HOST = cleanHost;
   }
 
-  admin.initializeApp({
-    credential: admin.credential.cert(getServiceAccount()),
-    storageBucket: appConfig.firebase.storageBucket,
-  });
-}
+  // 1. Initialize default Firebase App (used for Auth & default services)
+  if (!admin.apps.some((app) => !app?.name || app.name === '[DEFAULT]')) {
+    admin.initializeApp({
+      credential: admin.credential.cert(getServiceAccount()),
+      storageBucket: appConfig.storage.bucket || appConfig.firebase.storageBucket,
+    });
+  }
 
+  // 2. Initialize dedicated GCP Storage App if distinct storage credentials are provided
+  const storageAccount = getStorageServiceAccount();
+  if (storageAccount && !admin.apps.some((app) => app?.name === STORAGE_APP_NAME)) {
+    admin.initializeApp(
+      {
+        credential: admin.credential.cert(storageAccount),
+        storageBucket: appConfig.storage.bucket || appConfig.firebase.storageBucket,
+      },
+      STORAGE_APP_NAME
+    );
+  }
+}
 
 export function getFirebaseAuth(): admin.auth.Auth {
   ensureFirebaseAdminInitialized();
@@ -40,6 +61,10 @@ export function getFirebaseAuth(): admin.auth.Auth {
 
 export function getFirebaseStorage(): admin.storage.Storage {
   ensureFirebaseAdminInitialized();
+  const storageAccount = getStorageServiceAccount();
+  if (storageAccount) {
+    return admin.app(STORAGE_APP_NAME).storage();
+  }
   return admin.storage();
 }
 

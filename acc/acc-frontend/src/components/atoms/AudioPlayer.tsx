@@ -176,20 +176,60 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   };
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
   // Handle direct download
   const handleDownload = async () => {
-    let urlToDownload = audioUrl;
-    if (!urlToDownload) {
-      urlToDownload = await fetchAudioUrl();
-      if (!urlToDownload) return;
+    try {
+      setIsDownloading(true);
+
+      // 1. Get signed download URL with Content-Disposition: attachment header embedded by GCS
+      const res = await plivoApi.getCallRecordingUrl(callUuid, true);
+      const downloadUrl = res.hasRecording && res.url ? res.url : audioUrl;
+
+      if (!downloadUrl) {
+        setErrorMessage('Recording not available');
+        return;
+      }
+
+      // 2. Try fetching as Blob first (fastest, clean in-memory save)
+      try {
+        const fetchRes = await fetch(downloadUrl);
+        if (fetchRes.ok) {
+          const blob = await fetchRes.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = blobUrl;
+          a.download = `call_${callUuid}.mp3`;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            window.URL.revokeObjectURL(blobUrl);
+            document.body.removeChild(a);
+          }, 500);
+          return;
+        }
+      } catch (blobErr) {
+        // Blob fetch blocked by CORS or network, proceed to attachment iframe fallback
+      }
+
+      // 3. Fallback: Trigger browser attachment download via invisible iframe (never opens new tab)
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = downloadUrl;
+      document.body.appendChild(iframe);
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 30000);
+    } catch (err) {
+      console.error('Download error:', err);
+      setErrorMessage('Could not download recording');
+    } finally {
+      setIsDownloading(false);
     }
-    const a = document.createElement('a');
-    a.href = urlToDownload;
-    a.download = `call_${callUuid}.mp3`;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
   };
 
   // Audio element ended event
@@ -347,11 +387,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               variant="ghost"
               size="sm"
               onClick={handleDownload}
-              className="h-7 px-2 text-[11px] font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 flex items-center gap-1 rounded"
+              disabled={isDownloading}
+              className="h-7 px-2 text-[11px] font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 flex items-center gap-1 rounded disabled:opacity-50"
               title="Download Recording"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">MP3</span>
+              {isDownloading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden sm:inline">{isDownloading ? 'Downloading...' : 'MP3'}</span>
             </Button>
           </div>
         </div>

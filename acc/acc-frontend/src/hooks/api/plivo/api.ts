@@ -403,7 +403,7 @@ export class PlivoService {
     }
   }
 
-  async getCallRecordingUrl(callUuid: string): Promise<{
+  async getCallRecordingUrl(callUuid: string, download: boolean = false): Promise<{
     callUuid: string;
     hasRecording: boolean;
     url?: string;
@@ -414,8 +414,7 @@ export class PlivoService {
     message?: string;
     recording?: CallRecordingItem;
   }> {
-
-    const url = `${this._baseUrl}/recordings/${encodeURIComponent(callUuid)}/url`;
+    const url = `${this._baseUrl}/recordings/${encodeURIComponent(callUuid)}/url${download ? '?download=true' : ''}`;
     try {
       const response = await apiFetch<any>(url);
       return response || { callUuid, hasRecording: false };

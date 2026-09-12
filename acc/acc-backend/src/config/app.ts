@@ -33,6 +33,10 @@ export const appConfig = {
   },
   storage: {
     recordingsPathPrefix: env('GCP_RECORDINGS_PATH_PREFIX') || 'call-recordings',
+    bucket: env('GCP_STORAGE_BUCKET') || env('FIREBASE_STORAGE_BUCKET') || 'annam-call-recordings',
+    projectId: env('GCP_STORAGE_PROJECT_ID') || undefined,
+    clientEmail: env('GCP_STORAGE_CLIENT_EMAIL') || undefined,
+    privateKey: env('GCP_STORAGE_PRIVATE_KEY')?.replace(/\\n/g, '\n') || undefined,
   },
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster as SonnerToast } from "sonner";
 import { NotFound } from "@/components/NotFound";
+import { PlivoProvider } from "@/context/PlivoContext";
 
 export const queryClient = new QueryClient();
 
@@ -11,8 +12,10 @@ export const Route = createRootRoute({
     <>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <SonnerToast richColors position="bottom-right" />
-          <Outlet />
+          <PlivoProvider>
+            <SonnerToast richColors position="bottom-right" />
+            <Outlet />
+          </PlivoProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </>

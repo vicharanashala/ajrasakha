@@ -606,10 +606,39 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+const defaultFallbackPlivoContext: PlivoContextType = {
+  plivoClient: null,
+  callStatus: "idle",
+  activeCall: null,
+  activePhoneNumber: null,
+  activeCallUuid: null,
+  callTimerSeconds: 0,
+  lastCompletedCallDuration: null,
+  transcripts: [],
+  isMuted: false,
+  isHeld: false,
+  isRecording: false,
+  farmerDetectedLanguage: null,
+  selectedLanguage: "Kannada",
+  setSelectedLanguage: () => {},
+  languageManuallyChanged: false,
+  setLanguageManuallyChanged: () => {},
+  initiateRedial: async () => false,
+  answerCall: () => {},
+  hangupCall: () => {},
+  rejectCall: () => {},
+  toggleMute: () => {},
+  toggleHold: () => {},
+  toggleRecording: () => {},
+  connectWebSocket: () => {},
+  disconnectWebSocket: () => {},
+  resetCallState: () => {},
+};
+
 export const usePlivo = (): PlivoContextType => {
   const context = useContext(PlivoContext);
   if (!context) {
-    throw new Error("usePlivo must be used within a PlivoProvider");
+    return defaultFallbackPlivoContext;
   }
   return context;
 };

@@ -56,7 +56,7 @@ export class StorageService {
   private bucketName: string;
 
   constructor() {
-    this.bucketName = appConfig.firebase.storageBucket || 'annam-call-recordings';
+    this.bucketName = appConfig.storage.bucket || appConfig.firebase.storageBucket || 'annam-call-recordings';
   }
 
   private getBucket() {
@@ -73,39 +73,58 @@ export class StorageService {
     sourceUrl: string,
     destinationPath: string,
     auth?: { user: string; pass: string },
-    contentType: string = 'audio/mpeg'
+    contentType: string = 'audio/mpeg',
+    resolveFreshUrl?: () => Promise<string | null>
   ): Promise<UploadResult> {
     console.log(`[STORAGE-SERVICE] Initiating media download from ${sourceUrl}`);
 
-    const candidateUrls: { url: string; auth?: { user: string; pass: string } }[] = [];
-
-    // Candidate 1: Direct URL without Auth (same as browser navigation)
-    candidateUrls.push({ url: sourceUrl });
-
-    // Candidate 2: Direct URL with Auth
-    if (auth && auth.user && auth.pass) {
-      candidateUrls.push({ url: sourceUrl, auth });
-    }
-
-    // Candidate 3: Alternative media.plivo.com domain
-    if (sourceUrl.includes('aps1.media.plivo.com')) {
-      const globalMediaUrl = sourceUrl.replace('aps1.media.plivo.com', 'media.plivo.com');
-      candidateUrls.push({ url: globalMediaUrl });
+    const buildCandidateUrls = (currentUrl: string) => {
+      const candidates: { url: string; auth?: { user: string; pass: string } }[] = [];
+      candidates.push({ url: currentUrl });
       if (auth && auth.user && auth.pass) {
-        candidateUrls.push({ url: globalMediaUrl, auth });
+        candidates.push({ url: currentUrl, auth });
       }
-    }
+      if (currentUrl.includes('aps1.media.plivo.com')) {
+        const globalMediaUrl = currentUrl.replace('aps1.media.plivo.com', 'media.plivo.com');
+        candidates.push({ url: globalMediaUrl });
+        if (auth && auth.user && auth.pass) {
+          candidates.push({ url: globalMediaUrl, auth });
+        }
+      } else if (currentUrl.includes('media.plivo.com') && !currentUrl.includes('aps1.media.plivo.com')) {
+        const regionalMediaUrl = currentUrl.replace('media.plivo.com', 'aps1.media.plivo.com');
+        candidates.push({ url: regionalMediaUrl });
+        if (auth && auth.user && auth.pass) {
+          candidates.push({ url: regionalMediaUrl, auth });
+        }
+      }
+      return candidates;
+    };
 
     let stream: Readable | null = null;
     let lastError: any = null;
 
-    // 3 attempts strictly after call ends with 10-second gap between each attempt
-    const MAX_ATTEMPTS = 3;
-    const RETRY_DELAY_MS = 10000; // 10 seconds
+    // Retry attempts with 1-minute (60 seconds) gap between each attempt for Plivo transcoding
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 60000; // 60 seconds (1 minute)
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      console.log(`⏳ [STORAGE-SERVICE] Attempt ${attempt}/${MAX_ATTEMPTS}: Waiting 10 seconds after call ends for Plivo MP3 transcoding...`);
+      console.log(`⏳ [STORAGE-SERVICE] Attempt ${attempt}/${MAX_ATTEMPTS}: Waiting 1 minute after call ends for Plivo MP3 transcoding...`);
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+
+      let activeUrl = sourceUrl;
+      if (resolveFreshUrl) {
+        try {
+          const fresh = await resolveFreshUrl();
+          if (fresh) {
+            activeUrl = fresh;
+            console.log(`[STORAGE-SERVICE] Resolved latest canonical URL on attempt ${attempt}: ${activeUrl}`);
+          }
+        } catch (e: any) {
+          // ignore error
+        }
+      }
+
+      const candidateUrls = buildCandidateUrls(activeUrl);
 
       for (const candidate of candidateUrls) {
         try {
@@ -123,13 +142,13 @@ export class StorageService {
 
       if (stream) break;
       if (attempt < MAX_ATTEMPTS) {
-        console.log(`⚠️ [STORAGE-SERVICE] Attempt ${attempt} failed. Retrying in 10 seconds (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`);
+        console.log(`⚠️ [STORAGE-SERVICE] Attempt ${attempt} failed. Retrying in 1 minute (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`);
       }
     }
 
     if (!stream) {
-      console.error(`❌ [STORAGE-SERVICE] All 3 download attempts (with 10s intervals) failed for ${sourceUrl}:`, lastError?.message || lastError);
-      throw lastError || new Error('Failed to stream audio from remote URL after 3 attempts');
+      console.error(`❌ [STORAGE-SERVICE] All ${MAX_ATTEMPTS} download attempts (with 1-minute intervals) failed for ${sourceUrl}:`, lastError?.message || lastError);
+      throw lastError || new Error(`Failed to stream audio from remote URL after ${MAX_ATTEMPTS} attempts`);
     }
 
 
@@ -240,17 +259,11 @@ export class StorageService {
    * In local emulator mode: returns direct HTTP media endpoint from emulator.
    * In production mode: returns 15-minute V4 Signed URL.
    */
-  async getSignedPlaybackUrl(storagePath: string, expiresInMinutes: number = 15): Promise<string> {
-    /* Commented out local uploads directory fallback:
-    const fs = await import('fs');
-    const path = await import('path');
-    const localFilePath = path.join(process.cwd(), 'uploads', storagePath);
-    if (fs.existsSync(localFilePath)) {
-      const backendUrl = appConfig.url || `http://localhost:${appConfig.port}`;
-      return `${backendUrl}/api/plivo/recordings/local?path=${encodeURIComponent(storagePath)}`;
-    }
-    */
-
+  async getSignedPlaybackUrl(
+    storagePath: string,
+    expiresInMinutes: number = 15,
+    downloadFilename?: string
+  ): Promise<string> {
     const emulatorHost =
       process.env.FIREBASE_STORAGE_EMULATOR_HOST ||
       process.env.STORAGE_EMULATOR_HOST;
@@ -264,11 +277,17 @@ export class StorageService {
     const bucket = this.getBucket();
     const file = bucket.file(storagePath);
     const expiresAt = Date.now() + expiresInMinutes * 60 * 1000;
-    const [signedUrl] = await file.getSignedUrl({
+    const config: any = {
       version: 'v4',
       action: 'read',
       expires: expiresAt,
-    });
+    };
+
+    if (downloadFilename) {
+      config.responseDisposition = `attachment; filename="${downloadFilename}"`;
+    }
+
+    const [signedUrl] = await file.getSignedUrl(config);
     return signedUrl;
   }
 

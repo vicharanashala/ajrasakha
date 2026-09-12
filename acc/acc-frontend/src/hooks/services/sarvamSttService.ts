@@ -1,9 +1,14 @@
 import { env } from "@/config/env";
 
-export async function transcribeAudioWithSarvam(
+export interface SarvamSttResult {
+  transcript: string;
+  languageCode: string;
+}
+
+export async function transcribeAudioWithSarvamDetailed(
   audioBlob: Blob,
   languageCode: string = "unknown"
-): Promise<string> {
+): Promise<SarvamSttResult> {
   if (!audioBlob || audioBlob.size === 0) {
     throw new Error("Audio recording is empty.");
   }
@@ -54,5 +59,19 @@ export async function transcribeAudioWithSarvam(
     throw new Error("No speech detected in audio.");
   }
 
-  return transcript.trim();
+  const detectedLang = data.language_code || (languageCode !== "unknown" ? languageCode : "unknown");
+
+  return {
+    transcript: transcript.trim(),
+    languageCode: detectedLang,
+  };
 }
+
+export async function transcribeAudioWithSarvam(
+  audioBlob: Blob,
+  languageCode: string = "unknown"
+): Promise<string> {
+  const result = await transcribeAudioWithSarvamDetailed(audioBlob, languageCode);
+  return result.transcript;
+}
+

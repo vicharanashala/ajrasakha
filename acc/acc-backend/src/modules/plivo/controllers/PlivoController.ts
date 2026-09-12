@@ -290,8 +290,7 @@ export class PlivoController {
 
       if (!callUuid || !recordUrl) {
         console.warn('⚠️ [PLIVO-CONTROLLER] Missing CallUUID or RecordUrl in record webhook payload:', body);
-        res.status(200).send('Ignored: missing fields');
-        return;
+        return res.status(200).send('Ignored: missing fields');
       }
 
       // Respond 200 OK immediately to Plivo so webhook does not timeout
@@ -323,33 +322,32 @@ export class PlivoController {
             pass: appConfig.plivo.authToken,
           } : undefined;
 
-
-
-          let finalRecordUrl = recordUrl;
-          try {
+          const resolveFreshUrl = async (): Promise<string | null> => {
             if (recordingId && this.client?.recordings) {
-              const plivoRec = await this.client.recordings.get(recordingId);
-              if (plivoRec?.recordingUrl) {
-                finalRecordUrl = plivoRec.recordingUrl;
-                console.log(`[PLIVO-CONTROLLER] Obtained canonical recording URL from Plivo API: ${finalRecordUrl}`);
+              try {
+                const plivoRec = await this.client.recordings.get(recordingId);
+                if (plivoRec?.recordingUrl) {
+                  return plivoRec.recordingUrl;
+                }
+              } catch (recApiErr: any) {
+                // Plivo API will return 404 until transcoding finishes
               }
             }
-          } catch (recApiErr: any) {
-            console.warn(`[PLIVO-CONTROLLER] Plivo API getRecording warning:`, recApiErr.message || recApiErr);
-          }
+            return null;
+          };
 
           const uploadResult = await this.storageService.uploadStreamFromUrl(
-            finalRecordUrl,
+            recordUrl,
             destinationPath,
             auth,
-            ext === 'wav' ? 'audio/wav' : 'audio/mpeg'
+            ext === 'wav' ? 'audio/wav' : 'audio/mpeg',
+            resolveFreshUrl
           );
-
 
           const recordingItem: CallRecording = {
             recordingId: recordingId || `rec_${Date.now()}`,
             storagePath: uploadResult.storagePath,
-            storageBucket: appConfig.firebase.storageBucket,
+            storageBucket: appConfig.storage.bucket || appConfig.firebase.storageBucket,
             duration: Math.round(Number(recordingDuration) || 0),
             durationMs: Number(recordingDurationMs) || (recordingDuration ? Number(recordingDuration) * 1000 : undefined),
             format: ext as 'mp3' | 'wav',
@@ -398,6 +396,7 @@ export class PlivoController {
   @OpenAPI({ summary: 'Get signed playback URL for a call recording' })
   async getRecordingPlaybackUrl(
     @Param('callUuid') callUuid: string,
+    @QueryParam('download') isDownload: boolean,
     @CurrentUser() currentUser: IUser
   ) {
     try {
@@ -426,7 +425,9 @@ export class PlivoController {
         };
       }
 
-      const signedUrl = await this.storageService.getSignedPlaybackUrl(recording.storagePath, 15);
+      const ext = recording.format || 'mp3';
+      const downloadFilename = isDownload ? `call_${callUuid}.${ext}` : undefined;
+      const signedUrl = await this.storageService.getSignedPlaybackUrl(recording.storagePath, 15, downloadFilename);
 
       return {
         callUuid,
@@ -676,14 +677,18 @@ export class PlivoController {
         let agentEmail = call.agent?.email;
 
         if (agentUserIdStr && (!agentName || !agentEmail)) {
-          try {
-            const agentUser = await this.userRepository.findById(agentUserIdStr);
-            if (agentUser) {
-              agentName = [agentUser.firstName, agentUser.lastName].filter(Boolean).join(' ') || agentUser.agent || agentUser.email;
-              agentEmail = agentUser.email;
+          if (/^[0-9a-fA-F]{24}$/.test(agentUserIdStr)) {
+            try {
+              const agentUser = await this.userRepository.findById(agentUserIdStr);
+              if (agentUser) {
+                agentName = [agentUser.firstName, agentUser.lastName].filter(Boolean).join(' ') || agentUser.agent || agentUser.email;
+                agentEmail = agentUser.email;
+              }
+            } catch (userErr) {
+              console.warn(`[PLIVO-CONTROLLER] Could not resolve user details for agent ${agentUserIdStr}:`, userErr);
             }
-          } catch (userErr) {
-            console.warn(`[PLIVO-CONTROLLER] Could not resolve user details for agent ${agentUserIdStr}:`, userErr);
+          } else {
+            agentName = agentName || agentUserIdStr;
           }
         }
 
