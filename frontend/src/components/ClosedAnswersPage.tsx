@@ -3321,9 +3321,6 @@ export const ClosedAnswersPage = () => {
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       moveSelection(-1);
-    } else if (event.key.toLowerCase() === "s") {
-      event.preventDefault();
-      shuffleAnswers();
     }
   });
 
@@ -3400,10 +3397,6 @@ export const ClosedAnswersPage = () => {
                         <Kbd className={TOOLTIP_KBD_CLASSES}>↑</Kbd>
                         <Kbd className={TOOLTIP_KBD_CLASSES}>↓</Kbd>
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 text-xs">
-                      <span>Shuffle the list</span>
-                      <Kbd className={TOOLTIP_KBD_CLASSES}>S</Kbd>
                     </div>
                   </div>
                 </TooltipContent>
