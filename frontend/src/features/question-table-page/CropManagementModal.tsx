@@ -1643,7 +1643,7 @@ export const CropManagementModal = ({
             )}
 
             {/* ── Active-tab content ─────────────────────────────────────────── */}
-            {isOther ? (
+            {activeTab !== "organization" && (isOther ? (
               /* "Other" is where a NEW custom type is created; each type then gets its own tab. */
               <div className="px-5 py-12 text-center">
                 <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -1700,7 +1700,7 @@ export const CropManagementModal = ({
                   )}
                 </div>
               </>
-            )}
+            ))}
             {/* 🏢 ORGANIZATIONS TAB */}
             {activeTab === "organization" && (
               <>
