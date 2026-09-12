@@ -2343,17 +2343,28 @@ const StatusOverrideControl = ({
     actions.includes(action.value),
   );
 
+  const hasNotFoundSource = newSourceRecord.sources?.some(
+    (s) => s.sourceReferenceStatus === "notFound",
+  );
+
   return (
-    <div
-      className={cn(
-        inline
-          ? "flex items-center gap-2"
-          : "flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3",
+    <div className={cn("flex flex-col", inline ? "gap-2" : "gap-3 w-full")}>
+      {!inline && hasNotFoundSource && actions.includes("merged") && (
+        <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <p>Cannot approve this answer because the source could not be found.</p>
+        </div>
       )}
-    >
-      {!inline && <p className={SECTION_LABEL_CLASSES}>Change status</p>}
-      <div className="flex flex-wrap items-center gap-2">
-        {!inline && onAdvanceToNextChange && (
+      <div
+        className={cn(
+          inline
+            ? "flex items-center gap-2"
+            : "flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3",
+        )}
+      >
+        {!inline && <p className={SECTION_LABEL_CLASSES}>Change status</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          {!inline && onAdvanceToNextChange && (
           <label className="mr-1 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
             <Checkbox
               checked={advanceToNext}
@@ -2368,6 +2379,15 @@ const StatusOverrideControl = ({
         {visibleActions.map((action) => {
           const Icon = action.icon;
           const isCurrent = newSourceRecord.status === action.value;
+          
+          const hasNotFoundSource = newSourceRecord.sources?.some(
+            s => s.sourceReferenceStatus === "notFound"
+          );
+          const isDisabled = isCurrent || isPending || (action.value === "merged" && hasNotFoundSource);
+          let title = isCurrent ? `Already ${action.value}` : action.title;
+          if (action.value === "merged" && hasNotFoundSource) {
+            title = "Cannot approve this answer because the source could not be found.";
+          }
 
           return (
             <Button
@@ -2382,8 +2402,8 @@ const StatusOverrideControl = ({
                 inline &&
                   "h-7 px-2 text-xs text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400",
               )}
-              disabled={isCurrent || isPending}
-              title={isCurrent ? `Already ${action.value}` : action.title}
+              disabled={isDisabled}
+              title={title}
               onClick={() => openAction(action)}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -2391,6 +2411,7 @@ const StatusOverrideControl = ({
             </Button>
           );
         })}
+      </div>
       </div>
 
       <Dialog

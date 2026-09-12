@@ -471,6 +471,15 @@ export class NewSourceService implements INewSourceService {
     // write actually lands. A merge that doesn't move here needs the answer to keep
     // reflecting the previous status, not a merge with nothing to show for it.
     if (input.status === 'merged') {
+      const hasNotFoundSource = existing.sources.some(
+        source => source.sourceReferenceStatus === 'notFound'
+      );
+      if (hasNotFoundSource) {
+        throw new BadRequestError(
+          "Cannot approve this answer because the source could not be found."
+        );
+      }
+
       const sourceDetails = toAnswerSourceDetails(existing.sources);
       let writeResult;
       try {
