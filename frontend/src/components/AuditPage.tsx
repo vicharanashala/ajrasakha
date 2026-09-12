@@ -1727,6 +1727,14 @@ const AuditPage = () => {
     ADD_FARMER = "Add Farmer",
     UPDATE_FARMER = "Update Farmer",
     DELETE_FARMER = "Delete Farmer",
+    NEW_SOURCE_START = "New Source Start",
+    NEW_SOURCE_COMPLETE = "New Source Complete",
+    NEW_SOURCE_CLOSE = "New Source Close",
+    RECORD_MISSING_POP_DOCUMENT = "Record Missing Pop Document",
+    NEW_SOURCE_RELEASE = "New Source Release",
+    MODERATOR_REVIEW_START = "Moderator Review Start",
+    MODERATOR_REVIEW_RELEASE = "Moderator Review Release",
+    NEW_SOURCE_CHANGE_STATUS = "New Source Change Status",
   }
  
   enum reverseActionEnum {
@@ -1763,6 +1771,14 @@ const AuditPage = () => {
     "Add Farmer" = "ADD_FARMER",
     "Update Farmer" = "UPDATE_FARMER",
     "Delete Farmer" = "DELETE_FARMER",
+    "New Source Start" = "NEW_SOURCE_START",
+    "New Source Complete" = "NEW_SOURCE_COMPLETE",
+    "New Source Close" = "NEW_SOURCE_CLOSE",
+    "Record Missing Pop Document" = "RECORD_MISSING_POP_DOCUMENT",
+    "New Source Release" = "NEW_SOURCE_RELEASE",
+    "Moderator Review Start" = "MODERATOR_REVIEW_START",
+    "Moderator Review Release" = "MODERATOR_REVIEW_RELEASE",
+    "New Source Change Status" = "NEW_SOURCE_CHANGE_STATUS",
   }
  
   const actionObject = {
@@ -1774,7 +1790,7 @@ const AuditPage = () => {
     CROP_MANAGEMENT: [AuditAction.ALL, AuditAction.ADD_CROP, AuditAction.UPDATE_CROP, AuditAction.ADD_ORGANIZATION, AuditAction.UPDATE_ORGANIZATION, AuditAction.DELETE_ORGANIZATION, AuditAction.ORGANIZATION_BULK_CREATE],
     OUTREACH_REPORT: [AuditAction.ALL, AuditAction.SEND_OUTREACH_REPORT],
     DOWNLOAD_REPORTS: [AuditAction.ALL, AuditAction.DOWNLOAD],
-    ANSWER: [AuditAction.ALL, AuditAction.APPROVE_ANSWER, AuditAction.REROUTE_ANSWER, AuditAction.REROUTE_REJECTION],
+    ANSWER: [AuditAction.ALL, AuditAction.APPROVE_ANSWER, AuditAction.REROUTE_ANSWER, AuditAction.REROUTE_REJECTION, AuditAction.NEW_SOURCE_START, AuditAction.NEW_SOURCE_COMPLETE, AuditAction.NEW_SOURCE_CLOSE, AuditAction.RECORD_MISSING_POP_DOCUMENT, AuditAction.NEW_SOURCE_RELEASE, AuditAction.MODERATOR_REVIEW_START, AuditAction.MODERATOR_REVIEW_RELEASE, AuditAction.NEW_SOURCE_CHANGE_STATUS],
     ADMIN_REPORT: [AuditAction.ALL, AuditAction.SEND_DASHBOARD_REPORT],
     AI_GENERATED: [AuditAction.ALL, AuditAction.GENERATE_ANSWER],
     ROLE_MANAGEMENT: [AuditAction.ALL, AuditAction.TOGGLE_ROLE],

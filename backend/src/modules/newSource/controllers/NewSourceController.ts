@@ -21,8 +21,14 @@ import {
   PopRequiredField,
 } from '#root/shared/interfaces/models.js';
 import {INewSourceService} from '../interfaces/INewSourceService.js';
-
-// Records source edits made on the Closed Answers page's Edit Source modal into the
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import {
+  AuditCategory,
+  AuditAction,
+  OutComeStatus,
+} from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { roleAuditActor } from '#root/modules/question/controllers/helpers/questionAuditHelper.js';
 // updated_sources collection. This deliberately never touches the answers collection.
 // Two-phase: 'start' creates the record ('in-progress') the instant the modal opens so
 // the editing timer is backed by a real document; 'complete' updates it on save.
@@ -36,6 +42,8 @@ export class NewSourceController {
   constructor(
     @inject(CORE_TYPES.NewSourceService)
     private readonly newSourceService: INewSourceService,
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @OpenAPI({summary: 'Start a updated_sources record when the Edit Source modal opens'})
@@ -62,12 +70,36 @@ export class NewSourceController {
     @Body() body: {sources: INewSourceItem[]},
     @CurrentUser() user: IUser,
   ): Promise<INewSource> {
-    return await this.newSourceService.completeNewSource({
-      id,
-      ...body,
-      userId: user._id?.toString() ?? '',
-      role: user.role,
-    });
+    const auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.NEW_SOURCE_COMPLETE,
+      actor: roleAuditActor(user),
+      context: { newSourceId: id },
+      changes: { after: { sources: body.sources } },
+      createdAt: new Date(),
+    };
+    try {
+      const response = await this.newSourceService.completeNewSource({
+        id,
+        ...body,
+        userId: user._id?.toString() ?? '',
+        role: user.role,
+      });
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return response;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message,
+        },
+      });
+      throw err;
+    }
   }
 
   @OpenAPI({summary: 'Record when the Edit Source modal closed, completed or not'})
@@ -96,13 +128,38 @@ export class NewSourceController {
     },
     @CurrentUser() user: IUser,
   ): Promise<INewSource> {
-    return await this.newSourceService.recordMissingPopDocument({
-      answerId,
-      popId: body.popId,
-      missingFields: body.missingFields ?? [],
-      updatedFields: body.updatedFields,
-      userId: user._id?.toString() ?? '',
-    });
+    const auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.RECORD_MISSING_POP_DOCUMENT,
+      actor: roleAuditActor(user),
+      context: { answerId, popId: body.popId },
+      changes: { after: { missingFields: body.missingFields, updatedFields: body.updatedFields } },
+      createdAt: new Date(),
+    };
+    try {
+      const response = await this.newSourceService.recordMissingPopDocument({
+        answerId,
+        popId: body.popId,
+        missingFields: body.missingFields ?? [],
+        updatedFields: body.updatedFields,
+        userId: user._id?.toString() ?? '',
+      });
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, newSourceId: response._id },
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return response;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message,
+        },
+      });
+      throw err;
+    }
   }
 
   @OpenAPI({summary: "Find the current user's other in-progress updated_sources record, if any"})
@@ -137,11 +194,35 @@ export class NewSourceController {
   ): Promise<INewSource> {
     const userName =
       [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
-    return await this.newSourceService.startModeratorReview({
-      ...body,
-      userId: user._id?.toString() ?? '',
-      userName,
-    });
+    const auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.MODERATOR_REVIEW_START,
+      actor: roleAuditActor(user),
+      context: { answerId: body.answerId, questionId: body.questionId },
+      createdAt: new Date(),
+    };
+    try {
+      const response = await this.newSourceService.startModeratorReview({
+        ...body,
+        userId: user._id?.toString() ?? '',
+        userName,
+      });
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, newSourceId: response._id },
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return response;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message,
+        },
+      });
+      throw err;
+    }
   }
 
   @OpenAPI({
@@ -170,11 +251,34 @@ export class NewSourceController {
   ): Promise<INewSource> {
     const userName =
       [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
-    return await this.newSourceService.releaseModeratorReview(
-      id,
-      user._id?.toString() ?? '',
-      userName,
-    );
+    const auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.MODERATOR_REVIEW_RELEASE,
+      actor: roleAuditActor(user),
+      context: { newSourceId: id },
+      createdAt: new Date(),
+    };
+    try {
+      const response = await this.newSourceService.releaseModeratorReview(
+        id,
+        user._id?.toString() ?? '',
+        userName,
+      );
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return response;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message,
+        },
+      });
+      throw err;
+    }
   }
 
   @OpenAPI({summary: "Read-only lookup of an answer's updated_sources record, for the moderator before/after view"})
@@ -201,11 +305,35 @@ export class NewSourceController {
     }
 
     const changedByName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
-    return await this.newSourceService.changeStatus({
-      id,
-      ...body,
-      changedBy: user._id?.toString() ?? '',
-      changedByName,
-    });
+    const auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.NEW_SOURCE_CHANGE_STATUS,
+      actor: roleAuditActor(user),
+      context: { newSourceId: id, reason: body.reason },
+      changes: { after: { status: body.status } },
+      createdAt: new Date(),
+    };
+    try {
+      const response = await this.newSourceService.changeStatus({
+        id,
+        ...body,
+        changedBy: user._id?.toString() ?? '',
+        changedByName,
+      });
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return response;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message,
+        },
+      });
+      throw err;
+    }
   }
 }
