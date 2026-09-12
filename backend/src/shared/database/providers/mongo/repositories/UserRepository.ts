@@ -285,11 +285,19 @@ export class UserRepository implements IUserRepository {
   async getUsersByIds(
     ids: string[],
     session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
   ): Promise<IUser[]> {
     await this.init();
-    const objectIds = ids.map(id => new ObjectId(id));
+    const objectIds = ids
+      .filter(id => ObjectId.isValid(id))
+      .map(id => new ObjectId(id));
+    if (!objectIds.length) return [];
+    const options: any = {session};
+    if (projection) {
+      options.projection = projection;
+    }
     const users = await this.usersCollection
-      .find({_id: {$in: objectIds}}, {session})
+      .find({_id: {$in: objectIds}}, options)
       .toArray();
 
     return users.map(user => ({

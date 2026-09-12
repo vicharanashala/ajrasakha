@@ -1084,7 +1084,10 @@ export class QuestionAllocationController {
         index,
       );
 
-      if ((result?.history?.length ?? 0) === 0) {
+      if (
+        (result?.history?.length ?? 0) === 0 &&
+        (result?.queue?.length ?? 0) === 0
+      ) {
         await this.questionService.updateQuestion(questionId, {
           firstAllocationAt: null as any,
         });

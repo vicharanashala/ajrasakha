@@ -633,6 +633,16 @@ export interface IQuestionService {
       maxReviewers?: number;
     }
   ): Promise<ArrayBuffer | null>;
+  streamTatReport(
+    startDate: Date,
+    endDate: Date,
+    outputStream: any,
+    opts?: {
+      sources?: string[];
+      statuses?: string[];
+      maxReviewers?: number;
+    }
+  ): Promise<boolean>;
   generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;

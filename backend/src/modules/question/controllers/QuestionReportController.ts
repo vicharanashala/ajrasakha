@@ -150,7 +150,16 @@ export class QuestionReportController {
     const sources = csv(query.sources);
     const statuses = csv(query.statuses);
 
-    let data;
+    response.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="tat-report-${query.startDate}-to-${query.endDate}.xlsx"`,
+    );
+
+    let hasData = false;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.DOWNLOAD_REPORTS,
       action: AuditAction.DOWNLOAD,
@@ -165,10 +174,15 @@ export class QuestionReportController {
       },
     };
     try {
-      data = await this.questionService.generateTatReport(startDate, endDate, {
-        sources,
-        statuses,
-      });
+      hasData = await this.questionService.streamTatReport(
+        startDate,
+        endDate,
+        response,
+        {
+          sources,
+          statuses,
+        },
+      );
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -190,7 +204,7 @@ export class QuestionReportController {
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
 
-    if (!data) {
+    if (!hasData) {
       response.status(200).json({
         success: false,
         message: 'No questions found for the selected date range',
@@ -198,7 +212,7 @@ export class QuestionReportController {
       return;
     }
 
-    return Buffer.from(data as ArrayBuffer);
+    return response;
   }
 
   @Get('/download-overall-report')

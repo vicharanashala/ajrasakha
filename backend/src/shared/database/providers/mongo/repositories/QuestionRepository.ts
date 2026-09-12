@@ -8534,8 +8534,24 @@ export class QuestionRepository implements IQuestionRepository {
       ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
     return this.QuestionCollection.find(match as any)
+      .project({
+        _id: 1,
+        question: 1,
+        source: 1,
+        status: 1,
+        referenceQuestionId: 1,
+        tag: 1,
+        createdAt: 1,
+        closedAt: 1,
+        userId: 1,
+        moderatorId: 1,
+        gateKeeperId: 1,
+        auditorId: 1,
+        firstAllocationAt: 1,
+        moderatorAssignedAt: 1,
+      })
       .sort({ createdAt: 1 })
-      .toArray();
+      .toArray() as any;
   }
 
   /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
@@ -9726,5 +9742,23 @@ export class QuestionRepository implements IQuestionRepository {
         $lt: [{ $size: { $ifNull: ['$assignedValidationQuestions', []] } }, 3],
       },
     });
+  }
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  async updateNormalisedCrop(
+    questionId: string,
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
   }
 }
