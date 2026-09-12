@@ -209,14 +209,15 @@ export function AnnamDashboard_dev({
 
   // ─── Computed Values ───────────────────────────────────────────────────────
   const isAppAnalyticsSource = source === "annam" || source === "whatsapp";
-  const loadImmediately = !isAppAnalyticsSource;
+  const loadImmediately = true;
 
   // ─── Data Queries ──────────────────────────────────────────────────────────
   const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
     source,
-    isAppAnalyticsSource,
+    true,
   );
+
   useEffect(() => {
     setAnalyticData(data);
   }, [data]);
@@ -239,24 +240,34 @@ export function AnnamDashboard_dev({
     () => getISOStringsForDateRange(customerNotificationsDateRange),
     [customerNotificationsDateRange],
   );
-  const [closed2hSource, setClosed2hSource] = useState<string>("whatsapp,annam");
-  const [questionStatusSource, setQuestionStatusSource] = useState<string>("whatsapp,annam");
-  const [notificationsSource, setNotificationsSource] = useState<string>("whatsapp,annam");
+  const [closed2hSource, setClosed2hSource] =
+    useState<string>("whatsapp,annam");
+  const [questionStatusSource, setQuestionStatusSource] =
+    useState<string>("whatsapp,annam");
+  const [notificationsSource, setNotificationsSource] =
+    useState<string>("whatsapp,annam");
   // Data queries with date ranges
-  const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } =
-    useClosedAndNotifedData(
-      closed2hSource,
-      filters.userType,
-      closed2hRange.startTime,
-      closed2hRange.endTime,
-    );
-  const { data: questionStatusData, isLoading: isQuestionStatusLoading } = useClosedAndNotifedData(
-    questionStatusSource,
+  const {
+    data: closed2hData,
+    isLoading: isClosed2hLoading,
+    isFetching: isClosed2hFetching,
+  } = useClosedAndNotifedData(
+    closed2hSource,
     filters.userType,
-    questionStatusRange.startTime,
-    questionStatusRange.endTime,
+    closed2hRange.startTime,
+    closed2hRange.endTime,
   );
-  const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading } = useClosedAndNotifedData(
+  const { data: questionStatusData, isLoading: isQuestionStatusLoading } =
+    useClosedAndNotifedData(
+      questionStatusSource,
+      filters.userType,
+      questionStatusRange.startTime,
+      questionStatusRange.endTime,
+    );
+  const {
+    data: customerNotificationsData,
+    isLoading: isCustomerNotificationsLoading,
+  } = useClosedAndNotifedData(
     notificationsSource,
     filters.userType,
     customerNotificationsRange.startTime,
@@ -436,10 +447,8 @@ export function AnnamDashboard_dev({
   // which calls the ChatbotController /analytics/dataset/total-* routes.
   // NOT from the internal review system's user-details/user-metrices
   // endpoints.
-  const {
-    data: datasetTotalsData,
-    isLoading: isDatasetTotalsLoading,
-  } = useDatasetTotals();
+  const { data: datasetTotalsData, isLoading: isDatasetTotalsLoading } =
+    useDatasetTotals();
 
   // ─── Stats Cards Refresh Handler ────────────────────────────────────────────
   // Refresh all related stats cards in the row (Closed in 2h, Question Status, Notifications)
@@ -454,18 +463,18 @@ export function AnnamDashboard_dev({
 
       if (newSource === "whatsapp") {
         setFilters((prev) => ({ ...prev, userType: "all" }));
-        onUserTypeChange?.("all"); 
+        onUserTypeChange?.("all");
       }
 
       setClosed2hDateRange(undefined);
       setQuestionStatusDateRange(undefined);
       setCustomerNotificationsDateRange(undefined);
 
-      onSourceChange?.(newSource); 
+      onSourceChange?.(newSource);
     },
-    [onSourceChange, onUserTypeChange], 
+    [onSourceChange, onUserTypeChange],
   );
-  
+
   const handleCardClick = useCallback(
     (id: string) => {
       if (id === "totalInstalls") {
@@ -551,7 +560,9 @@ export function AnnamDashboard_dev({
   useEffect(() => {
     if (initialUserType !== undefined) {
       setFilters((prev) =>
-        prev.userType === initialUserType ? prev : { ...prev, userType: initialUserType },
+        prev.userType === initialUserType
+          ? prev
+          : { ...prev, userType: initialUserType },
       );
     }
   }, [initialUserType]);
@@ -654,16 +665,20 @@ export function AnnamDashboard_dev({
                       closed2hData?.closedInLastTwoHours?.totalPassCount
                     }
                     dynamicClosedInLastTwoHours={
-                      closed2hData?.closedInLastTwoHours?.dynamicClosedInTwoHoursCount
+                      closed2hData?.closedInLastTwoHours
+                        ?.dynamicClosedInTwoHoursCount
                     }
                     totalDynamicClosed={
-                      closed2hData?.closedInLastTwoHours?.totalDynamicClosedCount
+                      closed2hData?.closedInLastTwoHours
+                        ?.totalDynamicClosedCount
                     }
                     duplicateClosedInLastTwoHours={
-                      closed2hData?.closedInLastTwoHours?.duplicateClosedInTwoHoursCount
+                      closed2hData?.closedInLastTwoHours
+                        ?.duplicateClosedInTwoHoursCount
                     }
                     totalDuplicateClosed={
-                      closed2hData?.closedInLastTwoHours?.totalDuplicateClosedCount
+                      closed2hData?.closedInLastTwoHours
+                        ?.totalDuplicateClosedCount
                     }
                   />
 
@@ -1195,7 +1210,9 @@ export function AnnamDashboard_dev({
                       category={selectedMetricUsers.category}
                       value={selectedMetricUsers.value}
                       filterOptions={["Yes", "No"]}
-                      initialFilterValue={selectedMetricUsers.value === "yes" ? "Yes" : "No"}
+                      initialFilterValue={
+                        selectedMetricUsers.value === "yes" ? "Yes" : "No"
+                      }
                     />
                   )}
                 </>

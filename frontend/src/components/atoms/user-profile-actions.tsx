@@ -69,10 +69,19 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
     clearPlaygroundTabs();
     onLogout();
   };
-  if (!user) return;
-  const getInitials = (name: string) => {
+  if (!user) return null;
+  const userName =
+    (user as any).name ||
+    (user as any).displayName ||
+    `${(user as any).firstName || ""} ${(user as any).lastName || ""}`.trim() ||
+    user.email ||
+    "Demo User";
+
+  const getInitials = (name?: string) => {
+    if (!name) return "DU";
     return name
       .split(" ")
+      .filter(Boolean)
       .map((word) => word.charAt(0))
       .join("")
       .toUpperCase()
@@ -98,10 +107,10 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           <Avatar className="h-9 w-9">
             <AvatarImage
               src={user.avatar || "/placeholder.svg"}
-              alt={user.name}
+              alt={userName}
             />
             <AvatarFallback className="bg-green-100 text-green-700">
-              {getInitials(user.name)}
+              {getInitials(userName)}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -165,20 +174,20 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         {!isCoordinator &&
           userWithRole?.role !== "gate_keeper" &&
           userWithRole?.role !== "auditor" && (
-        <DropdownMenuItem
-          onClick={handleViewHistory}
-          className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
-        >
-          <NotepadText className="mr-2 h-4 w-4" />
-          History
-          <Badge
-            variant="default"
-            className="absolute -top-1 right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-          >
-            New
-          </Badge>
-        </DropdownMenuItem>
-        )}
+            <DropdownMenuItem
+              onClick={handleViewHistory}
+              className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
+            >
+              <NotepadText className="mr-2 h-4 w-4" />
+              History
+              <Badge
+                variant="default"
+                className="absolute -top-1 right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+              >
+                New
+              </Badge>
+            </DropdownMenuItem>
+          )}
 
         {/* <DropdownMenuItem
           onClick={handleLogout}

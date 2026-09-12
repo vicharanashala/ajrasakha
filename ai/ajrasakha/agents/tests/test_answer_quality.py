@@ -1,6 +1,8 @@
 """Unit tests for expert-answer quality heuristics and disclaimer stripping."""
 
 
+import os
+
 from ajrasakha.agents.answer_quality import (
     ensure_two_hour_disclaimer,
     is_no_database_match_answer,
@@ -8,6 +10,7 @@ from ajrasakha.agents.answer_quality import (
     is_sufficient_expert_answer,
     strip_two_hour_disclaimer,
 )
+
 
 SOIL_HEALTH_ANSWER = """
 ## Fertilizer Dosage Recommendation for Rice in Ropar, Punjab
@@ -104,3 +107,104 @@ def test_ensure_disclaimer_appended_for_no_match():
     result = ensure_two_hour_disclaimer(no_match)
     assert "2 hours" in result
     assert "annam.ai" in result
+
+
+def test_deepeval_mock_evaluation_metrics():
+    from ajrasakha.evaluation.deepeval_metrics import evaluate_answer_with_deepeval
+
+    query = "What is the price of wheat in Sirsa mandi, Haryana?"
+    answer = "In Sirsa Mandi, Haryana, modal price of wheat is Rs 2380 per quintal."
+    expected = "Wheat price in Sirsa Mandi, Haryana is Rs 2350 to 2425/quintal."
+
+    results = evaluate_answer_with_deepeval(
+        query=query,
+        answer=answer,
+        expected_output=expected,
+        context=["Agmarknet report Sirsa: Wheat Rs 2380/qtl"],
+        domain="market",
+        mock=True,
+    )
+
+    assert "AnswerRelevancy" in results
+    assert "Faithfulness" in results
+    assert "GDBMatch" in results
+    assert "AgriculturalCorrectness" in results
+    assert results["AnswerRelevancy"]["score"] >= 0.70
+    assert results["Faithfulness"]["score"] >= 0.70
+    assert results["GDBMatch"]["score"] >= 0.70
+    assert results["AgriculturalCorrectness"]["score"] >= 0.75
+    assert results["overall_quality_score"] > 0.70
+
+
+def test_agricultural_correctness_hazard_penalty():
+    from ajrasakha.evaluation.deepeval_metrics import evaluate_answer_with_deepeval
+
+    query = "How to treat yellow rust in wheat?"
+    hazardous_answer = "Apply 10x dosage of unregistered banned chemical directly."
+
+    results = evaluate_answer_with_deepeval(
+        query=query,
+        answer=hazardous_answer,
+        expected_output="Apply Propiconazole 25% EC @ 1 ml/L",
+        domain="gdb_queries",
+        mock=True,
+    )
+
+    assert results["AgriculturalCorrectness"]["score"] == 0.0
+    assert results["AgriculturalCorrectness"]["passed"] is False
+    assert results["overall_quality_passed"] is False
+
+
+def test_6_domain_summary_aggregation():
+    from ajrasakha.evaluation.summary import build_summary
+
+    mock_results = [
+        {"name": "w1", "domain": "weather", "technical_pass": True, "quality_overall_passed": True, "relevance_score": 0.8, "faithfulness_score": 0.9, "gdb_match_score": 0.85, "agri_correctness_score": 0.95},
+        {"name": "m1", "domain": "market", "technical_pass": True, "quality_overall_passed": True, "relevance_score": 0.9, "faithfulness_score": 0.9, "gdb_match_score": 0.8, "agri_correctness_score": 0.9},
+        {"name": "s1", "domain": "soil", "technical_pass": True, "quality_overall_passed": True, "relevance_score": 0.85, "faithfulness_score": 0.85, "gdb_match_score": 0.8, "agri_correctness_score": 0.9},
+        {"name": "sc1", "domain": "schemes", "technical_pass": True, "quality_overall_passed": True, "relevance_score": 0.9, "faithfulness_score": 0.95, "gdb_match_score": 0.85, "agri_correctness_score": 0.95},
+        {"name": "gdb1", "domain": "gdb_queries", "technical_pass": True, "quality_overall_passed": True, "relevance_score": 0.8, "faithfulness_score": 0.9, "gdb_match_score": 0.85, "agri_correctness_score": 0.9},
+        {"name": "gr1", "domain": "greetings", "technical_pass": True, "quality_overall_passed": True, "relevance_score": 0.95, "faithfulness_score": 0.95, "gdb_match_score": 0.9, "agri_correctness_score": 0.95},
+    ]
+
+    summary = build_summary(mock_results)
+    assert summary["total_cases"] == 6
+    assert summary["quality_passed"] == 6
+    breakdown = summary["domain_breakdown"]
+    assert "weather" in breakdown
+    assert "market" in breakdown
+    assert "soil" in breakdown
+    assert "schemes" in breakdown
+    assert "gdb_queries" in breakdown
+    assert breakdown["weather"]["passed_cases"] == 1
+
+
+def test_html_dashboard_generation(tmp_path):
+    from ajrasakha.evaluation.html_report import write_html_dashboard
+    from ajrasakha.evaluation.summary import build_summary
+
+    mock_results = [
+        {
+            "name": "weather_test_1",
+            "domain": "weather",
+            "query": "What is the weather today in Ropar?",
+            "response_text": "Today in Ropar, partly cloudy 32C.",
+            "expected_output": "Partly cloudy 32C in Ropar.",
+            "technical_pass": True,
+            "quality_overall_passed": True,
+            "relevance_score": 0.85,
+            "faithfulness_score": 0.90,
+            "gdb_match_score": 0.88,
+            "agri_correctness_score": 0.95,
+        }
+    ]
+
+    summary = build_summary(mock_results)
+    out_file = str(tmp_path / "test_dashboard.html")
+    generated_path = write_html_dashboard(mock_results, summary, output_file=out_file)
+
+    assert os.path.exists(out_file)
+    content = open(out_file, encoding="utf-8").read()
+    assert "Ajrasakha Answer Evaluation Dashboard" in content
+    assert "weather_test_1" in content
+    assert "0.85" in content
