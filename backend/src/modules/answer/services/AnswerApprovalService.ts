@@ -369,9 +369,16 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
             userId, // approvedBy — same id as author
           );
 
+          // Refresh the child's text/embedding with the replicated answer (same as the
+          // parent close above) so the closed duplicate is searchable by its answer too.
+          const childText = `Question: ${child.question}\n\nanswer: ${updates.answer ?? ''}`;
+          const childEmbedding = await generateEmbedding(childText);
+
           await this.questionRepo.updateQuestion(
             childId,
             {
+              text: childText,
+              embedding: childEmbedding,
               status: 'closed',
               closedAt: new Date(),
               closedBy: 'System',
@@ -379,6 +386,7 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
               autoAllocatePaeValidationExpert: true,
             },
             session,
+            true, // addText — persist the answer-inclusive text
           );
 
           await this.userRepo
@@ -502,9 +510,18 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
             userId, // approvedBy
           );
 
+          // Refresh this question's text/embedding with the replicated answer (same as the
+          // parent close in approveAnswer) so the closed duplicate is searchable by its answer.
+          const duplicateText = `Question: ${question.question}\n\nanswer: ${answerText}`;
+          const duplicateEmbedding = appConfig.isDevelopment
+            ? []
+            : (await this.aiService.getEmbedding(duplicateText)).embedding;
+
           await this.questionRepo.updateQuestion(
             questionId,
             {
+              text: duplicateText,
+              embedding: duplicateEmbedding,
               status: 'closed',
               closedAt: new Date(),
               closedBy: 'System',
@@ -512,6 +529,7 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
               autoAllocatePaeValidationExpert: true,
             },
             session,
+            true, // addText — persist the answer-inclusive text
           );
 
           const author = await this.userRepo.findById(userId, session);
