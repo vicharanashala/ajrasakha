@@ -104,7 +104,7 @@ export interface IUserRoleHistory {
   isBlocked?: boolean;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean;
-  isTrainingUser?: boolean;
+  isTrainingUser?: boolean,
 }
 
 export interface IUserHistory {
@@ -256,14 +256,7 @@ export interface IQuestion {
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
   isDelayed?: boolean;
-  /** Flag to indicate this question is from the user's feedbacksAssigned array (feedback tab) */
-  isFeedbackQuestion?: boolean;
-  /** PAE validation status for questions ready for final validation.
-   *  - 'pending': question is ready for PAE expert validation
-   *  - 'in-progress': PAE expert has been assigned and is working on it
-   *  - 'completed': PAE expert has completed the validation */
-  paeValidation?: 'pending' | 'in-progress' | 'completed';
-  autoAllocateFeedback?: boolean;
+  rephrased_query?: string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -297,6 +290,7 @@ export interface IAnswer {
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;
+  isCorrect?: boolean;
 }
 
 export interface IReviewParmeters {

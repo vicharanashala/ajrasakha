@@ -99,39 +99,5 @@ export interface ILocationService {
   getVillages(blockCode: number): Promise<ILocationVillage[]>;
   getKvks(districtCode: number): Promise<IKvk[]>;
   syncKvks(): Promise<IKvkSyncResult>;
-
-  /** Add a new state (auto-assigns stateCode). Reason is recorded in the audit trail. */
-  addState(
-    name: string,
-    reason: string,
-    actor: IAuditActor,
-  ): Promise<ILocationState>;
-  /** Delete a state by code. Districts are left intact. Reason is audited. */
-  deleteState(
-    stateCode: number,
-    reason: string,
-    actor: IAuditActor,
-  ): Promise<{ success: true }>;
-  /** Add a new district under a state (auto-assigns districtCode). Reason is audited. */
-  addDistrict(
-    stateCode: number,
-    name: string,
-    reason: string,
-    actor: IAuditActor,
-    aliases?: string[],
-  ): Promise<ILocationDistrict>;
-  /** Delete a district by code. Reason is audited. */
-  deleteDistrict(
-    districtCode: number,
-    reason: string,
-    actor: IAuditActor,
-  ): Promise<{ success: true }>;
-  /**
-   * Insert the single common "All" district (for general/state-agnostic cases).
-   * Idempotent — errors if it already exists. Reason is audited.
-   */
-  addAllDistrict(reason: string, actor: IAuditActor): Promise<ILocationDistrict>;
-  /** The location add/delete audit trail, newest first. */
-  getLocationAudits(limit?: number): Promise<ILocationAudit[]>;
-  getStateOrDistrictReport(type?: 'state' | 'district'): Promise<any>;
+  getCoordinatesByLocationName(locationName: string): Promise<{ lat: number; lon: number; name: string } | null>;
 }

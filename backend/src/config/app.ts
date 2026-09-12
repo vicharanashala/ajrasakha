@@ -23,6 +23,7 @@ export const appConfig = {
   frontendUrl: env('FRONTEND_URL') || 'http://localhost:5173',
   adminPassword: env('ADMIN_PASSWORD') || 'admin123',
   sarvamAPI: env('SARVAM_API_KEY'),
+  OPENWEATHER_API_KEY: env('OPENWEATHER_API_KEY'),
   // Only for development
   firebase: {
     clientEmail: env('FIREBASE_CLIENT_EMAIL') || undefined,

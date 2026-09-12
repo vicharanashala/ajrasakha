@@ -1,8 +1,39 @@
 import { aiConfig } from '#root/config/ai.js';
 import { QuestionSearchResponse, IQuestionAnalysis, IQuestionWithAnswerTexts } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import { IQuestion } from '#root/shared/index.js';
-import { injectable } from 'inversify';
-import { InternalServerError } from 'routing-controllers';
+import { injectable, inject } from 'inversify';
+import { InternalServerError, NotFoundError } from 'routing-controllers';
+import { WEATHER_TYPES } from '#root/modules/weather/types.js';
+import { IWeatherService } from '#root/modules/weather/services/WeatherService.js';
+import { LGD_TYPES } from '#root/modules/lgd/types.js';
+import { ILocationService } from '#root/modules/lgd/interfaces/ILocationService.js';
+
+interface OpenAiChoice {
+  message: {
+    role: string;
+    content: string | null;
+    tool_calls?: {
+      id: string;
+      type: string;
+      function: {
+        name: string;
+        arguments: string;
+      };
+    }[];
+  };
+}
+
+interface OpenAiResponse {
+  choices: OpenAiChoice[];
+}
+
+export interface PendingDuplicateCheckResponse {
+  duplicate_question_id?: string;
+  matched_question_id?: string;
+  detail?: string;
+  query?: string;
+  similarity_score?: number;
+}
 
 @injectable()
 export class AiService {
@@ -20,6 +51,13 @@ export class AiService {
 
   private _gdbServerUrl =
     'http://' + aiConfig.gdbServerIP + ':' + aiConfig.gdbServerPort;
+
+  constructor(
+    @inject(WEATHER_TYPES.WeatherService)
+    private readonly weatherService: IWeatherService,
+    @inject(LGD_TYPES.LocationService)
+    private readonly locationService: ILocationService,
+  ) {}
 
   async getQuestionByContext(
     context: string,
@@ -153,44 +191,61 @@ export class AiService {
     try {
       const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
 
-      const systemPrompt = `
-        You are an expert agricultural advisor helping farmers.
+      const systemPrompt = `You are an expert agricultural advisor helping farmers. You have access to tools to get weather forecasts and crop information.
 
-        Your goal:
-        - Provide accurate, practical, and easy-to-understand answers
-        - Write in simple language suitable for farmers
-        - Focus on real-world solutions
+Your goal:
+- Provide accurate, practical, and easy-to-understand answers.
+- If the user asks about the weather, you MUST use the 'get_weather_forecast' tool with the location name.
+- If the user asks about sowing or harvesting time for a crop, you MUST use the 'get_crop_sowing_info' tool.
+- Write in simple language suitable for farmers.
+- Focus on real-world solutions.
 
-        Rules:
-        - Avoid bullet points unless necessary
-        - Write in clear, natural paragraphs
-        - Do not use headings like "Cause", "Symptoms", etc.
-        - Be concise but informative
-        `;
+Rules:
+- Avoid bullet points unless necessary.
+- Write in clear, natural paragraphs.
+- Do not use headings like "Cause", "Symptoms", etc.
+- Be concise but informative.`;
 
       const userPrompt = `
-        Farmer Question:
-        "${questionDoc.question}"
+Farmer Question:
+"${questionDoc.question}"
 
-        Context:
-        - State: ${questionDoc.details?.state || "Unknown"}
-        - District: ${questionDoc.details?.district || "Unknown"}
-        - Crop: ${questionDoc.details?.crop || "Unknown"}
-        - Season: ${questionDoc.details?.season || "Unknown"}
-        - Domain: ${questionDoc.details?.domain || "General"}
+Context:
+- State: ${questionDoc.details?.state || "Unknown"}
+- District: ${questionDoc.details?.district || "Unknown"}
+- Crop: ${questionDoc.details?.crop || "Unknown"}
+- Season: ${questionDoc.details?.season || "Unknown"}
+- Domain: ${questionDoc.details?.domain || "General"}
 
-        Instructions:
-        Provide a clear and meaningful answer in paragraph form.
+Instructions:
+- If the question is about weather, call the 'get_weather_forecast' tool with the location name (e.g., "Mumbai", "Jaipur").
+- If the question is about sowing or harvesting time, call the 'get_crop_sowing_info' tool with the crop name.
+- Otherwise, provide a clear and meaningful answer in paragraph form.`;
 
-        The answer should:
-        - Explain the likely issue
-        - Describe what the farmer might observe
-        - Suggest practical prevention and treatment steps
-        - Be easy to understand and actionable
+      const tools = [
+        {
+          type: "function",
+          function: {
+            name: "get_weather_forecast",
+            description: "Get the current weather forecast for a given location name.",
+            parameters: {
+              type: "object",
+              properties: {
+                location: {
+                  type: "string",
+                  description: "The name of the city or location, e.g., 'Mumbai', 'Jaipur'.",
+                },
+              },
+              required: ["location"],
+            },
+          },
+        },
+      ];
 
-        Do not use structured sections or bullet formatting.
-        Write as a natural explanation.
-        `;
+      const messages: any[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
 
       const response = await fetch(fullUrl, {
         method: "POST",
@@ -199,12 +254,11 @@ export class AiService {
         },
         body: JSON.stringify({
           model: "Qwen/Qwen3-30B-A3B",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
+          messages: messages,
           temperature: 0.4,
           max_tokens: 700,
+          tools: tools,
+          tool_choice: "auto",
         }),
       });
 
@@ -215,33 +269,73 @@ export class AiService {
         );
       }
 
-      type LLMResponse = {
-        choices?: {
-          message?: {
-            content?: string;
-          };
-        }[];
-      };
+      const responseData = await response.json() as OpenAiResponse;
+      const responseMessage = responseData.choices[0].message;
 
-      let data: LLMResponse;
+      // Check if the model wants to call a tool
+      if (responseMessage.tool_calls) {
+        const toolCall = responseMessage.tool_calls[0];
+        let toolResponseMessage;
 
-      try {
-        data = (await response.json()) as LLMResponse;
-      } catch (err) {
-        throw new InternalServerError("Failed to parse LLM response JSON");
+        if (toolCall.function.name === 'get_weather_forecast') {
+          const args = JSON.parse(toolCall.function.arguments);
+          try {
+            const coords = await this.locationService.getCoordinatesByLocationName(args.location);
+            if (coords) {
+              const weatherData = await this.weatherService.getWeatherByLocation(coords.lat, coords.lon);
+              toolResponseMessage = {
+                tool_call_id: toolCall.id,
+                role: "tool",
+                name: toolCall.function.name,
+                content: JSON.stringify(weatherData),
+              };
+            } else {
+              throw new NotFoundError();
+            }
+          } catch (e) {
+             toolResponseMessage = {
+                tool_call_id: toolCall.id,
+                role: "tool",
+                name: toolCall.function.name,
+                content: JSON.stringify({error: `Could not find the location ${args.location}.`}),
+              };
+          }
+        }
+
+        if (toolResponseMessage) {
+          messages.push(responseMessage);
+          messages.push(toolResponseMessage);
+
+          // Call the model again with the tool data
+          const finalResponse = await fetch(fullUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "Qwen/Qwen3-30B-A3B",
+              messages: messages,
+              temperature: 0.4,
+              max_tokens: 700,
+            }),
+          });
+
+          if (!finalResponse.ok) {
+            throw new InternalServerError('Failed to get final response from LLM after tool call');
+          }
+
+          const finalData = await finalResponse.json() as OpenAiResponse;
+          let answer = finalData.choices[0].message.content;
+          return { question: questionDoc.question, answer: answer || '' };
+        }
       }
 
-      if (!data || !Array.isArray(data.choices) || data.choices.length === 0) {
-        throw new InternalServerError("Invalid LLM response: missing choices");
+      // If no tool call, process the direct answer
+      let answer = responseMessage.content;
+
+      if (!answer) {
+        throw new InternalServerError("LLM returned insufficient content");
       }
-
-      const firstChoice = data.choices[0];
-
-      if (!firstChoice?.message?.content) {
-        throw new InternalServerError("Invalid LLM response: missing content");
-      }
-
-      let answer = firstChoice.message.content;
 
       answer = answer
         .replace(/```[\s\S]*?```/g, "") // remove code blocks fully
@@ -250,10 +344,6 @@ export class AiService {
         .replace(/^\s+/, "")            // remove leading whitespace/newlines
         .replace(/\n{3,}/g, "\n\n")     // normalize excessive line breaks
         .trim();
-
-      if (!answer || answer.length < 10) {
-        throw new InternalServerError("LLM returned insufficient content");
-      }
 
       return {
         question: questionDoc.question,
@@ -318,13 +408,8 @@ export class AiService {
       }
 
       const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
-      console.log("Full url ", fullUrl);
-      let response;
-      try{
-      response = await fetch(fullUrl);
-      }catch(err){
-        console.error("Error fetching WhatsApp message:", err);
-      }
+
+      const response = await fetch(fullUrl);
 
       if (!response.ok) {
         console.error("Failed to fetch WhatsApp message:", response.statusText);
@@ -538,74 +623,41 @@ export class AiService {
     }
   }
 
-  /** Check whether a pending question is a duplicate of an already-answered one.
-   *  POST {gdbServerUrl}/v1/gdb/check-pending-duplicate
-   *       { rephrased_query, crop, state, createdAt }.
-   *  When a match exists, returns the duplicate-check result (is_duplicate, …).
-   *  When nothing matches, the GDB server replies with { detail: "…" } — that body is
-   *  returned as-is (not null) so callers can distinguish "not found" from a transport
-   *  error (which returns null). */
   async checkPendingDuplicate(params: {
     rephrased_query: string;
     crop: string;
     state: string;
-    createdAt?: Date | string | null;
-  }): Promise<GdbPendingDuplicateResponse | null> {
+    createdAt: Date;
+  }): Promise<PendingDuplicateCheckResponse> {
     try {
-      const response = await fetch(
-        `${this._gdbServerUrl}/v1/gdb/check-pending-duplicate`,
-        {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(params),
-        },
-      );
+      const response = await fetch(`${this._gdbServerUrl}/v1/gdb/check-pending-duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rephrased_query: params.rephrased_query,
+          crop: params.crop,
+          state: params.state,
+          created_at: params.createdAt?.toISOString(),
+        }),
+      });
 
-      const data = (await response.json().catch(() => null)) as
-        | GdbPendingDuplicateResponse
-        | null;
-
-      // A "question not found" reply (non-2xx, but carrying a `detail`) is a valid
-      // outcome the caller acts on — surface it. Only treat it as a failure when the
-      // response isn't ok AND there's no parseable body to act on.
-      if (!response.ok && !data?.detail) {
-        console.error(
-          `[checkPendingDuplicate] Failed: ${response.status} ${response.statusText}`,
-        );
-        return null;
+      if (!response.ok) {
+        const errorBody:any = await response.json();
+        console.error(`[checkPendingDuplicate] Failed: ${response.status} ${response.statusText}`, errorBody);
+        // If the API returns a 'detail' field, it means no match was found, but it's not an error.
+        // We should return an object with the detail message.
+        if (errorBody && errorBody.detail) {
+          return { detail: errorBody.detail };
+        }
+        throw new InternalServerError(`GDB check-pending-duplicate failed: ${response.statusText}`);
       }
 
-      return data;
+      return (await response.json()) as PendingDuplicateCheckResponse;
     } catch (error) {
       console.error('[checkPendingDuplicate] Error:', error);
-      return null;
+      throw new InternalServerError(`Failed to check pending duplicate: ${error.message}`);
     }
   }
-
-}
-
-export interface GdbPendingDuplicateCandidate {
-  question_id: string;
-  reference_question_id: string | null;
-  question: string;
-  similarity_score: number;
-  created_at: string;
-  is_duplicate: boolean;
-}
-
-export interface GdbPendingDuplicateResponse {
-  is_duplicate?: boolean;
-  duplicate_question_id?: string | null;
-  matched_question_id?: string | null;
-  similarity_score?: number;
-  match_type?: string;
-  query?: string;
-  crop?: string;
-  state?: string;
-  candidates_checked?: GdbPendingDuplicateCandidate[];
-  audit?: any;
-  /** Present (with a non-2xx status) when the question_id wasn't found. */
-  detail?: string;
 }
 
 export interface GdbMatchItem {
