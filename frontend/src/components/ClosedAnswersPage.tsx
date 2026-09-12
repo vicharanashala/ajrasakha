@@ -3345,6 +3345,7 @@ export const ClosedAnswersPage = () => {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search question, answer or paste an ID..."
                 className="pl-8"
+                autoComplete="off"
               />
             </div>
             <div className="flex items-center gap-2">
