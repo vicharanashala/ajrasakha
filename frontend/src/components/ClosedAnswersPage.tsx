@@ -1245,7 +1245,6 @@ const AnswerSourcesEditor = ({
           });
           setNewSourceId(null);
           sessionStartedRef.current = false;
-          editStartedAtRef.current = null;
           setConfirmedIndices(new Set());
           refreshAnswerSources(answer._id);
         },
