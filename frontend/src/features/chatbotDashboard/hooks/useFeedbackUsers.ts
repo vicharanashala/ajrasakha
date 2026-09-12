@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 
 const chatbotService = new ChatbotService();
@@ -143,5 +143,17 @@ export const useClosedQuestionLocation = ({source, userType, state, district, st
       });
     },
     enabled,
+  });
+}
+
+export const useLogoutUser = () => {
+  return useMutation({
+    mutationFn: ({ userId, username, email }: { userId: string, username: string, email: string }) => {
+      return chatbotService.logoutUser({
+        userId,
+        username,
+        email
+      });
+    },
   });
 }

@@ -815,4 +815,14 @@ export class ChatbotService {
     return apiFetch<any>(`${this._baseUrl}/active-user-by-questions?${params.toString()}`)
   }
 
+  async logoutUser({userId, username, email}: {userId: string, username: string, email: string}): Promise<{value: boolean, message: string} | null> {
+    const params = new URLSearchParams();
+    params.append('userId', userId);
+    params.append('name', username);
+    params.append('email', email);
+    return apiFetch<{value: boolean, message: string}>(`${this._baseUrl}/logout-user?${params.toString()}`, {
+      method: 'POST',
+    });
+  }
+
 }
