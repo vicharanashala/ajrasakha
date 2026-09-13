@@ -9,3 +9,9 @@ count.txt
 .tanstack
 .env.production
 .env.staging
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/
