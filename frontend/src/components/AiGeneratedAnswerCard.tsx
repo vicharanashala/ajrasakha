@@ -5,13 +5,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
-import type { SourceItem } from "@/types";
+import type { SourceItem, SupportedLanguage } from "@/types";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Info, Sparkles } from "lucide-react";
 import { ScrollArea } from "./atoms/scroll-area";
 import { Button } from "./atoms/button";
-
-
+import { AudioPlayerButton } from "./audio/AudioPlayerButton";
 
 type Props = {
   aiApprovedAnswer?: string;
@@ -25,6 +24,12 @@ type Props = {
   onCancel?: () => void;
   isGenerating?: boolean;
   isApproving?: boolean;
+  /**
+   * BCP-47 language code used for TTS playback. Defaults to `en-IN`
+   * when omitted. `"auto"` is also coerced to `en-IN` since the
+   * backend TTS endpoint requires a specific code.
+   */
+  language?: SupportedLanguage | string;
 };
 
 export const AiGeneratedAnswerCard = ({
@@ -38,8 +43,11 @@ export const AiGeneratedAnswerCard = ({
   onApprove,
   onCancel,
   isGenerating,
-  isApproving
+  isApproving,
+  language = "en-IN",
 }: Props) => {
+  const resolvedLanguage =
+    !language || language === "auto" ? "en-IN" : language;
   const [expanded, setExpanded] = useState(false);
 
   const hasSources = Array.isArray(aiApprovedSources) && aiApprovedSources.length > 0;
@@ -117,6 +125,17 @@ export const AiGeneratedAnswerCard = ({
         <div className="overflow-hidden">
           <ScrollArea className="h-[200px]">
             <div className="px-6 py-5 text-sm leading-7 text-foreground/80 space-y-4">
+              {hasAIAnswer && (
+                <div className="flex items-center justify-end -mt-2 mb-1">
+                  <AudioPlayerButton
+                    text={tempAiAnswer || aiInitialAnswer || aiApprovedAnswer || ""}
+                    language={resolvedLanguage}
+                    variant="icon"
+                    disabled={isGenerating}
+                    tooltip="Listen to this AI-generated answer"
+                  />
+                </div>
+              )}
               {isEligibleSource ? (
                 !hasAIAnswer ? (
                   <>
