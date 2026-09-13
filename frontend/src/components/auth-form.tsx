@@ -177,7 +177,7 @@ export const AuthForm = ({
       ) {
         toastError("Incorrect email or password.");
       } else {
-        let message = error.message || "Something went wrong. Please try again.";
+        let message = error.message || "An unexpected error occurred. Please check your connection and try again.";
 
         try {
           // Look for embedded JSON in error message
