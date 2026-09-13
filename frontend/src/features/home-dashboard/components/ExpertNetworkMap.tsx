@@ -608,6 +608,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
         flexWrap: "nowrap",
         gap: "14px",
         width: "100%",
+        maxWidth: "100%",
         borderRadius: "24px",
         background: "#081c15",
         padding: "14px",
@@ -615,6 +616,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
         boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
         boxSizing: "border-box",
         alignItems: "stretch",
+        overflow: "hidden",
       }}
     >
       {/* Custom Styles */}
@@ -628,6 +630,9 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
           background: #061710 !important;
           border-radius: 18px;
           z-index: 1 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow: hidden !important;
         }
         .leaflet-expert-custom-icon {
           background: transparent !important;
@@ -654,10 +659,64 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
           background: rgba(214, 183, 99, 0.4);
           border-radius: 4px;
         }
+        @media (max-width: 900px) {
+          .expert-network-layout-wrap {
+            flex-direction: column !important;
+            padding: 10px !important;
+            gap: 12px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+            border-radius: 16px !important;
+            overflow: hidden !important;
+          }
+          .expert-network-map-panel {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            height: 320px !important;
+            box-sizing: border-box !important;
+            border-radius: 14px !important;
+          }
+          .expert-network-sidebar-panel {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            height: auto !important;
+            max-height: 420px !important;
+            box-sizing: border-box !important;
+            border-radius: 14px !important;
+          }
+        }
+        @media (max-width: 600px) {
+          .expert-network-layout-wrap {
+            padding: 8px !important;
+            border-radius: 14px !important;
+            gap: 10px !important;
+          }
+          .expert-network-map-panel {
+            height: 270px !important;
+          }
+          .expert-network-sidebar-panel {
+            max-height: 380px !important;
+            padding: 10px !important;
+          }
+          .leaflet-control-attribution {
+            font-size: 7px !important;
+            max-width: 160px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+        }
       `}</style>
 
       {/* LEFT: Compact Map Container (Flex ~58% width) */}
       <div
+        className="expert-network-map-panel"
         style={{
           flex: "1 1 58%",
           minWidth: "0",
@@ -1059,9 +1118,11 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
 
       {/* RIGHT: Dedicated Data Sidebar Panel (Fixed 300px width on Right Side) */}
       <div
+        className="expert-network-sidebar-panel"
         style={{
           flex: "0 0 300px",
           width: "300px",
+          maxWidth: "100%",
           display: "flex",
           flexDirection: "column",
           gap: "10px",

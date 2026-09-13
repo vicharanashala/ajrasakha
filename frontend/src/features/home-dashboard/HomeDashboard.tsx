@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
-  ArrowLeft,
   X,
   Menu,
   Check,
@@ -79,47 +78,139 @@ const getYouTubeEmbedUrl = (url?: string): string | null => {
   return null;
 };
 
+/* Logos for Explore, Build & Contribute section */
+const AiKoshLogo: React.FC<{ size?: number }> = ({ size = 36 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="14" fill="#0C3A2A" />
+    <path d="M18 44L32 18L46 44" stroke="#F0D27B" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M23 34H41" stroke="#F0D27B" strokeWidth="3.5" strokeLinecap="round" />
+    <circle cx="32" cy="18" r="3.5" fill="#38EF7D" />
+    <circle cx="18" cy="44" r="3.5" fill="#8CAC82" />
+    <circle cx="46" cy="44" r="3.5" fill="#8CAC82" />
+    <circle cx="32" cy="34" r="2.5" fill="#38EF7D" />
+  </svg>
+);
+
+const HuggingFaceLogo: React.FC<{ size?: number }> = ({ size = 36 }) => (
+  <img
+    src="/assets/hf-logo.svg"
+    alt="Hugging Face"
+    style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
+  />
+);
+
+const GoldenDatabaseLogo: React.FC<{ size?: number }> = ({ size = 36 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="14" fill="#173326" />
+    <ellipse cx="32" cy="18" rx="16" ry="6" fill="#F0D27B" stroke="#D4AC57" strokeWidth="2" />
+    <path d="M16 18V28C16 31.3 23.2 34 32 34C40.8 34 48 31.3 48 28V18" stroke="#D4AC57" strokeWidth="2" />
+    <path d="M16 28V38C16 41.3 23.2 44 32 44C40.8 44 48 41.3 48 38V28" stroke="#F0D27B" strokeWidth="2" />
+    <path d="M16 38V48C16 51.3 23.2 54 32 54C40.8 54 48 51.3 48 48V38" stroke="#D4AC57" strokeWidth="2" />
+    <path d="M35 33L43 41M43 41L35 49M43 41H25" stroke="#38EF7D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const AjraSakhaExplorerLogo: React.FC<{ size?: number }> = ({ size = 36 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="14" fill="#071B24" />
+    <circle cx="28" cy="28" r="13" stroke="#9BD9CD" strokeWidth="3" />
+    <line x1="37" y1="37" x2="49" y2="49" stroke="#9BD9CD" strokeWidth="4" strokeLinecap="round" />
+    <path d="M28 20L30.5 25.5L36 28L30.5 30.5L28 36L25.5 30.5L20 28L25.5 25.5L28 20Z" fill="#F0D27B" />
+    <circle cx="45" cy="19" r="2.5" fill="#38EF7D" />
+  </svg>
+);
+
 // Defined outside the component — never recreated on re-render
 const FUTURE_SLIDES = [
   {
-    id: "khc-agent-interface",
-    title: "KHC Agent Interface",
-    subtitle: "Knowledge Hub Center Workflow",
-    tag: "AGENT WORKFLOW",
-    image: "/assets/learning-campus.png",
-    description: "Unified expert desk interface for organizing, reviewing, and approving agricultural advisory datasets.",
+    id: "ajrasakha-web-application",
+    title: "AjraSakha Web Application",
+    subtitle: "Multilingual Agricultural Advisory",
+    tag: "WEB PLATFORM",
+    image: "/assets/innovations/ajrasakha_web_app.jpg",
+    description:
+      "A multilingual AI-powered web platform that provides farmers with expert-validated, region-specific agricultural advisory. Powered by the Annam Chat Engine, it delivers personalized recommendations on crop cultivation, pest and disease management, weather, market information, government schemes, and farm operations through an interactive conversational interface.",
   },
   {
-    id: "annadatha-app",
-    title: "AnnaDatha - Question Collection",
-    subtitle: "Farmer Query Intake App",
-    tag: "QUERY COLLECTION",
-    image: "/assets/farmer-network.png",
-    description: "Multilingual voice and text mobile application for collecting ground-level farmer questions across India.",
+    id: "ajrasakha-whatsapp-bot",
+    title: "AjraSakha WhatsApp Bot",
+    subtitle: "Conversational Voice & Text Bot",
+    tag: "WHATSAPP BOT",
+    image: "/assets/innovations/ajrasakha_whatsapp_bot.jpg",
+    description:
+      "A multilingual AI-powered agricultural Whatsapp bot that delivers expert-validated, region-specific advisory directly through WhatsApp. Supporting both text and voice interactions, it enables farmers to access personalized recommendations on crop management, weather, markets, government schemes, and farm operations using a familiar messaging platform.",
   },
   {
-    id: "npk-calculator",
-    title: "NPK Calculator",
-    subtitle: "Precision Soil Nutrient Balancing",
-    tag: "AGRI CALCULATOR",
-    image: "/assets/future-crops.png",
-    description: "Smart fertilizer dosage engine calculating optimal Nitrogen, Phosphorus, and Potassium ratios per crop type.",
+    id: "annam-call-center-agent-interface",
+    title: "ANNAM AI Enabled Call Center Agent Interface",
+    subtitle: "AI-Assisted Support Desk",
+    tag: "CALL CENTER AGENT",
+    image: "/assets/innovations/annam_call_center.jpg",
+    description:
+      "An AI-assisted call center agent platform that empowers support agents to deliver fast, consistent, and expert-validated agricultural advisory while significantly reducing manual effort and response time. The platform centralizes farmer interactions, automatically captures conversation history, generates structured call records, and stores all query data in a unified repository for seamless knowledge management, analytics, and continuous enhancement of the Dataset.",
   },
   {
-    id: "soil-health-card-reader",
-    title: "Soil Health Card Reader",
-    subtitle: "AI Optical Document Scanner",
-    tag: "SMART SCANNER",
-    image: "/assets/green-field.jpg",
-    description: "Instant OCR scanner extracting soil parameters from physical Soil Health Cards into digital recommendations.",
+    id: "ajrasakha-reviewer-system",
+    title: "AjraSakha Reviewer System",
+    subtitle: "Knowledge Validation & QA Platform",
+    tag: "REVIEWER SYSTEM",
+    image: "/assets/innovations/ajrasakha_reviewer_system.jpg",
+    description:
+      "An enterprise-grade knowledge validation and quality assurance platform that enables agricultural experts to review, verify, modify, and approve curated responses by attaching authentic reference source documents before they are published in the AjraSakha dataset. The system supports single-allocation reviewer assignment, workflow management, version control, audit trails, quality scoring, and continuous knowledge improvement, ensuring that only expert-validated information powers the Annam Chat Engine.",
   },
   {
-    id: "predictive-analysis-engine",
-    title: "Predictive Analysis Engine",
-    subtitle: "Crop & Weather Risk Modeling",
-    tag: "PREDICTIVE AI",
-    image: "/assets/future-crops.png",
-    description: "Advanced forecasting engine predicting pest infestation, disease outbreaks, and yield trajectories.",
+    id: "annadatha-question-collection-app",
+    title: "AnnaDatha Question Collection App",
+    subtitle: "Field Survey & Data Capture (APK)",
+    tag: "QUESTION COLLECTION",
+    image: "/assets/innovations/annadatha_field_app.jpg",
+    description:
+      "A field data collection application that enables survey teams, extension workers, and researchers to capture authentic farmer questions along with geo-location, crop, and contextual information for expanding the agricultural knowledge base. The application is cuurently available as an APK.",
+  },
+  {
+    id: "ajrasakha-faqs-generator",
+    title: "AjraSakha FAQs Generator",
+    subtitle: "AI Knowledge Engineering Pipeline",
+    tag: "FAQS GENERATOR",
+    image: "/assets/innovations/ajrasakha_faqs_generator.jpg",
+    description:
+      "An AI-powered knowledge engineering pipeline that processes large volumes of farmer queries by automatically identifying and removing invalid or irrelevant questions, detecting duplicate and semantically similar queries, clustering related questions, separating crop-specific and domain-specific topics, and generating expert-review-ready FAQs for integration into the Golden Database.",
+  },
+  {
+    id: "ajrasakha-explorer",
+    title: "AjraSakha Explorer",
+    subtitle: "Dataset Exploration & API Portal",
+    tag: "DATA EXPLORER",
+    image: "/assets/innovations/ajrasakha_explorer.jpg",
+    description:
+      "A web-based exploration and analytics interface for the validated AjraSakha Dataset Database, enabling users to browse, search, and navigate expert-validated agricultural Q&A pairs through structured filters. The platform will provide secure API access to the Golden Database, facilitating seamless integration with AI applications, conversational agents, and third-party agricultural systems.",
+  },
+  {
+    id: "ajrasakha-pops-translator",
+    title: "AjraSakha POPs Translator",
+    subtitle: "Multilingual Advisory & POPs Translation",
+    tag: "POPS TRANSLATOR",
+    image: "/assets/innovations/ajrasakha_pops_translator.jpg",
+    description:
+      "An AI-powered translation platform that converts multilingual agricultural Packages of Practices (PoPs) & advisories while preserving technical accuracy, formatting, and domain-specific terminology. The pipeline incorporates automated quality checks and expert validation to create multilingual, standardized knowledge assets for the Annam Chat Engine.",
+  },
+  {
+    id: "samagama-interview-application",
+    title: "Samagama Interview Application",
+    subtitle: "Competency-Based AI Candidate Assessment",
+    tag: "INTERVIEW APP",
+    image: "/assets/innovations/samagama_interview_app.jpg",
+    description:
+      "An AI-powered interview and assessment platform for evaluating candidates through structured interviews, automated scoring, and competency-based analysis for agricultural and technical roles.",
+  },
+  {
+    id: "vibe-platform",
+    title: "ViBe Platform",
+    subtitle: "Integrity-Aware Digital Education",
+    tag: "VIBE EDUCATION",
+    image: "/assets/innovations/vibe_education_platform.jpg",
+    description:
+      "An AI-powered online learning platform designed to deliver structured, engagement-driven digital education through interactive courses, adaptive assessments, and integrity-aware learning workflows. The platform incorporates smart engagement checks, camera-based presence verification, sequential content progression, automated quiz and assignment evaluation, role-based access control (RBAC), course and cohort management, certification workflows, real-time learner progress tracking, and analytics dashboards. Built for scalable, self-paced learning, ViBe ensures active participation, academic integrity, and measurable learning outcomes across large learner cohorts.",
   },
 ];
 
@@ -144,6 +235,24 @@ export const HomeDashboard: React.FC = () => {
   const [activeNetworkTab, setActiveNetworkTab] = useState<"experts" | "kvk" | "sau">("experts");
   const [hoveredKvkIdx, setHoveredKvkIdx] = useState<number | null>(null);
   const [isNavScrolled, setIsNavScrolled] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
+    checkMobile();
+    window.addEventListener("resize", checkMobile, { passive: true });
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Mount / Unmount lifecycle hook to isolate Home Dashboard global styles from the rest of the application
+  useEffect(() => {
+    document.documentElement.classList.add("home-dashboard-active");
+    document.body.classList.add("home-dashboard-active");
+    return () => {
+      document.documentElement.classList.remove("home-dashboard-active");
+      document.body.classList.remove("home-dashboard-active");
+    };
+  }, []);
 
   // Intersection Observer: Detach navbar when #knowledge section enters view (0% scroll overhead)
   useEffect(() => {
@@ -221,7 +330,8 @@ export const HomeDashboard: React.FC = () => {
   const scrollToStage = (stageIdx: number) => {
     const section = document.getElementById("engine");
     if (!section) return;
-    const sectionTop = section.offsetTop;
+    const rect = section.getBoundingClientRect();
+    const sectionTop = rect.top + window.scrollY;
     const sectionHeight = section.offsetHeight;
     const windowHeight = window.innerHeight;
     const maxScroll = sectionHeight - windowHeight;
@@ -239,6 +349,7 @@ export const HomeDashboard: React.FC = () => {
     ["Intelligence", "intelligence"],
     ["Outreach", "outreach"],
     ["Learning", "learning"],
+    ["Explore & Build", "explore-build"],
   ];
 
   const languages = ["English", "हिन्दी", "ਪੰਜਾਬੀ", "বাংলা", "தமிழ்"];
@@ -707,12 +818,12 @@ export const HomeDashboard: React.FC = () => {
               background: "var(--forest)",
               color: "#faf8f1",
               border: "1px solid rgba(255,255,255,0.2)",
-              padding: "8px 18px",
+              padding: isMobile ? "6px 14px" : "8px 18px",
               borderRadius: "20px",
               fontWeight: 700,
-              fontSize: "0.85rem",
+              fontSize: isMobile ? "0.8rem" : "0.85rem",
               cursor: "pointer",
-              marginLeft: "12px",
+              marginLeft: isMobile ? "6px" : "12px",
               boxShadow: "0 4px 14px rgba(12, 58, 42, 0.25)",
               transition: "transform 0.2s ease",
             }}
@@ -751,7 +862,7 @@ export const HomeDashboard: React.FC = () => {
       />
 
       {/* 3. Knowledge Engine & Data Sources — Sapta Nadi Knowledge River */}
-      <Suspense fallback={<div style={{ height: "100vh", background: "#06140b" }} />}>
+      <Suspense fallback={<div style={{ height: "100dvh", minHeight: "400px", background: "#06140b" }} />}>
         <KnowledgeRootsCanvas />
       </Suspense>
 
@@ -774,7 +885,7 @@ export const HomeDashboard: React.FC = () => {
                   Review &amp; validation workflow
                 </span>
                 <h2 className="evo-headline">
-                  The evolution of<br />
+                  The evolution of <br />
                   <em>trusted knowledge</em>
                 </h2>
               </div>
@@ -846,8 +957,8 @@ export const HomeDashboard: React.FC = () => {
                     onClick={() => scrollToStage(Math.min(4, reviewStage + 1))}
                     aria-label="Next stage"
                   >
-                    <span>Next</span>
-                    <ChevronRight size={18} />
+                    <span style={{ color: "#ffffff", fontWeight: 700 }}>Next</span>
+                    <ChevronRight size={18} style={{ color: "#ffffff" }} />
                   </button>
                 </div>
               </div>
@@ -1018,11 +1129,12 @@ export const HomeDashboard: React.FC = () => {
                         <i style={{ background: "#6d9a57" }} />
                         {u.name}
                       </span>
-                      {/* Hover the count to reveal the user's KVK names. */}
+                      {/* Hover / Tap the count to reveal the user's KVK names. */}
                       <strong
                         style={{ position: "relative", cursor: "pointer" }}
                         onMouseEnter={() => setHoveredKvkIdx(i)}
                         onMouseLeave={() => setHoveredKvkIdx(null)}
+                        onClick={() => setHoveredKvkIdx(hoveredKvkIdx === i ? null : i)}
                       >
                         {u.kvks.length.toLocaleString()}
                         {hoveredKvkIdx === i && (
@@ -1032,8 +1144,8 @@ export const HomeDashboard: React.FC = () => {
                               bottom: "calc(100% + 8px)",
                               right: 0,
                               zIndex: 20,
-                              minWidth: "180px",
-                              maxWidth: "260px",
+                              minWidth: "160px",
+                              maxWidth: "min(260px, 80vw)",
                               padding: "8px 10px",
                               borderRadius: "8px",
                               background: "#173326",
@@ -1073,9 +1185,9 @@ export const HomeDashboard: React.FC = () => {
             )}
           </div>
 
-          <div className="expert-map-card">
-            <div className="night-map" style={{ padding: "8px", overflow: "visible" }}>
-              <Suspense fallback={<div style={{ height: 540, borderRadius: 18, background: "#061710" }} />}>
+          <div className="expert-map-card" style={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
+            <div className="night-map" style={{ width: "100%", maxWidth: "100%", minWidth: 0, padding: 0, overflow: "hidden" }}>
+              <Suspense fallback={<div style={{ height: "min(540px, 60vh)", minHeight: "340px", borderRadius: 18, background: "#061710", width: "100%" }} />}>
                 <ExpertNetworkMap publicUsers={publicUsers} mode={activeNetworkTab} />
               </Suspense>
               <div className="night-map-label" style={{ marginTop: "12px" }}>
@@ -1421,7 +1533,161 @@ export const HomeDashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* 9. Future Innovations Ecosystem (3D Coverflow Slider & Innovations Card Below) */}
+      {/* 9. Explore, Build & Contribute Section */}
+      <section className="explore-build-section" id="explore-build">
+        <div className="page-shell">
+          <div className="explore-build-header">
+            <span className="eyebrow">Open access to the intelligence behind ACE.</span>
+            <h2>Explore, Build &amp; Contribute</h2>
+          </div>
+
+          <div className="explore-build-grid">
+            {/* 1. AI Kosh Dataset */}
+            <a
+              href="https://aikosh.indiaai.gov.in/web/user/org/public-profile/30a2c366-5657-4ecf-8021-2b945e199d7d?tabs=org-details"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="explore-card"
+            >
+              <div className="explore-card-top">
+                <div className="explore-card-logo-wrap">
+                  <div className="explore-card-logo">
+                    <AiKoshLogo size={36} />
+                  </div>
+                </div>
+                <div className="explore-daily-badge">
+                  <span className="pulse-dot" />
+                  <span>Updated Daily</span>
+                </div>
+              </div>
+
+              <div className="explore-card-body">
+                <h3>AI Kosh Dataset</h3>
+                <p>
+                  Discover ACE's agricultural Q&amp;A dataset through India's AI Kosh ecosystem — a repository built on validated, context-rich agricultural knowledge, open for exploration.
+                </p>
+              </div>
+
+              <div className="explore-card-footer">
+                <span className="explore-card-action">
+                  Explore AI Kosh
+                </span>
+                <span className="explore-card-action-icon">
+                  <ArrowRight size={16} />
+                </span>
+              </div>
+            </a>
+
+            {/* 2. Hugging Face Open Source Dataset */}
+            <a
+              href="https://huggingface.co/datasets/vicharanashala/ajrasakha-dataset-v1"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="explore-card"
+            >
+              <div className="explore-card-top">
+                <div className="explore-card-logo-wrap">
+                  <div className="explore-card-logo">
+                    <HuggingFaceLogo size={36} />
+                  </div>
+                </div>
+                <div className="explore-daily-badge">
+                  <span className="pulse-dot" />
+                  <span>Updated Daily</span>
+                </div>
+              </div>
+
+              <div className="explore-card-body">
+                <h3>Hugging Face Open Source Dataset</h3>
+                <p>
+                  Access the ACE dataset, openly. Designed for research, experimentation, and the builders shaping the next generation of agricultural AI.
+                </p>
+              </div>
+
+              <div className="explore-card-footer">
+                <span className="explore-card-action">
+                  Access Open Dataset
+                </span>
+                <span className="explore-card-action-icon">
+                  <ArrowRight size={16} />
+                </span>
+              </div>
+            </a>
+
+            {/* 3. Request Golden Database API */}
+            <a
+              href="https://forms.gle/j4mv5J85RjMrNFnb8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="explore-card"
+            >
+              <div className="explore-card-top">
+                <div className="explore-card-logo-wrap">
+                  <div className="explore-card-logo">
+                    <GoldenDatabaseLogo size={36} />
+                  </div>
+                </div>
+                <div className="explore-card-badge">
+                  <span>REST API Access</span>
+                </div>
+              </div>
+
+              <div className="explore-card-body">
+                <h3>Request Golden Database API</h3>
+                <p>
+                  Build with confidence, on a foundation of validated intelligence. Request API access to integrate the Golden Database into agri-tech platforms, research tools, and public applications.
+                </p>
+              </div>
+
+              <div className="explore-card-footer">
+                <span className="explore-card-action">
+                  Request API Access
+                </span>
+                <span className="explore-card-action-icon">
+                  <ArrowRight size={16} />
+                </span>
+              </div>
+            </a>
+
+            {/* 4. AjraSakha Explorer (Feedback Interface) */}
+            <a
+              href="https://explorer.annam.ai/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="explore-card"
+            >
+              <div className="explore-card-top">
+                <div className="explore-card-logo-wrap">
+                  <div className="explore-card-logo">
+                    <AjraSakhaExplorerLogo size={36} />
+                  </div>
+                </div>
+                <div className="explore-card-badge">
+                  <span>Feedback Interface</span>
+                </div>
+              </div>
+
+              <div className="explore-card-body">
+                <h3>AjraSakha Explorer</h3>
+                <p>
+                  Step inside how ACE is built. Follow the journey of assessing, reviewing, and refining agricultural questions — examine answers, understand evaluation benchmarks, and contribute feedback that helps ACE grow sharper.
+                </p>
+              </div>
+
+              <div className="explore-card-footer">
+                <span className="explore-card-action">
+                  Launch Explorer
+                </span>
+                <span className="explore-card-action-icon">
+                  <ArrowRight size={16} />
+                </span>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* 10. Future Innovations Ecosystem (3D Coverflow Slider & Innovations Card Below) */}
       <section className="future-section" id="future">
         <div className="page-shell">
           <div className="future-section-header">
@@ -1455,29 +1721,39 @@ export const HomeDashboard: React.FC = () => {
                 let filter = "none";
 
                 if (offset === 0) {
-                  transform = "translateX(0%) scale(1.15) translateZ(80px)";
+                  transform = isMobile
+                    ? "translateX(0%) scale(1.0)"
+                    : "translateX(0%) scale(1.15) translateZ(80px)";
                   zIndex = 10;
                   opacity = 1;
                   filter = "brightness(1.05) drop-shadow(0 25px 40px rgba(0,0,0,0.6))";
                 } else if (offset === -1 || (activeFutureSlideIdx === 0 && idx === futureSlides.length - 1)) {
-                  transform = "translateX(-68%) scale(0.86) rotateY(22deg) translateZ(-40px)";
+                  transform = isMobile
+                    ? "translateX(-75%) scale(0.82)"
+                    : "translateX(-68%) scale(0.86) rotateY(22deg) translateZ(-40px)";
                   zIndex = 5;
-                  opacity = 0.72;
+                  opacity = isMobile ? 0.35 : 0.72;
                   filter = "brightness(0.68) blur(0.5px)";
                 } else if (offset === 1 || (activeFutureSlideIdx === futureSlides.length - 1 && idx === 0)) {
-                  transform = "translateX(68%) scale(0.86) rotateY(-22deg) translateZ(-40px)";
+                  transform = isMobile
+                    ? "translateX(75%) scale(0.82)"
+                    : "translateX(68%) scale(0.86) rotateY(-22deg) translateZ(-40px)";
                   zIndex = 5;
-                  opacity = 0.72;
+                  opacity = isMobile ? 0.35 : 0.72;
                   filter = "brightness(0.68) blur(0.5px)";
                 } else if (offset === -2 || (activeFutureSlideIdx <= 1 && idx >= futureSlides.length - 2 + activeFutureSlideIdx)) {
-                  transform = "translateX(-115%) scale(0.7) rotateY(36deg) translateZ(-100px)";
+                  transform = isMobile
+                    ? "translateX(-120%) scale(0.6)"
+                    : "translateX(-115%) scale(0.7) rotateY(36deg) translateZ(-100px)";
                   zIndex = 2;
-                  opacity = 0.38;
+                  opacity = isMobile ? 0 : 0.38;
                   filter = "brightness(0.4) blur(1.5px)";
                 } else if (offset === 2 || (activeFutureSlideIdx >= futureSlides.length - 2 && idx <= 1)) {
-                  transform = "translateX(115%) scale(0.7) rotateY(-36deg) translateZ(-100px)";
+                  transform = isMobile
+                    ? "translateX(120%) scale(0.6)"
+                    : "translateX(115%) scale(0.7) rotateY(-36deg) translateZ(-100px)";
                   zIndex = 2;
-                  opacity = 0.38;
+                  opacity = isMobile ? 0 : 0.38;
                   filter = "brightness(0.4) blur(1.5px)";
                 } else {
                   transform = `translateX(${offset > 0 ? 150 : -150}%) scale(0.5)`;
@@ -1504,10 +1780,12 @@ export const HomeDashboard: React.FC = () => {
                       src={slide.image}
                       alt={slide.title}
                       className="coverflow-card-img"
+                      loading="eager"
                     />
                     <div className="coverflow-card-overlay">
                       <span className="coverflow-card-tag">{slide.tag}</span>
                       <div className="coverflow-card-content">
+                        {slide.subtitle && <span className="coverflow-card-subtitle">{slide.subtitle}</span>}
                         <h3>{slide.title}</h3>
                         <p>{slide.description}</p>
                       </div>
@@ -1568,6 +1846,7 @@ export const HomeDashboard: React.FC = () => {
             <a href="#engine">Knowledge engine</a>
             <a href="#india-map">Coverage</a>
             <a href="#outreach">Outreach</a>
+            <a href="#explore-build">Explore &amp; Build</a>
           </div>
         </div>
 

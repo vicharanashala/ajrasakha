@@ -67,7 +67,7 @@ export const OutreachCarousel: React.FC = () => {
       style={{
         background: current.gradient,
         borderRadius: "24px",
-        padding: "2.5rem",
+        padding: "clamp(1.25rem, 4vw, 2.5rem)",
         color: "#f2efe5",
         position: "relative",
         boxShadow: "0 24px 64px rgba(12, 58, 42, 0.2)",
@@ -75,7 +75,7 @@ export const OutreachCarousel: React.FC = () => {
         transition: "background 0.5s ease",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#f0d27b", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
           <MapPin size={16} />
           <span>{current.place}</span>
@@ -85,17 +85,17 @@ export const OutreachCarousel: React.FC = () => {
         </span>
       </div>
 
-      <h3 style={{ fontSize: "1.8rem", fontWeight: 700, color: "#faf8f1", marginBottom: "1rem", lineHeight: 1.3 }}>
+      <h3 style={{ fontSize: "clamp(1.3rem, 3.5vw, 1.8rem)", fontWeight: 700, color: "#faf8f1", marginBottom: "1rem", lineHeight: 1.3 }}>
         {current.title}
       </h3>
 
-      <p style={{ fontSize: "1.05rem", color: "rgba(242, 239, 229, 0.88)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: "90%" }}>
+      <p style={{ fontSize: "clamp(0.9rem, 2vw, 1.05rem)", color: "rgba(242, 239, 229, 0.88)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: "100%" }}>
         {current.body}
       </p>
 
       {/* Metrics Row */}
-      <div style={{ display: "flex", gap: "2rem", marginBottom: "2rem", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255,255,255,0.06)", padding: "0.8rem 1.25rem", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.1)" }}>
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "2rem", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255,255,255,0.06)", padding: "0.8rem 1.25rem", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.1)", flex: "1 1 min(180px, 100%)" }}>
           <Users size={20} color="#9bd9cd" />
           <div>
             <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#faf8f1" }}>{current.reach}</div>
@@ -103,7 +103,7 @@ export const OutreachCarousel: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255,255,255,0.06)", padding: "0.8rem 1.25rem", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.1)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255,255,255,0.06)", padding: "0.8rem 1.25rem", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.1)", flex: "1 1 min(180px, 100%)" }}>
           <CheckCircle size={20} color="#f0d27b" />
           <div>
             <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#faf8f1" }}>{current.outcome}</div>
@@ -113,8 +113,8 @@ export const OutreachCarousel: React.FC = () => {
       </div>
 
       {/* Navigation Controls */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(242, 239, 229, 0.15)", paddingTop: "1.5rem" }}>
-        <div style={{ display: "flex", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(242, 239, 229, 0.15)", paddingTop: "1.5rem", flexWrap: "wrap", gap: "14px" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           {STORIES.map((_, idx) => (
             <button
               key={idx}
@@ -132,9 +132,10 @@ export const OutreachCarousel: React.FC = () => {
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <button
             onClick={prevStory}
+            aria-label="Previous story"
             style={{
               width: "42px",
               height: "42px",
@@ -154,13 +155,14 @@ export const OutreachCarousel: React.FC = () => {
           <button
             onClick={nextStory}
             style={{
-              padding: "0 1.25rem",
+              padding: "0 1.1rem",
               height: "42px",
               borderRadius: "21px",
               background: "#d4ac57",
               border: "none",
               color: "#061923",
               fontWeight: 700,
+              fontSize: "0.85rem",
               display: "flex",
               alignItems: "center",
               gap: "6px",
@@ -168,7 +170,7 @@ export const OutreachCarousel: React.FC = () => {
               transition: "transform 0.2s ease",
             }}
           >
-            <span>Next outreach story</span>
+            <span>Next Story</span>
             <ArrowRight size={16} />
           </button>
         </div>
