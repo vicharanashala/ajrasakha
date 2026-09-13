@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test:e2e": "cd qa && pnpm test"
+  },
   "dependencies": {
     "pdfkit": "^0.18.0",
     "plivo": "^4.77.1",
