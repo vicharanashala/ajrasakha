@@ -45,3 +45,5 @@ backend_routes.txt
 endpoints.txt
 .clinerules/
 
+# Gap Detector
+apis/gap_detector/reports/
