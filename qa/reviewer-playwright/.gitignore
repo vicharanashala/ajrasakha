@@ -1,0 +1,5 @@
+node_modules/
+test-results/*
+!test-results/.gitkeep
+playwright-report/
+.env
