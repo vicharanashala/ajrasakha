@@ -106,7 +106,7 @@ export default function CompactTranslateDropdown({
           )}
         >
           <div className="px-3 py-2 border-b border-border bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               Select Language
             </p>
           </div>

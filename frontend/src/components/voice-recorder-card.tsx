@@ -298,7 +298,7 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
     <div className=" bg-background p-4">
       <div className=" mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="min-h-[80%] md:h-auto">
+          <Card className="min-h-[420px] md:h-auto">
             <CardHeader className="pb-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -314,9 +314,12 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
                     setLanguage(value as SupportedLanguage)
                   }
                 >
-                  <SelectTrigger className="w-full md:w-[160px] h-9">
+                  <SelectTrigger
+                    className="w-full md:w-[160px] h-9"
+                    aria-label="Select recording language"
+                  >
                     <Speech className="w-4 h-4" />
-                    <span className="hidden md:block text-sm">
+                    <span className="text-sm">
                       <SelectValue placeholder="Language" />
                     </span>
                   </SelectTrigger>
@@ -450,7 +453,7 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
             </CardContent>
           </Card>
             {/* can the incoming call box be moved here? */}
-          <Card className="min-h-[80%]  md:h-auto">
+          <Card className="min-h-[420px]  md:h-auto">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <Tooltip>
