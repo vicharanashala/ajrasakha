@@ -37,6 +37,13 @@ secrets/
 
 ai/tests/api/reports/
 
+# Playwright E2E
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+e2e/.env.e2e
+
 ai/evaluation_report_*.csv
 ai/tests/reports/
 ai/openapi.json
