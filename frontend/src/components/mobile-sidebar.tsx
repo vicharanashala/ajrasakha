@@ -83,6 +83,8 @@ export const MobileSidebar = ({
       navigate({ to: "/chatbot" });
     } else if (value === "whatsapp_history") {
       navigate({ to: "/whatsapp-history" });
+    } else if (value === "gdb_gap_report") {
+      navigate({ to: "/gdb-gap-report" });
     } else {
       setTab(value);
       setActiveTab(value);
@@ -157,6 +159,16 @@ export const MobileSidebar = ({
 
     ...(user && user.role === "admin"
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
+      : []),
+
+    ...(user && user.role === "admin"
+      ? [
+          {
+            id: "gdb_gap_report",
+            label: "GDB Gap Report",
+            icon: TrendingUp,
+          },
+        ]
       : []),
 
     ...(user && !isCoordinator && user.role !== "call_agent"
