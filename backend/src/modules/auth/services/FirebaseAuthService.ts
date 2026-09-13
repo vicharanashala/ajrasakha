@@ -397,12 +397,16 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   }
 
   async sendVerificationEmail(email: string): Promise<void> {
+    const normalizedEmail = email.trim().toLowerCase();
     try {
-      if (appConfig.isDevelopment) return;
-      const link = await this.auth.generateEmailVerificationLink(email);
+      if (appConfig.isDevelopment) {
+        console.log(`[dev] Skipping verification email to ${normalizedEmail}`);
+        return;
+      }
+      const link = await this.auth.generateEmailVerificationLink(normalizedEmail);
 
       await sendEmailNotification(
-        email,
+        normalizedEmail,
         'Verify your email',
         `Please verify your email by clicking on the link below: ${link}
 
@@ -425,20 +429,24 @@ If you face any issues, please contact the admin.`,
     </p>
   `,
       );
-      console.log(`Verification email sent successfully to ${email}`);
+      console.log(`Verification email sent successfully to ${normalizedEmail}`);
     } catch (err: any) {
-      console.error(`Failed to send verification email to ${email}:`, err);
+      console.error(`Failed to send verification email to ${normalizedEmail}:`, err);
       throw new BadRequestError(`Failed to send verification email: ${err.message || 'Unknown error'}`);
     }
   }
 
   async sendPasswordResetEmail(email: string): Promise<void> {
+    const normalizedEmail = email.trim().toLowerCase();
     try {
-      if (appConfig.isDevelopment) return;
-      const link = await this.auth.generatePasswordResetLink(email);
+      if (appConfig.isDevelopment) {
+        console.log(`[dev] Skipping password reset email to ${normalizedEmail}`);
+        return;
+      }
+      const link = await this.auth.generatePasswordResetLink(normalizedEmail);
 
       await sendEmailNotification(
-        email,
+        normalizedEmail,
         'Reset your password',
         `Reset your password by clicking on the link below: ${link}`,
         `<p>We received a request to reset your password.</p>
@@ -446,10 +454,15 @@ If you face any issues, please contact the admin.`,
          <p><a href="${link}">Reset Password</a></p>
          <p>If you didn't request this, you can safely ignore this email.</p>`,
       );
-      console.log(`Password reset email sent successfully to ${email}`);
+      console.log(`Password reset email sent successfully to ${normalizedEmail}`);
     } catch (err: any) {
-      // Silently fail — don't reveal whether the email exists
-      console.error(`Failed to send password reset email to ${email}:`, err);
+      if (err.code === 'auth/user-not-found') {
+        // Silently fail — don't reveal whether the email exists
+        console.warn(`[auth] Password reset requested for unregistered email: ${normalizedEmail}`);
+        return;
+      }
+      console.error(`Failed to send password reset email to ${normalizedEmail}:`, err);
+      throw err;
     }
   }
 }
