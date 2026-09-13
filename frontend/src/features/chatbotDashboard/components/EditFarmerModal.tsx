@@ -511,23 +511,25 @@ const DemographicDetails = ({
 
       {/* Fields go here */}
 
-      {/* <div>
+      <div>
         <label className="text-sm font-medium">Language</label>
 
-        <select
-          value={form.languagePreference}
-          onChange={(e) => handleChange("languagePreference", e.target.value)}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        <Select
+          value={form.languagePreference || undefined}
+          onValueChange={(val) => handleChange("languagePreference", val)}
         >
-          <option value="">Select Language</option>
-
-          {INDIAN_LANGUAGES.map((language) => (
-            <option key={language} value={language}>
-              {language}
-            </option>
-          ))}
-        </select>
-      </div> */}
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue placeholder="Select Language" />
+          </SelectTrigger>
+          <SelectContent>
+            {INDIAN_LANGUAGES.map((language) => (
+              <SelectItem key={language} value={language}>
+                {language}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       <div>
         <label className="text-sm font-medium">Farmer Name</label>
