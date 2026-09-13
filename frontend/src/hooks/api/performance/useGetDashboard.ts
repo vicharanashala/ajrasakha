@@ -142,6 +142,17 @@ export const useGetExpertPerformance = () => {
   });
 };
 
+export const useGetReviewQualityAnalytics = (query: {
+  startTime?: Date;
+  endTime?: Date;
+} = {}) => {
+  return useQuery({
+    queryKey: ["dashboard", "review-quality-analytics", query.startTime, query.endTime],
+    queryFn: () => performaceService.getReviewQualityAnalytics(query),
+    placeholderData: keepPreviousData,
+  });
+};
+
 export const useGetQuestionsAnalytics = (query: {
   type: "question" | "answer";
   startTime?: Date;

@@ -1,9 +1,24 @@
 import { IReviewRepository } from "#root/shared/database/interfaces/IReviewRepository.js";
-import { IReview, ReviewAction, ReviewType } from "#root/shared/interfaces/models.js";
+import {
+  IReview,
+  IReviewQualityAnalyticsResponse,
+  IReviewQualityDimensionCounts,
+  ReviewAction,
+  ReviewType,
+} from "#root/shared/interfaces/models.js";
 import { GLOBAL_TYPES } from "#root/types.js";
 import { inject, injectable } from "inversify";
 import { Collection, ClientSession, ObjectId } from "mongodb";
 import { MongoDatabase } from "../MongoDatabase.js";
+
+const REVIEW_QUALITY_DIMENSIONS = [
+  "contextRelevance",
+  "technicalAccuracy",
+  "practicalUtility",
+  "valueInsight",
+  "credibilityTrust",
+  "readabilityCommunication",
+] as const;
 
 
 @injectable()
@@ -85,6 +100,70 @@ export class ReviewRepository implements IReviewRepository {
     return this.ReviewCollection.findOne({
       _id: new ObjectId(id),
     });
+  }
+
+  async getQualityDimensionStats(
+    startTime?: string,
+    endTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<IReviewQualityAnalyticsResponse> {
+    await this.ensureInit();
+
+    const dateMatch: Record<string, Date> = {};
+    if (startTime) dateMatch.$gte = new Date(startTime);
+    if (endTime) dateMatch.$lte = new Date(endTime);
+
+    const groupStage: Record<string, unknown> = {
+      _id: null,
+      totalReviews: { $sum: 1 },
+    };
+    for (const dimension of REVIEW_QUALITY_DIMENSIONS) {
+      groupStage[`${dimension}Failures`] = {
+        $sum: { $cond: [{ $eq: [`$parameters.${dimension}`, false] }, 1, 0] },
+      };
+    }
+
+    const [result] = await this.ReviewCollection.aggregate([
+      {
+        $match: {
+          reviewType: 'answer',
+          parameters: { $exists: true },
+          ...(Object.keys(dateMatch).length ? { createdAt: dateMatch } : {}),
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match:
+          !isAdmin && isTrainingUser === true
+            ? { 'question.isTrainingQuestion': true }
+            : !isAdmin && isTrainingUser === false
+              ? { 'question.isTrainingQuestion': { $ne: true } }
+              : {},
+      },
+      { $group: groupStage },
+    ]).toArray();
+
+    const totalReviews: number = result?.totalReviews ?? 0;
+    const failureCounts = {} as IReviewQualityDimensionCounts;
+    const failureRates = {} as IReviewQualityDimensionCounts;
+
+    for (const dimension of REVIEW_QUALITY_DIMENSIONS) {
+      const count: number = result?.[`${dimension}Failures`] ?? 0;
+      failureCounts[dimension] = count;
+      failureRates[dimension] =
+        totalReviews > 0 ? Math.round((count / totalReviews) * 1000) / 10 : 0;
+    }
+
+    return { totalReviews, failureCounts, failureRates };
   }
 
   // async findsubmissionHistory(userId: string,

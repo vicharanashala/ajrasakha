@@ -548,6 +548,21 @@ export interface IReviewerHeatmapResponse {
   total: number;
 }
 
+export interface IReviewQualityDimensionCounts {
+  contextRelevance: number;
+  technicalAccuracy: number;
+  practicalUtility: number;
+  valueInsight: number;
+  credibilityTrust: number;
+  readabilityCommunication: number;
+}
+
+export interface IReviewQualityAnalyticsResponse {
+  totalReviews: number;
+  failureCounts: IReviewQualityDimensionCounts;
+  failureRates: IReviewQualityDimensionCounts;
+}
+
 export type RerouteStatus =
   | 'pending'
   | 'expert_rejected'

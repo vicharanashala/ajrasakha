@@ -105,6 +105,55 @@ export class ReviewerHeatmapResponse {
   total: number;
 }
 
+// ─── Review Quality Analytics Response ────────────────────────────────────────
+
+export class ReviewQualityDimensionCountsResponse {
+  @IsNumber()
+  contextRelevance: number;
+
+  @IsNumber()
+  technicalAccuracy: number;
+
+  @IsNumber()
+  practicalUtility: number;
+
+  @IsNumber()
+  valueInsight: number;
+
+  @IsNumber()
+  credibilityTrust: number;
+
+  @IsNumber()
+  readabilityCommunication: number;
+}
+
+export class ReviewQualityAnalyticsResponse {
+  @JSONSchema({
+    description: 'Total number of answer reviews included in the aggregation',
+    example: 240,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  totalReviews: number;
+
+  @JSONSchema({
+    description: 'Number of reviews where each quality dimension was marked as failing',
+    readOnly: true,
+  })
+  @ValidateNested()
+  @Type(() => ReviewQualityDimensionCountsResponse)
+  failureCounts: ReviewQualityDimensionCountsResponse;
+
+  @JSONSchema({
+    description: 'Percentage of reviews where each quality dimension was marked as failing',
+    readOnly: true,
+  })
+  @ValidateNested()
+  @Type(() => ReviewQualityDimensionCountsResponse)
+  failureRates: ReviewQualityDimensionCountsResponse;
+}
+
 // ─── Check-in Response ────────────────────────────────────────────────────────
 
 export class CheckInResponse {
