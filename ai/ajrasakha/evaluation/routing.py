@@ -1,3 +1,6 @@
+from ajrasakha.evaluation.all_tools import normalize_tool_name
+
+
 def evaluate_routing(result: dict, case: dict) -> dict:
     if result.get("graph_status") != "success":
         return {
@@ -6,11 +9,14 @@ def evaluate_routing(result: dict, case: dict) -> dict:
             "observed_tools": result.get("observed_tools", ""),
         }
 
-    expected_tools = set(case.get("expected_tools", []))
+    expected_tools = set(
+        normalize_tool_name(tool)
+        for tool in case.get("expected_tools", [])
+    )
 
     observed_raw = result.get("observed_tools", "")
     observed_tools = set(
-        tool.strip()
+        normalize_tool_name(tool)
         for tool in observed_raw.split(",")
         if tool.strip()
     )
