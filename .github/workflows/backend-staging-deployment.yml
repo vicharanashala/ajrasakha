@@ -105,7 +105,30 @@ jobs:
       name: staging
 
     steps:
+      # Checkout FIRST — actions/checkout cleans the workspace, which would delete the
+      # gha-creds-*.json that the auth step writes there (that's the ENOENT the seed
+      # step's secret fetch hit). Auth after checkout keeps the creds file intact.
+      - name: Checkout (for seed script)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pnpm install
+
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
@@ -175,3 +198,24 @@ jobs:
           #   DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
 
           flags: --allow-unauthenticated
+
+      # ── Seed test users into the staging DB after a successful deploy ──────
+      # seed-test-users.mjs runs in the runner (not the container), so it needs
+      # DB_URL/DB_NAME in env. DB_URL comes from Secret Manager (the same secret the
+      # service uses); DB_NAME from the STAGING_DB_NAME GitHub secret. The repo +
+      # deps are already checked out/installed at the top of this job.
+      # The project comes from the auth step's output (derived from the SA key), since
+      # the GCP_PROJECT_ID secret is not reliably set for this job.
+      - name: Fetch staging DB URL from GCP Secret Manager
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            DB_URL:${{ steps.auth.outputs.project_id }}/AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING/latest
+
+      - name: Seed test users
+        working-directory: backend
+        run: node scripts/seed-test-users.mjs
+        env:
+          DB_URL: ${{ steps.secrets.outputs.DB_URL }}
+          DB_NAME: ${{ secrets.STAGING_DB_NAME }}
