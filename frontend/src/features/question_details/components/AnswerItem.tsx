@@ -32,6 +32,7 @@ interface AnswerItemProps {
   currentUserId: string | undefined;
   submissionData?: ISubmissionHistory;
   questionId: string;
+  questionTag?: "dynamic" | "static_dynamic";
   lastAnswerId: string;
   firstAnswerId: string;
   userRole: UserRole;
@@ -403,6 +404,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         isRejected={isRejected}
         submissionData={props.submissionData}
         questionId={props.questionId}
+        questionTag={props.questionTag}
         reviews={reviews}
         firstTrueIndex={firstTrueIndex}
         firstFalseOrMissingIndex={firstFalseOrMissingIndex}

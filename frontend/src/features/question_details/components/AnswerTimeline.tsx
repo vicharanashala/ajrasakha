@@ -125,6 +125,7 @@ export const AnswerTimeline = ({
               currentUserId={currentUserId}
               questionStatus={question.status}
               questionId={question._id}
+              questionTag={question.tag}
               ref={commentRef}
               userRole={userRole}
               queue={queue}
