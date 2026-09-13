@@ -75,7 +75,6 @@ async def get_commodity_list_from_enam(state_name: str, apmc_name: str, from_dat
         except Exception as e:
             return [{"error": str(e)}]
 
-
 @mcp.tool()
 async def get_trade_data_list(state_name: str, apmc_name: str, commodity_name: str, from_date: str, to_date: str) -> dict:
     """
@@ -99,6 +98,20 @@ async def get_trade_data_list(state_name: str, apmc_name: str, commodity_name: s
         except Exception as e:
             return [{"error": str(e)}]
 
+@mcp.tool()
+async def getMandiPrices(state:str, commodity:str, district:str=None, date:str=None) -> list:
+    """
+    Fetch mandi prices for a given state (Maharashtra and Gujrat). """
+    
+    state_lower=state.strip().lower()
+    if state_lower== "maharashtra":
+        from Maharashtra import fetch_maharashtra_mandi_prices
+        return await fetch_maharashtra_mandi_prices(state, commodity, district, date)
+    elif state_lower== "gujrat":
+        from gujrat import fetch_gujarat_mandi_prices
+        return await fetch_gujarat_mandi_prices(state, commodity, district, date)
+    else:
+        return [{"error": f"state '{state}' is not available."}]
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=9003)
