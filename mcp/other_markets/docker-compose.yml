@@ -3,6 +3,9 @@ services:
   mcp-server:
     build: .
     container_name: mcp-server
+    env_file:
+      - path: ../.env
+        required: false
     ports:
       - "8010:8000"
     command: python unified_mandi_prices.py
