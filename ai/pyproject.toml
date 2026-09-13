@@ -30,6 +30,7 @@ dependencies = [
     "motor>=3.7.1",
     "rapidfuzz>=3.0.0",
     "unicodedataplus>=16.0.0",
+    "deepeval>=1.5.0",
 ]
 
 [build-system]
