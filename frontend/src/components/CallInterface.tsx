@@ -1065,7 +1065,7 @@ export const CallInterface = () => {
           }
         }}
       />
-      {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
+
 
       {/* Premium Read-Only Chat-Bubble Conversation View */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

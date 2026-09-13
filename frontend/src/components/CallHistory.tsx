@@ -400,11 +400,7 @@ const renderWeatherInsights = (weather: any) => {
   );
 };
 
-interface CallHistoryProps {
-  onRedial?: (phoneNumber: string) => void;
-}
-
-export const CallHistory = ({ onRedial }: CallHistoryProps) => {
+export const CallHistory = () => {
   const [calls, setCalls] = useState<CallHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -534,12 +530,6 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     setPage(0);
     fetchCallHistory();
   };
-
-  // const handleRedial = (phoneNumber: string) => {
-  //   if (onRedial) {
-  //     onRedial(phoneNumber);
-  //   }
-  // };
 
   const handleSendMessage = async (CallHistoryItem: any) => {
     const { from, to } = CallHistoryItem;
