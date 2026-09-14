@@ -12,54 +12,49 @@ from deepeval.metrics import (
 from deepeval.test_case import LLMTestCase
 
 
-def _build_metric(metric_cls, threshold: float = 0.5):
+def _get_judge_model():
     """
-    Build a DeepEval metric.
+    Resolve the judge model to use, in priority order:
+    Anthropic Claude -> Groq (Llama/OSS via OpenAI-compatible API) -> None
+    (None means: let DeepEval fall back to its own default, usually OpenAI).
 
-    DeepEval defaults to OpenAI unless a model is provided.
-    Our project mainly has ANTHROPIC_API_KEY, so we try to use Claude.
-    If ClaudeModel is not available in this DeepEval version, we fall back
-    to default DeepEval behavior.
+    Brief specifies Anthropic as the intended judge model. Groq is used
+    as a fallback here because Anthropic API credits were not purchased
+    during development of this branch.
     """
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
-
     if anthropic_key:
         try:
             from deepeval.models import ClaudeModel
-
-            judge_model = ClaudeModel(
-                model="claude-3-5-sonnet-20241022"
-            )
-
-            return metric_cls(
-                threshold=threshold,
-                model=judge_model,
-            )
-
-        except Exception as exc:
+            return ClaudeModel(model="claude-3-5-sonnet-20241022")
+        except Exception:
             pass
 
     groq_key = os.getenv("GROQ_API_KEY")
     if groq_key:
         try:
             from deepeval.models import LocalModel
-
-            judge_model = LocalModel(
+            return LocalModel(
                 model="openai/gpt-oss-120b",
                 base_url="https://api.groq.com/openai/v1/",
                 api_key=groq_key,
             )
+        except Exception:
+            pass
 
-            return metric_cls(
-                threshold=threshold,
-                model=judge_model,
-            )
+    return None
 
-        except Exception as exc:
-            return metric_cls(
-                threshold=threshold,
-            )
+
+def _build_metric(metric_cls, threshold: float = 0.5):
+    """
+    Build a DeepEval metric, using the shared judge model resolution
+    order from _get_judge_model(). Falls back to DeepEval's own default
+    (usually OpenAI) if no judge model could be built.
+    """
+    judge_model = _get_judge_model()
+    if judge_model is not None:
+        return metric_cls(threshold=threshold, model=judge_model)
+    return metric_cls(threshold=threshold)
 
     if openai_key:
         return metric_cls(
@@ -139,3 +134,70 @@ def evaluate_answer_with_deepeval(
             }
 
     return results
+
+def evaluate_gdb_match(
+    query: str,
+    answer: str,
+    expected_answer: str,
+) -> dict:
+    """
+    GDB Match Score: how closely does the bot's answer match the
+    expert-validated GDB reference answer for this query, using
+    G-Eval (LLM-judged semantic comparison, not exact string match).
+    """
+    from deepeval.metrics import GEval
+    from deepeval.test_case import LLMTestCaseParams
+
+    if not expected_answer or not str(expected_answer).strip():
+        return {
+            "score": None,
+            "passed": False,
+            "reason": "no_gdb_reference_available",
+        }
+
+    if not answer or not str(answer).strip():
+        return {
+            "score": 0.0,
+            "passed": False,
+            "reason": "answer_missing",
+        }
+
+    try:
+        metric = GEval(
+            name="GDBMatchScore",
+            evaluation_params=[
+                LLMTestCaseParams.INPUT,
+                LLMTestCaseParams.ACTUAL_OUTPUT,
+                LLMTestCaseParams.EXPECTED_OUTPUT,
+            ],
+            criteria=(
+                "Determine how closely the actual answer matches the "
+                "expected expert-validated answer in factual content and "
+                "meaning. The wording does not need to be identical, but "
+                "key facts (numbers, recommendations, names) must match. "
+                "Penalize missing or contradicting facts heavily."
+            ),
+            threshold=0.5,
+            model=_get_judge_model(),
+        )
+
+        test_case = LLMTestCase(
+            input=query,
+            actual_output=answer,
+            expected_output=expected_answer,
+        )
+
+        metric.measure(test_case)
+
+        return {
+            "score": metric.score,
+            "passed": _metric_passed(metric),
+            "reason": metric.reason,
+        }
+
+    except Exception as e:
+        return {
+            "score": None,
+            "passed": False,
+            "reason": str(e),
+        }
