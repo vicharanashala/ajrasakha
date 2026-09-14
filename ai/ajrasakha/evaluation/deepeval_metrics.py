@@ -38,6 +38,25 @@ def _build_metric(metric_cls, threshold: float = 0.5):
             )
 
         except Exception as exc:
+            pass
+
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key:
+        try:
+            from deepeval.models import LocalModel
+
+            judge_model = LocalModel(
+                model="openai/gpt-oss-120b",
+                base_url="https://api.groq.com/openai/v1/",
+                api_key=groq_key,
+            )
+
+            return metric_cls(
+                threshold=threshold,
+                model=judge_model,
+            )
+
+        except Exception as exc:
             return metric_cls(
                 threshold=threshold,
             )
