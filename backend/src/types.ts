@@ -9,6 +9,9 @@ const TYPES = {
   RequestController: Symbol.for('RequestController'),
   ReRouteController:Symbol.for('ReRouteController'),
   ChemicalController: Symbol.for('ChemicalController'),
+  MarketplaceController: Symbol.for('MarketplaceController'),
+  DealController: Symbol.for('DealController'),
+  MessageController: Symbol.for('MessageController'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -22,6 +25,9 @@ const TYPES = {
   PerformanceService: Symbol.for('PerformanceService'),
   ReRouteService:Symbol.for('ReRouteService'),
   AccAgentService: Symbol.for('AccAgentService'),
+  ListingService: Symbol.for('ListingService'),
+  DealService: Symbol.for('DealService'),
+  MessageService: Symbol.for('MessageService'),
 
   // Repositories
   RequestRepository: Symbol.for('RequestRepository'),
@@ -40,6 +46,9 @@ const TYPES = {
   MongoDatabase: Symbol.for('MongoDatabase'),
   CropService: Symbol.for('CropService'),
   ChemicalService: Symbol.for('ChemicalService'),
+  ListingRepository: Symbol.for('ListingRepository'),
+  DealRepository: Symbol.for('DealRepository'),
+  MessageRepository: Symbol.for('MessageRepository'),
 
   // Constants
   uri: Symbol.for('dbURI'),
