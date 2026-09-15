@@ -1,3 +1,19 @@
+/**
+ * User Question Report — per-user counts of questions Authored / Reviewed / Moderated,
+ * bucketed month-wise (IST) from September 2025 onward.
+ *
+ * How to run:
+ *   1. Fill in the USER_IDS array below with the user ids to report on.
+ *   2. Make sure DB_URL and DB_NAME are set (backend/.env is loaded automatically).
+ *   3. From the backend/ directory:
+ *        node scripts/questionUserReport.js
+ *
+ * Output: backend/user-question-report.xlsx with 4 sheets —
+ *   Totals   : one row per user, Sep-2025-onward distinct totals (Authored/Reviewed/Moderated)
+ *   Authored : rows = users, columns = months (Sep 2025 → current, IST) + Total
+ *   Reviewed : same layout
+ *   Moderated: same layout
+ */
 import 'dotenv/config';
 import { MongoClient, ObjectId } from 'mongodb';
 import XLSX from 'xlsx';
@@ -18,11 +34,78 @@ const ANSWERS_COLLECTION = 'answers';
 const BATCH_SIZE = 500;
 
 // ============================================================
+// MONTH-WISE CONFIG
+// ============================================================
+
+// Counts are bucketed by calendar month starting from this month (inclusive).
+const START_YEAR = 2025;
+const START_MONTH = 9; // September (1-based)
+const START_KEY = `${START_YEAR}-${String(START_MONTH).padStart(2, '0')}`;
+
+// Dates are stored in UTC; bucket them by IST (UTC+5:30) calendar month.
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+
+const MONTH_NAMES = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+// All months from START (Sep 2025) through the current month, as { key, label }.
+function buildMonthRange() {
+  // Current month in IST.
+  const nowIst = new Date(Date.now() + IST_OFFSET_MS);
+  const endYear = nowIst.getUTCFullYear();
+  const endMonth = nowIst.getUTCMonth() + 1; // 1-based
+  const months = [];
+  let y = START_YEAR;
+  let m = START_MONTH;
+  while (y < endYear || (y === endYear && m <= endMonth)) {
+    months.push({
+      key: `${y}-${String(m).padStart(2, '0')}`,
+      label: `${MONTH_NAMES[m - 1]} ${y}`,
+    });
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return months;
+}
+
+const MONTHS = buildMonthRange();
+
+// 'YYYY-MM' (IST) for a UTC date value, or null if missing/invalid.
+function monthKeyOf(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  // Shift by the IST offset and read UTC parts → IST calendar month (timezone-independent).
+  const ist = new Date(d.getTime() + IST_OFFSET_MS);
+  return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// Add a questionId to a per-month bucket ({ 'YYYY-MM': Set }), ignoring events before START.
+function addMonthEvent(bucket, value, questionId) {
+  const key = monthKeyOf(value);
+  if (!key || key < START_KEY) return;
+  if (!bucket[key]) bucket[key] = new Set();
+  bucket[key].add(questionId);
+}
+
+// ============================================================
 // USER IDS
 // ============================================================
 
 const USER_IDS = [
   // Add user IDs here
+  '6911c8f78b081f98c41063d7', //anjali
+  '6911c81e8b081f98c41063cf',//khaja
+  '6911c89c8b081f98c41063d6', //Tejas
+  '6911c86d8b081f98c41063d4', //Kavya
+  '6911c8958b081f98c41063d5',//Satarupa
+  '6911c8598b081f98c41063d2', //Salim
+  '6911c8648b081f98c41063d3', //Rounaq
 ];
 
 // ============================================================
@@ -203,9 +286,10 @@ async function exportUserQuestionReport() {
 
     for (const userId of USER_IDS) {
       userStats.set(userId, {
-        authored: new Set(),
-        reviewed: new Set(),
-        moderated: new Set(),
+        // Each metric is a { 'YYYY-MM': Set<questionId> } month bucket.
+        authored: {},
+        reviewed: {},
+        moderated: {},
       });
     }
 
@@ -329,10 +413,12 @@ async function exportUserQuestionReport() {
             );
 
           if (userStats.has(authorId)) {
-            userStats
-              .get(authorId)
-              .authored
-              .add(questionId);
+            // Bucket by when the author created their (first) entry.
+            addMonthEvent(
+              userStats.get(authorId).authored,
+              firstHistoryEntry.createdAt,
+              questionId,
+            );
           }
         }
 
@@ -372,10 +458,12 @@ async function exportUserQuestionReport() {
             continue;
           }
 
-          userStats
-            .get(reviewerId)
-            .reviewed
-            .add(questionId);
+          // Bucket by when the review was completed (updatedAt), else createdAt.
+          addMonthEvent(
+            userStats.get(reviewerId).reviewed,
+            historyEntry.updatedAt ?? historyEntry.createdAt,
+            questionId,
+          );
         }
       }
 
@@ -466,6 +554,8 @@ async function exportUserQuestionReport() {
                 _id: 1,
                 questionId: 1,
                 approvedBy: 1,
+                updatedAt: 1,
+                createdAt: 1,
               },
             }
           )
@@ -498,10 +588,12 @@ async function exportUserQuestionReport() {
         const questionId =
           idToString(answer.questionId);
 
-        userStats
-          .get(moderatorId)
-          .moderated
-          .add(questionId);
+        // Bucket by the answer's approval / last-update time.
+        addMonthEvent(
+          userStats.get(moderatorId).moderated,
+          answer.updatedAt ?? answer.createdAt,
+          questionId,
+        );
       }
 
       // ------------------------------------------------------
@@ -541,97 +633,104 @@ async function exportUserQuestionReport() {
       '\n📊 Preparing Excel data...'
     );
 
-    const excelRows = [];
+    // Distinct questionIds across every month bucket of a metric.
+    const distinctTotal = (bucket) => {
+      const union = new Set();
+      for (const key of Object.keys(bucket || {})) {
+        for (const id of bucket[key]) union.add(id);
+      }
+      return union.size;
+    };
 
-    for (const userId of USER_IDS) {
-      const stats =
-        userStats.get(userId);
+    // Combined summary: one row per user with the Sep-2025-onward distinct totals.
+    const buildTotalsRows = () => {
+      const rows = [];
+      let index = 1;
+      for (const userId of USER_IDS) {
+        const stats = userStats.get(userId);
+        const user = userMap.get(userId);
+        rows.push({
+          'No.': index++,
+          'User ID': userId,
+          'Name': user?.name || 'User not found',
+          'No. of Questions Authored': stats ? distinctTotal(stats.authored) : 0,
+          'No. of Questions Reviewed': stats ? distinctTotal(stats.reviewed) : 0,
+          'No. of Questions Moderated': stats ? distinctTotal(stats.moderated) : 0,
+        });
+      }
+      return rows;
+    };
 
-      const user =
-        userMap.get(userId);
+    // Build one row per user for a given metric: No. / User ID / Name, then a column
+    // per month (Sep 2025 → current), then a Total (distinct questions across all months).
+    const buildMetricRows = (metric) => {
+      const rows = [];
+      let index = 1;
 
-      excelRows.push({
-        'No.': excelRows.length + 1,
+      for (const userId of USER_IDS) {
+        const stats = userStats.get(userId);
+        const user = userMap.get(userId);
+        const bucket = stats ? stats[metric] : {};
 
-        'User ID': userId,
+        const row = {
+          'No.': index++,
+          'User ID': userId,
+          'Name': user?.name || 'User not found',
+        };
 
-        'Name':
-          user?.name || 'User not found',
+        const union = new Set();
+        for (const { key, label } of MONTHS) {
+          const set = bucket[key];
+          row[label] = set ? set.size : 0;
+          if (set) {
+            for (const id of set) union.add(id);
+          }
+        }
+        row['Total'] = union.size;
 
-        'No. of Questions Authored':
-          stats?.authored.size || 0,
+        rows.push(row);
+      }
 
-        'No. of Questions Reviewed':
-          stats?.reviewed.size || 0,
-
-        'No. of Questions Moderated':
-          stats?.moderated.size || 0,
-      });
-    }
+      return rows;
+    };
 
     // ========================================================
-    // CREATE EXCEL
+    // CREATE EXCEL (one sheet per metric, months as columns)
     // ========================================================
 
     console.log(
       '\n📊 Creating Excel report...'
     );
 
-    const worksheet =
-      XLSX.utils.json_to_sheet(
-        excelRows
-      );
-
-    // ========================================================
-    // COLUMN WIDTHS
-    // ========================================================
-
-    worksheet['!cols'] = [
-      {
-        wch: 8,
-      },
-      {
-        wch: 30,
-      },
-      {
-        wch: 30,
-      },
-      {
-        wch: 32,
-      },
-      {
-        wch: 32,
-      },
-      {
-        wch: 33,
-      },
+    const colWidths = [
+      { wch: 6 }, // No.
+      { wch: 28 }, // User ID
+      { wch: 26 }, // Name
+      ...MONTHS.map(() => ({ wch: 11 })), // month columns
+      { wch: 10 }, // Total
     ];
 
-    // ========================================================
-    // FREEZE HEADER
-    // ========================================================
+    const workbook = XLSX.utils.book_new();
 
-    worksheet['!freeze'] = {
-      xSplit: 0,
-      ySplit: 1,
-    };
+    // Combined summary sheet first (Sep-2025-onward totals per user).
+    const totalsSheet = XLSX.utils.json_to_sheet(buildTotalsRows());
+    totalsSheet['!cols'] = [
+      { wch: 6 }, { wch: 28 }, { wch: 26 }, { wch: 30 }, { wch: 30 }, { wch: 30 },
+    ];
+    totalsSheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+    XLSX.utils.book_append_sheet(workbook, totalsSheet, 'Totals');
 
-    // ========================================================
-    // CREATE WORKBOOK
-    // ========================================================
-
-    const workbook =
-      XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      'User Question Report'
-    );
-
-    // ========================================================
-    // WRITE EXCEL
-    // ========================================================
+    // Then one month-wise sheet per metric.
+    for (const { metric, sheetName } of [
+      { metric: 'authored', sheetName: 'Authored' },
+      { metric: 'reviewed', sheetName: 'Reviewed' },
+      { metric: 'moderated', sheetName: 'Moderated' },
+    ]) {
+      const sheet = XLSX.utils.json_to_sheet(buildMetricRows(metric));
+      sheet['!cols'] = colWidths;
+      sheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+      XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+    }
 
     XLSX.writeFile(
       workbook,
