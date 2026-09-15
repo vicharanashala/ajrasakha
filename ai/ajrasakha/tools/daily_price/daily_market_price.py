@@ -516,10 +516,53 @@ def mandi_price_tool(
         }
 
     def _resolve_commodity_aliases(names: list[str]) -> dict[str, list[dict]]:
-        """Exact alias/canonical match + whitespace/newline-tolerant alias match."""
+        """Exact alias/canonical match + whitespace/newline-tolerant alias match.
+
+        After resolution, alias documents are filtered to ensure semantic compatibility:
+        the resolved canonical name must be compatible with the user's requested name.
+        This prevents, for example, "sweet potato" from resolving to the "potato" alias
+        group even if "sweet potato" was mistakenly listed as an alias there.
+        """
         logger.info("Resolving commodity aliases for input names: %s", names)
         coll = commodity_alias_col()
         results: dict[str, list[dict]] = {}
+
+        def _alias_is_compatible(user_norm: str, doc: dict) -> bool:
+            """Return True if the alias document is a valid match for the user's query.
+
+            Rejects an alias doc when the canonical name is a proper subset of the
+            user's query but differs by meaningful qualifying words (e.g. "sweet"
+            in "sweet potato" vs. "potato"). Concretely:
+
+            - If user_norm IS the canonical_name → always accept (exact canonical match).
+            - If canonical_name IS in the user's aliases list → always accept.
+            - If canonical_norm is a strict substring of user_norm but user_norm has
+              extra qualifier words (like "sweet", "baby", "raw", "dry", "fresh") that
+              are NOT in canonical_norm → reject (different variety / commodity).
+            - Otherwise accept (canonical_norm ⊇ user_norm, or unrelated words).
+            """
+            canonical_norm = _norm(doc.get("canonical_name")) or ""
+            # 1. Exact canonical match — always valid
+            if canonical_norm == user_norm:
+                return True
+            # 2. User's input appears verbatim in the doc's aliases list — valid
+            doc_aliases = [_norm(a) for a in (doc.get("aliases") or []) if _norm(a)]
+            if user_norm in doc_aliases:
+                return True
+            # 3. Guard: canonical is a strict sub-phrase of user's input but user has
+            #    qualifier words not present in canonical (e.g. "sweet" in "sweet potato"
+            #    but not in "potato").  Treat as incompatible (different commodity).
+            if canonical_norm and canonical_norm in user_norm and canonical_norm != user_norm:
+                user_extra_words = set(user_norm.split()) - set(canonical_norm.split())
+                if user_extra_words:
+                    logger.warning(
+                        "_alias_is_compatible: rejecting alias doc (canonical=%r) for "
+                        "user query %r — qualifier words %s make it a distinct commodity.",
+                        canonical_norm, user_norm, user_extra_words,
+                    )
+                    return False
+            return True
+
         for raw in names:
             norm = _norm(raw)
             if not norm:
@@ -550,6 +593,18 @@ def mandi_price_tool(
                     max_time_ms=MONGO_MAX_TIME_MS,
                 )
                 docs = list(cursor)
+
+            # Filter out alias docs that are semantically incompatible with the user's
+            # requested commodity (e.g. reject "potato" canonical for "sweet potato" query).
+            compatible_docs = [d for d in docs if _alias_is_compatible(norm, d)]
+            if docs and not compatible_docs:
+                logger.warning(
+                    "All %d resolved alias doc(s) for '%s' were rejected by compatibility "
+                    "check (canonicals: %s). Treating as unresolved.",
+                    len(docs), raw, [d.get("canonical_name") for d in docs],
+                )
+            docs = compatible_docs
+
             results[raw] = docs
             if docs:
                 logger.info(
@@ -1036,6 +1091,24 @@ def mandi_price_tool(
                         sorted({r.get("commodity_name") for r in formatted} - {r.get("commodity_name") for r in exact_matches}),
                     )
                     formatted = exact_matches
+                else:
+                    # No exact match for the requested commodity in any of the returned
+                    # records.  This happens when the alias lookup resolves e.g.
+                    # "sweet potato" → canonical "potato" and the DB only has "potato"
+                    # records.  Silently serving those records would be misleading
+                    # (the farmer asked for sweet potato, not potato).
+                    # Return a clear "not available" error instead.
+                    returned_names = {_norm(r.get("commodity_name")) for r in formatted if r.get("commodity_name")}
+                    if returned_names:
+                        logger.warning(
+                            "Post-filter: requested commodity %s not found in returned records %s; "
+                            "returning not-available error to avoid serving mismatched data.",
+                            requested_names, returned_names,
+                        )
+                        return {
+                            "error": f"We do not have {', '.join(commodity_list)} available in {state}.",
+                            "unresolved_commodities": list(commodity_list),
+                        }
 
             stats = _compute_stats(formatted)
             return {
