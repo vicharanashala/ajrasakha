@@ -571,15 +571,29 @@ export async function findDuplicatesForDocument(id: string) {
   return _handleResponse(res);
 }
 
+// Every entry now carries an `id` too (2026-09-15) — states also gained PATCH (rename)/merge/
+// DELETE, same shape as organizations below, but no management UI for that exists yet (not asked
+// for beyond the Folder-dropdown work this comment sits next to).
 export async function getDashboardStates() {
   const res = await fetch(`${POP_API}/dashboard/states`);
   return _handleResponse(res);
 }
 
-// `state` narrows to crops actually used in that state.
+// `state` narrows to crops actually used in that state. Crops are now READ-ONLY (2026-09-15) —
+// they come from a crop master another application maintains; POST/PATCH/merge/DELETE on /crops
+// all 403. There is no createDashboardCrop anymore — don't add one back.
 export async function getDashboardCrops(state?: string) {
   const qs = state ? `?state=${encodeURIComponent(state)}` : "";
   const res = await fetch(`${POP_API}/dashboard/crops${qs}`);
+  return _handleResponse(res);
+}
+
+// Organisations (ICAR institutes, ministries, groupings like "General"/"Pulses") — the other half
+// of what a placement's Folder can be, alongside a crop. Unlike crops, these are ours: fully
+// editable, same shape as states (POST idempotent-creates, PATCH renames, merge, DELETE).
+export async function getDashboardOrganizations(state?: string) {
+  const qs = state ? `?state=${encodeURIComponent(state)}` : "";
+  const res = await fetch(`${POP_API}/dashboard/organizations${qs}`);
   return _handleResponse(res);
 }
 
@@ -592,13 +606,55 @@ export async function createDashboardState(name: string) {
   return _handleResponse(res);
 }
 
-export async function createDashboardCrop(name: string) {
-  const res = await fetch(`${POP_API}/dashboard/crops`, {
+export async function createDashboardOrganization(name: string) {
+  const res = await fetch(`${POP_API}/dashboard/organizations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
   return _handleResponse(res);
+}
+
+// A placement's Folder is either a crop or an organization — which options make sense depends on
+// Advisory Type (Comprehensive/Crop Advisory → crops only, Non-Crop Advisory → organizations only,
+// General/blank/anything unrecognized → both). Don't reimplement that rule client-side beyond this
+// fallback: GET /dashboard/folders does it server-side and returns [{id, name, kind,
+// raw_names, document_count}] pre-filtered. `state` narrows to folders actually used there, same
+// as getDashboardCrops/getDashboardOrganizations.
+//
+// /folders isn't deployed yet as of 2026-09-15 (404 until the next image) — falls back to fetching
+// /crops and/or /organizations directly and tagging each with its `kind`, applying the same
+// Comprehensive/Crop Advisory/Non-Crop Advisory/General classification locally. Once /folders is
+// live this fallback simply never triggers (no need to remove it).
+export async function getDashboardFolders(advisoryType?: string, state?: string) {
+  const params = new URLSearchParams();
+  if (advisoryType) params.set("advisory_type", advisoryType);
+  if (state) params.set("state", state);
+  const qs = params.toString();
+  const res = await fetch(`${POP_API}/dashboard/folders${qs ? `?${qs}` : ""}`);
+  if (res.status === 404) return _folderFallback(advisoryType, state);
+  return _handleResponse(res);
+}
+
+function _classifyAdvisoryType(advisoryType?: string): "crop" | "organization" | "both" {
+  // Matched on letters only, per the backend ("Crop Advisory" === "crop-advisory") — so strip
+  // everything else before comparing, same tolerance the server applies.
+  const norm = (advisoryType || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (norm === "comprehensive" || norm === "cropadvisory") return "crop";
+  if (norm === "noncropadvisory") return "organization";
+  return "both"; // "general", blank, or anything unrecognized
+}
+
+async function _folderFallback(advisoryType?: string, state?: string) {
+  const which = _classifyAdvisoryType(advisoryType);
+  const [crops, orgs] = await Promise.all([
+    which !== "organization" ? getDashboardCrops(state) : Promise.resolve([]),
+    which !== "crop" ? getDashboardOrganizations(state) : Promise.resolve([]),
+  ]);
+  return [
+    ...(crops || []).map((c: any) => ({ ...c, kind: "crop" })),
+    ...(orgs || []).map((o: any) => ({ ...o, kind: "organization" })),
+  ];
 }
 
 // 14 tessdata languages + non_english — the only valid source for a language dropdown, don't
@@ -608,13 +664,30 @@ export async function getDashboardLanguages() {
   return _handleResponse(res);
 }
 
-// `placements` is the per-state crop-group shape: [{state, crops: [...]}, ...] — sent as
-// placements_json. (states_json/crops_json cross-product is also accepted server-side but only
-// makes sense when every state gets the same crop list, so it isn't used here.)
+// Backs the "Verified By" dropdown (fields.ts) — only the picked `name` is ever stored on the
+// document (verified_by stays a plain string, same as today); `id` is present in the response but
+// only for React keys, never sent anywhere. Reads a different application's users collection in a
+// shared staging database (read-only, even against prod) — 503 means that collection couldn't be
+// reached in time; every caller treats any failure here as non-fatal and falls back to a free-text
+// input (MetadataFieldInput.tsx), so a 503 just means "no list right now," not a broken form.
+// `status`: "active" (default, 15 people) or "all" (17 — the extra 2 are "inactive"). 422 on
+// anything else. Sorted by name, case-insensitive, by the server.
+export async function getDashboardUsers(status: "active" | "all" = "active") {
+  const res = await fetch(`${POP_API}/dashboard/users?status=${status}`);
+  return _handleResponse(res);
+}
+
+// `placements` is the per-state folder-group shape: [{state, crop_ids: [...], organization_ids:
+// [...]}, ...] — sent as placements_json. Each group needs at least one id across the two lists;
+// AddDocumentForm.tsx resolves its Folder picks (crop or organization) into these before calling
+// this. Ids are preferred — a name under "crops" must already be a crop-master crop (400
+// otherwise), while a name under "organizations" may introduce a new one, so id-based groups avoid
+// that whole distinction. (states_json/crops_json cross-product is also accepted server-side but
+// only makes sense when every state gets the same folder list, so it isn't used here.)
 export async function uploadDashboardDocument(
   file: File,
   fields: Record<string, string>,
-  placements: { state: string; crops: string[] }[],
+  placements: { state: string; crop_ids?: string[]; organization_ids?: string[] }[],
   language: string,
 ) {
   const fd = new FormData();

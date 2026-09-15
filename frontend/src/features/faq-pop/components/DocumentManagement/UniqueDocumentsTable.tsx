@@ -7,6 +7,7 @@ import {
   getDashboardUniqueDocument,
   deleteDashboardUniqueDocument,
   getDashboardLanguages,
+  getDashboardUsers,
   getUniqueDocumentPlacements,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
@@ -18,6 +19,15 @@ import DateRangeColumnFilter from "./DateRangeColumnFilter";
 import ServerPagination from "./ServerPagination";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
+import {
+  ADVISORY_TYPE_OPTIONS,
+  ADVISORY_SCOPE_OPTIONS,
+  SEASON_OPTIONS,
+  DOMAIN_OPTIONS,
+  FORMAT_ORIGINAL_OPTIONS,
+  VERIFICATION_STATUS_OPTIONS,
+  DOCUMENT_STATUS_OPTIONS,
+} from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
 const LANGUAGE_SOURCE_OPTIONS = ["detected", "state", "ambiguous", "manual"];
@@ -36,9 +46,9 @@ const PAGE_SIZE = 100;
 // all filterable now.
 const FIELD_COLUMNS = [
   { key: "document_id", label: "Document ID", filterable: true, mono: true },
-  { key: "advisory_type", label: "Advisory Type", filterable: true },
-  { key: "advisory_scope", label: "Advisory Scope", filterable: true },
-  { key: "season", label: "Season", filterable: true },
+  { key: "advisory_type", label: "Advisory Type", filterable: true, options: ADVISORY_TYPE_OPTIONS },
+  { key: "advisory_scope", label: "Advisory Scope", filterable: true, options: ADVISORY_SCOPE_OPTIONS },
+  { key: "season", label: "Season", filterable: true, options: SEASON_OPTIONS },
   { key: "edition_revision_volume", label: "Edition/Rev/Vol", filterable: true },
   { key: "date_of_release", label: "Date of Release", filterType: "dateRange" },
   { key: "month_of_release", label: "Month of Release", filterType: "numberRange", min: 1, max: 12 },
@@ -53,12 +63,12 @@ const FIELD_COLUMNS = [
   { key: "shareable_name", label: "Shareable Name", filterable: true },
   { key: "language", label: "Language", filterType: "language" },
   { key: "language_source", label: "Language Source", filterable: true, options: LANGUAGE_SOURCE_OPTIONS },
-  { key: "domain", label: "Domain", filterable: true },
-  { key: "format_original", label: "Format (Original)", filterable: true },
+  { key: "domain", label: "Domain", filterable: true, options: DOMAIN_OPTIONS },
+  { key: "format_original", label: "Format (Original)", filterable: true, options: FORMAT_ORIGINAL_OPTIONS },
   { key: "num_pages", label: "Pages", filterType: "numberRange", min: 0 },
-  { key: "verification_status", label: "Verification", enum: true },
-  { key: "verified_by", label: "Verified By", filterable: true },
-  { key: "document_status", label: "Doc Status", enum: true },
+  { key: "verification_status", label: "Verification", filterable: true, options: VERIFICATION_STATUS_OPTIONS },
+  { key: "verified_by", label: "Verified By", filterType: "users" },
+  { key: "document_status", label: "Doc Status", filterable: true, options: DOCUMENT_STATUS_OPTIONS },
   { key: "placement_count", label: "Placements" },
 ];
 const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, view-action
@@ -78,9 +88,19 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const [error, setError] = useState(null);
 
   const [languageOptions, setLanguageOptions] = useState([]);
+  // "all" (not just active) — filtering needs to match documents verified by someone since
+  // deactivated too, not just people who could verify something today. Falls back to a free-text
+  // filter for "Verified By" while this stays empty (see the filterType "users" render branch
+  // below) — e.g. the backend's 503 case, its users collection unreachable. Doesn't need the
+  // edit form's extra-option handling for renamed users since this is a filter, not a value
+  // picker — a filter for a name nobody has isn't wrong, it's just a filter that matches nothing.
+  const [userOptions, setUserOptions] = useState([]);
   useEffect(() => {
     getDashboardLanguages()
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
+      .catch(() => {});
+    getDashboardUsers("all")
+      .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
       .catch(() => {});
   }, []);
 
@@ -124,10 +144,6 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     setPage(1);
   }
   const multiPlacementValue = filters.multi_placement?.[0] || "";
-
-  // Derived from currently-loaded rows — no dedicated distinct-values endpoint for these two.
-  const docStatusOptions = [...new Set(rows.map((r) => r.document_status).filter(Boolean))].sort();
-  const verificationOptions = [...new Set(rows.map((r) => r.verification_status).filter(Boolean))].sort();
 
   function patchRow(id, patch) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -284,13 +300,21 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       to={filters[`${col.key}_to`]?.[0]}
                       onChange={(a, b) => setRange(col.key, "from", "to", a, b)}
                     />
-                  ) : col.enum ? (
-                    <ColumnFilter
-                      label={col.label}
-                      options={col.key === "document_status" ? docStatusOptions : verificationOptions}
-                      selected={filters[col.key] || []}
-                      onChange={(v) => setFilter(col.key, v)}
-                    />
+                  ) : col.filterType === "users" ? (
+                    userOptions.length > 0 ? (
+                      <ColumnFilter
+                        label={col.label}
+                        options={userOptions}
+                        selected={filters[col.key] || []}
+                        onChange={(v) => setFilter(col.key, v)}
+                      />
+                    ) : (
+                      <TextFilter
+                        label={col.label}
+                        value={filters[col.key]?.[0] || ""}
+                        onChange={(v) => setFilter(col.key, v ? [v] : [])}
+                      />
+                    )
                   ) : col.options ? (
                     <ColumnFilter
                       label={col.label}

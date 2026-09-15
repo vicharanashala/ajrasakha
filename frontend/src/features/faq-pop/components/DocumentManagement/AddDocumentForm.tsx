@@ -4,10 +4,11 @@ import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import {
   getDashboardStates,
-  getDashboardCrops,
+  getDashboardFolders,
   getDashboardLanguages,
+  getDashboardUsers,
   createDashboardState,
-  createDashboardCrop,
+  createDashboardOrganization,
   uploadDashboardDocument,
 } from "../../api";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
@@ -26,13 +27,57 @@ function emptyValues() {
 
 let _groupSeq = 0;
 function emptyGroup() {
-  return { key: ++_groupSeq, state: "", crops: [] };
+  return { key: ++_groupSeq, state: "", folders: [] };
 }
 
-// Add Document — required: file, language, at least one state with at least one crop. Placements
-// are per-state crop groups (docs/first_render_frontend.md): a state, that state's crops, then
-// another state — sent as placements_json: [{state, crops: [...]}, ...]. Defaults to one group so
-// the common single-state case looks the same as before; "add another state" appends more.
+// One placement group's row — state + a Folder multi-select. `folderOptions` is passed down from
+// the form (see below): all groups share the SAME options, because Folder options depend only on
+// the form's Advisory Type, never on a group's own state (see the form-level comment).
+function PlacementGroupRow({ group, folderOptions, stateNames, onChange, onRemove, removable }) {
+  const folderLabels = folderOptions.map((f) => f.name || "(no folder)");
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-start rounded-md border border-border/50 p-2">
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] text-muted-foreground">State</span>
+        <StateSelector value={group.state} onChange={(v) => onChange({ state: v })} stateNames={stateNames} />
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] text-muted-foreground">Folder(s) — crop or organisation</span>
+        <MultiSelector
+          value={group.folders}
+          onChange={(v) => onChange({ folders: v })}
+          names={folderLabels}
+          placeholder="Select folder(s)…"
+        />
+      </div>
+      {removable && (
+        <button
+          className="self-start mt-4 p-1 rounded border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors cursor-pointer"
+          onClick={onRemove}
+          title="Remove this state"
+        >
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Add Document — required: file, language, at least one state with at least one folder. Placements
+// are per-state folder-groups (docs/first_render_frontend.md): a state, that state's folders
+// (crops and/or organisations), then another state — sent as placements_json:
+// [{state, crop_ids: [...], organization_ids: [...]}, ...]. Defaults to one group so the common
+// single-state case looks the same as before; "add another state" appends more.
+//
+// "Crop" is "Folder" here (2026-09-15) — a folder is either a crop (read-only, from a crop master
+// another app maintains — no add-crop UI anymore, POST /crops 403s) or an organisation (ours,
+// created inline same as a state). Which folders are offered depends ONLY on this form's own
+// Advisory Type field — NOT on any group's state. Backend's explicit correction: `?state=` on
+// /folders (and /crops, /organizations) returns only folders already USED under that state, and
+// since crops can no longer be created, state-scoping the picker would make a real master crop
+// nobody has filed in that state yet permanently unreachable from this form. So there is one
+// shared `folderOptions` fetch below, keyed only on values.advisory_type, passed to every group.
 export default function AddDocumentForm({ onUploadQueued }) {
   const [values, setValues] = useState(emptyValues);
   const [file, setFile] = useState(null);
@@ -41,10 +86,14 @@ export default function AddDocumentForm({ onUploadQueued }) {
   const [submitting, setSubmitting] = useState(false);
 
   const [stateOptions, setStateOptions] = useState([]);
-  const [cropOptions, setCropOptions] = useState([]);
   const [languageOptions, setLanguageOptions] = useState([]);
-  const [newCrop, setNewCrop] = useState("");
-  const [addingCrop, setAddingCrop] = useState(false);
+  // Active users only — this is who a document should get verified by going forward, not the
+  // full roster. Falls back to a plain text input in MetadataFieldInput if the list is empty
+  // (e.g. the backend's 503 case, its users collection unreachable).
+  const [userOptions, setUserOptions] = useState([]);
+  const [folderOptions, setFolderOptions] = useState([]);
+  const [newOrg, setNewOrg] = useState("");
+  const [addingOrg, setAddingOrg] = useState(false);
   const [newState, setNewState] = useState("");
   const [addingState, setAddingState] = useState(false);
 
@@ -52,13 +101,33 @@ export default function AddDocumentForm({ onUploadQueued }) {
     getDashboardStates()
       .then((d) => setStateOptions((d || []).map((s) => s.name)))
       .catch(() => {});
-    getDashboardCrops()
-      .then((d) => setCropOptions((d || []).map((c) => c.name)))
-      .catch(() => {});
     getDashboardLanguages()
       .then((d) => setLanguageOptions(d || []))
       .catch(() => {});
+    getDashboardUsers()
+      .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
+      .catch(() => {});
   }, []);
+
+  function refetchFolders() {
+    return getDashboardFolders(values.advisory_type)
+      .then((d) => {
+        const list = d || [];
+        setFolderOptions(list);
+        // Drop any group's selected folder that's no longer offered under the new Advisory Type.
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            folders: g.folders.filter((f) => list.some((o) => (o.name || "(no folder)") === f)),
+          })),
+        );
+      })
+      .catch(() => {});
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    refetchFolders();
+  }, [values.advisory_type]);
 
   function setValue(key, val) {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -74,17 +143,18 @@ export default function AddDocumentForm({ onUploadQueued }) {
     setGroups((prev) => (prev.length > 1 ? prev.filter((g) => g.key !== key) : prev));
   }
 
-  async function handleAddCrop() {
-    if (!newCrop.trim()) return;
-    setAddingCrop(true);
+  async function handleAddOrg() {
+    if (!newOrg.trim()) return;
+    setAddingOrg(true);
     try {
-      await createDashboardCrop(newCrop.trim());
-      setCropOptions((prev) => [...new Set([...prev, newCrop.trim()])].sort());
-      setNewCrop("");
+      await createDashboardOrganization(newOrg.trim());
+      await refetchFolders();
+      toast.success("Organisation added to Folder options");
+      setNewOrg("");
     } catch (err) {
-      toast.error(err.message || "Failed to add crop");
+      toast.error(err.message || "Failed to add organisation");
     } finally {
-      setAddingCrop(false);
+      setAddingOrg(false);
     }
   }
 
@@ -108,10 +178,23 @@ export default function AddDocumentForm({ onUploadQueued }) {
       return;
     }
     const placements = groups
-      .filter((g) => g.state && g.crops.length > 0)
-      .map((g) => ({ state: g.state, crops: g.crops }));
+      .filter((g) => g.state && g.folders.length > 0)
+      .map((g) => {
+        const crop_ids = [];
+        const organization_ids = [];
+        for (const label of g.folders) {
+          const opt = folderOptions.find((f) => (f.name || "(no folder)") === label);
+          if (!opt) continue;
+          (opt.kind === "organization" ? organization_ids : crop_ids).push(opt.id);
+        }
+        const p = { state: g.state };
+        if (crop_ids.length) p.crop_ids = crop_ids;
+        if (organization_ids.length) p.organization_ids = organization_ids;
+        return p;
+      })
+      .filter((p) => p.crop_ids || p.organization_ids);
     if (placements.length === 0) {
-      toast.error("Select at least one state with at least one crop");
+      toast.error("Select at least one state with at least one folder");
       return;
     }
     if (!language) {
@@ -153,7 +236,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
       <div>
         <h2 className="text-base font-semibold text-foreground">Add Document</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Upload a PDF and tag it with one or more state/crop placements and metadata.
+          Upload a PDF and tag it with one or more state/folder placements and metadata.
         </p>
       </div>
 
@@ -166,6 +249,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
               value={values[f.key]}
               onChange={(v) => setValue(f.key, v)}
               className={inputClass}
+              options={f.key === "verified_by" ? userOptions : undefined}
             />
           </div>
         ))}
@@ -189,7 +273,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
 
       <div className="flex flex-col gap-3 border-t border-border/50 pt-4">
         <div className="flex items-center justify-between">
-          <label className={labelClass}>Placements (state → crops)</label>
+          <label className={labelClass}>Placements (state → folder)</label>
           <button
             className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
             onClick={addGroup}
@@ -198,34 +282,15 @@ export default function AddDocumentForm({ onUploadQueued }) {
           </button>
         </div>
         {groups.map((g) => (
-          <div key={g.key} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-start rounded-md border border-border/50 p-2">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] text-muted-foreground">State</span>
-              <StateSelector
-                value={g.state}
-                onChange={(v) => updateGroup(g.key, { state: v })}
-                stateNames={stateOptions}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] text-muted-foreground">Crop(s)</span>
-              <MultiSelector
-                value={g.crops}
-                onChange={(v) => updateGroup(g.key, { crops: v })}
-                names={cropOptions}
-                placeholder="Select crops…"
-              />
-            </div>
-            {groups.length > 1 && (
-              <button
-                className="self-start mt-4 p-1 rounded border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors cursor-pointer"
-                onClick={() => removeGroup(g.key)}
-                title="Remove this state"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          <PlacementGroupRow
+            key={g.key}
+            group={g}
+            folderOptions={folderOptions}
+            stateNames={stateOptions}
+            onChange={(patch) => updateGroup(g.key, patch)}
+            onRemove={() => removeGroup(g.key)}
+            removable={groups.length > 1}
+          />
         ))}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -249,19 +314,23 @@ export default function AddDocumentForm({ onUploadQueued }) {
             <input
               type="text"
               className={`${inputClass} flex-1`}
-              placeholder="Add new crop…"
-              value={newCrop}
-              onChange={(e) => setNewCrop(e.target.value)}
+              placeholder="Add new organisation…"
+              value={newOrg}
+              onChange={(e) => setNewOrg(e.target.value)}
             />
             <button
               className="px-2.5 py-1.5 rounded-md border border-border text-xs text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              onClick={handleAddCrop}
-              disabled={addingCrop || !newCrop.trim()}
+              onClick={handleAddOrg}
+              disabled={addingOrg || !newOrg.trim()}
             >
-              {addingCrop ? "Adding…" : "Add"}
+              {addingOrg ? "Adding…" : "Add"}
             </button>
           </div>
         </div>
+        <p className="text-[10px] text-muted-foreground/70 -mt-1">
+          Crops come from a shared crop master and can't be added here. Folder options above are
+          every crop/organisation this document's Advisory Type allows — not narrowed by state.
+        </p>
       </div>
 
       <div className="flex flex-col gap-1 border-t border-border/50 pt-4">

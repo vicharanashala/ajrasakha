@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/atoms/dialog";
-import { updateDashboardUniqueDocument, getDashboardLanguages } from "../../api";
+import { updateDashboardUniqueDocument, getDashboardLanguages, getDashboardUsers } from "../../api";
 import { DOCUMENT_METADATA_FIELDS, EDITABLE_DOCUMENT_ONLY_FIELDS } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 
@@ -42,11 +42,27 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
   const [saving, setSaving] = useState(false);
 
   const [languageOptions, setLanguageOptions] = useState([]);
+  // "all" (not just active) — this document may already be verified by someone since
+  // deactivated, and that shouldn't disappear from the dropdown just because they can't verify
+  // anything new. Falls back to a plain text input in MetadataFieldInput if the list is empty
+  // (e.g. the backend's 503 case, its users collection unreachable).
+  const [userOptions, setUserOptions] = useState([]);
   useEffect(() => {
     getDashboardLanguages()
       .then((d) => setLanguageOptions(d || []))
       .catch(() => {});
+    getDashboardUsers("all")
+      .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
+      .catch(() => {});
   }, []);
+
+  // Covers the one gap "all" doesn't: a name that was RENAMED after being recorded here rather
+  // than deactivated. Show it as an extra option instead of silently dropping the document's
+  // current value off the list (per backend's explicit ask).
+  const verifiedByOptions =
+    doc?.verified_by && !userOptions.includes(doc.verified_by)
+      ? [...userOptions, doc.verified_by]
+      : userOptions;
 
   function setValue(key, val) {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -122,6 +138,8 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
                 value={values[f.key]}
                 onChange={(v) => setValue(f.key, v)}
                 className={inputClass}
+                options={f.key === "verified_by" ? verifiedByOptions : undefined}
+                allowBlank={f.key !== "format_original"}
               />
             </div>
           ))}
