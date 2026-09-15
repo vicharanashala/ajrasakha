@@ -44,6 +44,106 @@ mcp = FastMCP(
     ),
 )
 
+from pathlib import Path
+
+# ============================================================
+# STANDARDIZED DOMAINS TAXONOMY & NORMALIZATION
+# ============================================================
+
+TAXONOMY_FILE = Path(__file__).with_name("domain_taxonomy.json")
+
+
+def _normalize_key(text: str) -> str:
+    cleaned = str(text or "").strip().lower()
+    cleaned = cleaned.replace("–", "-").replace("—", "-")
+    return " ".join(cleaned.split())
+
+
+def _load_domain_taxonomy() -> tuple[list[str], dict[str, str]]:
+    standardized_list: list[str] = []
+    lookup: dict[str, str] = {}
+
+    def _register(alias: str, canonical: str) -> None:
+        k = _normalize_key(alias)
+        if not k:
+            return
+        lookup[k] = canonical
+        if "-" in k:
+            lookup[" ".join(k.replace(" - ", "-").split())] = canonical
+            lookup[" ".join(k.replace("-", " - ").split())] = canonical
+        if " & " in k:
+            lookup[k.replace(" & ", " and ")] = canonical
+        if " and " in k:
+            lookup[k.replace(" and ", " & ")] = canonical
+
+    if TAXONOMY_FILE.exists():
+        try:
+            data = json.loads(TAXONOMY_FILE.read_text(encoding="utf-8"))
+            for entry in data.get("domains", []):
+                std_name = str(entry.get("name") or "").strip()
+                code = str(entry.get("code") or "").strip()
+                if std_name:
+                    standardized_list.append(std_name)
+                    _register(std_name, std_name)
+                if code and std_name:
+                    _register(code, std_name)
+                for frag in entry.get("mapped_fragmented_domains", []):
+                    if frag and std_name:
+                        _register(str(frag).strip(), std_name)
+        except Exception as e:
+            log.warning("Failed to load domain_taxonomy.json: %s", e)
+    else:
+        log.warning("Taxonomy file %s does not exist", TAXONOMY_FILE)
+
+    return standardized_list, lookup
+
+
+STANDARDIZED_DOMAINS, _DOMAIN_LOOKUP = _load_domain_taxonomy()
+
+
+def standardize_domain(domain: str) -> str:
+    """Map any fragmented domain, alias, code, or standardized domain to its canonical name."""
+    if not isinstance(domain, str):
+        return str(domain or "").strip()
+    trimmed = domain.strip()
+    if not trimmed:
+        return ""
+    k = _normalize_key(trimmed)
+    if k in _DOMAIN_LOOKUP:
+        return _DOMAIN_LOOKUP[k]
+    if "-" in k:
+        k_no_space = " ".join(k.replace(" - ", "-").split())
+        if k_no_space in _DOMAIN_LOOKUP:
+            return _DOMAIN_LOOKUP[k_no_space]
+        k_with_space = " ".join(k.replace("-", " - ").split())
+        if k_with_space in _DOMAIN_LOOKUP:
+            return _DOMAIN_LOOKUP[k_with_space]
+    if " & " in k and k.replace(" & ", " and ") in _DOMAIN_LOOKUP:
+        return _DOMAIN_LOOKUP[k.replace(" & ", " and ")]
+    if " and " in k and k.replace(" and ", " & ") in _DOMAIN_LOOKUP:
+        return _DOMAIN_LOOKUP[k.replace(" and ", " & ")]
+    return trimmed
+
+
+def standardize_domains(domains: Any) -> list[str]:
+    """Standardize a list or string of domains, deduplicating while preserving order."""
+    if isinstance(domains, str):
+        raw_list = [domains]
+    elif isinstance(domains, (list, tuple, set)):
+        raw_list = list(domains)
+    else:
+        return []
+
+    result: list[str] = []
+    seen: set[str] = set()
+    for d in raw_list:
+        std = standardize_domain(str(d or ""))
+        if std and std not in seen:
+            seen.add(std)
+            result.append(std)
+    return result
+
+
 @mcp.tool()
 def upload_question_to_reviewer_system(
     question: str,
@@ -64,7 +164,9 @@ def upload_question_to_reviewer_system(
     - state_name (str): State from where the query originated. Must not be empty.
     - crop (str): Name of the crop related to the query. Must not be empty.
     - details (Dict[str, Any]): Strict contextual info. MUST contain exactly:
-        {"state": "...", "district": "...", "crop": "...", "season": "...", "domain": "...", "tools_used": [...]}
+        {"state": "...", "district": "...", "crop": "...", "season": "...", "domain": [...], "tools_used": [...]}
+        Note: The 'domain' field must be a list of domain names, which are automatically standardized
+        into the 19 standard agricultural domains before uploading.
     - source (str): Question channel identifier (e.g. AJRASAKHA, WHATSAPP, AJRASAKHA_WEBAPP).
     - thread_id (str): LangGraph conversation id (from x-conversation-id). Injected by the agent, not inferred by the LLM.
     - tools_used (list[str], optional): List of tools used to generate the answer (e.g. ["knowledge_base", "weather", "mandi"]). Empty list for non-agriculture queries.
@@ -109,11 +211,16 @@ def upload_question_to_reviewer_system(
             "message": f"Missing or empty required keys in 'details': {', '.join(missing)}"
         }
 
+    # Standardize domain names into the 19 standard agricultural domains
+    standardized_details = dict(details)
+    std_domains = standardize_domains(details["domain"])
+    standardized_details["domain"] = std_domains if std_domains else [d.strip() for d in details["domain"]]
+
     payload = {
         "question": question.strip(),
         "state_name": state_name.strip(),
         "crop": crop.strip(),
-        "details": details,
+        "details": standardized_details,
         "source": normalized_source,
         "tools_used": tools_used if tools_used is not None else [],
         "threadId": thread_id.strip(),
