@@ -138,6 +138,9 @@ export interface QueueQuestionItem {
   minutesSinceOpened?: number;
   /** Which time-bound work bucket this question falls in — present for totalWork items. */
   workType?: 'stuck' | 'unallocated' | 'needsReviewer';
+  /** Waiting review level = completed history steps + 1 (author answered → level 2).
+   *  Present for needs-reviewer items; used to split that section level-wise. */
+  reviewLevel?: number;
 }
 
 /** Lean expert shape for the "Experts waiting in queue" (free experts) list. */
@@ -164,6 +167,8 @@ export interface QueueDetailsResponse {
   autoAllocateDelayed: {count: number; items: QueueQuestionItem[]};
   /** Received questions that have been allocated to at least one expert. */
   allocated: {count: number; items: QueueQuestionItem[]};
+  /** Per-level counts for the time-bound allocated section (level of the current expert). */
+  allocatedLevelCounts: {level: number; count: number}[];
   /** Received questions still awaiting their first expert allocation. */
   waiting: {count: number; items: QueueQuestionItem[]};
   /** Experts with no active time-bound allocation (free / waiting in queue). */
@@ -172,6 +177,13 @@ export interface QueueDetailsResponse {
   stuck: {count: number; items: QueueQuestionItem[]};
   /** Answered/reviewed but still awaiting the next reviewer (cron "NeedReviewer"). */
   needsReviewer: {count: number; items: QueueQuestionItem[]};
+  /** Per-level counts for the time-bound needsReviewer section — accurate DB totals used
+   *  for the level tab badges (level = completed history steps + 1). */
+  needsReviewerLevelCounts: {level: number; count: number}[];
+  /** Per-level counts for the time-bound stuck section. */
+  stuckLevelCounts: {level: number; count: number}[];
+  /** Per-level counts for the time-bound opened-idle section. */
+  openedIdleLevelCounts: {level: number; count: number}[];
   /** Everything the time-bound cron tries to act on this run — stuck + unallocated +
    *  needsReviewer combined (the cron's "totalWork"). */
   totalWork: {count: number; items: QueueQuestionItem[]};
@@ -229,10 +241,18 @@ export interface QueueDetailsResponse {
   autoAllocateOpenManual: {count: number; items: QueueQuestionItem[]};
   autoAllocateDelayedManual: {count: number; items: QueueQuestionItem[]};
   allocatedManual: {count: number; items: QueueQuestionItem[]};
+  /** Per-level counts for the manual allocated section. */
+  allocatedLevelCountsManual: {level: number; count: number}[];
   waitingManual: {count: number; items: QueueQuestionItem[]};
   freeExpertsManual: {count: number; items: QueueExpertItem[]};
   stuckManual: {count: number; items: QueueQuestionItem[]};
   needsReviewerManual: {count: number; items: QueueQuestionItem[]};
+  /** Per-level counts for the manual needsReviewer section. */
+  needsReviewerLevelCountsManual: {level: number; count: number}[];
+  /** Per-level counts for the manual stuck section. */
+  stuckLevelCountsManual: {level: number; count: number}[];
+  /** Per-level counts for the manual opened-idle section. */
+  openedIdleLevelCountsManual: {level: number; count: number}[];
   openedIdleManual: {count: number; items: QueueQuestionItem[]};
 }
 

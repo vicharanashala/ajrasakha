@@ -258,6 +258,9 @@ export class QueueService {
               queueExpertNames: (r.queue ?? []).map(
                 q => names.get(q?.toString()) ?? 'Unknown',
               ),
+              // Level of the currently-allocated expert = their queue position
+              // (history.length - 1). Used to split this section by level.
+              reviewLevel: this.allocatedExpertLevel(r),
               lastPersonStatus: id ? 'waiting' : 'completed',
             };
           }),
@@ -351,6 +354,9 @@ export class QueueService {
               ? experts.get(id)?.isTrainingUser === true
               : undefined,
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
+            // Level of the currently-allocated (stuck) expert = their queue position
+            // (history.length - 1): 3 history entries → stuck on reviewer 2 → level 2.
+            reviewLevel: this.allocatedExpertLevel(sub),
             allocatedAt,
             minutesSinceAllocated: allocatedAt
               ? Math.floor((now - new Date(allocatedAt).getTime()) / 60000)
@@ -392,6 +398,9 @@ export class QueueService {
               ? experts.get(id)?.isTrainingUser === true
               : undefined,
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
+            // Level of the currently-allocated (idle) expert = their queue position
+            // (history.length - 1).
+            reviewLevel: this.allocatedExpertLevel(sub),
             openedAt,
             minutesSinceOpened: openedAt
               ? Math.floor((now - new Date(openedAt).getTime()) / 60000)
@@ -441,6 +450,9 @@ export class QueueService {
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             // Keep expertName as the most recent completer for backward compatibility.
             expertName: completedExpertNames[completedExpertNames.length - 1],
+            // Level reached = completed history length (author answered → 1 entry →
+            // Level 1). Used to split this section by level.
+            reviewLevel: this.needsReviewerLevel(sub),
             isTrainingUser:
               completedIds.length > 0
                 ? experts.get(completedIds[completedIds.length - 1])
@@ -834,6 +846,86 @@ export class QueueService {
    *  page (50) of each. Subsequent pages are fetched via getQueueSection.
    *  Touches no allocation state. The time-bound sections (waiting, stuck,
    *  needsReviewer) ignore the date range so their counts match the cron logs. */
+  /**
+   * The level (reviewer number) a needs-reviewer question is waiting for = its completed
+   * history length. Author answered (1 entry) → waiting for reviewer 1 = Level 1; author +
+   * reviewer 1 done (2 entries) → Level 2. Always ≥ 1 (it's never waiting on the Author).
+   */
+  private needsReviewerLevel(sub: any): number {
+    return Math.max(1, sub.history?.length ?? 0);
+  }
+
+  /**
+   * The level of the currently-allocated expert on a stuck / opened-idle / allocated
+   * question — that expert is the LAST history entry (in-review, not yet completed), so
+   * their queue position is history.length - 1. Positions are Author=0, Level 1=reviewer 1,
+   * Level 2=reviewer 2 … so a question with 3 history entries is on reviewer 2 → level 2,
+   * and the author being the current one → level 0 ("Author"). Floored at 0.
+   */
+  private allocatedExpertLevel(sub: any): number {
+    return Math.max(0, (sub.history?.length ?? 0) - 1);
+  }
+
+  /** Group submissions into per-level counts using the given level function. */
+  private levelCountsFromSubs(
+    subs: any[],
+    levelOf: (sub: any) => number,
+  ): {level: number; count: number}[] {
+    const byLevel = new Map<number, number>();
+    for (const sub of subs) {
+      const level = levelOf(sub);
+      byLevel.set(level, (byLevel.get(level) ?? 0) + 1);
+    }
+    return [...byLevel.entries()]
+      .map(([level, count]) => ({level, count}))
+      .sort((a, b) => a.level - b.level);
+  }
+
+  /** Per-level counts for the "Needs Reviewer" section (mirrors its own query). */
+  private async getNeedsReviewerLevelCounts(
+    expertSources: QuestionSource[],
+    requirePaeNotDone: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{level: number; count: number}[]> {
+    const subs =
+      (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+        expertSources,
+        requirePaeNotDone,
+        isTrainingUser,
+        isAdmin,
+      )) as any[];
+    return this.levelCountsFromSubs(subs, s => this.needsReviewerLevel(s));
+  }
+
+  /** Per-level counts for the "Stuck Questions" section (mirrors its own query). */
+  private async getStuckLevelCounts(
+    expertSources: QuestionSource[],
+    requirePaeNotDone: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{level: number; count: number}[]> {
+    const subs =
+      (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+        expertSources,
+        requirePaeNotDone,
+        isTrainingUser,
+        isAdmin,
+      )) as any[];
+    return this.levelCountsFromSubs(subs, s => this.allocatedExpertLevel(s));
+  }
+
+  /** Per-level counts for the "Opened but Idle" section (mirrors its own query). */
+  private async getOpenedIdleLevelCounts(
+    expertSources: QuestionSource[],
+  ): Promise<{level: number; count: number}[]> {
+    const subs =
+      (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(
+        expertSources,
+      )) as any[];
+    return this.levelCountsFromSubs(subs, s => this.allocatedExpertLevel(s));
+  }
+
   async getQueueDetails(
     startTime?: Date,
     endTime?: Date,
@@ -897,6 +989,10 @@ export class QueueService {
       feedbackAllocated,
       availableFeedbackReviewers,
       receivedStatusCounts,
+      needsReviewerLevelCounts,
+      stuckLevelCounts,
+      openedIdleLevelCounts,
+      allocatedLevelCounts,
       // Manual expert-queue sections (AGRI_EXPERT/OUTREACH single-allocation)
       receivedManual,
       autoAllocateOffManual,
@@ -909,6 +1005,10 @@ export class QueueService {
       needsReviewerManual,
       openedIdleManual,
       receivedStatusCountsManual,
+      needsReviewerLevelCountsManual,
+      stuckLevelCountsManual,
+      openedIdleLevelCountsManual,
+      allocatedLevelCountsManual,
     ] = await Promise.all([
       safe('received'),
       safe('autoAllocateOff'),
@@ -949,6 +1049,50 @@ export class QueueService {
           );
           return [] as {status: string; count: number}[];
         }),
+      // Per-level counts for the time-bound "Needs Reviewer" section.
+      this.getNeedsReviewerLevelCounts(
+        TIME_BOUND_SOURCES,
+        false,
+        isTrainingUser,
+        isAdmin,
+      ).catch((err: any) => {
+        console.error(
+          '[getQueueDetails] needsReviewerLevelCounts failed:',
+          err?.message,
+        );
+        return [] as {level: number; count: number}[];
+      }),
+      // Per-level counts for the time-bound "Stuck" section.
+      this.getStuckLevelCounts(
+        TIME_BOUND_SOURCES,
+        false,
+        isTrainingUser,
+        isAdmin,
+      ).catch((err: any) => {
+        console.error(
+          '[getQueueDetails] stuckLevelCounts failed:',
+          err?.message,
+        );
+        return [] as {level: number; count: number}[];
+      }),
+      // Per-level counts for the time-bound "Opened but Idle" section.
+      this.getOpenedIdleLevelCounts(TIME_BOUND_SOURCES).catch((err: any) => {
+        console.error(
+          '[getQueueDetails] openedIdleLevelCounts failed:',
+          err?.message,
+        );
+        return [] as {level: number; count: number}[];
+      }),
+      // Per-level counts for the time-bound "Questions Allocated" section.
+      this.questionRepo
+        .getAllocatedLevelCounts(TIME_BOUND_SOURCES, false, isTrainingUser, isAdmin)
+        .catch((err: any) => {
+          console.error(
+            '[getQueueDetails] allocatedLevelCounts failed:',
+            err?.message,
+          );
+          return [] as {level: number; count: number}[];
+        }),
       safe('receivedManual'),
       safe('autoAllocateOffManual'),
       safe('autoAllocateOpenManual'),
@@ -968,6 +1112,50 @@ export class QueueService {
           );
           return [] as {status: string; count: number}[];
         }),
+      // Per-level counts for the manual "Needs Reviewer" section.
+      this.getNeedsReviewerLevelCounts(
+        MANUAL_SOURCES,
+        true,
+        isTrainingUser,
+        isAdmin,
+      ).catch((err: any) => {
+        console.error(
+          '[getQueueDetails] needsReviewerLevelCountsManual failed:',
+          err?.message,
+        );
+        return [] as {level: number; count: number}[];
+      }),
+      // Per-level counts for the manual "Stuck" section.
+      this.getStuckLevelCounts(
+        MANUAL_SOURCES,
+        true,
+        isTrainingUser,
+        isAdmin,
+      ).catch((err: any) => {
+        console.error(
+          '[getQueueDetails] stuckLevelCountsManual failed:',
+          err?.message,
+        );
+        return [] as {level: number; count: number}[];
+      }),
+      // Per-level counts for the manual "Opened but Idle" section.
+      this.getOpenedIdleLevelCounts(MANUAL_SOURCES).catch((err: any) => {
+        console.error(
+          '[getQueueDetails] openedIdleLevelCountsManual failed:',
+          err?.message,
+        );
+        return [] as {level: number; count: number}[];
+      }),
+      // Per-level counts for the manual "Questions Allocated" section.
+      this.questionRepo
+        .getAllocatedLevelCounts(MANUAL_SOURCES, true, isTrainingUser, isAdmin)
+        .catch((err: any) => {
+          console.error(
+            '[getQueueDetails] allocatedLevelCountsManual failed:',
+            err?.message,
+          );
+          return [] as {level: number; count: number}[];
+        }),
     ]);
 
     return {
@@ -985,6 +1173,14 @@ export class QueueService {
       freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
       stuck: stuck as QueueDetailsResponse['stuck'],
       needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
+      needsReviewerLevelCounts:
+        needsReviewerLevelCounts as QueueDetailsResponse['needsReviewerLevelCounts'],
+      stuckLevelCounts:
+        stuckLevelCounts as QueueDetailsResponse['stuckLevelCounts'],
+      openedIdleLevelCounts:
+        openedIdleLevelCounts as QueueDetailsResponse['openedIdleLevelCounts'],
+      allocatedLevelCounts:
+        allocatedLevelCounts as QueueDetailsResponse['allocatedLevelCounts'],
       totalWork: totalWork as QueueDetailsResponse['totalWork'],
       openedIdle: openedIdle as QueueDetailsResponse['openedIdle'],
       moderatorWaiting:
@@ -1029,6 +1225,14 @@ export class QueueService {
       receivedManual: receivedManual as QueueDetailsResponse['receivedManual'],
       receivedStatusCountsManual:
         receivedStatusCountsManual as QueueDetailsResponse['receivedStatusCountsManual'],
+      needsReviewerLevelCountsManual:
+        needsReviewerLevelCountsManual as QueueDetailsResponse['needsReviewerLevelCountsManual'],
+      stuckLevelCountsManual:
+        stuckLevelCountsManual as QueueDetailsResponse['stuckLevelCountsManual'],
+      openedIdleLevelCountsManual:
+        openedIdleLevelCountsManual as QueueDetailsResponse['openedIdleLevelCountsManual'],
+      allocatedLevelCountsManual:
+        allocatedLevelCountsManual as QueueDetailsResponse['allocatedLevelCountsManual'],
       autoAllocateOffManual:
         autoAllocateOffManual as QueueDetailsResponse['autoAllocateOffManual'],
       autoAllocateOpenManual:
