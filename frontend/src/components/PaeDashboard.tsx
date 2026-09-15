@@ -34,6 +34,7 @@ import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 import type {
   PaeAnswerDashboardQuestion,
   PaeValidationQuestionItem,
@@ -585,6 +586,7 @@ export const PaeDashboard = ({ userId, userName, goBack }: PaeDashboardProps = {
 
         {viewingOther && targetUserId && <WorkingHoursTrendChart userId={targetUserId} />}
       </div>
+      <ScrollToTopButton />
     </main>
   );
 };

@@ -1207,12 +1207,12 @@ export function AnnamDashboard_dev({
               )}
             </div>
           </div>
-          <ScrollToTopButton
-            containerRef={mainScrollContainerRef}
-            onScrollTop={() => setActiveView("overview")}
-          />
         </>
       )}
+      <ScrollToTopButton
+        containerRef={mainScrollContainerRef}
+        onScrollTop={() => setActiveView("overview")}
+      />
     </div>
   );
 }

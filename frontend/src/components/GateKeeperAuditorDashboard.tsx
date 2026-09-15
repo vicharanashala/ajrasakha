@@ -29,6 +29,7 @@ import type { IUser } from "@/types";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 /** GateKeeper/Auditor check-in / check-out control. Kept as its own component so its
  *  per-second timer re-render stays isolated here and does NOT re-render the
@@ -580,6 +581,7 @@ export const GateKeeperAuditorDashboard = ({
         {/* Working hours trend */}
         {targetUserId && <WorkingHoursTrendChart userId={targetUserId} />}
       </div>
+      <ScrollToTopButton />
     </main>
   );
 };
