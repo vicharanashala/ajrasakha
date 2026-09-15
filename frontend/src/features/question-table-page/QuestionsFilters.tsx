@@ -80,9 +80,18 @@ import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
 import { StateDistrictAliasModal } from "./StateDistrictAliasModal";
 import { QueueDetailsModal, GateKeeperAuditorQueueModal, FeedbackQueueModal, PaeValidationQueueModal } from "./QueueDetailsModal";
+import { ModeratorQueueModal } from "./ModeratorQueueModal";
 import { canViewQueueDetails } from "@/lib/roles";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
+import { useGetCropEntryTypes } from "@/hooks/api/crop/useGetCropEntryTypes";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/atoms/dropdown-menu";
 import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck, LayoutDashboard } from "lucide-react";
@@ -443,19 +452,20 @@ export const QuestionsFilters = ({
   };
 
   const cropService = new CropService();
+  const { data: cropEntryTypes = [] } = useGetCropEntryTypes();
 
-  const handleDownloadCrops = async () => {
+  const handleDownloadAgritech = async (type?: string) => {
     setIsDownloadingCrops(true);
     try {
-      const blob = await cropService.downloadList('crop');
+      const blob = await cropService.downloadList(type || undefined);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "crops_list.xlsx";
+      a.download = type ? `${type}_list.xlsx` : "agritech_management.xlsx";
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Failed to download crops list.");
+      toast.error("Failed to download AgriTech Management list.");
     } finally {
       setIsDownloadingCrops(false);
     }
@@ -764,6 +774,7 @@ export const QuestionsFilters = ({
         }}
         currentUserIsTrainingUser={isTrainingUser}
         currentUserIsAdmin={userRole === "admin"}
+        canViewTraining={userRole === "auditor" || userRole === "gate_keeper"}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
@@ -1315,6 +1326,11 @@ export const QuestionsFilters = ({
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
               )}
 
+              {/* moderator queue — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && (
+                <ModeratorQueueModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
+              )}
+
               {/* gate keeper / auditor queue — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && !isTrainingUser && (
                 <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
@@ -1388,21 +1404,37 @@ export const QuestionsFilters = ({
                   />
                 </div>
 
-                {/* Download Master Lists — Crops & Chemicals */}
+                {/* Download AgriTech Management — filter by type (all / crop / chemical / category) */}
                 <div className="flex gap-3">
-                  <button
-                    onClick={handleDownloadCrops}
-                    disabled={isDownloadingCrops}
-                    className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
-                  >
-                    {isDownloadingCrops ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Download size={14} />
-                    )}
-                    Crops List
-                    <TopRightBadge label="new" left={0} />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        disabled={isDownloadingCrops}
+                        className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
+                      >
+                        {isDownloadingCrops ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Download size={14} />
+                        )}
+                        AgriTech Management
+                        <TopRightBadge label="new" left={0} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 text-xs max-h-72 overflow-y-auto z-[70]">
+                      <DropdownMenuItem onClick={() => handleDownloadAgritech()}>
+                        <Download size={13} className="mr-2" /> All types
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleDownloadAgritech("crop")}>Crop</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownloadAgritech("chemical")}>Chemical</DropdownMenuItem>
+                      {cropEntryTypes.map((t) => (
+                        <DropdownMenuItem key={t} onClick={() => handleDownloadAgritech(t)}>
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <button
                     onClick={handleDownloadChemicals}
                     disabled={isDownloadingChemicals}

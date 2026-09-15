@@ -25,6 +25,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { ClientSession } from 'mongodb';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
@@ -353,6 +354,8 @@ export interface IChatbotService {
     userType?: string,
     page?: number,
     limit?: number,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any>;
   getUserMessageMetricDetails(
     userId: string,
@@ -668,4 +671,6 @@ export interface IChatbotService {
     page?: number,
     pageSize?: number,
   ): Promise<DatasetListResponse<DatasetUserListItem>>;
+
+  logoutUser (userId: string): Promise<{value: boolean, message: string}>
 }

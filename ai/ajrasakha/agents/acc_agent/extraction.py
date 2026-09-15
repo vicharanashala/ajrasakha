@@ -1,9 +1,17 @@
 """Pure helpers for ACC transcript extraction selection and response shaping."""
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TypedDict
 
 
 ExtractionType = Literal["farmer_details", "query_details", "all"]
+
+
+class ExtractedQuery(TypedDict):
+    """One distinct farmer question extracted from a call transcript."""
+
+    query: str
+    crop: Optional[str]
+    standardized_domains: list[str]
 
 
 VALID_EXTRACTION_TYPES = frozenset({"farmer_details", "query_details", "all"})
@@ -46,6 +54,12 @@ def _optional_int(value: object) -> Optional[int]:
         return None
 
 
+def _non_negative_int(value: object) -> Optional[int]:
+    """Return an explicitly supplied non-negative whole-number value."""
+    number = _optional_int(value)
+    return number if number is not None and number >= 0 else None
+
+
 def _secondary_crops(value: object, primary_crop: Optional[str]) -> list[str]:
     """Return unique, explicitly extracted crops other than the primary crop."""
     values = value if isinstance(value, (list, tuple, set)) else [value]
@@ -66,6 +80,64 @@ def _secondary_crops(value: object, primary_crop: Optional[str]) -> list[str]:
     return crops
 
 
+def _domains(value: object) -> list[str]:
+    """Normalize a query's domain classification to a non-empty string list."""
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    domains: list[str] = []
+    seen: set[str] = set()
+
+    for value in values:
+        domain = _optional_str(value)
+        if not domain:
+            continue
+        key = domain.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        domains.append(domain)
+
+    return domains or ["Others"]
+
+
+def _extracted_queries(data: dict[str, Any]) -> list[ExtractedQuery]:
+    """Normalize the new multi-query response, with a legacy single-query fallback."""
+    raw_queries = data.get("queries")
+    candidates = raw_queries if isinstance(raw_queries, list) else []
+
+    if not candidates:
+        candidates = [
+            {
+                "query": data.get("query"),
+                "crop": data.get("crop"),
+                "standardized_domains": data.get("standardized_domains"),
+            }
+        ]
+
+    queries: list[ExtractedQuery] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        query = _optional_str(candidate.get("query"))
+        if not query:
+            continue
+        key = query.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        queries.append(
+            {
+                "query": query,
+                "crop": _optional_str(candidate.get("crop")),
+                "standardized_domains": _domains(
+                    candidate.get("standardized_domains")
+                ),
+            }
+        )
+
+    return queries
+
+
 def build_extraction_update(
     data: dict[str, Any],
     extraction_type: ExtractionType,
@@ -78,17 +150,12 @@ def build_extraction_update(
         "verified_by_human": False,
     }
 
-    query_crop = data.get("crop", "All")
-    domains = data.get("standardized_domains", [])
-    if isinstance(domains, str):
-        domains = [domains]
-    if not domains:
-        domains = ["Others"]
+    extracted_queries = _extracted_queries(data)
+    primary_query = extracted_queries[0] if extracted_queries else None
+    query_crop = primary_query["crop"] if primary_query else "All"
 
     query_details = {
-        "extracted_query": data.get("query", ""),
-        "extracted_crop": query_crop,
-        "standardized_domains": domains,
+        "extracted_queries": extracted_queries,
     }
 
     primary_crop = _optional_str(data.get("primary_crop"))
@@ -111,6 +178,18 @@ def build_extraction_update(
         "extracted_secondary_crops": _secondary_crops(
             data.get("secondary_crops"),
             primary_crop,
+        ),
+        "extracted_language_preference": _optional_str(
+            data.get("language_preference")
+        ),
+        "extracted_years_of_experience": _non_negative_int(
+            data.get("years_of_experience")
+        ),
+        "extracted_highest_education": _optional_str(
+            data.get("highest_education")
+        ),
+        "extracted_smartphones_at_home": _non_negative_int(
+            data.get("smartphones_at_home")
         ),
     }
 

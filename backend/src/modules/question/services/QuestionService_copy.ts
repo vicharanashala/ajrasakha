@@ -1,450 +1,468 @@
-// import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
-// import { BaseService, MongoDatabase } from '#root/shared/index.js';
-// import { GLOBAL_TYPES } from '#root/types.js';
-// import { inject, injectable } from 'inversify';
-// import { ClientSession, ObjectId } from 'mongodb';
-// import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
-// import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
-// import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
-// import {
-//   IQuestion,
-//   IUser,
-//   IQuestionSubmission,
-//   ISubmissionHistory,
-//   IAnswer,
-//   INotificationType,
-//   IQuestionPriority,
-//   ISimilarQuestion,
-//   AddQuestionResult,
-//   ICheckStatusResponse,
-//   IPreviousAllocations,
-//   IAuthorsHistory,
-//   QuestionStatus,
-//   QuestionSource,
-//   UserRole,
-//   TIME_BOUND_SOURCES,
-//   MANUAL_SOURCES,
-//   IFeedback,
-// } from '#root/shared/interfaces/models.js';
-// import {
-//   BadRequestError,
-//   ForbiddenError,
-//   InternalServerError,
-//   NotFoundError,
-//   UnauthorizedError,
-// } from 'routing-controllers';
-// import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
-// import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-// import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
-// import { IRequestRepository } from '#root/shared/database/interfaces/IRequestRepository.js';
-// import { IContextRepository } from '#root/shared/database/interfaces/IContextRepository.js';
-// import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
-// import { notifyUser } from '#root/utils/pushNotification.js';
-// import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
-// import { appConfig } from '#root/config/app.js';
-// import { AiService } from '#root/modules/ai/services/AiService.js';
-// import {
-//   AddQuestionBodyDto,
-//   AllocatedQuestionsBodyDto,
-//   DetailedQuestionsBodyDto,
-//   GeneratedQuestionResponse,
-//   GetDetailedQuestionsQuery,
-//   QuestionResponse,
-// } from '../classes/validators/QuestionVaidators.js';
-// import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-// import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
-// import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
-// import { CORE_TYPES } from '#root/modules/core/types.js';
-// import {
-//   IQuestionService,
-//   QueueDetailsResponse,
-//   QueueQuestionItem,
-//   QueueExpertItem,
-//   QueueSectionName,
-//   QueueSectionResult,
-//   RawQueueQuestionRow,
-//   FeedbackResponse,
-//   FeedbackData,
-//   FeedbackQueueDetails,
-//   PaeValidationQueueDetails,
-// } from '../interfaces/IQuestionService.js';
-// import type {
-//   PaeValidationQuestion,
-//   PaeValidationAnswer,
-//   PaeValidationAssignedQuestionsResponse,
-// } from '../interfaces/QuestionValidationTypes.js';
-// import { isToday } from '#root/utils/date.utils.js';
-// import { UserService } from '#root/modules/user/services/UserService.js';
-// import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
-// import { sendEmailWithAttachment } from '#root/utils/mailer.js';
-// import ExcelJS from 'exceljs';
-// import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
-// import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
-// import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
-// import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
-// import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
-// import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
-// import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
-// import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
-// import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
-// import {
-//   AuditAction,
-//   AuditCategory,
-//   ModeratorAuditTrail,
-//   OutComeStatus,
-// } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
-// import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
-// import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
-// import { checkDuplicateQuestionHelper, isQuestionMatchForPaeExpert } from '../helpers/duplicateQuestionHelper.js';
-// import {
-//   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-//   TOTAL_EXPERTS_LIMIT,
-// } from '#root/shared/constants/general.js';
-// import { toTitleCase } from '#root/utils/ToTitlecase.js';
-// import axios from 'axios';
-// import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
-// import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+// // import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+// // import { BaseService, MongoDatabase } from '#root/shared/index.js';
+// // import { GLOBAL_TYPES } from '#root/types.js';
+// // import { inject, injectable } from 'inversify';
+// // import { ClientSession, ObjectId } from 'mongodb';
+// // import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
+// // import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
+// // import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
+// // import {
+// //   IQuestion,
+// //   IUser,
+// //   IQuestionSubmission,
+// //   ISubmissionHistory,
+// //   IAnswer,
+// //   INotificationType,
+// //   IQuestionPriority,
+// //   ISimilarQuestion,
+// //   AddQuestionResult,
+// //   ICheckStatusResponse,
+// //   IPreviousAllocations,
+// //   IAuthorsHistory,
+// //   QuestionStatus,
+// //   QuestionSource,
+// //   UserRole,
+// //   TIME_BOUND_SOURCES,
+// //   MANUAL_SOURCES,
+// //   IFeedback,
+// // } from '#root/shared/interfaces/models.js';
+// // import {
+// //   BadRequestError,
+// //   ForbiddenError,
+// //   InternalServerError,
+// //   NotFoundError,
+// //   UnauthorizedError,
+// // } from 'routing-controllers';
+// // import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
+// // import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+// // import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+// // import { IRequestRepository } from '#root/shared/database/interfaces/IRequestRepository.js';
+// // import { IContextRepository } from '#root/shared/database/interfaces/IContextRepository.js';
+// // import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+// // import { notifyUser } from '#root/utils/pushNotification.js';
+// // import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
+// // import { appConfig } from '#root/config/app.js';
+// // import { AiService } from '#root/modules/ai/services/AiService.js';
+// // import {
+// //   AddQuestionBodyDto,
+// //   AllocatedQuestionsBodyDto,
+// //   DetailedQuestionsBodyDto,
+// //   GeneratedQuestionResponse,
+// //   GetDetailedQuestionsQuery,
+// //   QuestionResponse,
+// // } from '../classes/validators/QuestionVaidators.js';
+// // import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+// // import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+// // import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+// // import { CORE_TYPES } from '#root/modules/core/types.js';
+// // import {
+// //   IQuestionService,
+// //   QueueDetailsResponse,
+// //   QueueQuestionItem,
+// //   QueueExpertItem,
+// //   QueueSectionName,
+// //   QueueSectionResult,
+// //   RawQueueQuestionRow,
+// //   FeedbackResponse,
+// //   FeedbackData,
+// //   FeedbackQueueDetails,
+// //   PaeValidationQueueDetails,
+// // } from '../interfaces/IQuestionService.js';
+// // import type {
+// //   PaeValidationQuestion,
+// //   PaeValidationAnswer,
+// //   PaeValidationAssignedQuestionsResponse,
+// // } from '../interfaces/QuestionValidationTypes.js';
+// // import { isToday } from '#root/utils/date.utils.js';
+// // import { UserService } from '#root/modules/user/services/UserService.js';
+// // import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
+// // import { sendEmailWithAttachment } from '#root/utils/mailer.js';
+// // import ExcelJS from 'exceljs';
+// // import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
+// // import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+// // import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
+// // import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
+// // import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
+// // import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
+// // import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
+// // import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+// // import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+// // import {
+// //   AuditAction,
+// //   AuditCategory,
+// //   ModeratorAuditTrail,
+// //   OutComeStatus,
+// // } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+// // import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
+// // import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
+// // import { checkDuplicateQuestionHelper, isQuestionMatchForPaeExpert } from '../helpers/duplicateQuestionHelper.js';
+// // import {
+// //   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+// //   TOTAL_EXPERTS_LIMIT,
+// // } from '#root/shared/constants/general.js';
+// // import { toTitleCase } from '#root/utils/ToTitlecase.js';
+// // import axios from 'axios';
+// // import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
+// // import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
-// /**
-//  * Module-level guard so two time-bound reallocation runs never overlap. The cron
-//  * fires every 2 min regardless of whether the previous run (and its detached
-//  * persistence workers) finished; without this lock an in-flight assignment that
-//  * hasn't been written yet still looks "free" in the DB and gets double-allocated.
-//  */
-// let isReallocatingTimeBound = false;
+// // /**
+// //  * Module-level guard so two time-bound reallocation runs never overlap. The cron
+// //  * fires every 2 min regardless of whether the previous run (and its detached
+// //  * persistence workers) finished; without this lock an in-flight assignment that
+// //  * hasn't been written yet still looks "free" in the DB and gets double-allocated.
+// //  */
+// // let isReallocatingTimeBound = false;
 
-// /** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
-// let isReallocatingManual = false;
+// // /** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
+// // let isReallocatingManual = false;
 
-// let isReallocatingFeedback = false;
+// // let isReallocatingFeedback = false;
 
-// @injectable()
-// export class QuestionService extends BaseService implements IQuestionService {
-//   constructor(
-//     @inject(CORE_TYPES.AIService)
-//     private readonly aiService: AiService,
+// // @injectable()
+// // export class QuestionService extends BaseService implements IQuestionService {
+// //   constructor(
+// //     @inject(CORE_TYPES.AIService)
+// //     private readonly aiService: AiService,
 
-//     @inject(GLOBAL_TYPES.AccAgentService)
-//     private readonly accAgentService: AccAgentService,
+// //     @inject(GLOBAL_TYPES.AccAgentService)
+// //     private readonly accAgentService: AccAgentService,
 
-//     @inject(GLOBAL_TYPES.ContextRepository)
-//     private readonly contextRepo: IContextRepository,
+// //     @inject(GLOBAL_TYPES.ContextRepository)
+// //     private readonly contextRepo: IContextRepository,
 
-//     @inject(GLOBAL_TYPES.QuestionRepository)
-//     private readonly questionRepo: IQuestionRepository,
+// //     @inject(GLOBAL_TYPES.QuestionRepository)
+// //     private readonly questionRepo: IQuestionRepository,
 
-//     @inject(GLOBAL_TYPES.UserRepository)
-//     private readonly userRepo: IUserRepository,
+// //     @inject(GLOBAL_TYPES.UserRepository)
+// //     private readonly userRepo: IUserRepository,
 
-//     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
-//     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+// //     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+// //     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
-//     @inject(GLOBAL_TYPES.RequestRepository)
-//     private readonly requestRepository: IRequestRepository,
+// //     @inject(GLOBAL_TYPES.RequestRepository)
+// //     private readonly requestRepository: IRequestRepository,
 
-//     @inject(GLOBAL_TYPES.AnswerRepository)
-//     private readonly answerRepo: IAnswerRepository,
+// //     @inject(GLOBAL_TYPES.AnswerRepository)
+// //     private readonly answerRepo: IAnswerRepository,
 
-//     @inject(GLOBAL_TYPES.NotificationRepository)
-//     private readonly notificationRepository: INotificationRepository,
+// //     @inject(GLOBAL_TYPES.NotificationRepository)
+// //     private readonly notificationRepository: INotificationRepository,
 
-//     @inject(GLOBAL_TYPES.NotificationService)
-//     private readonly notificationService: NotificationService,
+// //     @inject(GLOBAL_TYPES.NotificationService)
+// //     private readonly notificationService: NotificationService,
 
-//     @inject(GLOBAL_TYPES.ReRouteRepository)
-//     private readonly reRouteRepository: IReRouteRepository,
+// //     @inject(GLOBAL_TYPES.ReRouteRepository)
+// //     private readonly reRouteRepository: IReRouteRepository,
 
-//     @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
-//     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
+// //     @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
+// //     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
 
-//     @inject(GLOBAL_TYPES.CropRepository)
-//     private readonly cropRepository: ICropRepository,
+// //     @inject(GLOBAL_TYPES.CropRepository)
+// //     private readonly cropRepository: ICropRepository,
 
-//     @inject(CHATBOT_TYPES.ChatbotRepository)
-//     private readonly chatbotRepository: IChatbotRepository,
+// //     @inject(CHATBOT_TYPES.ChatbotRepository)
+// //     private readonly chatbotRepository: IChatbotRepository,
 
-//     @inject(GLOBAL_TYPES.Database)
-//     private readonly mongoDatabase: MongoDatabase,
+// //     @inject(GLOBAL_TYPES.Database)
+// //     private readonly mongoDatabase: MongoDatabase,
 
-//     @inject(GLOBAL_TYPES.UserService)
-//     private readonly userService: UserService,
+// //     @inject(GLOBAL_TYPES.UserService)
+// //     private readonly userService: UserService,
 
-//     @inject(Symbol.for('CallDetailsRepository'))
-//     private readonly callDetailsRepository: ICallDetailsRepository,
-//     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
-//     private readonly auditTrailsService: IAuditTrailsService,
+// //     @inject(Symbol.for('CallDetailsRepository'))
+// //     private readonly callDetailsRepository: ICallDetailsRepository,
+// //     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+// //     private readonly auditTrailsService: IAuditTrailsService,
 
-//     @inject(CORE_TYPES.FeedbackRepository)
-//     private readonly feedbackRepo: IFeedbackRepository,
+// //     @inject(CORE_TYPES.FeedbackRepository)
+// //     private readonly feedbackRepo: IFeedbackRepository,
+// //   ) {
+// //     super(mongoDatabase);
+// //   }
+
+// //   /**
+// //    * Helper function to truncate question text for notifications
+// //    */
+// //   private truncateQuestionText(
+// //     questionText: string,
+// //     maxLength: number = 50,
+// //   ): string {
+// //     if (!questionText) return 'Question';
+// //     if (questionText.length <= maxLength) return questionText;
+// //     return questionText.substring(0, maxLength) + '...';
+// //   }
+
+// //   private isQuestionUserTrainingTypeMatch(
+// //     user: IUser,
+// //     question: IQuestion,
+// //   ): boolean {
+// //     return (
+// //       (question.isTrainingQuestion === true) === (user.isTrainingUser === true)
+// //     );
+// //   }
+
+// //   async createBulkQuestions(
+// //     userId: string,
+// //     questions: any[],
+// //     isOutreachQuestion?: boolean,
+// //   ): Promise<string[]> {
+// //     if (!Array.isArray(questions) || questions.length === 0) {
+// //       throw new BadRequestError('No questions provided for bulk insert');
+// //     }
+
+// //     // const testEmbedding = await this.aiService.getEmbedding('Test'); // disabled locally — AI server not running
+
+// //     // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
+// //     const cropCache = new Map<string, string>();
+
+// //     const formatted: IQuestion[] = [];
+// //     for (const q of questions) {
+// //       const low = normalizeKeysToLower(q || {});
+// //       const details: IQuestion['details'] = {
+// //         state: (low.state || '').toString(),
+// //         district: (low.district || '').toString(),
+// //         crop: (low.crop || '').toString(),
+// //         season: (low.season || '').toString(),
+// //         domain: (low.domain || '').toString(),
+// //       };
+
+// //       // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
+// //       const rawCropName = (low.crop || '').toString();
+// //       let normalised_crop: string | undefined;
+// //       if (rawCropName.trim()) {
+// //         const cacheKey = rawCropName.trim().toLowerCase();
+// //         if (cropCache.has(cacheKey)) {
+// //           normalised_crop = cropCache.get(cacheKey)!;
+// //         } else {
+// //           try {
+// //             const existingCrop =
+// //               await this.cropRepository.findByNameOrAlias(rawCropName);
+// //             if (existingCrop) {
+// //               normalised_crop = existingCrop.name;
+// //               cropCache.set(cacheKey, normalised_crop);
+// //             }
+// //             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+// //           } catch (cropError: any) {
+// //             console.error('Crop normalization warning:', cropError.message);
+// //           }
+// //         }
+// //       }
+// //       details.crop = rawCropName.trim();
+// //       if (normalised_crop !== undefined)
+// //         details.normalised_crop = normalised_crop;
+
+// //       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
+// //       const priorities = ['low', 'high', 'medium', 'critical'];
+// //       const priority = priorities.includes(priorityRaw)
+// //         ? (priorityRaw as IQuestionPriority)
+// //         : 'medium';
+// //       const questionText = (low.question || '').toString().trim();
+// //       const aiInitialAnswer = q.aiInitialAnswer;
+// //       if (!questionText) {
+// //         throw new BadRequestError(
+// //           'Each question must have a non-empty "question" field',
+// //         );
+// //       }
+// //       const base: IQuestion = {
+// //         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
+// //         question: questionText,
+// //         priority,
+// //         source: isOutreachQuestion
+// //           ? 'OUTREACH'
+// //           : ((low.source || 'AGRI_EXPERT') as IQuestion['source']),
+// //         status: 'open',
+// //         totalAnswersCount: 0,
+// //         contextId: null,
+// //         details,
+// //         aiInitialAnswer,
+// //         isAutoAllocate: true,
+// //         embedding: [],
+// //         metrics: null,
+// //         text: `Question: ${questionText}`,
+// //         createdAt: new Date(),
+// //         updatedAt: new Date(),
+// //       };
+
+// //       formatted.push(base);
+// //     }
+
+// //     try {
+// //       const insertedIds = await this.questionRepo.insertMany(formatted);
+// //       return insertedIds;
+// //     } catch (error: any) {
+// //       throw new InternalServerError(
+// //         `Failed to insert questions: ${error?.message || error}`,
+// //       );
+// //     }
+// //   }
+
+// //   async addDummyQuestions(
+// //     userId: string,
+// //     contextId: string,
+// //     questions: string[],
+// //     session?: ClientSession,
+// //   ) {
+// //     try {
+// //       if (!Array.isArray(questions) || questions.length === 0) {
+// //         throw new BadRequestError('Questions must be a non-empty array');
+// //       }
+
+// //       if (session) {
+// //         const insertedQuestions = [];
+
+// //         for (const questionText of questions) {
+// //           const question = await this.questionRepo.addDummyQuestion(
+// //             userId,
+// //             contextId,
+// //             questionText,
+// //             session,
+// //           );
+
+// //           const submissionData: IQuestionSubmission = {
+// //             questionId: question._id,
+// //             lastRespondedBy: null,
+// //             history: [],
+// //             queue: [],
+// //             createdAt: new Date(),
+// //             updatedAt: new Date(),
+// //           };
+
+// //           await this.questionSubmissionRepo.addSubmission(
+// //             submissionData,
+// //             session,
+// //           );
+
+// //           insertedQuestions.push(question);
+// //         }
+
+// //         return insertedQuestions;
+// //       }
+
+// //       return this._withTransaction(
+// //         async (transactionSession: ClientSession) => {
+// //           const insertedQuestions = [];
+
+// //           for (const questionText of questions) {
+// //             const question = await this.questionRepo.addDummyQuestion(
+// //               userId,
+// //               contextId,
+// //               questionText,
+// //               transactionSession,
+// //             );
+
+// //             const submissionData: IQuestionSubmission = {
+// //               questionId: question._id,
+// //               lastRespondedBy: null,
+// //               history: [],
+// //               queue: [],
+// //               createdAt: new Date(),
+// //               updatedAt: new Date(),
+// //             };
+
+// //             await this.questionSubmissionRepo.addSubmission(
+// //               submissionData,
+// //               transactionSession,
+// //             );
+
+// //             insertedQuestions.push(question);
+// //           }
+
+// //           return insertedQuestions;
+// //         },
+// //       );
+// //     } catch (error) {
+// //       throw new InternalServerError(`Failed to add questions: ${error}`);
+// //     }
+// //   }
+
+// //   async getByContextId(contextId: string): Promise<IQuestion[]> {
+// //     try {
+// //       return this._withTransaction(async (session: ClientSession) => {
+// //         return this.questionRepo.getByContextId(contextId, session);
+// //       });
+// //     } catch (error) {
+// //       throw new InternalServerError(`Failed to get questions: ${error}`);
+// //     }
+// //   }
+
+// //   /** Standardise a state name across all questions: any question whose details.state matches
+// //    *  one of `currentValues` (e.g. "punjab", "PUNJAB", "पंजाब") is set to `standardizedTo`
+// //    *  (e.g. "Punjab"). Returns how many matched/were modified. */
+// //   async normalizeQuestionState(
+// //     currentValues: string[],
+// //     standardizedTo: string,
+// //   ): Promise<{matched: number; modified: number}> {
+// //     const cleaned = (currentValues ?? [])
+// //       .map(v => (typeof v === 'string' ? v.trim() : ''))
+// //       .filter(Boolean);
+// //     const target = (standardizedTo ?? '').trim();
+// //     if (cleaned.length === 0) {
+// //       throw new BadRequestError(
+// //         'current values must be a non-empty array of strings',
+// //       );
+// //     }
+// //     if (!target) {
+// //       throw new BadRequestError('standardizedTo is required');
+// //     }
+// //     return this._withTransaction(async (session: ClientSession) => {
+// //       return this.questionRepo.normalizeQuestionState(cleaned, target, session);
+// //     });
+// //   }
+
+// //   /** Standardise question district names, validating each `standardiseTo` against the
+// //    *  `districts` collection (districtNameEnglish). Matching ones update questions whose
+// //    *  details.district === existingName; non-matching names are returned untouched. */
+// //   async normalizeQuestionDistricts(
+// //     mappings: {existingName: string; standardiseTo: string}[],
+// //   ) {
+// //     const cleaned = (mappings ?? [])
+// //       .map(m => ({
+// //         existingName:
+// //           typeof m?.existingName === 'string' ? m.existingName.trim() : '',
+// //         standardiseTo:
+// //           typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
+// //       }))
+// //       .filter(m => m.existingName && m.standardiseTo);
+// //     if (cleaned.length === 0) {
+// //       throw new BadRequestError(
+// //         'mappings must be a non-empty array of { existingName, standardiseTo }',
+// //       );
+// //     }
+// //     return this.questionRepo.normalizeQuestionDistricts(cleaned);
+// //   }
+
+// //   /** Audit: distinct question details.state / details.district values that don't exist in the
+// //    *  states / districts collections. */
+// //   async findUnknownQuestionGeo(): Promise<{
+// //     unknownStates: string[];
+// //     matchedDistricts: {
+// //       name: string;
+// //       foundIn: 'block' | 'village';
+// //       districtCode: number | null;
+// //       stateCode: number | null;
+// //       districtNameEnglish: string | null;
+// //     }[];
+// //     notMatchingDistricts: string[];
+// //   }> {
+// //     return this.questionRepo.findUnknownQuestionGeo();
+// //   }
+
+//   async getPaeAnswerDashboard(
+//     userId: string,
+//     page: number,
+//     limit: number,
+//     search?: string,
+//     startDate?: Date,
+//     endDate?: Date,
 //   ) {
-//     super(mongoDatabase);
-//   }
-
-//   /**
-//    * Helper function to truncate question text for notifications
-//    */
-//   private truncateQuestionText(
-//     questionText: string,
-//     maxLength: number = 50,
-//   ): string {
-//     if (!questionText) return 'Question';
-//     if (questionText.length <= maxLength) return questionText;
-//     return questionText.substring(0, maxLength) + '...';
-//   }
-
-//   private isQuestionUserTrainingTypeMatch(
-//     user: IUser,
-//     question: IQuestion,
-//   ): boolean {
-//     return (
-//       (question.isTrainingQuestion === true) === (user.isTrainingUser === true)
+//     return this.questionRepo.getPaeAnswerDashboard(
+//       userId,
+//       page,
+//       limit,
+//       search,
+//       startDate,
+//       endDate,
 //     );
-//   }
-
-//   async createBulkQuestions(
-//     userId: string,
-//     questions: any[],
-//     isOutreachQuestion?: boolean,
-//   ): Promise<string[]> {
-//     if (!Array.isArray(questions) || questions.length === 0) {
-//       throw new BadRequestError('No questions provided for bulk insert');
-//     }
-
-//     // const testEmbedding = await this.aiService.getEmbedding('Test'); // disabled locally — AI server not running
-
-//     // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
-//     const cropCache = new Map<string, string>();
-
-//     const formatted: IQuestion[] = [];
-//     for (const q of questions) {
-//       const low = normalizeKeysToLower(q || {});
-//       const details: IQuestion['details'] = {
-//         state: (low.state || '').toString(),
-//         district: (low.district || '').toString(),
-//         crop: (low.crop || '').toString(),
-//         season: (low.season || '').toString(),
-//         domain: (low.domain || '').toString(),
-//       };
-
-//       // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
-//       const rawCropName = (low.crop || '').toString();
-//       let normalised_crop: string | undefined;
-//       if (rawCropName.trim()) {
-//         const cacheKey = rawCropName.trim().toLowerCase();
-//         if (cropCache.has(cacheKey)) {
-//           normalised_crop = cropCache.get(cacheKey)!;
-//         } else {
-//           try {
-//             const existingCrop =
-//               await this.cropRepository.findByNameOrAlias(rawCropName);
-//             if (existingCrop) {
-//               normalised_crop = existingCrop.name;
-//               cropCache.set(cacheKey, normalised_crop);
-//             }
-//             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
-//           } catch (cropError: any) {
-//             console.error('Crop normalization warning:', cropError.message);
-//           }
-//         }
-//       }
-//       details.crop = rawCropName.trim();
-//       if (normalised_crop !== undefined)
-//         details.normalised_crop = normalised_crop;
-
-//       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
-//       const priorities = ['low', 'high', 'medium', 'critical'];
-//       const priority = priorities.includes(priorityRaw)
-//         ? (priorityRaw as IQuestionPriority)
-//         : 'medium';
-//       const questionText = (low.question || '').toString().trim();
-//       const aiInitialAnswer = q.aiInitialAnswer;
-//       if (!questionText) {
-//         throw new BadRequestError(
-//           'Each question must have a non-empty "question" field',
-//         );
-//       }
-//       const base: IQuestion = {
-//         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
-//         question: questionText,
-//         priority,
-//         source: isOutreachQuestion
-//           ? 'OUTREACH'
-//           : ((low.source || 'AGRI_EXPERT') as IQuestion['source']),
-//         status: 'open',
-//         totalAnswersCount: 0,
-//         contextId: null,
-//         details,
-//         aiInitialAnswer,
-//         isAutoAllocate: true,
-//         embedding: [],
-//         metrics: null,
-//         text: `Question: ${questionText}`,
-//         createdAt: new Date(),
-//         updatedAt: new Date(),
-//       };
-
-//       formatted.push(base);
-//     }
-
-//     try {
-//       const insertedIds = await this.questionRepo.insertMany(formatted);
-//       return insertedIds;
-//     } catch (error: any) {
-//       throw new InternalServerError(
-//         `Failed to insert questions: ${error?.message || error}`,
-//       );
-//     }
-//   }
-
-//   async addDummyQuestions(
-//     userId: string,
-//     contextId: string,
-//     questions: string[],
-//     session?: ClientSession,
-//   ) {
-//     try {
-//       if (!Array.isArray(questions) || questions.length === 0) {
-//         throw new BadRequestError('Questions must be a non-empty array');
-//       }
-
-//       if (session) {
-//         const insertedQuestions = [];
-
-//         for (const questionText of questions) {
-//           const question = await this.questionRepo.addDummyQuestion(
-//             userId,
-//             contextId,
-//             questionText,
-//             session,
-//           );
-
-//           const submissionData: IQuestionSubmission = {
-//             questionId: question._id,
-//             lastRespondedBy: null,
-//             history: [],
-//             queue: [],
-//             createdAt: new Date(),
-//             updatedAt: new Date(),
-//           };
-
-//           await this.questionSubmissionRepo.addSubmission(
-//             submissionData,
-//             session,
-//           );
-
-//           insertedQuestions.push(question);
-//         }
-
-//         return insertedQuestions;
-//       }
-
-//       return this._withTransaction(
-//         async (transactionSession: ClientSession) => {
-//           const insertedQuestions = [];
-
-//           for (const questionText of questions) {
-//             const question = await this.questionRepo.addDummyQuestion(
-//               userId,
-//               contextId,
-//               questionText,
-//               transactionSession,
-//             );
-
-//             const submissionData: IQuestionSubmission = {
-//               questionId: question._id,
-//               lastRespondedBy: null,
-//               history: [],
-//               queue: [],
-//               createdAt: new Date(),
-//               updatedAt: new Date(),
-//             };
-
-//             await this.questionSubmissionRepo.addSubmission(
-//               submissionData,
-//               transactionSession,
-//             );
-
-//             insertedQuestions.push(question);
-//           }
-
-//           return insertedQuestions;
-//         },
-//       );
-//     } catch (error) {
-//       throw new InternalServerError(`Failed to add questions: ${error}`);
-//     }
-//   }
-
-//   async getByContextId(contextId: string): Promise<IQuestion[]> {
-//     try {
-//       return this._withTransaction(async (session: ClientSession) => {
-//         return this.questionRepo.getByContextId(contextId, session);
-//       });
-//     } catch (error) {
-//       throw new InternalServerError(`Failed to get questions: ${error}`);
-//     }
-//   }
-
-//   /** Standardise a state name across all questions: any question whose details.state matches
-//    *  one of `currentValues` (e.g. "punjab", "PUNJAB", "पंजाब") is set to `standardizedTo`
-//    *  (e.g. "Punjab"). Returns how many matched/were modified. */
-//   async normalizeQuestionState(
-//     currentValues: string[],
-//     standardizedTo: string,
-//   ): Promise<{matched: number; modified: number}> {
-//     const cleaned = (currentValues ?? [])
-//       .map(v => (typeof v === 'string' ? v.trim() : ''))
-//       .filter(Boolean);
-//     const target = (standardizedTo ?? '').trim();
-//     if (cleaned.length === 0) {
-//       throw new BadRequestError(
-//         'current values must be a non-empty array of strings',
-//       );
-//     }
-//     if (!target) {
-//       throw new BadRequestError('standardizedTo is required');
-//     }
-//     return this._withTransaction(async (session: ClientSession) => {
-//       return this.questionRepo.normalizeQuestionState(cleaned, target, session);
-//     });
-//   }
-
-//   /** Standardise question district names, validating each `standardiseTo` against the
-//    *  `districts` collection (districtNameEnglish). Matching ones update questions whose
-//    *  details.district === existingName; non-matching names are returned untouched. */
-//   async normalizeQuestionDistricts(
-//     mappings: {existingName: string; standardiseTo: string}[],
-//   ) {
-//     const cleaned = (mappings ?? [])
-//       .map(m => ({
-//         existingName:
-//           typeof m?.existingName === 'string' ? m.existingName.trim() : '',
-//         standardiseTo:
-//           typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
-//       }))
-//       .filter(m => m.existingName && m.standardiseTo);
-//     if (cleaned.length === 0) {
-//       throw new BadRequestError(
-//         'mappings must be a non-empty array of { existingName, standardiseTo }',
-//       );
-//     }
-//     return this.questionRepo.normalizeQuestionDistricts(cleaned);
-//   }
-
-//   /** Audit: distinct question details.state / details.district values that don't exist in the
-//    *  states / districts collections. */
-//   async findUnknownQuestionGeo(): Promise<{
-//     unknownStates: string[];
-//     matchedDistricts: {
-//       name: string;
-//       foundIn: 'block' | 'village';
-//       districtCode: number | null;
-//       stateCode: number | null;
-//       districtNameEnglish: string | null;
-//     }[];
-//     notMatchingDistricts: string[];
-//   }> {
-//     return this.questionRepo.findUnknownQuestionGeo();
 //   }
 
 //   async getAllocatedQuestions(
@@ -468,1086 +486,1086 @@
 //     }
 //   }
 
-//   async getDetailedQuestions(
-//     query: GetDetailedQuestionsQuery,
-//     body: DetailedQuestionsBodyDto,
-//   ): Promise<{
-//     questions: IQuestion[];
-//     totalPages: number;
-//     feedbackQuestions?: IQuestion[];
-//   }> {
-//     let searchEmbedding: number[] | null = null;
+// //   async getDetailedQuestions(
+// //     query: GetDetailedQuestionsQuery,
+// //     body: DetailedQuestionsBodyDto,
+// //   ): Promise<{
+// //     questions: IQuestion[];
+// //     totalPages: number;
+// //     feedbackQuestions?: IQuestion[];
+// //   }> {
+// //     let searchEmbedding: number[] | null = null;
 
-//     if (query?.search) {
-//       try {
-//         // const embedding=[]
-//         // const { embedding } = await this.aiService.getEmbedding(query.search);
-//         // searchEmbedding = embedding;
-//         searchEmbedding = null;
-//       } catch (err) {
-//         console.error(
-//           'Embedding generation failed, falling back to normal search:',
-//           err,
-//         );
-//         searchEmbedding = null;
-//       }
-//     }
+// //     if (query?.search) {
+// //       try {
+// //         // const embedding=[]
+// //         // const { embedding } = await this.aiService.getEmbedding(query.search);
+// //         // searchEmbedding = embedding;
+// //         searchEmbedding = null;
+// //       } catch (err) {
+// //         console.error(
+// //           'Embedding generation failed, falling back to normal search:',
+// //           err,
+// //         );
+// //         searchEmbedding = null;
+// //       }
+// //     }
 
-//     const result = await this.questionRepo.findDetailedQuestions(
-//       {
-//         ...query,
-//         searchEmbedding,
-//       },
-//       body,
-//     );
+// //     const result = await this.questionRepo.findDetailedQuestions(
+// //       {
+// //         ...query,
+// //         searchEmbedding,
+// //       },
+// //       body,
+// //     );
 
-//     // Check if this is a dedicated view (moderator/gatekeeper/auditor assigned questions)
-//     const {moderatorId, gateKeeperId, auditorId} = query;
-//     const assignedUserId = moderatorId || gateKeeperId || auditorId;
-//     if (assignedUserId) {
-//       try {
-//         const user = await this.userRepo.findById(assignedUserId);
-//         const feedbacksAssigned = user?.feedbacksAssigned;
-//         if (feedbacksAssigned && feedbacksAssigned.length > 0) {
-//           // Fetch the feedback questions
-//           const feedbackQuestionIds = feedbacksAssigned.map(id => {
-//             if (typeof id === 'string') return new ObjectId(id);
-//             return id;
-//           });
+// //     // Check if this is a dedicated view (moderator/gatekeeper/auditor assigned questions)
+// //     const {moderatorId, gateKeeperId, auditorId} = query;
+// //     const assignedUserId = moderatorId || gateKeeperId || auditorId;
+// //     if (assignedUserId) {
+// //       try {
+// //         const user = await this.userRepo.findById(assignedUserId);
+// //         const feedbacksAssigned = user?.feedbacksAssigned;
+// //         if (feedbacksAssigned && feedbacksAssigned.length > 0) {
+// //           // Fetch the feedback questions
+// //           const feedbackQuestionIds = feedbacksAssigned.map(id => {
+// //             if (typeof id === 'string') return new ObjectId(id);
+// //             return id;
+// //           });
 
-//           const feedbackQuestions =
-//             await this.questionRepo.findByIds(feedbackQuestionIds);
-//           const feedbackQuestionsWithFlag = feedbackQuestions.map(q => ({
-//             ...q,
-//             isFeedbackQuestion: true,
-//           }));
+// //           const feedbackQuestions =
+// //             await this.questionRepo.findByIds(feedbackQuestionIds);
+// //           const feedbackQuestionsWithFlag = feedbackQuestions.map(q => ({
+// //             ...q,
+// //             isFeedbackQuestion: true,
+// //           }));
 
-//           return {
-//             ...result,
-//             feedbackQuestions: feedbackQuestionsWithFlag,
-//           };
-//         }
-//       } catch (err) {
-//         console.error('Error fetching feedback questions:', err);
-//       }
-//     }
+// //           return {
+// //             ...result,
+// //             feedbackQuestions: feedbackQuestionsWithFlag,
+// //           };
+// //         }
+// //       } catch (err) {
+// //         console.error('Error fetching feedback questions:', err);
+// //       }
+// //     }
 
-//     return result;
-//   }
+// //     return result;
+// //   }
 
-//   async getQuestionFromRawContext(
-//     // While text to speech
-//     context: string,
-//   ): Promise<GeneratedQuestionResponse[]> {
-//     const questions = await this.aiService.getQuestionByContext(context);
-//     // SAMPLE RESPONSE (mocked because API doesn't work locally)
-//     /* const questions: any = {
-//        reviewer: [
-//          {
-//            id: "697dbfb7622aa3a183070682",
-//            question: "How to control stem borer grubs in paddy crop?",
-//            answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
-//            source: "AGRI_EXPERT",
-//            details: {
-//              state: "Haryana",
-//              district: "HISSAR",
-//              crop: "Paddy",
-//              season: "KHARIF",
-//              domain: "Pest",
-//            },
-//            score: 0.9331517815589905,
-//          },
-//          {
-//            id: "695b446528ae67127339da95",
-//            question: "How to control Stem Borer infestation in Paddy?",
-//            answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
-//            source: "AGRI_EXPERT",
-//            details: {
-//              state: "UTTAR PRADESH",
-//              district: "CHANDAULI",
-//              crop: "Paddy",
-//              season: "Kharif",
-//              domain: "Plant Protection",
-//            },
-//            score: 0.932569146156311,
-//          },
-//        ],
+// //   async getQuestionFromRawContext(
+// //     // While text to speech
+// //     context: string,
+// //   ): Promise<GeneratedQuestionResponse[]> {
+// //     const questions = await this.aiService.getQuestionByContext(context);
+// //     // SAMPLE RESPONSE (mocked because API doesn't work locally)
+// //     /* const questions: any = {
+// //        reviewer: [
+// //          {
+// //            id: "697dbfb7622aa3a183070682",
+// //            question: "How to control stem borer grubs in paddy crop?",
+// //            answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
+// //            source: "AGRI_EXPERT",
+// //            details: {
+// //              state: "Haryana",
+// //              district: "HISSAR",
+// //              crop: "Paddy",
+// //              season: "KHARIF",
+// //              domain: "Pest",
+// //            },
+// //            score: 0.9331517815589905,
+// //          },
+// //          {
+// //            id: "695b446528ae67127339da95",
+// //            question: "How to control Stem Borer infestation in Paddy?",
+// //            answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
+// //            source: "AGRI_EXPERT",
+// //            details: {
+// //              state: "UTTAR PRADESH",
+// //              district: "CHANDAULI",
+// //              crop: "Paddy",
+// //              season: "Kharif",
+// //              domain: "Plant Protection",
+// //            },
+// //            score: 0.932569146156311,
+// //          },
+// //        ],
    
-//        golden: [
-//          {
-//            question: "How to prevent stem borer in paddy?",
-//            answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
-//            metadata: {
-//              "Agri Specialist": "Gonnabathula Girishma",
-//              Crop: "Paddy Dhan",
-//              District: "YADADRI BHUVANAGIRI",
-//              Season: "Kharif",
-//              State: "TELANGANA",
-//            },
-//            score: 0.9287769794464111,
-//          },
-//        ],
+// //        golden: [
+// //          {
+// //            question: "How to prevent stem borer in paddy?",
+// //            answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
+// //            metadata: {
+// //              "Agri Specialist": "Gonnabathula Girishma",
+// //              Crop: "Paddy Dhan",
+// //              District: "YADADRI BHUVANAGIRI",
+// //              Season: "Kharif",
+// //              State: "TELANGANA",
+// //            },
+// //            score: 0.9287769794464111,
+// //          },
+// //        ],
    
-//        pop: [
-//          {
-//            text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
-//            metadata: {
-//              page_no: 24,
-//              headings: ["A. Insect Pests"],
-//              source:
-//                "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
-//            },
-//            score: 0.9020636677742004,
-//          },
-//        ],
-//      };*/
-//     const merged = [
-//       ...(questions.reviewer || []).map((item: any) => ({
-//         question: item.question,
-//         answer: item.answer,
-//         agri_specialist: item.source || 'AGRI_EXPERT',
-//         referenceSource: 'reviewer',
-//       })),
-
-//       ...(questions.golden || []).map((item: any) => ({
-//         question: item.question,
-//         answer: item.answer,
-//         agri_specialist: item.metadata?.['Agri Specialist'] || 'Unknown',
-//         referenceSource: 'golden',
-//       })),
-
-//       ...(questions.pop || []).map((item: any) => ({
-//         question: 'Reference Information',
-//         answer: item.text,
-//         agri_specialist: 'POP_DOCUMENT',
-//         referenceSource: 'pop',
-//       })),
-//     ];
-//     const uniqueQuestions = Array.from(
-//       new Map(merged.map(q => [q.question, q])).values(),
-//     ).map(q => ({
-//       ...q,
-//       id: new ObjectId().toString(),
-//     }));
-//     return uniqueQuestions;
-//   }
-
-//   /**
-//    * Generate questions from call context (audio transcription)
-//    */
-//   async getQuestionFromCallContext(
-//     context: string,
-//     state?: string,
-//     crop?: string,
-//   ): Promise<GeneratedQuestionResponse[]> {
-//     try {
-//       const payload: any = {query: context};
-//       if (state) payload.state = state;
-//       if (crop) payload.crop = crop;
-
-//       const agentSearchResponse = await axios.post(
-//         'http://100.100.108.44:6002/search',
-//         payload,
-//         {timeout: 100000},
-//       );
-//       console.log(
-//         'Agent Search Output:',
-//         JSON.stringify(agentSearchResponse.data, null, 2),
-//       );
-
-//       const data = agentSearchResponse.data || {};
-
-//       // Send this in the appropriate format expected by the frontend
-//       let formattedResponse: any[] = [];
-
-//       if (
-//         data &&
-//         (Array.isArray(data.reviewer) ||
-//           Array.isArray(data.golden) ||
-//           Array.isArray(data.pop))
-//       ) {
-//         formattedResponse = [
-//           ...(data.reviewer || []).map((item: any) => ({
-//             question: item.question,
-//             answer: item.answer || item.text,
-//             agri_specialist:
-//               item.agri_expert ||
-//               item.agri_specialist ||
-//               item.source ||
-//               'AGRI_EXPERT',
-//             referenceSource: 'reviewer',
-//             id: item.id || new ObjectId().toString(),
-//           })),
-//           ...(data.golden || []).map((item: any) => ({
-//             question: item.question,
-//             answer: item.answer || item.text,
-//             agri_specialist:
-//               item.agri_expert ||
-//               item.agri_specialist ||
-//               item.metadata?.['Agri Specialist'] ||
-//               'Unknown',
-//             referenceSource: 'golden',
-//             id: item.id || new ObjectId().toString(),
-//           })),
-//           ...(data.pop || []).map((item: any) => ({
-//             question: 'Reference Information',
-//             answer: item.text,
-//             agri_specialist: 'POP_DOCUMENT',
-//             referenceSource: 'pop',
-//             id: item.id || new ObjectId().toString(),
-//           })),
-//         ];
-//       } else if (data && Array.isArray(data.results)) {
-//         // Map the results array from the agent_search response
-//         formattedResponse = data.results.map((item: any) => ({
-//           question: item.question || data.extracted_question || context,
-//           answer: item.answer || item.text || 'Answer not available',
-//           agri_specialist: item.source || 'AGRI_EXPERT',
-//           referenceSource: 'agent_search',
-//           id: item.id || new ObjectId().toString(),
-//         }));
-//       } else if (Array.isArray(data)) {
-//         formattedResponse = data.map((item: any) => ({
-//           question: item.question || context,
-//           answer: item.answer || item.response || JSON.stringify(item),
-//           agri_specialist: item.agri_specialist || item.source || 'AGRI_EXPERT',
-//           referenceSource: item.referenceSource || 'agent_search',
-//           id: item.id || new ObjectId().toString(),
-//         }));
-//       } else if (data && typeof data === 'object') {
-//         formattedResponse = [
-//           {
-//             question: data.extracted_question || data.question || context,
-//             answer: data.answer || data.response || JSON.stringify(data),
-//             agri_specialist:
-//               data.agri_specialist || data.source || 'AGRI_EXPERT',
-//             referenceSource: data.referenceSource || 'agent_search',
-//             id: data.id || new ObjectId().toString(),
-//           },
-//         ];
-//       }
-
-//       // Deduplicate by question text
-//       const uniqueQuestions = Array.from(
-//         new Map(formattedResponse.map(q => [q.question, q])).values(),
-//       ).map(q => ({
-//         ...q,
-//         id: q.id || new ObjectId().toString(),
-//       }));
-
-//       return uniqueQuestions;
-//     } catch (error) {
-//       console.error('Failed to generate questions from call context:', error);
-//       throw new InternalServerError(
-//         'Failed to generate questions from call context',
-//       );
-//     }
-//   }
-
-//   async getCallSummary(query: string): Promise<any> {
-//     try {
-//       const extractResponse = await axios.post(
-//         'http://100.100.108.44:6002/extract',
-//         {query},
-//         {timeout: 100000},
-//       );
-//       return extractResponse.data;
-//     } catch (error) {
-//       console.error('Failed to generate call summary:', error);
-//       throw new InternalServerError('Failed to generate call summary');
-//     }
-//   }
-
-//   /**
-//    * HIL Flow: Create thread for ACC Agent
-//    */
-//   async createAccAgentThread(): Promise<{thread_id: string}> {
-//     try {
-//       const result = await this.accAgentService.createThread();
-//       return result;
-//     } catch (error) {
-//       console.error('[QuestionService] createAccAgentThread: Error', error);
-//       throw new InternalServerError('Failed to create ACC Agent thread');
-//     }
-//   }
-
-//   /**
-//    * HIL Flow: Extract data from transcript
-//    */
-//   async extractAccAgentData(
-//     threadId: string,
-//     transcript: string,
-//   ): Promise<{
-//     extracted_query: string;
-//     extracted_crop: string;
-//     extracted_state: string;
-//     extracted_district: string;
-//     extracted_domain?: string | string[];
-//     extracted_name?: string;
-//     extracted_phone?: string;
-//     extracted_age?: number;
-//     extracted_gender?: string;
-//     extracted_village?: string;
-//     extracted_block?: string;
-//     extracted_primary_crop?: string;
-//   }> {
-//     try {
-//       const result = await this.accAgentService.extractData(
-//         threadId,
-//         transcript,
-//       );
-
-//       return result;
-//     } catch (error) {
-//       console.error('[QuestionService] extractAccAgentData: Error', error);
-//       throw new InternalServerError('Failed to extract data using ACC Agent');
-//     }
-//   }
-
-//   /**
-//    * HIL Flow: Update state with human corrections
-//    */
-//   async updateAccAgentState(
-//     threadId: string,
-//     correctedData: {
-//       query: string;
-//       crop: string;
-//       state: string;
-//       district: string;
-//       domain: string | string[];
-//       season: string;
-//       farmerName?: string;
-//       farmerPhone?: string;
-//       farmerAge?: number;
-//       farmerGender?: string;
-//       farmerVillage?: string;
-//       farmerBlock?: string;
-//       farmerPrimaryCrop?: string;
-//     },
-//   ): Promise<void> {
-//     try {
-//       await this.accAgentService.updateState(threadId, correctedData);
-//     } catch (error) {
-//       console.error('[QuestionService] updateAccAgentState: Error', error);
-//       throw new InternalServerError('Failed to update ACC Agent state');
-//     }
-//   }
-
-//   /**
-//    * HIL Flow: Resume and get final answer
-//    */
-//   async resumeAccAgentAndGetAnswer(
-//     threadId: string,
-//     callUuid?: string,
-//     metadata?: QAMetadata,
-//   ): Promise<{final_answer: string}> {
-//     try {
-//       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
-
-//       // If callUuid and metadata are provided, store Q/A pairs in call_details
-//       if (callUuid && metadata) {
-//         const qaPairs: QAPairs = {
-//           metadata,
-//           QnA: [
-//             {
-//               question: metadata.extracted_query,
-//               answer: result.final_answer,
-//               agri_specialist: 'ACC_AGENT',
-//               referenceSource: 'acc_agent_hitl',
-//               id: new ObjectId().toString(),
-//             },
-//           ],
-//         };
-
-//         // Check if call_details document exists
-//         const existingCallDetails =
-//           await this.callDetailsRepository.getByCallUuid(callUuid);
-
-//         if (existingCallDetails) {
-//           // Update existing document
-//           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-//         } else {
-//           console.warn(
-//             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
-//           );
-//           // Create a new call_details document with the Q/A pairs
-//           await this.callDetailsRepository.create({
-//             callUuid,
-//             QA_pairs: qaPairs,
-//             status: 'completed',
-//             direction: 'inbound',
-//             caller: {
-//               transcript: '',
-//               translation: '',
-//               detectedLanguage: 'unknown',
-//             },
-//             agent: {
-//               transcript: '',
-//               translation: '',
-//               detectedLanguage: 'unknown',
-//             },
-//           });
-//         }
-//       }
-
-//       return result;
-//     } catch (error) {
-//       console.error(
-//         '[QuestionService] resumeAccAgentAndGetAnswer: Error',
-//         error,
-//       );
-//       throw new InternalServerError(
-//         'Failed to get final answer from ACC Agent',
-//       );
-//     }
-//   }
-
-//   async getAccAgentState(
-//     threadId: string,
-//     callUuid?: string,
-//     metadata?: QAMetadata,
-//   ): Promise<any> {
-//     try {
-//       // 1. Resume the agent
-//       await this.accAgentService.resumeAndGetAnswer(threadId);
-
-//       // 2. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
-//       const threadState = await this.accAgentService.getThreadState(threadId);
-
-//       // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
-//       if (callUuid && metadata) {
-//         const finalAnswerObj = threadState?.values?.final_answer;
-//         const finalAnswerMarkdown =
-//           typeof finalAnswerObj === 'string'
-//             ? finalAnswerObj
-//             : finalAnswerObj?.final_answer || '';
-
-//         const weather = finalAnswerObj?.weather || null;
-//         const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
-//         const authorName = similarPair?.details?.[0]?.author_name || '';
-//         const sourceName = similarPair?.details?.[0]?.source_name || '';
-//         const sourceLink = similarPair?.details?.[0]?.source_link || '';
-
-//         const qaPairs: QAPairs = {
-//           metadata,
-//           QnA: [
-//             {
-//               question: metadata.extracted_query,
-//               answer: finalAnswerMarkdown,
-//               agri_specialist: 'ACC_AGENT',
-//               referenceSource: 'acc_agent_hitl',
-//               id: new ObjectId().toString(),
-//               ...(weather ? {weather} : {}),
-//               ...(authorName ? {authorName} : {}),
-//               ...(sourceName ? {sourceName} : {}),
-//               ...(sourceLink ? {sourceLink} : {}),
-//             } as any,
-//           ],
-//         };
-
-//         // Check if call_details document exists
-//         const existingCallDetails =
-//           await this.callDetailsRepository.getByCallUuid(callUuid);
-
-//         if (existingCallDetails) {
-//           // Update existing document
-//           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-//         } else {
-//           console.warn(
-//             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
-//           );
-//           // Create a new call_details document with the Q/A pairs
-//           await this.callDetailsRepository.create({
-//             callUuid,
-//             QA_pairs: qaPairs,
-//             status: 'completed',
-//             direction: 'inbound',
-//             caller: {
-//               transcript: '',
-//               translation: '',
-//               detectedLanguage: 'unknown',
-//             },
-//             agent: {
-//               transcript: '',
-//               translation: '',
-//               detectedLanguage: 'unknown',
-//             },
-//           });
-//         }
-//       }
-
-//       // 4. Return the full thread state
-//       return threadState;
-//     } catch (error) {
-//       console.error(
-//         '[QuestionService] getAccAgentState: Error resuming or fetching state',
-//         error,
-//       );
-//       throw new InternalServerError(
-//         'Failed to resume or fetch ACC Agent state',
-//       );
-//     }
-//   }
-
-//   // Reusable duplicate detection helper.
-
-//   async checkDuplicateQuestion(
-//     baseQuestion: IQuestion,
-//     details: IQuestion['details'],
-//     logData: Record<string, any>,
-//     session?: ClientSession,
-//   ): Promise<{
-//     isDuplicate: boolean;
-//     duplicateData?: any;
-//     isNonAgri?: boolean;
-//     nonAgriData?: any;
-//   }> {
-//     return checkDuplicateQuestionHelper(
-//       baseQuestion,
-//       details,
-//       logData,
-//       this.aiService,
-//       this.duplicateQuestionRepository,
-//       session,
-//     );
-//   }
-
-//   async manualCheckDuplicate(questionId: string): Promise<{
-//     message: string;
-//     isDuplicate: boolean;
-//     referenceQuestionId?: string;
-//   }> {
-//     const question = await this.questionRepo.getById(questionId);
-
-//     if (question.referenceQuestionId) {
-//       return {
-//         message: 'Question already has a reference question assigned.',
-//         isDuplicate: true,
-//       };
-//     }
-
-//     const logData: Record<string, any> = {questionId, manual: true};
-//     const result = await this.runDuplicateCheckPipeline(
-//       question,
-//       question.details,
-//       logData,
-//     );
-
-//     if (result.isDuplicate) {
-//       const refId =
-//         result.referenceQuestionId instanceof ObjectId
-//           ? result.referenceQuestionId
-//           : result.referenceQuestionId
-//             ? new ObjectId(String(result.referenceQuestionId))
-//             : null;
-
-//       // Get submission to check queue length
-//       const questionSubmission =
-//         await this.questionSubmissionRepo.getByQuestionId(questionId);
-//       const queueLength = questionSubmission?.queue?.length || 0;
-
-//       // Only flip the status to 'duplicate' when the question is still open/delayed.
-//       // For any other status (in-review, closed, etc.) the workflow is already past
-//       // that point, so the status must not change — we just record the reference.
-//       const canMarkDuplicate =
-//         (question.status === 'open' || question.status === 'delayed') &&
-//         queueLength === 0;
-//       await this.questionRepo.updateQuestion(questionId, {
-//         ...(canMarkDuplicate ? {status: 'duplicate'} : {}),
-//         similarityScore: result.similarityScore,
-//         referenceQuestionId: refId,
-//         referenceQuestion: result.referenceQuestion,
-//         referenceSource: result.referenceSource,
-//         isDuplicateChecked: true,
-//         ...(result.isExact !== undefined ? {isExact: result.isExact} : {}),
-//       });
-//       return {
-//         message: canMarkDuplicate
-//           ? 'Duplicate detected and question updated.'
-//           : `Duplicate detected; status left unchanged (question is '${question.status}').`,
-//         isDuplicate: true,
-//         referenceQuestionId: refId?.toString(),
-//       };
-//     }
-
-//     if (result.isQueueDuplicate) {
-//       const refId =
-//         result.referenceQuestionId instanceof ObjectId
-//           ? result.referenceQuestionId
-//           : result.referenceQuestionId
-//             ? new ObjectId(String(result.referenceQuestionId))
-//             : null;
-//       const canMarkQueue =
-//         question.status === 'open' || question.status === 'delayed';
-//       await this.questionRepo.updateQuestion(questionId, {
-//         ...(canMarkQueue
-//           ? {status: 'queue_duplicate', isAutoAllocate: false}
-//           : {}),
-//         similarityScore: result.similarityScore,
-//         referenceQuestionId: refId,
-//         referenceQuestion: result.referenceQuestion,
-//         referenceSource: result.referenceSource,
-//         isDuplicateChecked: true,
-//       });
-//       return {
-//         message: canMarkQueue
-//           ? 'Found in the GDB pending-duplicate queue.'
-//           : `In GDB queue; status left unchanged (question is '${question.status}').`,
-//         isDuplicate: false,
-//         referenceQuestionId: refId?.toString(),
-//       };
-//     }
-
-//     if (result.isNonAgri) {
-//       await this.questionRepo.updateQuestion(questionId, {
-//         status: 'non_agri',
-//         isDuplicateChecked: true,
-//       });
-//       return {message: 'Question marked as non-agri.', isDuplicate: false};
-//     }
-
-//     await this.questionRepo.updateQuestion(questionId, {
-//       isDuplicateChecked: true,
-//     });
-//     return {message: 'No duplicate found.', isDuplicate: false};
-//   }
-
-//   private async runDuplicateCheckPipeline(
-//     baseQuestion: IQuestion,
-//     details: IQuestion['details'],
-//     logData: Record<string, any>,
-//   ): Promise<{
-//     isDuplicate: boolean;
-//     isQueueDuplicate?: boolean;
-//     isNonAgri?: boolean;
-//     referenceQuestionId?: ObjectId | string | null;
-//     referenceQuestion?: string;
-//     referenceSource?: string;
-//     similarityScore?: number;
-//     isExact?: boolean;
-//   }> {
-//     const cropName =
-//       typeof details.crop === 'string'
-//         ? details.crop
-//         : (details.crop as any)?.name || '';
-
-//     const gdbResult = await this.aiService.searchGdb({
-//       crop: cropName,
-//       state: details.state,
-//       rephrased_query: baseQuestion.question,
-//     });
-
-//     const extractObjectId = (id: any): ObjectId | null => {
-//       const raw = id?.$oid ?? id;
-//       const hex = String(raw ?? '');
-//       if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
-//       return null;
-//     };
-
-//     const exactMatch = gdbResult?.exact_match;
-//     if (exactMatch?.question_id) {
-//       const refId = extractObjectId(exactMatch.question_id);
-//       if (refId) {
-//         return {
-//           isDuplicate: true,
-//           referenceQuestionId: refId,
-//           referenceQuestion: exactMatch.question,
-//           referenceSource: 'reviewer',
-//           similarityScore: Number(
-//             (exactMatch.similarity_score * 100).toFixed(2),
-//           ),
-//           isExact: true,
-//         };
-//       }
-//       console.warn(
-//         `[runDuplicateCheckPipeline] GDB exact_match invalid question_id: ${exactMatch.question_id}, skipping`,
-//       );
-//     }
-
-//     const selectedMatch = gdbResult?.selected_match;
-//     if (selectedMatch?.question_id) {
-//       const refId = extractObjectId(selectedMatch.question_id);
-//       if (refId) {
-//         return {
-//           isDuplicate: true,
-//           referenceQuestionId: refId,
-//           referenceQuestion: selectedMatch.question,
-//           referenceSource: 'reviewer',
-//           similarityScore: Number(
-//             (selectedMatch.similarity_score * 100).toFixed(2),
-//           ),
-//           isExact: false,
-//         };
-//       }
-//       console.warn(
-//         `[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`,
-//       );
-//     }
-
-//     // No GDB duplicate match — check the GDB pending-duplicate queue before falling
-//     // through to the LLM, so the LLM classification only runs when the question is
-//     // neither a duplicate nor already in the queue (single LLM call site).
-//     try {
-//       const pendingResult = await this.aiService.checkPendingDuplicate({
-//         rephrased_query: baseQuestion.question,
-//         crop: cropName,
-//         state: details.state,
-//         createdAt: baseQuestion.createdAt,
-//       });
-//       // A `detail` field means the GDB server didn't find a queued match.
-//       // Reference details come from the top-level response (duplicate_question_id /
-//       // query / similarity_score), not the candidates_checked array.
-//       const dupId =
-//         pendingResult?.duplicate_question_id ??
-//         pendingResult?.matched_question_id;
-//       // Only treat as a queue-duplicate when the GDB returned a usable reference id —
-//       // a null/undefined duplicate_question_id means no queued match.
-//       const foundInGdbQueue =
-//         !!pendingResult &&
-//         !pendingResult.detail &&
-//         typeof dupId === 'string' &&
-//         dupId.trim().length > 0;
-//       if (foundInGdbQueue) {
-//         const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
-//         return {
-//           isDuplicate: false,
-//           isQueueDuplicate: true,
-//           referenceQuestionId: refId,
-//           referenceQuestion: pendingResult!.query,
-//           referenceSource: 'reviewer',
-//           similarityScore: Number(
-//             ((pendingResult!.similarity_score ?? 0) * 100).toFixed(2),
-//           ),
-//         };
-//       }
-//     } catch (queueError: any) {
-//       console.warn(
-//         `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
-//       );
-//     }
-
-//     // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
-//     try {
-//       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
-//       if (llmResult.isNonAgri) {
-//         logData.outcome = 'NON_AGRI_DETECTED';
-//         chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-//         return {isDuplicate: false, isNonAgri: true};
-//       }
-//     } catch (llmError: any) {
-//       console.warn(
-//         `[runDuplicateCheckPipeline] LLM non-agri check failed, treating as agri: ${llmError?.message}`,
-//       );
-//     }
-
-//     return {isDuplicate: false};
-//   }
-
-//   async addQuestion(
-//     userId: string,
-//     body: AddQuestionBodyDto,
-//   ): Promise<AddQuestionResult> {
-//     const logData: Record<string, any> = {};
-//     try {
-//       // Extract fields before normalizing keys to lowercase
-//       const aiInitialAnswer = body.aiInitialAnswer || '';
-//       const messageIdFromBody = body.messageId;
-//       const threadIdFromBody = body.threadId;
-//       const userIdFromBody = body.userId;
-//       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
-//       const popContextFromBody = body.popContext;
-//       const toolsUsed = body.tools_used || [];
-//       const isTrainingQuestion = body.isTrainingQuestion === true;
-
-//       body = normalizeKeysToLower(body);
-//       let {
-//         question,
-//         priority,
-//         source = 'AGRI_EXPERT',
-//         details,
-//         context,
-//         originalquestion = '',
-//       } = body;
-//       if (body.details) {
-//         body.details.state = toTitleCase(body.details.state);
-//         body.details.district = toTitleCase(body.details.district as string);
-//         body.details.crop = toTitleCase(body.details.crop as string);
-//         body.details.domain = Array.isArray(body.details.domain)
-//           ? body.details.domain
-//           : body.details.domain
-//             ? [body.details.domain]
-//             : [];
-//       }
-//       const messageId = messageIdFromBody;
-//       const threadId = threadIdFromBody;
-//       const bodyUserId = userIdFromBody;
-//       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
-//       const popContext = popContextFromBody;
-
-//       if (!details) {
-//         const b: any = body;
-//         details = {
-//           state: b?.state || '',
-//           district: b?.district || '',
-//           crop: b?.crop || '',
-//           season: b?.season || '',
-//           domain: Array.isArray(b?.domain)
-//             ? b.domain
-//             : b?.domain
-//               ? [b.domain]
-//               : [],
-//         };
-//       }
-
-//       const validPriorities = ['low', 'medium', 'high', 'critical'];
-//       priority = priority?.toLowerCase() as IQuestion['priority'];
-//       if (!validPriorities.includes(priority)) {
-//         priority = 'medium';
-//       }
-//       if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-//         priority = 'high';
-//       }
-
-//       if (!question?.trim()) {
-//         throw new BadRequestError(`Question is required`);
-//       }
-
-//       if (
-//         !(typeof details.crop === 'string'
-//           ? details.crop.trim()
-//           : details.crop?.name?.trim()) ||
-//         !details.district ||
-//         !details.domain ||
-//         !details.season ||
-//         !details.state
-//       ) {
-//         throw new BadRequestError(`All fields are required`);
-//       }
-
-//       logData.userId = userId;
-//       logData.question = question;
-//       logData.details = details;
-//       logData.source = source;
-
-//       // ─── Normalize crop against crop_master DB ───────────────────────────
-//       const rawCropName =
-//         typeof details.crop === 'string'
-//           ? details.crop
-//           : details.crop?.name || '';
-//       let normalised_crop: string | undefined;
-//       if (rawCropName.trim()) {
-//         try {
-//           const existingCrop =
-//             await this.cropRepository.findByNameOrAlias(rawCropName);
-//           if (existingCrop) {
-//             normalised_crop = existingCrop.name;
-//             logData.cropNormalization = {
-//               original: rawCropName,
-//               resolved: existingCrop.name,
-//               action:
-//                 rawCropName.trim().toLowerCase() === existingCrop.name
-//                   ? 'EXACT_MATCH'
-//                   : 'ALIAS_RESOLVED',
-//             };
-//           } else {
-//             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
-//             logData.cropNormalization = {
-//               original: rawCropName,
-//               action: 'NOT_FOUND',
-//             };
-//           }
-//         } catch (cropError: any) {
-//           console.error('Crop normalization warning:', cropError.message);
-//           logData.cropNormalizationError = cropError.message;
-//         }
-//       }
-//       // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
-//       details.crop = toTitleCase(rawCropName);
-//       details.state = toTitleCase(details.state);
-//       if (typeof details.district === 'string')
-//         details.district = toTitleCase(details.district);
-//       if (normalised_crop !== undefined)
-//         details.normalised_crop = normalised_crop;
-
-//       // 🔹 Create Embedding — OUTSIDE transaction
-//       const text = `Question: ${question}`;
-//       let textEmbedding: number[] = [];
-
-//       if (appConfig.ENABLE_AI_SERVER) {
-//         const {embedding} = await this.aiService.getEmbedding(text);
-//         textEmbedding = embedding;
-//       }
-//       logData.embeddingGenerated = textEmbedding.length > 0;
-//       logData.vectorLength = textEmbedding.length;
-
-//       return this._withTransaction(async (session: ClientSession) => {
-//         // 🔹 Create Context
-//         let contextId: ObjectId | null = null;
-
-//         if (context) {
-//           const {insertedId} = await this.contextRepo.addContext(
-//             context,
-//             session,
-//           );
-//           contextId = new ObjectId(insertedId);
-//         }
-//         // 🔹 Create Base Question Object
-//         const baseQuestion: IQuestion = {
-//           userId:
-//             bodyUserId?.trim() || userId?.trim()
-//               ? new ObjectId(bodyUserId?.trim() || userId)
-//               : null,
-//           question,
-//           priority,
-//           source,
-//           status:
-//             source === 'AJRASAKHA' || source === 'WHATSAPP'
-//               ? 'pending'
-//               : 'open',
-//           totalAnswersCount: 0,
-//           contextId,
-//           details,
-//           isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
-//           // New questions are eligible for gate-keeper / auditor auto-allocation by
-//           // default; the cron only picks them up once they reach a matching status.
-//           autoAllocateGateKeeper: true,
-//           autoAllocateAuditor: true,
-//           embedding: textEmbedding,
-//           metrics: null,
-//           aiInitialAnswer,
-//           text,
-//           toolsUsed,
-//           createdAt: new Date(),
-//           updatedAt: new Date(),
-//           isTrainingQuestion,
-//           ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
-//           ...(messageId && {messageId}),
-//           ...(threadId && {threadId}),
-//           ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
-//           ...(popContext && {popContext}),
-//         };
-
-//         // 🔹 Save question
-//         logData.outcome = 'NEW_QUESTION_ADDED';
-//         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-//         const savedQuestion = await this.questionRepo.addQuestion(
-//           baseQuestion,
-//           session,
-//         );
-
-//         if (!savedQuestion?._id) {
-//           throw new InternalServerError(`Failed to save question to database`);
-//         }
-//         /* if(!body.threadId)
-//         {
-//            await this.questionRepo.updateQuestion(savedQuestion._id.toString(), {
-//               isTesting: true,
-//             });
-//           return
-//         }*/
-
-//         // 🔹 Create bare submission record (expert queue populated in background)
-//         const submissionData: IQuestionSubmission = {
-//           questionId: new ObjectId(savedQuestion._id.toString()),
-//           lastRespondedBy: null,
-//           history: [],
-//           queue: [],
-//           createdAt: new Date(),
-//           updatedAt: new Date(),
-//         };
-//         await this.questionSubmissionRepo.addSubmission(
-//           submissionData,
-//           session,
-//         );
-
-//         // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
-//         const questionId = savedQuestion._id.toString();
-//         setImmediate(() => {
-//           this.processQuestionInBackground({
-//             questionId,
-//             source,
-//             details,
-//             baseQuestion: {...baseQuestion, _id: savedQuestion._id},
-//             logData,
-//           }).catch((err: any) =>
-//             console.error(
-//               `[addQuestion] Background processing failed for questionId=${questionId}:`,
-//               err?.message,
-//             ),
-//           );
-//         });
-
-//         return {
-//           data: {
-//             ...baseQuestion,
-//             _id: questionId,
-//             userId: baseQuestion.userId?.toString?.(),
-//           },
-//         };
-//       });
-//     } catch (error) {
-//       console.error(error);
-
-//       logData.outcome = 'FAILED';
-//       logData.errorMessage = error.message;
-//       logData.stack = error.stack;
-//       chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
-
-//       throw new InternalServerError(`Failed to add question: ${error}`);
-//     }
-//   }
-
-//   private async processQuestionInBackground(params: {
-//     questionId: string;
-//     source: IQuestion['source'];
-//     details: IQuestion['details'];
-//     baseQuestion: IQuestion;
-//     logData: Record<string, any>;
-//   }): Promise<void> {
-//     const {questionId, source, details, baseQuestion, logData} = params;
-//     try {
-//       if (source === 'AGRI_EXPERT') {
-//         // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
-//         // on creation. They are left unallocated (empty queue, no firstAllocationAt)
-//         // and picked up one-at-a-time by the manual single-allocation cron
-//         // (reallocateManualQuestions), mirroring the time-bound flow.
-//         console.log(
-//           `[ManualSingle] Question ${questionId} left for single-allocation cron (source=AGRI_EXPERT)`,
-//         );
-//       } else {
-//         const isTimeBoundedQuestion =
-//           source === 'AJRASAKHA' || source === 'WHATSAPP';
-//         let threadValidation;
-//         if (isTimeBoundedQuestion) {
-//           threadValidation = await this.validateTimeBoundQuestionThread(
-//             questionId,
-//             baseQuestion.threadId,
-//           );
-//           console.log('threadValidation ', threadValidation);
-//           if (!threadValidation.isValid) {
-//             console.log('Npt valid');
-//             logData.outcome = 'TESTING_THREAD_ID';
-//             logData.threadValidationReason = threadValidation.reason;
-//             chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-
-//             await this.questionRepo.updateQuestion(questionId, {
-//               isTesting: true,
-//             });
-//             return;
-//           }
-//           /* else {
-//              // Extract the last GDB tool response from thread content
-//              const content: any[] = threadValidation.data?.content || [];
-//              const gdbToolCalls = content.filter(
-//                (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
-//              );
-//              const lastGdbResponse = gdbToolCalls.length > 0
-//                ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
-//                : null;
+// //        pop: [
+// //          {
+// //            text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
+// //            metadata: {
+// //              page_no: 24,
+// //              headings: ["A. Insect Pests"],
+// //              source:
+// //                "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
+// //            },
+// //            score: 0.9020636677742004,
+// //          },
+// //        ],
+// //      };*/
+// //     const merged = [
+// //       ...(questions.reviewer || []).map((item: any) => ({
+// //         question: item.question,
+// //         answer: item.answer,
+// //         agri_specialist: item.source || 'AGRI_EXPERT',
+// //         referenceSource: 'reviewer',
+// //       })),
+
+// //       ...(questions.golden || []).map((item: any) => ({
+// //         question: item.question,
+// //         answer: item.answer,
+// //         agri_specialist: item.metadata?.['Agri Specialist'] || 'Unknown',
+// //         referenceSource: 'golden',
+// //       })),
+
+// //       ...(questions.pop || []).map((item: any) => ({
+// //         question: 'Reference Information',
+// //         answer: item.text,
+// //         agri_specialist: 'POP_DOCUMENT',
+// //         referenceSource: 'pop',
+// //       })),
+// //     ];
+// //     const uniqueQuestions = Array.from(
+// //       new Map(merged.map(q => [q.question, q])).values(),
+// //     ).map(q => ({
+// //       ...q,
+// //       id: new ObjectId().toString(),
+// //     }));
+// //     return uniqueQuestions;
+// //   }
+
+// //   /**
+// //    * Generate questions from call context (audio transcription)
+// //    */
+// //   async getQuestionFromCallContext(
+// //     context: string,
+// //     state?: string,
+// //     crop?: string,
+// //   ): Promise<GeneratedQuestionResponse[]> {
+// //     try {
+// //       const payload: any = {query: context};
+// //       if (state) payload.state = state;
+// //       if (crop) payload.crop = crop;
+
+// //       const agentSearchResponse = await axios.post(
+// //         'http://100.100.108.44:6002/search',
+// //         payload,
+// //         {timeout: 100000},
+// //       );
+// //       console.log(
+// //         'Agent Search Output:',
+// //         JSON.stringify(agentSearchResponse.data, null, 2),
+// //       );
+
+// //       const data = agentSearchResponse.data || {};
+
+// //       // Send this in the appropriate format expected by the frontend
+// //       let formattedResponse: any[] = [];
+
+// //       if (
+// //         data &&
+// //         (Array.isArray(data.reviewer) ||
+// //           Array.isArray(data.golden) ||
+// //           Array.isArray(data.pop))
+// //       ) {
+// //         formattedResponse = [
+// //           ...(data.reviewer || []).map((item: any) => ({
+// //             question: item.question,
+// //             answer: item.answer || item.text,
+// //             agri_specialist:
+// //               item.agri_expert ||
+// //               item.agri_specialist ||
+// //               item.source ||
+// //               'AGRI_EXPERT',
+// //             referenceSource: 'reviewer',
+// //             id: item.id || new ObjectId().toString(),
+// //           })),
+// //           ...(data.golden || []).map((item: any) => ({
+// //             question: item.question,
+// //             answer: item.answer || item.text,
+// //             agri_specialist:
+// //               item.agri_expert ||
+// //               item.agri_specialist ||
+// //               item.metadata?.['Agri Specialist'] ||
+// //               'Unknown',
+// //             referenceSource: 'golden',
+// //             id: item.id || new ObjectId().toString(),
+// //           })),
+// //           ...(data.pop || []).map((item: any) => ({
+// //             question: 'Reference Information',
+// //             answer: item.text,
+// //             agri_specialist: 'POP_DOCUMENT',
+// //             referenceSource: 'pop',
+// //             id: item.id || new ObjectId().toString(),
+// //           })),
+// //         ];
+// //       } else if (data && Array.isArray(data.results)) {
+// //         // Map the results array from the agent_search response
+// //         formattedResponse = data.results.map((item: any) => ({
+// //           question: item.question || data.extracted_question || context,
+// //           answer: item.answer || item.text || 'Answer not available',
+// //           agri_specialist: item.source || 'AGRI_EXPERT',
+// //           referenceSource: 'agent_search',
+// //           id: item.id || new ObjectId().toString(),
+// //         }));
+// //       } else if (Array.isArray(data)) {
+// //         formattedResponse = data.map((item: any) => ({
+// //           question: item.question || context,
+// //           answer: item.answer || item.response || JSON.stringify(item),
+// //           agri_specialist: item.agri_specialist || item.source || 'AGRI_EXPERT',
+// //           referenceSource: item.referenceSource || 'agent_search',
+// //           id: item.id || new ObjectId().toString(),
+// //         }));
+// //       } else if (data && typeof data === 'object') {
+// //         formattedResponse = [
+// //           {
+// //             question: data.extracted_question || data.question || context,
+// //             answer: data.answer || data.response || JSON.stringify(data),
+// //             agri_specialist:
+// //               data.agri_specialist || data.source || 'AGRI_EXPERT',
+// //             referenceSource: data.referenceSource || 'agent_search',
+// //             id: data.id || new ObjectId().toString(),
+// //           },
+// //         ];
+// //       }
+
+// //       // Deduplicate by question text
+// //       const uniqueQuestions = Array.from(
+// //         new Map(formattedResponse.map(q => [q.question, q])).values(),
+// //       ).map(q => ({
+// //         ...q,
+// //         id: q.id || new ObjectId().toString(),
+// //       }));
+
+// //       return uniqueQuestions;
+// //     } catch (error) {
+// //       console.error('Failed to generate questions from call context:', error);
+// //       throw new InternalServerError(
+// //         'Failed to generate questions from call context',
+// //       );
+// //     }
+// //   }
+
+// //   async getCallSummary(query: string): Promise<any> {
+// //     try {
+// //       const extractResponse = await axios.post(
+// //         'http://100.100.108.44:6002/extract',
+// //         {query},
+// //         {timeout: 100000},
+// //       );
+// //       return extractResponse.data;
+// //     } catch (error) {
+// //       console.error('Failed to generate call summary:', error);
+// //       throw new InternalServerError('Failed to generate call summary');
+// //     }
+// //   }
+
+// //   /**
+// //    * HIL Flow: Create thread for ACC Agent
+// //    */
+// //   async createAccAgentThread(): Promise<{thread_id: string}> {
+// //     try {
+// //       const result = await this.accAgentService.createThread();
+// //       return result;
+// //     } catch (error) {
+// //       console.error('[QuestionService] createAccAgentThread: Error', error);
+// //       throw new InternalServerError('Failed to create ACC Agent thread');
+// //     }
+// //   }
+
+// //   /**
+// //    * HIL Flow: Extract data from transcript
+// //    */
+// //   async extractAccAgentData(
+// //     threadId: string,
+// //     transcript: string,
+// //   ): Promise<{
+// //     extracted_query: string;
+// //     extracted_crop: string;
+// //     extracted_state: string;
+// //     extracted_district: string;
+// //     extracted_domain?: string | string[];
+// //     extracted_name?: string;
+// //     extracted_phone?: string;
+// //     extracted_age?: number;
+// //     extracted_gender?: string;
+// //     extracted_village?: string;
+// //     extracted_block?: string;
+// //     extracted_primary_crop?: string;
+// //   }> {
+// //     try {
+// //       const result = await this.accAgentService.extractData(
+// //         threadId,
+// //         transcript,
+// //       );
+
+// //       return result;
+// //     } catch (error) {
+// //       console.error('[QuestionService] extractAccAgentData: Error', error);
+// //       throw new InternalServerError('Failed to extract data using ACC Agent');
+// //     }
+// //   }
+
+// //   /**
+// //    * HIL Flow: Update state with human corrections
+// //    */
+// //   async updateAccAgentState(
+// //     threadId: string,
+// //     correctedData: {
+// //       query: string;
+// //       crop: string;
+// //       state: string;
+// //       district: string;
+// //       domain: string | string[];
+// //       season: string;
+// //       farmerName?: string;
+// //       farmerPhone?: string;
+// //       farmerAge?: number;
+// //       farmerGender?: string;
+// //       farmerVillage?: string;
+// //       farmerBlock?: string;
+// //       farmerPrimaryCrop?: string;
+// //     },
+// //   ): Promise<void> {
+// //     try {
+// //       await this.accAgentService.updateState(threadId, correctedData);
+// //     } catch (error) {
+// //       console.error('[QuestionService] updateAccAgentState: Error', error);
+// //       throw new InternalServerError('Failed to update ACC Agent state');
+// //     }
+// //   }
+
+// //   /**
+// //    * HIL Flow: Resume and get final answer
+// //    */
+// //   async resumeAccAgentAndGetAnswer(
+// //     threadId: string,
+// //     callUuid?: string,
+// //     metadata?: QAMetadata,
+// //   ): Promise<{final_answer: string}> {
+// //     try {
+// //       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
+
+// //       // If callUuid and metadata are provided, store Q/A pairs in call_details
+// //       if (callUuid && metadata) {
+// //         const qaPairs: QAPairs = {
+// //           metadata,
+// //           QnA: [
+// //             {
+// //               question: metadata.extracted_query,
+// //               answer: result.final_answer,
+// //               agri_specialist: 'ACC_AGENT',
+// //               referenceSource: 'acc_agent_hitl',
+// //               id: new ObjectId().toString(),
+// //             },
+// //           ],
+// //         };
+
+// //         // Check if call_details document exists
+// //         const existingCallDetails =
+// //           await this.callDetailsRepository.getByCallUuid(callUuid);
+
+// //         if (existingCallDetails) {
+// //           // Update existing document
+// //           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
+// //         } else {
+// //           console.warn(
+// //             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
+// //           );
+// //           // Create a new call_details document with the Q/A pairs
+// //           await this.callDetailsRepository.create({
+// //             callUuid,
+// //             QA_pairs: qaPairs,
+// //             status: 'completed',
+// //             direction: 'inbound',
+// //             caller: {
+// //               transcript: '',
+// //               translation: '',
+// //               detectedLanguage: 'unknown',
+// //             },
+// //             agent: {
+// //               transcript: '',
+// //               translation: '',
+// //               detectedLanguage: 'unknown',
+// //             },
+// //           });
+// //         }
+// //       }
+
+// //       return result;
+// //     } catch (error) {
+// //       console.error(
+// //         '[QuestionService] resumeAccAgentAndGetAnswer: Error',
+// //         error,
+// //       );
+// //       throw new InternalServerError(
+// //         'Failed to get final answer from ACC Agent',
+// //       );
+// //     }
+// //   }
+
+// //   async getAccAgentState(
+// //     threadId: string,
+// //     callUuid?: string,
+// //     metadata?: QAMetadata,
+// //   ): Promise<any> {
+// //     try {
+// //       // 1. Resume the agent
+// //       await this.accAgentService.resumeAndGetAnswer(threadId);
+
+// //       // 2. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
+// //       const threadState = await this.accAgentService.getThreadState(threadId);
+
+// //       // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
+// //       if (callUuid && metadata) {
+// //         const finalAnswerObj = threadState?.values?.final_answer;
+// //         const finalAnswerMarkdown =
+// //           typeof finalAnswerObj === 'string'
+// //             ? finalAnswerObj
+// //             : finalAnswerObj?.final_answer || '';
+
+// //         const weather = finalAnswerObj?.weather || null;
+// //         const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
+// //         const authorName = similarPair?.details?.[0]?.author_name || '';
+// //         const sourceName = similarPair?.details?.[0]?.source_name || '';
+// //         const sourceLink = similarPair?.details?.[0]?.source_link || '';
+
+// //         const qaPairs: QAPairs = {
+// //           metadata,
+// //           QnA: [
+// //             {
+// //               question: metadata.extracted_query,
+// //               answer: finalAnswerMarkdown,
+// //               agri_specialist: 'ACC_AGENT',
+// //               referenceSource: 'acc_agent_hitl',
+// //               id: new ObjectId().toString(),
+// //               ...(weather ? {weather} : {}),
+// //               ...(authorName ? {authorName} : {}),
+// //               ...(sourceName ? {sourceName} : {}),
+// //               ...(sourceLink ? {sourceLink} : {}),
+// //             } as any,
+// //           ],
+// //         };
+
+// //         // Check if call_details document exists
+// //         const existingCallDetails =
+// //           await this.callDetailsRepository.getByCallUuid(callUuid);
+
+// //         if (existingCallDetails) {
+// //           // Update existing document
+// //           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
+// //         } else {
+// //           console.warn(
+// //             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
+// //           );
+// //           // Create a new call_details document with the Q/A pairs
+// //           await this.callDetailsRepository.create({
+// //             callUuid,
+// //             QA_pairs: qaPairs,
+// //             status: 'completed',
+// //             direction: 'inbound',
+// //             caller: {
+// //               transcript: '',
+// //               translation: '',
+// //               detectedLanguage: 'unknown',
+// //             },
+// //             agent: {
+// //               transcript: '',
+// //               translation: '',
+// //               detectedLanguage: 'unknown',
+// //             },
+// //           });
+// //         }
+// //       }
+
+// //       // 4. Return the full thread state
+// //       return threadState;
+// //     } catch (error) {
+// //       console.error(
+// //         '[QuestionService] getAccAgentState: Error resuming or fetching state',
+// //         error,
+// //       );
+// //       throw new InternalServerError(
+// //         'Failed to resume or fetch ACC Agent state',
+// //       );
+// //     }
+// //   }
+
+// //   // Reusable duplicate detection helper.
+
+// //   async checkDuplicateQuestion(
+// //     baseQuestion: IQuestion,
+// //     details: IQuestion['details'],
+// //     logData: Record<string, any>,
+// //     session?: ClientSession,
+// //   ): Promise<{
+// //     isDuplicate: boolean;
+// //     duplicateData?: any;
+// //     isNonAgri?: boolean;
+// //     nonAgriData?: any;
+// //   }> {
+// //     return checkDuplicateQuestionHelper(
+// //       baseQuestion,
+// //       details,
+// //       logData,
+// //       this.aiService,
+// //       this.duplicateQuestionRepository,
+// //       session,
+// //     );
+// //   }
+
+// //   async manualCheckDuplicate(questionId: string): Promise<{
+// //     message: string;
+// //     isDuplicate: boolean;
+// //     referenceQuestionId?: string;
+// //   }> {
+// //     const question = await this.questionRepo.getById(questionId);
+
+// //     if (question.referenceQuestionId) {
+// //       return {
+// //         message: 'Question already has a reference question assigned.',
+// //         isDuplicate: true,
+// //       };
+// //     }
+
+// //     const logData: Record<string, any> = {questionId, manual: true};
+// //     const result = await this.runDuplicateCheckPipeline(
+// //       question,
+// //       question.details,
+// //       logData,
+// //     );
+
+// //     if (result.isDuplicate) {
+// //       const refId =
+// //         result.referenceQuestionId instanceof ObjectId
+// //           ? result.referenceQuestionId
+// //           : result.referenceQuestionId
+// //             ? new ObjectId(String(result.referenceQuestionId))
+// //             : null;
+
+// //       // Get submission to check queue length
+// //       const questionSubmission =
+// //         await this.questionSubmissionRepo.getByQuestionId(questionId);
+// //       const queueLength = questionSubmission?.queue?.length || 0;
+
+// //       // Only flip the status to 'duplicate' when the question is still open/delayed.
+// //       // For any other status (in-review, closed, etc.) the workflow is already past
+// //       // that point, so the status must not change — we just record the reference.
+// //       const canMarkDuplicate =
+// //         (question.status === 'open' || question.status === 'delayed') &&
+// //         queueLength === 0;
+// //       await this.questionRepo.updateQuestion(questionId, {
+// //         ...(canMarkDuplicate ? {status: 'duplicate'} : {}),
+// //         similarityScore: result.similarityScore,
+// //         referenceQuestionId: refId,
+// //         referenceQuestion: result.referenceQuestion,
+// //         referenceSource: result.referenceSource,
+// //         isDuplicateChecked: true,
+// //         ...(result.isExact !== undefined ? {isExact: result.isExact} : {}),
+// //       });
+// //       return {
+// //         message: canMarkDuplicate
+// //           ? 'Duplicate detected and question updated.'
+// //           : `Duplicate detected; status left unchanged (question is '${question.status}').`,
+// //         isDuplicate: true,
+// //         referenceQuestionId: refId?.toString(),
+// //       };
+// //     }
+
+// //     if (result.isQueueDuplicate) {
+// //       const refId =
+// //         result.referenceQuestionId instanceof ObjectId
+// //           ? result.referenceQuestionId
+// //           : result.referenceQuestionId
+// //             ? new ObjectId(String(result.referenceQuestionId))
+// //             : null;
+// //       const canMarkQueue =
+// //         question.status === 'open' || question.status === 'delayed';
+// //       await this.questionRepo.updateQuestion(questionId, {
+// //         ...(canMarkQueue
+// //           ? {status: 'queue_duplicate', isAutoAllocate: false}
+// //           : {}),
+// //         similarityScore: result.similarityScore,
+// //         referenceQuestionId: refId,
+// //         referenceQuestion: result.referenceQuestion,
+// //         referenceSource: result.referenceSource,
+// //         isDuplicateChecked: true,
+// //       });
+// //       return {
+// //         message: canMarkQueue
+// //           ? 'Found in the GDB pending-duplicate queue.'
+// //           : `In GDB queue; status left unchanged (question is '${question.status}').`,
+// //         isDuplicate: false,
+// //         referenceQuestionId: refId?.toString(),
+// //       };
+// //     }
+
+// //     if (result.isNonAgri) {
+// //       await this.questionRepo.updateQuestion(questionId, {
+// //         status: 'non_agri',
+// //         isDuplicateChecked: true,
+// //       });
+// //       return {message: 'Question marked as non-agri.', isDuplicate: false};
+// //     }
+
+// //     await this.questionRepo.updateQuestion(questionId, {
+// //       isDuplicateChecked: true,
+// //     });
+// //     return {message: 'No duplicate found.', isDuplicate: false};
+// //   }
+
+// //   private async runDuplicateCheckPipeline(
+// //     baseQuestion: IQuestion,
+// //     details: IQuestion['details'],
+// //     logData: Record<string, any>,
+// //   ): Promise<{
+// //     isDuplicate: boolean;
+// //     isQueueDuplicate?: boolean;
+// //     isNonAgri?: boolean;
+// //     referenceQuestionId?: ObjectId | string | null;
+// //     referenceQuestion?: string;
+// //     referenceSource?: string;
+// //     similarityScore?: number;
+// //     isExact?: boolean;
+// //   }> {
+// //     const cropName =
+// //       typeof details.crop === 'string'
+// //         ? details.crop
+// //         : (details.crop as any)?.name || '';
+
+// //     const gdbResult = await this.aiService.searchGdb({
+// //       crop: cropName,
+// //       state: details.state,
+// //       rephrased_query: baseQuestion.question,
+// //     });
+
+// //     const extractObjectId = (id: any): ObjectId | null => {
+// //       const raw = id?.$oid ?? id;
+// //       const hex = String(raw ?? '');
+// //       if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
+// //       return null;
+// //     };
+
+// //     const exactMatch = gdbResult?.exact_match;
+// //     if (exactMatch?.question_id) {
+// //       const refId = extractObjectId(exactMatch.question_id);
+// //       if (refId) {
+// //         return {
+// //           isDuplicate: true,
+// //           referenceQuestionId: refId,
+// //           referenceQuestion: exactMatch.question,
+// //           referenceSource: 'reviewer',
+// //           similarityScore: Number(
+// //             (exactMatch.similarity_score * 100).toFixed(2),
+// //           ),
+// //           isExact: true,
+// //         };
+// //       }
+// //       console.warn(
+// //         `[runDuplicateCheckPipeline] GDB exact_match invalid question_id: ${exactMatch.question_id}, skipping`,
+// //       );
+// //     }
+
+// //     const selectedMatch = gdbResult?.selected_match;
+// //     if (selectedMatch?.question_id) {
+// //       const refId = extractObjectId(selectedMatch.question_id);
+// //       if (refId) {
+// //         return {
+// //           isDuplicate: true,
+// //           referenceQuestionId: refId,
+// //           referenceQuestion: selectedMatch.question,
+// //           referenceSource: 'reviewer',
+// //           similarityScore: Number(
+// //             (selectedMatch.similarity_score * 100).toFixed(2),
+// //           ),
+// //           isExact: false,
+// //         };
+// //       }
+// //       console.warn(
+// //         `[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`,
+// //       );
+// //     }
+
+// //     // No GDB duplicate match — check the GDB pending-duplicate queue before falling
+// //     // through to the LLM, so the LLM classification only runs when the question is
+// //     // neither a duplicate nor already in the queue (single LLM call site).
+// //     try {
+// //       const pendingResult = await this.aiService.checkPendingDuplicate({
+// //         rephrased_query: baseQuestion.question,
+// //         crop: cropName,
+// //         state: details.state,
+// //         createdAt: baseQuestion.createdAt,
+// //       });
+// //       // A `detail` field means the GDB server didn't find a queued match.
+// //       // Reference details come from the top-level response (duplicate_question_id /
+// //       // query / similarity_score), not the candidates_checked array.
+// //       const dupId =
+// //         pendingResult?.duplicate_question_id ??
+// //         pendingResult?.matched_question_id;
+// //       // Only treat as a queue-duplicate when the GDB returned a usable reference id —
+// //       // a null/undefined duplicate_question_id means no queued match.
+// //       const foundInGdbQueue =
+// //         !!pendingResult &&
+// //         !pendingResult.detail &&
+// //         typeof dupId === 'string' &&
+// //         dupId.trim().length > 0;
+// //       if (foundInGdbQueue) {
+// //         const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
+// //         return {
+// //           isDuplicate: false,
+// //           isQueueDuplicate: true,
+// //           referenceQuestionId: refId,
+// //           referenceQuestion: pendingResult!.query,
+// //           referenceSource: 'reviewer',
+// //           similarityScore: Number(
+// //             ((pendingResult!.similarity_score ?? 0) * 100).toFixed(2),
+// //           ),
+// //         };
+// //       }
+// //     } catch (queueError: any) {
+// //       console.warn(
+// //         `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
+// //       );
+// //     }
+
+// //     // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
+// //     try {
+// //       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
+// //       if (llmResult.isNonAgri) {
+// //         logData.outcome = 'NON_AGRI_DETECTED';
+// //         chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+// //         return {isDuplicate: false, isNonAgri: true};
+// //       }
+// //     } catch (llmError: any) {
+// //       console.warn(
+// //         `[runDuplicateCheckPipeline] LLM non-agri check failed, treating as agri: ${llmError?.message}`,
+// //       );
+// //     }
+
+// //     return {isDuplicate: false};
+// //   }
+
+// //   async addQuestion(
+// //     userId: string,
+// //     body: AddQuestionBodyDto,
+// //   ): Promise<AddQuestionResult> {
+// //     const logData: Record<string, any> = {};
+// //     try {
+// //       // Extract fields before normalizing keys to lowercase
+// //       const aiInitialAnswer = body.aiInitialAnswer || '';
+// //       const messageIdFromBody = body.messageId;
+// //       const threadIdFromBody = body.threadId;
+// //       const userIdFromBody = body.userId;
+// //       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
+// //       const popContextFromBody = body.popContext;
+// //       const toolsUsed = body.tools_used || [];
+// //       const isTrainingQuestion = body.isTrainingQuestion === true;
+
+// //       body = normalizeKeysToLower(body);
+// //       let {
+// //         question,
+// //         priority,
+// //         source = 'AGRI_EXPERT',
+// //         details,
+// //         context,
+// //         originalquestion = '',
+// //       } = body;
+// //       if (body.details) {
+// //         body.details.state = toTitleCase(body.details.state);
+// //         body.details.district = toTitleCase(body.details.district as string);
+// //         body.details.crop = toTitleCase(body.details.crop as string);
+// //         body.details.domain = Array.isArray(body.details.domain)
+// //           ? body.details.domain
+// //           : body.details.domain
+// //             ? [body.details.domain]
+// //             : [];
+// //       }
+// //       const messageId = messageIdFromBody;
+// //       const threadId = threadIdFromBody;
+// //       const bodyUserId = userIdFromBody;
+// //       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
+// //       const popContext = popContextFromBody;
+
+// //       if (!details) {
+// //         const b: any = body;
+// //         details = {
+// //           state: b?.state || '',
+// //           district: b?.district || '',
+// //           crop: b?.crop || '',
+// //           season: b?.season || '',
+// //           domain: Array.isArray(b?.domain)
+// //             ? b.domain
+// //             : b?.domain
+// //               ? [b.domain]
+// //               : [],
+// //         };
+// //       }
+
+// //       const validPriorities = ['low', 'medium', 'high', 'critical'];
+// //       priority = priority?.toLowerCase() as IQuestion['priority'];
+// //       if (!validPriorities.includes(priority)) {
+// //         priority = 'medium';
+// //       }
+// //       if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+// //         priority = 'high';
+// //       }
+
+// //       if (!question?.trim()) {
+// //         throw new BadRequestError(`Question is required`);
+// //       }
+
+// //       if (
+// //         !(typeof details.crop === 'string'
+// //           ? details.crop.trim()
+// //           : details.crop?.name?.trim()) ||
+// //         !details.district ||
+// //         !details.domain ||
+// //         !details.season ||
+// //         !details.state
+// //       ) {
+// //         throw new BadRequestError(`All fields are required`);
+// //       }
+
+// //       logData.userId = userId;
+// //       logData.question = question;
+// //       logData.details = details;
+// //       logData.source = source;
+
+// //       // ─── Normalize crop against crop_master DB ───────────────────────────
+// //       const rawCropName =
+// //         typeof details.crop === 'string'
+// //           ? details.crop
+// //           : details.crop?.name || '';
+// //       let normalised_crop: string | undefined;
+// //       if (rawCropName.trim()) {
+// //         try {
+// //           const existingCrop =
+// //             await this.cropRepository.findByNameOrAlias(rawCropName);
+// //           if (existingCrop) {
+// //             normalised_crop = existingCrop.name;
+// //             logData.cropNormalization = {
+// //               original: rawCropName,
+// //               resolved: existingCrop.name,
+// //               action:
+// //                 rawCropName.trim().toLowerCase() === existingCrop.name
+// //                   ? 'EXACT_MATCH'
+// //                   : 'ALIAS_RESOLVED',
+// //             };
+// //           } else {
+// //             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+// //             logData.cropNormalization = {
+// //               original: rawCropName,
+// //               action: 'NOT_FOUND',
+// //             };
+// //           }
+// //         } catch (cropError: any) {
+// //           console.error('Crop normalization warning:', cropError.message);
+// //           logData.cropNormalizationError = cropError.message;
+// //         }
+// //       }
+// //       // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
+// //       details.crop = toTitleCase(rawCropName);
+// //       details.state = toTitleCase(details.state);
+// //       if (typeof details.district === 'string')
+// //         details.district = toTitleCase(details.district);
+// //       if (normalised_crop !== undefined)
+// //         details.normalised_crop = normalised_crop;
+
+// //       // 🔹 Create Embedding — OUTSIDE transaction
+// //       const text = `Question: ${question}`;
+// //       let textEmbedding: number[] = [];
+
+// //       if (appConfig.ENABLE_AI_SERVER) {
+// //         const {embedding} = await this.aiService.getEmbedding(text);
+// //         textEmbedding = embedding;
+// //       }
+// //       logData.embeddingGenerated = textEmbedding.length > 0;
+// //       logData.vectorLength = textEmbedding.length;
+
+// //       return this._withTransaction(async (session: ClientSession) => {
+// //         // 🔹 Create Context
+// //         let contextId: ObjectId | null = null;
+
+// //         if (context) {
+// //           const {insertedId} = await this.contextRepo.addContext(
+// //             context,
+// //             session,
+// //           );
+// //           contextId = new ObjectId(insertedId);
+// //         }
+// //         // 🔹 Create Base Question Object
+// //         const baseQuestion: IQuestion = {
+// //           userId:
+// //             bodyUserId?.trim() || userId?.trim()
+// //               ? new ObjectId(bodyUserId?.trim() || userId)
+// //               : null,
+// //           question,
+// //           priority,
+// //           source,
+// //           status:
+// //             source === 'AJRASAKHA' || source === 'WHATSAPP'
+// //               ? 'pending'
+// //               : 'open',
+// //           totalAnswersCount: 0,
+// //           contextId,
+// //           details,
+// //           isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
+// //           // New questions are eligible for gate-keeper / auditor auto-allocation by
+// //           // default; the cron only picks them up once they reach a matching status.
+// //           autoAllocateGateKeeper: true,
+// //           autoAllocateAuditor: true,
+// //           embedding: textEmbedding,
+// //           metrics: null,
+// //           aiInitialAnswer,
+// //           text,
+// //           toolsUsed,
+// //           createdAt: new Date(),
+// //           updatedAt: new Date(),
+// //           isTrainingQuestion,
+// //           ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
+// //           ...(messageId && {messageId}),
+// //           ...(threadId && {threadId}),
+// //           ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
+// //           ...(popContext && {popContext}),
+// //         };
+
+// //         // 🔹 Save question
+// //         logData.outcome = 'NEW_QUESTION_ADDED';
+// //         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
+// //         const savedQuestion = await this.questionRepo.addQuestion(
+// //           baseQuestion,
+// //           session,
+// //         );
+
+// //         if (!savedQuestion?._id) {
+// //           throw new InternalServerError(`Failed to save question to database`);
+// //         }
+// //         /* if(!body.threadId)
+// //         {
+// //            await this.questionRepo.updateQuestion(savedQuestion._id.toString(), {
+// //               isTesting: true,
+// //             });
+// //           return
+// //         }*/
+
+// //         // 🔹 Create bare submission record (expert queue populated in background)
+// //         const submissionData: IQuestionSubmission = {
+// //           questionId: new ObjectId(savedQuestion._id.toString()),
+// //           lastRespondedBy: null,
+// //           history: [],
+// //           queue: [],
+// //           createdAt: new Date(),
+// //           updatedAt: new Date(),
+// //         };
+// //         await this.questionSubmissionRepo.addSubmission(
+// //           submissionData,
+// //           session,
+// //         );
+
+// //         // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
+// //         const questionId = savedQuestion._id.toString();
+// //         setImmediate(() => {
+// //           this.processQuestionInBackground({
+// //             questionId,
+// //             source,
+// //             details,
+// //             baseQuestion: {...baseQuestion, _id: savedQuestion._id},
+// //             logData,
+// //           }).catch((err: any) =>
+// //             console.error(
+// //               `[addQuestion] Background processing failed for questionId=${questionId}:`,
+// //               err?.message,
+// //             ),
+// //           );
+// //         });
+
+// //         return {
+// //           data: {
+// //             ...baseQuestion,
+// //             _id: questionId,
+// //             userId: baseQuestion.userId?.toString?.(),
+// //           },
+// //         };
+// //       });
+// //     } catch (error) {
+// //       console.error(error);
+
+// //       logData.outcome = 'FAILED';
+// //       logData.errorMessage = error.message;
+// //       logData.stack = error.stack;
+// //       chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
+
+// //       throw new InternalServerError(`Failed to add question: ${error}`);
+// //     }
+// //   }
+
+// //   private async processQuestionInBackground(params: {
+// //     questionId: string;
+// //     source: IQuestion['source'];
+// //     details: IQuestion['details'];
+// //     baseQuestion: IQuestion;
+// //     logData: Record<string, any>;
+// //   }): Promise<void> {
+// //     const {questionId, source, details, baseQuestion, logData} = params;
+// //     try {
+// //       if (source === 'AGRI_EXPERT') {
+// //         // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
+// //         // on creation. They are left unallocated (empty queue, no firstAllocationAt)
+// //         // and picked up one-at-a-time by the manual single-allocation cron
+// //         // (reallocateManualQuestions), mirroring the time-bound flow.
+// //         console.log(
+// //           `[ManualSingle] Question ${questionId} left for single-allocation cron (source=AGRI_EXPERT)`,
+// //         );
+// //       } else {
+// //         const isTimeBoundedQuestion =
+// //           source === 'AJRASAKHA' || source === 'WHATSAPP';
+// //         let threadValidation;
+// //         if (isTimeBoundedQuestion) {
+// //           threadValidation = await this.validateTimeBoundQuestionThread(
+// //             questionId,
+// //             baseQuestion.threadId,
+// //           );
+// //           console.log('threadValidation ', threadValidation);
+// //           if (!threadValidation.isValid) {
+// //             console.log('Npt valid');
+// //             logData.outcome = 'TESTING_THREAD_ID';
+// //             logData.threadValidationReason = threadValidation.reason;
+// //             chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+
+// //             await this.questionRepo.updateQuestion(questionId, {
+// //               isTesting: true,
+// //             });
+// //             return;
+// //           }
+// //           /* else {
+// //              // Extract the last GDB tool response from thread content
+// //              const content: any[] = threadValidation.data?.content || [];
+// //              const gdbToolCalls = content.filter(
+// //                (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
+// //              );
+// //              const lastGdbResponse = gdbToolCalls.length > 0
+// //                ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
+// //                : null;
  
-//              if (lastGdbResponse) {
-//                const isExact: boolean = lastGdbResponse.is_exact === true;
-//                const isSimilar: boolean = lastGdbResponse.is_similar === true;
+// //              if (lastGdbResponse) {
+// //                const isExact: boolean = lastGdbResponse.is_exact === true;
+// //                const isSimilar: boolean = lastGdbResponse.is_similar === true;
  
 //                if (isExact && !isSimilar) {
 //                  // Exact match found in GDB — mark as duplicate using exact_match data
@@ -2430,11 +2448,13 @@
 //             user,
 //             type,
 //           );
-//           await this.questionRepo.updateQuestion(
-//             questionId,
-//             {firstAllocationAt: new Date()},
-//             session,
-//           );
+//           if (!question.firstAllocationAt) {
+//             await this.questionRepo.updateQuestion(
+//               questionId,
+//               {firstAllocationAt: new Date()},
+//               session,
+//             );
+//           }
 //         }
 //       }
 //       if (
@@ -2683,9 +2703,14 @@
 //         //   );
 //         // }
 
-//         //if manuall alloacation is first person
+//         const lastSubmission = questionSubmission.history.at(-1);
+//         const isReviewStage = Boolean(
+//           lastSubmission &&
+//             (lastSubmission.answer || lastSubmission.status === 'reviewed'),
+//         );
 
-//         if (questionSubmission.queue.length === 0) {
+//         // If manual allocation is for author (no answer submitted yet) and queue is currently empty
+//         if (!isReviewStage && questionSubmission.queue.length === 0) {
 //           const firstPerson = experts[0];
 //           const IS_INCREMENT = true;
 //           await this.userRepo.updateReputationScore(
@@ -2705,35 +2730,32 @@
 //             user,
 //             type,
 //           );
-//           await this.questionRepo.updateQuestion(
-//             questionId,
-//             {firstAllocationAt: new Date()},
-//             session,
-//           );
+//           if (!question.firstAllocationAt) {
+//             await this.questionRepo.updateQuestion(
+//               questionId,
+//               {firstAllocationAt: new Date()},
+//               session,
+//             );
+//           }
 //         }
 
 //         //6. Allocate experts
-//         // If the question is a duplicate and auto-allocate is OFF, it means the
-//         // moderator intentionally toggled off auto-allocate and is now manually
-//         // picking an expert. Reopen the question so the selected expert can see
-//         // it in their dashboard (only open/delayed questions are visible there).
-//         const updateData: any = {
-//           firstAllocationAt: new Date(),
-//         };
+//         const updateData: any = {};
 //         if (question.status === 'duplicate') {
 //           updateData.status = 'open';
 //         }
+//         if (!isReviewStage && !question.firstAllocationAt) {
+//           updateData.firstAllocationAt = new Date();
+//         }
 
-//         await this.questionRepo.updateQuestion(questionId, updateData, session);
+//         if (Object.keys(updateData).length > 0) {
+//           await this.questionRepo.updateQuestion(questionId, updateData, session);
+//         }
 
 //         const expertIds = experts.map(e => new ObjectId(e));
 
-//         // if the last expert is  reviewing other question  (if status is not reviewed or not submitted an answer)
-//         const lastSubmission = questionSubmission.history.at(-1);
-//         if (
-//           questionSubmission.history.length >= 0 &&
-//           (lastSubmission?.answer || lastSubmission?.status == 'reviewed')
-//         ) {
+//         // if at review stage (last submission has an answer or is reviewed)
+//         if (isReviewStage) {
 //           const expertId = expertIds[0];
 //           const userSubmissionData: ISubmissionHistory = {
 //             updatedBy: expertId,
@@ -5482,6 +5504,18 @@
 //    * Ports scripts/timebound-question-cycle-report.js. Timings come from the submission
 //    * history work-log; timestamps are written in IST. Returns null when nothing matched.
 //    */
+//   async streamTatReport(
+//     startDate: Date,
+//     endDate: Date,
+//     outputStream: any,
+//     opts: {sources?: string[]; statuses?: string[]; maxReviewers?: number} = {},
+//   ): Promise<boolean> {
+//     const data = await this.generateTatReport(startDate, endDate, opts);
+//     if (!data) return false;
+//     outputStream.write(Buffer.from(data));
+//     return true;
+//   }
+
 //   async generateTatReport(
 //     startDate: Date,
 //     endDate: Date,
@@ -8241,9 +8275,13 @@
 //                 true,
 //                 session,
 //               );
+//               const updateDoc: any = {isAutoAllocate: true};
+//               if (!(question as any)?.firstAllocationAt) {
+//                 updateDoc.firstAllocationAt = new Date();
+//               }
 //               await this.questionRepo.updateQuestion(
 //                 questionId,
-//                 {isAutoAllocate: true, firstAllocationAt: new Date()},
+//                 updateDoc,
 //                 session,
 //               );
 //               await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(

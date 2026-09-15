@@ -11,23 +11,55 @@ export const useBlockUser = () => {
     mutationFn: async ({userId,action}: {userId:string,action:string}) => {
      return await userService.isBlockUser(userId,action)
     },
-    onSuccess: () => {
-      //  Refresh admin users list
-      queryClient.invalidateQueries({
+    onMutate: () => {
+      return {
+        toastId: toast.loading("Updating user..."),
+      };
+    },
+    onSuccess: async (_, __, context) => {
+      // Refresh admin users list
+      await queryClient.invalidateQueries({
+        queryKey: ["admin"],
+        exact: false,
+      });
+
+      // Refresh non-admin users list
+      await queryClient.invalidateQueries({
         queryKey: ["users"],
         exact: false,
       });
 
-      //  Refresh moderator experts list
-      queryClient.invalidateQueries({
+      // Refresh moderator experts list
+      await queryClient.invalidateQueries({
         queryKey: ["experts"],
         exact: false,
       });
-      toast.success("User Updated succesfully")
+
+      // Refresh current user data
+      await queryClient.invalidateQueries({
+        queryKey: ["user"],
+        exact: false,
+      });
+
+      // Refresh user profile
+      await queryClient.invalidateQueries({
+        queryKey: ["user-profile"],
+        exact: false,
+      });
+
+      // Refresh user review level / performance
+      await queryClient.invalidateQueries({
+        queryKey: ["userReviewLevel"],
+        exact: false,
+      });
+
+      toast.dismiss(context?.toastId);
+      toast.success("User updated successfully");
     },
-    onError: (error: any) => {
+    onError: (error: any, _, context) => {
       console.error("Error blocking/unblocking user:", error);
-      toast.error(error?.message || `Failed to Block or unBlock Expert`);
-    }
-  })
-}
+      toast.dismiss(context?.toastId);
+      toast.error(error?.message || `Failed to block or unblock user`);
+    },
+  });
+};

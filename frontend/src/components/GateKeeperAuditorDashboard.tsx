@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { ListTodo, CheckCircle, Loader2, ClipboardList, Clock, History } from "lucide-react";
 import { UserHistoryView } from "@/components/UserHistoryView";
@@ -229,7 +229,13 @@ export const GateKeeperAuditorDashboard = ({
     from.setMonth(from.getMonth() - 1);
     return { from, to };
   });
-  const lifecycleIso = getISOStringsForDateRange(lifecycleRange);
+  // Memoize on the range only: getISOStringsForDateRange resolves an end time of
+  // "now" (ms-precise) whenever the range ends today, so calling it every render
+  // would churn the reviewer-lifecycle query key and refetch in a tight loop.
+  const lifecycleIso = useMemo(
+    () => getISOStringsForDateRange(lifecycleRange),
+    [lifecycleRange],
+  );
   const { data: reviewerLifecycleData, isLoading: isReviewerLifecycle } =
     useReviewerLifecycle(
       targetUserId ?? "",

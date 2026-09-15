@@ -386,6 +386,22 @@ def main_agent_location_context_message(location: Optional[dict[str, Any]]) -> O
     return SystemMessage(content=text)
 
 
+_LOCATION_ALIASES: dict[str, tuple[str, str | None]] = {
+    "moovatupuzha": ("Muvattupuzha", "Ernakulam"),
+    "moovattupuzha": ("Muvattupuzha", "Ernakulam"),
+    "muvattupuzha": ("Muvattupuzha", "Ernakulam"),
+    "calicut": ("Kozhikode", "Kozhikode"),
+    "trivandrum": ("Thiruvananthapuram", "Thiruvananthapuram"),
+    "cochin": ("Kochi", "Ernakulam"),
+    "kochi": ("Kochi", "Ernakulam"),
+    "alleppey": ("Alappuzha", "Alappuzha"),
+    "trichur": ("Thrissur", "Thrissur"),
+    "palghat": ("Palakkad", "Palakkad"),
+    "quilon": ("Kollam", "Kollam"),
+    "cannananore": ("Kannur", "Kannur"),
+}
+
+
 async def forward_geocode(state: Optional[str], district: Optional[str] = None) -> Optional[dict[str, Any]]:
     """Forward geocode state and district to latitude/longitude using OpenStreetMap Nominatim."""
     import logging
@@ -396,13 +412,61 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
     if not state and not district:
         return None
 
+    from ajrasakha.tools.weather.weather_tools2 import STATE_CENTER_COORDINATES, _INDIAN_STATES_LOWER
+
+    # Normalize district/location aliases (e.g. moovatupuzha -> Muvattupuzha, Ernakulam)
+    inferred_district_state = None
+    if district and district.lower().strip() in _LOCATION_ALIASES:
+        canonical_name, canonical_district = _LOCATION_ALIASES[district.lower().strip()]
+        district = canonical_name
+        if canonical_district and not state:
+            inferred_district_state = canonical_district
+
+    # If district is a placeholder or repeats state name, treat as pure state query
+    if district:
+        d_clean = district.lower().strip()
+        st_clean = (state or inferred_district_state or "").lower().strip()
+        if d_clean in {"all", "not specified", "unknown", "none", "null", ""}:
+            district = None
+        elif d_clean == st_clean:
+            district = None
+        elif d_clean in _INDIAN_STATES_LOWER:
+            if not state:
+                state = district.title()
+            district = None
+
+    # For pure state-level queries without district, use the designated state center coordinates directly
+    st_check = (state or inferred_district_state or "").lower().strip()
+    if not district and st_check in STATE_CENTER_COORDINATES:
+        flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[st_check]
+        result = {
+            "latitude": flat_c,
+            "longitude": flon_c,
+            "state": state or st_check.title(),
+            "city": st_check.title(),
+            "address": name_c
+        }
+        trace_resolution(
+            "forward_geocode_result",
+            state=result["state"],
+            state_source="state_center",
+            district=result["city"],
+            district_source="state_center",
+            latitude=flat_c,
+            longitude=flon_c,
+            lat_long_source="state_center",
+            address=name_c,
+        )
+        return result
+
     trace_resolution(
         "forward_geocode_request",
-        state=state,
+        state=state or inferred_district_state,
         state_source="caller_input",
         district=district,
         district_source="caller_input",
     )
+
         
     url = "https://nominatim.openstreetmap.org/search"
     # Try structured query first since it is more reliable
@@ -412,8 +476,8 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
         "limit": 1,
         "addressdetails": 1
     }
-    if state:
-        params["state"] = state
+    if state or inferred_district_state:
+        params["state"] = state or inferred_district_state
     if district:
         params["county"] = district
         
@@ -502,6 +566,30 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
                 return result
     except Exception as e:
         logger.error("Fallback forward geocoding failed: %s", e)
+
+    # State Center fallback if Nominatim was throttled or returned empty
+    st_check = (state or inferred_district_state or "").lower().strip()
+    if st_check in STATE_CENTER_COORDINATES:
+        flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[st_check]
+        result = {
+            "latitude": flat_c,
+            "longitude": flon_c,
+            "state": state or st_check.title(),
+            "city": district or st_check.title(),
+            "address": name_c
+        }
+        trace_resolution(
+            "forward_geocode_result",
+            state=result["state"],
+            state_source="state_center_fallback",
+            district=result["city"],
+            district_source="state_center_fallback",
+            latitude=flat_c,
+            longitude=flon_c,
+            lat_long_source="state_center_fallback",
+            address=name_c,
+        )
+        return result
 
     trace_resolution(
         "forward_geocode_result",

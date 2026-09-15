@@ -133,43 +133,40 @@ export class ChatbotMetricsController {
     );
   }
 
-  @Get('/user-questions-data')
-  @HttpCode(200)
-  @Authorized()
-  async getUserQuestionsData(
-    @QueryParam('userEmail') userEmail: string,
+@Get('/user-questions-data')
+@HttpCode(200)
+@Authorized()
+async getUserQuestionsData(
+  @QueryParam('userEmail') userEmail: string,
 
-    @QueryParam('source')
-    source: string = 'annam',
+  @QueryParam('source')
+  source: string = 'annam',
 
-    @QueryParam('userType')
-    userType: string = 'all',
+  @QueryParam('userType')
+  userType: string = 'all',
 
-    @QueryParam('page')
-    page: number = 1,
+  @QueryParam('page')
+  page: number = 1,
 
-    @QueryParam('limit')
-    limit: number = 10,
-  ): Promise<any> {
-    // const userData =
-    //   await this.userService.getUserByEmail(userEmail);
+  @QueryParam('limit')
+  limit: number = 12,
 
-    // if (!userData) {
-    //   throw new Error(
-    //     'User not found with the provided email.',
-    //   );
-    // }
+  @QueryParam('startDate')
+  startDate?: string,
 
-    // const userId = userData._id.toString();
-
-    return await this.chatbotService.getUserQuestionsData(
-      userEmail,
-      source,
-      userType,
-      Number(page),
-      Number(limit),
-    );
-  }
+  @QueryParam('endDate')
+  endDate?: string,
+): Promise<any> {
+  return await this.chatbotService.getUserQuestionsData(
+    userEmail,
+    source,
+    userType,
+    Number(page),
+    Number(limit),
+    startDate,
+    endDate,
+  );
+}
 
   @Get('/user-message-metric-details')
   @HttpCode(200)
@@ -825,4 +822,83 @@ export class ChatbotMetricsController {
     return this.chatbotService.listUsersFromDataset(page, pageSize);
   }
 
+  @OpenAPI({
+    summary: 'Logout a user from the chatbot system',
+    description: 'Logs out a user by deleting their active session. Requires the userId of the user to be logged out.',
+  })
+  @Post('/logout-user')
+  @HttpCode(200)
+  @Authorized()
+  async logoutUser(
+    @QueryParam('userId') userId: string,
+    @QueryParam('name') name: string,
+    @QueryParam('email') email: string,
+    @CurrentUser() user: IUser,
+  ) {
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ADMIN_REPORT,
+      action: AuditAction.LOGOUT_USER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        endPoint: 'logoutUser',
+        userName: name,
+        userEmail: email,
+        userId: userId,
+      },
+      changes: {
+        before: {
+          loggedIn: "true",
+        }
+      }
+
+    };
+    try {
+      const result = await this.chatbotService.logoutUser(userId);
+    if(result.value === true){
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          before: {
+            loggedIn: "true",
+          },
+          after: {
+            loggedIn: "false",
+          }
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+        
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    }else {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    }
+    }catch(error){
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to logout user',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+    }
+    
+  }
 }

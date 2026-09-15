@@ -63,13 +63,22 @@ class CreateCropDto {
   name: string;
 
   @JSONSchema({
-    description: 'Type of entry — crop (default), chemical, or any custom string',
+    description: 'Type of entry — crop (default), weed, pest, disease, chemical, or any custom type (from the "Other" tab)',
     example: 'crop',
     type: 'string',
   })
   @IsOptional()
   @IsString()
   type?: CropType;
+
+  @JSONSchema({
+    description: 'Optional scientific (binomial) name, e.g. "Oryza sativa"',
+    example: 'Oryza sativa',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  scientificName?: string;
 
   @JSONSchema({
     description: 'Status — only for type=chemical, any custom string',
@@ -108,6 +117,15 @@ class UpdateCropDto {
   @IsArray()
   @Transform(({ value }) => value)
   aliases?: (CropAliasDto | string)[];
+
+  @JSONSchema({
+    description: 'Optional scientific (binomial) name, e.g. "Oryza sativa". Send an empty string to clear.',
+    example: 'Oryza sativa',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  scientificName?: string;
 
   @JSONSchema({
     description: 'Status update — only applicable for chemical entries, any custom string',

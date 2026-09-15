@@ -13,6 +13,8 @@ export const useCreateCrop = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crops"] });
+      // A new custom type may have appeared — refresh the tab list.
+      queryClient.invalidateQueries({ queryKey: ["crop-entry-types"] });
     },
   });
 };
