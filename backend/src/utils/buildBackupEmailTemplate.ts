@@ -1,4 +1,5 @@
 import {DailyStats, IReviewWiseStats} from './getDailyStats.js';
+import type {PendingByLevel} from '#root/modules/question/interfaces/IQuestionService.js';
 
 export const buildBackupEmailTemplate = (
   timestamp: string,
@@ -297,6 +298,11 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
                 ${buildTodayStatsTable(stats)}
                 <div style="height: 24px;"></div>
                 ${buildReviewWiseStatsTable(stats.reviewWiseCount)}
+                ${
+                  stats.pendingByLevel
+                    ? `<div style="height: 24px;"></div>${buildPendingByLevelTable(stats.pendingByLevel)}`
+                    : ''
+                }
                 <div style="height: 24px;"></div>
                 ${buildOverallSystemStatsTable(stats)}
               `
@@ -619,6 +625,104 @@ export const buildOverallSystemStatsTable = (stats: DailyStats) => `
     </table>
   </div>
 `;
+
+/** Pending questions by level — Author = never allocated, each level = needs-reviewer
+ *  waiting for that reviewer — with Time-bound and Manual columns side by side. */
+export const buildPendingByLevelTable = (pending: PendingByLevel) => {
+  const tb = new Map(pending.timeBound.levels.map(l => [l.level, l.count]));
+  const mn = new Map(pending.manual.levels.map(l => [l.level, l.count]));
+
+  // Always show the full ladder Level 1..9 (gaps filled with 0), plus a "Level 10+" rollup
+  // only when there is data beyond 9 — so per-row counts still sum to the totals.
+  const rowsData: { label: string; tb: number; mn: number }[] = [];
+  for (let lvl = 1; lvl <= 9; lvl++) {
+    rowsData.push({ label: `Level ${lvl}`, tb: tb.get(lvl) ?? 0, mn: mn.get(lvl) ?? 0 });
+  }
+  const tbBeyond = pending.timeBound.levels
+    .filter(l => l.level > 9)
+    .reduce((s, l) => s + l.count, 0);
+  const mnBeyond = pending.manual.levels
+    .filter(l => l.level > 9)
+    .reduce((s, l) => s + l.count, 0);
+  if (tbBeyond > 0 || mnBeyond > 0) {
+    rowsData.push({ label: 'Level 10+', tb: tbBeyond, mn: mnBeyond });
+  }
+
+  const cell = (v: number) =>
+    `<td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">${v.toLocaleString()}</td>`;
+
+  const levelRows = rowsData
+    .map(
+      (r, i) => `
+        <tr style="border-bottom: 1px solid #f3f4f6; ${i % 2 ? 'background-color: #fafafa;' : ''}">
+          <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">${r.label}</td>
+          ${cell(r.tb)}
+          ${cell(r.mn)}
+        </tr>`,
+    )
+    .join('');
+
+  // Author + review levels only — the moderator stage is reported separately.
+  const tbTotal =
+    pending.timeBound.author +
+    pending.timeBound.levels.reduce((s, l) => s + l.count, 0);
+  const mnTotal =
+    pending.manual.author +
+    pending.manual.levels.reduce((s, l) => s + l.count, 0);
+
+  return `
+  <div style="
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #ffffff;
+  ">
+    <div style="
+      background-color: #f8fafc;
+      padding: 18px 20px;
+      border-bottom: 3px solid #047857;
+    ">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 700; color: #111827;">
+        Pending Questions by Level
+      </h2>
+      <p style="margin: 5px 0 0; font-size: 12px; line-height: 18px; color: #6b7280;">
+        Author = never allocated; each level = waiting for that reviewer; Moderator = waiting for a moderator
+      </p>
+    </div>
+
+    <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: #f8fafc; border-bottom: 1px solid #e5e7eb;">
+          <th style="padding: 12px 20px; text-align: left; font-size: 12px; font-weight: 700; color: #6b7280;">Stage</th>
+          <th style="padding: 12px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #6b7280;">Time-bound</th>
+          <th style="padding: 12px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #6b7280;">Manual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
+            Author <span style="font-size: 11px; color: #9ca3af;">(never allocated)</span>
+          </td>
+          ${cell(pending.timeBound.author)}
+          ${cell(pending.manual.author)}
+        </tr>
+        ${levelRows}
+        <tr style="border-top: 2px solid #e5e7eb; background-color: #f8fafc;">
+          <td style="padding: 12px 20px; font-size: 13px; font-weight: 700; color: #111827;">Total Pending (Author + Reviews)</td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #111827;">${tbTotal.toLocaleString()}</td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #111827;">${mnTotal.toLocaleString()}</td>
+        </tr>
+        <tr style="background-color: #f8fafc;">
+          <td style="padding: 12px 20px; font-size: 13px; font-weight: 700; color: #111827;">
+            Moderator <span style="font-size: 11px; font-weight: 400; color: #9ca3af;">(waiting for moderator)</span>
+          </td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #111827;">${pending.timeBound.moderator.toLocaleString()}</td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #111827;">${pending.manual.moderator.toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+};
 
 export const buildReviewWiseStatsTable = (
   reviewWiseCount: IReviewWiseStats,
@@ -1118,39 +1222,45 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             </td>
           </tr>
 
-          <tr>
-            <td style="padding: 11px 20px 3px 32px; font-size: 13px; color: #4b5563;">
-              WebApp Generated
-            </td>
-            <td style="padding: 11px 20px 3px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${(stats.todayAddedWebAppCount ?? 0).toLocaleString()}
-            </td>
-          </tr>
+          <!-- WebApp vs WhatsApp entries, broken down by type -->
           <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td colspan="2" style="padding: 2px 20px 12px 52px; font-size: 11px; color: #6b7280; line-height: 1.8;">
-            <div>Duplicate: <strong>${(stats.todayAddedTypeBySource?.webApp?.duplicate ?? 0).toLocaleString()}</strong></div>
-              <div>Dynamic: <strong>${(stats.todayAddedTypeBySource?.webApp?.dynamic ?? 0).toLocaleString()}</strong></div>
-              <div>Static Dynamic: <strong>${(stats.todayAddedTypeBySource?.webApp?.staticDynamic ?? 0).toLocaleString()}</strong></div>
-              <div>Unique: <strong>${(stats.todayAddedTypeBySource?.webApp?.unique ?? 0).toLocaleString()}</strong></div>
-              
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 11px 20px 3px 32px; font-size: 13px; color: #4b5563;">
-              WhatsApp Generated
-            </td>
-            <td style="padding: 11px 20px 3px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${(stats.todayAddedWhatSappCount ?? 0).toLocaleString()}
-            </td>
-          </tr>
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td colspan="2" style="padding: 2px 20px 12px 52px; font-size: 11px; color: #6b7280; line-height: 1.8;">
-            <div>Duplicate: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.duplicate ?? 0).toLocaleString()}</strong></div>
-              <div>Dynamic: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.dynamic ?? 0).toLocaleString()}</strong></div>
-              <div>Static Dynamic: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.staticDynamic ?? 0).toLocaleString()}</strong></div>
-              <div>Unique: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.unique ?? 0).toLocaleString()}</strong></div>
-              
+            <td colspan="2" style="padding: 8px 20px 16px 32px;">
+              <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Type</th>
+                    <th style="text-align: right; padding: 8px 12px; font-size: 11px; font-weight: 700; color: #6b7280; border-bottom: 1px solid #e5e7eb;">WebApp</th>
+                    <th style="text-align: right; padding: 8px 12px; font-size: 11px; font-weight: 700; color: #6b7280; border-bottom: 1px solid #e5e7eb;">WhatsApp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding: 8px 12px; font-size: 12px; color: #4b5563; border-bottom: 1px solid #f3f4f6;">Unique</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.webApp?.unique ?? 0).toLocaleString()}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.whatSapp?.unique ?? 0).toLocaleString()}</td>
+                  </tr>
+                  <tr style="background-color: #fafafa;">
+                    <td style="padding: 8px 12px; font-size: 12px; color: #4b5563; border-bottom: 1px solid #f3f4f6;">Duplicate</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.webApp?.duplicate ?? 0).toLocaleString()}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.whatSapp?.duplicate ?? 0).toLocaleString()}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 12px; font-size: 12px; color: #4b5563; border-bottom: 1px solid #f3f4f6;">Dynamic</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.webApp?.dynamic ?? 0).toLocaleString()}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.whatSapp?.dynamic ?? 0).toLocaleString()}</td>
+                  </tr>
+                  <tr style="background-color: #fafafa;">
+                    <td style="padding: 8px 12px; font-size: 12px; color: #4b5563; border-bottom: 1px solid #f3f4f6;">Static Dynamic</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.webApp?.staticDynamic ?? 0).toLocaleString()}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #374151; border-bottom: 1px solid #f3f4f6;">${(stats.todayAddedTypeBySource?.whatSapp?.staticDynamic ?? 0).toLocaleString()}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #111827; border-top: 2px solid #e5e7eb;">Total</td>
+                    <td style="padding: 10px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #111827; border-top: 2px solid #e5e7eb;">${(stats.todayAddedWebAppCount ?? 0).toLocaleString()}</td>
+                    <td style="padding: 10px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #111827; border-top: 2px solid #e5e7eb;">${(stats.todayAddedWhatSappCount ?? 0).toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
             </td>
           </tr>
 

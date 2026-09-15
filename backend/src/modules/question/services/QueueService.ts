@@ -17,6 +17,7 @@ import {
   QueueSectionName,
   QueueSectionResult,
   RawQueueQuestionRow,
+  PendingByLevel,
 } from '../interfaces/IQuestionService.js';
 import {resolveExpertMeta} from './helpers/reportHelpers.js';
 import {queueCropName, submissionToQueueItem} from './helpers/queueItem.js';
@@ -924,6 +925,78 @@ export class QueueService {
         expertSources,
       )) as any[];
     return this.levelCountsFromSubs(subs, s => this.allocatedExpertLevel(s));
+  }
+
+  /**
+   * Lean "pending questions by level" for the daily report — for each source group
+   * (time-bound / manual): the Author count = questions never allocated yet, and the
+   * per-level counts = the needs-reviewer questions waiting for that reviewer. Reuses the
+   * same queries as the "Never Allocated" and "Needs Reviewer" queue-details sections.
+   */
+  async getPendingByLevel(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<PendingByLevel> {
+    const [
+      twWaiting,
+      twLevels,
+      twInReview,
+      twFeedback,
+      manualWaiting,
+      manualLevels,
+      manualInReview,
+    ] = await Promise.all([
+      this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+        TIME_BOUND_SOURCES,
+        false,
+        isTrainingUser,
+        isAdmin,
+      ) as Promise<any[]>,
+      this.getNeedsReviewerLevelCounts(
+        TIME_BOUND_SOURCES,
+        false,
+        isTrainingUser,
+        isAdmin,
+      ),
+      // Moderator stage = in-review questions with no moderator yet. Time-bound also
+      // includes waiting feedback (mirrors the moderatorWaitingTimeBound section).
+      this.questionRepo.findUnassignedInReviewQuestions(
+        TIME_BOUND_SOURCES,
+        isTrainingUser,
+        isAdmin,
+      ) as Promise<any[]>,
+      this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin),
+      this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+        MANUAL_SOURCES,
+        true,
+        isTrainingUser,
+        isAdmin,
+      ) as Promise<any[]>,
+      this.getNeedsReviewerLevelCounts(
+        MANUAL_SOURCES,
+        true,
+        isTrainingUser,
+        isAdmin,
+      ),
+      this.questionRepo.findUnassignedInReviewQuestions(
+        MANUAL_SOURCES,
+        isTrainingUser,
+        isAdmin,
+      ) as Promise<any[]>,
+    ]);
+
+    return {
+      timeBound: {
+        author: twWaiting.length,
+        levels: twLevels,
+        moderator: twInReview.length + twFeedback.length,
+      },
+      manual: {
+        author: manualWaiting.length,
+        levels: manualLevels,
+        moderator: manualInReview.length,
+      },
+    };
   }
 
   async getQueueDetails(

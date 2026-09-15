@@ -154,6 +154,22 @@ export interface QueueExpertItem {
   isTrainingUser?: boolean;
 }
 
+/** Pending-questions-by-level breakdown for one source group (time-bound or manual). */
+export interface PendingLevelGroup {
+  /** Questions never allocated yet — pending at the Author stage. */
+  author: number;
+  /** needsReviewer per-level counts — waiting for the reviewer at each level. */
+  levels: {level: number; count: number}[];
+  /** Questions waiting for a moderator (in-review, unassigned) — the moderator stage. */
+  moderator: number;
+}
+
+/** Pending questions by level, split by source group. Used by the daily report. */
+export interface PendingByLevel {
+  timeBound: PendingLevelGroup;
+  manual: PendingLevelGroup;
+}
+
 export interface QueueDetailsResponse {
   /** All time-bound (AJRASAKHA/WHATSAPP, auto-allocated) questions ever received. */
   received: {count: number; items: QueueQuestionItem[]};
