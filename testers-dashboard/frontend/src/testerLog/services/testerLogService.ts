@@ -1,0 +1,43 @@
+import { apiFetch } from "@/hooks/api/api-fetch";
+import { env } from "@/config/env";
+import type {
+    ICreateTesterLogEntryResponse,
+    IPaginatedTesterLogEntries,
+    ITesterLogEntry,
+} from "../types";
+
+const API_BASE_URL = env.apiBaseUrl();
+
+export class TesterLogService {
+    private readonly baseUrl = `${API_BASE_URL}/tester-log`;
+
+    async submitEntry(
+        body: Omit<ITesterLogEntry, "_id" | "submittedByUserId" | "submittedByEmail" | "testerName" | "createdAt" | "updatedAt">,
+    ): Promise<ICreateTesterLogEntryResponse> {
+        const response = await apiFetch<ICreateTesterLogEntryResponse>(this.baseUrl, {
+            method: "POST",
+            body: JSON.stringify(body),
+        });
+        if (!response) throw new Error("Failed to submit test case entry");
+        return response;
+    }
+
+    async getMyHistory(page = 1, limit = 20): Promise<IPaginatedTesterLogEntries> {
+        const url = `${this.baseUrl}/my?page=${page}&limit=${limit}`;
+        const response = await apiFetch<IPaginatedTesterLogEntries>(url);
+        if (!response) throw new Error("Failed to fetch test case history");
+        return response;
+    }
+
+    async getAllEntries(page = 1, limit = 20, testerId?: string): Promise<IPaginatedTesterLogEntries> {
+        const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (testerId) params.set("testerId", testerId);
+        const url = `${this.baseUrl}/all?${params.toString()}`;
+        const response = await apiFetch<IPaginatedTesterLogEntries>(url);
+        if (!response) throw new Error("Failed to fetch all test case entries");
+        return response;
+    }
+}
+
+export const testerLogService = new TesterLogService();
+

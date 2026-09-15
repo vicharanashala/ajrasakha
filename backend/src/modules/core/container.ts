@@ -28,6 +28,8 @@ import { TestersDashboardService } from '../../../../testers-dashboard/backend/b
 import { RequestController } from '../request/controllers/RequestController.js';
 import { ZohoTicketStatusService } from '../../../../testers-dashboard/backend/build/services/ZohoTicketStatusService.js';
 import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
+import { TesterLogController } from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js';
+import { TesterLogService } from '../../../../testers-dashboard/backend/build/services/TesterLogService.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
@@ -42,6 +44,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(PerformanceController).toSelf().inSingletonScope()
   options.bind(TestersDashboardController).toSelf().inSingletonScope()
   options.bind(ZohoTicketStatusController).toSelf().inSingletonScope()
+  options.bind(TesterLogController).toSelf().inSingletonScope()
   // Services
 
   options
@@ -56,6 +59,7 @@ export const coreContainerModule = new ContainerModule(options => {
 
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
   options.bind(CORE_TYPES.TestersDashboardService).to(TestersDashboardService).inSingletonScope();
+  options.bind(CORE_TYPES.TesterLogService).to(TesterLogService).inSingletonScope();
   options.bind(GLOBAL_TYPES.AccAgentService).to(AccAgentService).inSingletonScope();
   // Repositories
   options

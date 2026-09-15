@@ -8,4 +8,6 @@ export const DASHBOARD_TYPES = {
   ZohoTicketStatusController: Symbol.for('ZohoTicketStatusController'),
   TestersDashboardService: Symbol.for('TestersDashboardService'),
   ZohoTicketStatusService: Symbol.for('ZohoTicketStatusService'),
+  TesterLogController: Symbol.for('TesterLogController'),
+  TesterLogService: Symbol.for('TesterLogService'),
 };

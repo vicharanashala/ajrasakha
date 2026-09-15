@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bot,
   Clock,
+  ClipboardList,
   Database,
   History,
   List,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { canManageUsers, isCoordinatorRole } from "@/lib/roles";
+import { canManageUsers, isCoordinatorRole, canLogTestCases } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -170,6 +171,10 @@ export const MobileSidebar = ({
             icon: MessageSquare,
           },
         ]
+      : []),
+
+    ...(user && canLogTestCases(user.role)
+      ? [{ id: "tester_log", label: "Log Test Case", icon: ClipboardList }]
       : []),
   ];
 

@@ -75,6 +75,7 @@
     "react-date-range": "^2.0.1",
     "react-day-picker": "^9.11.2",
     "react-dom": "^19.0.0",
+    "react-hook-form": "^7.87.0",
     "react-hot-toast": "^2.6.0",
     "react-leaflet": "^5.0.0",
     "recharts": "^2.15.4",

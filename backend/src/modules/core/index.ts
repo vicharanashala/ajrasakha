@@ -20,6 +20,8 @@ import { PerformanceController } from '../../modules/performance/controllers/Per
 // in core/container.ts.
 import { TestersDashboardController } from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js';
 import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
+import { TesterLogController } from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js';
+import { TESTER_LOG_VALIDATORS } from '../../../../testers-dashboard/backend/build/validators/TesterLogValidators.js';
 import { RequestController } from '../request/controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
 
@@ -32,7 +34,8 @@ export const coreModuleControllers: Function[] = [
   RequestController,
   PerformanceController,
   TestersDashboardController,
-  ZohoTicketStatusController
+  ZohoTicketStatusController,
+  TesterLogController
 ];
 
 // Export container modules for loadAppModules
@@ -55,6 +58,7 @@ export const coreModuleValidators: Function[] = [
   ...CONTEXT_VALIDATORS,
   ...COMMENT_VALIDATORS,
   ...REQUEST_VALIDATORS,
+  ...TESTER_LOG_VALIDATORS,
 ];
 
 // Export all the main components for external use
@@ -65,6 +69,7 @@ export * from '../../modules/comment/controllers/CommentController.js';
 export * from '../notification/controllers/NotificationController.js'
 export * from '../../modules/performance/controllers/PerformanceController.js'
 export * from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js'
+export * from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js'
 
 export * from '../../modules/question/services/QuestionService.js';
 export * from '../../modules/answer/services/AnswerService.js'
@@ -73,5 +78,6 @@ export * from '../../modules/comment/services/CommentService.js';
 export * from '../notification/services/NotificationService.js'
 export * from '../../modules/performance/services/PerformanceService.js'
 export * from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js'
+export * from '../../../../testers-dashboard/backend/build/services/TesterLogService.js'
 
 export * from '../core/types.js';

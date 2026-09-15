@@ -6,6 +6,7 @@ export const CORE_TYPES = {
   RequestController: Symbol.for('RequestController'),
   TestersDashboardController: Symbol.for('TestersDashboardController'),
   ZohoTicketStatusController: Symbol.for('ZohoTicketStatusController'),
+  TesterLogController: Symbol.for('TesterLogController'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -20,6 +21,7 @@ export const CORE_TYPES = {
   PerformanceService:Symbol.for('PerformanceService'),
   TestersDashboardService: Symbol.for('TestersDashboardService'),
   ZohoTicketStatusService: Symbol.for('ZohoTicketStatusService'),
+  TesterLogService: Symbol.for('TesterLogService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),

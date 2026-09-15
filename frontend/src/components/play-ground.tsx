@@ -27,8 +27,10 @@ import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { TestersDashboard } from "@testers-dashboard/TestersDashboard";
+import { TesterLogPage } from "@testers-dashboard/testerLog/TesterLogPage";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
+import { canLogTestCases } from "@/lib/roles";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -109,7 +111,9 @@ export const PlaygroundPage = () => {
           ? "call_interface"
           : user.role === "gate_keeper" || user.role === "auditor"
             ? "roleDashboard"
-            : "performance";
+            : user.role === "tester"
+              ? "tester_log"
+              : "performance";
 
     // A tab saved before the role changed (or before roleDashboard existed) can point at
     // content this role no longer renders, leaving a blank page. Drop it in that case.
@@ -493,6 +497,23 @@ export const PlaygroundPage = () => {
                   <TestersDashboard />
                 </TabsContent>
               )}
+
+              {user && canLogTestCases(user.role) && (
+                <TabsContent
+                  value="tester_log"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <TesterLogPage />
+                </TabsContent>
+              )}
+
 
               {user?.role === "admin" && (
                 <TabsContent
