@@ -146,13 +146,6 @@ _RAINFALL_KEYWORDS = [
     "rain condition", "rainfall condition", "rain prediction", "rainfall status"
 ]
 
-_SOWING_KEYWORDS = [
-    "sowing", "sow", "planting", "plant timing", "when to plant", "when to sow",
-    "nursery prep", "nursery preparation", "seedbed", "transplanting time",
-    "sowing time", "sowing window", "planting window", "season calendar",
-    "weather for sowing", "suitable for sowing", "good for sowing",
-]
-
 
 def route_weather_query_by_heuristics(query: str) -> str:
     """Keyword & pattern-based intent routing to one of the 6 specialized IMD weather tools."""
@@ -245,10 +238,8 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
         forecast_days = 4
     elif any(k in q_lower for k in ["3 day", "3-day", "3day", "3 days", "3-days", "3days"]):
         forecast_days = 3
-    elif any(k in q_lower for k in ["2 day", "2-day", "2day", "2 days", "2-days", "2days", "day after tomorrow"]):
+    elif any(k in q_lower for k in ["2 day", "2-day", "2day", "2 days", "2-days", "2days"]):
         forecast_days = 2
-    elif any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"]):
-        forecast_days = 2  # Today + Tomorrow = 2 days total
 
     f_match = re.search(
         r"\b(?:in\s+|for\s+|over\s+)?(?:the\s+)?(?:next|coming)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:days?|dyas)\b",
@@ -305,7 +296,6 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
         "hours_ahead": hours_ahead if tool_name == "get_weather_nowcast" else None,
         "include_nearby_stations": want_nearby if tool_name in {"get_weather_nowcast", "get_location_weather"} else None,
         "radius_km": 50.0 if want_nearby else None,
-        "crop_name": None,
         "source": "heuristic",
     }
 
@@ -334,14 +324,6 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
             data_type = None
         elif data_type not in _ALLOWED_RAINFALL_DATA_TYPES:
             data_type = base.get("data_type")
-
-    crop_name = raw.get("crop_name", base.get("crop_name"))
-    if crop_name is not None:
-        crop_name = str(crop_name).strip()
-        if crop_name.lower() in {"", "null", "none"}:
-            crop_name = None
-    # crop_name is not used by any remaining tool
-    crop_name = None
 
     def _clean_date(val: Any, fallback: str | None) -> str | None:
         if val is None or str(val).strip().lower() in {"", "null", "none"}:
@@ -409,7 +391,6 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
         "hours_ahead": hours_ahead if tool == "get_weather_nowcast" else None,
         "include_nearby_stations": include_nearby if tool in {"get_weather_nowcast", "get_location_weather"} else None,
         "radius_km": radius_km if tool in {"get_weather_nowcast", "get_location_weather"} else None,
-        "crop_name": crop_name if tool == "get_sowing_weather_guide" else None,
         "source": "minimax",
     }
     return out
@@ -640,6 +621,13 @@ def _ensure_weather_answer_spacing(text: str) -> str:
     text = re.sub(r"([^\n])\n((?:Today \()?\d{4}-\d{2}-\d{2}[^\n]*\|)", r"\1\n\n\2", text)
     # Ensure blank line before station context sections
     text = re.sub(r"([^\n])\n(Annam AWS ground sensor|IMD observation station|Nearest IMD Station|Live observation)", r"\1\n\n\2", text)
+    # Collapse lists of 3 or more comma-separated dates into a clean date range: from Start to End
+    text = re.sub(
+        r"\b(?:on\s+)?(\d{4}-\d{2}-\d{2})(?:,\s*\d{4}-\d{2}-\d{2}){2,}(?:,?\s*(?:and|or)\s+(\d{4}-\d{2}-\d{2}))\b",
+        r"from \1 to \2",
+        text,
+    )
+
     # Ensure blank line before Data Source: line if preceded by non-empty line
     text = re.sub(r"([^\n])\n(Data Source:|Observation source:|Data source:)", r"\1\n\n\2", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
@@ -819,14 +807,16 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
     if "yesterday" in q:
         d_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
         return d_str, None, None, "previous"
-    if any(k in q for k in ["tomorrow", "tomorrows", "next day", "coming day"]) and "day after" not in q:
+    if any(k in q for k in ["today and tomorrow", "today & tomorrow", "today to tomorrow"]):
         f_str = today_str
         t_str = (today + timedelta(days=1)).strftime("%Y-%m-%d")
         return None, f_str, t_str, "forecast"
+    if any(k in q for k in ["tomorrow", "tomorrows", "next day", "coming day"]) and "day after" not in q:
+        d_str = (today + timedelta(days=1)).strftime("%Y-%m-%d")
+        return d_str, None, None, "forecast"
     if "day after tomorrow" in q:
-        f_str = today_str
-        t_str = (today + timedelta(days=2)).strftime("%Y-%m-%d")
-        return None, f_str, t_str, "forecast"
+        d_str = (today + timedelta(days=2)).strftime("%Y-%m-%d")
+        return d_str, None, None, "forecast"
 
     num_words = {
         "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
@@ -1135,18 +1125,17 @@ async def new_weather(
                 or bool(eff_target_date and eff_target_date > today_str)
             )
             qt = "previous" if is_past else ("forecast" if is_fc else (eff_qt or "today"))
-            f_days = eff_forecast_days or (
+            f_days = 1 if eff_target_date else (eff_forecast_days or (
                 7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
-                else 3 if ("2 day" in q_lower or "2-day" in q_lower or "day after tomorrow" in q_lower)
-                else 2 if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"])
+                else 3 if ("2 day" in q_lower or "2-day" in q_lower)
                 else 1
-            )
+            ))
             t_date = eff_target_date
             f_date = eff_from_date
             to_d = eff_to_date
-            if is_fc and any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "day after tomorrow", "next", "forecast", "coming"]):
+            if is_fc and not eff_target_date and any(k in q_lower for k in ["next", "forecast", "coming"]):
                 t_date = None
             if is_past and not f_date and not t_date:
                 if "yesterday" in q_lower:
@@ -1189,18 +1178,17 @@ async def new_weather(
                 else ("forecast" if is_fc
                       else ("historical" if is_past else "current"))
             )
-            f_days = eff_forecast_days or (
+            f_days = 1 if eff_target_date else (eff_forecast_days or (
                 7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
-                else 3 if ("2 day" in q_lower or "2-day" in q_lower or "day after tomorrow" in q_lower)
-                else 2 if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"])
+                else 3 if ("2 day" in q_lower or "2-day" in q_lower)
                 else 1
-            )
+            ))
             t_date = eff_target_date
             f_date = eff_from_date
             to_d = eff_to_date
-            if is_fc and any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "day after tomorrow", "next", "forecast", "coming"]):
+            if is_fc and not eff_target_date and any(k in q_lower for k in ["next", "forecast", "coming"]):
                 t_date = None
             if is_past and not f_date and not t_date:
                 if "yesterday" in q_lower:
@@ -1223,18 +1211,6 @@ async def new_weather(
                 "forecast_days": f_days,
             }
             result = await _invoke_mcp_or_direct("get_rainfall_and_monsoon_info", args)
-        elif tool_name == "get_sowing_weather_guide":
-            sowing_qt = eff_qt if eff_qt in _ALLOWED_SOWING_QUERY_TYPES else "sowing_time"
-            args = {
-                "lat": lat,
-                "long": lon,
-                "location": place_location,
-                "district": place_district,
-                "state": place_state,
-                "crop_name": intent.get("crop_name"),
-                "query_type": sowing_qt,
-            }
-            result = await _invoke_mcp_or_direct("get_sowing_weather_guide", args)
         else:
             _is_current_query = any(k in q_lower for k in ["current weather", "current condition", "right now", "at the moment", "current climate"])
             _is_today_query = any(k in q_lower for k in ["today", "todays", "today's"])
@@ -1269,15 +1245,14 @@ async def new_weather(
                         to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
             elif is_fc:
                 qt = "forecast"
-                f_days = eff_forecast_days or (
+                f_days = 1 if eff_target_date else (eff_forecast_days or (
                     7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
                     else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                     else 4 if ("3 day" in q_lower or "3-day" in q_lower)
-                    else 3 if ("2 day" in q_lower or "2-day" in q_lower or "day after tomorrow" in q_lower)
-                    else 2 if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"])
+                    else 3 if ("2 day" in q_lower or "2-day" in q_lower)
                     else 7
-                )
-                t_date = None if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "day after tomorrow", "next", "forecast", "coming"]) else eff_target_date
+                ))
+                t_date = eff_target_date
                 f_date = None
                 to_d = None
             elif _is_current_query:

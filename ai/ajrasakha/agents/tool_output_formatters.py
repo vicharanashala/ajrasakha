@@ -439,13 +439,26 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         # Direct rain chance indicator (only when an explicit forecast string is present)
         rain_chance = None
         today_rf = results.get("today_rainfall") or (rf_list[0] if (rf_list and len(rf_list) == 1) else None)
-        if isinstance(today_rf, dict) and today_rf.get("forecast"):
+        if isinstance(today_rf, dict):
             fc_str = str(today_rf.get("forecast") or "").lower()
+            dist_label = today_rf.get("rainfall_distribution_description") or today_rf.get("rainfall_distribution")
+            subdiv_name = today_rf.get("subdivision")
+            sub_s = f" ({subdiv_name})" if subdiv_name else ""
+            item_date = today_rf.get("date") or today_str
+            date_label = f"today ({today_str})" if item_date == today_str else f"on {item_date}"
+
             rain_keywords = ["rain", "shower", "thunder", "drizzle", "wet"]
-            if any(k in fc_str for k in rain_keywords):
-                rain_chance = f"Rain forecast: Yes, there is a chance of rain today ({today_str}) in {location}."
-            else:
-                rain_chance = f"Rain forecast: No significant rain expected today ({today_str}) in {location}."
+            has_rain_kw = any(k in fc_str for k in rain_keywords)
+            dist_has_rain = dist_label and "dry" not in str(dist_label).lower() and "no rain" not in str(dist_label).lower()
+
+            if dist_has_rain or has_rain_kw:
+                rain_chance = f"Rain forecast: Yes, there is a chance of rain {date_label} in {location}."
+                if dist_label:
+                    rain_chance += f" Subdivisional forecast{sub_s}: {dist_label}."
+            elif today_rf.get("forecast") or dist_label:
+                rain_chance = f"Rain forecast: No significant rain expected {date_label} in {location}."
+                if dist_label:
+                    rain_chance += f" Subdivisional forecast{sub_s}: {dist_label}."
 
         top_notice = results.get("notice") or data.get("notice")
         if top_notice:
@@ -456,15 +469,15 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         if rain_chance and not is_hist_tf:
             lines.append(rain_chance)
             lines.append("")
-
-        if isinstance(summary, str) and summary.strip():
+        elif isinstance(summary, str) and summary.strip():
             lines.append(f"Summary: {summary.strip()}")
             lines.append("")
 
+        is_departure_query = bool(is_hist_tf or "departure" in tf or "stat" in tf or "monsoon" in tf)
         if isinstance(rf_list, list) and rf_list:
             for item in rf_list:
-                lines.extend(_rainfall_item_detail_lines(item, rec=rec, today_str=today_str))
-            # Only show district stats if rf_list didn't already embed the same numbers
+                lines.extend(_rainfall_item_detail_lines(item, rec=rec, today_str=today_str, include_departure_stats=is_departure_query))
+            # Only show district stats if this is an explicit departure/historical/monsoon query and rf_list didn't embed them
             rf_has_stats = any(
                 isinstance(it, dict) and (
                     it.get("district_daily_actual_mm") is not None
@@ -472,11 +485,11 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
                 )
                 for it in rf_list if isinstance(it, dict)
             )
-            if rec and not rf_has_stats:
+            if is_departure_query and rec and not rf_has_stats:
                 lines.append("")
                 lines.append("District rainfall statistics")
                 lines.extend(_district_rainfall_record_lines(rec))
-        elif rec:
+        elif rec and is_departure_query:
             lines.append("")
             lines.append("District rainfall statistics")
             lines.extend(_district_rainfall_record_lines(rec))
@@ -1511,6 +1524,7 @@ def _rainfall_item_detail_lines(
     *,
     rec: dict[str, Any] | None = None,
     today_str: str = "",
+    include_departure_stats: bool = False,
 ) -> list[str]:
     if not isinstance(item, dict):
         return []
@@ -1518,35 +1532,61 @@ def _rainfall_item_detail_lines(
     dt = item.get("date") or "Today"
     if str(dt).lower() in ("today", "day 1", "day-1"):
         dt = f"Today ({today_str})"
-    desc = (
+    raw_desc = (
         item.get("forecast")
+        or item.get("rainfall_distribution_description")
+        or item.get("rainfall_distribution")
         or item.get("distribution_description")
         or item.get("category_description")
         or ("Observed rainfall" if today_str and str(dt) < today_str else "Rainfall Expected")
     )
-    # Prefer station observed 24h rainfall first; if absent, use district actual
-    station_rain = item.get("observed_past_24hrs_rainfall") or item.get("observed_past_24hrs_rainfall_mm") or item.get("observed_rainfall_mm")
+    # Avoid raw departure category codes like "No Rain (-100%)" or "(+25%)" appearing as forecast description
+    if "(" in str(raw_desc) and "%" in str(raw_desc) and not any(w in str(raw_desc).lower() for w in ["station", "place", "scattered", "widespread", "isolated"]):
+        desc = item.get("forecast") or item.get("rainfall_distribution_description") or "Rainfall Expected"
+    else:
+        desc = raw_desc
+
+    # Prefer station observed 24h rainfall first; if absent, use recent recorded or district actual
+    station_rain = (
+        item.get("observed_past_24hrs_rainfall")
+        or item.get("observed_past_24hrs_rainfall_mm")
+        or item.get("observed_rainfall_mm")
+        or item.get("recent_recorded_rainfall_past_24hrs_mm")
+    )
     dist_rain = item.get("district_daily_actual_mm") or rec.get("Daily Actual")
     rain_val = station_rain if _present(station_rain) and str(station_rain).strip().upper() not in {"N/A", "NA", "NONE"} else dist_rain
 
-    norm_val = item.get("district_daily_normal_mm") or rec.get("Daily Normal")
-    dep_val = item.get("departure_pct") or rec.get("Daily Departure Per")
-    cat = item.get("category_code") or item.get("category") or rec.get("Daily Category")
-    cat_desc = item.get("category_description") or rec.get("Daily Category Description")
+    dist_label = item.get("rainfall_distribution_description") or item.get("rainfall_distribution")
+    cov_pct = item.get("station_coverage_percentage")
+    subdiv_name = item.get("subdivision")
+
     lines = [f"{dt} | {desc}"]
+    if dist_label:
+        sub_s = f" ({subdiv_name})" if subdiv_name else ""
+        lines.append(f"  Subdivisional rainfall forecast{sub_s}: {dist_label}")
+    elif cov_pct:
+        lines.append(f"  Station coverage: {cov_pct}")
+
     if _present(rain_val) and str(rain_val).strip().upper() not in {"N/A", "NA", "NONE"}:
         lines.append(f"  Recorded rainfall (Past 24 hours): {_fmt_rain_val(rain_val)} mm")
-    if _present(norm_val) and str(norm_val).strip().upper() not in {"N/A", "NA", "NONE"}:
-        lines.append(f"  Normal: {norm_val} mm")
-    if _present(dep_val) and str(dep_val).strip().upper() not in {"N/A", "NA", "NONE"}:
-        dep_str = str(dep_val).strip()
-        lines.append(f"  Departure from normal: {dep_str}" if dep_str.endswith("%") else f"  Departure from normal: {dep_str}%")
-    if _present(cat) and str(cat).strip().upper() not in {"N/A", "NA", "NONE", "ND"}:
-        from ajrasakha.tools.weather.code import describe_rainfall_category
-        cat_label = describe_rainfall_category(cat) or cat_desc or cat
-        lines.append(f"  Category: {cat_label}")
-    if _present(item.get("weekly_cumulative_mm")) and str(item.get("weekly_cumulative_mm")).strip().upper() not in {"N/A", "NA", "NONE"}:
-        lines.append(f"  Weekly cumulative: {item.get('weekly_cumulative_mm')} mm")
+
+    if include_departure_stats:
+        norm_val = item.get("district_daily_normal_mm") or rec.get("Daily Normal")
+        dep_val = item.get("departure_pct") or rec.get("Daily Departure Per")
+        cat = item.get("category_code") or item.get("category") or rec.get("Daily Category")
+        cat_desc = item.get("category_description") or rec.get("Daily Category Description")
+
+        if _present(norm_val) and str(norm_val).strip().upper() not in {"N/A", "NA", "NONE"}:
+            lines.append(f"  Normal: {norm_val} mm")
+        if _present(dep_val) and str(dep_val).strip().upper() not in {"N/A", "NA", "NONE"}:
+            dep_str = str(dep_val).strip()
+            lines.append(f"  Departure from normal: {dep_str}" if dep_str.endswith("%") else f"  Departure from normal: {dep_str}%")
+        if _present(cat) and str(cat).strip().upper() not in {"N/A", "NA", "NONE", "ND"}:
+            from ajrasakha.tools.weather.code import describe_rainfall_category
+            cat_label = describe_rainfall_category(cat) or cat_desc or cat
+            lines.append(f"  Category: {cat_label}")
+        if _present(item.get("weekly_cumulative_mm")) and str(item.get("weekly_cumulative_mm")).strip().upper() not in {"N/A", "NA", "NONE"}:
+            lines.append(f"  Weekly cumulative: {item.get('weekly_cumulative_mm')} mm")
     return lines
 
 

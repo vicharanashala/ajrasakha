@@ -32,6 +32,11 @@ from ajrasakha.tools.weather.code import (
     NOWCAST_CATEGORY_CODES,
     NOWCAST_COLOR_CODES,
     RAINFALL_CATEGORY_CODES,
+    RAINFALL_DISTRIBUTION_CODES,
+    describe_rainfall_distribution,
+    describe_rainfall_intensity,
+    describe_rainfall_color,
+    resolve_subdivision_name,
 )
 from ajrasakha.tools.weather.imd_codes import (
     describe_district_warnings,
@@ -198,6 +203,106 @@ def _fmt_rain_val(val: Any) -> str:
 
 def _is_annam_source(raw: Any) -> bool:
     return _label_data_source(raw) == DATA_SOURCE_ANNAM
+
+
+# ---------------------------------------------------------------------------
+# Farmer-friendly rainfall language helpers
+# ---------------------------------------------------------------------------
+_RAIN_DIST_FRIENDLY: dict[str, tuple[str, str]] = {
+    # distribution_key: (emoji+short_label, plain explanation)
+    "widespread": (
+        "🌧️ Very high chance of rain",
+        "Rain expected almost everywhere in the area (most places will receive rain).",
+    ),
+    "fairly widespread": (
+        "🌦️ Good chance of rain",
+        "Rain expected across many places in the area.",
+    ),
+    "scattered": (
+        "🌤️ Moderate chance of rain",
+        "Rain possible at a few scattered places — not everywhere.",
+    ),
+    "isolated": (
+        "⛅ Low chance of rain",
+        "Only one or two places may see some rain.",
+    ),
+    "dry": (
+        "☀️ No rain expected",
+        "Dry conditions likely — no significant rainfall expected.",
+    ),
+}
+
+
+def _farmer_friendly_rain_summary(
+    distribution: str | None,
+    coverage: str | None = None,
+    forecast_text: str | None = None,
+) -> str:
+    """
+    Convert IMD technical rainfall distribution labels into plain, farmer-friendly language.
+    Falls back to a cleaned-up forecast_text if distribution is unknown.
+    """
+    if distribution:
+        dist_key = distribution.strip().lower()
+        for key, (label, explanation) in _RAIN_DIST_FRIENDLY.items():
+            if key in dist_key:
+                return f"{label} — {explanation}"
+
+    # Fallback: parse forecast_text for rain keywords
+    if forecast_text:
+        ft_low = forecast_text.lower()
+        if any(kw in ft_low for kw in ("heavy rain", "very heavy", "extremely heavy")):
+            return "🌧️ Very high chance of rain — Heavy rainfall expected in the area."
+        if any(kw in ft_low for kw in ("moderate rain", "moderate rainfall")):
+            return "🌦️ Good chance of rain — Moderate rainfall expected."
+        if any(kw in ft_low for kw in ("light rain", "drizzle", "showers", "spells of rain", "thundershower")):
+            return "🌦️ Some chance of rain — Light rain or showers expected."
+        if any(kw in ft_low for kw in ("rain", "rainfall", "precipitation")):
+            return "🌦️ Rain possible — Some rainfall expected in the area."
+        if any(kw in ft_low for kw in ("overcast", "cloudy")):
+            return "🌥️ Overcast / Cloudy sky — Rain may develop later."
+        if any(kw in ft_low for kw in ("clear", "sunny", "no rain", "dry")):
+            return "☀️ Clear/Dry conditions — No rain expected."
+        # Return cleaned text if no keyword matches
+        return forecast_text
+
+    return "Rain information not available at this time."
+
+
+def _farmer_friendly_nowcast(live_msg: str | None, active_warnings: list | None = None) -> str:
+    """
+    Convert nowcast condition/warning text into a farmer-friendly rain likelihood message.
+    """
+    if active_warnings:
+        for w in active_warnings:
+            desc = (w.get("category_description") or "").lower()
+            if "heavy rain" in desc:
+                return "🌧️ Heavy rain warning in the next 0-3 hours! Stay indoors if possible."
+            if "moderate rain" in desc:
+                return "🌦️ Moderate rain expected in the next 0-3 hours."
+            if "light rain" in desc:
+                return "🌦️ Light rain possible in the next 0-3 hours."
+            if "thunderstorm" in desc or "lightning" in desc:
+                return "⚡ Thunderstorm warning in the next 0-3 hours! Avoid open fields."
+            if "dust" in desc:
+                return "💨 Dust storm warning in the next 0-3 hours."
+
+    msg = (live_msg or "").lower()
+    if any(kw in msg for kw in ("heavy rain", "very heavy")):
+        return "🌧️ Heavy rain is likely in the next 0-3 hours in your area."
+    if any(kw in msg for kw in ("moderate rain", "moderate rainfall")):
+        return "🌦️ Moderate rain is expected in the next 0-3 hours."
+    if any(kw in msg for kw in ("light rain", "drizzle", "showers", "spells of rain", "thundershower")):
+        return "🌦️ Light rain or showers possible in the next 0-3 hours."
+    if any(kw in msg for kw in ("rain", "precipitation")):
+        return "🌦️ Some rain is possible in the next 0-3 hours."
+    if any(kw in msg for kw in ("overcast",)):
+        return "🌥️ Overcast sky — Rain may develop in the next few hours, stay alert."
+    if any(kw in msg for kw in ("cloud", "partly cloud")):
+        return "⛅ Partly cloudy — No immediate rain, but conditions may change."
+    if any(kw in msg for kw in ("fog", "mist")):
+        return "🌫️ Foggy/Misty conditions. No rain expected in the next 0-3 hours."
+    return "☀️ No rain or storm warnings in the next 0-3 hours for your area."
 
 
 STATE_CENTER_COORDINATES = {
@@ -1506,17 +1611,67 @@ async def get_rainfall_and_monsoon_info(
         hint = district or geo.get("district_guess")
         obj_id, matched = svc.resolve_district_obj_id(hint, s_name, geo)
 
+        # Detect whether this is a state-level query (no specific district/town mentioned)
+        # A state-level query: location is None or matches state name, district hint matches state
+        _hint_clean = (hint or "").strip().lower()
+        _state_clean = (s_name or "").strip().lower()
+        _loc_clean = (location or "").strip().lower()
+        is_state_level = (
+            not location  # no location string given, only state
+            or _loc_clean == _state_clean  # location IS the state name
+            or (_hint_clean and _hint_clean == _state_clean)  # geocoder returned state as district guess
+        )
+        logger.info("is_state_level=%s | location=%r, hint=%r, state=%r", is_state_level, location, hint, s_name)
+
         try:
             rainfall_data = svc.get_district_rainfall_raw(obj_id) if obj_id else None
         except Exception as exc:
             logger.warning("get_district_rainfall_raw failed: %s", exc)
             rainfall_data = None
         rec = rainfall_data.get("record", {}) if isinstance(rainfall_data, dict) and rainfall_data.get("success") else (rainfall_data if isinstance(rainfall_data, dict) else {})
+
+        # API 16: Subdivisional 7-day rainfall forecast (always used for subdivision data)
         try:
             subdiv_rainfall = svc.get_subdivision_rainfall_forecast()
         except Exception as exc:
             logger.warning("get_subdivision_rainfall_forecast failed: %s", exc)
             subdiv_rainfall = None
+
+        # API 17: State District 5-day rainfall forecast — fetched for state-level queries
+        state_district_fc = None
+        if is_state_level and s_name:
+            try:
+                state_district_fc = svc.get_state_district_rainfall_forecast(
+                    obj_id=obj_id, state=s_name, district=hint
+                )
+                if not state_district_fc or not state_district_fc.get("success"):
+                    state_district_fc = None
+                else:
+                    logger.info("Fetched State District 5-day forecast (API 17) for state=%r", s_name)
+            except Exception as exc:
+                logger.warning("get_state_district_rainfall_forecast failed: %s", exc)
+                state_district_fc = None
+
+        # Find matching subdivision for user's state / district (API 16)
+        user_subdiv_match = svc.get_subdivision_rainfall_for_location(s_name, hint)
+        if not user_subdiv_match and isinstance(subdiv_rainfall, dict) and isinstance(subdiv_rainfall.get("data"), list):
+            s_lower = (s_name or "").lower()
+            for sub_item in subdiv_rainfall.get("data", []):
+                sub_name = (sub_item.get("subdivision") or "").lower()
+                if s_lower and (s_lower in sub_name or sub_name in s_lower):
+                    user_subdiv_match = sub_item
+                    break
+
+        subdiv_fc_by_day = {}
+        if user_subdiv_match and isinstance(user_subdiv_match.get("forecast"), list):
+            for s_fc in user_subdiv_match["forecast"]:
+                d_str = str(s_fc.get("day", "")).replace("Day", "").strip()
+                try:
+                    d_int = int(d_str)
+                    subdiv_fc_by_day[d_int] = s_fc
+                except (ValueError, TypeError):
+                    pass
+
         bundle = _get_forecast_bundle_ws_first(svc, actual_lat, actual_lon)
         history_by_date = bundle.get("history_by_date") or {}
 
@@ -1528,13 +1683,28 @@ async def get_rainfall_and_monsoon_info(
         except Exception:
             base_dt = datetime.now()
 
-        # Build 7-day rainfall forecast list
+        # Build 7-day rainfall forecast list combining Station City Forecast + Subdivisional 7-Day Rainfall Forecast (API 16)
+        day1_sub = subdiv_fc_by_day.get(1, {})
+        day1_dist = day1_sub.get("distribution")
+        day1_cov = day1_sub.get("coverage")
+        day1_col = day1_sub.get("color")
+        day1_prob_desc = describe_rainfall_distribution(day1_dist, day1_cov) if day1_dist else None
+        # Farmer-friendly label for day 1
+        day1_friendly = _farmer_friendly_rain_summary(
+            day1_dist, day1_cov, today_raw.get("forecast")
+        )
+
         rainfall_7day_list = [
             {
                 "day": 1,
                 "date": base_dt.strftime("%Y-%m-%d"),
                 "observed_past_24hrs_rainfall_mm": _fmt_rain_val(today_raw.get("past_24hrs_rainfall", "0.0")),
                 "forecast": today_raw.get("forecast", "N/A"),
+                "rain_likelihood": day1_friendly,
+                "_raw_distribution": day1_dist,
+                "_raw_coverage": day1_cov,
+                "rainfall_color": day1_col,
+                "subdivision": user_subdiv_match.get("subdivision") if user_subdiv_match else None,
                 "data_source": _label_data_source(today_raw.get("data_source") or bundle.get("data_source_today")),
             }
         ]
@@ -1542,10 +1712,22 @@ async def get_rainfall_and_monsoon_info(
         for item in raw_fc_days:
             day_num = item.get("day", 2)
             item_dt = base_dt + timedelta(days=day_num - 1)
+            day_sub = subdiv_fc_by_day.get(day_num, {})
+            d_dist = day_sub.get("distribution")
+            d_cov = day_sub.get("coverage")
+            d_col = day_sub.get("color")
+            d_prob_desc = describe_rainfall_distribution(d_dist, d_cov) if d_dist else None
+            d_friendly = _farmer_friendly_rain_summary(d_dist, d_cov, item.get("forecast"))
+
             rainfall_7day_list.append({
                 "day": day_num,
                 "date": item_dt.strftime("%Y-%m-%d"),
                 "forecast": item.get("forecast"),
+                "rain_likelihood": d_friendly,
+                "_raw_distribution": d_dist,
+                "_raw_coverage": d_cov,
+                "rainfall_color": d_col,
+                "subdivision": user_subdiv_match.get("subdivision") if user_subdiv_match else None,
                 "data_source": DATA_SOURCE_IMD,
             })
 
@@ -1573,19 +1755,14 @@ async def get_rainfall_and_monsoon_info(
             if rec.get("Cumulative Category"):
                 rec["Cumulative Category Description"] = RAINFALL_CATEGORY_DECODER.get(str(rec.get("Cumulative Category")), "N/A")
 
-        # Find matching subdivision for user's state
-        user_subdiv_match = None
-        if isinstance(subdiv_rainfall, dict) and isinstance(subdiv_rainfall.get("data"), list):
-            s_lower = (s_name or "").lower()
-            for sub_item in subdiv_rainfall.get("data", []):
-                sub_name = (sub_item.get("subdivision") or "").lower()
-                if s_lower and (s_lower in sub_name or sub_name in s_lower):
-                    user_subdiv_match = sub_item
-                    break
+        obs_rain = _fmt_rain_val(today_raw.get("past_24hrs_rainfall"))
+        daily_act = rec.get("Daily Actual", "N/A") if isinstance(rec, dict) else "N/A"
+        eff_24h_rain = obs_rain if (obs_rain and obs_rain != "0.0") else (_fmt_rain_val(daily_act) if daily_act != "N/A" else (obs_rain or "0.0"))
 
         filtered_payload = {}
         dt = (data_type or "current").lower()
         place_label = location or district or state or matched or hint or resolved_name or "Location"
+        limit_days = max(1, min(7, forecast_days))
 
         if target_date:
             matched_rf = next((item for item in rainfall_7day_list if item.get("date") == target_date), None)
@@ -1601,23 +1778,32 @@ async def get_rainfall_and_monsoon_info(
                         or ws_hist.get("observed_past_24hrs_rainfall")
                         or 0.0
                     ),
+                    "recent_recorded_rainfall_past_24hrs_mm": eff_24h_rain,
                     "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                 }
             elif matched_rf and target_date >= today_str:
+                matched_rf["recent_recorded_rainfall_past_24hrs_mm"] = eff_24h_rain
                 filtered_payload["rainfall_target_date"] = matched_rf
             elif matched_rf:
+                matched_rf["recent_recorded_rainfall_past_24hrs_mm"] = eff_24h_rain
                 filtered_payload["rainfall_target_date"] = matched_rf
             elif target_date < today_str:
                 filtered_payload["rainfall_target_date"] = {
                     "requested_target_date": target_date,
-                    "notice": f"Notice: Historical rainfall data for requested date ({target_date}) is not available in station records for {place_label} (historical records available up to 7 days from Annam AWS; IMD does not provide historical station archives).",
+                    "notice": (
+                        f"Notice: Historical daily rainfall observation records for requested date ({target_date}) are not available in IMD station archives for {place_label} "
+                        f"(historical daily station records available up to 7 days from Annam AWS; IMD provides district cumulative bulletins, not individual past daily archives). "
+                        f"Available recorded rainfall for the past 24 hours: {eff_24h_rain} mm."
+                    ),
+                    "observed_past_24hrs_rainfall_mm": eff_24h_rain,
                 }
             else:
                 last_fc_date = (base_dt + timedelta(days=6)).strftime('%Y-%m-%d')
                 filtered_payload["rainfall_target_date"] = {
                     "requested_target_date": target_date,
                     "notice": f"Official IMD deterministic rainfall forecasts extend up to 7 days ({today_str} to {last_fc_date}). Daily forecasts for {target_date} (beyond 7 days) cannot be deterministically modeled by IMD. Available 7-day rainfall forecast trend is provided below.",
-                    "available_7day_rainfall_trend": rainfall_7day_list
+                    "available_7day_rainfall_trend": rainfall_7day_list,
+                    "observed_past_24hrs_rainfall_mm": eff_24h_rain,
                 }
         elif (dt == "historical" or dt == "previous" or (query_type or "").lower() == "previous") or eff_from_date:
             ranged_rf = []
@@ -1650,11 +1836,14 @@ async def get_rainfall_and_monsoon_info(
             filtered_payload["timeframe"] = f"date_range ({eff_from_date} to {eff_to_date})"
             filtered_payload["rainfall_range"] = ranged_rf
             if not ranged_rf:
-                filtered_payload["notice"] = (
-                    f"Notice: Historical daily rainfall observations are not available in station records for {place_label} "
-                    f"(daily history available up to 7 days from Annam AWS; IMD provides district cumulative bulletins, not individual daily archives). "
-                    f"Available official IMD district rainfall statistics are provided below:"
+                # Historical data beyond past 24 hrs is NOT available — show only limitation + 24 hr reading.
+                notice = (
+                    f"Rainfall history beyond the past 24 hours is not available for {place_label}. "
+                    f"We can only provide the most recent past 24 hours recorded rainfall. "
+                    f"Past 24 hours recorded rainfall: {eff_24h_rain} mm."
                 )
+                filtered_payload["notice"] = notice
+                filtered_payload["observed_past_24hrs_rainfall_mm"] = eff_24h_rain
         elif dt == "forecast" or (forecast_days > 1 and dt != "current" and dt != "today" and not target_date):
             max_fc_dt = base_dt + timedelta(days=6)
             max_fc_str = max_fc_dt.strftime("%Y-%m-%d")
@@ -1673,36 +1862,58 @@ async def get_rainfall_and_monsoon_info(
             filtered_payload["timeframe"] = f"next_{limit_days}_days_forecast"
             rf_clean = [item for item in rainfall_7day_list if isinstance(item, dict) and (item.get("date") or "") >= today_str]
             filtered_payload["rainfall_forecast_list"] = rf_clean[:limit_days]
-            filtered_payload["subdivision_rainfall_forecast"] = subdiv_rainfall
+            filtered_payload["subdivision"] = user_subdiv_match.get("subdivision") if user_subdiv_match else None
+            # API 16: Subdivision 7-day forecast (always present for both state & district)
+            filtered_payload["subdivision_rainfall_forecast"] = user_subdiv_match or subdiv_rainfall
+            # API 17: State District 5-day forecast — included for state-level queries
+            if is_state_level and state_district_fc:
+                filtered_payload["state_district_rainfall_forecast_5day"] = state_district_fc
+                filtered_payload["forecast_note"] = (
+                    "State-level query: Subdivision 7-day forecast (API 16) covers meteorological subdivision. "
+                    "State District 5-day forecast (API 17) provides district-level 5-day data."
+                )
+            elif not is_state_level:
+                filtered_payload["forecast_note"] = (
+                    "District/location query: Subdivision 7-day forecast (API 16) used."
+                )
+            filtered_payload["observed_past_24hrs_rainfall_mm"] = eff_24h_rain
         elif dt == "monsoon_status" or query_type == "monsoon":
             filtered_payload["timeframe"] = "monsoon_status"
             filtered_payload["local_subdivision_monsoon_status"] = user_subdiv_match or "State subdivision matched via IMD All-India Subdivision Feed"
             filtered_payload["monsoon_subdivision_progress"] = subdiv_rainfall
             filtered_payload["district_cumulative_monsoon_rainfall"] = rec
+            filtered_payload["observed_past_24hrs_rainfall_mm"] = eff_24h_rain
         elif dt == "historical":
             filtered_payload["timeframe"] = "historical_departures"
             filtered_payload["district_rainfall_departures"] = rec
+            filtered_payload["observed_past_24hrs_rainfall_mm"] = eff_24h_rain
             if history_by_date:
                 filtered_payload["ws_station_rainfall_history"] = history_by_date
         else:
             filtered_payload["timeframe"] = "today_current_rainfall"
-            obs_rain = _fmt_rain_val(today_raw.get("past_24hrs_rainfall"))
-            daily_act = rec.get("Daily Actual", "N/A") if isinstance(rec, dict) else "N/A"
-            eff_24h_rain = obs_rain if (obs_rain and obs_rain != "0.0") else (_fmt_rain_val(daily_act) if daily_act != "N/A" else obs_rain)
-
             today_fc = next((item for item in rainfall_7day_list if item.get("date") == today_str), None)
-            today_fc_text = today_fc.get("forecast") if (today_fc and dt in {"forecast", "today"} and "rain" in (query_type or "").lower()) else None
+            today_fc_text = (
+                today_fc.get("forecast")
+                if (today_fc and today_fc.get("forecast") not in (None, "", "N/A", "NA"))
+                else (day1_prob_desc or "Rainfall Expected")
+            )
+            today_friendly = _farmer_friendly_rain_summary(day1_dist, day1_cov, today_fc_text)
 
             filtered_payload["today_rainfall"] = {
                 "date": today_str,
                 "observed_past_24hrs_rainfall": eff_24h_rain,
-                "district_daily_actual_mm": rec.get("Daily Actual", "N/A"),
-                "district_daily_normal_mm": rec.get("Daily Normal", "N/A"),
-                "departure_pct": rec.get("Daily Departure Per", "N/A"),
+                "district_daily_actual_mm": rec.get("Daily Actual", "N/A") if isinstance(rec, dict) else "N/A",
+                "district_daily_normal_mm": rec.get("Daily Normal", "N/A") if isinstance(rec, dict) else "N/A",
+                "departure_pct": rec.get("Daily Departure Per", "N/A") if isinstance(rec, dict) else "N/A",
                 "category_code": cat_code,
                 "category_description": cat_desc,
-                "weekly_cumulative_mm": rec.get("Weekly Actual", "N/A"),
+                "weekly_cumulative_mm": rec.get("Weekly Actual", "N/A") if isinstance(rec, dict) else "N/A",
                 "forecast": today_fc_text,
+                "rain_likelihood": today_friendly,
+                "_raw_distribution": day1_dist,
+                "_raw_coverage": day1_cov,
+                "rainfall_color": day1_col,
+                "subdivision": user_subdiv_match.get("subdivision") if user_subdiv_match else None,
                 "data_source": _label_data_source(today_raw.get("data_source") or bundle.get("data_source_today")),
             }
 
@@ -1717,23 +1928,42 @@ async def get_rainfall_and_monsoon_info(
         place_label = location or district or state or matched or hint or resolved_name or "Location"
         if target_date:
             m_rf = next((item for item in rainfall_7day_list if item.get("date") == target_date), None)
-            dist_desc = m_rf.get("distribution_description", "Rainfall Expected") if m_rf else "Rainfall Expected"
+            dist_desc = (m_rf.get("rain_likelihood") or m_rf.get("forecast") or "Rainfall Expected") if m_rf else "Rainfall Expected"
             human_sum = f"Rainfall Forecast for {target_date} in {place_label}: {dist_desc}."
+        elif dt == "forecast" or (forecast_days > 1 and not target_date):
+            friendly_fc = _farmer_friendly_rain_summary(day1_dist, day1_cov, today_raw.get("forecast"))
+            fc_label = "Subdivision" if not is_state_level else "State District"
+            human_sum = (
+                f"Rainfall Forecast for next {limit_days} days in {place_label}. "
+                f"{friendly_fc}"
+            )
         elif eff_from_date or dt == "historical":
-            cat_code = rec.get("Daily Category", "")
+            cat_code = rec.get("Daily Category", "") if isinstance(rec, dict) else ""
             cat_desc = RAINFALL_CATEGORY_DECODER.get(cat_code, cat_code)
             sum_parts = [f"Rainfall Status for {place_label} ({eff_from_date or 'Past days'} to {eff_to_date or today_str}):"]
-            if rec.get("Daily Actual") and str(rec.get("Daily Actual")).strip().upper() not in {"N/A", "NA"}:
+            weekly_act = rec.get("Weekly Actual") if isinstance(rec, dict) else None
+            monthly_act = (rec.get("Monthly Actual") or rec.get("Monthly Acutual")) if isinstance(rec, dict) else None
+            if weekly_act and str(weekly_act).strip().upper() not in {"N/A", "NA"}:
+                sum_parts.append(f"This week: {weekly_act} mm")
+            elif isinstance(rec, dict) and rec.get("Daily Actual") and str(rec.get("Daily Actual")).strip().upper() not in {"N/A", "NA"}:
                 sum_parts.append(f"Recorded Actual: {rec.get('Daily Actual')} mm")
-            if rec.get("Daily Normal") and str(rec.get("Daily Normal")).strip().upper() not in {"N/A", "NA"}:
-                sum_parts.append(f"(Normal: {rec.get('Daily Normal')} mm)")
+            if monthly_act and str(monthly_act).strip().upper() not in {"N/A", "NA"}:
+                sum_parts.append(f"| This month: {monthly_act} mm")
             if cat_desc and cat_desc.upper() not in {"N/A", "NA", "ND", "NONE"}:
-                sum_parts.append(f"Category: {cat_desc}")
+                sum_parts.append(f"| Status: {cat_desc}")
+            sum_parts.append(f"| Past 24 hrs: {eff_24h_rain} mm")
             human_sum = " ".join(sum_parts)
         elif dt == "monsoon_status" or query_type == "monsoon":
             human_sum = f"Monsoon Progress for {place_label}."
         else:
-            human_sum = f"Today's ({today_str}) Rainfall in {place_label}: Recorded Rainfall (Past 24 hours): {eff_24h_rain} mm."
+            today_friendly = _farmer_friendly_rain_summary(day1_dist, day1_cov, today_raw.get("forecast"))
+            human_sum = (
+                f"Today's ({today_str}) Rainfall in {place_label}: "
+                f"Recorded rainfall (past 24 hours): {eff_24h_rain} mm. "
+                f"{today_friendly}"
+            )
+
+
 
         ws_ctx = _build_ws_nearest_station_context(
             actual_lat, actual_lon, place_label,
@@ -2316,17 +2546,25 @@ async def get_weather_nowcast(
         live_hum = cur_st.get("humidity_pct") or aws_st.get("humidity_pct") or "N/A"
         live_wind = cur_st.get("wind_direction") or aws_st.get("wind_direction") or ""
 
+        # Farmer-friendly nowcast rain likelihood message
+        friendly_nowcast = _farmer_friendly_nowcast(live_msg, active_warnings if active_warnings else None)
+
         if active_warnings or cons_msg:
-            warn_str = ", ".join([f"{w['category_description']} (Code: {w['category_code']})" for w in active_warnings]) if active_warnings else cons_msg
-            nowcast_summary = f"Nowcast Warning (Next {window_h} Hours for {place_label}): {warn_str}. Severity: {severity_label}. Valid Upto: {valid_upto or 'Next 3 hours'}."
-        else:
+            warn_str = ", ".join([f"{w['category_description']}" for w in active_warnings]) if active_warnings else cons_msg
             nowcast_summary = (
-                f"Nowcast Update (Next {window_h} Hours for {place_label}): "
-                f"Current station weather is '{live_msg}'"
-                f"{' (code ' + str(cur_st.get('weather_code_raw') or aws_st.get('weather_code_raw')) + ')' if (cur_st.get('weather_code_raw') or aws_st.get('weather_code_raw')) else ''}. "
-                f"Temp: {live_temp}°C, Humidity: {live_hum}%"
-                f"{(', Wind: ' + live_wind) if live_wind else ''}. "
-                f"No immediate thunderstorm or severe weather warnings active."
+                f"{friendly_nowcast} "
+                f"Warning for {place_label} (next {window_h} hours): {warn_str}. "
+                f"Valid upto: {valid_upto or 'next 3 hours'}."
+            )
+        else:
+            temp_str = f"Temperature: {live_temp}°C" if live_temp and live_temp != "N/A" else ""
+            hum_str = f"Humidity: {live_hum}%" if live_hum and live_hum != "N/A" else ""
+            cond_str = live_msg if live_msg and live_msg != "Normal / Clear Sky" else ""
+            detail_parts = [p for p in [cond_str, temp_str, hum_str] if p]
+            detail_str = " | ".join(detail_parts)
+            nowcast_summary = (
+                f"{friendly_nowcast}"
+                f"{(' Current conditions in ' + place_label + ': ' + detail_str + '.') if detail_str else ''}"
             )
 
         st_context = _build_nearest_station_context(svc, actual_lat, actual_lon, s_name, geo, place_label)
