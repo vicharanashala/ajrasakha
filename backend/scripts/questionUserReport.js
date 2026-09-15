@@ -30,6 +30,7 @@ const DB_NAME = process.env.DB_NAME || 'agriai';
 const USERS_COLLECTION = 'users';
 const QUESTION_SUBMISSIONS_COLLECTION = 'question_submissions';
 const ANSWERS_COLLECTION = 'answers';
+const QUESTIONS_COLLECTION = 'questions';
 
 const BATCH_SIZE = 500;
 
@@ -204,6 +205,9 @@ async function exportUserQuestionReport() {
 
     const answersCollection =
       db.collection(ANSWERS_COLLECTION);
+
+    const questionsCollection =
+      db.collection(QUESTIONS_COLLECTION);
 
     // --------------------------------------------------------
     // PREPARE USER IDS
@@ -499,11 +503,20 @@ async function exportUserQuestionReport() {
 
     // ========================================================
     // 2. QUESTIONS MODERATED
+    //
+    // A user "moderated" a question when they approved its answer
+    // (answers.approvedBy). We DON'T bucket by the answer's time — instead we
+    // collect the approved questionIds per user here, then (below) look up each
+    // question's closedAt and bucket the moderated count by that closedAt month.
+    // Only questions that are actually closed are counted.
     // ========================================================
 
     console.log(
       '\n🔍 Processing answers for moderation...'
     );
+
+    // questionId -> Set of our userIds who approved that question's answer.
+    const moderatedQuestionUsers = new Map();
 
     const totalAnswers =
       await answersCollection.countDocuments({
@@ -554,8 +567,6 @@ async function exportUserQuestionReport() {
                 _id: 1,
                 questionId: 1,
                 approvedBy: 1,
-                updatedAt: 1,
-                createdAt: 1,
               },
             }
           )
@@ -588,12 +599,12 @@ async function exportUserQuestionReport() {
         const questionId =
           idToString(answer.questionId);
 
-        // Bucket by the answer's approval / last-update time.
-        addMonthEvent(
-          userStats.get(moderatorId).moderated,
-          answer.updatedAt ?? answer.createdAt,
-          questionId,
-        );
+        // Record which of our users approved this question; the closedAt-based
+        // bucketing happens in the questions pass below.
+        if (!moderatedQuestionUsers.has(questionId)) {
+          moderatedQuestionUsers.set(questionId, new Set());
+        }
+        moderatedQuestionUsers.get(questionId).add(moderatorId);
       }
 
       // ------------------------------------------------------
@@ -624,6 +635,70 @@ async function exportUserQuestionReport() {
         `📊 Answers: ${processedAnswers}/${totalAnswers} (${percentage}%)`
       );
     }
+
+    // ========================================================
+    // 2b. BUCKET MODERATED BY QUESTION closedAt
+    //
+    // For every question a user approved, look up the question document and, if
+    // it is closed (has closedAt), bucket the moderated count by that closedAt
+    // month (IST). Questions without a closedAt are skipped.
+    // ========================================================
+
+    console.log(
+      '\n🔍 Looking up closedAt for moderated questions...'
+    );
+
+    const moderatedQuestionIds = [...moderatedQuestionUsers.keys()];
+    const moderatedObjectIds = moderatedQuestionIds
+      .filter(id => ObjectId.isValid(id))
+      .map(id => new ObjectId(id));
+
+    console.log(
+      `📊 Moderated questions to resolve: ${moderatedQuestionIds.length}`
+    );
+
+    let resolvedClosed = 0;
+
+    for (let i = 0; i < moderatedObjectIds.length; i += BATCH_SIZE) {
+      const idBatch = moderatedObjectIds.slice(i, i + BATCH_SIZE);
+
+      const questions = await questionsCollection
+        .find(
+          {
+            _id: { $in: idBatch },
+            closedAt: { $exists: true, $ne: null },
+          },
+          {
+            projection: {
+              _id: 1,
+              closedAt: 1,
+            },
+          }
+        )
+        .toArray();
+
+      for (const question of questions) {
+        const questionId = idToString(question._id);
+        const users = moderatedQuestionUsers.get(questionId);
+        if (!users) continue;
+
+        for (const userId of users) {
+          if (!userStats.has(userId)) continue;
+          // Bucket by the question's closedAt (IST month).
+          addMonthEvent(
+            userStats.get(userId).moderated,
+            question.closedAt,
+            questionId,
+          );
+        }
+      }
+
+      resolvedClosed += questions.length;
+    }
+
+    console.log(
+      `📊 Closed moderated questions matched: ${resolvedClosed}`
+    );
 
     // ========================================================
     // CREATE EXCEL ROWS
