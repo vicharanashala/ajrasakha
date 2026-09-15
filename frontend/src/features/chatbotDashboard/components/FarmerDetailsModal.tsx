@@ -10,18 +10,22 @@ import {
   Trash2,
   UserCheck2,
   ShieldX,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { type UserDetail } from "../hooks/useUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLogoutUser } from "../hooks/useFeedbackUsers";
+import { toast } from "@/shared/components/toast";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -179,6 +183,7 @@ export function FarmerDetailsModal({
   // stale/undefined user object does not silently hide the verify action.
   const isUserVerified = user?.isVerified ?? false;
   const activeSessionCount = user?.activeSessionCount ?? 0;
+  console.log("activeSessionCount outside effect", activeSessionCount)
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -187,9 +192,16 @@ export function FarmerDetailsModal({
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>(
     {},
   );
+  const [session, setSession] = useState(activeSessionCount);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [confirmPasswordChangeOpen, setConfirmPasswordChangeOpen] =
     useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
+
+useEffect(() => {
+  setSession(activeSessionCount);
+  console.log("session state updated to", activeSessionCount);
+}, [activeSessionCount]);
 
   useEffect(() => {
     if (!open) {
@@ -264,7 +276,73 @@ export function FarmerDetailsModal({
     onOpenChange(nextOpen);
   };
 
+  const { mutateAsync: logoutUser } = useLogoutUser();
+
+const handleLogoutUser = async (userId: string) => {
+  try {
+    const result = await logoutUser({ userId, username: user?.name || "", email: user?.email || "" });
+
+    if (result?.value) {
+      toast.success(result.message || "User logged out successfully");
+      setSession(0);
+    }
+  } catch (error) {
+    console.log("Logout user error:", error);
+    toast.error("Failed to log out user.");
+  }
+};
+
   return (
+    <>
+    <Dialog
+  open={logoutConfirmOpen}
+  onOpenChange={setLogoutConfirmOpen}
+>
+  <DialogContent className="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <LogOut className="h-5 w-5 text-red-600" />
+        Logout User?
+      </DialogTitle>
+
+      <DialogDescription>
+        Are you sure you want to log out{" "}
+        <span className="font-semibold text-foreground">
+          {user?.name || user?.email || "this user"}
+        </span>
+        ?
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+      This will terminate the user's active session. They will need to
+      log in again to access the application.
+    </div>
+
+    <div className="flex justify-end gap-2 pt-2">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setLogoutConfirmOpen(false)}
+      >
+        Cancel
+      </Button>
+
+      <Button
+        type="button"
+        variant="destructive"
+        onClick={() => {
+          setLogoutConfirmOpen(false);
+          void handleLogoutUser(user!.userId);
+        }}
+      >
+        <LogOut className="mr-2 h-4 w-4" />
+        Confirm Logout
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="!max-w-4xl w-[95vw] max-h-[90vh] p-0 gap-0 overflow-hidden">
         <motion.div
@@ -290,25 +368,25 @@ export function FarmerDetailsModal({
                   {!isUserVerified && (
                     <ShieldX className="h-4 w-4 shrink-0 text-orange-500" />
                   )}
-                  {activeSessionCount > 0 && (
+                  {session > 0 && (
                     <span
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-emerald-700 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300"
                       title={
-                        activeSessionCount === 1
+                        session === 1
                           ? "Currently logged in"
-                          : `${activeSessionCount} active sessions`
+                          : `${session} active sessions`
                       }
                       aria-label={
-                        activeSessionCount === 1
+                        session === 1
                           ? "Currently logged in"
-                          : `${activeSessionCount} active sessions`
+                          : `${session} active sessions`
                       }
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <span>Logged in</span>
-                      {activeSessionCount > 1 && (
+                      {session > 1 && (
                         <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-                          {activeSessionCount}
+                          {session}
                         </span>
                       )}
                     </span>
@@ -330,6 +408,16 @@ export function FarmerDetailsModal({
 
               {isAdmin && (
                 <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  {session > 0 && 
+                  <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
+                    onClick={() => setLogoutConfirmOpen(true)}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout User
+                  </Button>
+                }
                   {onVerificationChange && (
                     <Button
                       size="sm"
@@ -685,6 +773,7 @@ export function FarmerDetailsModal({
         </motion.div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 

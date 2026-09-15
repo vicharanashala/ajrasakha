@@ -13,12 +13,13 @@ const questionService = new QuestionService();
 export const useGetPaeValidationAssignedQuestions = (
   limit: number = 10,
   enabled: boolean = true,
+  userId?: string,
 ) => {
   return useInfiniteQuery({
-    queryKey: ["pae-validation-assigned-questions", limit],
+    queryKey: ["pae-validation-assigned-questions", limit, userId ?? "self"],
     queryFn: async ({ pageParam }) => {
       const page = typeof pageParam === 'number' ? pageParam : 1;
-      return await questionService.getPaeValidationAssignedQuestions(page, limit);
+      return await questionService.getPaeValidationAssignedQuestions(page, limit, userId);
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
