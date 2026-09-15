@@ -1,4 +1,4 @@
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
@@ -32,7 +32,7 @@ export interface ITestersDashboardSummaryQuery {
 }
 
 // Mirrors backend's ReleaseHealthMetric/ReleaseHealthBucket/ReleaseHealthResult
-// (backend/src/modules/dashboard/testersDashboard/kpis.ts)
+// (testers-dashboard/backend/testersDashboard/kpis.ts)
 export interface ITestersDashboardReleaseHealthMetric {
     key: string;
     label: string;
@@ -67,7 +67,7 @@ export interface ITestersDashboardReleaseHealthResult {
     decision: ITestersDashboardReleaseHealthDecision;
 }
 
-// Mirrors backend's KpiSummary (backend/src/modules/dashboard/testersDashboard/kpis.ts)
+// Mirrors backend's KpiSummary (testers-dashboard/backend/testersDashboard/kpis.ts)
 export interface ITestersDashboardKpiSummary {
     N: number;
     trustScore: number;
@@ -169,7 +169,7 @@ export interface ITestersDashboardPreviousPeriodStats {
 }
 
 // Mirrors backend's AceModuleSubMetric
-// (backend/src/modules/dashboard/testersDashboard/diagnostics.ts)
+// (testers-dashboard/backend/testersDashboard/diagnostics.ts)
 export interface ITestersDashboardAceModuleSubMetric {
     key: string;
     label: string;
@@ -209,7 +209,7 @@ export interface ITestersDashboardComingSoonModule {
 }
 
 // Mirrors backend's DiagnosticsResult
-// (backend/src/modules/dashboard/testersDashboard/diagnostics.ts)
+// (testers-dashboard/backend/testersDashboard/diagnostics.ts)
 export interface ITestersDashboardDiagnostics {
     stageStats: { name: string; avg: number }[];
     bottleneckName: string;
@@ -235,7 +235,7 @@ export interface ITestersDashboardDiagnostics {
 }
 
 // Mirrors backend's ChartData
-// (backend/src/modules/dashboard/testersDashboard/chartData.ts)
+// (testers-dashboard/backend/testersDashboard/chartData.ts)
 export interface ITestersDashboardScoreTrendPoint {
     date: string;
     trust: number;

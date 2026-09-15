@@ -16,8 +16,10 @@ import { CONTEXT_VALIDATORS } from '../context/classes/validators/ContextValidat
 import { CommentController } from '../comment/controllers/CommentController.js';
 import { COMMENT_VALIDATORS } from '../comment/classes/validators/CommentValidator.js';
 import { PerformanceController } from '../../modules/performance/controllers/PerformanceController.js';
-import { TestersDashboardController } from '../../modules/dashboard/controllers/TestersDashboardController.js';
-import { ZohoTicketStatusController } from '../dashboard/controllers/ZohoTicketStatusController.js';
+// Testers Dashboard now lives in testers-dashboard/backend/ - see the note
+// in core/container.ts.
+import { TestersDashboardController } from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js';
+import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
 import { RequestController } from '../request/controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
 
@@ -62,7 +64,7 @@ export * from '../../modules/context/controllers/ContextController.js';
 export * from '../../modules/comment/controllers/CommentController.js';
 export * from '../notification/controllers/NotificationController.js'
 export * from '../../modules/performance/controllers/PerformanceController.js'
-export * from '../../modules/dashboard/controllers/TestersDashboardController.js'
+export * from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js'
 
 export * from '../../modules/question/services/QuestionService.js';
 export * from '../../modules/answer/services/AnswerService.js'
@@ -70,6 +72,6 @@ export * from '../../modules/context/services/ContextService.js';
 export * from '../../modules/comment/services/CommentService.js';
 export * from '../notification/services/NotificationService.js'
 export * from '../../modules/performance/services/PerformanceService.js'
-export * from '../../modules/dashboard/services/TestersDashboardService.js'
+export * from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js'
 
 export * from '../core/types.js';

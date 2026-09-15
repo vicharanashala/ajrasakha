@@ -8,7 +8,7 @@ import {
 import { ShieldCheck, Smile, AlertTriangle, HeartPulse, Radio, ChevronDown, CheckCircle2, XCircle, Languages, Mic, Gauge } from "lucide-react";
 import { InfoPopover } from "./InfoPopover";
 import { GaugeGraphic } from "./GaugeGraphic";
-import type { ITestersDashboardKpiSummary } from "@/hooks/services/testersDashboardSummaryService";
+import type { ITestersDashboardKpiSummary } from "../services/testersDashboardSummaryService";
 import type { IFilterBarFiltersState } from "./FilterBar";
 import { trendLabel, criticalFailuresLabel, healthColorHex, releaseHealthColorHex, channelDisplayLabel, releaseHealthDecisionDisplay } from "../utils";
 

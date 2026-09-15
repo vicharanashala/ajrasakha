@@ -26,7 +26,13 @@ import { dynamicSubBucketFor } from './diagnostics.js';
 // values - not invented. Re-derive them with `grep`/a one-off script
 // against backend/data/testers-dashboard/updated.csv to spot-check.
 function loadRealRecords(): Promise<TestersDashboardRecord[]> {
-    const csvPath = path.join(process.cwd(), 'data', 'testers-dashboard', 'updated.csv');
+    // Same TESTERS_DASHBOARD_CSV_PATH override the real service uses - the
+    // CSV lives at backend/data/testers-dashboard/updated.csv and did not
+    // move with this code, so a bare process.cwd()-relative join is no
+    // longer reliable once this package's cwd differs from backend's.
+    const csvPath =
+        process.env.TESTERS_DASHBOARD_CSV_PATH ||
+        path.join(process.cwd(), 'data', 'testers-dashboard', 'updated.csv');
     let fileContent = fs.readFileSync(csvPath, 'utf8');
     const headerIndex = fileContent.indexOf('Test ID,');
     if (headerIndex !== -1) {

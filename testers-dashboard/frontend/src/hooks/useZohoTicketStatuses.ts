@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { zohoTicketStatusService } from "@/hooks/services/zohoTicketStatusService";
+import { zohoTicketStatusService } from "../services/zohoTicketStatusService";
 
 export function useZohoTicketStatuses() {
     return useQuery({

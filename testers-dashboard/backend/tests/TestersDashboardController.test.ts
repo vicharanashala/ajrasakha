@@ -3,10 +3,14 @@ import request from 'supertest';
 import Express from 'express';
 import { useExpressServer, useContainer } from 'routing-controllers';
 import { Container } from 'inversify';
-import { InversifyAdapter } from '#root/inversify-adapter.js';
+// These two come from backend's compiled output rather than #root/#shared
+// aliases (which don't resolve outside backend/'s own tsconfig) - this
+// package has no other dependency on backend/src, so `pnpm build` must have
+// been run once in backend/ before this test can compile/run.
+import { InversifyAdapter } from '../../../backend/build/inversify-adapter.js';
+import { HttpErrorHandler } from '../../../backend/build/shared/index.js';
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { HttpErrorHandler } from '#shared/index.js';
-import { CORE_TYPES } from '#root/modules/core/types.js';
+import { DASHBOARD_TYPES } from '../types.js';
 import { TestersDashboardController } from '../controllers/TestersDashboardController.js';
 
 // Mocked service - this file verifies routing/query-param wiring and the
@@ -33,7 +37,7 @@ describe('TestersDashboardController', () => {
     beforeAll(() => {
         const container = new Container();
         container.bind(TestersDashboardController).toSelf().inSingletonScope();
-        container.bind(CORE_TYPES.TestersDashboardService).toConstantValue(mockTestersDashboardService);
+        container.bind(DASHBOARD_TYPES.TestersDashboardService).toConstantValue(mockTestersDashboardService);
         container.bind(HttpErrorHandler).toSelf().inSingletonScope();
 
         useContainer(new InversifyAdapter(container));

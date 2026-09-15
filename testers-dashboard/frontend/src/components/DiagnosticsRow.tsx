@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { ChevronDown } from "lucide-react";
-import type { ITestersDashboardDiagnostics } from "@/hooks/services/testersDashboardSummaryService";
+import type { ITestersDashboardDiagnostics } from "../services/testersDashboardSummaryService";
 import { InfoPopover } from "./InfoPopover";
 
 const CRITICAL_DEFECTS_PAGE_SIZE = 10;

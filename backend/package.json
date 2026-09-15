@@ -4,16 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "node scripts/class-transformer-0.5.1.patch.js",
+    "postinstall": "node scripts/class-transformer-0.5.1.patch.js && node scripts/link-testers-dashboard-deps.js",
     "start": "node build/index.js",
-    "dev": "concurrently \"pnpm run watch:compile\" \"pnpm run watch:build\"",
+    "dev": "concurrently \"pnpm run watch:testers-dashboard\" \"pnpm run watch:compile\" \"pnpm run watch:build\"",
     "watch:compile": "tsc --watch",
+    "watch:testers-dashboard": "tsc -p ../testers-dashboard/backend/tsconfig.json --watch",
     "watch:build": "nodemon --watch build --ext js --exec \"node build/index.js\"",
-    "build": "tsc",
+    "build:testers-dashboard": "tsc -p ../testers-dashboard/backend/tsconfig.json",
+    "build": "pnpm run build:testers-dashboard && tsc",
     "generate": "plop",
     "test": "vitest --ui",
     "test:watch": "vitest run --watch",
-    "test:ci": "vitest run --coverage --reporter=html",
+    "test:testers-dashboard": "vitest run -c ../testers-dashboard/backend/vite.config.ts",
+    "test:ci": "vitest run --coverage --reporter=html && pnpm run test:testers-dashboard",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org vicharana-shala --project vibe-server ./build && sentry-cli sourcemaps upload --org vicharana-shala --project vibe-server ./build"
   },
   "imports": {

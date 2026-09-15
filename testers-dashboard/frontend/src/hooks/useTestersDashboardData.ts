@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { testersDashboardService, type ITestersDashboardDataResponse } from '@/hooks/services/testersDashboardService';
+import { testersDashboardService, type ITestersDashboardDataResponse } from '../services/testersDashboardService';
 
 export const useTestersDashboardData = () => {
     return useQuery<ITestersDashboardDataResponse>({

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { JsonController, Get, Authorized } from 'routing-controllers';
 import { inject } from 'inversify';
 import { OpenAPI } from 'routing-controllers-openapi';
-import { CORE_TYPES } from '#root/modules/core/types.js';
+import { DASHBOARD_TYPES } from '../types.js';
 import { IZohoTicketStatusService } from '../interfaces/IZohoTicketStatusService.js';
 
 @OpenAPI({
@@ -12,7 +12,7 @@ import { IZohoTicketStatusService } from '../interfaces/IZohoTicketStatusService
 @JsonController('/dashboard/testers')
 export class ZohoTicketStatusController {
     constructor(
-        @inject(CORE_TYPES.ZohoTicketStatusService)
+        @inject(DASHBOARD_TYPES.ZohoTicketStatusService)
         private readonly zohoTicketStatusService: IZohoTicketStatusService,
     ) { }
 

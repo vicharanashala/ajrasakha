@@ -20,11 +20,14 @@ import { PerformanceController } from '../performance/controllers/PerformanceCon
 import { CORE_TYPES } from './types.js';
 import { GLOBAL_TYPES } from '../../types.js';
 import { PerformanceService } from '../performance/services/PerformanceService.js';
-import { TestersDashboardController } from '../dashboard/controllers/TestersDashboardController.js';
-import { TestersDashboardService } from '../dashboard/services/TestersDashboardService.js';
+// Testers Dashboard now lives in testers-dashboard/backend/ - these come
+// from its compiled output, so `pnpm run build:testers-dashboard` must run
+// before this file can be type-checked/compiled (see backend/package.json).
+import { TestersDashboardController } from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js';
+import { TestersDashboardService } from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js';
 import { RequestController } from '../request/controllers/RequestController.js';
-import { ZohoTicketStatusService } from '../dashboard/services/ZohoTicketStatusService.js';
-import { ZohoTicketStatusController } from '../dashboard/controllers/ZohoTicketStatusController.js';
+import { ZohoTicketStatusService } from '../../../../testers-dashboard/backend/build/services/ZohoTicketStatusService.js';
+import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';

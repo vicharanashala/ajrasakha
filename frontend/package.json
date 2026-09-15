@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "node scripts/link-testers-dashboard-deps.js",
     "dev": "vite --port 5173",
     "start": "vite --port 5173",
     "build": "vite build && tsc",

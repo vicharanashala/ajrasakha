@@ -1,4 +1,4 @@
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();

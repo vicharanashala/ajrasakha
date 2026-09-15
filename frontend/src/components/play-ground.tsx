@@ -26,7 +26,7 @@ import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
-import { TestersDashboard } from "../features/testersDashboard/TestersDashboard";
+import { TestersDashboard } from "@testers-dashboard/TestersDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
 

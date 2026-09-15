@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { JsonController, Get, Authorized, QueryParams } from 'routing-controllers';
 import { inject } from 'inversify';
 import { OpenAPI } from 'routing-controllers-openapi';
-import { CORE_TYPES } from '#root/modules/core/types.js';
+import { DASHBOARD_TYPES } from '../types.js';
 import { ITestersDashboardService } from '../interfaces/ITestersDashboardService.js';
 import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
 
@@ -13,7 +13,7 @@ import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidato
 @JsonController('/dashboard/testers')
 export class TestersDashboardController {
     constructor(
-        @inject(CORE_TYPES.TestersDashboardService)
+        @inject(DASHBOARD_TYPES.TestersDashboardService)
         private readonly testersDashboardService: ITestersDashboardService,
     ) { }
 

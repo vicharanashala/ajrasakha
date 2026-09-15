@@ -3,7 +3,7 @@ import {
     testersDashboardSummaryService,
     type ITestersDashboardSummaryQuery,
     type ITestersDashboardSummaryResponse,
-} from "@/hooks/services/testersDashboardSummaryService";
+} from "../services/testersDashboardSummaryService";
 
 // Matches TestersDashboard.tsx's EMPTY_FILTERS shape (dateRange + the 8
 // remaining single-select filter dimensions - "type" was replaced by the

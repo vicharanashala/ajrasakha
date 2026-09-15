@@ -3,7 +3,7 @@ import { KpiCard, type KpiCardProps } from "./KpiCard";
 import type {
   ITestersDashboardKpiSummary,
   ITestersDashboardPreviousPeriodStats,
-} from "@/hooks/services/testersDashboardSummaryService";
+} from "../services/testersDashboardSummaryService";
 
 export interface ExecutiveSummaryProps {
   kpis: ITestersDashboardKpiSummary;

@@ -7,7 +7,7 @@ import {
 import { useTestersDashboardData } from "./hooks/useTestersDashboardData";
 import { useTestersDashboardSummary } from "./hooks/useTestersDashboardSummary";
 import { useZohoTicketStatuses } from "./hooks/useZohoTicketStatuses";
-import type { ITestersDashboardRecord } from "@/hooks/services/testersDashboardService";
+import type { ITestersDashboardRecord } from "./services/testersDashboardService";
 import { TrendChart, buildXAxisTicks, buildRobustRangeSeries, type TrendChartProps } from "./components/TrendChart";
 import { FilterBar, DYNAMIC_SUB_TYPE_OPTIONS, STATIC_SUB_TYPE_OPTIONS, type IFilterField } from "./components/FilterBar";
 import { ExecutiveSummary } from "./components/ExecutiveSummary";
