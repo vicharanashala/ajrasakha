@@ -58,6 +58,35 @@ const getQueryMetadata = (qItem: any, callDetails?: any, farmerProfile?: any) =>
   return { crop, season, state, district, block, village, domain, specialist, reference, weather };
 };
 
+const isOurNumberOrSip = (val?: string) => {
+  if (!val) return false;
+  const clean = String(val).replace(/[^\d]/g, "");
+  const lower = String(val).toLowerCase();
+  return (
+    lower.startsWith("sip:") ||
+    lower.includes("phone.plivo.com") ||
+    lower.includes("endpoint") ||
+    clean.includes("8031150392") ||
+    clean.includes("15551234567") ||
+    /[a-zA-Z]/.test(lower)
+  );
+};
+
+export const getFarmerPhoneNumber = (call: CallHistoryItem): string => {
+  const isOutbound = String(call.direction || "").toLowerCase() === "outbound";
+  if (isOutbound) {
+    if (call.to && !isOurNumberOrSip(call.to)) return call.to;
+    if (call.farmerProfile?.phoneNo && !isOurNumberOrSip(call.farmerProfile.phoneNo)) return call.farmerProfile.phoneNo;
+    if (call.from && !isOurNumberOrSip(call.from)) return call.from;
+    return call.to || call.from || "";
+  } else {
+    if (call.from && !isOurNumberOrSip(call.from)) return call.from;
+    if (call.farmerProfile?.phoneNo && !isOurNumberOrSip(call.farmerProfile.phoneNo)) return call.farmerProfile.phoneNo;
+    if (call.to && !isOurNumberOrSip(call.to)) return call.to;
+    return call.from || call.to || "";
+  }
+};
+
 
 const renderMarkdown = (text: string) => {
   if (!text) return null;
@@ -987,7 +1016,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                   <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-stretch w-full">
                                     <div className="lg:col-span-4 w-full flex flex-col h-[280px]">
                                       <FarmerDetails
-                                        phoneNo={call.from}
+                                        phoneNo={getFarmerPhoneNumber(call)}
                                         defaultOpen={false}
                                         extractedProfile={call.farmerProfile}
                                         className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl w-full h-full"

@@ -19,7 +19,7 @@ Annam Call Centre (ACC) is a dedicated real-time agricultural call center micros
    - [Zero-Memory Streaming Ingestion](#zero-memory-streaming-ingestion)
    - [Role-Based Signed Playback URLs](#role-based-signed-playback-urls)
    - [Interactive Waveform Audio Player](#interactive-waveform-audio-player)
-   - [Automated 30-Day Plivo Cost Optimization Job](#automated-30-day-plivo-cost-optimization-job)
+   - [Automated 20-Day Plivo Cost Optimization Job with Cloud Storage Backup](#automated-20-day-plivo-cost-optimization-job-with-cloud-storage-backup)
 5. [Environment Variables Reference](#5-environment-variables-reference)
    - [Backend Environment Variables (`acc-backend/.env`)](#backend-environment-variables-acc-backendenv)
    - [Frontend Environment Variables (`acc-frontend/.env`)](#frontend-environment-variables-acc-frontendenv)
@@ -105,7 +105,7 @@ ajrasakha/acc/
 │   │   │   ├── websocket.ts       # WebSocket server for /plivo-stream
 │   │   │   └── jobs/
 │   │   │       ├── agentStatusCleanupJob.ts    # 1-min cron: frees inactive agents (>75s)
-│   │   │       └── plivoRecordingCleanupJob.ts  # 2 AM cron: purges Plivo recordings >30 days
+│   │   │       └── plivoRecordingCleanupJob.ts  # 2 AM cron: safe GCP sync & purges Plivo recordings >20 days
 │   │   ├── modules/
 │   │   │   ├── acc-agent/         # LangGraph AI client (threads, extract, update-state, resume)
 │   │   │   ├── auth/              # Firebase token verification & user profile sync
@@ -308,11 +308,11 @@ The ACC application includes a complete, self-contained call recording, storage,
   - Automatic URL refresh on token expiration.
   - Direct MP3 download button.
 
-### Automated 30-Day Plivo Cost Optimization Job
+### Automated 20-Day Plivo Cost Optimization Job with Cloud Storage Backup
 
 - **Cron Job**: [`plivoRecordingCleanupJob.ts`](file:///c:/Users/FD/Desktop/ajrasakha/acc/acc-backend/src/bootstrap/jobs/plivoRecordingCleanupJob.ts).
 - **Schedule**: Runs daily at 2:00 AM (`0 2 * * *`).
-- **Operation**: Identifies call records with recordings older than 30 days, deletes the recording from Plivo via Plivo API to eliminate recurring storage fees, and updates MongoDB `plivoDeleted: true`. The audio remains permanently preserved in the cloud storage bucket.
+- **Operation**: Identifies call records with recordings older than 20 days. Before any deletion, it verifies that the recording is safely stored in GCP Cloud Storage; if missing, it downloads and streams the recording to GCP Cloud Storage first, updates MongoDB metadata, and only then safely deletes the recording from Plivo to eliminate recurring storage fees. Zero audio loss guarantee while keeping Plivo storage cost at $0.00.
 
 ---
 
@@ -381,7 +381,7 @@ The ACC application includes a complete, self-contained call recording, storage,
 | `auth`      | `FirebaseAuthService`      | `AuthController`            | Firebase Admin token verification and user profile sync.                                                                            |
 | `user`      | `UserService`              | `UserController`            | Agent online/offline toggling, heartbeat watchdog, availability status queries.                                                     |
 | `jobs`      | `agentStatusCleanupJob`    | `node-cron` (`*/1 * * * *`) | Marks agents offline if heartbeat is missing for >75s.                                                                              |
-| `jobs`      | `plivoRecordingCleanupJob` | `node-cron` (`0 2 * * *`)   | Daily purge of Plivo cloud recordings >30 days.                                                                                     |
+| `jobs`      | `plivoRecordingCleanupJob` | `node-cron` (`0 2 * * *`)   | Daily safe GCP sync & purge of Plivo cloud recordings >20 days.                                                                     |
 
 ---
 

@@ -11,6 +11,23 @@ import type {
   ACCAnalytics,
 } from '#shared/database/interfaces/ICallDetailsRepository.js';
 
+function getPhoneVariations(raw: string): string[] {
+  if (!raw) return [];
+  const clean = raw.trim();
+  const digits = clean.replace(/\D/g, '');
+  const variations = new Set<string>();
+  variations.add(clean);
+  if (digits) variations.add(digits);
+  const last10 = digits.length >= 10 ? digits.slice(-10) : (digits.length > 0 ? digits : '');
+  if (last10) {
+    variations.add(last10);
+    variations.add(`+91${last10}`);
+    variations.add(`91${last10}`);
+    variations.add(`0${last10}`);
+  }
+  return [...variations].filter(Boolean);
+}
+
 @injectable()
 export class CallDetailsRepository implements ICallDetailsRepository {
   private callDetailsCollection!: Collection<CallDetails>;
@@ -204,11 +221,22 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         const effectivePhone = result.direction === 'outbound' ? (result.to || result.from) : (result.from || result.to);
         if (effectivePhone) {
           try {
+            const phoneVariants = getPhoneVariations(effectivePhone);
+            const queryMatch = {
+              $or: [
+                { phoneNo: { $in: phoneVariants } },
+                { "profile.phoneNo": { $in: phoneVariants } },
+                { phoneNumber: { $in: phoneVariants } },
+                { "profile.phoneNumber": { $in: phoneVariants } },
+                { phone: { $in: phoneVariants } },
+                { mobile: { $in: phoneVariants } }
+              ]
+            };
             const farmersColl = await this.db.getCollection('Farmers_info');
-            let farmerDoc: any = await farmersColl.findOne({ phoneNo: effectivePhone }, { session });
+            let farmerDoc: any = await farmersColl.findOne(queryMatch, { session });
             if (!farmerDoc) {
               const fallbackColl = await this.db.getCollection('farmer_details');
-              farmerDoc = await fallbackColl.findOne({ phoneNo: effectivePhone }, { session });
+              farmerDoc = await fallbackColl.findOne(queryMatch, { session });
             }
             if (farmerDoc) {
               (result as any).farmerProfile = farmerDoc.profile || farmerDoc;
@@ -245,31 +273,59 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         .toArray();
 
       const phoneNumbers = [...new Set(result.map(c => (c.direction === 'outbound' ? (c.to || c.from) : (c.from || c.to))).filter(Boolean))];
+      const allPhoneVariants = [...new Set(phoneNumbers.flatMap(p => getPhoneVariations(p)))];
       const farmersMap = new Map<string, any>();
 
-      if (phoneNumbers.length > 0) {
+      if (allPhoneVariants.length > 0) {
         try {
+          const matchQuery = {
+            $or: [
+              { phoneNo: { $in: allPhoneVariants } },
+              { "profile.phoneNo": { $in: allPhoneVariants } },
+              { phoneNumber: { $in: allPhoneVariants } },
+              { "profile.phoneNumber": { $in: allPhoneVariants } },
+              { phone: { $in: allPhoneVariants } },
+              { mobile: { $in: allPhoneVariants } }
+            ]
+          };
+
           const farmersColl = await this.db.getCollection('Farmers_info');
-          const farmerDocs = await farmersColl.find(
-            { phoneNo: { $in: phoneNumbers } },
-            { session }
-          ).toArray();
+          const farmerDocs = await farmersColl.find(matchQuery, { session }).toArray();
 
           for (const doc of farmerDocs) {
-            if (doc.phoneNo) farmersMap.set(doc.phoneNo, doc.profile || doc);
+            const profile = doc.profile || doc;
+            const docPhone = doc.phoneNo || profile.phoneNo || doc.phoneNumber || profile.phoneNumber || doc.phone || doc.mobile;
+            if (docPhone) {
+              for (const variant of getPhoneVariations(docPhone)) {
+                farmersMap.set(variant, profile);
+              }
+            }
           }
 
           // Fallback to farmer_details collection for missing phones
-          const missingPhones = phoneNumbers.filter(p => !farmersMap.has(p));
-          if (missingPhones.length > 0) {
+          const missingVariants = allPhoneVariants.filter(p => !farmersMap.has(p));
+          if (missingVariants.length > 0) {
             const fallbackColl = await this.db.getCollection('farmer_details');
-            const fallbackDocs = await fallbackColl.find(
-              { phoneNo: { $in: missingPhones } },
-              { session }
-            ).toArray();
+            const fallbackDocs = await fallbackColl.find({
+              $or: [
+                { phoneNo: { $in: missingVariants } },
+                { "profile.phoneNo": { $in: missingVariants } },
+                { phoneNumber: { $in: missingVariants } },
+                { "profile.phoneNumber": { $in: missingVariants } },
+                { phone: { $in: missingVariants } },
+                { mobile: { $in: missingVariants } }
+              ]
+            }, { session }).toArray();
+
             for (const doc of fallbackDocs) {
-              if (doc.phoneNo && !farmersMap.has(doc.phoneNo)) {
-                farmersMap.set(doc.phoneNo, doc.profile || doc);
+              const profile = doc.profile || doc;
+              const docPhone = doc.phoneNo || profile.phoneNo || doc.phoneNumber || profile.phoneNumber || doc.phone || doc.mobile;
+              if (docPhone) {
+                for (const variant of getPhoneVariations(docPhone)) {
+                  if (!farmersMap.has(variant)) {
+                    farmersMap.set(variant, profile);
+                  }
+                }
               }
             }
           }
@@ -281,8 +337,14 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       for (const call of result) {
         call.queries = await this.getQueriesByIds(call.queryIds, call.callUuid, session);
         const effectivePhone = call.direction === 'outbound' ? (call.to || call.from) : (call.from || call.to);
-        if (effectivePhone && farmersMap.has(effectivePhone)) {
-          (call as any).farmerProfile = farmersMap.get(effectivePhone);
+        if (effectivePhone) {
+          const variants = getPhoneVariations(effectivePhone);
+          for (const variant of variants) {
+            if (farmersMap.has(variant)) {
+              (call as any).farmerProfile = farmersMap.get(variant);
+              break;
+            }
+          }
         }
       }
       return result;
@@ -356,30 +418,58 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         .toArray();
 
       const phoneNumbers = [...new Set(result.map(c => (c.direction === 'outbound' ? (c.to || c.from) : (c.from || c.to))).filter(Boolean))];
+      const allPhoneVariants = [...new Set(phoneNumbers.flatMap(p => getPhoneVariations(p)))];
       const farmersMap = new Map<string, any>();
 
-      if (phoneNumbers.length > 0) {
+      if (allPhoneVariants.length > 0) {
         try {
+          const matchQuery = {
+            $or: [
+              { phoneNo: { $in: allPhoneVariants } },
+              { "profile.phoneNo": { $in: allPhoneVariants } },
+              { phoneNumber: { $in: allPhoneVariants } },
+              { "profile.phoneNumber": { $in: allPhoneVariants } },
+              { phone: { $in: allPhoneVariants } },
+              { mobile: { $in: allPhoneVariants } }
+            ]
+          };
+
           const farmersColl = await this.db.getCollection('Farmers_info');
-          const farmerDocs = await farmersColl.find(
-            { phoneNo: { $in: phoneNumbers } },
-            { session }
-          ).toArray();
+          const farmerDocs = await farmersColl.find(matchQuery, { session }).toArray();
 
           for (const doc of farmerDocs) {
-            if (doc.phoneNo) farmersMap.set(doc.phoneNo, doc.profile || doc);
+            const profile = doc.profile || doc;
+            const docPhone = doc.phoneNo || profile.phoneNo || doc.phoneNumber || profile.phoneNumber || doc.phone || doc.mobile;
+            if (docPhone) {
+              for (const variant of getPhoneVariations(docPhone)) {
+                farmersMap.set(variant, profile);
+              }
+            }
           }
 
-          const missingPhones = phoneNumbers.filter(p => !farmersMap.has(p));
-          if (missingPhones.length > 0) {
+          const missingVariants = allPhoneVariants.filter(p => !farmersMap.has(p));
+          if (missingVariants.length > 0) {
             const fallbackColl = await this.db.getCollection('farmer_details');
-            const fallbackDocs = await fallbackColl.find(
-              { phoneNo: { $in: missingPhones } },
-              { session }
-            ).toArray();
+            const fallbackDocs = await fallbackColl.find({
+              $or: [
+                { phoneNo: { $in: missingVariants } },
+                { "profile.phoneNo": { $in: missingVariants } },
+                { phoneNumber: { $in: missingVariants } },
+                { "profile.phoneNumber": { $in: missingVariants } },
+                { phone: { $in: missingVariants } },
+                { mobile: { $in: missingVariants } }
+              ]
+            }, { session }).toArray();
+
             for (const doc of fallbackDocs) {
-              if (doc.phoneNo && !farmersMap.has(doc.phoneNo)) {
-                farmersMap.set(doc.phoneNo, doc.profile || doc);
+              const profile = doc.profile || doc;
+              const docPhone = doc.phoneNo || profile.phoneNo || doc.phoneNumber || profile.phoneNumber || doc.phone || doc.mobile;
+              if (docPhone) {
+                for (const variant of getPhoneVariations(docPhone)) {
+                  if (!farmersMap.has(variant)) {
+                    farmersMap.set(variant, profile);
+                  }
+                }
               }
             }
           }
@@ -391,8 +481,14 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       for (const call of result) {
         call.queries = await this.getQueriesByIds(call.queryIds, call.callUuid, session);
         const effectivePhone = call.direction === 'outbound' ? (call.to || call.from) : (call.from || call.to);
-        if (effectivePhone && farmersMap.has(effectivePhone)) {
-          (call as any).farmerProfile = farmersMap.get(effectivePhone);
+        if (effectivePhone) {
+          const variants = getPhoneVariations(effectivePhone);
+          for (const variant of variants) {
+            if (farmersMap.has(variant)) {
+              (call as any).farmerProfile = farmersMap.get(variant);
+              break;
+            }
+          }
         }
       }
 
@@ -476,21 +572,25 @@ export class CallDetailsRepository implements ICallDetailsRepository {
   async findRecordingsForPlivoCleanup(
     olderThanDate: Date,
     session?: ClientSession
-  ): Promise<{ callUuid: string; recordingId: string }[]> {
+  ): Promise<{ callUuid: string; recording: import('#shared/database/interfaces/ICallDetailsRepository.js').CallRecording }[]> {
     try {
       await this.init();
       const docs = await this.callDetailsCollection.find(
         {
-          'recording.plivoDeleted': false,
-          'recording.createdAt': { $lte: olderThanDate }
+          'recording.plivoDeleted': { $ne: true },
+          'recording.recordingId': { $exists: true, $ne: null },
+          $or: [
+            { 'recording.createdAt': { $lte: olderThanDate } },
+            { 'recording.createdAt': { $exists: false }, createdAt: { $lte: olderThanDate } }
+          ]
         },
         { projection: { callUuid: 1, recording: 1 }, session }
       ).toArray();
 
-      const results: { callUuid: string; recordingId: string }[] = [];
+      const results: { callUuid: string; recording: import('#shared/database/interfaces/ICallDetailsRepository.js').CallRecording }[] = [];
       for (const doc of docs) {
         if (doc.recording?.recordingId && !doc.recording.plivoDeleted) {
-          results.push({ callUuid: doc.callUuid, recordingId: doc.recording.recordingId });
+          results.push({ callUuid: doc.callUuid, recording: doc.recording });
         }
       }
       return results;

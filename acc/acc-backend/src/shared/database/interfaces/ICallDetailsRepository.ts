@@ -146,7 +146,7 @@ export interface ICallDetailsRepository {
   getQueriesByIds(queryIds?: (string | ObjectId)[], fallbackCallUuid?: string, session?: ClientSession): Promise<CallQuery[]>;
   updateCallDetails(callUuid: string, details: Partial<CallDetails>, session?: ClientSession): Promise<void>;
   addRecordingToCall(callUuid: string, recording: CallRecording, session?: ClientSession): Promise<void>;
-  findRecordingsForPlivoCleanup(olderThanDate: Date, session?: ClientSession): Promise<{ callUuid: string; recordingId: string }[]>;
+  findRecordingsForPlivoCleanup(olderThanDate: Date, session?: ClientSession): Promise<{ callUuid: string; recording: CallRecording }[]>;
   markPlivoRecordingDeleted(callUuid: string, recordingId: string, session?: ClientSession): Promise<void>;
   getAgentAnalytics(
     agentUserId: string,
