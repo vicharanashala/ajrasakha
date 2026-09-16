@@ -14,6 +14,7 @@ import {
   cancelDashboardTranslationJob,
   deleteDashboardTranslationJob,
 } from "../../api";
+import { subscribeDashboardEvents } from "../../dashboardEvents";
 import MainTable from "./MainTable";
 import UniqueDocumentsTable from "./UniqueDocumentsTable";
 import AddDocumentForm from "./AddDocumentForm";
@@ -78,8 +79,9 @@ export default function DocumentManagementPanel() {
   }
 
   // Upload Queue + Translation Queue — separate queues, both present by default (empty state
-  // until something's happening), both refetched by the same shared 30s-toggle-or-manual-refresh
-  // interval rather than each running its own poll.
+  // until something's happening). Kept live by the shared SSE subscription below (GET
+  // /dashboard/events); the interval further down is now just a slow fallback in case that
+  // stream is unavailable, not the primary refresh mechanism.
   const [queueItems, setQueueItems] = useState([]);
   const [translationJobs, setTranslationJobs] = useState([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -88,8 +90,8 @@ export default function DocumentManagementPanel() {
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
   // "New" is async — a real Zoho upload happens server-side, and the item stays at
   // status=awaiting_review the whole time (no interim status change). Track it locally so the row
-  // can show "Processing…" until a poll finds the item either gone (succeeded) or flipped to
-  // status=failed.
+  // can show "Processing…" until an "upload" event (or the fallback poll) finds the item either
+  // gone (succeeded) or flipped to status=failed.
   const [processingUploadIds, setProcessingUploadIds] = useState(() => new Set());
 
   async function refetchUploads() {
@@ -109,15 +111,6 @@ export default function DocumentManagementPanel() {
     }
   }
 
-  // Fast follow-up polling only while a "New" action is actually in flight — the shared 30s
-  // interval alone would leave the row stuck on "Processing…" for up to half a minute.
-  useEffect(() => {
-    if (processingUploadIds.size === 0) return;
-    const id = setInterval(refetchUploads, 3000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [processingUploadIds.size]);
-
   async function refetchTranslationJobs() {
     try {
       const jobs = (await getDashboardTranslationJobs()) || [];
@@ -134,6 +127,10 @@ export default function DocumentManagementPanel() {
   // takes one `status` at a time, so history is 3 calls merged rather than one.
   const [finishedJobs, setFinishedJobs] = useState([]);
   const [showFinishedJobs, setShowFinishedJobs] = useState(false);
+  // Mirrors showFinishedJobs for the mount-only SSE effect below, whose "translation" handler
+  // would otherwise close over the value from mount time forever.
+  const showFinishedJobsRef = useRef(showFinishedJobs);
+  showFinishedJobsRef.current = showFinishedJobs;
   const [removingJobIds, setRemovingJobIds] = useState(() => new Set());
   async function refetchFinishedJobs() {
     try {
@@ -183,15 +180,82 @@ export default function DocumentManagementPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Shared 30s interval while auto-refresh is on; off means manual-refresh-only. Recreated on
-  // showFinishedJobs too, so toggling it doesn't leave the interval's refetchAll closure stale
-  // (it decides whether to include the finished-jobs fetch).
+  // Fallback only — GET /dashboard/events (below) is the primary way these queues stay live.
+  // 60s, and off means manual-refresh-only. Recreated on showFinishedJobs too, so toggling it
+  // doesn't leave the interval's refetchAll closure stale (it decides whether to include the
+  // finished-jobs fetch).
   useEffect(() => {
     if (!autoRefresh) return;
-    const id = setInterval(refetchAll, 30000);
+    const id = setInterval(refetchAll, 60000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, showFinishedJobs]);
+
+  // refetchAll's own closure goes stale if captured once by the mount-only SSE effect below (it
+  // reads showFinishedJobs) — mirror it in a ref so the "open" handler always calls the current
+  // version instead.
+  const refetchAllRef = useRef(refetchAll);
+  refetchAllRef.current = refetchAll;
+
+  // GET /dashboard/events — one shared SSE connection (see dashboardEvents.ts) driving live
+  // updates for both queues, instead of polling. No replay on reconnect, so every (re)connect
+  // refetches both queues from scratch via the "open" handler. Mount-only: state setters below are
+  // all stable, and refetchAllRef.current always points at the latest closure.
+  useEffect(() => {
+    const unsubscribe = subscribeDashboardEvents({
+      open: () => refetchAllRef.current(),
+      upload: (item) => {
+        setQueueItems((prev) => {
+          if (item.deleted) return prev.filter((it) => it.id !== item.id);
+          const idx = prev.findIndex((it) => it.id === item.id);
+          if (idx === -1) return [...prev, item];
+          const next = [...prev];
+          next[idx] = item;
+          return next;
+        });
+        setProcessingUploadIds((prev) => {
+          if (!prev.has(item.id)) return prev;
+          if (item.deleted || item.status !== "awaiting_review") {
+            const next = new Set(prev);
+            next.delete(item.id);
+            return next;
+          }
+          return prev;
+        });
+        setLastUpdated(Date.now());
+      },
+      translation: (job) => {
+        // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
+        // — a job that just finished belongs in finishedJobs (if that's being shown), not here.
+        const finished = job.deleted || ["done", "failed", "cancelled"].includes(job.status);
+        setTranslationJobs((prev) => {
+          if (finished) return prev.filter((j) => j.id !== job.id);
+          const idx = prev.findIndex((j) => j.id === job.id);
+          if (idx === -1) return [...prev, job];
+          const next = [...prev];
+          next[idx] = job;
+          return next;
+        });
+        if (finished) {
+          setStoppingJobIds((prev) => {
+            if (!prev.has(job.id)) return prev;
+            const next = new Set(prev);
+            next.delete(job.id);
+            return next;
+          });
+          setFinishedJobs((prev) => {
+            if (!showFinishedJobsRef.current) return prev;
+            const filtered = prev.filter((j) => j.id !== job.id);
+            return job.deleted ? filtered : [...filtered, job];
+          });
+        }
+        setLastUpdated(Date.now());
+      },
+      document: () => bumpRefresh(),
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleUploadQueued() {
     refetchUploads();

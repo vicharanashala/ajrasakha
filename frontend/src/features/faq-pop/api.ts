@@ -428,7 +428,10 @@ const PAGE_SIZE = 100;
 // confirmed by the backend: Starlette was keeping only the last of several repeated query params,
 // which is why a multi-select only ever narrowed to the last selection. `filter[key]=A,B` now
 // works on every key (a single selection still sends one plain value, unaffected either way).
-function _buildListParams(page: number, filters: Record<string, string[]>) {
+// `sort`: "translated_at" | "-translated_at" | "reviewed_at" | "-reviewed_at" (the only sortable
+// fields) — "-" is newest first. Documents with no value sort last in both directions. Omitted or
+// "" means the default (newest-created first). Anything else is 400.
+function _buildListParams(page: number, filters: Record<string, string[]>, sort = "") {
   const params = new URLSearchParams({
     page: String(page),
     page_size: String(PAGE_SIZE),
@@ -437,6 +440,7 @@ function _buildListParams(page: number, filters: Record<string, string[]>) {
     const clean = (values || []).filter((v) => v !== "" && v != null);
     if (clean.length > 0) params.set(`filter[${key}]`, clean.join(","));
   }
+  if (sort) params.set("sort", sort);
   return params;
 }
 
@@ -445,8 +449,9 @@ function _buildListParams(page: number, filters: Record<string, string[]>) {
 export async function getDashboardDocuments(
   page = 1,
   filters: Record<string, string[]> = {},
+  sort = "",
 ) {
-  const params = _buildListParams(page, filters);
+  const params = _buildListParams(page, filters, sort);
   const res = await fetch(`${POP_API}/dashboard/documents?${params}`);
   return _handleResponse(res);
 }
@@ -499,8 +504,9 @@ export async function getStats() {
 export async function getDashboardUniqueDocuments(
   page = 1,
   filters: Record<string, string[]> = {},
+  sort = "",
 ) {
-  const params = _buildListParams(page, filters);
+  const params = _buildListParams(page, filters, sort);
   const res = await fetch(`${POP_API}/dashboard/unique-documents?${params}`);
   return _handleResponse(res);
 }
@@ -786,19 +792,28 @@ export async function deleteDashboardTranslationJob(jobId: string) {
 
 // Placement-addressed. Jobs are per DOCUMENT, not per placement — translating from any one of a
 // document's placements translates it once, and every sibling placement then shows
-// translation_status: "done".
-export async function translateDashboardDocument(placementId: string) {
+// translation_status: "done". `translatedBy` (the signed-in user's display name, sent by the
+// caller — see TranslateReviewCell.tsx) is optional and unverified: /api/pop has no auth, so the
+// backend just stores whatever name it's given (docs/first_render_frontend.md, "Who translated /
+// reviewed, and when").
+export async function translateDashboardDocument(placementId: string, translatedBy?: string) {
   const res = await fetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
     method: "POST",
+    ...(translatedBy
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
+      : {}),
   });
   return _handleResponse(res);
 }
 
 // Document-addressed equivalent of translateDashboardDocument, for use where no single placement
 // is in scope (e.g. the top level of a document detail view).
-export async function translateUniqueDocument(id: string) {
+export async function translateUniqueDocument(id: string, translatedBy?: string) {
   const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
     method: "POST",
+    ...(translatedBy
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
+      : {}),
   });
   return _handleResponse(res);
 }
@@ -822,9 +837,10 @@ export async function deleteDashboardTranslation(placementId: string) {
 // Replacing an EXISTING translation deletes the superseded WorkDrive file so copies don't pile up
 // unreachable (review's upload does NOT do this yet — it still orphans the old file; asymmetric
 // on purpose per the backend, not a bug to "fix" here).
-export async function uploadDashboardTranslation(placementId: string, file: File) {
+export async function uploadDashboardTranslation(placementId: string, file: File, translatedBy?: string) {
   const fd = new FormData();
   fd.append("file", file);
+  if (translatedBy) fd.append("translated_by", translatedBy);
   const res = await fetch(`${POP_API}/dashboard/documents/${placementId}/translation`, {
     method: "POST",
     body: fd,
@@ -834,9 +850,10 @@ export async function uploadDashboardTranslation(placementId: string, file: File
 
 // Document-addressed equivalent, for use where no single placement is in scope (Documents tab,
 // Document Detail) — same semantics as translateUniqueDocument vs translateDashboardDocument.
-export async function uploadUniqueDocumentTranslation(documentId: string, file: File) {
+export async function uploadUniqueDocumentTranslation(documentId: string, file: File, translatedBy?: string) {
   const fd = new FormData();
   fd.append("file", file);
+  if (translatedBy) fd.append("translated_by", translatedBy);
   const res = await fetch(`${POP_API}/dashboard/unique-documents/${documentId}/translation`, {
     method: "POST",
     body: fd,
@@ -845,9 +862,10 @@ export async function uploadUniqueDocumentTranslation(documentId: string, file: 
 }
 
 // Multipart, a reviewed DOCX. Placement-addressed like translate/delete-translation above.
-export async function uploadDashboardReview(placementId: string, file: File) {
+export async function uploadDashboardReview(placementId: string, file: File, reviewedBy?: string) {
   const fd = new FormData();
   fd.append("file", file);
+  if (reviewedBy) fd.append("reviewed_by", reviewedBy);
   const res = await fetch(`${POP_API}/dashboard/documents/${placementId}/review`, {
     method: "POST",
     body: fd,
@@ -861,6 +879,18 @@ export async function uploadDashboardReview(placementId: string, file: File) {
 // is available (currently: a document's anchor copy, via its `representative_file_id`).
 export function getFileDownloadUrl(fileId: string) {
   return `${POP_API}/dashboard/files/${fileId}/download`;
+}
+
+// Named-download endpoints (docs/first_render_frontend.md, "Translation and review, named after
+// the document") — unlike getFileDownloadUrl, these name the file after the DOCUMENT rather than
+// whatever it's called in WorkDrive (e.g. "Paddy_KA_2021.pdf" -> "Paddy_KA_2021_translation.docx"
+// / "..._reviewed.docx"), via Content-Disposition (FileActionIcons.tsx reads it off the response
+// rather than guessing the name itself). 404 when the document has no translation/review yet.
+export function getTranslationDownloadUrl(documentId: string, inline = false) {
+  return `${POP_API}/dashboard/unique-documents/${documentId}/translation/download${inline ? "?inline=1" : ""}`;
+}
+export function getReviewDownloadUrl(documentId: string, inline = false) {
+  return `${POP_API}/dashboard/unique-documents/${documentId}/review/download${inline ? "?inline=1" : ""}`;
 }
 
 export async function getDashboardConfig() {
