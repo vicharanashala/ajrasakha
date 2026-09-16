@@ -152,14 +152,6 @@ if (faqPopConfig.popApiUrl) {
   }));
 }
 
-// Parse JSON / urlencoded bodies with a generous limit BEFORE routing-controllers wires up
-// its routes. routing-controllers' own body-parser sees req._body already set and skips
-// re-parsing, so this limit governs. The default (~100kb) caused "request entity too large"
-// (HTTP 413) on answer submissions carrying several source references. Placed after the
-// FAQ/POP proxies so proxied requests are streamed through untouched.
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
 // Start server
 useExpressServer(app, moduleOptions);
 
