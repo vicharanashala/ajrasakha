@@ -88,10 +88,9 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const [error, setError] = useState(null);
 
   const [languageOptions, setLanguageOptions] = useState([]);
-  // "all" (not just active) — filtering needs to match documents verified by someone since
-  // deactivated too, not just people who could verify something today. Falls back to a free-text
-  // filter for "Verified By" while this stays empty (see the filterType "users" render branch
-  // below) — e.g. the backend's 503 case, its users collection unreachable. Doesn't need the
+  // Admins/moderators/experts from the real reviewer-system users collection (see
+  // getDashboardUsers's comment in api.ts). Falls back to a free-text filter for "Verified By"
+  // while this stays empty (see the filterType "users" render branch below). Doesn't need the
   // edit form's extra-option handling for renamed users since this is a filter, not a value
   // picker — a filter for a name nobody has isn't wrong, it's just a filter that matches nothing.
   const [userOptions, setUserOptions] = useState([]);
@@ -99,7 +98,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     getDashboardLanguages()
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
       .catch(() => {});
-    getDashboardUsers("all")
+    getDashboardUsers()
       .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
       .catch(() => {});
   }, []);

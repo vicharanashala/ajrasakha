@@ -1,7 +1,10 @@
 import { env } from "@/config/env";
+import { UserService } from "@/hooks/services/userService";
+import type { UserRole } from "@/types";
 
 const FAQ_API = (env.faqApiUrl() || "").replace(/\/$/, "");
 const POP_API = (env.popApiUrl() || "").replace(/\/$/, "");
+const userService = new UserService();
 
 async function _handleResponse(res: Response) {
   if (!res.ok) {
@@ -665,16 +668,15 @@ export async function getDashboardLanguages() {
 }
 
 // Backs the "Verified By" dropdown (fields.ts) — only the picked `name` is ever stored on the
-// document (verified_by stays a plain string, same as today); `id` is present in the response but
-// only for React keys, never sent anywhere. Reads a different application's users collection in a
-// shared staging database (read-only, even against prod) — 503 means that collection couldn't be
-// reached in time; every caller treats any failure here as non-fatal and falls back to a free-text
-// input (MetadataFieldInput.tsx), so a 503 just means "no list right now," not a broken form.
-// `status`: "active" (default, 15 people) or "all" (17 — the extra 2 are "inactive"). 422 on
-// anything else. Sorted by name, case-insensitive, by the server.
-export async function getDashboardUsers(status: "active" | "all" = "active") {
-  const res = await fetch(`${POP_API}/dashboard/users?status=${status}`);
-  return _handleResponse(res);
+// document (verified_by stays a plain string, same as today). Goes through the same
+// GET /users/by-role the rest of the app already uses (UserService, see
+// hooks/services/userService.ts) — the real reviewer-system users collection, auth'd with the
+// signed-in user's Firebase token via apiFetch — NOT the POP backend's own /dashboard/users,
+// which turned out to read a different application's stale collection in a shared staging
+// database and was showing outdated names in prod. Every caller treats a failure here as
+// non-fatal and falls back to a free-text input (MetadataFieldInput.tsx).
+export async function getDashboardUsers(roles: UserRole[] = ["admin", "moderator", "expert"]) {
+  return (await userService.getUsersByRole(roles)) || [];
 }
 
 // `placements` is the per-state folder-group shape: [{state, crop_ids: [...], organization_ids:

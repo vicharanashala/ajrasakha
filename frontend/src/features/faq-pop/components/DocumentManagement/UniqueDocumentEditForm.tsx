@@ -42,23 +42,22 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
   const [saving, setSaving] = useState(false);
 
   const [languageOptions, setLanguageOptions] = useState([]);
-  // "all" (not just active) — this document may already be verified by someone since
-  // deactivated, and that shouldn't disappear from the dropdown just because they can't verify
-  // anything new. Falls back to a plain text input in MetadataFieldInput if the list is empty
-  // (e.g. the backend's 503 case, its users collection unreachable).
+  // Admins/moderators/experts from the real reviewer-system users collection (see
+  // getDashboardUsers's comment in api.ts). Falls back to a plain text input in
+  // MetadataFieldInput if the list is empty (e.g. request failed).
   const [userOptions, setUserOptions] = useState([]);
   useEffect(() => {
     getDashboardLanguages()
       .then((d) => setLanguageOptions(d || []))
       .catch(() => {});
-    getDashboardUsers("all")
+    getDashboardUsers()
       .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
       .catch(() => {});
   }, []);
 
-  // Covers the one gap "all" doesn't: a name that was RENAMED after being recorded here rather
-  // than deactivated. Show it as an extra option instead of silently dropping the document's
-  // current value off the list (per backend's explicit ask).
+  // Covers a name that was renamed, or whose role changed away from admin/moderator/expert,
+  // after being recorded here. Show it as an extra option instead of silently dropping the
+  // document's current value off the list.
   const verifiedByOptions =
     doc?.verified_by && !userOptions.includes(doc.verified_by)
       ? [...userOptions, doc.verified_by]
