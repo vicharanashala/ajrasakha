@@ -3,11 +3,17 @@ import webPush from 'web-push';
 import {ISubscription} from '#root/shared/index.js';
 // import { CORE_TYPES, NotificationService } from '#root/modules/core/index.js';
 // import { getContainer } from '#root/bootstrap/loadModules.js';
-webPush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL}`,
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  try {
+    webPush.setVapidDetails(
+      `mailto:${process.env.VAPID_EMAIL || 'admin@vicharanashala.ai'}`,
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY,
+    );
+  } catch (err: any) {
+    console.warn('[Push Notification] VAPID initialization skipped in development.');
+  }
+}
 
 export const sendPushNotification = async (
   subscription: any,

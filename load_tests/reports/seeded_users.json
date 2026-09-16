@@ -1,0 +1,62 @@
+[
+  {
+    "email": "expert_1@vicharanashala.ai",
+    "name": "Agricultural Expert 1",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_2@vicharanashala.ai",
+    "name": "Agricultural Expert 2",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_3@vicharanashala.ai",
+    "name": "Agricultural Expert 3",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_4@vicharanashala.ai",
+    "name": "Agricultural Expert 4",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_5@vicharanashala.ai",
+    "name": "Agricultural Expert 5",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_6@vicharanashala.ai",
+    "name": "Agricultural Expert 6",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_7@vicharanashala.ai",
+    "name": "Agricultural Expert 7",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_8@vicharanashala.ai",
+    "name": "Agricultural Expert 8",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_9@vicharanashala.ai",
+    "name": "Agricultural Expert 9",
+    "role": "expert",
+    "password": "TestPassword123!"
+  },
+  {
+    "email": "expert_10@vicharanashala.ai",
+    "name": "Agricultural Expert 10",
+    "role": "expert",
+    "password": "TestPassword123!"
+  }
+]

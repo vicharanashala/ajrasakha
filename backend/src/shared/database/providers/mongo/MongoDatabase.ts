@@ -42,7 +42,8 @@ export class MongoDatabase implements IDatabase<Db> {
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
 
-    this.client = new MongoClient(uri, {
+    const isCloud = uri.includes('mongodb+srv://') || uri.includes('ssl=true');
+    this.client = new MongoClient(uri, isCloud ? {
       ssl: true,
       tls: true,
       tlsAllowInvalidCertificates: false,
@@ -50,6 +51,9 @@ export class MongoDatabase implements IDatabase<Db> {
       retryWrites: true,
       connectTimeoutMS: 30000,
       socketTimeoutMS: 30000
+    } : {
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 5000
     });
   }
 
