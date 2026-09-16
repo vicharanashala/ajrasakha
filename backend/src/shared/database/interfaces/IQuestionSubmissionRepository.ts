@@ -378,4 +378,13 @@ export interface IQuestionSubmissionRepository {
     {questionId: string; reviewerId: string; assignedAt: Date}[]
   >;
 
+  /**
+   * Get PAE validation counts (submitted / completed and pending / in-progress) for PAE experts.
+   * @param paeIds Optional list of PAE expert user IDs to filter by. If omitted, returns stats for all PAE experts found.
+   * @param session Optional MongoDB session for transaction
+   */
+  getPaeValidationCountsByPaeIds(
+    paeIds?: string[],
+    session?: ClientSession,
+  ): Promise<Map<string, { submittedCount: number; pendingCount: number }>>;
 }

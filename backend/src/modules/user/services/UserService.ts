@@ -478,6 +478,31 @@ export class UserService extends BaseService {
       opts.isTMU,
     );
 
+    // Fetch PAE validation metrics for pae_expert users
+    const paeUserIds = (users as any[])
+      .filter(u => u.role === 'pae_expert')
+      .map(u => u._id?.toString())
+      .filter(Boolean);
+
+    let paeValidationCountsMap = new Map<
+      string,
+      { submittedCount: number; pendingCount: number }
+    >();
+
+    if (paeUserIds.length > 0) {
+      try {
+        paeValidationCountsMap =
+          await this.questionSubmissionRepo.getPaeValidationCountsByPaeIds(
+            paeUserIds,
+          );
+      } catch (error) {
+        console.error(
+          '[exportUsersToXlsx] Failed to fetch PAE validation counts:',
+          error,
+        );
+      }
+    }
+
     const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
     const asIST = (v: any): string => {
       if (!v) return '';
@@ -520,6 +545,26 @@ export class UserService extends BaseService {
       { header: 'Preferred Crop', value: u => u.preference?.crop ?? '' },
       { header: 'Preferred Domain', value: u => joinArr(u.preference?.domain) },
       { header: 'KVK Covered', value: u => fmtKvk(u.kvkCovered) },
+      {
+        header: 'Validation Submitted',
+        value: u => {
+          if (u.role !== 'pae_expert') return '';
+          const stats = paeValidationCountsMap.get(u._id?.toString() ?? '');
+          return stats?.submittedCount ?? 0;
+        },
+      },
+      {
+        header: 'Validation Pending',
+        value: u => {
+          if (u.role !== 'pae_expert') return '';
+          const stats = paeValidationCountsMap.get(u._id?.toString() ?? '');
+          const pendingFromSubmissions = stats?.pendingCount ?? 0;
+          const pendingFromAssigned = Array.isArray(u.paeValidationAssigned)
+            ? u.paeValidationAssigned.length
+            : 0;
+          return Math.max(pendingFromSubmissions, pendingFromAssigned);
+        },
+      },
       { header: 'Last Check-In', value: u => asIST(u.lastCheckInAt) },
       { header: 'Created At', value: u => asIST(u.createdAt) },
       { header: 'Updated At', value: u => asIST(u.updatedAt) },

@@ -5161,4 +5161,67 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       assignedAt: r.assignedAt,
     }));
   }
+
+  async getPaeValidationCountsByPaeIds(
+    paeIds?: string[],
+    session?: ClientSession,
+  ): Promise<Map<string, { submittedCount: number; pendingCount: number }>> {
+    await this.init();
+    const matchStage: Record<string, any> = { 'paeValidation.0': { $exists: true } };
+
+    if (paeIds && paeIds.length > 0) {
+      const matchOids = paeIds
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
+      const allPaeIds = Array.from(new Set([...paeIds, ...matchOids]));
+      matchStage['paeValidation.paeId'] = { $in: allPaeIds };
+    }
+
+    const pipeline: any[] = [
+      { $match: matchStage },
+      { $unwind: '$paeValidation' },
+    ];
+
+    if (paeIds && paeIds.length > 0) {
+      const matchOids = paeIds
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
+      const allPaeIds = Array.from(new Set([...paeIds, ...matchOids]));
+      pipeline.push({
+        $match: { 'paeValidation.paeId': { $in: allPaeIds } },
+      });
+    }
+
+    pipeline.push({
+      $group: {
+        _id: { $toString: '$paeValidation.paeId' },
+        submittedCount: {
+          $sum: {
+            $cond: [{ $eq: ['$paeValidation.paeStatus', 'completed'] }, 1, 0],
+          },
+        },
+        pendingCount: {
+          $sum: {
+            $cond: [{ $eq: ['$paeValidation.paeStatus', 'in-progress'] }, 1, 0],
+          },
+        },
+      },
+    });
+
+    const rows = await this.QuestionSubmissionCollection.aggregate(
+      pipeline,
+      { session },
+    ).toArray();
+
+    const countsMap = new Map<string, { submittedCount: number; pendingCount: number }>();
+    for (const r of rows) {
+      if (r._id) {
+        countsMap.set(r._id.toString(), {
+          submittedCount: r.submittedCount || 0,
+          pendingCount: r.pendingCount || 0,
+        });
+      }
+    }
+    return countsMap;
+  }
 }
