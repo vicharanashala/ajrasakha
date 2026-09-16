@@ -55,7 +55,7 @@ PG_PASSWORD = os.environ.get('POSTGRES_PASSWORD', 'ai_secret3')
 PG_DATABASE = os.environ.get('POSTGRES_DB', 'ai3')
 
 # GCP credentials
-GCP_CREDS_FILE = "/app/gcp-credentials.json"
+GCP_CREDS_FILE = "/app/ajrasakha/agents/gcp-credentials.json"
 
 
 def run_pg_dump(backup_file: Path):
