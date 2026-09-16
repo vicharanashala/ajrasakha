@@ -1,0 +1,9 @@
+# Langgraph PostgreSQL Backup Cron Schedule
+# Runs daily at 2:00 AM via the ai container with IS_BACKUP=true
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+BACKUP_LOG=/var/log/postgres_backup.log
+
+# Daily backup at 2:00 AM - sets IS_BACKUP=true to trigger backup
+0 2 * * * cd /Users/aryankohli/ajrasakha/ai/ajrasakha/agents && IS_BACKUP=true docker compose exec -T ai python3 /app/backup_to_gcs.py >> ${BACKUP_LOG} 2>&1
