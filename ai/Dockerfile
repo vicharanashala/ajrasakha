@@ -58,6 +58,9 @@ RUN echo 'SHELL=/bin/bash' >> /etc/crontab \
     && echo 'PATH=/usr/local/bin:/usr/bin:/bin' >> /etc/crontab \
     && echo '0 2 * * * root cd /app && IS_BACKUP=true python3 -m ajrasakha.agents.backup_to_gcs >> /var/log/backup.log 2>&1' >> /etc/crontab
 
+# Create start.sh before switching to non-root user
+RUN echo '#!/bin/bash\ncron\n/app/.venv/bin/aegra serve' > /start.sh && chmod +x /start.sh
+
 
 COPY README.md ./
 COPY --from=builder /app/.venv /app/.venv
@@ -70,8 +73,5 @@ ENV PATH="/app/.venv/bin:$PATH" \
 EXPOSE 2026
 
 USER app
-
-# Start cron in background and then run aegra
-RUN echo '#!/bin/bash\ncron\n/app/.venv/bin/aegra serve' > /start.sh && chmod +x /start.sh
 
 CMD ["/start.sh"]
