@@ -364,220 +364,108 @@ export const buildOverallSystemStatsTable = (stats: DailyStats) => `
       <tbody>
 
         <!-- Total Questions -->
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 18px 20px;">
-            <div style="font-size: 14px; font-weight: 600; color: #374151;">
-              Total Questions in System
-            </div>
-
-            <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-              Agri Questions:
-              <strong style="color: #374151;">
-                ${stats.agriCount.toLocaleString()}
-              </strong>
-              &nbsp;&nbsp;•&nbsp;&nbsp;
-              Non-Agri:
-              <strong style="color: #374151;">
-                ${stats.nonAgriCount.toLocaleString()}
-              </strong>
-            </div>
-          </td>
-
-          <td style="padding: 18px 20px; text-align: right;">
-            <span style="
-              display: inline-block;
-              background-color: #f3f4f6;
-              color: #111827;
-              padding: 7px 12px;
-              border-radius: 6px;
-              font-size: 16px;
-              font-weight: 700;
-            ">
-              ${stats.totalQuestions.toLocaleString()}
-            </span>
-          </td>
+        <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+          <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Total Questions in System</td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${stats.totalQuestions.toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Agri Questions</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.agriCount ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Non-Agri</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.nonAgriCount ?? 0).toLocaleString()}</td>
         </tr>
 
 
         <!-- Expert Review -->
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 18px 20px;">
-            <div style="font-size: 14px; font-weight: 600; color: #374151;">
-              Under Expert Review
-            </div>
-
-            <table border="0" cellpadding="0" cellspacing="0"
-              style="margin-top: 10px; font-size: 12px; color: #6b7280;">
-              <tr>
-                <td style="padding: 2px 16px 2px 0;">
-                  Pending: <strong>${stats.pending.toLocaleString()}</strong>
-                </td>
-                <td style="padding: 2px 16px 2px 0;">
-                  Dynamic: <strong>${stats.dynamic.toLocaleString()}</strong>
-                </td>
-                <td style="padding: 2px 0;">
-                  Duplicate: <strong>${stats.duplicate.toLocaleString()}</strong>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 2px 16px 2px 0;">
-                  Open: <strong>${stats.open.toLocaleString()}</strong>
-                </td>
-                <td style="padding: 2px 16px 2px 0;">
-                  Delayed: <strong>${stats.delayed.toLocaleString()}</strong>
-                </td>
-                <td style="padding: 2px 0;">
-                  Hold: <strong>${stats.hold.toLocaleString()}</strong>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 2px 16px 2px 0;">
-                  Re-routed: <strong>${stats.rerouted.toLocaleString()}</strong>
-                </td>
-              </tr>
-            </table>
-          </td>
-
-          <td style="padding: 18px 20px; text-align: right; vertical-align: top;">
-            <span style="
-              display: inline-block;
-              background-color: #f3f4f6;
-              color: #111827;
-              padding: 7px 12px;
-              border-radius: 6px;
-              font-size: 15px;
-              font-weight: 700;
-            ">
-              ${(
-                stats.pending +
-                stats.dynamic +
-                stats.duplicate +
-                stats.open +
-                stats.delayed +
-                stats.hold +
-                stats.rerouted
-              ).toLocaleString()}
-            </span>
-          </td>
+        <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+          <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Under Expert Review</td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${(
+            (stats.pending ?? 0) +
+            (stats.dynamic ?? 0) +
+            (stats.duplicate ?? 0) +
+            (stats.open ?? 0) +
+            (stats.delayed ?? 0) +
+            (stats.hold ?? 0) +
+            (stats.rerouted ?? 0)
+          ).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Pending</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.pending ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Open</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.open ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Delayed</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.delayed ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Hold</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.hold ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Dynamic</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.dynamic ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Duplicate</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.duplicate ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Re-routed</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.rerouted ?? 0).toLocaleString()}</td>
         </tr>
 
 
         <!-- Non-Golden Dataset -->
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 18px 20px;">
-            <div style="font-size: 14px; font-weight: 600; color: #374151;">
-              Total Non-Golden Dataset Questions
-            </div>
-
-            <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-              Pass:
-              <strong>${stats.pass.toLocaleString()}</strong>
-              &nbsp;&nbsp;•&nbsp;&nbsp;
-              Dynamic Closed:
-              <strong>${stats.dynamicClosed.toLocaleString()}</strong>
-              &nbsp;&nbsp;•&nbsp;&nbsp;
-              Duplicate Closed:
-              <strong>${stats.duplicateClosed.toLocaleString()}</strong>
-            </div>
-          </td>
-
-          <td style="padding: 18px 20px; text-align: right;">
-            <span style="
-              display: inline-block;
-              background-color: #f3f4f6;
-              color: #111827;
-              padding: 7px 12px;
-              border-radius: 6px;
-              font-size: 15px;
-              font-weight: 700;
-            ">
-              ${(
-                stats.pass +
-                stats.dynamicClosed +
-                stats.duplicateClosed
-              ).toLocaleString()}
-            </span>
-          </td>
+        <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+          <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Total Non-Golden Dataset Questions</td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${(
+            (stats.pass ?? 0) + (stats.dynamicClosed ?? 0) + (stats.duplicateClosed ?? 0)
+          ).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Pass</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.pass ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Dynamic Closed</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.dynamicClosed ?? 0).toLocaleString()}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Duplicate Closed</td>
+          <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.duplicateClosed ?? 0).toLocaleString()}</td>
         </tr>
 
-
-        <!-- Approval Rate -->
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="
-            padding: 18px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #374151;
-          ">
-            Moderator Approval Rate
-          </td>
-
-          <td style="padding: 18px 20px; text-align: right;">
-            <span style="
-              display: inline-block;
-              background-color: #f3f4f6;
-              padding: 7px 12px;
-              border-radius: 6px;
-              font-size: 16px;
-              font-weight: 700;
-              color: #111827;
-            ">
-              ${(stats.newModeratorApprovalRate).toFixed(2)}%
-            </span>
-          </td>
-        </tr>
 
           <!-- ========================================= -->
           <!-- MODERATOR QUEUE -->
           <!-- ========================================= -->
 
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 12px 20px 18px;">
-              <div style="
-                font-size: 14px;
-                font-weight: 600;
-                color: #374151;
-              ">
-                Pending Moderator Approval
-              </div>
-
-              <div style="
-                margin-top: 7px;
-                font-size: 12px;
-                color: #6b7280;
-              ">
-                In Review:
-                <strong style="color: #374151;">
-                  ${stats.inReview.toLocaleString()}
-                </strong>
-
-                &nbsp;&nbsp;•&nbsp;&nbsp;
-
-                PAE Submitted:
-                <strong style="color: #374151;">
-                  ${stats.paeSubmitted.toLocaleString()}
-                </strong>
-              </div>
-            </td>
-
-            <td style="
-              padding: 12px 20px 18px;
-              text-align: right;
-              vertical-align: middle;
-            ">
-              <span style="
-                display: inline-block;
-                background-color: #f3f4f6;
-                color: #111827;
-                padding: 7px 12px;
-                border-radius: 6px;
-                font-size: 15px;
-                font-weight: 700;
-              ">
-                ${(stats.inReview + stats.paeSubmitted).toLocaleString()}
-              </span>
-            </td>
+          <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+            <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Pending Moderator Approval</td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${(
+              (stats.inReview ?? 0) + (stats.paeSubmitted ?? 0)
+            ).toLocaleString()}</td>
           </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">In Review</td>
+            <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.inReview ?? 0).toLocaleString()}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">PAE Submitted</td>
+            <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.paeSubmitted ?? 0).toLocaleString()}</td>
+          </tr>
+
+        <!-- Approval Rate -->
+        <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Moderator Approval Rate</td>
+          <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${(stats.newModeratorApprovalRate ?? 0).toFixed(2)}%</td>
+        </tr>
 
              <!-- ========================================= -->
           <!-- OVERALL GOLDEN DATASET -->
@@ -1222,6 +1110,24 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             </td>
           </tr>
 
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+              Agri Expert
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${(stats.todayAddedAgriExpertCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+              Outreach
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${(stats.todayAddedOutReachCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
           <!-- WebApp vs WhatsApp entries, broken down by type -->
           <tr style="border-bottom: 1px solid #f3f4f6;">
             <td colspan="2" style="padding: 8px 20px 16px 32px;">
@@ -1264,140 +1170,51 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             </td>
           </tr>
 
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
-              Outreach
-            </td>
-            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${(stats.todayAddedOutReachCount ?? 0).toLocaleString()}
-            </td>
-          </tr>
-
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
-              Agri Expert
-            </td>
-            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${(stats.todayAddedAgriExpertCount ?? 0).toLocaleString()}
-            </td>
-          </tr>
-
           <!-- ========================================= -->
           <!-- NON-GOLDEN DATASET ENTRIES TODAY -->
           <!-- ========================================= -->
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 18px 20px;">
-              <div style="font-size: 14px; font-weight: 600; color: #374151;">
-                Non-Golden Dataset Entries Today
-              </div>
-              <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-                Pass:
-                <strong>${(stats.todayPass ?? 0).toLocaleString()}</strong>
-                &nbsp;&nbsp;•&nbsp;&nbsp;
-                Dynamic Closed:
-                <strong>${(stats.todayDynamicClosed ?? 0).toLocaleString()}</strong>
-                &nbsp;&nbsp;•&nbsp;&nbsp;
-                Duplicate Closed:
-                <strong>${(stats.todayDuplicateClosed ?? 0).toLocaleString()}</strong>
-              </div>
-            </td>
-            <td style="padding: 18px 20px; text-align: right;">
-              <span style="
-                display: inline-block;
-                background-color: #f3f4f6;
-                color: #111827;
-                padding: 7px 12px;
-                border-radius: 6px;
-                font-size: 15px;
-                font-weight: 700;
-              ">
-                ${(
-                  (stats.todayPass ?? 0) +
-                  (stats.todayDynamicClosed ?? 0) +
-                  (stats.todayDuplicateClosed ?? 0)
-                ).toLocaleString()}
-              </span>
-            </td>
+          <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+            <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Non-Golden Dataset Entries Today</td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${(
+              (stats.todayPass ?? 0) +
+              (stats.todayDynamicClosed ?? 0) +
+              (stats.todayDuplicateClosed ?? 0)
+            ).toLocaleString()}</td>
           </tr>
-
-                  <!-- Daily Approval Rate -->
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="
-            padding: 18px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #374151;
-          ">
-            Daily Approval Rate
-            
-          </td>
-
-          <td style="padding: 18px 20px; text-align: right;">
-            <span style="
-              display: inline-block;
-              background-color: #f3f4f6;
-              padding: 7px 12px;
-              border-radius: 6px;
-              font-size: 16px;
-              font-weight: 700;
-              color: #111827;
-            ">
-              ${(stats.dailyApprovalRate ?? 0).toFixed(2)}%
-            </span>
-          </td>
-        </tr>
-
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Pass</td>
+            <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.todayPass ?? 0).toLocaleString()}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Dynamic Closed</td>
+            <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.todayDynamicClosed ?? 0).toLocaleString()}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">Duplicate Closed</td>
+            <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.todayDuplicateClosed ?? 0).toLocaleString()}</td>
+          </tr>
 
           <!-- ========================================= -->
           <!-- MODERATOR QUEUE -->
           <!-- ========================================= -->
 
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 12px 20px 18px;">
-              <div style="
-                font-size: 14px;
-                font-weight: 600;
-                color: #374151;
-              ">
-                Pending Moderator Approval
-              </div>
+          <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+            <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Pending Moderator Approval</td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${pendingModeratorCount.toLocaleString()}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">In Review</td>
+            <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.inReview ?? 0).toLocaleString()}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 9px 20px 9px 36px; font-size: 12px; color: #6b7280;">PAE Submitted</td>
+            <td style="padding: 9px 20px; text-align: right; font-size: 12px; font-weight: 700; color: #374151;">${(stats.paeSubmitted ?? 0).toLocaleString()}</td>
+          </tr>
 
-              <div style="
-                margin-top: 7px;
-                font-size: 12px;
-                color: #6b7280;
-              ">
-                In Review:
-                <strong style="color: #374151;">
-                  ${stats.inReview.toLocaleString()}
-                </strong>
-
-                &nbsp;&nbsp;•&nbsp;&nbsp;
-
-                PAE Submitted:
-                <strong style="color: #374151;">
-                  ${stats.paeSubmitted.toLocaleString()}
-                </strong>
-              </div>
-            </td>
-
-            <td style="
-              padding: 12px 20px 18px;
-              text-align: right;
-              vertical-align: middle;
-            ">
-              <span style="
-                display: inline-block;
-                background-color: #f3f4f6;
-                color: #111827;
-                padding: 7px 12px;
-                border-radius: 6px;
-                font-size: 15px;
-                font-weight: 700;
-              ">
-                ${pendingModeratorCount.toLocaleString()}
-              </span>
-            </td>
+          <!-- Daily Approval Rate -->
+          <tr style="background-color: #f8fafc; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 12px 20px; font-size: 14px; font-weight: 700; color: #111827;">Daily Approval Rate</td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 14px; font-weight: 700; color: #111827;">${(stats.dailyApprovalRate ?? 0).toFixed(2)}%</td>
           </tr>
 
 
