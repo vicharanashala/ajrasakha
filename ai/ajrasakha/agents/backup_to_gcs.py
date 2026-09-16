@@ -119,7 +119,7 @@ def cleanup_local_backups():
 
 def send_backup_email(backup_size_mb, gcs_path, backup_time, error=None):
     """Send email notification about backup result."""
-    from email_service import send_backup_notification
+    from ajrasakha.agents.email_service import send_backup_notification
     return send_backup_notification(
         backup_size_mb=backup_size_mb,
         gcs_path=gcs_path,
