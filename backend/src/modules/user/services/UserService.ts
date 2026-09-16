@@ -478,7 +478,7 @@ export class UserService extends BaseService {
       opts.isTMU,
     );
 
-    // Fetch PAE validation metrics for pae_expert users
+    // Fetch PAE validation and review metrics for pae_expert users
     const paeUserIds = (users as any[])
       .filter(u => u.role === 'pae_expert')
       .map(u => u._id?.toString())
@@ -488,16 +488,33 @@ export class UserService extends BaseService {
       string,
       { submittedCount: number; pendingCount: number }
     >();
+    let paeReviewCountsMap = new Map<
+      string,
+      {
+        authorSubmittedCount: number;
+        reviewerSubmittedCount: number;
+        totalReviewCompleted: number;
+        authorPendingCount: number;
+        reviewerPendingCount: number;
+        totalReviewPending: number;
+      }
+    >();
 
     if (paeUserIds.length > 0) {
       try {
-        paeValidationCountsMap =
-          await this.questionSubmissionRepo.getPaeValidationCountsByPaeIds(
+        const [validationCounts, reviewCounts] = await Promise.all([
+          this.questionSubmissionRepo.getPaeValidationCountsByPaeIds(
             paeUserIds,
-          );
+          ),
+          this.questionSubmissionRepo.getPaeReviewCountsByPaeIds(
+            paeUserIds,
+          ),
+        ]);
+        paeValidationCountsMap = validationCounts;
+        paeReviewCountsMap = reviewCounts;
       } catch (error) {
         console.error(
-          '[exportUsersToXlsx] Failed to fetch PAE validation counts:',
+          '[exportUsersToXlsx] Failed to fetch PAE metrics:',
           error,
         );
       }
@@ -563,6 +580,22 @@ export class UserService extends BaseService {
             ? u.paeValidationAssigned.length
             : 0;
           return Math.max(pendingFromSubmissions, pendingFromAssigned);
+        },
+      },
+      {
+        header: 'Review Completed',
+        value: u => {
+          if (u.role !== 'pae_expert') return '';
+          const stats = paeReviewCountsMap.get(u._id?.toString() ?? '');
+          return stats?.totalReviewCompleted ?? 0;
+        },
+      },
+      {
+        header: 'Review Pending',
+        value: u => {
+          if (u.role !== 'pae_expert') return '';
+          const stats = paeReviewCountsMap.get(u._id?.toString() ?? '');
+          return stats?.totalReviewPending ?? 0;
         },
       },
       { header: 'Last Check-In', value: u => asIST(u.lastCheckInAt) },

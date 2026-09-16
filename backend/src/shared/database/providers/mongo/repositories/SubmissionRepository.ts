@@ -5224,4 +5224,149 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
     return countsMap;
   }
+
+  async getPaeReviewCountsByPaeIds(
+    paeIds?: string[],
+    session?: ClientSession,
+  ): Promise<
+    Map<
+      string,
+      {
+        authorSubmittedCount: number;
+        reviewerSubmittedCount: number;
+        totalReviewCompleted: number;
+        authorPendingCount: number;
+        reviewerPendingCount: number;
+        totalReviewPending: number;
+      }
+    >
+  > {
+    await this.init();
+
+    // 1. Find all PAE questions (pae_review: true)
+    const paeQuestions = await this.QuestionCollection.find(
+      { pae_review: true },
+      { projection: { _id: 1 }, session },
+    ).toArray();
+
+    const countsMap = new Map<
+      string,
+      {
+        authorSubmittedCount: number;
+        reviewerSubmittedCount: number;
+        totalReviewCompleted: number;
+        authorPendingCount: number;
+        reviewerPendingCount: number;
+        totalReviewPending: number;
+      }
+    >();
+
+    if (paeQuestions.length === 0) {
+      return countsMap;
+    }
+
+    const paeQuestionIds = paeQuestions.map(q => q._id);
+
+    // 2. Fetch corresponding question_submissions
+    const submissions = await this.QuestionSubmissionCollection.find(
+      { questionId: { $in: paeQuestionIds } },
+      { projection: { questionId: 1, history: 1, queue: 1 }, session },
+    ).toArray();
+
+    const targetPaeIdSet =
+      paeIds && paeIds.length > 0
+        ? new Set(paeIds.map(id => id.toString()))
+        : null;
+
+    const getStats = (id: string) => {
+      let s = countsMap.get(id);
+      if (!s) {
+        s = {
+          authorSubmittedCount: 0,
+          reviewerSubmittedCount: 0,
+          totalReviewCompleted: 0,
+          authorPendingCount: 0,
+          reviewerPendingCount: 0,
+          totalReviewPending: 0,
+        };
+        countsMap.set(id, s);
+      }
+      return s;
+    };
+
+    for (const sub of submissions) {
+      const history = Array.isArray(sub.history) ? sub.history : [];
+      const queue = Array.isArray(sub.queue) ? sub.queue : [];
+
+      if (history.length === 0) {
+        // Case 2: Author Level Pending — history is empty and first item in queue is the pending author
+        if (queue.length > 0) {
+          const pendingAuthorId = queue[0]?.toString();
+          if (
+            pendingAuthorId &&
+            (!targetPaeIdSet || targetPaeIdSet.has(pendingAuthorId))
+          ) {
+            const stats = getStats(pendingAuthorId);
+            stats.authorPendingCount++;
+            stats.totalReviewPending++;
+          }
+        }
+      } else {
+        // Case 1: Author Level Submitted — answer field exists in history (first entry appended upon author submission)
+        const authorEntry = history[0];
+        const hasAnswer =
+          authorEntry?.answer !== undefined &&
+          authorEntry?.answer !== null &&
+          authorEntry?.answer !== '';
+        const authorId = authorEntry?.updatedBy?.toString();
+        if (
+          hasAnswer &&
+          authorId &&
+          (!targetPaeIdSet || targetPaeIdSet.has(authorId))
+        ) {
+          const stats = getStats(authorId);
+          stats.authorSubmittedCount++;
+          stats.totalReviewCompleted++;
+        }
+
+        // Case 3: Reviewer Level Submitted — reviewId exists in history and status is not 'in-review'
+        for (let i = 1; i < history.length; i++) {
+          const reviewEntry = history[i];
+          const reviewerId = reviewEntry?.updatedBy?.toString();
+          const hasReviewId =
+            reviewEntry?.reviewId !== undefined &&
+            reviewEntry?.reviewId !== null &&
+            reviewEntry?.reviewId !== '';
+          const isNotRunning = reviewEntry?.status !== 'in-review';
+
+          if (
+            hasReviewId &&
+            isNotRunning &&
+            reviewerId &&
+            (!targetPaeIdSet || targetPaeIdSet.has(reviewerId))
+          ) {
+            const stats = getStats(reviewerId);
+            stats.reviewerSubmittedCount++;
+            stats.totalReviewCompleted++;
+          }
+        }
+
+        // Case 4: Reviewer Level Pending — status is 'in-review' and there is no document after it (last entry)
+        const lastEntry = history[history.length - 1];
+        if (lastEntry?.status === 'in-review') {
+          const pendingReviewerId = lastEntry?.updatedBy?.toString();
+          if (
+            pendingReviewerId &&
+            (!targetPaeIdSet || targetPaeIdSet.has(pendingReviewerId))
+          ) {
+            const stats = getStats(pendingReviewerId);
+            stats.reviewerPendingCount++;
+            stats.totalReviewPending++;
+          }
+        }
+      }
+    }
+
+    return countsMap;
+  }
 }
