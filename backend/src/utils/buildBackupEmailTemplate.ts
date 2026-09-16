@@ -524,7 +524,7 @@ export const buildPendingByLevelTable = (pending: PendingByLevel) => {
   // only when there is data beyond 9 — so per-row counts still sum to the totals.
   const rowsData: { label: string; tb: number; mn: number }[] = [];
   for (let lvl = 1; lvl <= 9; lvl++) {
-    rowsData.push({ label: `Level ${lvl}`, tb: tb.get(lvl) ?? 0, mn: mn.get(lvl) ?? 0 });
+    rowsData.push({ label: `Pre Reviewer ${lvl}`, tb: tb.get(lvl) ?? 0, mn: mn.get(lvl) ?? 0 });
   }
   const tbBeyond = pending.timeBound.levels
     .filter(l => l.level > 9)
@@ -533,7 +533,7 @@ export const buildPendingByLevelTable = (pending: PendingByLevel) => {
     .filter(l => l.level > 9)
     .reduce((s, l) => s + l.count, 0);
   if (tbBeyond > 0 || mnBeyond > 0) {
-    rowsData.push({ label: 'Level 10+', tb: tbBeyond, mn: mnBeyond });
+    rowsData.push({ label: 'Pre Reviewer 10+', tb: tbBeyond, mn: mnBeyond });
   }
 
   const cell = (v: number) =>
@@ -574,7 +574,7 @@ export const buildPendingByLevelTable = (pending: PendingByLevel) => {
         Pending Questions by Level
       </h2>
       <p style="margin: 5px 0 0; font-size: 12px; line-height: 18px; color: #6b7280;">
-        Author = never allocated; each level = waiting for that reviewer; Moderator = waiting for a moderator
+        Pre Author = never allocated; Pre Reviewer N = waiting for reviewer N; Pre Moderator = waiting for a moderator
       </p>
     </div>
 
@@ -589,7 +589,7 @@ export const buildPendingByLevelTable = (pending: PendingByLevel) => {
       <tbody>
         <tr style="border-bottom: 1px solid #f3f4f6;">
           <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
-            Author <span style="font-size: 11px; color: #9ca3af;">(never allocated)</span>
+            Pre Author <span style="font-size: 11px; color: #9ca3af;">(never allocated)</span>
           </td>
           ${cell(pending.timeBound.author)}
           ${cell(pending.manual.author)}
@@ -602,7 +602,7 @@ export const buildPendingByLevelTable = (pending: PendingByLevel) => {
         </tr>
         <tr style="background-color: #f8fafc;">
           <td style="padding: 12px 20px; font-size: 13px; font-weight: 700; color: #111827;">
-            Moderator <span style="font-size: 11px; font-weight: 400; color: #9ca3af;">(waiting for moderator)</span>
+            Pre Moderator <span style="font-size: 11px; font-weight: 400; color: #9ca3af;">(waiting for moderator)</span>
           </td>
           <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #111827;">${pending.timeBound.moderator.toLocaleString()}</td>
           <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #111827;">${pending.manual.moderator.toLocaleString()}</td>
