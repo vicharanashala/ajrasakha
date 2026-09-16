@@ -2617,6 +2617,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
+  async getPendingByLevel(isTrainingUser?: boolean, isAdmin?: boolean) {
+    return this.queueService.getPendingByLevel(isTrainingUser, isAdmin);
+  }
+
   /**
    * Remove the second entry from history and queue arrays in a question submission.
    * This is used for migration purposes to fix duplicate entries.

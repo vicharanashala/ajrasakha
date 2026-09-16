@@ -1,4553 +1,4553 @@
-// // import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
-// // import { BaseService, MongoDatabase } from '#root/shared/index.js';
-// // import { GLOBAL_TYPES } from '#root/types.js';
-// // import { inject, injectable } from 'inversify';
-// // import { ClientSession, ObjectId } from 'mongodb';
-// // import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
-// // import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
-// // import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
-// // import {
-// //   IQuestion,
-// //   IUser,
-// //   IQuestionSubmission,
-// //   ISubmissionHistory,
-// //   IAnswer,
-// //   INotificationType,
-// //   IQuestionPriority,
-// //   ISimilarQuestion,
-// //   AddQuestionResult,
-// //   ICheckStatusResponse,
-// //   IPreviousAllocations,
-// //   IAuthorsHistory,
-// //   QuestionStatus,
-// //   QuestionSource,
-// //   UserRole,
-// //   TIME_BOUND_SOURCES,
-// //   MANUAL_SOURCES,
-// //   IFeedback,
-// // } from '#root/shared/interfaces/models.js';
-// // import {
-// //   BadRequestError,
-// //   ForbiddenError,
-// //   InternalServerError,
-// //   NotFoundError,
-// //   UnauthorizedError,
-// // } from 'routing-controllers';
-// // import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
-// // import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-// // import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
-// // import { IRequestRepository } from '#root/shared/database/interfaces/IRequestRepository.js';
-// // import { IContextRepository } from '#root/shared/database/interfaces/IContextRepository.js';
-// // import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
-// // import { notifyUser } from '#root/utils/pushNotification.js';
-// // import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
-// // import { appConfig } from '#root/config/app.js';
-// // import { AiService } from '#root/modules/ai/services/AiService.js';
-// // import {
-// //   AddQuestionBodyDto,
-// //   AllocatedQuestionsBodyDto,
-// //   DetailedQuestionsBodyDto,
-// //   GeneratedQuestionResponse,
-// //   GetDetailedQuestionsQuery,
-// //   QuestionResponse,
-// // } from '../classes/validators/QuestionVaidators.js';
-// // import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-// // import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
-// // import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
-// // import { CORE_TYPES } from '#root/modules/core/types.js';
-// // import {
-// //   IQuestionService,
-// //   QueueDetailsResponse,
-// //   QueueQuestionItem,
-// //   QueueExpertItem,
-// //   QueueSectionName,
-// //   QueueSectionResult,
-// //   RawQueueQuestionRow,
-// //   FeedbackResponse,
-// //   FeedbackData,
-// //   FeedbackQueueDetails,
-// //   PaeValidationQueueDetails,
-// // } from '../interfaces/IQuestionService.js';
-// // import type {
-// //   PaeValidationQuestion,
-// //   PaeValidationAnswer,
-// //   PaeValidationAssignedQuestionsResponse,
-// // } from '../interfaces/QuestionValidationTypes.js';
-// // import { isToday } from '#root/utils/date.utils.js';
-// // import { UserService } from '#root/modules/user/services/UserService.js';
-// // import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
-// // import { sendEmailWithAttachment } from '#root/utils/mailer.js';
-// // import ExcelJS from 'exceljs';
-// // import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
-// // import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
-// // import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
-// // import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
-// // import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
-// // import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
-// // import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
-// // import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
-// // import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
-// // import {
-// //   AuditAction,
-// //   AuditCategory,
-// //   ModeratorAuditTrail,
-// //   OutComeStatus,
-// // } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
-// // import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
-// // import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
-// // import { checkDuplicateQuestionHelper, isQuestionMatchForPaeExpert } from '../helpers/duplicateQuestionHelper.js';
-// // import {
-// //   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-// //   TOTAL_EXPERTS_LIMIT,
-// // } from '#root/shared/constants/general.js';
-// // import { toTitleCase } from '#root/utils/ToTitlecase.js';
-// // import axios from 'axios';
-// // import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
-// // import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+// // // import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+// // // import { BaseService, MongoDatabase } from '#root/shared/index.js';
+// // // import { GLOBAL_TYPES } from '#root/types.js';
+// // // import { inject, injectable } from 'inversify';
+// // // import { ClientSession, ObjectId } from 'mongodb';
+// // // import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
+// // // import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
+// // // import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
+// // // import {
+// // //   IQuestion,
+// // //   IUser,
+// // //   IQuestionSubmission,
+// // //   ISubmissionHistory,
+// // //   IAnswer,
+// // //   INotificationType,
+// // //   IQuestionPriority,
+// // //   ISimilarQuestion,
+// // //   AddQuestionResult,
+// // //   ICheckStatusResponse,
+// // //   IPreviousAllocations,
+// // //   IAuthorsHistory,
+// // //   QuestionStatus,
+// // //   QuestionSource,
+// // //   UserRole,
+// // //   TIME_BOUND_SOURCES,
+// // //   MANUAL_SOURCES,
+// // //   IFeedback,
+// // // } from '#root/shared/interfaces/models.js';
+// // // import {
+// // //   BadRequestError,
+// // //   ForbiddenError,
+// // //   InternalServerError,
+// // //   NotFoundError,
+// // //   UnauthorizedError,
+// // // } from 'routing-controllers';
+// // // import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
+// // // import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+// // // import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+// // // import { IRequestRepository } from '#root/shared/database/interfaces/IRequestRepository.js';
+// // // import { IContextRepository } from '#root/shared/database/interfaces/IContextRepository.js';
+// // // import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+// // // import { notifyUser } from '#root/utils/pushNotification.js';
+// // // import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
+// // // import { appConfig } from '#root/config/app.js';
+// // // import { AiService } from '#root/modules/ai/services/AiService.js';
+// // // import {
+// // //   AddQuestionBodyDto,
+// // //   AllocatedQuestionsBodyDto,
+// // //   DetailedQuestionsBodyDto,
+// // //   GeneratedQuestionResponse,
+// // //   GetDetailedQuestionsQuery,
+// // //   QuestionResponse,
+// // // } from '../classes/validators/QuestionVaidators.js';
+// // // import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+// // // import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+// // // import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+// // // import { CORE_TYPES } from '#root/modules/core/types.js';
+// // // import {
+// // //   IQuestionService,
+// // //   QueueDetailsResponse,
+// // //   QueueQuestionItem,
+// // //   QueueExpertItem,
+// // //   QueueSectionName,
+// // //   QueueSectionResult,
+// // //   RawQueueQuestionRow,
+// // //   FeedbackResponse,
+// // //   FeedbackData,
+// // //   FeedbackQueueDetails,
+// // //   PaeValidationQueueDetails,
+// // // } from '../interfaces/IQuestionService.js';
+// // // import type {
+// // //   PaeValidationQuestion,
+// // //   PaeValidationAnswer,
+// // //   PaeValidationAssignedQuestionsResponse,
+// // // } from '../interfaces/QuestionValidationTypes.js';
+// // // import { isToday } from '#root/utils/date.utils.js';
+// // // import { UserService } from '#root/modules/user/services/UserService.js';
+// // // import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
+// // // import { sendEmailWithAttachment } from '#root/utils/mailer.js';
+// // // import ExcelJS from 'exceljs';
+// // // import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
+// // // import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+// // // import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
+// // // import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
+// // // import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
+// // // import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
+// // // import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
+// // // import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+// // // import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+// // // import {
+// // //   AuditAction,
+// // //   AuditCategory,
+// // //   ModeratorAuditTrail,
+// // //   OutComeStatus,
+// // // } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+// // // import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
+// // // import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
+// // // import { checkDuplicateQuestionHelper, isQuestionMatchForPaeExpert } from '../helpers/duplicateQuestionHelper.js';
+// // // import {
+// // //   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+// // //   TOTAL_EXPERTS_LIMIT,
+// // // } from '#root/shared/constants/general.js';
+// // // import { toTitleCase } from '#root/utils/ToTitlecase.js';
+// // // import axios from 'axios';
+// // // import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
+// // // import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
-// // /**
-// //  * Module-level guard so two time-bound reallocation runs never overlap. The cron
-// //  * fires every 2 min regardless of whether the previous run (and its detached
-// //  * persistence workers) finished; without this lock an in-flight assignment that
-// //  * hasn't been written yet still looks "free" in the DB and gets double-allocated.
-// //  */
-// // let isReallocatingTimeBound = false;
+// // // /**
+// // //  * Module-level guard so two time-bound reallocation runs never overlap. The cron
+// // //  * fires every 2 min regardless of whether the previous run (and its detached
+// // //  * persistence workers) finished; without this lock an in-flight assignment that
+// // //  * hasn't been written yet still looks "free" in the DB and gets double-allocated.
+// // //  */
+// // // let isReallocatingTimeBound = false;
 
-// // /** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
-// // let isReallocatingManual = false;
+// // // /** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
+// // // let isReallocatingManual = false;
 
-// // let isReallocatingFeedback = false;
+// // // let isReallocatingFeedback = false;
 
-// // @injectable()
-// // export class QuestionService extends BaseService implements IQuestionService {
-// //   constructor(
-// //     @inject(CORE_TYPES.AIService)
-// //     private readonly aiService: AiService,
+// // // @injectable()
+// // // export class QuestionService extends BaseService implements IQuestionService {
+// // //   constructor(
+// // //     @inject(CORE_TYPES.AIService)
+// // //     private readonly aiService: AiService,
 
-// //     @inject(GLOBAL_TYPES.AccAgentService)
-// //     private readonly accAgentService: AccAgentService,
+// // //     @inject(GLOBAL_TYPES.AccAgentService)
+// // //     private readonly accAgentService: AccAgentService,
 
-// //     @inject(GLOBAL_TYPES.ContextRepository)
-// //     private readonly contextRepo: IContextRepository,
+// // //     @inject(GLOBAL_TYPES.ContextRepository)
+// // //     private readonly contextRepo: IContextRepository,
 
-// //     @inject(GLOBAL_TYPES.QuestionRepository)
-// //     private readonly questionRepo: IQuestionRepository,
+// // //     @inject(GLOBAL_TYPES.QuestionRepository)
+// // //     private readonly questionRepo: IQuestionRepository,
 
-// //     @inject(GLOBAL_TYPES.UserRepository)
-// //     private readonly userRepo: IUserRepository,
+// // //     @inject(GLOBAL_TYPES.UserRepository)
+// // //     private readonly userRepo: IUserRepository,
 
-// //     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
-// //     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+// // //     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+// // //     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
-// //     @inject(GLOBAL_TYPES.RequestRepository)
-// //     private readonly requestRepository: IRequestRepository,
+// // //     @inject(GLOBAL_TYPES.RequestRepository)
+// // //     private readonly requestRepository: IRequestRepository,
 
-// //     @inject(GLOBAL_TYPES.AnswerRepository)
-// //     private readonly answerRepo: IAnswerRepository,
+// // //     @inject(GLOBAL_TYPES.AnswerRepository)
+// // //     private readonly answerRepo: IAnswerRepository,
 
-// //     @inject(GLOBAL_TYPES.NotificationRepository)
-// //     private readonly notificationRepository: INotificationRepository,
+// // //     @inject(GLOBAL_TYPES.NotificationRepository)
+// // //     private readonly notificationRepository: INotificationRepository,
 
-// //     @inject(GLOBAL_TYPES.NotificationService)
-// //     private readonly notificationService: NotificationService,
+// // //     @inject(GLOBAL_TYPES.NotificationService)
+// // //     private readonly notificationService: NotificationService,
 
-// //     @inject(GLOBAL_TYPES.ReRouteRepository)
-// //     private readonly reRouteRepository: IReRouteRepository,
+// // //     @inject(GLOBAL_TYPES.ReRouteRepository)
+// // //     private readonly reRouteRepository: IReRouteRepository,
 
-// //     @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
-// //     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
+// // //     @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
+// // //     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
 
-// //     @inject(GLOBAL_TYPES.CropRepository)
-// //     private readonly cropRepository: ICropRepository,
+// // //     @inject(GLOBAL_TYPES.CropRepository)
+// // //     private readonly cropRepository: ICropRepository,
 
-// //     @inject(CHATBOT_TYPES.ChatbotRepository)
-// //     private readonly chatbotRepository: IChatbotRepository,
+// // //     @inject(CHATBOT_TYPES.ChatbotRepository)
+// // //     private readonly chatbotRepository: IChatbotRepository,
 
-// //     @inject(GLOBAL_TYPES.Database)
-// //     private readonly mongoDatabase: MongoDatabase,
+// // //     @inject(GLOBAL_TYPES.Database)
+// // //     private readonly mongoDatabase: MongoDatabase,
 
-// //     @inject(GLOBAL_TYPES.UserService)
-// //     private readonly userService: UserService,
+// // //     @inject(GLOBAL_TYPES.UserService)
+// // //     private readonly userService: UserService,
 
-// //     @inject(Symbol.for('CallDetailsRepository'))
-// //     private readonly callDetailsRepository: ICallDetailsRepository,
-// //     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
-// //     private readonly auditTrailsService: IAuditTrailsService,
+// // //     @inject(Symbol.for('CallDetailsRepository'))
+// // //     private readonly callDetailsRepository: ICallDetailsRepository,
+// // //     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+// // //     private readonly auditTrailsService: IAuditTrailsService,
 
-// //     @inject(CORE_TYPES.FeedbackRepository)
-// //     private readonly feedbackRepo: IFeedbackRepository,
+// // //     @inject(CORE_TYPES.FeedbackRepository)
+// // //     private readonly feedbackRepo: IFeedbackRepository,
+// // //   ) {
+// // //     super(mongoDatabase);
+// // //   }
+
+// // //   /**
+// // //    * Helper function to truncate question text for notifications
+// // //    */
+// // //   private truncateQuestionText(
+// // //     questionText: string,
+// // //     maxLength: number = 50,
+// // //   ): string {
+// // //     if (!questionText) return 'Question';
+// // //     if (questionText.length <= maxLength) return questionText;
+// // //     return questionText.substring(0, maxLength) + '...';
+// // //   }
+
+// // //   private isQuestionUserTrainingTypeMatch(
+// // //     user: IUser,
+// // //     question: IQuestion,
+// // //   ): boolean {
+// // //     return (
+// // //       (question.isTrainingQuestion === true) === (user.isTrainingUser === true)
+// // //     );
+// // //   }
+
+// // //   async createBulkQuestions(
+// // //     userId: string,
+// // //     questions: any[],
+// // //     isOutreachQuestion?: boolean,
+// // //   ): Promise<string[]> {
+// // //     if (!Array.isArray(questions) || questions.length === 0) {
+// // //       throw new BadRequestError('No questions provided for bulk insert');
+// // //     }
+
+// // //     // const testEmbedding = await this.aiService.getEmbedding('Test'); // disabled locally — AI server not running
+
+// // //     // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
+// // //     const cropCache = new Map<string, string>();
+
+// // //     const formatted: IQuestion[] = [];
+// // //     for (const q of questions) {
+// // //       const low = normalizeKeysToLower(q || {});
+// // //       const details: IQuestion['details'] = {
+// // //         state: (low.state || '').toString(),
+// // //         district: (low.district || '').toString(),
+// // //         crop: (low.crop || '').toString(),
+// // //         season: (low.season || '').toString(),
+// // //         domain: (low.domain || '').toString(),
+// // //       };
+
+// // //       // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
+// // //       const rawCropName = (low.crop || '').toString();
+// // //       let normalised_crop: string | undefined;
+// // //       if (rawCropName.trim()) {
+// // //         const cacheKey = rawCropName.trim().toLowerCase();
+// // //         if (cropCache.has(cacheKey)) {
+// // //           normalised_crop = cropCache.get(cacheKey)!;
+// // //         } else {
+// // //           try {
+// // //             const existingCrop =
+// // //               await this.cropRepository.findByNameOrAlias(rawCropName);
+// // //             if (existingCrop) {
+// // //               normalised_crop = existingCrop.name;
+// // //               cropCache.set(cacheKey, normalised_crop);
+// // //             }
+// // //             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+// // //           } catch (cropError: any) {
+// // //             console.error('Crop normalization warning:', cropError.message);
+// // //           }
+// // //         }
+// // //       }
+// // //       details.crop = rawCropName.trim();
+// // //       if (normalised_crop !== undefined)
+// // //         details.normalised_crop = normalised_crop;
+
+// // //       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
+// // //       const priorities = ['low', 'high', 'medium', 'critical'];
+// // //       const priority = priorities.includes(priorityRaw)
+// // //         ? (priorityRaw as IQuestionPriority)
+// // //         : 'medium';
+// // //       const questionText = (low.question || '').toString().trim();
+// // //       const aiInitialAnswer = q.aiInitialAnswer;
+// // //       if (!questionText) {
+// // //         throw new BadRequestError(
+// // //           'Each question must have a non-empty "question" field',
+// // //         );
+// // //       }
+// // //       const base: IQuestion = {
+// // //         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
+// // //         question: questionText,
+// // //         priority,
+// // //         source: isOutreachQuestion
+// // //           ? 'OUTREACH'
+// // //           : ((low.source || 'AGRI_EXPERT') as IQuestion['source']),
+// // //         status: 'open',
+// // //         totalAnswersCount: 0,
+// // //         contextId: null,
+// // //         details,
+// // //         aiInitialAnswer,
+// // //         isAutoAllocate: true,
+// // //         embedding: [],
+// // //         metrics: null,
+// // //         text: `Question: ${questionText}`,
+// // //         createdAt: new Date(),
+// // //         updatedAt: new Date(),
+// // //       };
+
+// // //       formatted.push(base);
+// // //     }
+
+// // //     try {
+// // //       const insertedIds = await this.questionRepo.insertMany(formatted);
+// // //       return insertedIds;
+// // //     } catch (error: any) {
+// // //       throw new InternalServerError(
+// // //         `Failed to insert questions: ${error?.message || error}`,
+// // //       );
+// // //     }
+// // //   }
+
+// // //   async addDummyQuestions(
+// // //     userId: string,
+// // //     contextId: string,
+// // //     questions: string[],
+// // //     session?: ClientSession,
+// // //   ) {
+// // //     try {
+// // //       if (!Array.isArray(questions) || questions.length === 0) {
+// // //         throw new BadRequestError('Questions must be a non-empty array');
+// // //       }
+
+// // //       if (session) {
+// // //         const insertedQuestions = [];
+
+// // //         for (const questionText of questions) {
+// // //           const question = await this.questionRepo.addDummyQuestion(
+// // //             userId,
+// // //             contextId,
+// // //             questionText,
+// // //             session,
+// // //           );
+
+// // //           const submissionData: IQuestionSubmission = {
+// // //             questionId: question._id,
+// // //             lastRespondedBy: null,
+// // //             history: [],
+// // //             queue: [],
+// // //             createdAt: new Date(),
+// // //             updatedAt: new Date(),
+// // //           };
+
+// // //           await this.questionSubmissionRepo.addSubmission(
+// // //             submissionData,
+// // //             session,
+// // //           );
+
+// // //           insertedQuestions.push(question);
+// // //         }
+
+// // //         return insertedQuestions;
+// // //       }
+
+// // //       return this._withTransaction(
+// // //         async (transactionSession: ClientSession) => {
+// // //           const insertedQuestions = [];
+
+// // //           for (const questionText of questions) {
+// // //             const question = await this.questionRepo.addDummyQuestion(
+// // //               userId,
+// // //               contextId,
+// // //               questionText,
+// // //               transactionSession,
+// // //             );
+
+// // //             const submissionData: IQuestionSubmission = {
+// // //               questionId: question._id,
+// // //               lastRespondedBy: null,
+// // //               history: [],
+// // //               queue: [],
+// // //               createdAt: new Date(),
+// // //               updatedAt: new Date(),
+// // //             };
+
+// // //             await this.questionSubmissionRepo.addSubmission(
+// // //               submissionData,
+// // //               transactionSession,
+// // //             );
+
+// // //             insertedQuestions.push(question);
+// // //           }
+
+// // //           return insertedQuestions;
+// // //         },
+// // //       );
+// // //     } catch (error) {
+// // //       throw new InternalServerError(`Failed to add questions: ${error}`);
+// // //     }
+// // //   }
+
+// // //   async getByContextId(contextId: string): Promise<IQuestion[]> {
+// // //     try {
+// // //       return this._withTransaction(async (session: ClientSession) => {
+// // //         return this.questionRepo.getByContextId(contextId, session);
+// // //       });
+// // //     } catch (error) {
+// // //       throw new InternalServerError(`Failed to get questions: ${error}`);
+// // //     }
+// // //   }
+
+// // //   /** Standardise a state name across all questions: any question whose details.state matches
+// // //    *  one of `currentValues` (e.g. "punjab", "PUNJAB", "पंजाब") is set to `standardizedTo`
+// // //    *  (e.g. "Punjab"). Returns how many matched/were modified. */
+// // //   async normalizeQuestionState(
+// // //     currentValues: string[],
+// // //     standardizedTo: string,
+// // //   ): Promise<{matched: number; modified: number}> {
+// // //     const cleaned = (currentValues ?? [])
+// // //       .map(v => (typeof v === 'string' ? v.trim() : ''))
+// // //       .filter(Boolean);
+// // //     const target = (standardizedTo ?? '').trim();
+// // //     if (cleaned.length === 0) {
+// // //       throw new BadRequestError(
+// // //         'current values must be a non-empty array of strings',
+// // //       );
+// // //     }
+// // //     if (!target) {
+// // //       throw new BadRequestError('standardizedTo is required');
+// // //     }
+// // //     return this._withTransaction(async (session: ClientSession) => {
+// // //       return this.questionRepo.normalizeQuestionState(cleaned, target, session);
+// // //     });
+// // //   }
+
+// // //   /** Standardise question district names, validating each `standardiseTo` against the
+// // //    *  `districts` collection (districtNameEnglish). Matching ones update questions whose
+// // //    *  details.district === existingName; non-matching names are returned untouched. */
+// // //   async normalizeQuestionDistricts(
+// // //     mappings: {existingName: string; standardiseTo: string}[],
+// // //   ) {
+// // //     const cleaned = (mappings ?? [])
+// // //       .map(m => ({
+// // //         existingName:
+// // //           typeof m?.existingName === 'string' ? m.existingName.trim() : '',
+// // //         standardiseTo:
+// // //           typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
+// // //       }))
+// // //       .filter(m => m.existingName && m.standardiseTo);
+// // //     if (cleaned.length === 0) {
+// // //       throw new BadRequestError(
+// // //         'mappings must be a non-empty array of { existingName, standardiseTo }',
+// // //       );
+// // //     }
+// // //     return this.questionRepo.normalizeQuestionDistricts(cleaned);
+// // //   }
+
+// // //   /** Audit: distinct question details.state / details.district values that don't exist in the
+// // //    *  states / districts collections. */
+// // //   async findUnknownQuestionGeo(): Promise<{
+// // //     unknownStates: string[];
+// // //     matchedDistricts: {
+// // //       name: string;
+// // //       foundIn: 'block' | 'village';
+// // //       districtCode: number | null;
+// // //       stateCode: number | null;
+// // //       districtNameEnglish: string | null;
+// // //     }[];
+// // //     notMatchingDistricts: string[];
+// // //   }> {
+// // //     return this.questionRepo.findUnknownQuestionGeo();
+// // //   }
+
+// //   async getPaeAnswerDashboard(
+// //     userId: string,
+// //     page: number,
+// //     limit: number,
+// //     search?: string,
+// //     startDate?: Date,
+// //     endDate?: Date,
 // //   ) {
-// //     super(mongoDatabase);
-// //   }
-
-// //   /**
-// //    * Helper function to truncate question text for notifications
-// //    */
-// //   private truncateQuestionText(
-// //     questionText: string,
-// //     maxLength: number = 50,
-// //   ): string {
-// //     if (!questionText) return 'Question';
-// //     if (questionText.length <= maxLength) return questionText;
-// //     return questionText.substring(0, maxLength) + '...';
-// //   }
-
-// //   private isQuestionUserTrainingTypeMatch(
-// //     user: IUser,
-// //     question: IQuestion,
-// //   ): boolean {
-// //     return (
-// //       (question.isTrainingQuestion === true) === (user.isTrainingUser === true)
+// //     return this.questionRepo.getPaeAnswerDashboard(
+// //       userId,
+// //       page,
+// //       limit,
+// //       search,
+// //       startDate,
+// //       endDate,
 // //     );
 // //   }
 
-// //   async createBulkQuestions(
+// //   async getAllocatedQuestions(
 // //     userId: string,
-// //     questions: any[],
-// //     isOutreachQuestion?: boolean,
-// //   ): Promise<string[]> {
-// //     if (!Array.isArray(questions) || questions.length === 0) {
-// //       throw new BadRequestError('No questions provided for bulk insert');
-// //     }
-
-// //     // const testEmbedding = await this.aiService.getEmbedding('Test'); // disabled locally — AI server not running
-
-// //     // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
-// //     const cropCache = new Map<string, string>();
-
-// //     const formatted: IQuestion[] = [];
-// //     for (const q of questions) {
-// //       const low = normalizeKeysToLower(q || {});
-// //       const details: IQuestion['details'] = {
-// //         state: (low.state || '').toString(),
-// //         district: (low.district || '').toString(),
-// //         crop: (low.crop || '').toString(),
-// //         season: (low.season || '').toString(),
-// //         domain: (low.domain || '').toString(),
-// //       };
-
-// //       // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
-// //       const rawCropName = (low.crop || '').toString();
-// //       let normalised_crop: string | undefined;
-// //       if (rawCropName.trim()) {
-// //         const cacheKey = rawCropName.trim().toLowerCase();
-// //         if (cropCache.has(cacheKey)) {
-// //           normalised_crop = cropCache.get(cacheKey)!;
-// //         } else {
-// //           try {
-// //             const existingCrop =
-// //               await this.cropRepository.findByNameOrAlias(rawCropName);
-// //             if (existingCrop) {
-// //               normalised_crop = existingCrop.name;
-// //               cropCache.set(cacheKey, normalised_crop);
-// //             }
-// //             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
-// //           } catch (cropError: any) {
-// //             console.error('Crop normalization warning:', cropError.message);
-// //           }
-// //         }
-// //       }
-// //       details.crop = rawCropName.trim();
-// //       if (normalised_crop !== undefined)
-// //         details.normalised_crop = normalised_crop;
-
-// //       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
-// //       const priorities = ['low', 'high', 'medium', 'critical'];
-// //       const priority = priorities.includes(priorityRaw)
-// //         ? (priorityRaw as IQuestionPriority)
-// //         : 'medium';
-// //       const questionText = (low.question || '').toString().trim();
-// //       const aiInitialAnswer = q.aiInitialAnswer;
-// //       if (!questionText) {
-// //         throw new BadRequestError(
-// //           'Each question must have a non-empty "question" field',
-// //         );
-// //       }
-// //       const base: IQuestion = {
-// //         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
-// //         question: questionText,
-// //         priority,
-// //         source: isOutreachQuestion
-// //           ? 'OUTREACH'
-// //           : ((low.source || 'AGRI_EXPERT') as IQuestion['source']),
-// //         status: 'open',
-// //         totalAnswersCount: 0,
-// //         contextId: null,
-// //         details,
-// //         aiInitialAnswer,
-// //         isAutoAllocate: true,
-// //         embedding: [],
-// //         metrics: null,
-// //         text: `Question: ${questionText}`,
-// //         createdAt: new Date(),
-// //         updatedAt: new Date(),
-// //       };
-
-// //       formatted.push(base);
-// //     }
-
+// //     query: GetDetailedQuestionsQuery,
+// //     body: AllocatedQuestionsBodyDto,
+// //   ): Promise<QuestionResponse[]> {
 // //     try {
-// //       const insertedIds = await this.questionRepo.insertMany(formatted);
-// //       return insertedIds;
-// //     } catch (error: any) {
+// //       return this._withTransaction(async (session: ClientSession) => {
+// //         return this.questionRepo.getAllocatedQuestions(
+// //           userId,
+// //           query,
+// //           session,
+// //           body,
+// //         );
+// //       });
+// //     } catch (error) {
 // //       throw new InternalServerError(
-// //         `Failed to insert questions: ${error?.message || error}`,
+// //         `Failed to get unanswered questions: ${error}`,
 // //       );
 // //     }
 // //   }
 
-// //   async addDummyQuestions(
-// //     userId: string,
-// //     contextId: string,
-// //     questions: string[],
-// //     session?: ClientSession,
-// //   ) {
-// //     try {
-// //       if (!Array.isArray(questions) || questions.length === 0) {
-// //         throw new BadRequestError('Questions must be a non-empty array');
-// //       }
+// // //   async getDetailedQuestions(
+// // //     query: GetDetailedQuestionsQuery,
+// // //     body: DetailedQuestionsBodyDto,
+// // //   ): Promise<{
+// // //     questions: IQuestion[];
+// // //     totalPages: number;
+// // //     feedbackQuestions?: IQuestion[];
+// // //   }> {
+// // //     let searchEmbedding: number[] | null = null;
 
-// //       if (session) {
-// //         const insertedQuestions = [];
+// // //     if (query?.search) {
+// // //       try {
+// // //         // const embedding=[]
+// // //         // const { embedding } = await this.aiService.getEmbedding(query.search);
+// // //         // searchEmbedding = embedding;
+// // //         searchEmbedding = null;
+// // //       } catch (err) {
+// // //         console.error(
+// // //           'Embedding generation failed, falling back to normal search:',
+// // //           err,
+// // //         );
+// // //         searchEmbedding = null;
+// // //       }
+// // //     }
 
-// //         for (const questionText of questions) {
-// //           const question = await this.questionRepo.addDummyQuestion(
-// //             userId,
-// //             contextId,
-// //             questionText,
-// //             session,
+// // //     const result = await this.questionRepo.findDetailedQuestions(
+// // //       {
+// // //         ...query,
+// // //         searchEmbedding,
+// // //       },
+// // //       body,
+// // //     );
+
+// // //     // Check if this is a dedicated view (moderator/gatekeeper/auditor assigned questions)
+// // //     const {moderatorId, gateKeeperId, auditorId} = query;
+// // //     const assignedUserId = moderatorId || gateKeeperId || auditorId;
+// // //     if (assignedUserId) {
+// // //       try {
+// // //         const user = await this.userRepo.findById(assignedUserId);
+// // //         const feedbacksAssigned = user?.feedbacksAssigned;
+// // //         if (feedbacksAssigned && feedbacksAssigned.length > 0) {
+// // //           // Fetch the feedback questions
+// // //           const feedbackQuestionIds = feedbacksAssigned.map(id => {
+// // //             if (typeof id === 'string') return new ObjectId(id);
+// // //             return id;
+// // //           });
+
+// // //           const feedbackQuestions =
+// // //             await this.questionRepo.findByIds(feedbackQuestionIds);
+// // //           const feedbackQuestionsWithFlag = feedbackQuestions.map(q => ({
+// // //             ...q,
+// // //             isFeedbackQuestion: true,
+// // //           }));
+
+// // //           return {
+// // //             ...result,
+// // //             feedbackQuestions: feedbackQuestionsWithFlag,
+// // //           };
+// // //         }
+// // //       } catch (err) {
+// // //         console.error('Error fetching feedback questions:', err);
+// // //       }
+// // //     }
+
+// // //     return result;
+// // //   }
+
+// // //   async getQuestionFromRawContext(
+// // //     // While text to speech
+// // //     context: string,
+// // //   ): Promise<GeneratedQuestionResponse[]> {
+// // //     const questions = await this.aiService.getQuestionByContext(context);
+// // //     // SAMPLE RESPONSE (mocked because API doesn't work locally)
+// // //     /* const questions: any = {
+// // //        reviewer: [
+// // //          {
+// // //            id: "697dbfb7622aa3a183070682",
+// // //            question: "How to control stem borer grubs in paddy crop?",
+// // //            answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
+// // //            source: "AGRI_EXPERT",
+// // //            details: {
+// // //              state: "Haryana",
+// // //              district: "HISSAR",
+// // //              crop: "Paddy",
+// // //              season: "KHARIF",
+// // //              domain: "Pest",
+// // //            },
+// // //            score: 0.9331517815589905,
+// // //          },
+// // //          {
+// // //            id: "695b446528ae67127339da95",
+// // //            question: "How to control Stem Borer infestation in Paddy?",
+// // //            answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
+// // //            source: "AGRI_EXPERT",
+// // //            details: {
+// // //              state: "UTTAR PRADESH",
+// // //              district: "CHANDAULI",
+// // //              crop: "Paddy",
+// // //              season: "Kharif",
+// // //              domain: "Plant Protection",
+// // //            },
+// // //            score: 0.932569146156311,
+// // //          },
+// // //        ],
+   
+// // //        golden: [
+// // //          {
+// // //            question: "How to prevent stem borer in paddy?",
+// // //            answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
+// // //            metadata: {
+// // //              "Agri Specialist": "Gonnabathula Girishma",
+// // //              Crop: "Paddy Dhan",
+// // //              District: "YADADRI BHUVANAGIRI",
+// // //              Season: "Kharif",
+// // //              State: "TELANGANA",
+// // //            },
+// // //            score: 0.9287769794464111,
+// // //          },
+// // //        ],
+   
+// // //        pop: [
+// // //          {
+// // //            text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
+// // //            metadata: {
+// // //              page_no: 24,
+// // //              headings: ["A. Insect Pests"],
+// // //              source:
+// // //                "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
+// // //            },
+// // //            score: 0.9020636677742004,
+// // //          },
+// // //        ],
+// // //      };*/
+// // //     const merged = [
+// // //       ...(questions.reviewer || []).map((item: any) => ({
+// // //         question: item.question,
+// // //         answer: item.answer,
+// // //         agri_specialist: item.source || 'AGRI_EXPERT',
+// // //         referenceSource: 'reviewer',
+// // //       })),
+
+// // //       ...(questions.golden || []).map((item: any) => ({
+// // //         question: item.question,
+// // //         answer: item.answer,
+// // //         agri_specialist: item.metadata?.['Agri Specialist'] || 'Unknown',
+// // //         referenceSource: 'golden',
+// // //       })),
+
+// // //       ...(questions.pop || []).map((item: any) => ({
+// // //         question: 'Reference Information',
+// // //         answer: item.text,
+// // //         agri_specialist: 'POP_DOCUMENT',
+// // //         referenceSource: 'pop',
+// // //       })),
+// // //     ];
+// // //     const uniqueQuestions = Array.from(
+// // //       new Map(merged.map(q => [q.question, q])).values(),
+// // //     ).map(q => ({
+// // //       ...q,
+// // //       id: new ObjectId().toString(),
+// // //     }));
+// // //     return uniqueQuestions;
+// // //   }
+
+// // //   /**
+// // //    * Generate questions from call context (audio transcription)
+// // //    */
+// // //   async getQuestionFromCallContext(
+// // //     context: string,
+// // //     state?: string,
+// // //     crop?: string,
+// // //   ): Promise<GeneratedQuestionResponse[]> {
+// // //     try {
+// // //       const payload: any = {query: context};
+// // //       if (state) payload.state = state;
+// // //       if (crop) payload.crop = crop;
+
+// // //       const agentSearchResponse = await axios.post(
+// // //         'http://100.100.108.44:6002/search',
+// // //         payload,
+// // //         {timeout: 100000},
+// // //       );
+// // //       console.log(
+// // //         'Agent Search Output:',
+// // //         JSON.stringify(agentSearchResponse.data, null, 2),
+// // //       );
+
+// // //       const data = agentSearchResponse.data || {};
+
+// // //       // Send this in the appropriate format expected by the frontend
+// // //       let formattedResponse: any[] = [];
+
+// // //       if (
+// // //         data &&
+// // //         (Array.isArray(data.reviewer) ||
+// // //           Array.isArray(data.golden) ||
+// // //           Array.isArray(data.pop))
+// // //       ) {
+// // //         formattedResponse = [
+// // //           ...(data.reviewer || []).map((item: any) => ({
+// // //             question: item.question,
+// // //             answer: item.answer || item.text,
+// // //             agri_specialist:
+// // //               item.agri_expert ||
+// // //               item.agri_specialist ||
+// // //               item.source ||
+// // //               'AGRI_EXPERT',
+// // //             referenceSource: 'reviewer',
+// // //             id: item.id || new ObjectId().toString(),
+// // //           })),
+// // //           ...(data.golden || []).map((item: any) => ({
+// // //             question: item.question,
+// // //             answer: item.answer || item.text,
+// // //             agri_specialist:
+// // //               item.agri_expert ||
+// // //               item.agri_specialist ||
+// // //               item.metadata?.['Agri Specialist'] ||
+// // //               'Unknown',
+// // //             referenceSource: 'golden',
+// // //             id: item.id || new ObjectId().toString(),
+// // //           })),
+// // //           ...(data.pop || []).map((item: any) => ({
+// // //             question: 'Reference Information',
+// // //             answer: item.text,
+// // //             agri_specialist: 'POP_DOCUMENT',
+// // //             referenceSource: 'pop',
+// // //             id: item.id || new ObjectId().toString(),
+// // //           })),
+// // //         ];
+// // //       } else if (data && Array.isArray(data.results)) {
+// // //         // Map the results array from the agent_search response
+// // //         formattedResponse = data.results.map((item: any) => ({
+// // //           question: item.question || data.extracted_question || context,
+// // //           answer: item.answer || item.text || 'Answer not available',
+// // //           agri_specialist: item.source || 'AGRI_EXPERT',
+// // //           referenceSource: 'agent_search',
+// // //           id: item.id || new ObjectId().toString(),
+// // //         }));
+// // //       } else if (Array.isArray(data)) {
+// // //         formattedResponse = data.map((item: any) => ({
+// // //           question: item.question || context,
+// // //           answer: item.answer || item.response || JSON.stringify(item),
+// // //           agri_specialist: item.agri_specialist || item.source || 'AGRI_EXPERT',
+// // //           referenceSource: item.referenceSource || 'agent_search',
+// // //           id: item.id || new ObjectId().toString(),
+// // //         }));
+// // //       } else if (data && typeof data === 'object') {
+// // //         formattedResponse = [
+// // //           {
+// // //             question: data.extracted_question || data.question || context,
+// // //             answer: data.answer || data.response || JSON.stringify(data),
+// // //             agri_specialist:
+// // //               data.agri_specialist || data.source || 'AGRI_EXPERT',
+// // //             referenceSource: data.referenceSource || 'agent_search',
+// // //             id: data.id || new ObjectId().toString(),
+// // //           },
+// // //         ];
+// // //       }
+
+// // //       // Deduplicate by question text
+// // //       const uniqueQuestions = Array.from(
+// // //         new Map(formattedResponse.map(q => [q.question, q])).values(),
+// // //       ).map(q => ({
+// // //         ...q,
+// // //         id: q.id || new ObjectId().toString(),
+// // //       }));
+
+// // //       return uniqueQuestions;
+// // //     } catch (error) {
+// // //       console.error('Failed to generate questions from call context:', error);
+// // //       throw new InternalServerError(
+// // //         'Failed to generate questions from call context',
+// // //       );
+// // //     }
+// // //   }
+
+// // //   async getCallSummary(query: string): Promise<any> {
+// // //     try {
+// // //       const extractResponse = await axios.post(
+// // //         'http://100.100.108.44:6002/extract',
+// // //         {query},
+// // //         {timeout: 100000},
+// // //       );
+// // //       return extractResponse.data;
+// // //     } catch (error) {
+// // //       console.error('Failed to generate call summary:', error);
+// // //       throw new InternalServerError('Failed to generate call summary');
+// // //     }
+// // //   }
+
+// // //   /**
+// // //    * HIL Flow: Create thread for ACC Agent
+// // //    */
+// // //   async createAccAgentThread(): Promise<{thread_id: string}> {
+// // //     try {
+// // //       const result = await this.accAgentService.createThread();
+// // //       return result;
+// // //     } catch (error) {
+// // //       console.error('[QuestionService] createAccAgentThread: Error', error);
+// // //       throw new InternalServerError('Failed to create ACC Agent thread');
+// // //     }
+// // //   }
+
+// // //   /**
+// // //    * HIL Flow: Extract data from transcript
+// // //    */
+// // //   async extractAccAgentData(
+// // //     threadId: string,
+// // //     transcript: string,
+// // //   ): Promise<{
+// // //     extracted_query: string;
+// // //     extracted_crop: string;
+// // //     extracted_state: string;
+// // //     extracted_district: string;
+// // //     extracted_domain?: string | string[];
+// // //     extracted_name?: string;
+// // //     extracted_phone?: string;
+// // //     extracted_age?: number;
+// // //     extracted_gender?: string;
+// // //     extracted_village?: string;
+// // //     extracted_block?: string;
+// // //     extracted_primary_crop?: string;
+// // //   }> {
+// // //     try {
+// // //       const result = await this.accAgentService.extractData(
+// // //         threadId,
+// // //         transcript,
+// // //       );
+
+// // //       return result;
+// // //     } catch (error) {
+// // //       console.error('[QuestionService] extractAccAgentData: Error', error);
+// // //       throw new InternalServerError('Failed to extract data using ACC Agent');
+// // //     }
+// // //   }
+
+// // //   /**
+// // //    * HIL Flow: Update state with human corrections
+// // //    */
+// // //   async updateAccAgentState(
+// // //     threadId: string,
+// // //     correctedData: {
+// // //       query: string;
+// // //       crop: string;
+// // //       state: string;
+// // //       district: string;
+// // //       domain: string | string[];
+// // //       season: string;
+// // //       farmerName?: string;
+// // //       farmerPhone?: string;
+// // //       farmerAge?: number;
+// // //       farmerGender?: string;
+// // //       farmerVillage?: string;
+// // //       farmerBlock?: string;
+// // //       farmerPrimaryCrop?: string;
+// // //     },
+// // //   ): Promise<void> {
+// // //     try {
+// // //       await this.accAgentService.updateState(threadId, correctedData);
+// // //     } catch (error) {
+// // //       console.error('[QuestionService] updateAccAgentState: Error', error);
+// // //       throw new InternalServerError('Failed to update ACC Agent state');
+// // //     }
+// // //   }
+
+// // //   /**
+// // //    * HIL Flow: Resume and get final answer
+// // //    */
+// // //   async resumeAccAgentAndGetAnswer(
+// // //     threadId: string,
+// // //     callUuid?: string,
+// // //     metadata?: QAMetadata,
+// // //   ): Promise<{final_answer: string}> {
+// // //     try {
+// // //       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
+
+// // //       // If callUuid and metadata are provided, store Q/A pairs in call_details
+// // //       if (callUuid && metadata) {
+// // //         const qaPairs: QAPairs = {
+// // //           metadata,
+// // //           QnA: [
+// // //             {
+// // //               question: metadata.extracted_query,
+// // //               answer: result.final_answer,
+// // //               agri_specialist: 'ACC_AGENT',
+// // //               referenceSource: 'acc_agent_hitl',
+// // //               id: new ObjectId().toString(),
+// // //             },
+// // //           ],
+// // //         };
+
+// // //         // Check if call_details document exists
+// // //         const existingCallDetails =
+// // //           await this.callDetailsRepository.getByCallUuid(callUuid);
+
+// // //         if (existingCallDetails) {
+// // //           // Update existing document
+// // //           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
+// // //         } else {
+// // //           console.warn(
+// // //             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
+// // //           );
+// // //           // Create a new call_details document with the Q/A pairs
+// // //           await this.callDetailsRepository.create({
+// // //             callUuid,
+// // //             QA_pairs: qaPairs,
+// // //             status: 'completed',
+// // //             direction: 'inbound',
+// // //             caller: {
+// // //               transcript: '',
+// // //               translation: '',
+// // //               detectedLanguage: 'unknown',
+// // //             },
+// // //             agent: {
+// // //               transcript: '',
+// // //               translation: '',
+// // //               detectedLanguage: 'unknown',
+// // //             },
+// // //           });
+// // //         }
+// // //       }
+
+// // //       return result;
+// // //     } catch (error) {
+// // //       console.error(
+// // //         '[QuestionService] resumeAccAgentAndGetAnswer: Error',
+// // //         error,
+// // //       );
+// // //       throw new InternalServerError(
+// // //         'Failed to get final answer from ACC Agent',
+// // //       );
+// // //     }
+// // //   }
+
+// // //   async getAccAgentState(
+// // //     threadId: string,
+// // //     callUuid?: string,
+// // //     metadata?: QAMetadata,
+// // //   ): Promise<any> {
+// // //     try {
+// // //       // 1. Resume the agent
+// // //       await this.accAgentService.resumeAndGetAnswer(threadId);
+
+// // //       // 2. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
+// // //       const threadState = await this.accAgentService.getThreadState(threadId);
+
+// // //       // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
+// // //       if (callUuid && metadata) {
+// // //         const finalAnswerObj = threadState?.values?.final_answer;
+// // //         const finalAnswerMarkdown =
+// // //           typeof finalAnswerObj === 'string'
+// // //             ? finalAnswerObj
+// // //             : finalAnswerObj?.final_answer || '';
+
+// // //         const weather = finalAnswerObj?.weather || null;
+// // //         const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
+// // //         const authorName = similarPair?.details?.[0]?.author_name || '';
+// // //         const sourceName = similarPair?.details?.[0]?.source_name || '';
+// // //         const sourceLink = similarPair?.details?.[0]?.source_link || '';
+
+// // //         const qaPairs: QAPairs = {
+// // //           metadata,
+// // //           QnA: [
+// // //             {
+// // //               question: metadata.extracted_query,
+// // //               answer: finalAnswerMarkdown,
+// // //               agri_specialist: 'ACC_AGENT',
+// // //               referenceSource: 'acc_agent_hitl',
+// // //               id: new ObjectId().toString(),
+// // //               ...(weather ? {weather} : {}),
+// // //               ...(authorName ? {authorName} : {}),
+// // //               ...(sourceName ? {sourceName} : {}),
+// // //               ...(sourceLink ? {sourceLink} : {}),
+// // //             } as any,
+// // //           ],
+// // //         };
+
+// // //         // Check if call_details document exists
+// // //         const existingCallDetails =
+// // //           await this.callDetailsRepository.getByCallUuid(callUuid);
+
+// // //         if (existingCallDetails) {
+// // //           // Update existing document
+// // //           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
+// // //         } else {
+// // //           console.warn(
+// // //             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
+// // //           );
+// // //           // Create a new call_details document with the Q/A pairs
+// // //           await this.callDetailsRepository.create({
+// // //             callUuid,
+// // //             QA_pairs: qaPairs,
+// // //             status: 'completed',
+// // //             direction: 'inbound',
+// // //             caller: {
+// // //               transcript: '',
+// // //               translation: '',
+// // //               detectedLanguage: 'unknown',
+// // //             },
+// // //             agent: {
+// // //               transcript: '',
+// // //               translation: '',
+// // //               detectedLanguage: 'unknown',
+// // //             },
+// // //           });
+// // //         }
+// // //       }
+
+// // //       // 4. Return the full thread state
+// // //       return threadState;
+// // //     } catch (error) {
+// // //       console.error(
+// // //         '[QuestionService] getAccAgentState: Error resuming or fetching state',
+// // //         error,
+// // //       );
+// // //       throw new InternalServerError(
+// // //         'Failed to resume or fetch ACC Agent state',
+// // //       );
+// // //     }
+// // //   }
+
+// // //   // Reusable duplicate detection helper.
+
+// // //   async checkDuplicateQuestion(
+// // //     baseQuestion: IQuestion,
+// // //     details: IQuestion['details'],
+// // //     logData: Record<string, any>,
+// // //     session?: ClientSession,
+// // //   ): Promise<{
+// // //     isDuplicate: boolean;
+// // //     duplicateData?: any;
+// // //     isNonAgri?: boolean;
+// // //     nonAgriData?: any;
+// // //   }> {
+// // //     return checkDuplicateQuestionHelper(
+// // //       baseQuestion,
+// // //       details,
+// // //       logData,
+// // //       this.aiService,
+// // //       this.duplicateQuestionRepository,
+// // //       session,
+// // //     );
+// // //   }
+
+// // //   async manualCheckDuplicate(questionId: string): Promise<{
+// // //     message: string;
+// // //     isDuplicate: boolean;
+// // //     referenceQuestionId?: string;
+// // //   }> {
+// // //     const question = await this.questionRepo.getById(questionId);
+
+// // //     if (question.referenceQuestionId) {
+// // //       return {
+// // //         message: 'Question already has a reference question assigned.',
+// // //         isDuplicate: true,
+// // //       };
+// // //     }
+
+// // //     const logData: Record<string, any> = {questionId, manual: true};
+// // //     const result = await this.runDuplicateCheckPipeline(
+// // //       question,
+// // //       question.details,
+// // //       logData,
+// // //     );
+
+// // //     if (result.isDuplicate) {
+// // //       const refId =
+// // //         result.referenceQuestionId instanceof ObjectId
+// // //           ? result.referenceQuestionId
+// // //           : result.referenceQuestionId
+// // //             ? new ObjectId(String(result.referenceQuestionId))
+// // //             : null;
+
+// // //       // Get submission to check queue length
+// // //       const questionSubmission =
+// // //         await this.questionSubmissionRepo.getByQuestionId(questionId);
+// // //       const queueLength = questionSubmission?.queue?.length || 0;
+
+// // //       // Only flip the status to 'duplicate' when the question is still open/delayed.
+// // //       // For any other status (in-review, closed, etc.) the workflow is already past
+// // //       // that point, so the status must not change — we just record the reference.
+// // //       const canMarkDuplicate =
+// // //         (question.status === 'open' || question.status === 'delayed') &&
+// // //         queueLength === 0;
+// // //       await this.questionRepo.updateQuestion(questionId, {
+// // //         ...(canMarkDuplicate ? {status: 'duplicate'} : {}),
+// // //         similarityScore: result.similarityScore,
+// // //         referenceQuestionId: refId,
+// // //         referenceQuestion: result.referenceQuestion,
+// // //         referenceSource: result.referenceSource,
+// // //         isDuplicateChecked: true,
+// // //         ...(result.isExact !== undefined ? {isExact: result.isExact} : {}),
+// // //       });
+// // //       return {
+// // //         message: canMarkDuplicate
+// // //           ? 'Duplicate detected and question updated.'
+// // //           : `Duplicate detected; status left unchanged (question is '${question.status}').`,
+// // //         isDuplicate: true,
+// // //         referenceQuestionId: refId?.toString(),
+// // //       };
+// // //     }
+
+// // //     if (result.isQueueDuplicate) {
+// // //       const refId =
+// // //         result.referenceQuestionId instanceof ObjectId
+// // //           ? result.referenceQuestionId
+// // //           : result.referenceQuestionId
+// // //             ? new ObjectId(String(result.referenceQuestionId))
+// // //             : null;
+// // //       const canMarkQueue =
+// // //         question.status === 'open' || question.status === 'delayed';
+// // //       await this.questionRepo.updateQuestion(questionId, {
+// // //         ...(canMarkQueue
+// // //           ? {status: 'queue_duplicate', isAutoAllocate: false}
+// // //           : {}),
+// // //         similarityScore: result.similarityScore,
+// // //         referenceQuestionId: refId,
+// // //         referenceQuestion: result.referenceQuestion,
+// // //         referenceSource: result.referenceSource,
+// // //         isDuplicateChecked: true,
+// // //       });
+// // //       return {
+// // //         message: canMarkQueue
+// // //           ? 'Found in the GDB pending-duplicate queue.'
+// // //           : `In GDB queue; status left unchanged (question is '${question.status}').`,
+// // //         isDuplicate: false,
+// // //         referenceQuestionId: refId?.toString(),
+// // //       };
+// // //     }
+
+// // //     if (result.isNonAgri) {
+// // //       await this.questionRepo.updateQuestion(questionId, {
+// // //         status: 'non_agri',
+// // //         isDuplicateChecked: true,
+// // //       });
+// // //       return {message: 'Question marked as non-agri.', isDuplicate: false};
+// // //     }
+
+// // //     await this.questionRepo.updateQuestion(questionId, {
+// // //       isDuplicateChecked: true,
+// // //     });
+// // //     return {message: 'No duplicate found.', isDuplicate: false};
+// // //   }
+
+// // //   private async runDuplicateCheckPipeline(
+// // //     baseQuestion: IQuestion,
+// // //     details: IQuestion['details'],
+// // //     logData: Record<string, any>,
+// // //   ): Promise<{
+// // //     isDuplicate: boolean;
+// // //     isQueueDuplicate?: boolean;
+// // //     isNonAgri?: boolean;
+// // //     referenceQuestionId?: ObjectId | string | null;
+// // //     referenceQuestion?: string;
+// // //     referenceSource?: string;
+// // //     similarityScore?: number;
+// // //     isExact?: boolean;
+// // //   }> {
+// // //     const cropName =
+// // //       typeof details.crop === 'string'
+// // //         ? details.crop
+// // //         : (details.crop as any)?.name || '';
+
+// // //     const gdbResult = await this.aiService.searchGdb({
+// // //       crop: cropName,
+// // //       state: details.state,
+// // //       rephrased_query: baseQuestion.question,
+// // //     });
+
+// // //     const extractObjectId = (id: any): ObjectId | null => {
+// // //       const raw = id?.$oid ?? id;
+// // //       const hex = String(raw ?? '');
+// // //       if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
+// // //       return null;
+// // //     };
+
+// // //     const exactMatch = gdbResult?.exact_match;
+// // //     if (exactMatch?.question_id) {
+// // //       const refId = extractObjectId(exactMatch.question_id);
+// // //       if (refId) {
+// // //         return {
+// // //           isDuplicate: true,
+// // //           referenceQuestionId: refId,
+// // //           referenceQuestion: exactMatch.question,
+// // //           referenceSource: 'reviewer',
+// // //           similarityScore: Number(
+// // //             (exactMatch.similarity_score * 100).toFixed(2),
+// // //           ),
+// // //           isExact: true,
+// // //         };
+// // //       }
+// // //       console.warn(
+// // //         `[runDuplicateCheckPipeline] GDB exact_match invalid question_id: ${exactMatch.question_id}, skipping`,
+// // //       );
+// // //     }
+
+// // //     const selectedMatch = gdbResult?.selected_match;
+// // //     if (selectedMatch?.question_id) {
+// // //       const refId = extractObjectId(selectedMatch.question_id);
+// // //       if (refId) {
+// // //         return {
+// // //           isDuplicate: true,
+// // //           referenceQuestionId: refId,
+// // //           referenceQuestion: selectedMatch.question,
+// // //           referenceSource: 'reviewer',
+// // //           similarityScore: Number(
+// // //             (selectedMatch.similarity_score * 100).toFixed(2),
+// // //           ),
+// // //           isExact: false,
+// // //         };
+// // //       }
+// // //       console.warn(
+// // //         `[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`,
+// // //       );
+// // //     }
+
+// // //     // No GDB duplicate match — check the GDB pending-duplicate queue before falling
+// // //     // through to the LLM, so the LLM classification only runs when the question is
+// // //     // neither a duplicate nor already in the queue (single LLM call site).
+// // //     try {
+// // //       const pendingResult = await this.aiService.checkPendingDuplicate({
+// // //         rephrased_query: baseQuestion.question,
+// // //         crop: cropName,
+// // //         state: details.state,
+// // //         createdAt: baseQuestion.createdAt,
+// // //       });
+// // //       // A `detail` field means the GDB server didn't find a queued match.
+// // //       // Reference details come from the top-level response (duplicate_question_id /
+// // //       // query / similarity_score), not the candidates_checked array.
+// // //       const dupId =
+// // //         pendingResult?.duplicate_question_id ??
+// // //         pendingResult?.matched_question_id;
+// // //       // Only treat as a queue-duplicate when the GDB returned a usable reference id —
+// // //       // a null/undefined duplicate_question_id means no queued match.
+// // //       const foundInGdbQueue =
+// // //         !!pendingResult &&
+// // //         !pendingResult.detail &&
+// // //         typeof dupId === 'string' &&
+// // //         dupId.trim().length > 0;
+// // //       if (foundInGdbQueue) {
+// // //         const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
+// // //         return {
+// // //           isDuplicate: false,
+// // //           isQueueDuplicate: true,
+// // //           referenceQuestionId: refId,
+// // //           referenceQuestion: pendingResult!.query,
+// // //           referenceSource: 'reviewer',
+// // //           similarityScore: Number(
+// // //             ((pendingResult!.similarity_score ?? 0) * 100).toFixed(2),
+// // //           ),
+// // //         };
+// // //       }
+// // //     } catch (queueError: any) {
+// // //       console.warn(
+// // //         `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
+// // //       );
+// // //     }
+
+// // //     // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
+// // //     try {
+// // //       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
+// // //       if (llmResult.isNonAgri) {
+// // //         logData.outcome = 'NON_AGRI_DETECTED';
+// // //         chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+// // //         return {isDuplicate: false, isNonAgri: true};
+// // //       }
+// // //     } catch (llmError: any) {
+// // //       console.warn(
+// // //         `[runDuplicateCheckPipeline] LLM non-agri check failed, treating as agri: ${llmError?.message}`,
+// // //       );
+// // //     }
+
+// // //     return {isDuplicate: false};
+// // //   }
+
+// // //   async addQuestion(
+// // //     userId: string,
+// // //     body: AddQuestionBodyDto,
+// // //   ): Promise<AddQuestionResult> {
+// // //     const logData: Record<string, any> = {};
+// // //     try {
+// // //       // Extract fields before normalizing keys to lowercase
+// // //       const aiInitialAnswer = body.aiInitialAnswer || '';
+// // //       const messageIdFromBody = body.messageId;
+// // //       const threadIdFromBody = body.threadId;
+// // //       const userIdFromBody = body.userId;
+// // //       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
+// // //       const popContextFromBody = body.popContext;
+// // //       const toolsUsed = body.tools_used || [];
+// // //       const isTrainingQuestion = body.isTrainingQuestion === true;
+
+// // //       body = normalizeKeysToLower(body);
+// // //       let {
+// // //         question,
+// // //         priority,
+// // //         source = 'AGRI_EXPERT',
+// // //         details,
+// // //         context,
+// // //         originalquestion = '',
+// // //       } = body;
+// // //       if (body.details) {
+// // //         body.details.state = toTitleCase(body.details.state);
+// // //         body.details.district = toTitleCase(body.details.district as string);
+// // //         body.details.crop = toTitleCase(body.details.crop as string);
+// // //         body.details.domain = Array.isArray(body.details.domain)
+// // //           ? body.details.domain
+// // //           : body.details.domain
+// // //             ? [body.details.domain]
+// // //             : [];
+// // //       }
+// // //       const messageId = messageIdFromBody;
+// // //       const threadId = threadIdFromBody;
+// // //       const bodyUserId = userIdFromBody;
+// // //       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
+// // //       const popContext = popContextFromBody;
+
+// // //       if (!details) {
+// // //         const b: any = body;
+// // //         details = {
+// // //           state: b?.state || '',
+// // //           district: b?.district || '',
+// // //           crop: b?.crop || '',
+// // //           season: b?.season || '',
+// // //           domain: Array.isArray(b?.domain)
+// // //             ? b.domain
+// // //             : b?.domain
+// // //               ? [b.domain]
+// // //               : [],
+// // //         };
+// // //       }
+
+// // //       const validPriorities = ['low', 'medium', 'high', 'critical'];
+// // //       priority = priority?.toLowerCase() as IQuestion['priority'];
+// // //       if (!validPriorities.includes(priority)) {
+// // //         priority = 'medium';
+// // //       }
+// // //       if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+// // //         priority = 'high';
+// // //       }
+
+// // //       if (!question?.trim()) {
+// // //         throw new BadRequestError(`Question is required`);
+// // //       }
+
+// // //       if (
+// // //         !(typeof details.crop === 'string'
+// // //           ? details.crop.trim()
+// // //           : details.crop?.name?.trim()) ||
+// // //         !details.district ||
+// // //         !details.domain ||
+// // //         !details.season ||
+// // //         !details.state
+// // //       ) {
+// // //         throw new BadRequestError(`All fields are required`);
+// // //       }
+
+// // //       logData.userId = userId;
+// // //       logData.question = question;
+// // //       logData.details = details;
+// // //       logData.source = source;
+
+// // //       // ─── Normalize crop against crop_master DB ───────────────────────────
+// // //       const rawCropName =
+// // //         typeof details.crop === 'string'
+// // //           ? details.crop
+// // //           : details.crop?.name || '';
+// // //       let normalised_crop: string | undefined;
+// // //       if (rawCropName.trim()) {
+// // //         try {
+// // //           const existingCrop =
+// // //             await this.cropRepository.findByNameOrAlias(rawCropName);
+// // //           if (existingCrop) {
+// // //             normalised_crop = existingCrop.name;
+// // //             logData.cropNormalization = {
+// // //               original: rawCropName,
+// // //               resolved: existingCrop.name,
+// // //               action:
+// // //                 rawCropName.trim().toLowerCase() === existingCrop.name
+// // //                   ? 'EXACT_MATCH'
+// // //                   : 'ALIAS_RESOLVED',
+// // //             };
+// // //           } else {
+// // //             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+// // //             logData.cropNormalization = {
+// // //               original: rawCropName,
+// // //               action: 'NOT_FOUND',
+// // //             };
+// // //           }
+// // //         } catch (cropError: any) {
+// // //           console.error('Crop normalization warning:', cropError.message);
+// // //           logData.cropNormalizationError = cropError.message;
+// // //         }
+// // //       }
+// // //       // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
+// // //       details.crop = toTitleCase(rawCropName);
+// // //       details.state = toTitleCase(details.state);
+// // //       if (typeof details.district === 'string')
+// // //         details.district = toTitleCase(details.district);
+// // //       if (normalised_crop !== undefined)
+// // //         details.normalised_crop = normalised_crop;
+
+// // //       // 🔹 Create Embedding — OUTSIDE transaction
+// // //       const text = `Question: ${question}`;
+// // //       let textEmbedding: number[] = [];
+
+// // //       if (appConfig.ENABLE_AI_SERVER) {
+// // //         const {embedding} = await this.aiService.getEmbedding(text);
+// // //         textEmbedding = embedding;
+// // //       }
+// // //       logData.embeddingGenerated = textEmbedding.length > 0;
+// // //       logData.vectorLength = textEmbedding.length;
+
+// // //       return this._withTransaction(async (session: ClientSession) => {
+// // //         // 🔹 Create Context
+// // //         let contextId: ObjectId | null = null;
+
+// // //         if (context) {
+// // //           const {insertedId} = await this.contextRepo.addContext(
+// // //             context,
+// // //             session,
+// // //           );
+// // //           contextId = new ObjectId(insertedId);
+// // //         }
+// // //         // 🔹 Create Base Question Object
+// // //         const baseQuestion: IQuestion = {
+// // //           userId:
+// // //             bodyUserId?.trim() || userId?.trim()
+// // //               ? new ObjectId(bodyUserId?.trim() || userId)
+// // //               : null,
+// // //           question,
+// // //           priority,
+// // //           source,
+// // //           status:
+// // //             source === 'AJRASAKHA' || source === 'WHATSAPP'
+// // //               ? 'pending'
+// // //               : 'open',
+// // //           totalAnswersCount: 0,
+// // //           contextId,
+// // //           details,
+// // //           isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
+// // //           // New questions are eligible for gate-keeper / auditor auto-allocation by
+// // //           // default; the cron only picks them up once they reach a matching status.
+// // //           autoAllocateGateKeeper: true,
+// // //           autoAllocateAuditor: true,
+// // //           embedding: textEmbedding,
+// // //           metrics: null,
+// // //           aiInitialAnswer,
+// // //           text,
+// // //           toolsUsed,
+// // //           createdAt: new Date(),
+// // //           updatedAt: new Date(),
+// // //           isTrainingQuestion,
+// // //           ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
+// // //           ...(messageId && {messageId}),
+// // //           ...(threadId && {threadId}),
+// // //           ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
+// // //           ...(popContext && {popContext}),
+// // //         };
+
+// // //         // 🔹 Save question
+// // //         logData.outcome = 'NEW_QUESTION_ADDED';
+// // //         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
+// // //         const savedQuestion = await this.questionRepo.addQuestion(
+// // //           baseQuestion,
+// // //           session,
+// // //         );
+
+// // //         if (!savedQuestion?._id) {
+// // //           throw new InternalServerError(`Failed to save question to database`);
+// // //         }
+// // //         /* if(!body.threadId)
+// // //         {
+// // //            await this.questionRepo.updateQuestion(savedQuestion._id.toString(), {
+// // //               isTesting: true,
+// // //             });
+// // //           return
+// // //         }*/
+
+// // //         // 🔹 Create bare submission record (expert queue populated in background)
+// // //         const submissionData: IQuestionSubmission = {
+// // //           questionId: new ObjectId(savedQuestion._id.toString()),
+// // //           lastRespondedBy: null,
+// // //           history: [],
+// // //           queue: [],
+// // //           createdAt: new Date(),
+// // //           updatedAt: new Date(),
+// // //         };
+// // //         await this.questionSubmissionRepo.addSubmission(
+// // //           submissionData,
+// // //           session,
+// // //         );
+
+// // //         // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
+// // //         const questionId = savedQuestion._id.toString();
+// // //         setImmediate(() => {
+// // //           this.processQuestionInBackground({
+// // //             questionId,
+// // //             source,
+// // //             details,
+// // //             baseQuestion: {...baseQuestion, _id: savedQuestion._id},
+// // //             logData,
+// // //           }).catch((err: any) =>
+// // //             console.error(
+// // //               `[addQuestion] Background processing failed for questionId=${questionId}:`,
+// // //               err?.message,
+// // //             ),
+// // //           );
+// // //         });
+
+// // //         return {
+// // //           data: {
+// // //             ...baseQuestion,
+// // //             _id: questionId,
+// // //             userId: baseQuestion.userId?.toString?.(),
+// // //           },
+// // //         };
+// // //       });
+// // //     } catch (error) {
+// // //       console.error(error);
+
+// // //       logData.outcome = 'FAILED';
+// // //       logData.errorMessage = error.message;
+// // //       logData.stack = error.stack;
+// // //       chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
+
+// // //       throw new InternalServerError(`Failed to add question: ${error}`);
+// // //     }
+// // //   }
+
+// // //   private async processQuestionInBackground(params: {
+// // //     questionId: string;
+// // //     source: IQuestion['source'];
+// // //     details: IQuestion['details'];
+// // //     baseQuestion: IQuestion;
+// // //     logData: Record<string, any>;
+// // //   }): Promise<void> {
+// // //     const {questionId, source, details, baseQuestion, logData} = params;
+// // //     try {
+// // //       if (source === 'AGRI_EXPERT') {
+// // //         // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
+// // //         // on creation. They are left unallocated (empty queue, no firstAllocationAt)
+// // //         // and picked up one-at-a-time by the manual single-allocation cron
+// // //         // (reallocateManualQuestions), mirroring the time-bound flow.
+// // //         console.log(
+// // //           `[ManualSingle] Question ${questionId} left for single-allocation cron (source=AGRI_EXPERT)`,
+// // //         );
+// // //       } else {
+// // //         const isTimeBoundedQuestion =
+// // //           source === 'AJRASAKHA' || source === 'WHATSAPP';
+// // //         let threadValidation;
+// // //         if (isTimeBoundedQuestion) {
+// // //           threadValidation = await this.validateTimeBoundQuestionThread(
+// // //             questionId,
+// // //             baseQuestion.threadId,
+// // //           );
+// // //           console.log('threadValidation ', threadValidation);
+// // //           if (!threadValidation.isValid) {
+// // //             console.log('Npt valid');
+// // //             logData.outcome = 'TESTING_THREAD_ID';
+// // //             logData.threadValidationReason = threadValidation.reason;
+// // //             chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+
+// // //             await this.questionRepo.updateQuestion(questionId, {
+// // //               isTesting: true,
+// // //             });
+// // //             return;
+// // //           }
+// // //           /* else {
+// // //              // Extract the last GDB tool response from thread content
+// // //              const content: any[] = threadValidation.data?.content || [];
+// // //              const gdbToolCalls = content.filter(
+// // //                (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
+// // //              );
+// // //              const lastGdbResponse = gdbToolCalls.length > 0
+// // //                ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
+// // //                : null;
+ 
+// // //              if (lastGdbResponse) {
+// // //                const isExact: boolean = lastGdbResponse.is_exact === true;
+// // //                const isSimilar: boolean = lastGdbResponse.is_similar === true;
+ 
+// //                if (isExact && !isSimilar) {
+// //                  // Exact match found in GDB — mark as duplicate using exact_match data
+// //                  const exactMatch = lastGdbResponse.exact_match;
+// //                  await this.questionRepo.updateQuestion(questionId, {
+// //                    status: 'duplicate',
+// //                    similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+// //                    referenceQuestionId: new ObjectId(String(exactMatch.question_id)),
+// //                    referenceQuestion: exactMatch.question,
+// //                    referenceSource: 'reviewer',
+// //                    isExact: true,
+// //                  });
+// //                  return;
+// //                } else if (!isExact && isSimilar) {
+// //                  // Similar match found in GDB — mark as duplicate using similar_pair1 data
+// //                  const similarPair = lastGdbResponse.similar_pair1;
+// //                  await this.questionRepo.updateQuestion(questionId, {
+// //                    status: 'duplicate',
+// //                    similarityScore: Number((similarPair.similarity_score * 100).toFixed(2)),
+// //                    referenceQuestionId: new ObjectId(String(similarPair.question_id)),
+// //                    referenceQuestion: similarPair.question,
+// //                    referenceSource: 'reviewer',
+// //                    isExact: false,
+// //                  });
+// //                  return;
+// //                }
+// //                // Both false — fall through to existing duplicate check below
+// //              }
+// //            }*/
+
+// //           //check for the question is dynamic or static + dynamic
+// //           // const isDynamicTools = !baseQuestion?.details?.tools_used?.includes('knowledge_base')
+// //           // const isDesclaimer = threadValidation?.data.content.find((item:any)=>item?.type === 'ai' && item?.text.includes("You will get the answer within 2 hours"))
+
+// //           // const isStaticAndDynamic =!isDynamicTools && baseQuestion?.details?.tools_used?.length>1
+// //           // const isDynamic = isDynamicTools && !isDesclaimer;
+
+// //           //dynamic conditon: if the tools used only contains dynamic tools and there will be a proper answer
+// //           //static+dynamic conditon: if the tools used contains dynamic and static tools and there will not be a proper answer
+// //           // if (isDynamic) {
+// //           //   await this.questionRepo.updateQuestion(questionId, {
+// //           //     tag: 'dynamic',
+// //           //     status: 'dynamic'
+// //           //   });
+// //           //   return;
+// //           // } else if (isStaticAndDynamic && isDesclaimer) {
+// //           //   await this.questionRepo.updateQuestion(questionId, {
+// //           //     status: 'open',
+// //           //     tag: 'static_dynamic',
+// //           //     isAutoAllocate:true,
+// //           //   });
+// //           //   return
+// //           // }
+
+// //           const toolsUsed = baseQuestion?.details?.tools_used ?? [];
+// //           const hasKnowledgeBase = toolsUsed.includes('knowledge_base');
+// //           const hasDynamicTool = toolsUsed.some(
+// //             tool => tool !== 'knowledge_base',
 // //           );
-
-// //           const submissionData: IQuestionSubmission = {
-// //             questionId: question._id,
-// //             lastRespondedBy: null,
-// //             history: [],
-// //             queue: [],
-// //             createdAt: new Date(),
-// //             updatedAt: new Date(),
-// //           };
-
-// //           await this.questionSubmissionRepo.addSubmission(
-// //             submissionData,
-// //             session,
+// //           const isDisclaimer = threadValidation?.data.content.some(
+// //             (item: any) =>
+// //               item?.type === 'ai' &&
+// //               item?.text?.includes('You will get the answer within 2 hours'),
 // //           );
+// //           const isDynamic =
+// //             !hasKnowledgeBase && hasDynamicTool && !isDisclaimer;
+// //           const isStaticAndDynamic =
+// //             (hasKnowledgeBase && hasDynamicTool) ||
+// //             (!hasKnowledgeBase && hasDynamicTool && isDisclaimer);
+// //           if (isDynamic) {
+// //             await this.questionRepo.updateQuestion(questionId, {
+// //               tag: 'dynamic',
+// //               status: 'dynamic',
+// //             });
+// //             return;
+// //           }
 
-// //           insertedQuestions.push(question);
-// //         }
-
-// //         return insertedQuestions;
-// //       }
-
-// //       return this._withTransaction(
-// //         async (transactionSession: ClientSession) => {
-// //           const insertedQuestions = [];
-
-// //           for (const questionText of questions) {
-// //             const question = await this.questionRepo.addDummyQuestion(
-// //               userId,
-// //               contextId,
-// //               questionText,
-// //               transactionSession,
+// //           if (isStaticAndDynamic) {
+// //             await this.questionRepo.updateQuestion(questionId, {
+// //               status: 'open',
+// //               tag: 'static_dynamic',
+// //               isAutoAllocate: true,
+// //             });
+// //             return;
+// //           }
+// //           // AJRASAKHA / WHATSAPP — GDB → embedding → LLM duplicate/non-agri pipeline
+// //           try {
+// //             const result = await this.runDuplicateCheckPipeline(
+// //               baseQuestion,
+// //               details,
+// //               logData,
 // //             );
 
-// //             const submissionData: IQuestionSubmission = {
-// //               questionId: question._id,
+// //             const refId =
+// //               result.referenceQuestionId instanceof ObjectId
+// //                 ? result.referenceQuestionId
+// //                 : result.referenceQuestionId
+// //                   ? new ObjectId(String(result.referenceQuestionId))
+// //                   : null;
+
+// //             // 1. Duplicate
+// //             if (result.isDuplicate) {
+// //               const refId =
+// //                 result.referenceQuestionId instanceof ObjectId
+// //                   ? result.referenceQuestionId
+// //                   : result.referenceQuestionId
+// //                     ? new ObjectId(String(result.referenceQuestionId))
+// //                     : null;
+// //               await this.questionRepo.updateQuestion(questionId, {
+// //                 status: 'duplicate',
+// //                 similarityScore: result.similarityScore,
+// //                 referenceQuestionId: refId,
+// //                 referenceQuestion: result.referenceQuestion,
+// //                 referenceSource: result.referenceSource,
+// //                 ...(result.isExact !== undefined
+// //                   ? {isExact: result.isExact}
+// //                   : {}),
+// //               });
+// //               return;
+// //             }
+
+// //             // 2. Found in the GDB pending-duplicate queue → carry the matched reference
+// //             //    details and turn auto-allocate off.
+// //             if (result.isQueueDuplicate) {
+// //               await this.questionRepo.updateQuestion(questionId, {
+// //                 status: 'queue_duplicate',
+// //                 isAutoAllocate: false,
+// //                 similarityScore: result.similarityScore,
+// //                 referenceQuestionId: refId,
+// //                 referenceQuestion: result.referenceQuestion,
+// //                 referenceSource: result.referenceSource,
+// //               });
+// //               return;
+// //             }
+
+// //             // 3. Non-agri (LLM) → non_agri, else → open.
+// //             if (result.isNonAgri) {
+// //               await this.questionRepo.updateQuestion(questionId, {
+// //                 status: 'non_agri',
+// //               });
+// //               return;
+// //             }
+
+// //             await this.questionRepo.updateQuestion(questionId, {
+// //               status: 'open',
+// //               isAutoAllocate: true,
+// //             });
+// //           } catch (pipelineError: any) {
+// //             console.error(
+// //               '[processQuestionInBackground] duplicate/queue pipeline failed, proceeding as open:',
+// //               pipelineError?.message,
+// //             );
+// //             await this.questionRepo.updateQuestion(questionId, {
+// //               status: 'open',
+// //               isAutoAllocate: true,
+// //             });
+// //           }
+// //         }
+
+// //         const [allModerators, taskForceModerators] = await Promise.all([
+// //           this.userRepo.findModerators(),
+// //           this.userRepo.getSpecialTaskForceModerators(),
+// //         ]);
+// //         const sourceLabel = source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+// //         const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
+// //         const notificationType =
+// //           source === 'AJRASAKHA'
+// //             ? 'question_from_ajrasakha'
+// //             : 'question_from_whatsapp';
+
+// //         const moderators = [...allModerators, ...taskForceModerators].filter(
+// //           moderator => moderator.isTrainingUser !== true,
+// //         );
+
+// //         await Promise.all(
+// //           moderators.map((moderator: any) =>
+// //             this.notificationService.saveTheNotifications(
+// //               message,
+// //               'New Question Received',
+// //               questionId,
+// //               moderator._id.toString(),
+// //               notificationType,
+// //             ),
+// //           ),
+// //         );
+
+// //         // Time-bound expert allocation is handled exclusively by the
+// //         // reallocateTimeBoundQuestions cron to avoid double-allocation races.
+// //       }
+// //     } catch (error: any) {
+// //       console.error(
+// //         `[processQuestionInBackground] Failed for questionId=${questionId}:`,
+// //         error?.message,
+// //       );
+// //     }
+// //   }
+
+// //   private async validateTimeBoundQuestionThread(
+// //     questionId: string,
+// //     threadId?: string,
+// //   ): Promise<{isValid: boolean; reason?: string; data?: any}> {
+// //     if (!threadId?.trim()) {
+// //       return {isValid: false, reason: 'THREAD_ID_MISSING'};
+// //     }
+
+// //     // Retry with backoff — the external thread system may not have the data
+// //     // ready immediately after question creation (race between add and processing).
+// //     const retryDelaysMs = [3000, 6000, 12000];
+// //     let lastError: any;
+// //     let hadSuccessfulApiCall = false;
+
+// //     for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+// //       if (attempt > 0) {
+// //         const delay = retryDelaysMs[attempt - 1];
+// //         console.log(
+// //           `[validateTimeBoundQuestionThread] Retry ${attempt}/${retryDelaysMs.length} for questionId=${questionId} after ${delay}ms`,
+// //         );
+// //         await new Promise<void>(resolve => setTimeout(resolve, delay));
+// //       }
+
+// //       try {
+// //         const matchedQuestion = await this.getMatchedQuestion(questionId);
+// //         hadSuccessfulApiCall = true; // API responded (even if no match returned)
+// //         if (matchedQuestion) {
+// //           return {isValid: true, data: matchedQuestion};
+// //         }
+// //       } catch (error: any) {
+// //         const notFoundMessages = [
+// //           'No matching WhatsApp message found',
+// //           'Question not found',
+// //           'Thread id not found',
+// //         ];
+// //         const isNotFound = notFoundMessages.some(msg =>
+// //           error?.message?.includes(msg),
+// //         );
+// //         if (isNotFound) {
+// //           hadSuccessfulApiCall = true; // API reachable — question simply not present yet
+// //         }
+// //         lastError = error;
+// //         console.warn(
+// //           `[validateTimeBoundQuestionThread] Attempt ${attempt + 1}/${retryDelaysMs.length + 1} failed for questionId=${questionId}: ${error?.message}`,
+// //         );
+// //       }
+// //     }
+
+// //     console.error(
+// //       `[validateTimeBoundQuestionThread] All attempts exhausted for questionId=${questionId}:`,
+// //       lastError?.message,
+// //     );
+
+// //     // API responded but found no match → question is a test, mark isTesting
+// //     if (hadSuccessfulApiCall) {
+// //       return {isValid: false, reason: 'Thread_id_not_found'};
+// //     }
+
+// //     // All attempts threw errors (API failure) → don't mark isTesting, proceed normally
+// //     return {isValid: true, reason: lastError?.message || 'API_FAILED'};
+// //   }
+
+// //   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
+// //     try {
+// //       const question = await this.questionRepo.getById(questionId);
+// //       if (!question) return null;
+// //       return question;
+// //     } catch (error) {
+// //       console.error(error);
+// //       return null;
+// //     }
+// //   }
+
+// //   /**
+// //    * Resolve a question's normalised crop. If it's already set, return it. Otherwise
+// //    * try to resolve it from the crop master using the raw crop (same lookup used at
+// //    * question creation) and persist it on the question, so a crop registered in Agri
+// //    * Tech Management after the question was created (or missed by the backfill, which
+// //    * skips empty-string values and non-matching spellings) doesn't block approval.
+// //    * Returns the normalised crop name, or null if the raw crop isn't registered.
+// //    */
+// //   async ensureNormalisedCrop(
+// //     questionId: string,
+// //     session?: ClientSession,
+// //   ): Promise<string | null> {
+// //     const question = await this.questionRepo.getById(questionId, session);
+// //     const existing = question.details?.normalised_crop?.trim();
+// //     if (existing) return existing;
+
+// //     const rawCrop =
+// //       typeof question.details?.crop === 'string'
+// //         ? question.details.crop
+// //         : (question.details?.crop as any)?.name;
+// //     if (!rawCrop?.trim()) return null;
+
+// //     const resolved = await this.cropRepository.findByNameOrAlias(rawCrop);
+// //     if (!resolved?.name) return null;
+
+// //     await this.questionRepo.updateQuestion(
+// //       questionId,
+// //       {'details.normalised_crop': resolved.name} as any,
+// //       session,
+// //     );
+// //     return resolved.name;
+// //   }
+
+// //   async ensureNormalisedLocation(
+// //     questionId: string,
+// //     session?: ClientSession,
+// //   ): Promise<{valid: true}> {
+// //     const question = await this.questionRepo.getById(questionId, session);
+// //     const rawState = question.details?.state?.trim() ?? '';
+// //     const rawDistrict = question.details?.district?.trim() ?? '';
+
+// //     // ── State validation ──────────────────────────────────────────────────────
+// //     if (rawState) {
+// //       const statesCollection = await this.mongoDatabase.getCollection<{
+// //         stateNameEnglish: string;
+// //         aliases?: string[];
+// //       }>('states');
+
+// //       // Build a map: lowercase alias → canonical stateNameEnglish
+// //       const allStates = await statesCollection.find({}).toArray();
+// //       const aliasToState = new Map<string, string>();
+// //       for (const s of allStates) {
+// //         const canonical = s.stateNameEnglish;
+// //         // Map the canonical name itself (case-insensitive)
+// //         aliasToState.set(canonical.toLowerCase(), canonical);
+// //         // Map each alias
+// //         for (const alias of s.aliases ?? []) {
+// //           aliasToState.set(alias.toLowerCase(), canonical);
+// //         }
+// //       }
+
+// //       const stateKey = rawState.toLowerCase();
+// //       const normalisedState = aliasToState.get(stateKey);
+
+// //       if (!normalisedState) {
+// //         throw new BadRequestError(
+// //           `This question's state "${rawState}" is not registered in the system. Please add the correct state from the LGD Management section before approving this answer.`,
+// //         );
+// //       }
+
+// //       // Update if the canonical name differs from the raw value
+// //       if (normalisedState !== rawState) {
+// //         await this.questionRepo.updateQuestion(
+// //           questionId,
+// //           {'details.state': normalisedState} as any,
+// //           session,
+// //         );
+// //       }
+// //     }
+
+// //     // ── District validation ───────────────────────────────────────────────────
+// //     if (rawDistrict) {
+// //       const districtsCollection = await this.mongoDatabase.getCollection<{
+// //         districtNameEnglish: string;
+// //         aliases?: string[];
+// //       }>('districts');
+
+// //       // Build a map: lowercase alias → canonical districtNameEnglish
+// //       const allDistricts = await districtsCollection.find({}).toArray();
+// //       const aliasToDistrict = new Map<string, string>();
+// //       for (const d of allDistricts) {
+// //         const canonical = d.districtNameEnglish;
+// //         // Map the canonical name itself (case-insensitive)
+// //         aliasToDistrict.set(canonical.toLowerCase(), canonical);
+// //         // Map each alias
+// //         for (const alias of d.aliases ?? []) {
+// //           aliasToDistrict.set(alias.toLowerCase(), canonical);
+// //         }
+// //       }
+
+// //       const districtKey = rawDistrict.toLowerCase();
+// //       const normalisedDistrict = aliasToDistrict.get(districtKey);
+
+// //       if (!normalisedDistrict) {
+// //         throw new BadRequestError(
+// //           `This question's district "${rawDistrict}" is not registered in the system. Please add the correct district from the LGD Management section before approving this answer.`,
+// //         );
+// //       }
+
+// //       // Update if the canonical name differs from the raw value
+// //       if (normalisedDistrict !== rawDistrict) {
+// //         await this.questionRepo.updateQuestion(
+// //           questionId,
+// //           {'details.district': normalisedDistrict} as any,
+// //           session,
+// //         );
+// //       }
+// //     }
+
+// //     return {valid: true};
+// //   }
+
+// //   async getQuestionById(questionId: string): Promise<QuestionResponse> {
+// //     try {
+// //       return this._withTransaction(async (session: ClientSession) => {
+// //         const currentQuestion = await this.questionRepo.getById(questionId);
+
+// //         if (!currentQuestion)
+// //           throw new NotFoundError(
+// //             `Failed to find question with id: ${questionId}`,
+// //           );
+
+// //         // const currentAnswers = await this.answerRepo.getByQuestionId(
+// //         //   questionId,
+// //         //   session,
+// //         // );
+
+// //         const questionSubmissions =
+// //           await this.questionSubmissionRepo.getByQuestionId(
+// //             questionId,
+// //             session,
+// //           );
+
+// //         if (!questionSubmissions)
+// //           throw new NotFoundError(
+// //             `Failed to find question submission document of questionId: ${questionId}`,
+// //           );
+
+// //         const submissionHistory =
+// //           await this.questionSubmissionRepo.getDetailedSubmissionHistory(
+// //             questionId,
+// //             session,
+// //           );
+
+// //         // Only author needs to see ai initial answer
+// //         let aiInitialAnswer = currentQuestion.aiInitialAnswer;
+
+// //         const answers = await this.answerRepo.getByQuestionId(
+// //           questionId,
+// //           session,
+// //         );
+
+// //         if (answers && answers.length == 0)
+// //           aiInitialAnswer = currentQuestion.aiInitialAnswer;
+
+// //         let aiApprovedSources = currentQuestion.aiApprovedSources;
+
+// //         // Backward compatibility: old DB still has aiApprovedAnswer
+// //         if (!aiInitialAnswer && currentQuestion.aiApprovedAnswer) {
+// //           aiInitialAnswer = currentQuestion.aiApprovedAnswer;
+// //         }
+
+// //         // Existing fallback (keep this)
+// //         if (
+// //           currentQuestion.source === 'AJRASAKHA' &&
+// //           !aiInitialAnswer &&
+// //           answers &&
+// //           answers.length > 0
+// //         ) {
+// //           aiInitialAnswer = answers[0].answer;
+// //           aiApprovedSources = answers[0].sources;
+// //         }
+
+// //         return {
+// //           id: currentQuestion._id.toString(),
+// //           text: currentQuestion.question,
+// //           source: currentQuestion.source,
+// //           details: currentQuestion.details,
+// //           status: currentQuestion.status,
+// //           priority: currentQuestion.priority,
+// //           aiInitialAnswer,
+// //           aiApprovedSources,
+// //           isAutoAllocate: currentQuestion.isAutoAllocate,
+// //           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
+// //           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
+// //           totalAnswersCount: currentQuestion.totalAnswersCount,
+// //           history: submissionHistory,
+// //         };
+// //       });
+// //     } catch (error) {
+// //       throw new InternalServerError(
+// //         `Failed to get unanswered questions: ${error}`,
+// //       );
+// //     }
+// //   }
+
+// //   async updateQuestion(
+// //     questionId: string,
+// //     updates: Partial<IQuestion>,
+// //     threadUpdate?: boolean,
+// //   ): Promise<{modifiedCount: number}> {
+// //     try {
+// //       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
+// //       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
+// //       // so they shouldn't inflate the transaction scope.
+// //       if (updates.details) {
+// //         if (updates.details.state) {
+// //           updates.details.state = toTitleCase(updates.details.state);
+// //         }
+// //         if (updates.details.district) {
+// //           updates.details.district = toTitleCase(updates.details.district);
+// //         }
+// //         if (updates.details?.crop) {
+// //           const rawCropName =
+// //             typeof updates.details.crop === 'string'
+// //               ? updates.details.crop
+// //               : (updates.details.crop as any)?.name || '';
+// //           const cleanCropName = toTitleCase(rawCropName);
+// //           let normalised_crop = cleanCropName.toLowerCase();
+// //           if (rawCropName.trim()) {
+// //             try {
+// //               const existingCrop =
+// //                 await this.cropRepository.findByNameOrAlias(rawCropName);
+// //               if (existingCrop) {
+// //                 normalised_crop = existingCrop.name;
+// //               } else {
+// //                 // Crop not found — auto-create it
+// //                 // const normalizedName = rawCropName.trim().toLowerCase();
+// //                 await this.cropRepository.createCrop(cleanCropName, '', []);
+// //                 normalised_crop = cleanCropName;
+// //               }
+// //             } catch (cropError: any) {
+// //               console.error(
+// //                 'Crop normalization warning (updateQuestion):',
+// //                 cropError.message,
+// //               );
+// //             }
+// //           }
+// //           updates.details.crop = cleanCropName;
+// //           updates.details.normalised_crop = normalised_crop;
+// //         }
+// //       }
+// //       const result = await this._withTransaction(
+// //         async (session: ClientSession) => {
+// //           const existingQuestion = await this.questionRepo.getById(
+// //             questionId,
+// //             session,
+// //           );
+
+// //           if (!existingQuestion) {
+// //             throw new BadRequestError(
+// //               `Question with ID ${questionId} not found`,
+// //             );
+// //           }
+
+// //           // if (existingQuestion.status == 'closed')
+// //           //   throw new BadRequestError(
+// //           //     'You cannot modify a question that has already been closed.',
+// //           //   );
+
+// //           const answers = await this.answerRepo.getByQuestionId(
+// //             questionId,
+// //             session,
+// //           );
+// //           if (
+// //             updates.status === 'closed' &&
+// //             answers.every(answer => answer.isFinalAnswer === false)
+// //           ) {
+// //             throw new BadRequestError(
+// //               `Cannot close this question as it has non-final answer`,
+// //             );
+// //           }
+// //           if (threadUpdate) {
+// //             return await this.questionRepo.updateThreadId(
+// //               questionId,
+// //               updates.threadId!,
+// //               session,
+// //             );
+// //           }
+// //           // When a question is passed, remove it from any moderator's assignedQuestionIds
+// //           // so the cron sees them as available again. Keyed by questionId so a
+// //           // malformed/missing moderatorId can't leave an orphan entry behind.
+// //           if (updates.status === 'pass') {
+// //             await this.ensureNormalisedLocation(questionId, session);
+// //             // Check for pending allocations before allowing pass
+// //             const questionSubmission =
+// //               await this.questionSubmissionRepo.getByQuestionId(
+// //                 questionId,
+// //                 session,
+// //               );
+
+// //             if (questionSubmission) {
+// //               const queueLength = questionSubmission.queue.length;
+// //               const historyLength = questionSubmission.history.length;
+
+// //               // Condition 1: queue.length > 0 and history.length == 0
+// //               // This means it is assigned but not completed
+// //               if (queueLength > 0 && historyLength === 0) {
+// //                 throw new BadRequestError(
+// //                   'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
+// //                 );
+// //               }
+
+// //               // Condition 2: queue.length > 0 and history.length > 0
+// //               // Check if the last history item status is 'in-review' AND question status is NOT 'in-review'
+// //               if (queueLength > 0 && historyLength > 0) {
+// //                 const lastHistoryItem =
+// //                   questionSubmission.history[historyLength - 1];
+// //                 if (
+// //                   lastHistoryItem.status === 'in-review' &&
+// //                   existingQuestion.status !== 'in-review'
+// //                 ) {
+// //                   throw new BadRequestError(
+// //                     'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
+// //                   );
+// //                 }
+// //               }
+// //             }
+
+// //             try {
+// //               await this.userRepo.removeAssignedQuestionFromAllModerators(
+// //                 questionId,
+// //                 session,
+// //               );
+// //             } catch (err: any) {
+// //               console.error(
+// //                 '[ModeratorQueue] Failed to clear passed question from moderators:',
+// //                 err?.message,
+// //               );
+// //             }
+// //           }
+// //           // Auditor "Notify User" flow closes dynamic questions as `dynamic_closed` and
+// //           // duplicate questions as `duplicate_closed`. Stamp closedAt/isClosed just like the
+// //           // regular `closed` transition so analytics and closed-question filters treat them
+// //           // consistently.
+// //           if (
+// //             updates.status === 'dynamic_closed' ||
+// //             updates.status === 'duplicate_closed'
+// //           ) {
+// //             updates.isClosed = true;
+// //             updates.paeValidation = 'pending';
+// //             updates.autoAllocatePaeValidationExpert = true;
+// //             if (!updates.closedAt) updates.closedAt = new Date();
+// //           }
+// //           const updateResult = await this.questionRepo.updateQuestion(
+// //             questionId,
+// //             updates,
+// //             session,
+// //           );
+
+// //           // In-transaction: if the status changed, free any gate keeper / auditor whose
+// //           // handling scope the question has now left (pass / push-to-auditor / close, etc.)
+// //           // so the status change and the release commit atomically — a failure here rolls
+// //           // back the whole update, preventing a stuck assignee. (The queue cron still
+// //           // reconciles as a backstop for any release missed by other paths.)
+// //           if (!threadUpdate && updates.status) {
+// //             await this.freeRoleAssigneeOnStatusChange(
+// //               questionId,
+// //               updates.status,
+// //               session,
+// //             );
+// //           }
+
+// //           return updateResult;
+// //         },
+// //       );
+
+// //       return result;
+// //     } catch (error) {
+// //       throw new InternalServerError(`Failed to update question: ${error}`);
+// //     }
+// //   }
+
+// //   async autoAllocateExperts(
+// //     questionId: string,
+// //     session?: ClientSession,
+// //     BATCH_EXPECTED_TO_ADD: number = DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+// //   ): Promise<{data?: ObjectId[]; status: boolean}> {
+// //     const question = await this.questionRepo.getById(questionId, session);
+// //     if (!question) throw new NotFoundError('Question not found');
+
+// //     if (
+// //       question.status === 'in-review' ||
+// //       question.status === 'closed' ||
+// //       question.status == 'pae_submitted'
+// //     ) {
+// //       console.log(
+// //         'This question is currently being reviewed or has been closed. Please check back later!',
+// //       );
+// //       return {data: [], status: false};
+// //     }
+// //     // Single-allocation sources (time-bound AJRASAKHA/WHATSAPP and manual
+// //     // AGRI_EXPERT/OUTREACH) are managed by the single-allocation cron — bulk
+// //     // auto-allocation is disabled for them here.
+// //     const isSingleAllocation =
+// //       TIME_BOUND_SOURCES.includes(question.source) ||
+// //       MANUAL_SOURCES.includes(question.source);
+// //     if (isSingleAllocation) {
+// //       const reason = `Auto-allocation is disabled for single-allocation questions (source: ${question.source})`;
+// //       console.log(
+// //         `[autoAllocateExperts] ${reason} — questionId: ${questionId}`,
+// //       );
+// //       return {data: [], status: false};
+// //     }
+// //     if (question.status == 'draft') {
+// //       await this.questionRepo.updateQuestion(
+// //         questionId,
+// //         {
+// //           status: 'open',
+// //         },
+// //         session,
+// //       );
+// //     }
+
+// //     const details = question.details as PreferenceDto;
+
+// //     const questionSubmission =
+// //       await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+
+// //     if (!questionSubmission) {
+// //       throw new NotFoundError('Question submission not found');
+// //     }
+
+// //     // checking last submission in history to see if there is an expert who has not yet responded and if !lastSubmission.answer is added to ensure that we are not blocking the queue in case of reviewers who are just reviewing the answer without providing any answers
+// //     const lastSubmission = questionSubmission.history.at(-1);
+// //     if (
+// //       lastSubmission &&
+// //       lastSubmission.status === 'in-review' &&
+// //       !lastSubmission.answer
+// //     ) {
+// //       return {data: [], status: false};
+// //     }
+
+// //     const EXISTING_QUEUE_COUNT = questionSubmission.queue.length || 0;
+// //     const EXISTING_HISTORY_COUNT = questionSubmission.history.length || 0;
+
+// //     if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
+// //       console.log('Cannot auto allocate as queue is full');
+// //       return {data: [], status: false};
+// //     }
+
+// //     let allExpertIds: string[] = [];
+// //     const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
+// //     const isTrainingQuestion = question.isTrainingQuestion === true;
+// //     if (isAjrasakha) {
+// //       const users = await this.userRepo.getExpertsWithFallback(
+// //         details,
+// //         session,
+// //       );
+
+// //       allExpertIds = users
+// //         .filter(user => user.isTrainingUser !== true)
+// //         .map(user => user._id.toString());
+// //     } else {
+// //       const expertTMU = [];
+// //       const expertNormal = [];
+// //       const [users, preferredExperts] = await Promise.all([
+// //         this.userRepo.findAll(),
+// //         this.userRepo.findExpertsByPreference(details, session),
+// //       ]);
+
+// //       for (const user of users) {
+// //         if (user.role !== 'expert' || user.isBlocked === true) {
+// //           continue;
+// //         }
+
+// //         if (user.isTrainingUser) {
+// //           expertTMU.push(user);
+// //         } else {
+// //           expertNormal.push(user);
+// //         }
+// //       }
+
+// //       const eligibleUsers = isTrainingQuestion ? expertTMU : expertNormal;
+
+// //       const preferredTMU = [];
+// //       const preferredNormal = [];
+
+// //       for (const user of preferredExperts) {
+// //         if (user.isTrainingUser) {
+// //           preferredTMU.push(user);
+// //         } else {
+// //           preferredNormal.push(user);
+// //         }
+// //       }
+// //       const eligiblePreferredExperts = isTrainingQuestion
+// //         ? preferredTMU
+// //         : preferredNormal;
+
+// //       const expertIdsSet = new Set<string>();
+
+// //       // Add preferred experts first to the set to ensure they get priority in allocation
+// //       eligiblePreferredExperts.forEach(user =>
+// //         expertIdsSet.add(user._id.toString()),
+// //       );
+
+// //       // Add remaining
+// //       eligibleUsers.forEach(user => expertIdsSet.add(user._id.toString()));
+
+// //       allExpertIds = Array.from(expertIdsSet);
+// //     }
+
+// //     let updatedQueue;
+
+// //     // condition to check if we have room in the queue to add more experts and also to ensure we are not adding more experts if there is already an expert in the queue who has not yet responded (to avoid flooding the queue with multiple experts at once and to give existing experts a chance to respond before adding more)
+// //     if (
+// //       EXISTING_QUEUE_COUNT < DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT ||
+// //       (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
+// //         EXISTING_QUEUE_COUNT <= allExpertIds.length)
+// //     ) {
+// //       const answeredExperts = new Set(
+// //         questionSubmission.history.map(h => h.updatedBy.toString()),
+// //       );
+
+// //       const unAnsweredExpertIds = allExpertIds.filter(
+// //         expertId => !answeredExperts.has(expertId),
+// //       );
+
+// //       const CURRENT_BATCH_SIZE = TOTAL_EXPERTS_LIMIT - EXISTING_QUEUE_COUNT;
+
+// //       // To ensure allocation will not overflow total limit
+// //       const FINAL_BATCH_SIZE = Math.min(
+// //         BATCH_EXPECTED_TO_ADD,
+// //         CURRENT_BATCH_SIZE,
+// //       );
+
+// //       const existingQueueIds = questionSubmission.queue.map(id =>
+// //         id.toString(),
+// //       );
+
+// //       const filteredExperts = unAnsweredExpertIds.filter(
+// //         id => !existingQueueIds.includes(id.toString()),
+// //       );
+
+// //       const lastSubmission = questionSubmission.history.at(-1);
+// //       // No more experts left to allocate — hand the question off to a moderator
+// //       // (status → in-review, last answer → pending-with-moderator) and stop here:
+// //       // everything below only applies when there are experts to add.
+// //       if (filteredExperts.length === 0) {
+// //         await this.questionRepo.updateQuestion(
+// //           questionId,
+// //           {status: 'in-review'},
+// //           session,
+// //         );
+// //         const payload: Partial<IAnswer> = {
+// //           status: 'pending-with-moderator',
+// //         };
+
+// //         // The last submission may be an answer, an approval, or a modification —
+// //         // a modified review carries `modifiedAnswer` (not `answer`/`approvedAnswer`).
+// //         // Include it in the fallback so the correct answer is marked pending-with-
+// //         // moderator, and guard against a missing id so this never throws.
+// //         const answer =
+// //           lastSubmission?.answer ||
+// //           lastSubmission?.approvedAnswer ||
+// //           lastSubmission?.modifiedAnswer ||
+// //           lastSubmission?.rejectedAnswer;
+
+// //         if (answer) {
+// //           await this.answerRepo.updateAnswerStatus(
+// //             answer.toString(),
+// //             payload,
+// //             session,
+// //           );
+// //         }
+
+// //         return {data: [], status: false};
+// //       }
+
+// //       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
+
+// //       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
+// //       // if (
+// //       //   questionSubmission.history.length >= 0 &&
+// //       //   (!lastSubmission ||
+// //       //     (lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
+// //       //     lastSubmission?.status == 'reviewed')
+// //       //   // &&EXISTING_QUEUE_COUNT >= 3
+// //       // ) {
+// //       const hasExperts = expertsToAdd?.length >= 1;
+// //       if (!lastSubmission) {
+// //         const IS_INCREMENT = true;
+// //         const expertId = expertsToAdd[0]?.toString();
+// //         await this.userRepo.updateReputationScore(
+// //           expertId,
+// //           IS_INCREMENT,
+// //           session,
+// //         );
+// //         // No submissions send answer_creation notification to the first expert
+// //         if (EXISTING_QUEUE_COUNT === 0) {
+// //           let message = `A Question has been assigned for answering`;
+// //           let title = 'Answer Creation Assigned';
+// //           let entityId = questionId.toString();
+// //           const user = expertId;
+// //           const type: INotificationType = 'answer_creation';
+// //           await this.notificationService.saveTheNotifications(
+// //             message,
+// //             title,
+// //             entityId,
+// //             user,
+// //             type,
+// //           );
+// //           if (!question.firstAllocationAt) {
+// //             await this.questionRepo.updateQuestion(
+// //               questionId,
+// //               {firstAllocationAt: new Date()},
+// //               session,
+// //             );
+// //           }
+// //         }
+// //       }
+// //       if (
+// //         hasExperts &&
+// //         lastSubmission &&
+// //         (lastSubmission.reviewId || lastSubmission.answer) // if last submission is reviewed or author's answer
+// //       ) {
+// //         const nextExpertId = expertsToAdd[0]?.toString();
+// //         const nextAllocatedSubmissionData: ISubmissionHistory = {
+// //           updatedBy: new ObjectId(nextExpertId),
+// //           status: 'in-review',
+// //           createdAt: new Date(),
+// //           updatedAt: new Date(),
+// //         };
+
+// //         await this.questionSubmissionRepo.update(
+// //           questionId,
+// //           nextAllocatedSubmissionData,
+// //           session,
+// //           false,
+// //         );
+// //         const IS_INCREMENT = true;
+// //         await this.userRepo.updateReputationScore(
+// //           nextExpertId.toString(),
+// //           IS_INCREMENT,
+// //           session,
+// //         );
+// //         let message = `A new Review has been assigned to you`;
+// //         let title = 'New Review Assigned';
+// //         let entityId = questionId.toString();
+// //         const user = nextExpertId.toString();
+// //         const type: INotificationType = 'peer_review';
+// //         await this.notificationService.saveTheNotifications(
+// //           message,
+// //           title,
+// //           entityId,
+// //           user,
+// //           type,
+// //         );
+// //       }
+// //       updatedQueue = [...questionSubmission.queue, ...(expertsToAdd || [])]
+// //         .slice(0, TOTAL_EXPERTS_LIMIT)
+// //         .map(id => new ObjectId(id));
+
+// //       await this.questionSubmissionRepo.updateQueue(
+// //         questionId,
+// //         updatedQueue,
+// //         session,
+// //       );
+// //     }
+// //     return {
+// //       data: updatedQueue,
+// //       status: true,
+// //     };
+// //   }
+
+// //   async toggleAutoAllocate(
+// //     questionId: string,
+// //   ): Promise<{message: string; data?: ObjectId[]}> {
+// //     try {
+// //       return this._withTransaction(async (session: ClientSession) => {
+// //         //1. Validate question existence
+// //         const question = await this.questionRepo.getById(questionId, session);
+// //         if (!question) throw new NotFoundError('Question not found');
+// //         if (question.status == 'draft') {
+// //           await this.questionRepo.updateQuestion(
+// //             questionId,
+// //             {
+// //               status: 'open',
+// //             },
+// //             session,
+// //           );
+// //         }
+
+// //         const updated = await this.questionRepo.updateAutoAllocate(
+// //           questionId,
+// //           question?.isAutoAllocate,
+// //           session,
+// //         );
+
+// //         const currentStatus = question.isAutoAllocate;
+
+// //         // If currentStatus is false, then we need to set it to true and vice versa
+// //         let out;
+
+// //         if (!currentStatus) {
+// //           const questionSubmission =
+// //             await this.questionSubmissionRepo.getByQuestionId(
+// //               questionId,
+// //               session,
+// //             );
+
+// //           if (!questionSubmission)
+// //             await this.questionSubmissionRepo.addSubmission(
+// //               {
+// //                 questionId: new ObjectId(questionId),
+// //                 lastRespondedBy: null,
+// //                 history: [],
+// //                 queue: [],
+// //                 createdAt: new Date(),
+// //                 updatedAt: new Date(),
+// //                 reviewDelayNotificationSent: false,
+// //               },
+// //               session,
+// //             );
+
+// //           // const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
+// //           // let BATCH_EXPECTED_TO_ADD = 6;
+
+// //           // If removing first 3 intial allocation, so allocate only 3 intially
+// //           // if (CURRENT_QUEUE_LENGTH < 3)
+// //           //   BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
+
+// //           out = await this.autoAllocateExperts(
+// //             questionId,
+// //             session,
+// //             // BATCH_EXPECTED_TO_ADD,
+// //           );
+
+// //           if (!out.status) {
+// //             return {
+// //               message: 'Auto allocate toggled, but queue is already full',
+// //               data: out?.data,
+// //             };
+// //           }
+// //         }
+
+// //         return {
+// //           message: `Auto allocate is now set to ${updated.isAutoAllocate}`,
+// //           data: out?.data,
+// //         };
+// //       });
+// //     } catch (error) {
+// //       throw new InternalServerError(`Failed to toggle auto allocate: ${error}`);
+// //     }
+// //   }
+
+// //   async allocateExperts(
+// //     userId: string,
+// //     questionId: string,
+// //     experts: string[],
+// //   ): Promise<IQuestionSubmission> {
+// //     try {
+// //       return this._withTransaction(async (session: ClientSession) => {
+// //         // Validate that user has authorization for this
+// //         const user = await this.userRepo.findById(userId, session);
+// //         if (!user)
+// //           throw new UnauthorizedError(`Cannot find user, try relogin!`);
+// //         if (user.role == 'expert')
+// //           throw new UnauthorizedError(
+// //             `You don't have permission to perform this operation`,
+// //           );
+// //         //1. Validate question existence
+// //         const question = await this.questionRepo.getById(questionId, session);
+// //         if (!question) throw new NotFoundError('Question not found');
+// //         if (
+// //           question.status === 'in-review' ||
+// //           question.status === 'closed' ||
+// //           question.status == 'pae_submitted'
+// //         ) {
+// //           console.log(
+// //             'This question is currently being in reviewed or has been closed. Please check back later!',
+// //           );
+// //           return;
+// //         }
+// //         if (question.status == 'draft') {
+// //           // Check if any of the experts being allocated is a PAE expert
+// //           const expertUsers = await Promise.all(
+// //             experts.map(id => this.userRepo.findById(id, session)),
+// //           );
+// //           const isPaeAllocation = expertUsers.some(
+// //             u => u?.role === 'pae_expert',
+// //           );
+
+// //           await this.questionRepo.updateQuestion(
+// //             questionId,
+// //             {
+// //               status: 'open',
+// //               ...(isPaeAllocation && {pae_review: true}),
+// //             },
+// //             session,
+// //           );
+// //         }
+
+// //         //2. Validate question submission existence
+// //         let questionSubmission =
+// //           await this.questionSubmissionRepo.getByQuestionId(
+// //             questionId,
+// //             session,
+// //           );
+// //         // let submission
+// //         if (!questionSubmission) {
+// //           if (question.source == 'WHATSAPP' || question.status === 'draft') {
+// //             const newSubmission: IQuestionSubmission = {
+// //               questionId: new ObjectId(questionId),
 // //               lastRespondedBy: null,
 // //               history: [],
 // //               queue: [],
 // //               createdAt: new Date(),
 // //               updatedAt: new Date(),
 // //             };
-
-// //             await this.questionSubmissionRepo.addSubmission(
-// //               submissionData,
-// //               transactionSession,
-// //             );
-
-// //             insertedQuestions.push(question);
+// //             questionSubmission =
+// //               await this.questionSubmissionRepo.addSubmission(
+// //                 newSubmission,
+// //                 session,
+// //               );
+// //           } else {
+// //             throw new NotFoundError('Question submission not found');
 // //           }
+// //         }
 
-// //           return insertedQuestions;
-// //         },
-// //       );
-// //     } catch (error) {
-// //       throw new InternalServerError(`Failed to add questions: ${error}`);
-// //     }
-// //   }
+// //         // 3. Validate if the queue is full
+// //         if (questionSubmission.queue.length >= 10)
+// //           throw new BadRequestError(
+// //             'Cannot allocate more than 10 experts for a question.',
+// //           );
 
-// //   async getByContextId(contextId: string): Promise<IQuestion[]> {
-// //     try {
-// //       return this._withTransaction(async (session: ClientSession) => {
-// //         return this.questionRepo.getByContextId(contextId, session);
+// //         const hasExistingExpert = experts.some(expertId =>
+// //           questionSubmission.queue.includes(expertId),
+// //         );
+
+// //         // 4. Validate if the expert Id is already there in queue
+
+// //         if (hasExistingExpert) {
+// //           throw new BadRequestError(
+// //             'The selected expert is already in the queue. Please choose another expert.',
+// //           );
+// //         }
+// //         //5. Validate experts array
+// //         if (!experts || experts.length === 0)
+// //           throw new BadRequestError('Experts list cannot be empty');
+
+// //         // Check if adding these experts exceeds the limit of 10
+// //         const totalAllocatedExperts = questionSubmission.queue.length;
+// //         if (totalAllocatedExperts + experts.length > 10)
+// //           throw new BadRequestError(
+// //             `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
+// //           );
+
+// //         // for (let expert of experts) {
+// //         //   const IS_INCREMENT = true;
+// //         //   await this.userRepo.updateReputationScore(
+// //         //     expert,
+// //         //     IS_INCREMENT,
+// //         //     session,
+// //         //   );
+// //         // }
+
+// //         const lastSubmission = questionSubmission.history.at(-1);
+// //         const isReviewStage = Boolean(
+// //           lastSubmission &&
+// //             (lastSubmission.answer || lastSubmission.status === 'reviewed'),
+// //         );
+
+// //         // If manual allocation is for author (no answer submitted yet) and queue is currently empty
+// //         if (!isReviewStage && questionSubmission.queue.length === 0) {
+// //           const firstPerson = experts[0];
+// //           const IS_INCREMENT = true;
+// //           await this.userRepo.updateReputationScore(
+// //             firstPerson.toString(),
+// //             IS_INCREMENT,
+// //             session,
+// //           );
+// //           let message = `A Question has been assigned for answering`;
+// //           let title = 'Answer Creation Assigned';
+// //           let entityId = questionId.toString();
+// //           const user = firstPerson.toString();
+// //           const type: INotificationType = 'answer_creation';
+// //           await this.notificationService.saveTheNotifications(
+// //             message,
+// //             title,
+// //             entityId,
+// //             user,
+// //             type,
+// //           );
+// //           if (!question.firstAllocationAt) {
+// //             await this.questionRepo.updateQuestion(
+// //               questionId,
+// //               {firstAllocationAt: new Date()},
+// //               session,
+// //             );
+// //           }
+// //         }
+
+// //         //6. Allocate experts
+// //         const updateData: any = {};
+// //         if (question.status === 'duplicate') {
+// //           updateData.status = 'open';
+// //         }
+// //         if (!isReviewStage && !question.firstAllocationAt) {
+// //           updateData.firstAllocationAt = new Date();
+// //         }
+
+// //         if (Object.keys(updateData).length > 0) {
+// //           await this.questionRepo.updateQuestion(questionId, updateData, session);
+// //         }
+
+// //         const expertIds = experts.map(e => new ObjectId(e));
+
+// //         // if at review stage (last submission has an answer or is reviewed)
+// //         if (isReviewStage) {
+// //           const expertId = expertIds[0];
+// //           const userSubmissionData: ISubmissionHistory = {
+// //             updatedBy: expertId,
+// //             createdAt: new Date(),
+// //             status: 'in-review',
+// //             updatedAt: new Date(),
+// //           };
+// //           const IS_INCREMENT = true;
+// //           await this.userRepo.updateReputationScore(
+// //             expertId.toString(),
+// //             IS_INCREMENT,
+// //             session,
+// //           );
+// //           //need to add here
+// //           let message = `A new Review has been assigned to you`;
+// //           let title = 'New Review Assigned';
+// //           let entityId = questionId.toString();
+// //           const user = expertId.toString();
+// //           const type: INotificationType = 'peer_review';
+// //           await this.notificationService.saveTheNotifications(
+// //             message,
+// //             title,
+// //             entityId,
+// //             user,
+// //             type,
+// //           );
+// //           await this.questionSubmissionRepo.update(
+// //             questionId,
+// //             userSubmissionData,
+// //             session,
+// //             false,
+// //           );
+// //         }
+// //         //7. Update question submission with new experts
+// //         const updated = await this.questionSubmissionRepo.allocateExperts(
+// //           questionId,
+// //           expertIds,
+// //           session,
+// //         );
+
+// //         //8. For time-bound questions: start the 45-min clock.
+// //         // NOTE: do NOT force isAutoAllocate back on here — a moderator who
+// //         // explicitly turned auto-allocate off before assigning an expert must
+// //         // have that choice respected (otherwise it silently re-enables on
+// //         // refresh for AJRASAKHA/WHATSAPP questions).
+// //         if (question.source === 'WHATSAPP' || question.source === 'AJRASAKHA') {
+// //           // Run outside transaction (non-critical, fire-and-forget style)
+// //           setImmediate(async () => {
+// //             try {
+// //               await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
+// //                 questionId,
+// //                 new Date(),
+// //               );
+// //             } catch (err: any) {
+// //               console.error(
+// //                 `[allocateExperts] Failed to set time-bound fields for ${questionId}:`,
+// //                 err?.message,
+// //               );
+// //             }
+// //           });
+// //         }
+
+// //         //9. Return updated question submission
+// //         return updated;
 // //       });
 // //     } catch (error) {
-// //       throw new InternalServerError(`Failed to get questions: ${error}`);
+// //       throw new InternalServerError(`Failed to allocate experts: ${error}`);
 // //     }
 // //   }
 
-// //   /** Standardise a state name across all questions: any question whose details.state matches
-// //    *  one of `currentValues` (e.g. "punjab", "PUNJAB", "पंजाब") is set to `standardizedTo`
-// //    *  (e.g. "Punjab"). Returns how many matched/were modified. */
-// //   async normalizeQuestionState(
-// //     currentValues: string[],
-// //     standardizedTo: string,
-// //   ): Promise<{matched: number; modified: number}> {
-// //     const cleaned = (currentValues ?? [])
-// //       .map(v => (typeof v === 'string' ? v.trim() : ''))
-// //       .filter(Boolean);
-// //     const target = (standardizedTo ?? '').trim();
-// //     if (cleaned.length === 0) {
-// //       throw new BadRequestError(
-// //         'current values must be a non-empty array of strings',
+// //   /**
+// //    * Bulk allocate a PAE expert to multiple existing draft questions via background worker.
+// //    * Fires and returns immediately — the worker handles DB operations asynchronously.
+// //    */
+// //   async bulkAllocatePaeExperts(
+// //     userId: string,
+// //     questionIds: string[],
+// //     paeExpertId: string,
+// //   ): Promise<{jobId: string; message: string}> {
+// //     // Validate actor and PAE expert before handing off to worker
+// //     const actor = await this.userRepo.findById(userId);
+// //     if (!actor) throw new UnauthorizedError('Cannot find user, try relogin!');
+// //     if (actor.role === 'expert')
+// //       throw new UnauthorizedError(
+// //         "You don't have permission to perform this operation",
+// //       );
+
+// //     const paeUser = await this.userRepo.findById(paeExpertId);
+// //     if (!paeUser) throw new BadRequestError('PAE expert not found');
+
+// //     const jobId = startPaeAllocationWorker(questionIds, paeExpertId, userId);
+// //     return {
+// //       jobId,
+// //       message: `PAE allocation started for ${questionIds.length} question(s). Track progress with job ID: ${jobId}`,
+// //     };
+// //   }
+
+// //   // async removeExpertFromQueue(
+// //   //   userId: string,
+// //   //   questionId: string,
+// //   //   index: number,
+// //   //   options?: {
+// //   //     skipAutoAllocate?: boolean;
+// //   //   },
+// //   //   session?: ClientSession,
+// //   // ): Promise<IQuestionSubmission> {
+// //   //   const skipAutoAllocate = options?.skipAutoAllocate ?? false;
+// //   //   try {
+// //   //     // return this._withTransaction(async (session: ClientSession) => {
+// //   //     if (userId !== 'system') {
+// //   //       const user = await this.userRepo.findById(userId, session);
+// //   //       if (!user)
+// //   //         throw new UnauthorizedError(`Cannot find user, try relogin!`);
+// //   //       if (user.role == 'expert')
+// //   //         throw new UnauthorizedError(
+// //   //           `You don't have permission to perform this operation`,
+// //   //         );
+// //   //     }
+// //   //     //1. Validate that the question exists
+// //   //     const question = await this.questionRepo.getById(questionId, session);
+// //   //     if (!question) throw new NotFoundError('Question not found');
+
+// //   //     //2. Validate that the corresponding question submission exists
+// //   //     const questionSubmission =
+// //   //       await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+// //   //     if (!questionSubmission)
+// //   //       throw new NotFoundError('Question submission not found');
+
+// //   //     //3. Get the current expert queue from the question submission
+// //   //     const submissionQueue = questionSubmission.queue || [];
+// //   //     const submissionHistory = questionSubmission.history || [];
+// //   //     //4. Extract the expert ID based on the provided index
+// //   //     const expertId = submissionQueue[index]?.toString();
+// //   //     //5. Decrease the expert's reputation score (since being removed)
+// //   //     const nextUserId = submissionQueue[index + 1]?.toString();
+// //   //     const isExpertInHistory = submissionHistory.find(
+// //   //       h => h.updatedBy.toString() == expertId.toString(),
+// //   //     );
+// //   //     if (
+// //   //       expertId &&
+// //   //       isExpertInHistory &&
+// //   //       !isExpertInHistory.reviewId &&
+// //   //       isExpertInHistory.status === 'in-review'
+// //   //     ) {
+// //   //       const INCREMENT = false;
+// //   //       await this.userRepo.updateReputationScore(expertId, INCREMENT, session);
+
+// //   //       if (nextUserId) {
+// //   //         const INCREMENT = true;
+// //   //         await this.userRepo.updateReputationScore(
+// //   //           nextUserId,
+// //   //           INCREMENT,
+// //   //           session,
+// //   //         );
+// //   //       }
+// //   //     }
+// //   //     if (submissionHistory.length === 0) {
+// //   //       if (submissionQueue[0].toString() === expertId) {
+// //   //         const IS_INCREMENT = false;
+// //   //         await this.userRepo.updateReputationScore(
+// //   //           expertId,
+// //   //           IS_INCREMENT,
+// //   //           session,
+// //   //         );
+// //   //         if (nextUserId) {
+// //   //           const IS_INCREMENT = true;
+// //   //           await this.userRepo.updateReputationScore(
+// //   //             nextUserId,
+// //   //             IS_INCREMENT,
+// //   //             session,
+// //   //           );
+// //   //         }
+// //   //       }
+// //   //     }
+// //   //     // } else {
+// //   //     //   const matchUser = submissionHistory.find(
+// //   //     //     u => u.updatedBy?.toString() === expertId,
+// //   //     //   );
+// //   //     //   if (matchUser) {
+// //   //     //     const IS_INCREMENT = false;
+// //   //     //     await this.userRepo.updateReputationScore(
+// //   //     //       expertId,
+// //   //     //       IS_INCREMENT,
+// //   //     //       session,
+// //   //     //     );
+// //   //     //     if (nextUserId) {
+// //   //     //       const IS_INCREMENT = true;
+// //   //     //       await this.userRepo.updateReputationScore(
+// //   //     //         nextUserId,
+// //   //     //         IS_INCREMENT,
+// //   //     //         session,
+// //   //     //       );
+// //   //     //     }
+// //   //     //   }
+// //   //     // }
+
+// //   //     //6. Remove the expert from the queue by index
+// //   //     const updated =
+// //   //       await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
+// //   //         questionId,
+// //   //         Number(index),
+// //   //         session,
+// //   //       );
+// //   //     /*  if(updated)
+// //   //         {
+// //   //           const IS_INCREMENT = true;
+// //   //         const userId =updated.queue[0];
+// //   //         await this.userRepo.updateReputationScore(
+// //   //           userId.toString(),
+// //   //           IS_INCREMENT,
+// //   //           session,
+// //   //         );
+// //   //         }*/
+
+// //   //     //7. Handle auto reallocation logic if autoAllocate is enabled
+// //   //     if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
+// //   //       // Get updated queue and history lengths
+// //   //       const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
+// //   //       const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
+// //   //       let BATCH_EXPECTED_TO_ADD = 6;
+
+// //   //       // Adjust batch size if initial allocation (<3) experts are being removed
+// //   //       if (UPDATED_QUEUE_LENGTH < 3)
+// //   //         BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
+
+// //   //       // If all previous experts have responded and queue is not full, trigger auto allocation
+// //   //       if (
+// //   //         UPDATED_QUEUE_LENGTH < 3 ||
+// //   //         (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
+// //   //           UPDATED_QUEUE_LENGTH < 10)
+// //   //       ) {
+// //   //         await this.autoAllocateExperts(
+// //   //           questionId,
+// //   //           session,
+// //   //           BATCH_EXPECTED_TO_ADD,
+// //   //         );
+// //   //       }
+// //   //     }
+
+// //   //     //8. Return the updated question submission
+// //   //     return updated;
+// //   //     // });
+// //   //   } catch (error) {
+// //   //     throw new InternalServerError(
+// //   //       `Failed to remove expert from queue: ${error}`,
+// //   //     );
+// //   //   }
+// //   // }
+
+// //   async removeExpertFromQueue(
+// //     userId: string,
+// //     questionId: string,
+// //     index: number,
+// //     options?: {
+// //       skipAutoAllocate?: boolean;
+// //     },
+// //     session?: ClientSession,
+// //   ): Promise<IQuestionSubmission> {
+// //     if (session) {
+// //       return this._removeExpertFromQueue(
+// //         userId,
+// //         questionId,
+// //         index,
+// //         options,
+// //         session,
 // //       );
 // //     }
-// //     if (!target) {
-// //       throw new BadRequestError('standardizedTo is required');
-// //     }
-// //     return this._withTransaction(async (session: ClientSession) => {
-// //       return this.questionRepo.normalizeQuestionState(cleaned, target, session);
+// //     return this._withTransaction(async newSession => {
+// //       return this._removeExpertFromQueue(
+// //         userId,
+// //         questionId,
+// //         index,
+// //         options,
+// //         newSession,
+// //       );
 // //     });
 // //   }
 
-// //   /** Standardise question district names, validating each `standardiseTo` against the
-// //    *  `districts` collection (districtNameEnglish). Matching ones update questions whose
-// //    *  details.district === existingName; non-matching names are returned untouched. */
-// //   async normalizeQuestionDistricts(
-// //     mappings: {existingName: string; standardiseTo: string}[],
-// //   ) {
-// //     const cleaned = (mappings ?? [])
-// //       .map(m => ({
-// //         existingName:
-// //           typeof m?.existingName === 'string' ? m.existingName.trim() : '',
-// //         standardiseTo:
-// //           typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
-// //       }))
-// //       .filter(m => m.existingName && m.standardiseTo);
-// //     if (cleaned.length === 0) {
-// //       throw new BadRequestError(
-// //         'mappings must be a non-empty array of { existingName, standardiseTo }',
+// //   async _removeExpertFromQueue(
+// //     userId: string,
+// //     questionId: string,
+// //     index: number,
+// //     options?: {
+// //       skipAutoAllocate?: boolean;
+// //     },
+// //     session?: ClientSession,
+// //   ): Promise<IQuestionSubmission> {
+// //     const skipAutoAllocate = options?.skipAutoAllocate ?? false;
+// //     try {
+// //       if (userId !== 'system') {
+// //         const user = await this.userRepo.findById(userId, session);
+// //         if (!user)
+// //           throw new UnauthorizedError(`Cannot find user, try relogin!`);
+// //         if (user.role == 'expert')
+// //           throw new UnauthorizedError(
+// //             `You don't have permission to perform this operation`,
+// //           );
+// //       }
+// //       //1. Validate that the question exists
+// //       const question = await this.questionRepo.getById(questionId, session);
+// //       if (!question) throw new NotFoundError('Question not found');
+
+// //       //2. Validate that the corresponding question submission exists
+// //       const questionSubmission =
+// //         await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+// //       if (!questionSubmission)
+// //         throw new NotFoundError('Question submission not found');
+
+// //       //3. Get the current expert queue from the question submission
+// //       const submissionQueue = questionSubmission.queue || [];
+// //       const submissionHistory = questionSubmission.history || [];
+// //       //4. Extract the expert ID based on the provided index
+// //       const expertId = submissionQueue[index]?.toString();
+// //       //5. Decrease the expert's reputation score (since being removed)
+// //       const nextUserId = submissionQueue[index + 1]?.toString();
+// //       const isExpertInHistory = submissionHistory.find(
+// //         h => h.updatedBy.toString() == expertId.toString(),
+// //       );
+// //       if (
+// //         expertId &&
+// //         isExpertInHistory &&
+// //         !isExpertInHistory.reviewId &&
+// //         isExpertInHistory.status === 'in-review'
+// //       ) {
+// //         const INCREMENT = false;
+// //         await this.userRepo.updateReputationScore(expertId, INCREMENT, session);
+
+// //         if (nextUserId) {
+// //           const INCREMENT = true;
+// //           await this.userRepo.updateReputationScore(
+// //             nextUserId,
+// //             INCREMENT,
+// //             session,
+// //           );
+// //         }
+// //       }
+// //       if (submissionHistory.length === 0) {
+// //         if (submissionQueue[0].toString() === expertId) {
+// //           const IS_INCREMENT = false;
+// //           await this.userRepo.updateReputationScore(
+// //             expertId,
+// //             IS_INCREMENT,
+// //             session,
+// //           );
+// //           if (nextUserId) {
+// //             const IS_INCREMENT = true;
+// //             await this.userRepo.updateReputationScore(
+// //               nextUserId,
+// //               IS_INCREMENT,
+// //               session,
+// //             );
+// //             let entityId = questionId;
+// //             let message: string = `A new Review has been assigned to you`;
+// //             let title: string = 'New Review Assigned';
+// //             let type: INotificationType = 'peer_review';
+// //             await this.notificationService.saveTheNotifications(
+// //               message,
+// //               title,
+// //               entityId,
+// //               nextUserId,
+// //               type,
+// //             );
+// //           }
+// //         }
+// //       }
+// //       // } else {
+// //       //   const matchUser = submissionHistory.find(
+// //       //     u => u.updatedBy?.toString() === expertId,
+// //       //   );
+// //       //   if (matchUser) {
+// //       //     const IS_INCREMENT = false;
+// //       //     await this.userRepo.updateReputationScore(
+// //       //       expertId,
+// //       //       IS_INCREMENT,
+// //       //       session,
+// //       //     );
+// //       //     if (nextUserId) {
+// //       //       const IS_INCREMENT = true;
+// //       //       await this.userRepo.updateReputationScore(
+// //       //         nextUserId,
+// //       //         IS_INCREMENT,
+// //       //         session,
+// //       //       );
+// //       //     }
+// //       //   }
+// //       // }
+
+// //       //6. Remove the expert from the queue by index
+// //       const updated =
+// //         await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
+// //           questionId,
+// //           Number(index),
+// //           session,
+// //         );
+// //       if (updated) {
+// //         let entityId = questionId;
+// //         let message: string = `You have been removed from the Allocated question`;
+// //         let title: string = 'Allocation Removed';
+// //         let type: INotificationType = 'allocation_removal';
+// //         await this.notificationService.saveTheNotifications(
+// //           message,
+// //           title,
+// //           entityId,
+// //           expertId,
+// //           type,
+// //         );
+// //       }
+// //       /*  if(updated)
+// //           {
+// //             const IS_INCREMENT = true;
+// //           const userId =updated.queue[0];
+// //           await this.userRepo.updateReputationScore(
+// //             userId.toString(),
+// //             IS_INCREMENT,
+// //             session,
+// //           );
+// //           }*/
+
+// //       //7. Handle auto reallocation logic if autoAllocate is enabled
+// //       // if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
+// //       //   // Get updated queue and history lengths
+// //       //   const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
+// //       //   const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
+// //       //   let BATCH_EXPECTED_TO_ADD = 6;
+
+// //       //   // Adjust batch size if initial allocation (<3) experts are being removed
+// //       //   if (UPDATED_QUEUE_LENGTH < 3)
+// //       //     BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
+
+// //       //   // If all previous experts have responded and queue is not full, trigger auto allocation
+// //       //   if (
+// //       //     UPDATED_QUEUE_LENGTH < 3 ||
+// //       //     (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
+// //       //       UPDATED_QUEUE_LENGTH < 10)
+// //       //   ) {
+// //       //     await this.autoAllocateExperts(
+// //       //       questionId,
+// //       //       session,
+// //       //       BATCH_EXPECTED_TO_ADD,
+// //       //     );
+// //       //   }
+// //       // }
+
+// //       //8. Return the updated question submission
+// //       return updated;
+// //     } catch (error) {
+// //       throw new InternalServerError(
+// //         `Failed to remove expert from queue: ${error}`,
 // //       );
 // //     }
-// //     return this.questionRepo.normalizeQuestionDistricts(cleaned);
 // //   }
 
-// //   /** Audit: distinct question details.state / details.district values that don't exist in the
-// //    *  states / districts collections. */
-// //   async findUnknownQuestionGeo(): Promise<{
-// //     unknownStates: string[];
-// //     matchedDistricts: {
-// //       name: string;
-// //       foundIn: 'block' | 'village';
-// //       districtCode: number | null;
-// //       stateCode: number | null;
-// //       districtNameEnglish: string | null;
-// //     }[];
-// //     notMatchingDistricts: string[];
-// //   }> {
-// //     return this.questionRepo.findUnknownQuestionGeo();
-// //   }
-
-//   async getPaeAnswerDashboard(
-//     userId: string,
-//     page: number,
-//     limit: number,
-//     search?: string,
-//     startDate?: Date,
-//     endDate?: Date,
-//   ) {
-//     return this.questionRepo.getPaeAnswerDashboard(
-//       userId,
-//       page,
-//       limit,
-//       search,
-//       startDate,
-//       endDate,
-//     );
-//   }
-
-//   async getAllocatedQuestions(
-//     userId: string,
-//     query: GetDetailedQuestionsQuery,
-//     body: AllocatedQuestionsBodyDto,
-//   ): Promise<QuestionResponse[]> {
-//     try {
-//       return this._withTransaction(async (session: ClientSession) => {
-//         return this.questionRepo.getAllocatedQuestions(
-//           userId,
-//           query,
-//           session,
-//           body,
-//         );
-//       });
-//     } catch (error) {
-//       throw new InternalServerError(
-//         `Failed to get unanswered questions: ${error}`,
-//       );
-//     }
-//   }
-
-// //   async getDetailedQuestions(
-// //     query: GetDetailedQuestionsQuery,
-// //     body: DetailedQuestionsBodyDto,
-// //   ): Promise<{
-// //     questions: IQuestion[];
-// //     totalPages: number;
-// //     feedbackQuestions?: IQuestion[];
-// //   }> {
-// //     let searchEmbedding: number[] | null = null;
-
-// //     if (query?.search) {
-// //       try {
-// //         // const embedding=[]
-// //         // const { embedding } = await this.aiService.getEmbedding(query.search);
-// //         // searchEmbedding = embedding;
-// //         searchEmbedding = null;
-// //       } catch (err) {
-// //         console.error(
-// //           'Embedding generation failed, falling back to normal search:',
-// //           err,
-// //         );
-// //         searchEmbedding = null;
+// //   /**
+// //    * Replace an expert at a specific level/index in the queue or replace the author
+// //    * This is used when a moderator wants to reassign a delayed review to a new expert
+// //    */
+// //   async replaceQueueExpert(
+// //     userId: string,
+// //     questionId: string,
+// //     levelIndex: number,
+// //     newExpertId: string,
+// //     isAuthor?: boolean,
+// //     reasonForChange?: string,
+// //   ): Promise<IQuestionSubmission> {
+// //     return this._withTransaction(async (session: ClientSession) => {
+// //       // 1. Validate question exists
+// //       const question = await this.questionRepo.getById(questionId, session);
+// //       if (!question) {
+// //         console.warn(`[replaceQueueExpert] Question not found: ${questionId}`);
+// //         throw new NotFoundError('Question not found');
 // //       }
+
+// //       // 2. Get question submission
+// //       const questionSubmission =
+// //         await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+// //       if (!questionSubmission) {
+// //         console.warn(
+// //           `[replaceQueueExpert] Question submission not found: ${questionId}`,
+// //         );
+// //         throw new NotFoundError('Question submission not found');
+// //       }
+
+// //       // Handle Author replacement (column 0)
+// //       if (isAuthor) {
+// //         // Validate new expert exists
+// //         const newExpert = await this.userRepo.findById(newExpertId, session);
+// //         if (!newExpert) {
+// //           console.warn(
+// //             `[replaceQueueExpert] New expert not found: ${newExpertId}`,
+// //           );
+// //           throw new NotFoundError('New expert not found');
+// //         }
+
+// //         // Get current author ID
+// //         const currentAuthorId = questionSubmission.queue[0];
+
+// //         // Check if new expert is same as current author
+// //         if (currentAuthorId === newExpertId) {
+// //           console.warn(
+// //             `[replaceQueueExpert] Cannot replace - new expert is same as current author`,
+// //           );
+// //           throw new BadRequestError(
+// //             'The selected expert is already the author.',
+// //           );
+// //         }
+
+// //         // Validate reasonForChange is provided
+// //         if (!reasonForChange || reasonForChange.trim() === '') {
+// //           console.warn(`[replaceQueueExpert] Reason for change not provided`);
+// //           throw new BadRequestError('Reason for reallocation is required.');
+// //         }
+
+// //         const now = new Date();
+
+// //         // Check for time constraint using authors_history or submission.createdAt
+// //         let assignmentTime = questionSubmission.createdAt || now;
+// //         const authorsHistory = question.authors_history || [];
+// //         if (authorsHistory.length > 0) {
+// //           // Use the last author replacement time
+// //           assignmentTime = authorsHistory[authorsHistory.length - 1].createdAt;
+// //         }
+
+// //         const hoursSinceAssignment =
+// //           (now.getTime() - new Date(assignmentTime).getTime()) /
+// //           (1000 * 60 * 60);
+
+// //         if (hoursSinceAssignment < 2) {
+// //           const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
+// //           throw new BadRequestError(
+// //             `Reallocation denied. At least 2 hours must pass since the author was assigned. Please wait approximately ${remainingMinutes} more minutes.`,
+// //           );
+// //         }
+
+// //         // Create authors_history entry for the old author being replaced
+// //         const authorsHistoryEntry: IAuthorsHistory = {
+// //           authorId: new ObjectId(currentAuthorId!),
+// //           newAuthorId: new ObjectId(newExpertId),
+// //           reasonForChange: reasonForChange,
+// //           createdAt: now,
+// //           updatedAt: now,
+// //         };
+
+// //         // Fetch current question to get existing authors_history
+// //         const currentQuestion = await this.questionRepo.getById(
+// //           questionId,
+// //           session,
+// //         );
+// //         const existingHistory = currentQuestion.authors_history || [];
+
+// //         const questionUpdates: Partial<IQuestion> = {
+// //           userId: new ObjectId(newExpertId),
+// //           authors_history: [...existingHistory, authorsHistoryEntry],
+// //         };
+
+// //         if (question.isOnHold) {
+// //           const prevAccum = question.accumulatedHoldMs ?? 0;
+// //           let segmentMs = 0;
+// //           if (question.holdAt) {
+// //             segmentMs = Math.max(
+// //               0,
+// //               now.getTime() - new Date(question.holdAt).getTime(),
+// //             );
+// //           }
+// //           questionUpdates.isOnHold = false;
+// //           questionUpdates.status = 'open';
+// //           questionUpdates.accumulatedHoldMs = prevAccum + segmentMs;
+// //           questionUpdates.holdAt = null;
+// //         }
+
+// //         // Update question's userId (author) and append to authors_history
+// //         await this.questionRepo.updateQuestion(
+// //           questionId,
+// //           questionUpdates,
+// //           session,
+// //         );
+
+// //         // ALSO update the queue[0] (author position in queue) - THIS WAS MISSING!
+// //         let updatedQueue = questionSubmission.queue;
+// //         if (questionSubmission.queue.length > 0) {
+// //           const oldQueueAuthor = questionSubmission.queue[0]?.toString();
+// //           updatedQueue = questionSubmission.queue.map((id, idx) =>
+// //             idx === 0 ? new ObjectId(newExpertId) : new ObjectId(id.toString()),
+// //           );
+// //         } else {
+// //           console.warn(
+// //             `[replaceQueueExpert] Queue is empty, cannot update queue[0]`,
+// //           );
+// //         }
+
+// //         // Update the question submission with queue only (history unchanged for author replacement)
+
+// //         const updateResult = await this.questionSubmissionRepo.updateById(
+// //           questionSubmission._id!.toString(),
+// //           {
+// //             $set: {
+// //               queue: updatedQueue,
+// //               updatedAt: now,
+// //             },
+// //           },
+// //           session,
+// //         );
+
+// //         // Also update the answer's authorId (the initial answer created with the question)
+// //         const answers = await this.answerRepo.getByQuestionId(
+// //           questionId,
+// //           session,
+// //         );
+// //         const initialAnswer = answers.find(
+// //           a => a.answerIteration === 0 || a.isFinalAnswer === false,
+// //         );
+// //         if (initialAnswer && initialAnswer._id) {
+// //           await this.answerRepo.updateAnswer(
+// //             initialAnswer._id.toString(),
+// //             {authorId: new ObjectId(newExpertId)},
+// //             session,
+// //           );
+// //         }
+
+// //         try {
+// //           // Prepare notification data
+// //           const truncatedQuestionText = this.truncateQuestionText(
+// //             question.question,
+// //           );
+// //           const entityId = questionId.toString();
+// //           const type: INotificationType = 'expert_replacement';
+
+// //           const replacedExpertMessage = `You have been removed from the question "${truncatedQuestionText}". Reason: ${reasonForChange}`;
+// //           const replacedExpertTitle = 'Question Assignment Removed';
+
+// //           const newExpertMessage = `You have been assigned a new question: "${truncatedQuestionText}" as the author.`;
+// //           const newExpertTitle = 'New Question Assigned';
+
+// //           // Execute all operations in parallel
+// //           await Promise.all([
+// //             // 1. Assign penalty to replaced expert
+// //             this.userService.updatePenaltyAndIncentive(
+// //               currentAuthorId!.toString(),
+// //               'penalty',
+// //             ),
+
+// //             // 2. Assign incentive to new expert
+// //             this.userService.updatePenaltyAndIncentive(
+// //               newExpertId,
+// //               'incentive',
+// //             ),
+
+// //             // 3. Send notification to replaced expert (with error handling)
+// //             this.notificationService
+// //               .saveTheNotifications(
+// //                 replacedExpertMessage,
+// //                 replacedExpertTitle,
+// //                 entityId,
+// //                 currentAuthorId!.toString(),
+// //                 type,
+// //               )
+// //               .catch(notificationError => {
+// //                 console.error(
+// //                   `[replaceQueueExpert] ❌ Failed to send notification to replaced author: ${currentAuthorId}`,
+// //                   notificationError,
+// //                 );
+// //                 // Return resolved promise to not break Promise.all
+// //                 return Promise.resolve();
+// //               }),
+
+// //             // 4. Send notification to new expert (with error handling)
+// //             this.notificationService
+// //               .saveTheNotifications(
+// //                 newExpertMessage,
+// //                 newExpertTitle,
+// //                 entityId,
+// //                 newExpertId,
+// //                 type,
+// //               )
+// //               .catch(notificationError => {
+// //                 console.error(
+// //                   `[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`,
+// //                   notificationError,
+// //                 );
+// //                 // Return resolved promise to not break Promise.all
+// //                 return Promise.resolve();
+// //               }),
+// //           ]);
+// //         } catch (penaltyError) {
+// //           console.error(
+// //             `[replaceQueueExpert] Penalty/incentive update failed:`,
+// //             penaltyError,
+// //           );
+// //           throw new InternalServerError(
+// //             'Failed to update penalty/incentive scores. Operation rolled back.',
+// //           );
+// //         }
+
+// //         // Return updated submission
+// //         return updateResult;
+// //       }
+
+// //       // Handle Queue Expert replacement (Level 1, 2, etc.) - Reallocation Logic
+// //       // 3. Validate levelIndex is within queue bounds (convert to 0-based for queue access)
+// //       const queueIndex = levelIndex;
+// //       if (queueIndex < 0 || queueIndex >= questionSubmission.queue.length) {
+// //         console.warn(
+// //           `[replaceQueueExpert] Invalid level index: ${levelIndex}, queue has ${questionSubmission.queue.length} experts`,
+// //         );
+// //         throw new BadRequestError(
+// //           `Invalid level index. Queue has ${questionSubmission.queue.length} experts.`,
+// //         );
+// //       }
+
+// //       // Step 1: Identify Last Reviewer from history and validate queue ownership
+// //       const lastHistoryEntry =
+// //         questionSubmission.history[questionSubmission.history.length - 1];
+// //       const lastReviewerInQueue = lastHistoryEntry?.updatedBy?.toString();
+// //       const currentExpertId = questionSubmission.queue[queueIndex]?.toString();
+
+// //       // Validate that the reviewer to be replaced matches the current active reviewer
+// //       // The last reviewer in queue must be the one being replaced (validation rule)
+// //       if (currentExpertId !== lastReviewerInQueue) {
+// //         console.warn(
+// //           `[replaceQueueExpert] Queue validation failed - current expert ${currentExpertId} does not match last reviewer ${lastReviewerInQueue}`,
+// //         );
+// //         throw new BadRequestError(
+// //           'Reallocation denied. The reviewer to be replaced must be the last assigned reviewer in the queue.',
+// //         );
+// //       }
+
+// //       // 4. Check if this is the current active level (only current can be replaced)
+// //       // Current active level is determined by history length (convert to 1-based since controller sends 1-based)
+// //       const currentActiveIndex = questionSubmission.history.length - 1;
+
+// //       if (levelIndex !== currentActiveIndex) {
+// //         console.warn(
+// //           `[replaceQueueExpert] Cannot replace - level ${levelIndex} is not active (active: ${currentActiveIndex})`,
+// //         );
+// //         throw new BadRequestError(
+// //           'Can only replace the expert at the current active level. This level has already been completed or is not yet active.',
+// //         );
+// //       }
+
+// //       // Step 2: Fetch History and perform validations
+// //       const submissionHistory = questionSubmission.history || [];
+// //       const now = new Date();
+
+// //       // Find the history entry for the current expert being replaced
+// //       let currentExpertHistoryIndex = -1;
+// //       let currentExpertHistoryEntry: ISubmissionHistory | null = null;
+
+// //       for (let i = 0; i < submissionHistory.length; i++) {
+// //         const historyEntry = submissionHistory[i];
+// //         if (historyEntry.updatedBy.toString() === currentExpertId) {
+// //           currentExpertHistoryIndex = i;
+// //           currentExpertHistoryEntry = historyEntry;
+// //           break;
+// //         }
+// //       }
+
+// //       // Use the found history entry or create a default one for validation
+// //       const validationHistoryEntry =
+// //         currentExpertHistoryEntry ||
+// //         submissionHistory[submissionHistory.length - 1];
+
+// //       // Time Constraint Validation: At least 2 hours must have passed since assignment (if history exists)
+// //       if (validationHistoryEntry) {
+// //         const lastAssignmentTime = new Date(validationHistoryEntry.createdAt);
+// //         const hoursSinceAssignment =
+// //           (now.getTime() - lastAssignmentTime.getTime()) / (1000 * 60 * 60);
+
+// //         if (hoursSinceAssignment < 2) {
+// //           console.warn(
+// //             `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`,
+// //           );
+// //           const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
+// //           throw new BadRequestError(
+// //             `Reallocation denied. At least 2 hours must pass since the review was assigned. Please wait approximately ${remainingMinutes} more minutes.`,
+// //           );
+// //         }
+
+// //         // Review Status Validation: The submission must still be in 'in-review' state
+// //         if (validationHistoryEntry.status !== 'in-review') {
+// //           console.warn(
+// //             `[replaceQueueExpert] Status validation failed - current status is ${validationHistoryEntry.status}, expected 'in-review'`,
+// //           );
+// //           throw new BadRequestError(
+// //             `Reallocation denied. The review status is '${validationHistoryEntry.status}'. Only reviews in 'in-review' status can be reallocated.`,
+// //           );
+// //         }
+// //       }
+
+// //       // Validate reasonForChange is provided
+// //       if (!reasonForChange || reasonForChange.trim() === '') {
+// //         console.warn(`[replaceQueueExpert] Reason for change not provided`);
+// //         throw new BadRequestError('Reason for reallocation is required.');
+// //       }
+
+// //       // 5. Validate new expert exists
+// //       const newExpert = await this.userRepo.findById(newExpertId, session);
+// //       if (!newExpert) {
+// //         console.warn(
+// //           `[replaceQueueExpert] New expert not found: ${newExpertId}`,
+// //         );
+// //         throw new NotFoundError('New expert not found');
+// //       }
+// //       // 6. Check if new expert is already in queue
+// //       const existingQueueIds = questionSubmission.queue.map(id =>
+// //         id.toString(),
+// //       );
+// //       if (existingQueueIds.includes(newExpertId)) {
+// //         console.warn(
+// //           `[replaceQueueExpert] Expert ${newExpertId} already in queue`,
+// //         );
+// //         throw new BadRequestError(
+// //           'The selected expert is already in the queue. Please choose another expert.',
+// //         );
+// //       }
+
+// //       // Step 3: Create Previous Allocation Record
+// //       const previousAllocation: IPreviousAllocations = {
+// //         reviewerId: new ObjectId(currentExpertId!),
+// //         reasonForChange: reasonForChange,
+// //         createdAt: currentExpertHistoryEntry?.createdAt || now,
+// //         updatedAt: now,
+// //       };
+
+// //       // Step 4: Update Queue - Replace the expert at the specified index
+// //       const updatedQueue = questionSubmission.queue.map((id, idx) => {
+// //         const shouldReplace = idx === queueIndex;
+// //         const resultId = shouldReplace
+// //           ? new ObjectId(newExpertId)
+// //           : new ObjectId(id.toString());
+// //         return resultId;
+// //       });
+
+// //       // Step 5: Build updated history with previousAllocations
+// //       const updatedHistory = [...submissionHistory];
+
+// //       if (currentExpertHistoryIndex !== -1 && currentExpertHistoryEntry) {
+// //         // Update existing history entry with previousAllocations
+// //         const updatedPreviousAllocations = [
+// //           ...(currentExpertHistoryEntry.previousAllocations || []),
+// //           previousAllocation,
+// //         ];
+// //         const updatedExpertHistory: ISubmissionHistory = {
+// //           ...currentExpertHistoryEntry,
+// //           updatedBy: new ObjectId(newExpertId), // Replace with new expert ID
+// //           previousAllocations: updatedPreviousAllocations,
+// //           createdAt: now, // Update both timestamps as requested
+// //           updatedAt: now,
+// //         };
+// //         updatedHistory[currentExpertHistoryIndex] = updatedExpertHistory;
+// //       } else {
+// //         // No history entry found for current expert - create one with new expert
+// //         const newExpertHistoryEntry: ISubmissionHistory = {
+// //           updatedBy: new ObjectId(newExpertId), // Create with new expert directly
+// //           status: 'in-review',
+// //           previousAllocations: [previousAllocation],
+// //           createdAt: now,
+// //           updatedAt: now,
+// //         };
+// //         updatedHistory.push(newExpertHistoryEntry);
+// //       }
+
+// //       // Update database with queue and history changes
+// //       const updateData: any = {
+// //         $set: {
+// //           queue: updatedQueue,
+// //           history: updatedHistory,
+// //           updatedAt: now,
+// //         },
+// //       };
+
+// //       if (question.isOnHold) {
+// //         const prevAccum = question.accumulatedHoldMs ?? 0;
+// //         let segmentMs = 0;
+// //         if (question.holdAt) {
+// //           segmentMs = Math.max(
+// //             0,
+// //             now.getTime() - new Date(question.holdAt).getTime(),
+// //           );
+// //         }
+// //         await this.questionRepo.updateQuestion(
+// //           questionId,
+// //           {
+// //             isOnHold: false,
+// //             status: 'open',
+// //             accumulatedHoldMs: prevAccum + segmentMs,
+// //             holdAt: null,
+// //           },
+// //           session,
+// //         );
+// //       }
+
+// //       const updated = await this.questionSubmissionRepo.updateById(
+// //         questionSubmission._id!.toString(),
+// //         updateData,
+// //         session,
+// //       );
+
+// //       try {
+// //         // Prepare notification data
+// //         const truncatedQuestionText = this.truncateQuestionText(
+// //           question.question,
+// //         );
+// //         const entityId = questionId.toString();
+// //         const type: INotificationType = 'expert_replacement';
+
+// //         const replacedExpertMessage = `You have been removed from level ${levelIndex} review of question "${truncatedQuestionText}".`;
+// //         const replacedExpertTitle = 'Review Assignment Removed';
+
+// //         const newExpertMessage = `You have been assigned level ${levelIndex} review for question: "${truncatedQuestionText}".`;
+// //         const newExpertTitle = 'New Review Assigned';
+
+// //         // Execute all operations in parallel
+// //         await Promise.all([
+// //           // 1. Assign penalty to replaced expert
+// //           this.userService.updatePenaltyAndIncentive(
+// //             currentExpertId,
+// //             'penalty',
+// //           ),
+
+// //           // 2. Assign incentive to new expert
+// //           this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
+
+// //           // 3. Send notification to replaced expert (with error handling)
+// //           this.notificationService
+// //             .saveTheNotifications(
+// //               replacedExpertMessage,
+// //               replacedExpertTitle,
+// //               entityId,
+// //               currentExpertId,
+// //               type,
+// //             )
+// //             .catch(notificationError => {
+// //               console.error(
+// //                 `[replaceQueueExpert] ❌ Failed to send notification to replaced expert: ${currentExpertId}`,
+// //                 notificationError,
+// //               );
+// //               // Return resolved promise to not break Promise.all
+// //               return Promise.resolve();
+// //             }),
+
+// //           // 4. Send notification to new expert (with error handling)
+// //           this.notificationService
+// //             .saveTheNotifications(
+// //               newExpertMessage,
+// //               newExpertTitle,
+// //               entityId,
+// //               newExpertId,
+// //               type,
+// //             )
+// //             .catch(notificationError => {
+// //               console.error(
+// //                 `[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`,
+// //                 notificationError,
+// //               );
+// //               // Return resolved promise to not break Promise.all
+// //               return Promise.resolve();
+// //             }),
+// //         ]);
+// //       } catch (penaltyError) {
+// //         console.error(
+// //           `[replaceQueueExpert] Penalty/incentive update failed for queue expert:`,
+// //           penaltyError,
+// //         );
+// //         throw new InternalServerError(
+// //           'Failed to update penalty/incentive scores. Operation rolled back.',
+// //         );
+// //       }
+
+// //       return updated;
+// //     });
+// //   }
+
+// //   // async deleteQuestion(
+// //   //   questionId: string,
+// //   //   session?: ClientSession,
+// //   // ): Promise<{deletedCount: number}> {
+// //   //   try {
+// //   //     return this._withTransaction(
+// //   //       async (transactionSession: ClientSession) => {
+
+// //   //         const question = await this.questionRepo.getById(questionId, session);
+// //   //         if (!question) {
+// //   //           throw new BadRequestError(
+// //   //             `Question with ID ${questionId} not found`,
+// //   //           );
+// //   //         }
+// //   //         await this.answerRepo.deleteByQuestionId(questionId, session);
+
+// //   //         const questionSubmission =
+// //   //           await this.questionSubmissionRepo.getByQuestionId(
+// //   //             questionId,
+// //   //             session,
+// //   //           );
+
+// //   //         const history = questionSubmission?.history || [];
+// //   //         if (history && history.length > 0) {
+// //   //           // Get the last history entry
+// //   //           const lastHistoryEntry = history[history.length - 1];
+
+// //   //           if (!lastHistoryEntry) {
+// //   //             throw new BadRequestError(
+// //   //               `Invalid submission history for question ID: ${questionId}`,
+// //   //             );
+// //   //           }
+
+// //   //           // Check if the last entry is still under review and no answer provided yet
+// //   //           const isUnderReviewWithoutAnswer =
+// //   //             lastHistoryEntry.status === 'in-review' &&
+// //   //             !lastHistoryEntry.answer;
+// //   //           if (isUnderReviewWithoutAnswer) {
+// //   //             const IS_INCREMENT = false;
+// //   //             const expertId = lastHistoryEntry.updatedBy?.toString();
+// //   //             if (!expertId) {
+// //   //               throw new BadRequestError(
+// //   //                 `Expert ID missing in the last history entry for question ID: ${questionId}`,
+// //   //               );
+// //   //             }
+
+// //   //             await this.userRepo.updateReputationScore(
+// //   //               expertId,
+// //   //               IS_INCREMENT,
+// //   //               session,
+// //   //             );
+// //   //           }
+// //   //         } else {
+// //   //           const IS_INCREMENT = false;
+// //   //           const expertId = questionSubmission?.queue[0]?.toString();
+// //   //           await this.userRepo.updateReputationScore(
+// //   //             expertId,
+// //   //             IS_INCREMENT,
+// //   //             session,
+// //   //           );
+// //   //         }
+
+// //   //         await this.questionSubmissionRepo.deleteByQuestionId(
+// //   //           questionId,
+// //   //           session,
+// //   //         );
+// //   //         await this.requestRepository.deleteByEntityId(questionId, session);
+// //   //         return this.questionRepo.deleteQuestion(questionId, session);
+// //   //       },
+// //   //     );
+// //   //   } catch (error) {
+// //   //     throw new InternalServerError(`Failed to delete question: ${error}`);
+// //   //   }
+// //   // }
+
+// //   async deleteQuestion(
+// //     questionId: string,
+// //     session?: ClientSession,
+// //   ): Promise<{deletedCount: number}> {
+// //     const execute = async (activeSession: ClientSession) => {
+// //       const question = await this.questionRepo.getById(
+// //         questionId,
+// //         activeSession,
+// //       );
+// //       if (!question) {
+// //         throw new BadRequestError(`Question with ID ${questionId} not found`);
+// //       }
+
+// //       // Delete all answers for this question
+// //       await this.answerRepo.deleteByQuestionId(questionId, activeSession);
+
+// //       // Fetch the submission to check history/queue
+// //       const questionSubmission =
+// //         await this.questionSubmissionRepo.getByQuestionId(
+// //           questionId,
+// //           activeSession,
+// //         );
+
+// //       const history = questionSubmission?.history || [];
+// //       if (history.length > 0) {
+// //         const lastHistoryEntry = history[history.length - 1];
+// //         if (!lastHistoryEntry) {
+// //           throw new BadRequestError(
+// //             `Invalid submission history for question ID: ${questionId}`,
+// //           );
+// //         }
+
+// //         const isUnderReviewWithoutAnswer =
+// //           lastHistoryEntry.status === 'in-review' && !lastHistoryEntry.answer;
+
+// //         if (isUnderReviewWithoutAnswer) {
+// //           const IS_INCREMENT = false;
+// //           const expertId = lastHistoryEntry.updatedBy?.toString();
+// //           if (!expertId) {
+// //             throw new BadRequestError(
+// //               `Expert ID missing in the last history entry for question ID: ${questionId}`,
+// //             );
+// //           }
+
+// //           await this.userRepo.updateReputationScore(
+// //             expertId,
+// //             IS_INCREMENT,
+// //             activeSession,
+// //           );
+// //         }
+// //       } else {
+// //         const IS_INCREMENT = false;
+// //         const expertId = questionSubmission?.queue?.[0]?.toString();
+// //         if (expertId) {
+// //           await this.userRepo.updateReputationScore(
+// //             expertId,
+// //             IS_INCREMENT,
+// //             activeSession,
+// //           );
+// //         }
+// //       }
+// //       // handle re-routed expert's reputation_score deduction when expert hasn't answered/reviewed yet (pending state)
+// //       const existingReRoute = await this.reRouteRepository.findByQuestionId(
+// //         questionId,
+// //         activeSession,
+// //       );
+
+// //       if (existingReRoute?.reroutes?.length) {
+// //         const lastReroute = existingReRoute.reroutes.at(-1);
+
+// //         if (lastReroute?.status === 'pending') {
+// //           const reroutedExpertId = lastReroute.reroutedTo?.toString();
+// //           if (reroutedExpertId) {
+// //             await this.userRepo.updateReputationScore(
+// //               reroutedExpertId,
+// //               false,
+// //               activeSession,
+// //             );
+// //           }
+// //         }
+// //       }
+
+// //       // Delete submissions and requests related to this question
+// //       await this.questionSubmissionRepo.deleteByQuestionId(
+// //         questionId,
+// //         activeSession,
+// //       );
+// //       await this.requestRepository.deleteByEntityId(questionId, activeSession);
+
+// //       // Delete duplicate question records referencing this question
+// //       await this.duplicateQuestionRepository.deleteByReferenceQuestionId(
+// //         questionId,
+// //         activeSession,
+// //       );
+
+// //       // Pull this question from any moderator's assignedQuestionIds so no orphan entry
+// //       // is left behind keeping them wrongly "busy" after the question is gone.
+// //       await this.userRepo.removeAssignedQuestionFromAllModerators(
+// //         questionId,
+// //         activeSession,
+// //       );
+
+// //       // Finally, delete the question itself
+// //       return this.questionRepo.deleteQuestion(questionId, activeSession);
+// //     };
+
+// //     if (session) {
+// //       return execute(session);
 // //     }
 
-// //     const result = await this.questionRepo.findDetailedQuestions(
-// //       {
-// //         ...query,
-// //         searchEmbedding,
-// //       },
-// //       body,
+// //     return this._withTransaction(async (transactionSession: ClientSession) =>
+// //       execute(transactionSession),
+// //     );
+// //   }
+
+// //   async bulkDeleteQuestions(userId: string, questionIds: string[]) {
+// //     if (!questionIds || questionIds.length === 0) {
+// //       throw new BadRequestError('No question IDs found to delete!');
+// //     }
+
+// //     const jobId = startBulkDeleteWorker(questionIds, userId);
+// //     return {
+// //       jobId,
+// //       message: `Your bulk delete request for ${questionIds.length} question(s) is being processed in the background. Estimated time: ~ ${Math.ceil(questionIds.length * 0.6)} sec.`,
+// //     };
+// //   }
+
+// //   async getQuestionFullData(
+// //     questionId: string,
+// //     userId: string,
+// //   ): Promise<{
+// //     question: IQuestion | null;
+// //     approved_moderator: {name: string; email: string};
+// //     assigned_moderator: {name: string; email: string} | null;
+// //     assigned_gate_keeper: {name: string; email: string} | null;
+// //     assigned_auditor: {name: string; email: string} | null;
+// //     isAssignedModerator: boolean;
+// //     isAssignedGateKeeper: boolean;
+// //     isAssignedAuditor: boolean;
+// //   }> {
+// //     try {
+// //       const user = await this.userRepo.findById(userId);
+// //       const isExpert = user.role == 'expert';
+// //       const question = await this.questionRepo.getQuestionWithFullData(
+// //         questionId,
+// //         userId,
+// //         isExpert,
+// //       );
+// //       if (!question) {
+// //         return null;
+// //       }
+
+// //       let approved_moderator = {
+// //         name: '',
+// //         email: '',
+// //       };
+// //       if (question.status === 'closed') {
+// //         const answers = await this.answerRepo.getByQuestionId(questionId);
+// //         const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
+
+// //         if (
+// //           finalizedAnswer?.approvedBy &&
+// //           ObjectId.isValid(finalizedAnswer.approvedBy)
+// //         ) {
+// //           const moderator = await this.userRepo.findById(
+// //             finalizedAnswer.approvedBy,
+// //           );
+
+// //           if (moderator) {
+// //             approved_moderator = {
+// //               name: `${moderator.firstName} ${moderator.lastName}`,
+// //               email: moderator.email,
+// //             };
+// //           }
+// //         }
+// //       }
+
+// //       // Resolve the currently assigned moderator (if any). Guard against a malformed
+// //       // moderatorId (e.g. a serialized-Buffer object that stringifies to a non-hex
+// //       // value) so a bad value can't blow up the whole question fetch with a BSONError.
+// //       let assigned_moderator: {name: string; email: string} | null = null;
+// //       const assignedModeratorId = (question as any).moderatorId?.toString();
+// //       if (assignedModeratorId && ObjectId.isValid(assignedModeratorId)) {
+// //         const mod = await this.userRepo.findById(assignedModeratorId);
+// //         if (mod) {
+// //           assigned_moderator = {
+// //             name: `${mod.firstName} ${mod.lastName ?? ''}`.trim(),
+// //             email: mod.email,
+// //           };
+// //         }
+// //       }
+
+// //       // Resolve the currently assigned gate keeper / auditor (role queue), same as
+// //       // the moderator resolution above.
+// //       let assigned_gate_keeper: {name: string; email: string} | null = null;
+// //       const assignedGateKeeperId = (question as any).gateKeeperId?.toString();
+// //       if (assignedGateKeeperId && ObjectId.isValid(assignedGateKeeperId)) {
+// //         const u = await this.userRepo.findById(assignedGateKeeperId);
+// //         if (u) {
+// //           assigned_gate_keeper = {
+// //             name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+// //             email: u.email,
+// //           };
+// //         }
+// //       }
+// //       let assigned_auditor: {name: string; email: string} | null = null;
+// //       const assignedAuditorId = (question as any).auditorId?.toString();
+// //       if (assignedAuditorId && ObjectId.isValid(assignedAuditorId)) {
+// //         const u = await this.userRepo.findById(assignedAuditorId);
+// //         if (u) {
+// //           assigned_auditor = {
+// //             name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+// //             email: u.email,
+// //           };
+// //         }
+// //       }
+
+// //       // Whether the requesting user is the moderator this question is assigned to.
+// //       // Used by the UI to gate the Pass / Accept / Push to GDB actions.
+// //       const isAssignedModerator =
+// //         !!assignedModeratorId && assignedModeratorId === userId;
+// //       // Same, for the gate keeper / auditor role queues — computed server-side to
+// //       // avoid ObjectId serialization mismatches when comparing ids on the client.
+// //       const isAssignedGateKeeper =
+// //         !!assignedGateKeeperId && assignedGateKeeperId === userId;
+// //       const isAssignedAuditor =
+// //         !!assignedAuditorId && assignedAuditorId === userId;
+
+// //       // Resolve user email from conversation collection using threadId
+// //       let threadUserEmail: string | null = null;
+// //       if (question.threadId) {
+// //         threadUserEmail =
+// //           await this.chatbotRepository.getUserEmailByConversationId(
+// //             question.threadId,
+// //           );
+// //       }
+
+// //       return {
+// //         question: {
+// //           ...question,
+// //           threadUserEmail,
+// //         },
+// //         approved_moderator,
+// //         assigned_moderator,
+// //         assigned_gate_keeper,
+// //         assigned_auditor,
+// //         isAssignedModerator,
+// //         isAssignedGateKeeper,
+// //         isAssignedAuditor,
+// //       };
+// //     } catch (error) {
+// //       throw new InternalServerError(`Failed to fetch question data: ${error}`);
+// //     }
+// //   }
+
+// //   /**
+// //    * Manually (re)assign the moderator for a question.
+// //    * - Sets moderatorId and stamps moderatorAssignedAt to now on the question (handled in the repo).
+// //    * - Keeps the user docs consistent with the cron: pulls this question from the previous
+// //    *   moderator's assignedQuestionIds array and appends it to the new moderator's array.
+// //    *   A moderator stays "busy" (not picked by the cron) as long as their array is non-empty,
+// //    *   so manual allocation can stack multiple questions onto one moderator.
+// //    */
+// //   async changeQuestionModerator(
+// //     questionId: string,
+// //     moderatorId: string,
+// //   ): Promise<void> {
+// //     // Read the currently assigned moderator (if any) so we can free them.
+// //     const question = await this.questionRepo.getById(questionId);
+// //     const previousModeratorId = (question as any)?.moderatorId?.toString();
+
+// //     // Point the question at the new moderator (also stamps moderatorAssignedAt = now).
+// //     await this.questionRepo.updateModeratorId(questionId, moderatorId);
+
+// //     // Pull this question from the previous moderator and append it to the new one,
+// //     // carrying the question's current status so free/busy stays accurate. Guard against
+// //     // a malformed previous moderatorId so a bad value can't throw a BSONError.
+// //     if (
+// //       previousModeratorId &&
+// //       ObjectId.isValid(previousModeratorId) &&
+// //       previousModeratorId !== moderatorId
+// //     ) {
+// //       await this.userRepo.removeAssignedQuestion(
+// //         previousModeratorId,
+// //         questionId,
+// //       );
+// //     }
+// //     await this.userRepo.addAssignedQuestion(
+// //       moderatorId,
+// //       questionId,
+// //       ((question as any)?.status ?? 'in-review') as QuestionStatus,
+// //       (question as any)?.source,
+// //     );
+// //   }
+
+// //   /**
+// //    * Remove the moderator currently assigned to a question.
+// //    * - Pulls this question from the assigned moderator's assignedQuestionIds array, so the
+// //    *   cron's "is this moderator free?" check (array empty) stays accurate.
+// //    * - Nulls moderatorId and moderatorAssignedAt on the question (handled in the repo).
+// //    */
+// //   async removeQuestionModerator(questionId: string): Promise<void> {
+// //     const question = await this.questionRepo.getById(questionId);
+// //     const previousModeratorId = (question as any)?.moderatorId?.toString();
+
+// //     // Null out moderatorId and moderatorAssignedAt on the question.
+// //     await this.questionRepo.updateModeratorId(questionId, null);
+
+// //     // Pull this question from the previously assigned moderator's array. Guard against
+// //     // a malformed previous moderatorId so a bad value can't throw a BSONError.
+// //     if (previousModeratorId && ObjectId.isValid(previousModeratorId)) {
+// //       await this.userRepo.removeAssignedQuestion(
+// //         previousModeratorId,
+// //         questionId,
+// //       );
+// //     }
+// //   }
+
+// //   /** Field mapping for the gate-keeper / auditor role assignee on a question. */
+// //   private roleAssigneeFields(role: 'gate_keeper' | 'auditor'): {
+// //     assigneeField: 'gateKeeperId' | 'auditorId';
+// //     assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+// //     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
+// //   } {
+// //     return role === 'gate_keeper'
+// //       ? {
+// //           assigneeField: 'gateKeeperId',
+// //           assignedAtField: 'gateKeeperAssignedAt',
+// //           finishedAtField: 'gateKeeperFinishedAt',
+// //         }
+// //       : {
+// //           assigneeField: 'auditorId',
+// //           assignedAtField: 'auditorAssignedAt',
+// //           finishedAtField: 'auditorFinishedAt',
+// //         };
+// //   }
+
+// //   /**
+// //    * Once a gate keeper / auditor has submitted their response (finishedAt is set) their
+// //    * assignment is settled — reassigning or removing it would orphan work that has already
+// //    * been recorded against them. Callers must re-open the question first.
+// //    */
+// //   private assertRoleNotFinished(
+// //     question: unknown,
+// //     role: 'gate_keeper' | 'auditor',
+// //   ): void {
+// //     const {finishedAtField} = this.roleAssigneeFields(role);
+// //     if ((question as any)?.[finishedAtField]) {
+// //       const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+// //       throw new BadRequestError(
+// //         `This question's ${noun} has already submitted their response, so the ${noun} can no longer be changed.`,
+// //       );
+// //     }
+// //   }
+
+// //   /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
+// //    *  plus their paginated question list. "Submitted" = they finished it (finishedAt set).
+// //    *  Supports optional date range filtering by assigned date, completed date, or both. */
+// //   async getRoleAssigneeDashboard(
+// //     userId: string,
+// //     role: 'gate_keeper' | 'auditor',
+// //     page: number,
+// //     limit: number,
+// //     search?: string,
+// //     startDate?: Date,
+// //     endDate?: Date,
+// //     dateFilterType?: 'assigned' | 'completed' | 'both',
+// //   ) {
+// //     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+// //     const finishedField =
+// //       role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
+// //     const result = await this.questionRepo.getRoleAssigneeDashboard(
+// //       userId,
+// //       assigneeField,
+// //       finishedField,
+// //       assignedAtField,
+// //       page,
+// //       limit,
+// //       search,
+// //       startDate,
+// //       endDate,
+// //       dateFilterType,
 // //     );
 
-// //     // Check if this is a dedicated view (moderator/gatekeeper/auditor assigned questions)
-// //     const {moderatorId, gateKeeperId, auditorId} = query;
-// //     const assignedUserId = moderatorId || gateKeeperId || auditorId;
-// //     if (assignedUserId) {
+// //     // Auditors also review FEEDBACK questions (held in their feedbacksAssigned), so
+// //     // surface those in the dashboard too. Gate keepers never receive feedback.
+// //     // An auditor holds at most one feedback at a time, so appending to the first
+// //     // page and bumping the totals keeps pagination effectively correct.
+// //     if (role === 'auditor') {
 // //       try {
-// //         const user = await this.userRepo.findById(assignedUserId);
-// //         const feedbacksAssigned = user?.feedbacksAssigned;
-// //         if (feedbacksAssigned && feedbacksAssigned.length > 0) {
-// //           // Fetch the feedback questions
-// //           const feedbackQuestionIds = feedbacksAssigned.map(id => {
-// //             if (typeof id === 'string') return new ObjectId(id);
-// //             return id;
-// //           });
-
-// //           const feedbackQuestions =
-// //             await this.questionRepo.findByIds(feedbackQuestionIds);
-// //           const feedbackQuestionsWithFlag = feedbackQuestions.map(q => ({
-// //             ...q,
-// //             isFeedbackQuestion: true,
-// //           }));
-
+// //         const user = await this.userRepo.findById(userId);
+// //         const fbAssigned = ((user as any)?.feedbacksAssigned ?? []) as any[];
+// //         if (fbAssigned.length) {
+// //           const fbIds = fbAssigned.map(id =>
+// //             typeof id === 'string' ? new ObjectId(id) : id,
+// //           );
+// //           let fbQuestions = await this.questionRepo.findByIds(fbIds);
+// //           if (search && search.trim()) {
+// //             const s = search.trim().toLowerCase();
+// //             fbQuestions = fbQuestions.filter(q =>
+// //               ((q as any).question ?? '').toLowerCase().includes(s),
+// //             );
+// //           }
+// //           const existing = new Set(
+// //             (result.questions ?? []).map((q: any) => q._id?.toString()),
+// //           );
+// //           const fbToAppend = fbQuestions
+// //             .filter(q => !existing.has(q._id?.toString()))
+// //             .map(q => ({...(q as any), isFeedbackQuestion: true}));
 // //           return {
 // //             ...result,
-// //             feedbackQuestions: feedbackQuestionsWithFlag,
+// //             assignedCount: result.assignedCount + fbToAppend.length,
+// //             totalCount: result.totalCount + fbToAppend.length,
+// //             questions:
+// //               page === 1
+// //                 ? [...fbToAppend, ...result.questions]
+// //                 : result.questions,
 // //           };
 // //         }
 // //       } catch (err) {
-// //         console.error('Error fetching feedback questions:', err);
+// //         console.error(
+// //           '[RoleDashboard] Failed to append auditor feedback questions:',
+// //           err,
+// //         );
 // //       }
 // //     }
 
 // //     return result;
 // //   }
 
-// //   async getQuestionFromRawContext(
-// //     // While text to speech
-// //     context: string,
-// //   ): Promise<GeneratedQuestionResponse[]> {
-// //     const questions = await this.aiService.getQuestionByContext(context);
-// //     // SAMPLE RESPONSE (mocked because API doesn't work locally)
-// //     /* const questions: any = {
-// //        reviewer: [
-// //          {
-// //            id: "697dbfb7622aa3a183070682",
-// //            question: "How to control stem borer grubs in paddy crop?",
-// //            answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
-// //            source: "AGRI_EXPERT",
-// //            details: {
-// //              state: "Haryana",
-// //              district: "HISSAR",
-// //              crop: "Paddy",
-// //              season: "KHARIF",
-// //              domain: "Pest",
-// //            },
-// //            score: 0.9331517815589905,
-// //          },
-// //          {
-// //            id: "695b446528ae67127339da95",
-// //            question: "How to control Stem Borer infestation in Paddy?",
-// //            answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
-// //            source: "AGRI_EXPERT",
-// //            details: {
-// //              state: "UTTAR PRADESH",
-// //              district: "CHANDAULI",
-// //              crop: "Paddy",
-// //              season: "Kharif",
-// //              domain: "Plant Protection",
-// //            },
-// //            score: 0.932569146156311,
-// //          },
-// //        ],
-   
-// //        golden: [
-// //          {
-// //            question: "How to prevent stem borer in paddy?",
-// //            answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
-// //            metadata: {
-// //              "Agri Specialist": "Gonnabathula Girishma",
-// //              Crop: "Paddy Dhan",
-// //              District: "YADADRI BHUVANAGIRI",
-// //              Season: "Kharif",
-// //              State: "TELANGANA",
-// //            },
-// //            score: 0.9287769794464111,
-// //          },
-// //        ],
-   
-// //        pop: [
-// //          {
-// //            text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
-// //            metadata: {
-// //              page_no: 24,
-// //              headings: ["A. Insect Pests"],
-// //              source:
-// //                "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
-// //            },
-// //            score: 0.9020636677742004,
-// //          },
-// //        ],
-// //      };*/
-// //     const merged = [
-// //       ...(questions.reviewer || []).map((item: any) => ({
-// //         question: item.question,
-// //         answer: item.answer,
-// //         agri_specialist: item.source || 'AGRI_EXPERT',
-// //         referenceSource: 'reviewer',
-// //       })),
-
-// //       ...(questions.golden || []).map((item: any) => ({
-// //         question: item.question,
-// //         answer: item.answer,
-// //         agri_specialist: item.metadata?.['Agri Specialist'] || 'Unknown',
-// //         referenceSource: 'golden',
-// //       })),
-
-// //       ...(questions.pop || []).map((item: any) => ({
-// //         question: 'Reference Information',
-// //         answer: item.text,
-// //         agri_specialist: 'POP_DOCUMENT',
-// //         referenceSource: 'pop',
-// //       })),
-// //     ];
-// //     const uniqueQuestions = Array.from(
-// //       new Map(merged.map(q => [q.question, q])).values(),
-// //     ).map(q => ({
-// //       ...q,
-// //       id: new ObjectId().toString(),
-// //     }));
-// //     return uniqueQuestions;
-// //   }
-
-// //   /**
-// //    * Generate questions from call context (audio transcription)
-// //    */
-// //   async getQuestionFromCallContext(
-// //     context: string,
-// //     state?: string,
-// //     crop?: string,
-// //   ): Promise<GeneratedQuestionResponse[]> {
-// //     try {
-// //       const payload: any = {query: context};
-// //       if (state) payload.state = state;
-// //       if (crop) payload.crop = crop;
-
-// //       const agentSearchResponse = await axios.post(
-// //         'http://100.100.108.44:6002/search',
-// //         payload,
-// //         {timeout: 100000},
-// //       );
-// //       console.log(
-// //         'Agent Search Output:',
-// //         JSON.stringify(agentSearchResponse.data, null, 2),
-// //       );
-
-// //       const data = agentSearchResponse.data || {};
-
-// //       // Send this in the appropriate format expected by the frontend
-// //       let formattedResponse: any[] = [];
-
-// //       if (
-// //         data &&
-// //         (Array.isArray(data.reviewer) ||
-// //           Array.isArray(data.golden) ||
-// //           Array.isArray(data.pop))
-// //       ) {
-// //         formattedResponse = [
-// //           ...(data.reviewer || []).map((item: any) => ({
-// //             question: item.question,
-// //             answer: item.answer || item.text,
-// //             agri_specialist:
-// //               item.agri_expert ||
-// //               item.agri_specialist ||
-// //               item.source ||
-// //               'AGRI_EXPERT',
-// //             referenceSource: 'reviewer',
-// //             id: item.id || new ObjectId().toString(),
-// //           })),
-// //           ...(data.golden || []).map((item: any) => ({
-// //             question: item.question,
-// //             answer: item.answer || item.text,
-// //             agri_specialist:
-// //               item.agri_expert ||
-// //               item.agri_specialist ||
-// //               item.metadata?.['Agri Specialist'] ||
-// //               'Unknown',
-// //             referenceSource: 'golden',
-// //             id: item.id || new ObjectId().toString(),
-// //           })),
-// //           ...(data.pop || []).map((item: any) => ({
-// //             question: 'Reference Information',
-// //             answer: item.text,
-// //             agri_specialist: 'POP_DOCUMENT',
-// //             referenceSource: 'pop',
-// //             id: item.id || new ObjectId().toString(),
-// //           })),
-// //         ];
-// //       } else if (data && Array.isArray(data.results)) {
-// //         // Map the results array from the agent_search response
-// //         formattedResponse = data.results.map((item: any) => ({
-// //           question: item.question || data.extracted_question || context,
-// //           answer: item.answer || item.text || 'Answer not available',
-// //           agri_specialist: item.source || 'AGRI_EXPERT',
-// //           referenceSource: 'agent_search',
-// //           id: item.id || new ObjectId().toString(),
-// //         }));
-// //       } else if (Array.isArray(data)) {
-// //         formattedResponse = data.map((item: any) => ({
-// //           question: item.question || context,
-// //           answer: item.answer || item.response || JSON.stringify(item),
-// //           agri_specialist: item.agri_specialist || item.source || 'AGRI_EXPERT',
-// //           referenceSource: item.referenceSource || 'agent_search',
-// //           id: item.id || new ObjectId().toString(),
-// //         }));
-// //       } else if (data && typeof data === 'object') {
-// //         formattedResponse = [
-// //           {
-// //             question: data.extracted_question || data.question || context,
-// //             answer: data.answer || data.response || JSON.stringify(data),
-// //             agri_specialist:
-// //               data.agri_specialist || data.source || 'AGRI_EXPERT',
-// //             referenceSource: data.referenceSource || 'agent_search',
-// //             id: data.id || new ObjectId().toString(),
-// //           },
-// //         ];
-// //       }
-
-// //       // Deduplicate by question text
-// //       const uniqueQuestions = Array.from(
-// //         new Map(formattedResponse.map(q => [q.question, q])).values(),
-// //       ).map(q => ({
-// //         ...q,
-// //         id: q.id || new ObjectId().toString(),
-// //       }));
-
-// //       return uniqueQuestions;
-// //     } catch (error) {
-// //       console.error('Failed to generate questions from call context:', error);
-// //       throw new InternalServerError(
-// //         'Failed to generate questions from call context',
-// //       );
-// //     }
-// //   }
-
-// //   async getCallSummary(query: string): Promise<any> {
-// //     try {
-// //       const extractResponse = await axios.post(
-// //         'http://100.100.108.44:6002/extract',
-// //         {query},
-// //         {timeout: 100000},
-// //       );
-// //       return extractResponse.data;
-// //     } catch (error) {
-// //       console.error('Failed to generate call summary:', error);
-// //       throw new InternalServerError('Failed to generate call summary');
-// //     }
-// //   }
-
-// //   /**
-// //    * HIL Flow: Create thread for ACC Agent
-// //    */
-// //   async createAccAgentThread(): Promise<{thread_id: string}> {
-// //     try {
-// //       const result = await this.accAgentService.createThread();
-// //       return result;
-// //     } catch (error) {
-// //       console.error('[QuestionService] createAccAgentThread: Error', error);
-// //       throw new InternalServerError('Failed to create ACC Agent thread');
-// //     }
-// //   }
-
-// //   /**
-// //    * HIL Flow: Extract data from transcript
-// //    */
-// //   async extractAccAgentData(
-// //     threadId: string,
-// //     transcript: string,
-// //   ): Promise<{
-// //     extracted_query: string;
-// //     extracted_crop: string;
-// //     extracted_state: string;
-// //     extracted_district: string;
-// //     extracted_domain?: string | string[];
-// //     extracted_name?: string;
-// //     extracted_phone?: string;
-// //     extracted_age?: number;
-// //     extracted_gender?: string;
-// //     extracted_village?: string;
-// //     extracted_block?: string;
-// //     extracted_primary_crop?: string;
-// //   }> {
-// //     try {
-// //       const result = await this.accAgentService.extractData(
-// //         threadId,
-// //         transcript,
-// //       );
-
-// //       return result;
-// //     } catch (error) {
-// //       console.error('[QuestionService] extractAccAgentData: Error', error);
-// //       throw new InternalServerError('Failed to extract data using ACC Agent');
-// //     }
-// //   }
-
-// //   /**
-// //    * HIL Flow: Update state with human corrections
-// //    */
-// //   async updateAccAgentState(
-// //     threadId: string,
-// //     correctedData: {
-// //       query: string;
-// //       crop: string;
-// //       state: string;
-// //       district: string;
-// //       domain: string | string[];
-// //       season: string;
-// //       farmerName?: string;
-// //       farmerPhone?: string;
-// //       farmerAge?: number;
-// //       farmerGender?: string;
-// //       farmerVillage?: string;
-// //       farmerBlock?: string;
-// //       farmerPrimaryCrop?: string;
-// //     },
+// //   /** Manually (re)assign the gate keeper / auditor for a question — mirrors
+// //    *  changeQuestionModerator: pulls the question from the previous assignee's
+// //    *  assignedQuestionIds and appends it to the new assignee's. */
+// //   async changeQuestionRoleAssignee(
+// //     questionId: string,
+// //     role: 'gate_keeper' | 'auditor',
+// //     userId: string,
+// //     actorName?: string,
 // //   ): Promise<void> {
+// //     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+// //     const question = await this.questionRepo.getById(questionId);
+// //     this.assertRoleNotFinished(question, role);
+// //     const previousId = (question as any)?.[assigneeField]?.toString();
+// //     const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+
+// //     await this.questionRepo.setRoleAssignee(
+// //       questionId,
+// //       assigneeField,
+// //       assignedAtField,
+// //       userId,
+// //     );
+
+// //     if (previousId && ObjectId.isValid(previousId) && previousId !== userId) {
+// //       await this.userRepo.removeAssignedQuestion(previousId, questionId);
+
+// //       // Notify the replaced user that their allocation was taken away, naming who did it.
+// //       try {
+// //         const by = actorName ? ` by ${actorName}` : '';
+// //         await this.notificationService.saveTheNotifications(
+// //           `This question's ${noun} allocation has been removed${by}.`,
+// //           'Allocation Removed',
+// //           questionId,
+// //           previousId,
+// //           'moderator_approval',
+// //         );
+// //       } catch (err: any) {
+// //         console.error(
+// //           `[RoleAssignee] Failed to send reassignment-removal notification for ${questionId} → ${previousId}:`,
+// //           err?.message,
+// //         );
+// //       }
+// //     }
+// //     await this.userRepo.addAssignedQuestion(
+// //       userId,
+// //       questionId,
+// //       ((question as any)?.status ?? 'open') as QuestionStatus,
+// //       (question as any)?.source,
+// //     );
+
+// //     // Notify the newly-assigned user, mirroring the auto-allocation cron so a manual
+// //     // assignment by a moderator/admin triggers the same "Question Assigned" alert.
 // //     try {
-// //       await this.accAgentService.updateState(threadId, correctedData);
-// //     } catch (error) {
-// //       console.error('[QuestionService] updateAccAgentState: Error', error);
-// //       throw new InternalServerError('Failed to update ACC Agent state');
+// //       await this.notificationService.saveTheNotifications(
+// //         role === 'gate_keeper'
+// //           ? 'A question has been assigned to you for review'
+// //           : 'A question has been assigned to you for audit',
+// //         'Question Assigned',
+// //         questionId,
+// //         userId,
+// //         'moderator_approval',
+// //       );
+// //     } catch (err: any) {
+// //       console.error(
+// //         `[RoleAssignee] Failed to send assignment notification for ${questionId} → ${userId}:`,
+// //         err?.message,
+// //       );
 // //     }
 // //   }
 
-// //   /**
-// //    * HIL Flow: Resume and get final answer
-// //    */
-// //   async resumeAccAgentAndGetAnswer(
-// //     threadId: string,
-// //     callUuid?: string,
-// //     metadata?: QAMetadata,
-// //   ): Promise<{final_answer: string}> {
-// //     try {
-// //       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
+// //   /** Remove the gate keeper / auditor currently assigned to a question. When an actor
+// //    *  name is supplied (manual removal by a moderator/admin), the removed user is notified
+// //    *  that their allocation was taken away and by whom. */
+// //   async removeQuestionRoleAssignee(
+// //     questionId: string,
+// //     role: 'gate_keeper' | 'auditor',
+// //     actorName?: string,
+// //   ): Promise<void> {
+// //     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+// //     const question = await this.questionRepo.getById(questionId);
+// //     this.assertRoleNotFinished(question, role);
+// //     const previousId = (question as any)?.[assigneeField]?.toString();
 
-// //       // If callUuid and metadata are provided, store Q/A pairs in call_details
-// //       if (callUuid && metadata) {
-// //         const qaPairs: QAPairs = {
-// //           metadata,
-// //           QnA: [
-// //             {
-// //               question: metadata.extracted_query,
-// //               answer: result.final_answer,
-// //               agri_specialist: 'ACC_AGENT',
-// //               referenceSource: 'acc_agent_hitl',
-// //               id: new ObjectId().toString(),
-// //             },
-// //           ],
-// //         };
+// //     await this.questionRepo.setRoleAssignee(
+// //       questionId,
+// //       assigneeField,
+// //       assignedAtField,
+// //       null,
+// //     );
 
-// //         // Check if call_details document exists
-// //         const existingCallDetails =
-// //           await this.callDetailsRepository.getByCallUuid(callUuid);
+// //     if (previousId && ObjectId.isValid(previousId)) {
+// //       await this.userRepo.removeAssignedQuestion(previousId, questionId);
 
-// //         if (existingCallDetails) {
-// //           // Update existing document
-// //           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-// //         } else {
-// //           console.warn(
-// //             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
+// //       // Notify the user who lost the assignment, naming who removed it.
+// //       try {
+// //         const by = actorName ? ` by ${actorName}` : '';
+// //         await this.notificationService.saveTheNotifications(
+// //           `This question's ${role === 'gate_keeper' ? 'gate keeper' : 'auditor'} allocation has been removed${by}.`,
+// //           'Allocation Removed',
+// //           questionId,
+// //           previousId,
+// //           'moderator_approval',
+// //         );
+// //       } catch (err: any) {
+// //         console.error(
+// //           `[RoleAssignee] Failed to send removal notification for ${questionId} → ${previousId}:`,
+// //           err?.message,
+// //         );
+// //       }
+// //     }
+// //   }
+
+// //   async getAllocatedQuestionPage(userId: string, questionId: string) {
+// //     return this._withTransaction(async session => {
+// //       return this.questionRepo.getAllocatedQuestionPage(
+// //         userId,
+// //         questionId,
+// //         session,
+// //       );
+// //     });
+// //   }
+
+// //   async getQuestionAndReviewLevel(
+// //     query: GetDetailedQuestionsQuery,
+// //   ): Promise<QuestionLevelResponse> {
+// //     return this._withTransaction(async session => {
+// //       let searchEmbedding: number[] | null = null;
+
+// //       if (query?.search) {
+// //         try {
+// //           // const embedding=[]
+// //           const {embedding} = await this.aiService.getEmbedding(query.search);
+// //           searchEmbedding = embedding;
+// //         } catch (err) {
+// //           console.error(
+// //             'Embedding generation failed, falling back to normal search:',
+// //             err,
 // //           );
-// //           // Create a new call_details document with the Q/A pairs
-// //           await this.callDetailsRepository.create({
-// //             callUuid,
-// //             QA_pairs: qaPairs,
-// //             status: 'completed',
-// //             direction: 'inbound',
-// //             caller: {
-// //               transcript: '',
-// //               translation: '',
-// //               detectedLanguage: 'unknown',
-// //             },
-// //             agent: {
-// //               transcript: '',
-// //               translation: '',
-// //               detectedLanguage: 'unknown',
-// //             },
-// //           });
+// //           searchEmbedding = null;
 // //         }
 // //       }
 
-// //       return result;
-// //     } catch (error) {
-// //       console.error(
-// //         '[QuestionService] resumeAccAgentAndGetAnswer: Error',
-// //         error,
-// //       );
-// //       throw new InternalServerError(
-// //         'Failed to get final answer from ACC Agent',
-// //       );
-// //     }
+// //       return this.questionRepo.getQuestionsAndReviewLevel({
+// //         ...query,
+// //         searchEmbedding,
+// //       });
+// //     });
 // //   }
 
-// //   async getAccAgentState(
-// //     threadId: string,
-// //     callUuid?: string,
-// //     metadata?: QAMetadata,
-// //   ): Promise<any> {
-// //     try {
-// //       // 1. Resume the agent
-// //       await this.accAgentService.resumeAndGetAnswer(threadId);
-
-// //       // 2. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
-// //       const threadState = await this.accAgentService.getThreadState(threadId);
-
-// //       // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
-// //       if (callUuid && metadata) {
-// //         const finalAnswerObj = threadState?.values?.final_answer;
-// //         const finalAnswerMarkdown =
-// //           typeof finalAnswerObj === 'string'
-// //             ? finalAnswerObj
-// //             : finalAnswerObj?.final_answer || '';
-
-// //         const weather = finalAnswerObj?.weather || null;
-// //         const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
-// //         const authorName = similarPair?.details?.[0]?.author_name || '';
-// //         const sourceName = similarPair?.details?.[0]?.source_name || '';
-// //         const sourceLink = similarPair?.details?.[0]?.source_link || '';
-
-// //         const qaPairs: QAPairs = {
-// //           metadata,
-// //           QnA: [
-// //             {
-// //               question: metadata.extracted_query,
-// //               answer: finalAnswerMarkdown,
-// //               agri_specialist: 'ACC_AGENT',
-// //               referenceSource: 'acc_agent_hitl',
-// //               id: new ObjectId().toString(),
-// //               ...(weather ? {weather} : {}),
-// //               ...(authorName ? {authorName} : {}),
-// //               ...(sourceName ? {sourceName} : {}),
-// //               ...(sourceLink ? {sourceLink} : {}),
-// //             } as any,
-// //           ],
-// //         };
-
-// //         // Check if call_details document exists
-// //         const existingCallDetails =
-// //           await this.callDetailsRepository.getByCallUuid(callUuid);
-
-// //         if (existingCallDetails) {
-// //           // Update existing document
-// //           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-// //         } else {
-// //           console.warn(
-// //             `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
-// //           );
-// //           // Create a new call_details document with the Q/A pairs
-// //           await this.callDetailsRepository.create({
-// //             callUuid,
-// //             QA_pairs: qaPairs,
-// //             status: 'completed',
-// //             direction: 'inbound',
-// //             caller: {
-// //               transcript: '',
-// //               translation: '',
-// //               detectedLanguage: 'unknown',
-// //             },
-// //             agent: {
-// //               transcript: '',
-// //               translation: '',
-// //               detectedLanguage: 'unknown',
-// //             },
-// //           });
-// //         }
+// //   async runAbsentScript() {
+// //     return await this._withTransaction(async session => {
+// //       try {
+// //         const absentExpertIds = await this.findAbsentExperts(session);
+// //         console.log('absent experts ', absentExpertIds);
+// //         if (!absentExpertIds.length) return;
+// //         await this.userRepo.blockExperts(absentExpertIds, session);
+// //         await this.cleanupQuestionSubmissions(absentExpertIds, session);
+// //       } catch (error) {
+// //         throw new InternalServerError(
+// //           `Daily reviewer cleanup failed: ${error}`,
+// //         );
 // //       }
-
-// //       // 4. Return the full thread state
-// //       return threadState;
-// //     } catch (error) {
-// //       console.error(
-// //         '[QuestionService] getAccAgentState: Error resuming or fetching state',
-// //         error,
-// //       );
-// //       throw new InternalServerError(
-// //         'Failed to resume or fetch ACC Agent state',
-// //       );
-// //     }
+// //     });
 // //   }
 
-// //   // Reusable duplicate detection helper.
+// //   async findAbsentExperts(session: ClientSession): Promise<string[]> {
+// //     const experts = await this.userRepo.findUnblockedUsers(session);
+// //     return experts
+// //       .filter(expert => !isToday(expert.lastCheckInAt))
+// //       .map(expert => expert._id.toString());
+// //   }
 
-// //   async checkDuplicateQuestion(
-// //     baseQuestion: IQuestion,
-// //     details: IQuestion['details'],
-// //     logData: Record<string, any>,
-// //     session?: ClientSession,
-// //   ): Promise<{
-// //     isDuplicate: boolean;
-// //     duplicateData?: any;
-// //     isNonAgri?: boolean;
-// //     nonAgriData?: any;
-// //   }> {
-// //     return checkDuplicateQuestionHelper(
-// //       baseQuestion,
-// //       details,
-// //       logData,
-// //       this.aiService,
-// //       this.duplicateQuestionRepository,
+// //   async cleanupQuestionSubmissions(
+// //     absentExpertIds: string[],
+// //     session: ClientSession,
+// //   ): Promise<void> {
+// //     if (!absentExpertIds.length) return;
+
+// //     const submissions = await this.questionSubmissionRepo.getAbsentSubmissions(
+// //       absentExpertIds,
 // //       session,
 // //     );
-// //   }
+// //     for (const submission of submissions) {
+// //       const {questionId, queue = [], history = []} = submission;
 
-// //   async manualCheckDuplicate(questionId: string): Promise<{
-// //     message: string;
-// //     isDuplicate: boolean;
-// //     referenceQuestionId?: string;
-// //   }> {
-// //     const question = await this.questionRepo.getById(questionId);
-
-// //     if (question.referenceQuestionId) {
-// //       return {
-// //         message: 'Question already has a reference question assigned.',
-// //         isDuplicate: true,
-// //       };
-// //     }
-
-// //     const logData: Record<string, any> = {questionId, manual: true};
-// //     const result = await this.runDuplicateCheckPipeline(
-// //       question,
-// //       question.details,
-// //       logData,
-// //     );
-
-// //     if (result.isDuplicate) {
-// //       const refId =
-// //         result.referenceQuestionId instanceof ObjectId
-// //           ? result.referenceQuestionId
-// //           : result.referenceQuestionId
-// //             ? new ObjectId(String(result.referenceQuestionId))
-// //             : null;
-
-// //       // Get submission to check queue length
-// //       const questionSubmission =
-// //         await this.questionSubmissionRepo.getByQuestionId(questionId);
-// //       const queueLength = questionSubmission?.queue?.length || 0;
-
-// //       // Only flip the status to 'duplicate' when the question is still open/delayed.
-// //       // For any other status (in-review, closed, etc.) the workflow is already past
-// //       // that point, so the status must not change — we just record the reference.
-// //       const canMarkDuplicate =
-// //         (question.status === 'open' || question.status === 'delayed') &&
-// //         queueLength === 0;
-// //       await this.questionRepo.updateQuestion(questionId, {
-// //         ...(canMarkDuplicate ? {status: 'duplicate'} : {}),
-// //         similarityScore: result.similarityScore,
-// //         referenceQuestionId: refId,
-// //         referenceQuestion: result.referenceQuestion,
-// //         referenceSource: result.referenceSource,
-// //         isDuplicateChecked: true,
-// //         ...(result.isExact !== undefined ? {isExact: result.isExact} : {}),
-// //       });
-// //       return {
-// //         message: canMarkDuplicate
-// //           ? 'Duplicate detected and question updated.'
-// //           : `Duplicate detected; status left unchanged (question is '${question.status}').`,
-// //         isDuplicate: true,
-// //         referenceQuestionId: refId?.toString(),
-// //       };
-// //     }
-
-// //     if (result.isQueueDuplicate) {
-// //       const refId =
-// //         result.referenceQuestionId instanceof ObjectId
-// //           ? result.referenceQuestionId
-// //           : result.referenceQuestionId
-// //             ? new ObjectId(String(result.referenceQuestionId))
-// //             : null;
-// //       const canMarkQueue =
-// //         question.status === 'open' || question.status === 'delayed';
-// //       await this.questionRepo.updateQuestion(questionId, {
-// //         ...(canMarkQueue
-// //           ? {status: 'queue_duplicate', isAutoAllocate: false}
-// //           : {}),
-// //         similarityScore: result.similarityScore,
-// //         referenceQuestionId: refId,
-// //         referenceQuestion: result.referenceQuestion,
-// //         referenceSource: result.referenceSource,
-// //         isDuplicateChecked: true,
-// //       });
-// //       return {
-// //         message: canMarkQueue
-// //           ? 'Found in the GDB pending-duplicate queue.'
-// //           : `In GDB queue; status left unchanged (question is '${question.status}').`,
-// //         isDuplicate: false,
-// //         referenceQuestionId: refId?.toString(),
-// //       };
-// //     }
-
-// //     if (result.isNonAgri) {
-// //       await this.questionRepo.updateQuestion(questionId, {
-// //         status: 'non_agri',
-// //         isDuplicateChecked: true,
-// //       });
-// //       return {message: 'Question marked as non-agri.', isDuplicate: false};
-// //     }
-
-// //     await this.questionRepo.updateQuestion(questionId, {
-// //       isDuplicateChecked: true,
-// //     });
-// //     return {message: 'No duplicate found.', isDuplicate: false};
-// //   }
-
-// //   private async runDuplicateCheckPipeline(
-// //     baseQuestion: IQuestion,
-// //     details: IQuestion['details'],
-// //     logData: Record<string, any>,
-// //   ): Promise<{
-// //     isDuplicate: boolean;
-// //     isQueueDuplicate?: boolean;
-// //     isNonAgri?: boolean;
-// //     referenceQuestionId?: ObjectId | string | null;
-// //     referenceQuestion?: string;
-// //     referenceSource?: string;
-// //     similarityScore?: number;
-// //     isExact?: boolean;
-// //   }> {
-// //     const cropName =
-// //       typeof details.crop === 'string'
-// //         ? details.crop
-// //         : (details.crop as any)?.name || '';
-
-// //     const gdbResult = await this.aiService.searchGdb({
-// //       crop: cropName,
-// //       state: details.state,
-// //       rephrased_query: baseQuestion.question,
-// //     });
-
-// //     const extractObjectId = (id: any): ObjectId | null => {
-// //       const raw = id?.$oid ?? id;
-// //       const hex = String(raw ?? '');
-// //       if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
-// //       return null;
-// //     };
-
-// //     const exactMatch = gdbResult?.exact_match;
-// //     if (exactMatch?.question_id) {
-// //       const refId = extractObjectId(exactMatch.question_id);
-// //       if (refId) {
-// //         return {
-// //           isDuplicate: true,
-// //           referenceQuestionId: refId,
-// //           referenceQuestion: exactMatch.question,
-// //           referenceSource: 'reviewer',
-// //           similarityScore: Number(
-// //             (exactMatch.similarity_score * 100).toFixed(2),
-// //           ),
-// //           isExact: true,
-// //         };
-// //       }
-// //       console.warn(
-// //         `[runDuplicateCheckPipeline] GDB exact_match invalid question_id: ${exactMatch.question_id}, skipping`,
-// //       );
-// //     }
-
-// //     const selectedMatch = gdbResult?.selected_match;
-// //     if (selectedMatch?.question_id) {
-// //       const refId = extractObjectId(selectedMatch.question_id);
-// //       if (refId) {
-// //         return {
-// //           isDuplicate: true,
-// //           referenceQuestionId: refId,
-// //           referenceQuestion: selectedMatch.question,
-// //           referenceSource: 'reviewer',
-// //           similarityScore: Number(
-// //             (selectedMatch.similarity_score * 100).toFixed(2),
-// //           ),
-// //           isExact: false,
-// //         };
-// //       }
-// //       console.warn(
-// //         `[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`,
-// //       );
-// //     }
-
-// //     // No GDB duplicate match — check the GDB pending-duplicate queue before falling
-// //     // through to the LLM, so the LLM classification only runs when the question is
-// //     // neither a duplicate nor already in the queue (single LLM call site).
-// //     try {
-// //       const pendingResult = await this.aiService.checkPendingDuplicate({
-// //         rephrased_query: baseQuestion.question,
-// //         crop: cropName,
-// //         state: details.state,
-// //         createdAt: baseQuestion.createdAt,
-// //       });
-// //       // A `detail` field means the GDB server didn't find a queued match.
-// //       // Reference details come from the top-level response (duplicate_question_id /
-// //       // query / similarity_score), not the candidates_checked array.
-// //       const dupId =
-// //         pendingResult?.duplicate_question_id ??
-// //         pendingResult?.matched_question_id;
-// //       // Only treat as a queue-duplicate when the GDB returned a usable reference id —
-// //       // a null/undefined duplicate_question_id means no queued match.
-// //       const foundInGdbQueue =
-// //         !!pendingResult &&
-// //         !pendingResult.detail &&
-// //         typeof dupId === 'string' &&
-// //         dupId.trim().length > 0;
-// //       if (foundInGdbQueue) {
-// //         const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
-// //         return {
-// //           isDuplicate: false,
-// //           isQueueDuplicate: true,
-// //           referenceQuestionId: refId,
-// //           referenceQuestion: pendingResult!.query,
-// //           referenceSource: 'reviewer',
-// //           similarityScore: Number(
-// //             ((pendingResult!.similarity_score ?? 0) * 100).toFixed(2),
-// //           ),
-// //         };
-// //       }
-// //     } catch (queueError: any) {
-// //       console.warn(
-// //         `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
-// //       );
-// //     }
-
-// //     // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
-// //     try {
-// //       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
-// //       if (llmResult.isNonAgri) {
-// //         logData.outcome = 'NON_AGRI_DETECTED';
-// //         chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-// //         return {isDuplicate: false, isNonAgri: true};
-// //       }
-// //     } catch (llmError: any) {
-// //       console.warn(
-// //         `[runDuplicateCheckPipeline] LLM non-agri check failed, treating as agri: ${llmError?.message}`,
-// //       );
-// //     }
-
-// //     return {isDuplicate: false};
-// //   }
-
-// //   async addQuestion(
-// //     userId: string,
-// //     body: AddQuestionBodyDto,
-// //   ): Promise<AddQuestionResult> {
-// //     const logData: Record<string, any> = {};
-// //     try {
-// //       // Extract fields before normalizing keys to lowercase
-// //       const aiInitialAnswer = body.aiInitialAnswer || '';
-// //       const messageIdFromBody = body.messageId;
-// //       const threadIdFromBody = body.threadId;
-// //       const userIdFromBody = body.userId;
-// //       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
-// //       const popContextFromBody = body.popContext;
-// //       const toolsUsed = body.tools_used || [];
-// //       const isTrainingQuestion = body.isTrainingQuestion === true;
-
-// //       body = normalizeKeysToLower(body);
-// //       let {
-// //         question,
-// //         priority,
-// //         source = 'AGRI_EXPERT',
-// //         details,
-// //         context,
-// //         originalquestion = '',
-// //       } = body;
-// //       if (body.details) {
-// //         body.details.state = toTitleCase(body.details.state);
-// //         body.details.district = toTitleCase(body.details.district as string);
-// //         body.details.crop = toTitleCase(body.details.crop as string);
-// //         body.details.domain = Array.isArray(body.details.domain)
-// //           ? body.details.domain
-// //           : body.details.domain
-// //             ? [body.details.domain]
-// //             : [];
-// //       }
-// //       const messageId = messageIdFromBody;
-// //       const threadId = threadIdFromBody;
-// //       const bodyUserId = userIdFromBody;
-// //       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
-// //       const popContext = popContextFromBody;
-
-// //       if (!details) {
-// //         const b: any = body;
-// //         details = {
-// //           state: b?.state || '',
-// //           district: b?.district || '',
-// //           crop: b?.crop || '',
-// //           season: b?.season || '',
-// //           domain: Array.isArray(b?.domain)
-// //             ? b.domain
-// //             : b?.domain
-// //               ? [b.domain]
-// //               : [],
-// //         };
-// //       }
-
-// //       const validPriorities = ['low', 'medium', 'high', 'critical'];
-// //       priority = priority?.toLowerCase() as IQuestion['priority'];
-// //       if (!validPriorities.includes(priority)) {
-// //         priority = 'medium';
-// //       }
-// //       if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-// //         priority = 'high';
-// //       }
-
-// //       if (!question?.trim()) {
-// //         throw new BadRequestError(`Question is required`);
-// //       }
-
+// //       if (!queue.length) continue;
+// //       const indicesToRemove = new Set<number>();
 // //       if (
-// //         !(typeof details.crop === 'string'
-// //           ? details.crop.trim()
-// //           : details.crop?.name?.trim()) ||
-// //         !details.district ||
-// //         !details.domain ||
-// //         !details.season ||
-// //         !details.state
+// //         history.length === 0 &&
+// //         queue[0] &&
+// //         absentExpertIds.includes(queue[0].toString())
 // //       ) {
-// //         throw new BadRequestError(`All fields are required`);
+// //         indicesToRemove.add(0);
 // //       }
+// //       if (history.length > 0) {
+// //         const pendingIndex = history.length - 1;
+// //         const expertId = queue[pendingIndex]?.toString();
 
-// //       logData.userId = userId;
-// //       logData.question = question;
-// //       logData.details = details;
-// //       logData.source = source;
-
-// //       // ─── Normalize crop against crop_master DB ───────────────────────────
-// //       const rawCropName =
-// //         typeof details.crop === 'string'
-// //           ? details.crop
-// //           : details.crop?.name || '';
-// //       let normalised_crop: string | undefined;
-// //       if (rawCropName.trim()) {
-// //         try {
-// //           const existingCrop =
-// //             await this.cropRepository.findByNameOrAlias(rawCropName);
-// //           if (existingCrop) {
-// //             normalised_crop = existingCrop.name;
-// //             logData.cropNormalization = {
-// //               original: rawCropName,
-// //               resolved: existingCrop.name,
-// //               action:
-// //                 rawCropName.trim().toLowerCase() === existingCrop.name
-// //                   ? 'EXACT_MATCH'
-// //                   : 'ALIAS_RESOLVED',
-// //             };
-// //           } else {
-// //             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
-// //             logData.cropNormalization = {
-// //               original: rawCropName,
-// //               action: 'NOT_FOUND',
-// //             };
-// //           }
-// //         } catch (cropError: any) {
-// //           console.error('Crop normalization warning:', cropError.message);
-// //           logData.cropNormalizationError = cropError.message;
+// //         if (expertId && absentExpertIds.includes(expertId)) {
+// //           indicesToRemove.add(pendingIndex);
 // //         }
 // //       }
-// //       // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
-// //       details.crop = toTitleCase(rawCropName);
-// //       details.state = toTitleCase(details.state);
-// //       if (typeof details.district === 'string')
-// //         details.district = toTitleCase(details.district);
-// //       if (normalised_crop !== undefined)
-// //         details.normalised_crop = normalised_crop;
+// //       for (let index = history.length; index < queue.length; index++) {
+// //         const expertId = queue[index]?.toString();
+// //         if (!expertId) continue;
 
-// //       // 🔹 Create Embedding — OUTSIDE transaction
-// //       const text = `Question: ${question}`;
-// //       let textEmbedding: number[] = [];
-
-// //       if (appConfig.ENABLE_AI_SERVER) {
-// //         const {embedding} = await this.aiService.getEmbedding(text);
-// //         textEmbedding = embedding;
+// //         if (absentExpertIds.includes(expertId)) {
+// //           indicesToRemove.add(index);
+// //         }
 // //       }
-// //       logData.embeddingGenerated = textEmbedding.length > 0;
-// //       logData.vectorLength = textEmbedding.length;
+// //       if (!indicesToRemove.size) continue;
+// //       const sortedIndices = Array.from(indicesToRemove).sort((a, b) => b - a);
+// //       for (const index of sortedIndices) {
+// //         console.log(
+// //           'Removing expert from question',
+// //           questionId.toString(),
+// //           'at index',
+// //           index,
+// //         );
 
-// //       return this._withTransaction(async (session: ClientSession) => {
-// //         // 🔹 Create Context
-// //         let contextId: ObjectId | null = null;
+// //         await this.removeExpertFromQueue(
+// //           'system',
+// //           questionId.toString(),
+// //           index,
+// //           {skipAutoAllocate: true},
+// //           session,
+// //         );
+// //       }
+// //       const question = await this.questionRepo.getById(
+// //         questionId.toString(),
+// //         session,
+// //       );
 
-// //         if (context) {
-// //           const {insertedId} = await this.contextRepo.addContext(
-// //             context,
+// //       // Do NOT reset isAutoAllocate here. If a moderator deliberately turned off
+// //       // auto-allocation for this question, that decision must be respected even
+// //       // when the absent-expert cleanup removes experts from the queue.
+// //       // Only attempt re-allocation when the question still has isAutoAllocate: true.
+// //       if (!question.isAutoAllocate) {
+// //         console.log(
+// //           `[AbsentExpert] Skipping auto-reallocation for question ${questionId} — isAutoAllocate is false (moderator override).`,
+// //         );
+// //         continue;
+// //       }
+
+// //       const latestSubmission =
+// //         await this.questionSubmissionRepo.getByQuestionId(
+// //           questionId.toString(),
+// //           session,
+// //         );
+
+// //       const UPDATED_QUEUE_LENGTH = latestSubmission.queue.length || 0;
+// //       const UPDATED_HISTORY_LENGTH = latestSubmission.history.length || 0;
+// //       if (UPDATED_QUEUE_LENGTH === 0) {
+// //         // if (question?.isAutoAllocate) {
+// //         await this.autoAllocateExperts(
+// //           questionId.toString(),
+// //           session,
+// //           // 3
+// //         );
+// //         // }
+// //         continue;
+// //       }
+
+// //       // let BATCH_EXPECTED_TO_ADD = 6;
+// //       // if (UPDATED_QUEUE_LENGTH < 3) {
+// //       //   BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
+// //       // }
+// //       if (
+// //         UPDATED_QUEUE_LENGTH < DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT ||
+// //         (UPDATED_QUEUE_LENGTH === UPDATED_HISTORY_LENGTH &&
+// //           UPDATED_QUEUE_LENGTH < 10)
+// //       ) {
+// //         await this.autoAllocateExperts(
+// //           questionId.toString(),
+// //           session,
+// //           // BATCH_EXPECTED_TO_ADD,
+// //         );
+// //       }
+// //     }
+// //     console.log('Completed!');
+// //   }
+
+// //   async balanceWorkload_copy() {
+// //     return await this._withTransaction(async session => {
+// //       try {
+// //         const lessWorkloadExperts =
+// //           await this.userRepo.findActiveLowReputationExpertsToday(session);
+// //         const MAX_PER_EXPERT = 5;
+// //         const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
+// //         if (!lessWorkloadExperts.length) {
+// //           return {
+// //             message: 'No Expert present to Reallocate question ',
+// //             expertsInvolved: 0,
+// //             submissionsProcessed: 0,
+// //           };
+// //         }
+
+// //         const delayedSubmissions =
+// //           await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+// //             maxAssignments,
 // //             session,
 // //           );
-// //           contextId = new ObjectId(insertedId);
+// //         if (!delayedSubmissions.length) {
+// //           return {
+// //             message: 'No delayed questions present to Reallocate',
+// //             expertsInvolved: 0,
+// //             submissionsProcessed: 0,
+// //           };
 // //         }
-// //         // 🔹 Create Base Question Object
-// //         const baseQuestion: IQuestion = {
-// //           userId:
-// //             bodyUserId?.trim() || userId?.trim()
-// //               ? new ObjectId(bodyUserId?.trim() || userId)
-// //               : null,
-// //           question,
-// //           priority,
-// //           source,
-// //           status:
-// //             source === 'AJRASAKHA' || source === 'WHATSAPP'
-// //               ? 'pending'
-// //               : 'open',
-// //           totalAnswersCount: 0,
-// //           contextId,
-// //           details,
-// //           isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
-// //           // New questions are eligible for gate-keeper / auditor auto-allocation by
-// //           // default; the cron only picks them up once they reach a matching status.
-// //           autoAllocateGateKeeper: true,
-// //           autoAllocateAuditor: true,
-// //           embedding: textEmbedding,
-// //           metrics: null,
-// //           aiInitialAnswer,
-// //           text,
-// //           toolsUsed,
-// //           createdAt: new Date(),
-// //           updatedAt: new Date(),
-// //           isTrainingQuestion,
-// //           ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
-// //           ...(messageId && {messageId}),
-// //           ...(threadId && {threadId}),
-// //           ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
-// //           ...(popContext && {popContext}),
-// //         };
 
-// //         // 🔹 Save question
-// //         logData.outcome = 'NEW_QUESTION_ADDED';
-// //         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-// //         const savedQuestion = await this.questionRepo.addQuestion(
-// //           baseQuestion,
-// //           session,
-// //         );
+// //         //  const submissionsToProcess = delayedSubmissions.slice(0, maxAssignments);
 
-// //         if (!savedQuestion?._id) {
-// //           throw new InternalServerError(`Failed to save question to database`);
-// //         }
-// //         /* if(!body.threadId)
-// //         {
-// //            await this.questionRepo.updateQuestion(savedQuestion._id.toString(), {
-// //               isTesting: true,
-// //             });
-// //           return
-// //         }*/
-
-// //         // 🔹 Create bare submission record (expert queue populated in background)
-// //         const submissionData: IQuestionSubmission = {
-// //           questionId: new ObjectId(savedQuestion._id.toString()),
-// //           lastRespondedBy: null,
-// //           history: [],
-// //           queue: [],
-// //           createdAt: new Date(),
-// //           updatedAt: new Date(),
-// //         };
-// //         await this.questionSubmissionRepo.addSubmission(
-// //           submissionData,
-// //           session,
-// //         );
-
-// //         // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
-// //         const questionId = savedQuestion._id.toString();
-// //         setImmediate(() => {
-// //           this.processQuestionInBackground({
-// //             questionId,
-// //             source,
-// //             details,
-// //             baseQuestion: {...baseQuestion, _id: savedQuestion._id},
-// //             logData,
-// //           }).catch((err: any) =>
-// //             console.error(
-// //               `[addQuestion] Background processing failed for questionId=${questionId}:`,
-// //               err?.message,
-// //             ),
-// //           );
-// //         });
-
-// //         return {
-// //           data: {
-// //             ...baseQuestion,
-// //             _id: questionId,
-// //             userId: baseQuestion.userId?.toString?.(),
-// //           },
-// //         };
-// //       });
-// //     } catch (error) {
-// //       console.error(error);
-
-// //       logData.outcome = 'FAILED';
-// //       logData.errorMessage = error.message;
-// //       logData.stack = error.stack;
-// //       chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
-
-// //       throw new InternalServerError(`Failed to add question: ${error}`);
-// //     }
-// //   }
-
-// //   private async processQuestionInBackground(params: {
-// //     questionId: string;
-// //     source: IQuestion['source'];
-// //     details: IQuestion['details'];
-// //     baseQuestion: IQuestion;
-// //     logData: Record<string, any>;
-// //   }): Promise<void> {
-// //     const {questionId, source, details, baseQuestion, logData} = params;
-// //     try {
-// //       if (source === 'AGRI_EXPERT') {
-// //         // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
-// //         // on creation. They are left unallocated (empty queue, no firstAllocationAt)
-// //         // and picked up one-at-a-time by the manual single-allocation cron
-// //         // (reallocateManualQuestions), mirroring the time-bound flow.
-// //         console.log(
-// //           `[ManualSingle] Question ${questionId} left for single-allocation cron (source=AGRI_EXPERT)`,
-// //         );
-// //       } else {
-// //         const isTimeBoundedQuestion =
-// //           source === 'AJRASAKHA' || source === 'WHATSAPP';
-// //         let threadValidation;
-// //         if (isTimeBoundedQuestion) {
-// //           threadValidation = await this.validateTimeBoundQuestionThread(
-// //             questionId,
-// //             baseQuestion.threadId,
-// //           );
-// //           console.log('threadValidation ', threadValidation);
-// //           if (!threadValidation.isValid) {
-// //             console.log('Npt valid');
-// //             logData.outcome = 'TESTING_THREAD_ID';
-// //             logData.threadValidationReason = threadValidation.reason;
-// //             chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-
-// //             await this.questionRepo.updateQuestion(questionId, {
-// //               isTesting: true,
-// //             });
-// //             return;
-// //           }
-// //           /* else {
-// //              // Extract the last GDB tool response from thread content
-// //              const content: any[] = threadValidation.data?.content || [];
-// //              const gdbToolCalls = content.filter(
-// //                (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
-// //              );
-// //              const lastGdbResponse = gdbToolCalls.length > 0
-// //                ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
-// //                : null;
- 
-// //              if (lastGdbResponse) {
-// //                const isExact: boolean = lastGdbResponse.is_exact === true;
-// //                const isSimilar: boolean = lastGdbResponse.is_similar === true;
- 
-//                if (isExact && !isSimilar) {
-//                  // Exact match found in GDB — mark as duplicate using exact_match data
-//                  const exactMatch = lastGdbResponse.exact_match;
-//                  await this.questionRepo.updateQuestion(questionId, {
-//                    status: 'duplicate',
-//                    similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
-//                    referenceQuestionId: new ObjectId(String(exactMatch.question_id)),
-//                    referenceQuestion: exactMatch.question,
-//                    referenceSource: 'reviewer',
-//                    isExact: true,
-//                  });
-//                  return;
-//                } else if (!isExact && isSimilar) {
-//                  // Similar match found in GDB — mark as duplicate using similar_pair1 data
-//                  const similarPair = lastGdbResponse.similar_pair1;
-//                  await this.questionRepo.updateQuestion(questionId, {
-//                    status: 'duplicate',
-//                    similarityScore: Number((similarPair.similarity_score * 100).toFixed(2)),
-//                    referenceQuestionId: new ObjectId(String(similarPair.question_id)),
-//                    referenceQuestion: similarPair.question,
-//                    referenceSource: 'reviewer',
-//                    isExact: false,
-//                  });
-//                  return;
-//                }
-//                // Both false — fall through to existing duplicate check below
-//              }
-//            }*/
-
-//           //check for the question is dynamic or static + dynamic
-//           // const isDynamicTools = !baseQuestion?.details?.tools_used?.includes('knowledge_base')
-//           // const isDesclaimer = threadValidation?.data.content.find((item:any)=>item?.type === 'ai' && item?.text.includes("You will get the answer within 2 hours"))
-
-//           // const isStaticAndDynamic =!isDynamicTools && baseQuestion?.details?.tools_used?.length>1
-//           // const isDynamic = isDynamicTools && !isDesclaimer;
-
-//           //dynamic conditon: if the tools used only contains dynamic tools and there will be a proper answer
-//           //static+dynamic conditon: if the tools used contains dynamic and static tools and there will not be a proper answer
-//           // if (isDynamic) {
-//           //   await this.questionRepo.updateQuestion(questionId, {
-//           //     tag: 'dynamic',
-//           //     status: 'dynamic'
-//           //   });
-//           //   return;
-//           // } else if (isStaticAndDynamic && isDesclaimer) {
-//           //   await this.questionRepo.updateQuestion(questionId, {
-//           //     status: 'open',
-//           //     tag: 'static_dynamic',
-//           //     isAutoAllocate:true,
-//           //   });
-//           //   return
-//           // }
-
-//           const toolsUsed = baseQuestion?.details?.tools_used ?? [];
-//           const hasKnowledgeBase = toolsUsed.includes('knowledge_base');
-//           const hasDynamicTool = toolsUsed.some(
-//             tool => tool !== 'knowledge_base',
-//           );
-//           const isDisclaimer = threadValidation?.data.content.some(
-//             (item: any) =>
-//               item?.type === 'ai' &&
-//               item?.text?.includes('You will get the answer within 2 hours'),
-//           );
-//           const isDynamic =
-//             !hasKnowledgeBase && hasDynamicTool && !isDisclaimer;
-//           const isStaticAndDynamic =
-//             (hasKnowledgeBase && hasDynamicTool) ||
-//             (!hasKnowledgeBase && hasDynamicTool && isDisclaimer);
-//           if (isDynamic) {
-//             await this.questionRepo.updateQuestion(questionId, {
-//               tag: 'dynamic',
-//               status: 'dynamic',
-//             });
-//             return;
-//           }
-
-//           if (isStaticAndDynamic) {
-//             await this.questionRepo.updateQuestion(questionId, {
-//               status: 'open',
-//               tag: 'static_dynamic',
-//               isAutoAllocate: true,
-//             });
-//             return;
-//           }
-//           // AJRASAKHA / WHATSAPP — GDB → embedding → LLM duplicate/non-agri pipeline
-//           try {
-//             const result = await this.runDuplicateCheckPipeline(
-//               baseQuestion,
-//               details,
-//               logData,
-//             );
-
-//             const refId =
-//               result.referenceQuestionId instanceof ObjectId
-//                 ? result.referenceQuestionId
-//                 : result.referenceQuestionId
-//                   ? new ObjectId(String(result.referenceQuestionId))
-//                   : null;
-
-//             // 1. Duplicate
-//             if (result.isDuplicate) {
-//               const refId =
-//                 result.referenceQuestionId instanceof ObjectId
-//                   ? result.referenceQuestionId
-//                   : result.referenceQuestionId
-//                     ? new ObjectId(String(result.referenceQuestionId))
-//                     : null;
-//               await this.questionRepo.updateQuestion(questionId, {
-//                 status: 'duplicate',
-//                 similarityScore: result.similarityScore,
-//                 referenceQuestionId: refId,
-//                 referenceQuestion: result.referenceQuestion,
-//                 referenceSource: result.referenceSource,
-//                 ...(result.isExact !== undefined
-//                   ? {isExact: result.isExact}
-//                   : {}),
-//               });
-//               return;
-//             }
-
-//             // 2. Found in the GDB pending-duplicate queue → carry the matched reference
-//             //    details and turn auto-allocate off.
-//             if (result.isQueueDuplicate) {
-//               await this.questionRepo.updateQuestion(questionId, {
-//                 status: 'queue_duplicate',
-//                 isAutoAllocate: false,
-//                 similarityScore: result.similarityScore,
-//                 referenceQuestionId: refId,
-//                 referenceQuestion: result.referenceQuestion,
-//                 referenceSource: result.referenceSource,
-//               });
-//               return;
-//             }
-
-//             // 3. Non-agri (LLM) → non_agri, else → open.
-//             if (result.isNonAgri) {
-//               await this.questionRepo.updateQuestion(questionId, {
-//                 status: 'non_agri',
-//               });
-//               return;
-//             }
-
-//             await this.questionRepo.updateQuestion(questionId, {
-//               status: 'open',
-//               isAutoAllocate: true,
-//             });
-//           } catch (pipelineError: any) {
-//             console.error(
-//               '[processQuestionInBackground] duplicate/queue pipeline failed, proceeding as open:',
-//               pipelineError?.message,
-//             );
-//             await this.questionRepo.updateQuestion(questionId, {
-//               status: 'open',
-//               isAutoAllocate: true,
-//             });
-//           }
-//         }
-
-//         const [allModerators, taskForceModerators] = await Promise.all([
-//           this.userRepo.findModerators(),
-//           this.userRepo.getSpecialTaskForceModerators(),
-//         ]);
-//         const sourceLabel = source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
-//         const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
-//         const notificationType =
-//           source === 'AJRASAKHA'
-//             ? 'question_from_ajrasakha'
-//             : 'question_from_whatsapp';
-
-//         const moderators = [...allModerators, ...taskForceModerators].filter(
-//           moderator => moderator.isTrainingUser !== true,
-//         );
-
-//         await Promise.all(
-//           moderators.map((moderator: any) =>
-//             this.notificationService.saveTheNotifications(
-//               message,
-//               'New Question Received',
-//               questionId,
-//               moderator._id.toString(),
-//               notificationType,
-//             ),
-//           ),
-//         );
-
-//         // Time-bound expert allocation is handled exclusively by the
-//         // reallocateTimeBoundQuestions cron to avoid double-allocation races.
-//       }
-//     } catch (error: any) {
-//       console.error(
-//         `[processQuestionInBackground] Failed for questionId=${questionId}:`,
-//         error?.message,
-//       );
-//     }
-//   }
-
-//   private async validateTimeBoundQuestionThread(
-//     questionId: string,
-//     threadId?: string,
-//   ): Promise<{isValid: boolean; reason?: string; data?: any}> {
-//     if (!threadId?.trim()) {
-//       return {isValid: false, reason: 'THREAD_ID_MISSING'};
-//     }
-
-//     // Retry with backoff — the external thread system may not have the data
-//     // ready immediately after question creation (race between add and processing).
-//     const retryDelaysMs = [3000, 6000, 12000];
-//     let lastError: any;
-//     let hadSuccessfulApiCall = false;
-
-//     for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
-//       if (attempt > 0) {
-//         const delay = retryDelaysMs[attempt - 1];
-//         console.log(
-//           `[validateTimeBoundQuestionThread] Retry ${attempt}/${retryDelaysMs.length} for questionId=${questionId} after ${delay}ms`,
-//         );
-//         await new Promise<void>(resolve => setTimeout(resolve, delay));
-//       }
-
-//       try {
-//         const matchedQuestion = await this.getMatchedQuestion(questionId);
-//         hadSuccessfulApiCall = true; // API responded (even if no match returned)
-//         if (matchedQuestion) {
-//           return {isValid: true, data: matchedQuestion};
-//         }
-//       } catch (error: any) {
-//         const notFoundMessages = [
-//           'No matching WhatsApp message found',
-//           'Question not found',
-//           'Thread id not found',
-//         ];
-//         const isNotFound = notFoundMessages.some(msg =>
-//           error?.message?.includes(msg),
-//         );
-//         if (isNotFound) {
-//           hadSuccessfulApiCall = true; // API reachable — question simply not present yet
-//         }
-//         lastError = error;
-//         console.warn(
-//           `[validateTimeBoundQuestionThread] Attempt ${attempt + 1}/${retryDelaysMs.length + 1} failed for questionId=${questionId}: ${error?.message}`,
-//         );
-//       }
-//     }
-
-//     console.error(
-//       `[validateTimeBoundQuestionThread] All attempts exhausted for questionId=${questionId}:`,
-//       lastError?.message,
-//     );
-
-//     // API responded but found no match → question is a test, mark isTesting
-//     if (hadSuccessfulApiCall) {
-//       return {isValid: false, reason: 'Thread_id_not_found'};
-//     }
-
-//     // All attempts threw errors (API failure) → don't mark isTesting, proceed normally
-//     return {isValid: true, reason: lastError?.message || 'API_FAILED'};
-//   }
-
-//   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
-//     try {
-//       const question = await this.questionRepo.getById(questionId);
-//       if (!question) return null;
-//       return question;
-//     } catch (error) {
-//       console.error(error);
-//       return null;
-//     }
-//   }
-
-//   /**
-//    * Resolve a question's normalised crop. If it's already set, return it. Otherwise
-//    * try to resolve it from the crop master using the raw crop (same lookup used at
-//    * question creation) and persist it on the question, so a crop registered in Agri
-//    * Tech Management after the question was created (or missed by the backfill, which
-//    * skips empty-string values and non-matching spellings) doesn't block approval.
-//    * Returns the normalised crop name, or null if the raw crop isn't registered.
-//    */
-//   async ensureNormalisedCrop(
-//     questionId: string,
-//     session?: ClientSession,
-//   ): Promise<string | null> {
-//     const question = await this.questionRepo.getById(questionId, session);
-//     const existing = question.details?.normalised_crop?.trim();
-//     if (existing) return existing;
-
-//     const rawCrop =
-//       typeof question.details?.crop === 'string'
-//         ? question.details.crop
-//         : (question.details?.crop as any)?.name;
-//     if (!rawCrop?.trim()) return null;
-
-//     const resolved = await this.cropRepository.findByNameOrAlias(rawCrop);
-//     if (!resolved?.name) return null;
-
-//     await this.questionRepo.updateQuestion(
-//       questionId,
-//       {'details.normalised_crop': resolved.name} as any,
-//       session,
-//     );
-//     return resolved.name;
-//   }
-
-//   async ensureNormalisedLocation(
-//     questionId: string,
-//     session?: ClientSession,
-//   ): Promise<{valid: true}> {
-//     const question = await this.questionRepo.getById(questionId, session);
-//     const rawState = question.details?.state?.trim() ?? '';
-//     const rawDistrict = question.details?.district?.trim() ?? '';
-
-//     // ── State validation ──────────────────────────────────────────────────────
-//     if (rawState) {
-//       const statesCollection = await this.mongoDatabase.getCollection<{
-//         stateNameEnglish: string;
-//         aliases?: string[];
-//       }>('states');
-
-//       // Build a map: lowercase alias → canonical stateNameEnglish
-//       const allStates = await statesCollection.find({}).toArray();
-//       const aliasToState = new Map<string, string>();
-//       for (const s of allStates) {
-//         const canonical = s.stateNameEnglish;
-//         // Map the canonical name itself (case-insensitive)
-//         aliasToState.set(canonical.toLowerCase(), canonical);
-//         // Map each alias
-//         for (const alias of s.aliases ?? []) {
-//           aliasToState.set(alias.toLowerCase(), canonical);
-//         }
-//       }
-
-//       const stateKey = rawState.toLowerCase();
-//       const normalisedState = aliasToState.get(stateKey);
-
-//       if (!normalisedState) {
-//         throw new BadRequestError(
-//           `This question's state "${rawState}" is not registered in the system. Please add the correct state from the LGD Management section before approving this answer.`,
-//         );
-//       }
-
-//       // Update if the canonical name differs from the raw value
-//       if (normalisedState !== rawState) {
-//         await this.questionRepo.updateQuestion(
-//           questionId,
-//           {'details.state': normalisedState} as any,
-//           session,
-//         );
-//       }
-//     }
-
-//     // ── District validation ───────────────────────────────────────────────────
-//     if (rawDistrict) {
-//       const districtsCollection = await this.mongoDatabase.getCollection<{
-//         districtNameEnglish: string;
-//         aliases?: string[];
-//       }>('districts');
-
-//       // Build a map: lowercase alias → canonical districtNameEnglish
-//       const allDistricts = await districtsCollection.find({}).toArray();
-//       const aliasToDistrict = new Map<string, string>();
-//       for (const d of allDistricts) {
-//         const canonical = d.districtNameEnglish;
-//         // Map the canonical name itself (case-insensitive)
-//         aliasToDistrict.set(canonical.toLowerCase(), canonical);
-//         // Map each alias
-//         for (const alias of d.aliases ?? []) {
-//           aliasToDistrict.set(alias.toLowerCase(), canonical);
-//         }
-//       }
-
-//       const districtKey = rawDistrict.toLowerCase();
-//       const normalisedDistrict = aliasToDistrict.get(districtKey);
-
-//       if (!normalisedDistrict) {
-//         throw new BadRequestError(
-//           `This question's district "${rawDistrict}" is not registered in the system. Please add the correct district from the LGD Management section before approving this answer.`,
-//         );
-//       }
-
-//       // Update if the canonical name differs from the raw value
-//       if (normalisedDistrict !== rawDistrict) {
-//         await this.questionRepo.updateQuestion(
-//           questionId,
-//           {'details.district': normalisedDistrict} as any,
-//           session,
-//         );
-//       }
-//     }
-
-//     return {valid: true};
-//   }
-
-//   async getQuestionById(questionId: string): Promise<QuestionResponse> {
-//     try {
-//       return this._withTransaction(async (session: ClientSession) => {
-//         const currentQuestion = await this.questionRepo.getById(questionId);
-
-//         if (!currentQuestion)
-//           throw new NotFoundError(
-//             `Failed to find question with id: ${questionId}`,
-//           );
-
-//         // const currentAnswers = await this.answerRepo.getByQuestionId(
-//         //   questionId,
-//         //   session,
-//         // );
-
-//         const questionSubmissions =
-//           await this.questionSubmissionRepo.getByQuestionId(
-//             questionId,
-//             session,
-//           );
-
-//         if (!questionSubmissions)
-//           throw new NotFoundError(
-//             `Failed to find question submission document of questionId: ${questionId}`,
-//           );
-
-//         const submissionHistory =
-//           await this.questionSubmissionRepo.getDetailedSubmissionHistory(
-//             questionId,
-//             session,
-//           );
-
-//         // Only author needs to see ai initial answer
-//         let aiInitialAnswer = currentQuestion.aiInitialAnswer;
-
-//         const answers = await this.answerRepo.getByQuestionId(
-//           questionId,
-//           session,
-//         );
-
-//         if (answers && answers.length == 0)
-//           aiInitialAnswer = currentQuestion.aiInitialAnswer;
-
-//         let aiApprovedSources = currentQuestion.aiApprovedSources;
-
-//         // Backward compatibility: old DB still has aiApprovedAnswer
-//         if (!aiInitialAnswer && currentQuestion.aiApprovedAnswer) {
-//           aiInitialAnswer = currentQuestion.aiApprovedAnswer;
-//         }
-
-//         // Existing fallback (keep this)
-//         if (
-//           currentQuestion.source === 'AJRASAKHA' &&
-//           !aiInitialAnswer &&
-//           answers &&
-//           answers.length > 0
-//         ) {
-//           aiInitialAnswer = answers[0].answer;
-//           aiApprovedSources = answers[0].sources;
-//         }
-
-//         return {
-//           id: currentQuestion._id.toString(),
-//           text: currentQuestion.question,
-//           source: currentQuestion.source,
-//           details: currentQuestion.details,
-//           status: currentQuestion.status,
-//           priority: currentQuestion.priority,
-//           aiInitialAnswer,
-//           aiApprovedSources,
-//           isAutoAllocate: currentQuestion.isAutoAllocate,
-//           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
-//           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
-//           totalAnswersCount: currentQuestion.totalAnswersCount,
-//           history: submissionHistory,
-//         };
-//       });
-//     } catch (error) {
-//       throw new InternalServerError(
-//         `Failed to get unanswered questions: ${error}`,
-//       );
-//     }
-//   }
-
-//   async updateQuestion(
-//     questionId: string,
-//     updates: Partial<IQuestion>,
-//     threadUpdate?: boolean,
-//   ): Promise<{modifiedCount: number}> {
-//     try {
-//       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
-//       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
-//       // so they shouldn't inflate the transaction scope.
-//       if (updates.details) {
-//         if (updates.details.state) {
-//           updates.details.state = toTitleCase(updates.details.state);
-//         }
-//         if (updates.details.district) {
-//           updates.details.district = toTitleCase(updates.details.district);
-//         }
-//         if (updates.details?.crop) {
-//           const rawCropName =
-//             typeof updates.details.crop === 'string'
-//               ? updates.details.crop
-//               : (updates.details.crop as any)?.name || '';
-//           const cleanCropName = toTitleCase(rawCropName);
-//           let normalised_crop = cleanCropName.toLowerCase();
-//           if (rawCropName.trim()) {
-//             try {
-//               const existingCrop =
-//                 await this.cropRepository.findByNameOrAlias(rawCropName);
-//               if (existingCrop) {
-//                 normalised_crop = existingCrop.name;
-//               } else {
-//                 // Crop not found — auto-create it
-//                 // const normalizedName = rawCropName.trim().toLowerCase();
-//                 await this.cropRepository.createCrop(cleanCropName, '', []);
-//                 normalised_crop = cleanCropName;
-//               }
-//             } catch (cropError: any) {
-//               console.error(
-//                 'Crop normalization warning (updateQuestion):',
-//                 cropError.message,
-//               );
-//             }
-//           }
-//           updates.details.crop = cleanCropName;
-//           updates.details.normalised_crop = normalised_crop;
-//         }
-//       }
-//       const result = await this._withTransaction(
-//         async (session: ClientSession) => {
-//           const existingQuestion = await this.questionRepo.getById(
-//             questionId,
-//             session,
-//           );
-
-//           if (!existingQuestion) {
-//             throw new BadRequestError(
-//               `Question with ID ${questionId} not found`,
-//             );
-//           }
-
-//           // if (existingQuestion.status == 'closed')
-//           //   throw new BadRequestError(
-//           //     'You cannot modify a question that has already been closed.',
-//           //   );
-
-//           const answers = await this.answerRepo.getByQuestionId(
-//             questionId,
-//             session,
-//           );
-//           if (
-//             updates.status === 'closed' &&
-//             answers.every(answer => answer.isFinalAnswer === false)
-//           ) {
-//             throw new BadRequestError(
-//               `Cannot close this question as it has non-final answer`,
-//             );
-//           }
-//           if (threadUpdate) {
-//             return await this.questionRepo.updateThreadId(
-//               questionId,
-//               updates.threadId!,
-//               session,
-//             );
-//           }
-//           // When a question is passed, remove it from any moderator's assignedQuestionIds
-//           // so the cron sees them as available again. Keyed by questionId so a
-//           // malformed/missing moderatorId can't leave an orphan entry behind.
-//           if (updates.status === 'pass') {
-//             await this.ensureNormalisedLocation(questionId, session);
-//             // Check for pending allocations before allowing pass
-//             const questionSubmission =
-//               await this.questionSubmissionRepo.getByQuestionId(
-//                 questionId,
-//                 session,
-//               );
-
-//             if (questionSubmission) {
-//               const queueLength = questionSubmission.queue.length;
-//               const historyLength = questionSubmission.history.length;
-
-//               // Condition 1: queue.length > 0 and history.length == 0
-//               // This means it is assigned but not completed
-//               if (queueLength > 0 && historyLength === 0) {
-//                 throw new BadRequestError(
-//                   'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
-//                 );
-//               }
-
-//               // Condition 2: queue.length > 0 and history.length > 0
-//               // Check if the last history item status is 'in-review' AND question status is NOT 'in-review'
-//               if (queueLength > 0 && historyLength > 0) {
-//                 const lastHistoryItem =
-//                   questionSubmission.history[historyLength - 1];
-//                 if (
-//                   lastHistoryItem.status === 'in-review' &&
-//                   existingQuestion.status !== 'in-review'
-//                 ) {
-//                   throw new BadRequestError(
-//                     'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
-//                   );
-//                 }
-//               }
-//             }
-
-//             try {
-//               await this.userRepo.removeAssignedQuestionFromAllModerators(
-//                 questionId,
-//                 session,
-//               );
-//             } catch (err: any) {
-//               console.error(
-//                 '[ModeratorQueue] Failed to clear passed question from moderators:',
-//                 err?.message,
-//               );
-//             }
-//           }
-//           // Auditor "Notify User" flow closes dynamic questions as `dynamic_closed` and
-//           // duplicate questions as `duplicate_closed`. Stamp closedAt/isClosed just like the
-//           // regular `closed` transition so analytics and closed-question filters treat them
-//           // consistently.
-//           if (
-//             updates.status === 'dynamic_closed' ||
-//             updates.status === 'duplicate_closed'
-//           ) {
-//             updates.isClosed = true;
-//             updates.paeValidation = 'pending';
-//             updates.autoAllocatePaeValidationExpert = true;
-//             if (!updates.closedAt) updates.closedAt = new Date();
-//           }
-//           const updateResult = await this.questionRepo.updateQuestion(
-//             questionId,
-//             updates,
-//             session,
-//           );
-
-//           // In-transaction: if the status changed, free any gate keeper / auditor whose
-//           // handling scope the question has now left (pass / push-to-auditor / close, etc.)
-//           // so the status change and the release commit atomically — a failure here rolls
-//           // back the whole update, preventing a stuck assignee. (The queue cron still
-//           // reconciles as a backstop for any release missed by other paths.)
-//           if (!threadUpdate && updates.status) {
-//             await this.freeRoleAssigneeOnStatusChange(
-//               questionId,
-//               updates.status,
-//               session,
-//             );
-//           }
-
-//           return updateResult;
-//         },
-//       );
-
-//       return result;
-//     } catch (error) {
-//       throw new InternalServerError(`Failed to update question: ${error}`);
-//     }
-//   }
-
-//   async autoAllocateExperts(
-//     questionId: string,
-//     session?: ClientSession,
-//     BATCH_EXPECTED_TO_ADD: number = DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-//   ): Promise<{data?: ObjectId[]; status: boolean}> {
-//     const question = await this.questionRepo.getById(questionId, session);
-//     if (!question) throw new NotFoundError('Question not found');
-
-//     if (
-//       question.status === 'in-review' ||
-//       question.status === 'closed' ||
-//       question.status == 'pae_submitted'
-//     ) {
-//       console.log(
-//         'This question is currently being reviewed or has been closed. Please check back later!',
-//       );
-//       return {data: [], status: false};
-//     }
-//     // Single-allocation sources (time-bound AJRASAKHA/WHATSAPP and manual
-//     // AGRI_EXPERT/OUTREACH) are managed by the single-allocation cron — bulk
-//     // auto-allocation is disabled for them here.
-//     const isSingleAllocation =
-//       TIME_BOUND_SOURCES.includes(question.source) ||
-//       MANUAL_SOURCES.includes(question.source);
-//     if (isSingleAllocation) {
-//       const reason = `Auto-allocation is disabled for single-allocation questions (source: ${question.source})`;
-//       console.log(
-//         `[autoAllocateExperts] ${reason} — questionId: ${questionId}`,
-//       );
-//       return {data: [], status: false};
-//     }
-//     if (question.status == 'draft') {
-//       await this.questionRepo.updateQuestion(
-//         questionId,
-//         {
-//           status: 'open',
-//         },
-//         session,
-//       );
-//     }
-
-//     const details = question.details as PreferenceDto;
-
-//     const questionSubmission =
-//       await this.questionSubmissionRepo.getByQuestionId(questionId, session);
-
-//     if (!questionSubmission) {
-//       throw new NotFoundError('Question submission not found');
-//     }
-
-//     // checking last submission in history to see if there is an expert who has not yet responded and if !lastSubmission.answer is added to ensure that we are not blocking the queue in case of reviewers who are just reviewing the answer without providing any answers
-//     const lastSubmission = questionSubmission.history.at(-1);
-//     if (
-//       lastSubmission &&
-//       lastSubmission.status === 'in-review' &&
-//       !lastSubmission.answer
-//     ) {
-//       return {data: [], status: false};
-//     }
-
-//     const EXISTING_QUEUE_COUNT = questionSubmission.queue.length || 0;
-//     const EXISTING_HISTORY_COUNT = questionSubmission.history.length || 0;
-
-//     if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
-//       console.log('Cannot auto allocate as queue is full');
-//       return {data: [], status: false};
-//     }
-
-//     let allExpertIds: string[] = [];
-//     const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
-//     const isTrainingQuestion = question.isTrainingQuestion === true;
-//     if (isAjrasakha) {
-//       const users = await this.userRepo.getExpertsWithFallback(
-//         details,
-//         session,
-//       );
-
-//       allExpertIds = users
-//         .filter(user => user.isTrainingUser !== true)
-//         .map(user => user._id.toString());
-//     } else {
-//       const expertTMU = [];
-//       const expertNormal = [];
-//       const [users, preferredExperts] = await Promise.all([
-//         this.userRepo.findAll(),
-//         this.userRepo.findExpertsByPreference(details, session),
-//       ]);
-
-//       for (const user of users) {
-//         if (user.role !== 'expert' || user.isBlocked === true) {
-//           continue;
-//         }
-
-//         if (user.isTrainingUser) {
-//           expertTMU.push(user);
-//         } else {
-//           expertNormal.push(user);
-//         }
-//       }
-
-//       const eligibleUsers = isTrainingQuestion ? expertTMU : expertNormal;
-
-//       const preferredTMU = [];
-//       const preferredNormal = [];
-
-//       for (const user of preferredExperts) {
-//         if (user.isTrainingUser) {
-//           preferredTMU.push(user);
-//         } else {
-//           preferredNormal.push(user);
-//         }
-//       }
-//       const eligiblePreferredExperts = isTrainingQuestion
-//         ? preferredTMU
-//         : preferredNormal;
-
-//       const expertIdsSet = new Set<string>();
-
-//       // Add preferred experts first to the set to ensure they get priority in allocation
-//       eligiblePreferredExperts.forEach(user =>
-//         expertIdsSet.add(user._id.toString()),
-//       );
-
-//       // Add remaining
-//       eligibleUsers.forEach(user => expertIdsSet.add(user._id.toString()));
-
-//       allExpertIds = Array.from(expertIdsSet);
-//     }
-
-//     let updatedQueue;
-
-//     // condition to check if we have room in the queue to add more experts and also to ensure we are not adding more experts if there is already an expert in the queue who has not yet responded (to avoid flooding the queue with multiple experts at once and to give existing experts a chance to respond before adding more)
-//     if (
-//       EXISTING_QUEUE_COUNT < DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT ||
-//       (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
-//         EXISTING_QUEUE_COUNT <= allExpertIds.length)
-//     ) {
-//       const answeredExperts = new Set(
-//         questionSubmission.history.map(h => h.updatedBy.toString()),
-//       );
-
-//       const unAnsweredExpertIds = allExpertIds.filter(
-//         expertId => !answeredExperts.has(expertId),
-//       );
-
-//       const CURRENT_BATCH_SIZE = TOTAL_EXPERTS_LIMIT - EXISTING_QUEUE_COUNT;
-
-//       // To ensure allocation will not overflow total limit
-//       const FINAL_BATCH_SIZE = Math.min(
-//         BATCH_EXPECTED_TO_ADD,
-//         CURRENT_BATCH_SIZE,
-//       );
-
-//       const existingQueueIds = questionSubmission.queue.map(id =>
-//         id.toString(),
-//       );
-
-//       const filteredExperts = unAnsweredExpertIds.filter(
-//         id => !existingQueueIds.includes(id.toString()),
-//       );
-
-//       const lastSubmission = questionSubmission.history.at(-1);
-//       // No more experts left to allocate — hand the question off to a moderator
-//       // (status → in-review, last answer → pending-with-moderator) and stop here:
-//       // everything below only applies when there are experts to add.
-//       if (filteredExperts.length === 0) {
-//         await this.questionRepo.updateQuestion(
-//           questionId,
-//           {status: 'in-review'},
-//           session,
-//         );
-//         const payload: Partial<IAnswer> = {
-//           status: 'pending-with-moderator',
-//         };
-
-//         // The last submission may be an answer, an approval, or a modification —
-//         // a modified review carries `modifiedAnswer` (not `answer`/`approvedAnswer`).
-//         // Include it in the fallback so the correct answer is marked pending-with-
-//         // moderator, and guard against a missing id so this never throws.
-//         const answer =
-//           lastSubmission?.answer ||
-//           lastSubmission?.approvedAnswer ||
-//           lastSubmission?.modifiedAnswer ||
-//           lastSubmission?.rejectedAnswer;
-
-//         if (answer) {
-//           await this.answerRepo.updateAnswerStatus(
-//             answer.toString(),
-//             payload,
-//             session,
-//           );
-//         }
-
-//         return {data: [], status: false};
-//       }
-
-//       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
-
-//       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
-//       // if (
-//       //   questionSubmission.history.length >= 0 &&
-//       //   (!lastSubmission ||
-//       //     (lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
-//       //     lastSubmission?.status == 'reviewed')
-//       //   // &&EXISTING_QUEUE_COUNT >= 3
-//       // ) {
-//       const hasExperts = expertsToAdd?.length >= 1;
-//       if (!lastSubmission) {
-//         const IS_INCREMENT = true;
-//         const expertId = expertsToAdd[0]?.toString();
-//         await this.userRepo.updateReputationScore(
-//           expertId,
-//           IS_INCREMENT,
-//           session,
-//         );
-//         // No submissions send answer_creation notification to the first expert
-//         if (EXISTING_QUEUE_COUNT === 0) {
-//           let message = `A Question has been assigned for answering`;
-//           let title = 'Answer Creation Assigned';
-//           let entityId = questionId.toString();
-//           const user = expertId;
-//           const type: INotificationType = 'answer_creation';
-//           await this.notificationService.saveTheNotifications(
-//             message,
-//             title,
-//             entityId,
-//             user,
-//             type,
-//           );
-//           if (!question.firstAllocationAt) {
-//             await this.questionRepo.updateQuestion(
-//               questionId,
-//               {firstAllocationAt: new Date()},
-//               session,
-//             );
-//           }
-//         }
-//       }
-//       if (
-//         hasExperts &&
-//         lastSubmission &&
-//         (lastSubmission.reviewId || lastSubmission.answer) // if last submission is reviewed or author's answer
-//       ) {
-//         const nextExpertId = expertsToAdd[0]?.toString();
-//         const nextAllocatedSubmissionData: ISubmissionHistory = {
-//           updatedBy: new ObjectId(nextExpertId),
-//           status: 'in-review',
-//           createdAt: new Date(),
-//           updatedAt: new Date(),
-//         };
-
-//         await this.questionSubmissionRepo.update(
-//           questionId,
-//           nextAllocatedSubmissionData,
-//           session,
-//           false,
-//         );
-//         const IS_INCREMENT = true;
-//         await this.userRepo.updateReputationScore(
-//           nextExpertId.toString(),
-//           IS_INCREMENT,
-//           session,
-//         );
-//         let message = `A new Review has been assigned to you`;
-//         let title = 'New Review Assigned';
-//         let entityId = questionId.toString();
-//         const user = nextExpertId.toString();
-//         const type: INotificationType = 'peer_review';
-//         await this.notificationService.saveTheNotifications(
-//           message,
-//           title,
-//           entityId,
-//           user,
-//           type,
-//         );
-//       }
-//       updatedQueue = [...questionSubmission.queue, ...(expertsToAdd || [])]
-//         .slice(0, TOTAL_EXPERTS_LIMIT)
-//         .map(id => new ObjectId(id));
-
-//       await this.questionSubmissionRepo.updateQueue(
-//         questionId,
-//         updatedQueue,
-//         session,
-//       );
-//     }
-//     return {
-//       data: updatedQueue,
-//       status: true,
-//     };
-//   }
-
-//   async toggleAutoAllocate(
-//     questionId: string,
-//   ): Promise<{message: string; data?: ObjectId[]}> {
-//     try {
-//       return this._withTransaction(async (session: ClientSession) => {
-//         //1. Validate question existence
-//         const question = await this.questionRepo.getById(questionId, session);
-//         if (!question) throw new NotFoundError('Question not found');
-//         if (question.status == 'draft') {
-//           await this.questionRepo.updateQuestion(
-//             questionId,
-//             {
-//               status: 'open',
-//             },
-//             session,
-//           );
-//         }
-
-//         const updated = await this.questionRepo.updateAutoAllocate(
-//           questionId,
-//           question?.isAutoAllocate,
-//           session,
-//         );
-
-//         const currentStatus = question.isAutoAllocate;
-
-//         // If currentStatus is false, then we need to set it to true and vice versa
-//         let out;
-
-//         if (!currentStatus) {
-//           const questionSubmission =
-//             await this.questionSubmissionRepo.getByQuestionId(
-//               questionId,
-//               session,
-//             );
-
-//           if (!questionSubmission)
-//             await this.questionSubmissionRepo.addSubmission(
-//               {
-//                 questionId: new ObjectId(questionId),
-//                 lastRespondedBy: null,
-//                 history: [],
-//                 queue: [],
-//                 createdAt: new Date(),
-//                 updatedAt: new Date(),
-//                 reviewDelayNotificationSent: false,
-//               },
-//               session,
-//             );
-
-//           // const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
-//           // let BATCH_EXPECTED_TO_ADD = 6;
-
-//           // If removing first 3 intial allocation, so allocate only 3 intially
-//           // if (CURRENT_QUEUE_LENGTH < 3)
-//           //   BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
-
-//           out = await this.autoAllocateExperts(
-//             questionId,
-//             session,
-//             // BATCH_EXPECTED_TO_ADD,
-//           );
-
-//           if (!out.status) {
-//             return {
-//               message: 'Auto allocate toggled, but queue is already full',
-//               data: out?.data,
-//             };
-//           }
-//         }
-
-//         return {
-//           message: `Auto allocate is now set to ${updated.isAutoAllocate}`,
-//           data: out?.data,
-//         };
-//       });
-//     } catch (error) {
-//       throw new InternalServerError(`Failed to toggle auto allocate: ${error}`);
-//     }
-//   }
-
-//   async allocateExperts(
-//     userId: string,
-//     questionId: string,
-//     experts: string[],
-//   ): Promise<IQuestionSubmission> {
-//     try {
-//       return this._withTransaction(async (session: ClientSession) => {
-//         // Validate that user has authorization for this
-//         const user = await this.userRepo.findById(userId, session);
-//         if (!user)
-//           throw new UnauthorizedError(`Cannot find user, try relogin!`);
-//         if (user.role == 'expert')
-//           throw new UnauthorizedError(
-//             `You don't have permission to perform this operation`,
-//           );
-//         //1. Validate question existence
-//         const question = await this.questionRepo.getById(questionId, session);
-//         if (!question) throw new NotFoundError('Question not found');
-//         if (
-//           question.status === 'in-review' ||
-//           question.status === 'closed' ||
-//           question.status == 'pae_submitted'
-//         ) {
-//           console.log(
-//             'This question is currently being in reviewed or has been closed. Please check back later!',
-//           );
-//           return;
-//         }
-//         if (question.status == 'draft') {
-//           // Check if any of the experts being allocated is a PAE expert
-//           const expertUsers = await Promise.all(
-//             experts.map(id => this.userRepo.findById(id, session)),
-//           );
-//           const isPaeAllocation = expertUsers.some(
-//             u => u?.role === 'pae_expert',
-//           );
-
-//           await this.questionRepo.updateQuestion(
-//             questionId,
-//             {
-//               status: 'open',
-//               ...(isPaeAllocation && {pae_review: true}),
-//             },
-//             session,
-//           );
-//         }
-
-//         //2. Validate question submission existence
-//         let questionSubmission =
-//           await this.questionSubmissionRepo.getByQuestionId(
-//             questionId,
-//             session,
-//           );
-//         // let submission
-//         if (!questionSubmission) {
-//           if (question.source == 'WHATSAPP' || question.status === 'draft') {
-//             const newSubmission: IQuestionSubmission = {
-//               questionId: new ObjectId(questionId),
-//               lastRespondedBy: null,
-//               history: [],
-//               queue: [],
-//               createdAt: new Date(),
-//               updatedAt: new Date(),
-//             };
-//             questionSubmission =
-//               await this.questionSubmissionRepo.addSubmission(
-//                 newSubmission,
-//                 session,
-//               );
-//           } else {
-//             throw new NotFoundError('Question submission not found');
-//           }
-//         }
-
-//         // 3. Validate if the queue is full
-//         if (questionSubmission.queue.length >= 10)
-//           throw new BadRequestError(
-//             'Cannot allocate more than 10 experts for a question.',
-//           );
-
-//         const hasExistingExpert = experts.some(expertId =>
-//           questionSubmission.queue.includes(expertId),
-//         );
-
-//         // 4. Validate if the expert Id is already there in queue
-
-//         if (hasExistingExpert) {
-//           throw new BadRequestError(
-//             'The selected expert is already in the queue. Please choose another expert.',
-//           );
-//         }
-//         //5. Validate experts array
-//         if (!experts || experts.length === 0)
-//           throw new BadRequestError('Experts list cannot be empty');
-
-//         // Check if adding these experts exceeds the limit of 10
-//         const totalAllocatedExperts = questionSubmission.queue.length;
-//         if (totalAllocatedExperts + experts.length > 10)
-//           throw new BadRequestError(
-//             `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
-//           );
-
-//         // for (let expert of experts) {
-//         //   const IS_INCREMENT = true;
-//         //   await this.userRepo.updateReputationScore(
-//         //     expert,
-//         //     IS_INCREMENT,
-//         //     session,
-//         //   );
-//         // }
-
-//         const lastSubmission = questionSubmission.history.at(-1);
-//         const isReviewStage = Boolean(
-//           lastSubmission &&
-//             (lastSubmission.answer || lastSubmission.status === 'reviewed'),
-//         );
-
-//         // If manual allocation is for author (no answer submitted yet) and queue is currently empty
-//         if (!isReviewStage && questionSubmission.queue.length === 0) {
-//           const firstPerson = experts[0];
-//           const IS_INCREMENT = true;
-//           await this.userRepo.updateReputationScore(
-//             firstPerson.toString(),
-//             IS_INCREMENT,
-//             session,
-//           );
-//           let message = `A Question has been assigned for answering`;
-//           let title = 'Answer Creation Assigned';
-//           let entityId = questionId.toString();
-//           const user = firstPerson.toString();
-//           const type: INotificationType = 'answer_creation';
-//           await this.notificationService.saveTheNotifications(
-//             message,
-//             title,
-//             entityId,
-//             user,
-//             type,
-//           );
-//           if (!question.firstAllocationAt) {
-//             await this.questionRepo.updateQuestion(
-//               questionId,
-//               {firstAllocationAt: new Date()},
-//               session,
-//             );
-//           }
-//         }
-
-//         //6. Allocate experts
-//         const updateData: any = {};
-//         if (question.status === 'duplicate') {
-//           updateData.status = 'open';
-//         }
-//         if (!isReviewStage && !question.firstAllocationAt) {
-//           updateData.firstAllocationAt = new Date();
-//         }
-
-//         if (Object.keys(updateData).length > 0) {
-//           await this.questionRepo.updateQuestion(questionId, updateData, session);
-//         }
-
-//         const expertIds = experts.map(e => new ObjectId(e));
-
-//         // if at review stage (last submission has an answer or is reviewed)
-//         if (isReviewStage) {
-//           const expertId = expertIds[0];
-//           const userSubmissionData: ISubmissionHistory = {
-//             updatedBy: expertId,
-//             createdAt: new Date(),
-//             status: 'in-review',
-//             updatedAt: new Date(),
-//           };
-//           const IS_INCREMENT = true;
-//           await this.userRepo.updateReputationScore(
-//             expertId.toString(),
-//             IS_INCREMENT,
-//             session,
-//           );
-//           //need to add here
-//           let message = `A new Review has been assigned to you`;
-//           let title = 'New Review Assigned';
-//           let entityId = questionId.toString();
-//           const user = expertId.toString();
-//           const type: INotificationType = 'peer_review';
-//           await this.notificationService.saveTheNotifications(
-//             message,
-//             title,
-//             entityId,
-//             user,
-//             type,
-//           );
-//           await this.questionSubmissionRepo.update(
-//             questionId,
-//             userSubmissionData,
-//             session,
-//             false,
-//           );
-//         }
-//         //7. Update question submission with new experts
-//         const updated = await this.questionSubmissionRepo.allocateExperts(
-//           questionId,
-//           expertIds,
-//           session,
-//         );
-
-//         //8. For time-bound questions: start the 45-min clock.
-//         // NOTE: do NOT force isAutoAllocate back on here — a moderator who
-//         // explicitly turned auto-allocate off before assigning an expert must
-//         // have that choice respected (otherwise it silently re-enables on
-//         // refresh for AJRASAKHA/WHATSAPP questions).
-//         if (question.source === 'WHATSAPP' || question.source === 'AJRASAKHA') {
-//           // Run outside transaction (non-critical, fire-and-forget style)
-//           setImmediate(async () => {
-//             try {
-//               await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
-//                 questionId,
-//                 new Date(),
-//               );
-//             } catch (err: any) {
-//               console.error(
-//                 `[allocateExperts] Failed to set time-bound fields for ${questionId}:`,
-//                 err?.message,
-//               );
-//             }
-//           });
-//         }
-
-//         //9. Return updated question submission
-//         return updated;
-//       });
-//     } catch (error) {
-//       throw new InternalServerError(`Failed to allocate experts: ${error}`);
-//     }
-//   }
-
-//   /**
-//    * Bulk allocate a PAE expert to multiple existing draft questions via background worker.
-//    * Fires and returns immediately — the worker handles DB operations asynchronously.
-//    */
-//   async bulkAllocatePaeExperts(
-//     userId: string,
-//     questionIds: string[],
-//     paeExpertId: string,
-//   ): Promise<{jobId: string; message: string}> {
-//     // Validate actor and PAE expert before handing off to worker
-//     const actor = await this.userRepo.findById(userId);
-//     if (!actor) throw new UnauthorizedError('Cannot find user, try relogin!');
-//     if (actor.role === 'expert')
-//       throw new UnauthorizedError(
-//         "You don't have permission to perform this operation",
-//       );
-
-//     const paeUser = await this.userRepo.findById(paeExpertId);
-//     if (!paeUser) throw new BadRequestError('PAE expert not found');
-
-//     const jobId = startPaeAllocationWorker(questionIds, paeExpertId, userId);
-//     return {
-//       jobId,
-//       message: `PAE allocation started for ${questionIds.length} question(s). Track progress with job ID: ${jobId}`,
-//     };
-//   }
-
-//   // async removeExpertFromQueue(
-//   //   userId: string,
-//   //   questionId: string,
-//   //   index: number,
-//   //   options?: {
-//   //     skipAutoAllocate?: boolean;
-//   //   },
-//   //   session?: ClientSession,
-//   // ): Promise<IQuestionSubmission> {
-//   //   const skipAutoAllocate = options?.skipAutoAllocate ?? false;
-//   //   try {
-//   //     // return this._withTransaction(async (session: ClientSession) => {
-//   //     if (userId !== 'system') {
-//   //       const user = await this.userRepo.findById(userId, session);
-//   //       if (!user)
-//   //         throw new UnauthorizedError(`Cannot find user, try relogin!`);
-//   //       if (user.role == 'expert')
-//   //         throw new UnauthorizedError(
-//   //           `You don't have permission to perform this operation`,
-//   //         );
-//   //     }
-//   //     //1. Validate that the question exists
-//   //     const question = await this.questionRepo.getById(questionId, session);
-//   //     if (!question) throw new NotFoundError('Question not found');
-
-//   //     //2. Validate that the corresponding question submission exists
-//   //     const questionSubmission =
-//   //       await this.questionSubmissionRepo.getByQuestionId(questionId, session);
-//   //     if (!questionSubmission)
-//   //       throw new NotFoundError('Question submission not found');
-
-//   //     //3. Get the current expert queue from the question submission
-//   //     const submissionQueue = questionSubmission.queue || [];
-//   //     const submissionHistory = questionSubmission.history || [];
-//   //     //4. Extract the expert ID based on the provided index
-//   //     const expertId = submissionQueue[index]?.toString();
-//   //     //5. Decrease the expert's reputation score (since being removed)
-//   //     const nextUserId = submissionQueue[index + 1]?.toString();
-//   //     const isExpertInHistory = submissionHistory.find(
-//   //       h => h.updatedBy.toString() == expertId.toString(),
-//   //     );
-//   //     if (
-//   //       expertId &&
-//   //       isExpertInHistory &&
-//   //       !isExpertInHistory.reviewId &&
-//   //       isExpertInHistory.status === 'in-review'
-//   //     ) {
-//   //       const INCREMENT = false;
-//   //       await this.userRepo.updateReputationScore(expertId, INCREMENT, session);
-
-//   //       if (nextUserId) {
-//   //         const INCREMENT = true;
-//   //         await this.userRepo.updateReputationScore(
-//   //           nextUserId,
-//   //           INCREMENT,
-//   //           session,
-//   //         );
-//   //       }
-//   //     }
-//   //     if (submissionHistory.length === 0) {
-//   //       if (submissionQueue[0].toString() === expertId) {
-//   //         const IS_INCREMENT = false;
-//   //         await this.userRepo.updateReputationScore(
-//   //           expertId,
-//   //           IS_INCREMENT,
-//   //           session,
-//   //         );
-//   //         if (nextUserId) {
-//   //           const IS_INCREMENT = true;
-//   //           await this.userRepo.updateReputationScore(
-//   //             nextUserId,
-//   //             IS_INCREMENT,
-//   //             session,
-//   //           );
-//   //         }
-//   //       }
-//   //     }
-//   //     // } else {
-//   //     //   const matchUser = submissionHistory.find(
-//   //     //     u => u.updatedBy?.toString() === expertId,
-//   //     //   );
-//   //     //   if (matchUser) {
-//   //     //     const IS_INCREMENT = false;
-//   //     //     await this.userRepo.updateReputationScore(
-//   //     //       expertId,
-//   //     //       IS_INCREMENT,
-//   //     //       session,
-//   //     //     );
-//   //     //     if (nextUserId) {
-//   //     //       const IS_INCREMENT = true;
-//   //     //       await this.userRepo.updateReputationScore(
-//   //     //         nextUserId,
-//   //     //         IS_INCREMENT,
-//   //     //         session,
-//   //     //       );
-//   //     //     }
-//   //     //   }
-//   //     // }
-
-//   //     //6. Remove the expert from the queue by index
-//   //     const updated =
-//   //       await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
-//   //         questionId,
-//   //         Number(index),
-//   //         session,
-//   //       );
-//   //     /*  if(updated)
-//   //         {
-//   //           const IS_INCREMENT = true;
-//   //         const userId =updated.queue[0];
-//   //         await this.userRepo.updateReputationScore(
-//   //           userId.toString(),
-//   //           IS_INCREMENT,
-//   //           session,
-//   //         );
-//   //         }*/
-
-//   //     //7. Handle auto reallocation logic if autoAllocate is enabled
-//   //     if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
-//   //       // Get updated queue and history lengths
-//   //       const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
-//   //       const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
-//   //       let BATCH_EXPECTED_TO_ADD = 6;
-
-//   //       // Adjust batch size if initial allocation (<3) experts are being removed
-//   //       if (UPDATED_QUEUE_LENGTH < 3)
-//   //         BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
-
-//   //       // If all previous experts have responded and queue is not full, trigger auto allocation
-//   //       if (
-//   //         UPDATED_QUEUE_LENGTH < 3 ||
-//   //         (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
-//   //           UPDATED_QUEUE_LENGTH < 10)
-//   //       ) {
-//   //         await this.autoAllocateExperts(
-//   //           questionId,
-//   //           session,
-//   //           BATCH_EXPECTED_TO_ADD,
-//   //         );
-//   //       }
-//   //     }
-
-//   //     //8. Return the updated question submission
-//   //     return updated;
-//   //     // });
-//   //   } catch (error) {
-//   //     throw new InternalServerError(
-//   //       `Failed to remove expert from queue: ${error}`,
-//   //     );
-//   //   }
-//   // }
-
-//   async removeExpertFromQueue(
-//     userId: string,
-//     questionId: string,
-//     index: number,
-//     options?: {
-//       skipAutoAllocate?: boolean;
-//     },
-//     session?: ClientSession,
-//   ): Promise<IQuestionSubmission> {
-//     if (session) {
-//       return this._removeExpertFromQueue(
-//         userId,
-//         questionId,
-//         index,
-//         options,
-//         session,
-//       );
-//     }
-//     return this._withTransaction(async newSession => {
-//       return this._removeExpertFromQueue(
-//         userId,
-//         questionId,
-//         index,
-//         options,
-//         newSession,
-//       );
-//     });
-//   }
-
-//   async _removeExpertFromQueue(
-//     userId: string,
-//     questionId: string,
-//     index: number,
-//     options?: {
-//       skipAutoAllocate?: boolean;
-//     },
-//     session?: ClientSession,
-//   ): Promise<IQuestionSubmission> {
-//     const skipAutoAllocate = options?.skipAutoAllocate ?? false;
-//     try {
-//       if (userId !== 'system') {
-//         const user = await this.userRepo.findById(userId, session);
-//         if (!user)
-//           throw new UnauthorizedError(`Cannot find user, try relogin!`);
-//         if (user.role == 'expert')
-//           throw new UnauthorizedError(
-//             `You don't have permission to perform this operation`,
-//           );
-//       }
-//       //1. Validate that the question exists
-//       const question = await this.questionRepo.getById(questionId, session);
-//       if (!question) throw new NotFoundError('Question not found');
-
-//       //2. Validate that the corresponding question submission exists
-//       const questionSubmission =
-//         await this.questionSubmissionRepo.getByQuestionId(questionId, session);
-//       if (!questionSubmission)
-//         throw new NotFoundError('Question submission not found');
-
-//       //3. Get the current expert queue from the question submission
-//       const submissionQueue = questionSubmission.queue || [];
-//       const submissionHistory = questionSubmission.history || [];
-//       //4. Extract the expert ID based on the provided index
-//       const expertId = submissionQueue[index]?.toString();
-//       //5. Decrease the expert's reputation score (since being removed)
-//       const nextUserId = submissionQueue[index + 1]?.toString();
-//       const isExpertInHistory = submissionHistory.find(
-//         h => h.updatedBy.toString() == expertId.toString(),
-//       );
-//       if (
-//         expertId &&
-//         isExpertInHistory &&
-//         !isExpertInHistory.reviewId &&
-//         isExpertInHistory.status === 'in-review'
-//       ) {
-//         const INCREMENT = false;
-//         await this.userRepo.updateReputationScore(expertId, INCREMENT, session);
-
-//         if (nextUserId) {
-//           const INCREMENT = true;
-//           await this.userRepo.updateReputationScore(
-//             nextUserId,
-//             INCREMENT,
-//             session,
-//           );
-//         }
-//       }
-//       if (submissionHistory.length === 0) {
-//         if (submissionQueue[0].toString() === expertId) {
-//           const IS_INCREMENT = false;
-//           await this.userRepo.updateReputationScore(
-//             expertId,
-//             IS_INCREMENT,
-//             session,
-//           );
-//           if (nextUserId) {
-//             const IS_INCREMENT = true;
-//             await this.userRepo.updateReputationScore(
-//               nextUserId,
-//               IS_INCREMENT,
-//               session,
-//             );
-//             let entityId = questionId;
-//             let message: string = `A new Review has been assigned to you`;
-//             let title: string = 'New Review Assigned';
-//             let type: INotificationType = 'peer_review';
-//             await this.notificationService.saveTheNotifications(
-//               message,
-//               title,
-//               entityId,
-//               nextUserId,
-//               type,
-//             );
-//           }
-//         }
-//       }
-//       // } else {
-//       //   const matchUser = submissionHistory.find(
-//       //     u => u.updatedBy?.toString() === expertId,
-//       //   );
-//       //   if (matchUser) {
-//       //     const IS_INCREMENT = false;
-//       //     await this.userRepo.updateReputationScore(
-//       //       expertId,
-//       //       IS_INCREMENT,
-//       //       session,
-//       //     );
-//       //     if (nextUserId) {
-//       //       const IS_INCREMENT = true;
-//       //       await this.userRepo.updateReputationScore(
-//       //         nextUserId,
-//       //         IS_INCREMENT,
-//       //         session,
-//       //       );
-//       //     }
-//       //   }
-//       // }
-
-//       //6. Remove the expert from the queue by index
-//       const updated =
-//         await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
-//           questionId,
-//           Number(index),
-//           session,
-//         );
-//       if (updated) {
-//         let entityId = questionId;
-//         let message: string = `You have been removed from the Allocated question`;
-//         let title: string = 'Allocation Removed';
-//         let type: INotificationType = 'allocation_removal';
-//         await this.notificationService.saveTheNotifications(
-//           message,
-//           title,
-//           entityId,
-//           expertId,
-//           type,
-//         );
-//       }
-//       /*  if(updated)
-//           {
-//             const IS_INCREMENT = true;
-//           const userId =updated.queue[0];
-//           await this.userRepo.updateReputationScore(
-//             userId.toString(),
-//             IS_INCREMENT,
-//             session,
-//           );
-//           }*/
-
-//       //7. Handle auto reallocation logic if autoAllocate is enabled
-//       // if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
-//       //   // Get updated queue and history lengths
-//       //   const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
-//       //   const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
-//       //   let BATCH_EXPECTED_TO_ADD = 6;
-
-//       //   // Adjust batch size if initial allocation (<3) experts are being removed
-//       //   if (UPDATED_QUEUE_LENGTH < 3)
-//       //     BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
-
-//       //   // If all previous experts have responded and queue is not full, trigger auto allocation
-//       //   if (
-//       //     UPDATED_QUEUE_LENGTH < 3 ||
-//       //     (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
-//       //       UPDATED_QUEUE_LENGTH < 10)
-//       //   ) {
-//       //     await this.autoAllocateExperts(
-//       //       questionId,
-//       //       session,
-//       //       BATCH_EXPECTED_TO_ADD,
-//       //     );
-//       //   }
-//       // }
-
-//       //8. Return the updated question submission
-//       return updated;
-//     } catch (error) {
-//       throw new InternalServerError(
-//         `Failed to remove expert from queue: ${error}`,
-//       );
-//     }
-//   }
-
-//   /**
-//    * Replace an expert at a specific level/index in the queue or replace the author
-//    * This is used when a moderator wants to reassign a delayed review to a new expert
-//    */
-//   async replaceQueueExpert(
-//     userId: string,
-//     questionId: string,
-//     levelIndex: number,
-//     newExpertId: string,
-//     isAuthor?: boolean,
-//     reasonForChange?: string,
-//   ): Promise<IQuestionSubmission> {
-//     return this._withTransaction(async (session: ClientSession) => {
-//       // 1. Validate question exists
-//       const question = await this.questionRepo.getById(questionId, session);
-//       if (!question) {
-//         console.warn(`[replaceQueueExpert] Question not found: ${questionId}`);
-//         throw new NotFoundError('Question not found');
-//       }
-
-//       // 2. Get question submission
-//       const questionSubmission =
-//         await this.questionSubmissionRepo.getByQuestionId(questionId, session);
-//       if (!questionSubmission) {
-//         console.warn(
-//           `[replaceQueueExpert] Question submission not found: ${questionId}`,
-//         );
-//         throw new NotFoundError('Question submission not found');
-//       }
-
-//       // Handle Author replacement (column 0)
-//       if (isAuthor) {
-//         // Validate new expert exists
-//         const newExpert = await this.userRepo.findById(newExpertId, session);
-//         if (!newExpert) {
-//           console.warn(
-//             `[replaceQueueExpert] New expert not found: ${newExpertId}`,
-//           );
-//           throw new NotFoundError('New expert not found');
-//         }
-
-//         // Get current author ID
-//         const currentAuthorId = questionSubmission.queue[0];
-
-//         // Check if new expert is same as current author
-//         if (currentAuthorId === newExpertId) {
-//           console.warn(
-//             `[replaceQueueExpert] Cannot replace - new expert is same as current author`,
-//           );
-//           throw new BadRequestError(
-//             'The selected expert is already the author.',
-//           );
-//         }
-
-//         // Validate reasonForChange is provided
-//         if (!reasonForChange || reasonForChange.trim() === '') {
-//           console.warn(`[replaceQueueExpert] Reason for change not provided`);
-//           throw new BadRequestError('Reason for reallocation is required.');
-//         }
-
-//         const now = new Date();
-
-//         // Check for time constraint using authors_history or submission.createdAt
-//         let assignmentTime = questionSubmission.createdAt || now;
-//         const authorsHistory = question.authors_history || [];
-//         if (authorsHistory.length > 0) {
-//           // Use the last author replacement time
-//           assignmentTime = authorsHistory[authorsHistory.length - 1].createdAt;
-//         }
-
-//         const hoursSinceAssignment =
-//           (now.getTime() - new Date(assignmentTime).getTime()) /
-//           (1000 * 60 * 60);
-
-//         if (hoursSinceAssignment < 2) {
-//           const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
-//           throw new BadRequestError(
-//             `Reallocation denied. At least 2 hours must pass since the author was assigned. Please wait approximately ${remainingMinutes} more minutes.`,
-//           );
-//         }
-
-//         // Create authors_history entry for the old author being replaced
-//         const authorsHistoryEntry: IAuthorsHistory = {
-//           authorId: new ObjectId(currentAuthorId!),
-//           newAuthorId: new ObjectId(newExpertId),
-//           reasonForChange: reasonForChange,
-//           createdAt: now,
-//           updatedAt: now,
-//         };
-
-//         // Fetch current question to get existing authors_history
-//         const currentQuestion = await this.questionRepo.getById(
-//           questionId,
-//           session,
-//         );
-//         const existingHistory = currentQuestion.authors_history || [];
-
-//         const questionUpdates: Partial<IQuestion> = {
-//           userId: new ObjectId(newExpertId),
-//           authors_history: [...existingHistory, authorsHistoryEntry],
-//         };
-
-//         if (question.isOnHold) {
-//           const prevAccum = question.accumulatedHoldMs ?? 0;
-//           let segmentMs = 0;
-//           if (question.holdAt) {
-//             segmentMs = Math.max(
-//               0,
-//               now.getTime() - new Date(question.holdAt).getTime(),
-//             );
-//           }
-//           questionUpdates.isOnHold = false;
-//           questionUpdates.status = 'open';
-//           questionUpdates.accumulatedHoldMs = prevAccum + segmentMs;
-//           questionUpdates.holdAt = null;
-//         }
-
-//         // Update question's userId (author) and append to authors_history
-//         await this.questionRepo.updateQuestion(
-//           questionId,
-//           questionUpdates,
-//           session,
-//         );
-
-//         // ALSO update the queue[0] (author position in queue) - THIS WAS MISSING!
-//         let updatedQueue = questionSubmission.queue;
-//         if (questionSubmission.queue.length > 0) {
-//           const oldQueueAuthor = questionSubmission.queue[0]?.toString();
-//           updatedQueue = questionSubmission.queue.map((id, idx) =>
-//             idx === 0 ? new ObjectId(newExpertId) : new ObjectId(id.toString()),
-//           );
-//         } else {
-//           console.warn(
-//             `[replaceQueueExpert] Queue is empty, cannot update queue[0]`,
-//           );
-//         }
-
-//         // Update the question submission with queue only (history unchanged for author replacement)
-
-//         const updateResult = await this.questionSubmissionRepo.updateById(
-//           questionSubmission._id!.toString(),
-//           {
-//             $set: {
-//               queue: updatedQueue,
-//               updatedAt: now,
-//             },
-//           },
-//           session,
-//         );
-
-//         // Also update the answer's authorId (the initial answer created with the question)
-//         const answers = await this.answerRepo.getByQuestionId(
-//           questionId,
-//           session,
-//         );
-//         const initialAnswer = answers.find(
-//           a => a.answerIteration === 0 || a.isFinalAnswer === false,
-//         );
-//         if (initialAnswer && initialAnswer._id) {
-//           await this.answerRepo.updateAnswer(
-//             initialAnswer._id.toString(),
-//             {authorId: new ObjectId(newExpertId)},
-//             session,
-//           );
-//         }
-
-//         try {
-//           // Prepare notification data
-//           const truncatedQuestionText = this.truncateQuestionText(
-//             question.question,
-//           );
-//           const entityId = questionId.toString();
-//           const type: INotificationType = 'expert_replacement';
-
-//           const replacedExpertMessage = `You have been removed from the question "${truncatedQuestionText}". Reason: ${reasonForChange}`;
-//           const replacedExpertTitle = 'Question Assignment Removed';
-
-//           const newExpertMessage = `You have been assigned a new question: "${truncatedQuestionText}" as the author.`;
-//           const newExpertTitle = 'New Question Assigned';
-
-//           // Execute all operations in parallel
-//           await Promise.all([
-//             // 1. Assign penalty to replaced expert
-//             this.userService.updatePenaltyAndIncentive(
-//               currentAuthorId!.toString(),
-//               'penalty',
-//             ),
-
-//             // 2. Assign incentive to new expert
-//             this.userService.updatePenaltyAndIncentive(
-//               newExpertId,
-//               'incentive',
-//             ),
-
-//             // 3. Send notification to replaced expert (with error handling)
-//             this.notificationService
-//               .saveTheNotifications(
-//                 replacedExpertMessage,
-//                 replacedExpertTitle,
-//                 entityId,
-//                 currentAuthorId!.toString(),
-//                 type,
-//               )
-//               .catch(notificationError => {
-//                 console.error(
-//                   `[replaceQueueExpert] ❌ Failed to send notification to replaced author: ${currentAuthorId}`,
-//                   notificationError,
-//                 );
-//                 // Return resolved promise to not break Promise.all
-//                 return Promise.resolve();
-//               }),
-
-//             // 4. Send notification to new expert (with error handling)
-//             this.notificationService
-//               .saveTheNotifications(
-//                 newExpertMessage,
-//                 newExpertTitle,
-//                 entityId,
-//                 newExpertId,
-//                 type,
-//               )
-//               .catch(notificationError => {
-//                 console.error(
-//                   `[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`,
-//                   notificationError,
-//                 );
-//                 // Return resolved promise to not break Promise.all
-//                 return Promise.resolve();
-//               }),
-//           ]);
-//         } catch (penaltyError) {
-//           console.error(
-//             `[replaceQueueExpert] Penalty/incentive update failed:`,
-//             penaltyError,
-//           );
-//           throw new InternalServerError(
-//             'Failed to update penalty/incentive scores. Operation rolled back.',
-//           );
-//         }
-
-//         // Return updated submission
-//         return updateResult;
-//       }
-
-//       // Handle Queue Expert replacement (Level 1, 2, etc.) - Reallocation Logic
-//       // 3. Validate levelIndex is within queue bounds (convert to 0-based for queue access)
-//       const queueIndex = levelIndex;
-//       if (queueIndex < 0 || queueIndex >= questionSubmission.queue.length) {
-//         console.warn(
-//           `[replaceQueueExpert] Invalid level index: ${levelIndex}, queue has ${questionSubmission.queue.length} experts`,
-//         );
-//         throw new BadRequestError(
-//           `Invalid level index. Queue has ${questionSubmission.queue.length} experts.`,
-//         );
-//       }
-
-//       // Step 1: Identify Last Reviewer from history and validate queue ownership
-//       const lastHistoryEntry =
-//         questionSubmission.history[questionSubmission.history.length - 1];
-//       const lastReviewerInQueue = lastHistoryEntry?.updatedBy?.toString();
-//       const currentExpertId = questionSubmission.queue[queueIndex]?.toString();
-
-//       // Validate that the reviewer to be replaced matches the current active reviewer
-//       // The last reviewer in queue must be the one being replaced (validation rule)
-//       if (currentExpertId !== lastReviewerInQueue) {
-//         console.warn(
-//           `[replaceQueueExpert] Queue validation failed - current expert ${currentExpertId} does not match last reviewer ${lastReviewerInQueue}`,
-//         );
-//         throw new BadRequestError(
-//           'Reallocation denied. The reviewer to be replaced must be the last assigned reviewer in the queue.',
-//         );
-//       }
-
-//       // 4. Check if this is the current active level (only current can be replaced)
-//       // Current active level is determined by history length (convert to 1-based since controller sends 1-based)
-//       const currentActiveIndex = questionSubmission.history.length - 1;
-
-//       if (levelIndex !== currentActiveIndex) {
-//         console.warn(
-//           `[replaceQueueExpert] Cannot replace - level ${levelIndex} is not active (active: ${currentActiveIndex})`,
-//         );
-//         throw new BadRequestError(
-//           'Can only replace the expert at the current active level. This level has already been completed or is not yet active.',
-//         );
-//       }
-
-//       // Step 2: Fetch History and perform validations
-//       const submissionHistory = questionSubmission.history || [];
-//       const now = new Date();
-
-//       // Find the history entry for the current expert being replaced
-//       let currentExpertHistoryIndex = -1;
-//       let currentExpertHistoryEntry: ISubmissionHistory | null = null;
-
-//       for (let i = 0; i < submissionHistory.length; i++) {
-//         const historyEntry = submissionHistory[i];
-//         if (historyEntry.updatedBy.toString() === currentExpertId) {
-//           currentExpertHistoryIndex = i;
-//           currentExpertHistoryEntry = historyEntry;
-//           break;
-//         }
-//       }
-
-//       // Use the found history entry or create a default one for validation
-//       const validationHistoryEntry =
-//         currentExpertHistoryEntry ||
-//         submissionHistory[submissionHistory.length - 1];
-
-//       // Time Constraint Validation: At least 2 hours must have passed since assignment (if history exists)
-//       if (validationHistoryEntry) {
-//         const lastAssignmentTime = new Date(validationHistoryEntry.createdAt);
-//         const hoursSinceAssignment =
-//           (now.getTime() - lastAssignmentTime.getTime()) / (1000 * 60 * 60);
-
-//         if (hoursSinceAssignment < 2) {
-//           console.warn(
-//             `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`,
-//           );
-//           const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
-//           throw new BadRequestError(
-//             `Reallocation denied. At least 2 hours must pass since the review was assigned. Please wait approximately ${remainingMinutes} more minutes.`,
-//           );
-//         }
-
-//         // Review Status Validation: The submission must still be in 'in-review' state
-//         if (validationHistoryEntry.status !== 'in-review') {
-//           console.warn(
-//             `[replaceQueueExpert] Status validation failed - current status is ${validationHistoryEntry.status}, expected 'in-review'`,
-//           );
-//           throw new BadRequestError(
-//             `Reallocation denied. The review status is '${validationHistoryEntry.status}'. Only reviews in 'in-review' status can be reallocated.`,
-//           );
-//         }
-//       }
-
-//       // Validate reasonForChange is provided
-//       if (!reasonForChange || reasonForChange.trim() === '') {
-//         console.warn(`[replaceQueueExpert] Reason for change not provided`);
-//         throw new BadRequestError('Reason for reallocation is required.');
-//       }
-
-//       // 5. Validate new expert exists
-//       const newExpert = await this.userRepo.findById(newExpertId, session);
-//       if (!newExpert) {
-//         console.warn(
-//           `[replaceQueueExpert] New expert not found: ${newExpertId}`,
-//         );
-//         throw new NotFoundError('New expert not found');
-//       }
-//       // 6. Check if new expert is already in queue
-//       const existingQueueIds = questionSubmission.queue.map(id =>
-//         id.toString(),
-//       );
-//       if (existingQueueIds.includes(newExpertId)) {
-//         console.warn(
-//           `[replaceQueueExpert] Expert ${newExpertId} already in queue`,
-//         );
-//         throw new BadRequestError(
-//           'The selected expert is already in the queue. Please choose another expert.',
-//         );
-//       }
-
-//       // Step 3: Create Previous Allocation Record
-//       const previousAllocation: IPreviousAllocations = {
-//         reviewerId: new ObjectId(currentExpertId!),
-//         reasonForChange: reasonForChange,
-//         createdAt: currentExpertHistoryEntry?.createdAt || now,
-//         updatedAt: now,
-//       };
-
-//       // Step 4: Update Queue - Replace the expert at the specified index
-//       const updatedQueue = questionSubmission.queue.map((id, idx) => {
-//         const shouldReplace = idx === queueIndex;
-//         const resultId = shouldReplace
-//           ? new ObjectId(newExpertId)
-//           : new ObjectId(id.toString());
-//         return resultId;
-//       });
-
-//       // Step 5: Build updated history with previousAllocations
-//       const updatedHistory = [...submissionHistory];
-
-//       if (currentExpertHistoryIndex !== -1 && currentExpertHistoryEntry) {
-//         // Update existing history entry with previousAllocations
-//         const updatedPreviousAllocations = [
-//           ...(currentExpertHistoryEntry.previousAllocations || []),
-//           previousAllocation,
-//         ];
-//         const updatedExpertHistory: ISubmissionHistory = {
-//           ...currentExpertHistoryEntry,
-//           updatedBy: new ObjectId(newExpertId), // Replace with new expert ID
-//           previousAllocations: updatedPreviousAllocations,
-//           createdAt: now, // Update both timestamps as requested
-//           updatedAt: now,
-//         };
-//         updatedHistory[currentExpertHistoryIndex] = updatedExpertHistory;
-//       } else {
-//         // No history entry found for current expert - create one with new expert
-//         const newExpertHistoryEntry: ISubmissionHistory = {
-//           updatedBy: new ObjectId(newExpertId), // Create with new expert directly
-//           status: 'in-review',
-//           previousAllocations: [previousAllocation],
-//           createdAt: now,
-//           updatedAt: now,
-//         };
-//         updatedHistory.push(newExpertHistoryEntry);
-//       }
-
-//       // Update database with queue and history changes
-//       const updateData: any = {
-//         $set: {
-//           queue: updatedQueue,
-//           history: updatedHistory,
-//           updatedAt: now,
-//         },
-//       };
-
-//       if (question.isOnHold) {
-//         const prevAccum = question.accumulatedHoldMs ?? 0;
-//         let segmentMs = 0;
-//         if (question.holdAt) {
-//           segmentMs = Math.max(
-//             0,
-//             now.getTime() - new Date(question.holdAt).getTime(),
-//           );
-//         }
-//         await this.questionRepo.updateQuestion(
-//           questionId,
-//           {
-//             isOnHold: false,
-//             status: 'open',
-//             accumulatedHoldMs: prevAccum + segmentMs,
-//             holdAt: null,
-//           },
-//           session,
-//         );
-//       }
-
-//       const updated = await this.questionSubmissionRepo.updateById(
-//         questionSubmission._id!.toString(),
-//         updateData,
-//         session,
-//       );
-
-//       try {
-//         // Prepare notification data
-//         const truncatedQuestionText = this.truncateQuestionText(
-//           question.question,
-//         );
-//         const entityId = questionId.toString();
-//         const type: INotificationType = 'expert_replacement';
-
-//         const replacedExpertMessage = `You have been removed from level ${levelIndex} review of question "${truncatedQuestionText}".`;
-//         const replacedExpertTitle = 'Review Assignment Removed';
-
-//         const newExpertMessage = `You have been assigned level ${levelIndex} review for question: "${truncatedQuestionText}".`;
-//         const newExpertTitle = 'New Review Assigned';
-
-//         // Execute all operations in parallel
-//         await Promise.all([
-//           // 1. Assign penalty to replaced expert
-//           this.userService.updatePenaltyAndIncentive(
-//             currentExpertId,
-//             'penalty',
-//           ),
-
-//           // 2. Assign incentive to new expert
-//           this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
-
-//           // 3. Send notification to replaced expert (with error handling)
-//           this.notificationService
-//             .saveTheNotifications(
-//               replacedExpertMessage,
-//               replacedExpertTitle,
-//               entityId,
-//               currentExpertId,
-//               type,
-//             )
-//             .catch(notificationError => {
-//               console.error(
-//                 `[replaceQueueExpert] ❌ Failed to send notification to replaced expert: ${currentExpertId}`,
-//                 notificationError,
-//               );
-//               // Return resolved promise to not break Promise.all
-//               return Promise.resolve();
-//             }),
-
-//           // 4. Send notification to new expert (with error handling)
-//           this.notificationService
-//             .saveTheNotifications(
-//               newExpertMessage,
-//               newExpertTitle,
-//               entityId,
-//               newExpertId,
-//               type,
-//             )
-//             .catch(notificationError => {
-//               console.error(
-//                 `[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`,
-//                 notificationError,
-//               );
-//               // Return resolved promise to not break Promise.all
-//               return Promise.resolve();
-//             }),
-//         ]);
-//       } catch (penaltyError) {
-//         console.error(
-//           `[replaceQueueExpert] Penalty/incentive update failed for queue expert:`,
-//           penaltyError,
-//         );
-//         throw new InternalServerError(
-//           'Failed to update penalty/incentive scores. Operation rolled back.',
-//         );
-//       }
-
-//       return updated;
-//     });
-//   }
-
-//   // async deleteQuestion(
-//   //   questionId: string,
-//   //   session?: ClientSession,
-//   // ): Promise<{deletedCount: number}> {
-//   //   try {
-//   //     return this._withTransaction(
-//   //       async (transactionSession: ClientSession) => {
-
-//   //         const question = await this.questionRepo.getById(questionId, session);
-//   //         if (!question) {
-//   //           throw new BadRequestError(
-//   //             `Question with ID ${questionId} not found`,
-//   //           );
-//   //         }
-//   //         await this.answerRepo.deleteByQuestionId(questionId, session);
-
-//   //         const questionSubmission =
-//   //           await this.questionSubmissionRepo.getByQuestionId(
-//   //             questionId,
-//   //             session,
-//   //           );
-
-//   //         const history = questionSubmission?.history || [];
-//   //         if (history && history.length > 0) {
-//   //           // Get the last history entry
-//   //           const lastHistoryEntry = history[history.length - 1];
-
-//   //           if (!lastHistoryEntry) {
-//   //             throw new BadRequestError(
-//   //               `Invalid submission history for question ID: ${questionId}`,
-//   //             );
-//   //           }
-
-//   //           // Check if the last entry is still under review and no answer provided yet
-//   //           const isUnderReviewWithoutAnswer =
-//   //             lastHistoryEntry.status === 'in-review' &&
-//   //             !lastHistoryEntry.answer;
-//   //           if (isUnderReviewWithoutAnswer) {
-//   //             const IS_INCREMENT = false;
-//   //             const expertId = lastHistoryEntry.updatedBy?.toString();
-//   //             if (!expertId) {
-//   //               throw new BadRequestError(
-//   //                 `Expert ID missing in the last history entry for question ID: ${questionId}`,
-//   //               );
-//   //             }
-
-//   //             await this.userRepo.updateReputationScore(
-//   //               expertId,
-//   //               IS_INCREMENT,
-//   //               session,
-//   //             );
-//   //           }
-//   //         } else {
-//   //           const IS_INCREMENT = false;
-//   //           const expertId = questionSubmission?.queue[0]?.toString();
-//   //           await this.userRepo.updateReputationScore(
-//   //             expertId,
-//   //             IS_INCREMENT,
-//   //             session,
-//   //           );
-//   //         }
-
-//   //         await this.questionSubmissionRepo.deleteByQuestionId(
-//   //           questionId,
-//   //           session,
-//   //         );
-//   //         await this.requestRepository.deleteByEntityId(questionId, session);
-//   //         return this.questionRepo.deleteQuestion(questionId, session);
-//   //       },
-//   //     );
-//   //   } catch (error) {
-//   //     throw new InternalServerError(`Failed to delete question: ${error}`);
-//   //   }
-//   // }
-
-//   async deleteQuestion(
-//     questionId: string,
-//     session?: ClientSession,
-//   ): Promise<{deletedCount: number}> {
-//     const execute = async (activeSession: ClientSession) => {
-//       const question = await this.questionRepo.getById(
-//         questionId,
-//         activeSession,
-//       );
-//       if (!question) {
-//         throw new BadRequestError(`Question with ID ${questionId} not found`);
-//       }
-
-//       // Delete all answers for this question
-//       await this.answerRepo.deleteByQuestionId(questionId, activeSession);
-
-//       // Fetch the submission to check history/queue
-//       const questionSubmission =
-//         await this.questionSubmissionRepo.getByQuestionId(
-//           questionId,
-//           activeSession,
-//         );
-
-//       const history = questionSubmission?.history || [];
-//       if (history.length > 0) {
-//         const lastHistoryEntry = history[history.length - 1];
-//         if (!lastHistoryEntry) {
-//           throw new BadRequestError(
-//             `Invalid submission history for question ID: ${questionId}`,
-//           );
-//         }
-
-//         const isUnderReviewWithoutAnswer =
-//           lastHistoryEntry.status === 'in-review' && !lastHistoryEntry.answer;
-
-//         if (isUnderReviewWithoutAnswer) {
-//           const IS_INCREMENT = false;
-//           const expertId = lastHistoryEntry.updatedBy?.toString();
-//           if (!expertId) {
-//             throw new BadRequestError(
-//               `Expert ID missing in the last history entry for question ID: ${questionId}`,
-//             );
-//           }
-
-//           await this.userRepo.updateReputationScore(
-//             expertId,
-//             IS_INCREMENT,
-//             activeSession,
-//           );
-//         }
-//       } else {
-//         const IS_INCREMENT = false;
-//         const expertId = questionSubmission?.queue?.[0]?.toString();
-//         if (expertId) {
-//           await this.userRepo.updateReputationScore(
-//             expertId,
-//             IS_INCREMENT,
-//             activeSession,
-//           );
-//         }
-//       }
-//       // handle re-routed expert's reputation_score deduction when expert hasn't answered/reviewed yet (pending state)
-//       const existingReRoute = await this.reRouteRepository.findByQuestionId(
-//         questionId,
-//         activeSession,
-//       );
-
-//       if (existingReRoute?.reroutes?.length) {
-//         const lastReroute = existingReRoute.reroutes.at(-1);
-
-//         if (lastReroute?.status === 'pending') {
-//           const reroutedExpertId = lastReroute.reroutedTo?.toString();
-//           if (reroutedExpertId) {
-//             await this.userRepo.updateReputationScore(
-//               reroutedExpertId,
-//               false,
-//               activeSession,
-//             );
-//           }
-//         }
-//       }
-
-//       // Delete submissions and requests related to this question
-//       await this.questionSubmissionRepo.deleteByQuestionId(
-//         questionId,
-//         activeSession,
-//       );
-//       await this.requestRepository.deleteByEntityId(questionId, activeSession);
-
-//       // Delete duplicate question records referencing this question
-//       await this.duplicateQuestionRepository.deleteByReferenceQuestionId(
-//         questionId,
-//         activeSession,
-//       );
-
-//       // Pull this question from any moderator's assignedQuestionIds so no orphan entry
-//       // is left behind keeping them wrongly "busy" after the question is gone.
-//       await this.userRepo.removeAssignedQuestionFromAllModerators(
-//         questionId,
-//         activeSession,
-//       );
-
-//       // Finally, delete the question itself
-//       return this.questionRepo.deleteQuestion(questionId, activeSession);
-//     };
-
-//     if (session) {
-//       return execute(session);
-//     }
-
-//     return this._withTransaction(async (transactionSession: ClientSession) =>
-//       execute(transactionSession),
-//     );
-//   }
-
-//   async bulkDeleteQuestions(userId: string, questionIds: string[]) {
-//     if (!questionIds || questionIds.length === 0) {
-//       throw new BadRequestError('No question IDs found to delete!');
-//     }
-
-//     const jobId = startBulkDeleteWorker(questionIds, userId);
-//     return {
-//       jobId,
-//       message: `Your bulk delete request for ${questionIds.length} question(s) is being processed in the background. Estimated time: ~ ${Math.ceil(questionIds.length * 0.6)} sec.`,
-//     };
-//   }
-
-//   async getQuestionFullData(
-//     questionId: string,
-//     userId: string,
-//   ): Promise<{
-//     question: IQuestion | null;
-//     approved_moderator: {name: string; email: string};
-//     assigned_moderator: {name: string; email: string} | null;
-//     assigned_gate_keeper: {name: string; email: string} | null;
-//     assigned_auditor: {name: string; email: string} | null;
-//     isAssignedModerator: boolean;
-//     isAssignedGateKeeper: boolean;
-//     isAssignedAuditor: boolean;
-//   }> {
-//     try {
-//       const user = await this.userRepo.findById(userId);
-//       const isExpert = user.role == 'expert';
-//       const question = await this.questionRepo.getQuestionWithFullData(
-//         questionId,
-//         userId,
-//         isExpert,
-//       );
-//       if (!question) {
-//         return null;
-//       }
-
-//       let approved_moderator = {
-//         name: '',
-//         email: '',
-//       };
-//       if (question.status === 'closed') {
-//         const answers = await this.answerRepo.getByQuestionId(questionId);
-//         const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
-
-//         if (
-//           finalizedAnswer?.approvedBy &&
-//           ObjectId.isValid(finalizedAnswer.approvedBy)
-//         ) {
-//           const moderator = await this.userRepo.findById(
-//             finalizedAnswer.approvedBy,
-//           );
-
-//           if (moderator) {
-//             approved_moderator = {
-//               name: `${moderator.firstName} ${moderator.lastName}`,
-//               email: moderator.email,
-//             };
-//           }
-//         }
-//       }
-
-//       // Resolve the currently assigned moderator (if any). Guard against a malformed
-//       // moderatorId (e.g. a serialized-Buffer object that stringifies to a non-hex
-//       // value) so a bad value can't blow up the whole question fetch with a BSONError.
-//       let assigned_moderator: {name: string; email: string} | null = null;
-//       const assignedModeratorId = (question as any).moderatorId?.toString();
-//       if (assignedModeratorId && ObjectId.isValid(assignedModeratorId)) {
-//         const mod = await this.userRepo.findById(assignedModeratorId);
-//         if (mod) {
-//           assigned_moderator = {
-//             name: `${mod.firstName} ${mod.lastName ?? ''}`.trim(),
-//             email: mod.email,
-//           };
-//         }
-//       }
-
-//       // Resolve the currently assigned gate keeper / auditor (role queue), same as
-//       // the moderator resolution above.
-//       let assigned_gate_keeper: {name: string; email: string} | null = null;
-//       const assignedGateKeeperId = (question as any).gateKeeperId?.toString();
-//       if (assignedGateKeeperId && ObjectId.isValid(assignedGateKeeperId)) {
-//         const u = await this.userRepo.findById(assignedGateKeeperId);
-//         if (u) {
-//           assigned_gate_keeper = {
-//             name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
-//             email: u.email,
-//           };
-//         }
-//       }
-//       let assigned_auditor: {name: string; email: string} | null = null;
-//       const assignedAuditorId = (question as any).auditorId?.toString();
-//       if (assignedAuditorId && ObjectId.isValid(assignedAuditorId)) {
-//         const u = await this.userRepo.findById(assignedAuditorId);
-//         if (u) {
-//           assigned_auditor = {
-//             name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
-//             email: u.email,
-//           };
-//         }
-//       }
-
-//       // Whether the requesting user is the moderator this question is assigned to.
-//       // Used by the UI to gate the Pass / Accept / Push to GDB actions.
-//       const isAssignedModerator =
-//         !!assignedModeratorId && assignedModeratorId === userId;
-//       // Same, for the gate keeper / auditor role queues — computed server-side to
-//       // avoid ObjectId serialization mismatches when comparing ids on the client.
-//       const isAssignedGateKeeper =
-//         !!assignedGateKeeperId && assignedGateKeeperId === userId;
-//       const isAssignedAuditor =
-//         !!assignedAuditorId && assignedAuditorId === userId;
-
-//       // Resolve user email from conversation collection using threadId
-//       let threadUserEmail: string | null = null;
-//       if (question.threadId) {
-//         threadUserEmail =
-//           await this.chatbotRepository.getUserEmailByConversationId(
-//             question.threadId,
-//           );
-//       }
-
-//       return {
-//         question: {
-//           ...question,
-//           threadUserEmail,
-//         },
-//         approved_moderator,
-//         assigned_moderator,
-//         assigned_gate_keeper,
-//         assigned_auditor,
-//         isAssignedModerator,
-//         isAssignedGateKeeper,
-//         isAssignedAuditor,
-//       };
-//     } catch (error) {
-//       throw new InternalServerError(`Failed to fetch question data: ${error}`);
-//     }
-//   }
-
-//   /**
-//    * Manually (re)assign the moderator for a question.
-//    * - Sets moderatorId and stamps moderatorAssignedAt to now on the question (handled in the repo).
-//    * - Keeps the user docs consistent with the cron: pulls this question from the previous
-//    *   moderator's assignedQuestionIds array and appends it to the new moderator's array.
-//    *   A moderator stays "busy" (not picked by the cron) as long as their array is non-empty,
-//    *   so manual allocation can stack multiple questions onto one moderator.
-//    */
-//   async changeQuestionModerator(
-//     questionId: string,
-//     moderatorId: string,
-//   ): Promise<void> {
-//     // Read the currently assigned moderator (if any) so we can free them.
-//     const question = await this.questionRepo.getById(questionId);
-//     const previousModeratorId = (question as any)?.moderatorId?.toString();
-
-//     // Point the question at the new moderator (also stamps moderatorAssignedAt = now).
-//     await this.questionRepo.updateModeratorId(questionId, moderatorId);
-
-//     // Pull this question from the previous moderator and append it to the new one,
-//     // carrying the question's current status so free/busy stays accurate. Guard against
-//     // a malformed previous moderatorId so a bad value can't throw a BSONError.
-//     if (
-//       previousModeratorId &&
-//       ObjectId.isValid(previousModeratorId) &&
-//       previousModeratorId !== moderatorId
-//     ) {
-//       await this.userRepo.removeAssignedQuestion(
-//         previousModeratorId,
-//         questionId,
-//       );
-//     }
-//     await this.userRepo.addAssignedQuestion(
-//       moderatorId,
-//       questionId,
-//       ((question as any)?.status ?? 'in-review') as QuestionStatus,
-//       (question as any)?.source,
-//     );
-//   }
-
-//   /**
-//    * Remove the moderator currently assigned to a question.
-//    * - Pulls this question from the assigned moderator's assignedQuestionIds array, so the
-//    *   cron's "is this moderator free?" check (array empty) stays accurate.
-//    * - Nulls moderatorId and moderatorAssignedAt on the question (handled in the repo).
-//    */
-//   async removeQuestionModerator(questionId: string): Promise<void> {
-//     const question = await this.questionRepo.getById(questionId);
-//     const previousModeratorId = (question as any)?.moderatorId?.toString();
-
-//     // Null out moderatorId and moderatorAssignedAt on the question.
-//     await this.questionRepo.updateModeratorId(questionId, null);
-
-//     // Pull this question from the previously assigned moderator's array. Guard against
-//     // a malformed previous moderatorId so a bad value can't throw a BSONError.
-//     if (previousModeratorId && ObjectId.isValid(previousModeratorId)) {
-//       await this.userRepo.removeAssignedQuestion(
-//         previousModeratorId,
-//         questionId,
-//       );
-//     }
-//   }
-
-//   /** Field mapping for the gate-keeper / auditor role assignee on a question. */
-//   private roleAssigneeFields(role: 'gate_keeper' | 'auditor'): {
-//     assigneeField: 'gateKeeperId' | 'auditorId';
-//     assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
-//     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
-//   } {
-//     return role === 'gate_keeper'
-//       ? {
-//           assigneeField: 'gateKeeperId',
-//           assignedAtField: 'gateKeeperAssignedAt',
-//           finishedAtField: 'gateKeeperFinishedAt',
-//         }
-//       : {
-//           assigneeField: 'auditorId',
-//           assignedAtField: 'auditorAssignedAt',
-//           finishedAtField: 'auditorFinishedAt',
-//         };
-//   }
-
-//   /**
-//    * Once a gate keeper / auditor has submitted their response (finishedAt is set) their
-//    * assignment is settled — reassigning or removing it would orphan work that has already
-//    * been recorded against them. Callers must re-open the question first.
-//    */
-//   private assertRoleNotFinished(
-//     question: unknown,
-//     role: 'gate_keeper' | 'auditor',
-//   ): void {
-//     const {finishedAtField} = this.roleAssigneeFields(role);
-//     if ((question as any)?.[finishedAtField]) {
-//       const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
-//       throw new BadRequestError(
-//         `This question's ${noun} has already submitted their response, so the ${noun} can no longer be changed.`,
-//       );
-//     }
-//   }
-
-//   /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
-//    *  plus their paginated question list. "Submitted" = they finished it (finishedAt set).
-//    *  Supports optional date range filtering by assigned date, completed date, or both. */
-//   async getRoleAssigneeDashboard(
-//     userId: string,
-//     role: 'gate_keeper' | 'auditor',
-//     page: number,
-//     limit: number,
-//     search?: string,
-//     startDate?: Date,
-//     endDate?: Date,
-//     dateFilterType?: 'assigned' | 'completed' | 'both',
-//   ) {
-//     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
-//     const finishedField =
-//       role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
-//     const result = await this.questionRepo.getRoleAssigneeDashboard(
-//       userId,
-//       assigneeField,
-//       finishedField,
-//       assignedAtField,
-//       page,
-//       limit,
-//       search,
-//       startDate,
-//       endDate,
-//       dateFilterType,
-//     );
-
-//     // Auditors also review FEEDBACK questions (held in their feedbacksAssigned), so
-//     // surface those in the dashboard too. Gate keepers never receive feedback.
-//     // An auditor holds at most one feedback at a time, so appending to the first
-//     // page and bumping the totals keeps pagination effectively correct.
-//     if (role === 'auditor') {
-//       try {
-//         const user = await this.userRepo.findById(userId);
-//         const fbAssigned = ((user as any)?.feedbacksAssigned ?? []) as any[];
-//         if (fbAssigned.length) {
-//           const fbIds = fbAssigned.map(id =>
-//             typeof id === 'string' ? new ObjectId(id) : id,
-//           );
-//           let fbQuestions = await this.questionRepo.findByIds(fbIds);
-//           if (search && search.trim()) {
-//             const s = search.trim().toLowerCase();
-//             fbQuestions = fbQuestions.filter(q =>
-//               ((q as any).question ?? '').toLowerCase().includes(s),
-//             );
-//           }
-//           const existing = new Set(
-//             (result.questions ?? []).map((q: any) => q._id?.toString()),
-//           );
-//           const fbToAppend = fbQuestions
-//             .filter(q => !existing.has(q._id?.toString()))
-//             .map(q => ({...(q as any), isFeedbackQuestion: true}));
-//           return {
-//             ...result,
-//             assignedCount: result.assignedCount + fbToAppend.length,
-//             totalCount: result.totalCount + fbToAppend.length,
-//             questions:
-//               page === 1
-//                 ? [...fbToAppend, ...result.questions]
-//                 : result.questions,
-//           };
-//         }
-//       } catch (err) {
-//         console.error(
-//           '[RoleDashboard] Failed to append auditor feedback questions:',
-//           err,
-//         );
-//       }
-//     }
-
-//     return result;
-//   }
-
-//   /** Manually (re)assign the gate keeper / auditor for a question — mirrors
-//    *  changeQuestionModerator: pulls the question from the previous assignee's
-//    *  assignedQuestionIds and appends it to the new assignee's. */
-//   async changeQuestionRoleAssignee(
-//     questionId: string,
-//     role: 'gate_keeper' | 'auditor',
-//     userId: string,
-//     actorName?: string,
-//   ): Promise<void> {
-//     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
-//     const question = await this.questionRepo.getById(questionId);
-//     this.assertRoleNotFinished(question, role);
-//     const previousId = (question as any)?.[assigneeField]?.toString();
-//     const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
-
-//     await this.questionRepo.setRoleAssignee(
-//       questionId,
-//       assigneeField,
-//       assignedAtField,
-//       userId,
-//     );
-
-//     if (previousId && ObjectId.isValid(previousId) && previousId !== userId) {
-//       await this.userRepo.removeAssignedQuestion(previousId, questionId);
-
-//       // Notify the replaced user that their allocation was taken away, naming who did it.
-//       try {
-//         const by = actorName ? ` by ${actorName}` : '';
-//         await this.notificationService.saveTheNotifications(
-//           `This question's ${noun} allocation has been removed${by}.`,
-//           'Allocation Removed',
-//           questionId,
-//           previousId,
-//           'moderator_approval',
-//         );
-//       } catch (err: any) {
-//         console.error(
-//           `[RoleAssignee] Failed to send reassignment-removal notification for ${questionId} → ${previousId}:`,
-//           err?.message,
-//         );
-//       }
-//     }
-//     await this.userRepo.addAssignedQuestion(
-//       userId,
-//       questionId,
-//       ((question as any)?.status ?? 'open') as QuestionStatus,
-//       (question as any)?.source,
-//     );
-
-//     // Notify the newly-assigned user, mirroring the auto-allocation cron so a manual
-//     // assignment by a moderator/admin triggers the same "Question Assigned" alert.
-//     try {
-//       await this.notificationService.saveTheNotifications(
-//         role === 'gate_keeper'
-//           ? 'A question has been assigned to you for review'
-//           : 'A question has been assigned to you for audit',
-//         'Question Assigned',
-//         questionId,
-//         userId,
-//         'moderator_approval',
-//       );
-//     } catch (err: any) {
-//       console.error(
-//         `[RoleAssignee] Failed to send assignment notification for ${questionId} → ${userId}:`,
-//         err?.message,
-//       );
-//     }
-//   }
-
-//   /** Remove the gate keeper / auditor currently assigned to a question. When an actor
-//    *  name is supplied (manual removal by a moderator/admin), the removed user is notified
-//    *  that their allocation was taken away and by whom. */
-//   async removeQuestionRoleAssignee(
-//     questionId: string,
-//     role: 'gate_keeper' | 'auditor',
-//     actorName?: string,
-//   ): Promise<void> {
-//     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
-//     const question = await this.questionRepo.getById(questionId);
-//     this.assertRoleNotFinished(question, role);
-//     const previousId = (question as any)?.[assigneeField]?.toString();
-
-//     await this.questionRepo.setRoleAssignee(
-//       questionId,
-//       assigneeField,
-//       assignedAtField,
-//       null,
-//     );
-
-//     if (previousId && ObjectId.isValid(previousId)) {
-//       await this.userRepo.removeAssignedQuestion(previousId, questionId);
-
-//       // Notify the user who lost the assignment, naming who removed it.
-//       try {
-//         const by = actorName ? ` by ${actorName}` : '';
-//         await this.notificationService.saveTheNotifications(
-//           `This question's ${role === 'gate_keeper' ? 'gate keeper' : 'auditor'} allocation has been removed${by}.`,
-//           'Allocation Removed',
-//           questionId,
-//           previousId,
-//           'moderator_approval',
-//         );
-//       } catch (err: any) {
-//         console.error(
-//           `[RoleAssignee] Failed to send removal notification for ${questionId} → ${previousId}:`,
-//           err?.message,
-//         );
-//       }
-//     }
-//   }
-
-//   async getAllocatedQuestionPage(userId: string, questionId: string) {
-//     return this._withTransaction(async session => {
-//       return this.questionRepo.getAllocatedQuestionPage(
-//         userId,
-//         questionId,
-//         session,
-//       );
-//     });
-//   }
-
-//   async getQuestionAndReviewLevel(
-//     query: GetDetailedQuestionsQuery,
-//   ): Promise<QuestionLevelResponse> {
-//     return this._withTransaction(async session => {
-//       let searchEmbedding: number[] | null = null;
-
-//       if (query?.search) {
-//         try {
-//           // const embedding=[]
-//           const {embedding} = await this.aiService.getEmbedding(query.search);
-//           searchEmbedding = embedding;
-//         } catch (err) {
-//           console.error(
-//             'Embedding generation failed, falling back to normal search:',
-//             err,
-//           );
-//           searchEmbedding = null;
-//         }
-//       }
-
-//       return this.questionRepo.getQuestionsAndReviewLevel({
-//         ...query,
-//         searchEmbedding,
-//       });
-//     });
-//   }
-
-//   async runAbsentScript() {
-//     return await this._withTransaction(async session => {
-//       try {
-//         const absentExpertIds = await this.findAbsentExperts(session);
-//         console.log('absent experts ', absentExpertIds);
-//         if (!absentExpertIds.length) return;
-//         await this.userRepo.blockExperts(absentExpertIds, session);
-//         await this.cleanupQuestionSubmissions(absentExpertIds, session);
-//       } catch (error) {
-//         throw new InternalServerError(
-//           `Daily reviewer cleanup failed: ${error}`,
-//         );
-//       }
-//     });
-//   }
-
-//   async findAbsentExperts(session: ClientSession): Promise<string[]> {
-//     const experts = await this.userRepo.findUnblockedUsers(session);
-//     return experts
-//       .filter(expert => !isToday(expert.lastCheckInAt))
-//       .map(expert => expert._id.toString());
-//   }
-
-//   async cleanupQuestionSubmissions(
-//     absentExpertIds: string[],
-//     session: ClientSession,
-//   ): Promise<void> {
-//     if (!absentExpertIds.length) return;
-
-//     const submissions = await this.questionSubmissionRepo.getAbsentSubmissions(
-//       absentExpertIds,
-//       session,
-//     );
-//     for (const submission of submissions) {
-//       const {questionId, queue = [], history = []} = submission;
-
-//       if (!queue.length) continue;
-//       const indicesToRemove = new Set<number>();
-//       if (
-//         history.length === 0 &&
-//         queue[0] &&
-//         absentExpertIds.includes(queue[0].toString())
-//       ) {
-//         indicesToRemove.add(0);
-//       }
-//       if (history.length > 0) {
-//         const pendingIndex = history.length - 1;
-//         const expertId = queue[pendingIndex]?.toString();
-
-//         if (expertId && absentExpertIds.includes(expertId)) {
-//           indicesToRemove.add(pendingIndex);
-//         }
-//       }
-//       for (let index = history.length; index < queue.length; index++) {
-//         const expertId = queue[index]?.toString();
-//         if (!expertId) continue;
-
-//         if (absentExpertIds.includes(expertId)) {
-//           indicesToRemove.add(index);
-//         }
-//       }
-//       if (!indicesToRemove.size) continue;
-//       const sortedIndices = Array.from(indicesToRemove).sort((a, b) => b - a);
-//       for (const index of sortedIndices) {
-//         console.log(
-//           'Removing expert from question',
-//           questionId.toString(),
-//           'at index',
-//           index,
-//         );
-
-//         await this.removeExpertFromQueue(
-//           'system',
-//           questionId.toString(),
-//           index,
-//           {skipAutoAllocate: true},
-//           session,
-//         );
-//       }
-//       const question = await this.questionRepo.getById(
-//         questionId.toString(),
-//         session,
-//       );
-
-//       // Do NOT reset isAutoAllocate here. If a moderator deliberately turned off
-//       // auto-allocation for this question, that decision must be respected even
-//       // when the absent-expert cleanup removes experts from the queue.
-//       // Only attempt re-allocation when the question still has isAutoAllocate: true.
-//       if (!question.isAutoAllocate) {
-//         console.log(
-//           `[AbsentExpert] Skipping auto-reallocation for question ${questionId} — isAutoAllocate is false (moderator override).`,
-//         );
-//         continue;
-//       }
-
-//       const latestSubmission =
-//         await this.questionSubmissionRepo.getByQuestionId(
-//           questionId.toString(),
-//           session,
-//         );
-
-//       const UPDATED_QUEUE_LENGTH = latestSubmission.queue.length || 0;
-//       const UPDATED_HISTORY_LENGTH = latestSubmission.history.length || 0;
-//       if (UPDATED_QUEUE_LENGTH === 0) {
-//         // if (question?.isAutoAllocate) {
-//         await this.autoAllocateExperts(
-//           questionId.toString(),
-//           session,
-//           // 3
-//         );
-//         // }
-//         continue;
-//       }
-
-//       // let BATCH_EXPECTED_TO_ADD = 6;
-//       // if (UPDATED_QUEUE_LENGTH < 3) {
-//       //   BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
-//       // }
-//       if (
-//         UPDATED_QUEUE_LENGTH < DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT ||
-//         (UPDATED_QUEUE_LENGTH === UPDATED_HISTORY_LENGTH &&
-//           UPDATED_QUEUE_LENGTH < 10)
-//       ) {
-//         await this.autoAllocateExperts(
-//           questionId.toString(),
-//           session,
-//           // BATCH_EXPECTED_TO_ADD,
-//         );
-//       }
-//     }
-//     console.log('Completed!');
-//   }
-
-//   async balanceWorkload_copy() {
-//     return await this._withTransaction(async session => {
-//       try {
-//         const lessWorkloadExperts =
-//           await this.userRepo.findActiveLowReputationExpertsToday(session);
-//         const MAX_PER_EXPERT = 5;
-//         const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
-//         if (!lessWorkloadExperts.length) {
-//           return {
-//             message: 'No Expert present to Reallocate question ',
-//             expertsInvolved: 0,
-//             submissionsProcessed: 0,
-//           };
-//         }
-
-//         const delayedSubmissions =
-//           await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
-//             maxAssignments,
-//             session,
-//           );
-//         if (!delayedSubmissions.length) {
-//           return {
-//             message: 'No delayed questions present to Reallocate',
-//             expertsInvolved: 0,
-//             submissionsProcessed: 0,
-//           };
-//         }
-
-//         //  const submissionsToProcess = delayedSubmissions.slice(0, maxAssignments);
-
-//         // -----------------------------
-//         // 🎯 Round Robin Distribution
-//         // -----------------------------
-//         /* const assignments: Record<string, any[]> = {};
-//         lessWorkloadExperts.forEach(e => (assignments[e._id.toString()] = []));
+// //         // -----------------------------
+// //         // 🎯 Round Robin Distribution
+// //         // -----------------------------
+// //         /* const assignments: Record<string, any[]> = {};
+// //         lessWorkloadExperts.forEach(e => (assignments[e._id.toString()] = []));
   
 //         let expertIndex = 0;
 //         for (const submission of submissionsToProcess) {
@@ -9527,6 +9527,10 @@
 //       freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
 //       stuck: stuck as QueueDetailsResponse['stuck'],
 //       needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
+//       needsReviewerLevelCounts: [],
+//       stuckLevelCounts: [],
+//       openedIdleLevelCounts: [],
+//       allocatedLevelCounts: [],
 //       totalWork: totalWork as QueueDetailsResponse['totalWork'],
 //       openedIdle: openedIdle as QueueDetailsResponse['openedIdle'],
 //       moderatorWaiting:
@@ -9571,6 +9575,10 @@
 //       receivedManual: receivedManual as QueueDetailsResponse['receivedManual'],
 //       receivedStatusCountsManual:
 //         receivedStatusCountsManual as QueueDetailsResponse['receivedStatusCountsManual'],
+//       needsReviewerLevelCountsManual: [],
+//       stuckLevelCountsManual: [],
+//       openedIdleLevelCountsManual: [],
+//       allocatedLevelCountsManual: [],
 //       autoAllocateOffManual:
 //         autoAllocateOffManual as QueueDetailsResponse['autoAllocateOffManual'],
 //       autoAllocateOpenManual:

@@ -120,6 +120,7 @@ def _empty_intent_fields() -> dict[str, Any]:
         "from_date": None,
         "to_date": None,
         "market_name": None,
+        "search_by_apmc": False,
         "state": None,
         "sort_order": None,
     }
@@ -184,6 +185,10 @@ _NAMED_MARKET_QUERY_SHORT = re.compile(
     r"\b(?:in|at)\s+([a-z0-9][a-z0-9\s\-']{0,40}?)\s*(?:apmc|mandi|market)\b",
     re.IGNORECASE,
 )
+_LOCATION_QUERY = re.compile(
+    r"\b(?:in|at|for)\s+([a-z0-9][a-z0-9\s\-']{1,40}?)(?:,\s*[a-z\s]+|\s+district|\s+state|\s*$|\?|\.)",
+    re.IGNORECASE,
+)
 
 
 def _is_market_discovery_query(query: str) -> bool:
@@ -220,40 +225,51 @@ _INVALID_MARKET_SUBSTRINGS = (
 )
 
 # Words that, when present near a location name, confirm it is an actual market/mandi.
-_MARKET_CONTEXT_WORDS = ("mandi", "market", "apmc", "sabzi mandi", "grain market")
+_MARKET_CONTEXT_WORDS = ("mandi", "market", "apmc", "sabzi mandi", "grain market", "haat", "hat", "bazar", "bazaar")
+
+_APMC_KEYWORD_REGEX = re.compile(
+    r"\b(?:apmc|mandi|mandis|mand|market|markets|hat|hats|haat|haats|bazar|bazaar)\b",
+    re.IGNORECASE,
+)
+
+
+def _detect_search_by_apmc(query: str, market_name: str | None = None) -> bool:
+    """Detect if query asks for a specific APMC/mandi/market/haat vs district/location."""
+    if not query:
+        return False
+    q = query.lower()
+    # Explicit "district" keyword -> search_by_apmc is False
+    if re.search(r"\bdistrict\b", q):
+        return False
+    if market_name:
+        mn_clean = str(market_name).lower().strip()
+        for kw in ("apmc", "mandi", "mand", "market", "hat", "haat", "bazar", "bazaar"):
+            if re.search(rf"\b{re.escape(kw)}s?\b", mn_clean):
+                return True
+        mn_clean = re.sub(r"\s+(?:apmc|mandi|mand|market|hat|haat|bazar|bazaar)\b", "", mn_clean, flags=re.IGNORECASE).strip()
+        mn_esc = re.escape(mn_clean)
+        for kw in ("apmc", "mandi", "mand", "market", "hat", "haat", "bazar", "bazaar"):
+            if re.search(rf"\b{mn_esc}\s*(?:\w+\s*){{0,2}}{re.escape(kw)}\b", q) or \
+               re.search(rf"\b{re.escape(kw)}\s+(?:at|in|of)?\s*{mn_esc}\b", q):
+                return True
+        return False
+    clean_q = re.sub(r"\b(?:market|mandi)\s+(?:price|rate|bhav|arrival|summary|trend)s?\b", "", q)
+    return bool(_APMC_KEYWORD_REGEX.search(clean_q))
 
 
 def _is_location_not_market(market_name: str, query: str) -> bool:
-    """Return True if `market_name` appears in the query as a plain city/district
-    (i.e. NOT followed by mandi/market/apmc), meaning it should NOT be treated as
-    a mandi name.
-
-    Pattern examples that return True (location-only usage):
-      - "price of onion in Rupnagar, Punjab"   → True
-      - "onion price in Rupnagar"              → True
-    Pattern examples that return False (has mandi context):
-      - "in Rupnagar mandi"                   → False
-      - "at Rupnagar market"                  → False
-    """
-    if not market_name or not query:
-        return False
-    name_esc = re.escape(market_name.strip().lower())
-    q_lower = query.lower()
-    # If any market-context word appears within ~3 tokens after the name, it IS a mandi.
-    for ctx in _MARKET_CONTEXT_WORDS:
-        if re.search(
-            rf"\b{name_esc}\s*(?:\w+\s*){{0,2}}{re.escape(ctx)}\b",
-            q_lower,
-        ):
-            return False
-    # If the name appears at all in the query without a market-context word near it,
-    # treat it as a plain location.
-    return bool(re.search(rf"\b{name_esc}\b", q_lower))
+    """Return True if `market_name` appears in the query as a plain city/district."""
+    return not _detect_search_by_apmc(query, market_name)
 
 
 def _extract_market_name_from_query(query: str) -> str | None:
     if not query:
         return None
+    # If the user explicitly wrote "district", do not extract it as a mandi name
+    if re.search(r"\bdistrict\b", query, re.IGNORECASE):
+        return None
+
+    # 1. First check explicit named mandi/APMC patterns (preserves "Aluva market", "Chengannur Market", etc.)
     for pattern in (_NAMED_MARKET_QUERY, _NAMED_MARKET_QUERY_SHORT):
         match = pattern.search(query)
         if match:
@@ -261,10 +277,18 @@ def _extract_market_name_from_query(query: str) -> str | None:
             name_lower = name.lower()
             if any(w in name_lower for w in _INVALID_MARKET_SUBSTRINGS):
                 continue
-            if re.search(rf"\b{re.escape(name_lower)}\s+district\b", query.lower()):
-                continue
             if name:
                 return name
+
+    # 2. General location pattern: "in <City>, <State>" when not a discovery query
+    if not _is_market_discovery_query(query):
+        match_loc = _LOCATION_QUERY.search(query)
+        if match_loc:
+            name = match_loc.group(1).strip()
+            name_lower = name.lower()
+            if not any(w in name_lower for w in _INVALID_MARKET_SUBSTRINGS) and not any(name_lower == st for st in _INDIAN_STATES):
+                return name
+
     return None
 
 
@@ -635,6 +659,7 @@ def _normalize_intent(
         "from_date": raw_dict.get("from_date", base.get("from_date")),
         "to_date": raw_dict.get("to_date", base.get("to_date")),
         "market_name": raw_dict.get("market_name", base.get("market_name")),
+        "search_by_apmc": bool(raw_dict.get("search_by_apmc", base.get("search_by_apmc", False))),
         "state": raw_dict.get("state", base.get("state")),
         "sort_order": raw_dict.get("sort_order", base.get("sort_order")),
     }
@@ -762,25 +787,35 @@ def _normalize_intent(
         if extracted_market:
             out["market_name"] = extracted_market
 
-    # Disallow district names or queries containing "<name> district" from being treated as market_name.
-    # Also disallow plain city/location names that have no mandi/market/apmc context in the query.
-    if out.get("market_name"):
-        mn_lower = str(out["market_name"]).strip().lower()
-        if (
-            "district" in mn_lower
-            or re.search(rf"\b{re.escape(mn_lower)}\s+district\b", query.lower())
-            or any(mn_lower == st for st in _INDIAN_STATES)
-            or _is_location_not_market(mn_lower, query)
-        ):
-            out["market_name"] = None
-            out["nearest_market"] = True
-            if out["action"] == "get_price_with_nearby":
-                out["action"] = "get_today_price"
-                out["actions"] = ["get_today_price"]
+    # Determine search_by_apmc (trust LLM if explicitly provided, else detect)
+    if "search_by_apmc" in raw_dict and raw_dict["search_by_apmc"] is not None:
+        out["search_by_apmc"] = bool(raw_dict["search_by_apmc"])
+    else:
+        out["search_by_apmc"] = _detect_search_by_apmc(query, out.get("market_name"))
 
-    # Auto-upgrade: when a specific mandi is named and action is today's price (or single date),
+    if out.get("market_name"):
+        mn_clean = str(out["market_name"]).strip()
+        mn_clean = re.sub(r"\s+district\b", "", mn_clean, flags=re.IGNORECASE).strip()
+        mn_lower = mn_clean.lower()
+        if any(mn_lower == st for st in _INDIAN_STATES):
+            if not out.get("state"):
+                out["state"] = mn_clean.title()
+            out["market_name"] = None
+        else:
+            out["market_name"] = mn_clean
+            if (
+                "district" in str(out.get("market_name") or "").lower()
+                or re.search(rf"\b{re.escape(mn_lower)}\s+district\b", query.lower())
+                or _is_location_not_market(mn_lower, query)
+            ):
+                out["search_by_apmc"] = False
+                if out["action"] == "get_price_with_nearby":
+                    out["action"] = "get_today_price"
+                    out["actions"] = ["get_today_price"]
+
+    # Auto-upgrade: when a specific mandi is named (with search_by_apmc=True) and action is today's price (or single date),
     # enrich the response with nearby markets' prices.
-    if out.get("market_name") and (
+    if out.get("market_name") and out.get("search_by_apmc") and (
         out["action"] == "get_today_price"
         or (
             out["action"] in {"get_price_history", "get_price_with_nearby"}
@@ -837,11 +872,28 @@ async def _minimax_chat(
         return None
 
 
-async def extract_daily_price_intent(query: str, config: RunnableConfig | None = None) -> dict[str, Any]:
+async def extract_daily_price_intent(
+    query: str,
+    *,
+    crop: str | None = None,
+    state: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    config: RunnableConfig | None = None,
+) -> dict[str, Any]:
     """Ask MiniMax for mandi_price_tool params; fall back to heuristics."""
     from datetime import datetime
     today_str = datetime.now().strftime("%d-%b-%Y")
-    user_content = f"Today's Date: {today_str}\nQuery: {query}\nJSON:"
+    ctx_lines = [f"Today's Date: {today_str}"]
+    if crop and str(crop).strip() and str(crop).strip().lower() not in {"all", "any", "general"}:
+        ctx_lines.append(f"Crop Context: {str(crop).strip()}")
+    if state and str(state).strip() and str(state).strip().lower() not in {"all", "not specified", "unknown"}:
+        ctx_lines.append(f"State Context: {str(state).strip()}")
+    if lat is not None and lon is not None:
+        ctx_lines.append(f"Location Coordinates: lat={lat}, lon={lon}")
+    ctx_lines.append(f"Query: {query}")
+    ctx_lines.append("JSON:")
+    user_content = "\n".join(ctx_lines)
     raw_text = await _minimax_chat(
         trace_name="daily_price_intent",
         system_prompt=DAILY_PRICE_INTENT_PROMPT,
@@ -965,15 +1017,18 @@ def _build_tool_args(
         if intent.get("market_name"):
             args["market_name"] = intent["market_name"]
 
-    # LLM sometimes puts the crop name in market_name (e.g. rice) or district name — never treat crop or district as mandi name.
-    mn = (args.get("market_name") or "").strip().lower()
-    cr = (crop or "").strip().lower()
-    if mn and (
-        (cr and (mn == cr or mn in {"rice", "paddy"} and cr in {"rice", "paddy"}))
-        or "district" in mn
-    ):
-        args.pop("market_name", None)
-        args["nearest_market"] = True
+    # Clean up market_name: strip trailing 'district', never treat crop as mandi name
+    if args.get("market_name"):
+        mn_raw = str(args["market_name"]).strip()
+        mn_clean = re.sub(r"\s+district\b", "", mn_raw, flags=re.IGNORECASE).strip()
+        cr = (crop or "").strip().lower()
+        if cr and (mn_clean.lower() == cr or mn_clean.lower() in {"rice", "paddy"} and cr in {"rice", "paddy"}):
+            args.pop("market_name", None)
+            args["nearest_market"] = True
+        else:
+            args["market_name"] = mn_clean
+
+    args["search_by_apmc"] = bool(intent.get("search_by_apmc", False))
 
     if intent.get("lookback_days") is not None:
         args["lookback_days"] = intent["lookback_days"]
@@ -986,7 +1041,7 @@ def _build_tool_args(
     if "get_extreme_arrival" in actions and intent.get("sort_order"):
         args["sort_order"] = intent["sort_order"]
 
-    if args.get("market_name"):
+    if args.get("market_name") and args.get("search_by_apmc"):
         args["nearest_market"] = False
 
     return args
@@ -1600,7 +1655,14 @@ async def daily_price(
                     lon,
                 )
 
-        intent = await extract_daily_price_intent(query, config=config)
+        intent = await extract_daily_price_intent(
+            query,
+            crop=crop,
+            state=state,
+            lat=lat,
+            lon=lon,
+            config=config,
+        )
         logger.info("Daily price intent: %s", intent)
 
         tool_args = _build_tool_args(
