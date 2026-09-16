@@ -288,11 +288,13 @@ export class AllocationService extends BaseService {
             user,
             type,
           );
-          await this.questionRepo.updateQuestion(
-            questionId,
-            {firstAllocationAt: new Date()},
-            session,
-          );
+          if (!question.firstAllocationAt) {
+            await this.questionRepo.updateQuestion(
+              questionId,
+              {firstAllocationAt: new Date()},
+              session,
+            );
+          }
         }
       }
       if (
@@ -541,9 +543,14 @@ export class AllocationService extends BaseService {
         //   );
         // }
 
-        //if manuall alloacation is first person
+        const lastSubmission = questionSubmission.history.at(-1);
+        const isReviewStage = Boolean(
+          lastSubmission &&
+            (lastSubmission.answer || lastSubmission.status === 'reviewed'),
+        );
 
-        if (questionSubmission.queue.length === 0) {
+        // If manual allocation is for author (no answer submitted yet) and queue is currently empty
+        if (!isReviewStage && questionSubmission.queue.length === 0) {
           const firstPerson = experts[0];
           const IS_INCREMENT = true;
           await this.userRepo.updateReputationScore(
@@ -563,11 +570,13 @@ export class AllocationService extends BaseService {
             user,
             type,
           );
-          await this.questionRepo.updateQuestion(
-            questionId,
-            {firstAllocationAt: new Date()},
-            session,
-          );
+          if (!question.firstAllocationAt) {
+            await this.questionRepo.updateQuestion(
+              questionId,
+              {firstAllocationAt: new Date()},
+              session,
+            );
+          }
         }
 
         //6. Allocate experts
@@ -575,23 +584,22 @@ export class AllocationService extends BaseService {
         // moderator intentionally toggled off auto-allocate and is now manually
         // picking an expert. Reopen the question so the selected expert can see
         // it in their dashboard (only open/delayed questions are visible there).
-        const updateData: any = {
-          firstAllocationAt: new Date(),
-        };
+        const updateData: any = {};
         if (question.status === 'duplicate') {
           updateData.status = 'open';
         }
+        if (!isReviewStage && !question.firstAllocationAt) {
+          updateData.firstAllocationAt = new Date();
+        }
 
-        await this.questionRepo.updateQuestion(questionId, updateData, session);
+        if (Object.keys(updateData).length > 0) {
+          await this.questionRepo.updateQuestion(questionId, updateData, session);
+        }
 
         const expertIds = experts.map(e => new ObjectId(e));
 
-        // if the last expert is  reviewing other question  (if status is not reviewed or not submitted an answer)
-        const lastSubmission = questionSubmission.history.at(-1);
-        if (
-          questionSubmission.history.length >= 0 &&
-          (lastSubmission?.answer || lastSubmission?.status == 'reviewed')
-        ) {
+        // if at review stage (last submission has an answer or is reviewed)
+        if (isReviewStage) {
           const expertId = expertIds[0];
           const userSubmissionData: ISubmissionHistory = {
             updatedBy: expertId,
@@ -2938,9 +2946,13 @@ export class AllocationService extends BaseService {
                 true,
                 session,
               );
+              const updateDoc: any = {isAutoAllocate: true};
+              if (!(question as any)?.firstAllocationAt) {
+                updateDoc.firstAllocationAt = new Date();
+              }
               await this.questionRepo.updateQuestion(
                 questionId,
-                {isAutoAllocate: true, firstAllocationAt: new Date()},
+                updateDoc,
                 session,
               );
               await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(

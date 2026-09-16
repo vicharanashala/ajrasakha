@@ -1439,6 +1439,8 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
   ): Promise<any>
+  
+  logoutUser(userId: string, session?: ClientSession): Promise<{value: boolean, message: string}>
 }
 
 export interface ChatbotConversationData {
@@ -1446,3 +1448,5 @@ export interface ChatbotConversationData {
   farmerQuestions: string[];
   mcpToolCalls: any[][];
 }
+
+

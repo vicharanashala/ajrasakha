@@ -17,8 +17,10 @@ The ACC Agent supports two connected use cases:
 2. Extract a query, let a human verify it, then produce an answer using one or
    more domain agents.
 
-Its extraction, planning, and assembly nodes use the shared self-hosted,
-OpenAI-compatible MiniMax chat model. They do not call Anthropic directly.
+Its transcript-extraction node uses Claude Sonnet for reliable structured
+extraction of farmer details and multiple questions. The planning and assembly
+nodes continue to use the shared self-hosted, OpenAI-compatible MiniMax chat
+model.
 
 ## Architecture
 
@@ -94,6 +96,8 @@ class AccAgentState(TypedDict):
     weather_response: Optional[str]
     market_response: Optional[str]
     schemes_response: Optional[str]
+    query_tool_responses: list[dict]
+    final_answers: list[dict]
     final_answer: Optional[str]
 ```
 
@@ -162,8 +166,9 @@ The assembler attempts to decode each selected response as JSON and retains it
 as text if decoding is not possible. It then creates a concise, factual,
 Markdown-formatted answer for the call-centre agent from the retrieved data.
 
-The state field `final_answer` is a JSON-encoded string. When decoded, it has
-this shape:
+For a single question, the state field `final_answer` retains its existing
+JSON-encoded response shape. Its decoded value includes an additional `answers`
+array containing the same answer:
 
 ```json
 {
@@ -171,9 +176,23 @@ this shape:
   "weather": "object, string, or null",
   "market": "object, string, or null",
   "schemes": "object, string, or null",
-  "final_answer": "Human-readable response for the call-centre agent"
+  "final_answer": "Human-readable response for the call-centre agent",
+  "answers": [
+    {
+      "query": "Extracted farmer question",
+      "crop": "Crop or null",
+      "standardized_domains": ["Matching domain"],
+      "answer": "Human-readable answer for this question only"
+    }
+  ]
 }
 ```
+
+For two or more questions, use the top-level `final_answers` state field (or
+the `answers` array inside decoded `final_answer`). Each array item maps one
+extracted question to only its own answer. In this multi-question case, decoded
+`final_answer.final_answer` is `null`; callers must not display a combined
+answer.
 
 ## Standardized domains
 
@@ -249,7 +268,15 @@ Example multiple-query extraction:
 
 ## Configuration
 
-Configure the shared MiniMax model in the AI service environment:
+Configure Claude Sonnet for ACC transcript extraction in the AI service
+environment:
+
+```dotenv
+ANTHROPIC_API_KEY=<Anthropic API key>
+CLAUDE_MODEL=claude-sonnet-4-6
+```
+
+Configure the shared MiniMax model for ACC planning and answer assembly:
 
 ```dotenv
 MINIMAX_BASE_URL=<OpenAI-compatible base URL>

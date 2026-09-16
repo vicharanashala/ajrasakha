@@ -61,6 +61,10 @@ interface ExpertDashboardProps {
   expertDetailsList?: any;
   currentUserRole?: string;
   selectedUserRole?: string;
+  /** Noun shown in the title/subtitle (e.g. "Expert", "PAE Expert"). Defaults to "Expert". */
+  roleLabel?: string;
+  /** Hide the summary cards + Reviewer Lifecycle (used for the PAE's own dashboard). */
+  hideOverview?: boolean;
 }
 interface DateRange {
   startTime?: Date;
@@ -74,6 +78,8 @@ export const ExpertDashboard = ({
   expertDetailsList,
   currentUserRole,
   selectedUserRole,
+  roleLabel = "Expert",
+  hideOverview = false,
 }: ExpertDashboardProps) => {
   localStorage.removeItem("animationsEnabled");
 
@@ -480,10 +486,10 @@ const [dateRange, setDateRange] = useState<
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Expert {expertId ? "Performance" : "Dashboard"}
+              {roleLabel} {expertId ? "Performance" : "Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Monitor {expertId ? "expert" : "your"} performance:{" "}
+              Monitor {expertId ? roleLabel.toLowerCase() : "your"} performance:{" "}
               {userDetails?.[0]?.firstName}
             </p>
           </div>
@@ -552,6 +558,7 @@ const [dateRange, setDateRange] = useState<
           </div>
         </div>
         {/* Summary Cards */}
+        {!hideOverview && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
@@ -667,13 +674,16 @@ const [dateRange, setDateRange] = useState<
             </CardContent>
           </Card>
         </div>
-    
+        )}
+
+        {!hideOverview && (
         <ReviewerLifecycle
           data={reviewerLifecycleData}
           isLoading={isReviewerLifecycle}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
         />
+        )}
 
         {isViewerAdminOrModerator && userId && (
           <div className="mb-6 mt-8 p-6 rounded-xl border border-border bg-card/30 shadow-sm">

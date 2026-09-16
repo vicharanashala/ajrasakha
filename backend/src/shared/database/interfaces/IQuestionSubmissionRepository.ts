@@ -141,6 +141,7 @@ export interface IQuestionSubmissionRepository {
   getByQuestionIds(
     questionIds: string[],
     session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
   ): Promise<IQuestionSubmission[]>;
 
   /**

@@ -43,12 +43,17 @@ async def get_reviewer_tool():
     global _reviewer_tool
     logger.info("get_reviewer_tool: _reviewer_tool=%s MCP_URLS[reviewer]=%s", _reviewer_tool, MCP_URLS.get("reviewer"))
     if _reviewer_tool is None:
-        client = MultiServerMCPClient(
-            {"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}}
-        )
-        tools = await client.get_tools()
-        logger.info("get_reviewer_tool: tools=%s", [t.name for t in tools])
-        _reviewer_tool = tools[0]
+        try:
+            client = MultiServerMCPClient(
+                {"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}}
+            )
+            tools = await client.get_tools()
+            logger.info("get_reviewer_tool: tools=%s", [t.name for t in tools])
+            if tools:
+                _reviewer_tool = tools[0]
+        except Exception as err:
+            logger.warning("Could not connect to reviewer MCP server at %s: %s", MCP_URLS.get("reviewer"), err)
+            _reviewer_tool = None
     logger.info("get_reviewer_tool: returning=%s", _reviewer_tool.name if _reviewer_tool else None)
     return _reviewer_tool
 

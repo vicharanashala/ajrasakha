@@ -41,6 +41,12 @@ class AccAgentState(TypedDict):
     weather_response: Optional[str]
     market_response: Optional[str]
     schemes_response: Optional[str]
+
+    # Per-question tool results and answers. These prevent a result for one
+    # farmer question from being included in another question's answer.
+    query_tool_responses: list[dict]
+    final_answers: list[dict]
     
-    # Final output
+    # Legacy single-question output. For multi-question runs, callers should
+    # use final_answers instead of treating this as a combined answer.
     final_answer: Optional[str]

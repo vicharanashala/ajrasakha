@@ -51,6 +51,15 @@ export interface IQuestionRepository {
     sources?: string[],
   ): Promise<{status: string; count: number}[]>;
 
+  /** Per-level counts for the "Questions Allocated" section — the level of the currently
+   *  allocated expert (history.length - 1). Mirrors the allocated filter so totals match. */
+  getAllocatedLevelCounts(
+    sources?: string[],
+    requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{level: number; count: number}[]>;
+
   /**
    * Adds multiple questions for a specific context and user.
    * @param userId - The ID of the user creating the questions.
@@ -698,6 +707,39 @@ export interface IQuestionRepository {
     totalPages: number;
     totalCount: number;
   }>;
+  getModeratorDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
+  getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    feedbackAssigned: number;
+    feedbackPending: number;
+    feedbackCompleted: number;
+    feedbackCompletedQuestions: any[];
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
   setRoleAssignee(
     questionId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',
@@ -839,4 +881,10 @@ export interface IQuestionRepository {
    * Get available PAE experts count (lightweight query)
    */
   getAvailablePaeExpertsCount(): Promise<number>;
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  updateNormalisedCrop(questionId: string, normalisedCrop: string): Promise<{ modifiedCount: number }>;
 }

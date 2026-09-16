@@ -1020,3 +1020,119 @@ IMD_API_CATALOG: Dict[str, Dict[str, Any]] = {
         }
     }
 }
+
+
+# ==============================================================================
+# IMD API FIELD UNITS — City 7-Day Forecast & Current Weather
+# Source: https://api.imd.gov.in/public/api_reference.html
+# ==============================================================================
+
+# Fields returned by the City 7-Day Forecast API endpoint
+CITY_FORECAST_7DAY_FIELD_UNITS: dict[str, dict[str, str]] = {
+    # Forecast temperature fields
+    "Today_Max_temp":          {"unit": "°C",   "description": "Maximum temperature forecast for today"},
+    "Today_Min_temp":          {"unit": "°C",   "description": "Minimum temperature forecast for today"},
+    "Max_temp":                {"unit": "°C",   "description": "Maximum temperature forecast"},
+    "Min_temp":                {"unit": "°C",   "description": "Minimum temperature forecast"},
+    "forecast_max_temp":       {"unit": "°C",   "description": "Maximum temperature forecast"},
+    "forecast_min_temp":       {"unit": "°C",   "description": "Minimum temperature forecast"},
+    # Humidity fields (IMD API name convention)
+    "Relative_Humidity_at_0830":  {"unit": "%",  "description": "Relative Humidity at 0830 hrs IST"},
+    "Relative_Humidity_at_1730":  {"unit": "%",  "description": "Relative Humidity at 1730 hrs IST"},
+    "humidity_0830":              {"unit": "%",  "description": "Relative Humidity at 0830 hrs IST"},
+    "humidity_1730":              {"unit": "%",  "description": "Relative Humidity at 1730 hrs IST"},
+    # Rainfall
+    "Past_24_Hrs_Rainfall":       {"unit": "mm", "description": "Observed rainfall in past 24 hours"},
+    "past_24hrs_rainfall":        {"unit": "mm", "description": "Observed rainfall in past 24 hours"},
+    # Wind
+    "Wind_Speed":                 {"unit": "km/h", "description": "Sustained surface wind speed"},
+    "Wind_Direction":             {"unit": "",     "description": "Compass direction of wind (N, NE, E, SE, S, SW, W, NW)"},
+    "wind_speed_kmph":            {"unit": "km/h", "description": "Wind speed in kilometres per hour"},
+    # Forecast text
+    "forecast":                   {"unit": "",   "description": "Textual forecast description"},
+    "Forecast":                   {"unit": "",   "description": "Textual forecast description"},
+    # Sunrise / Sunset
+    "sunrise":                    {"unit": "HH:MM IST", "description": "Local sunrise time"},
+    "sunset":                     {"unit": "HH:MM IST", "description": "Local sunset time"},
+}
+
+# Fields returned by the IMD Current Weather (current_wx) API endpoint
+CURRENT_WEATHER_FIELD_UNITS: dict[str, dict[str, str]] = {
+    # Observation identity
+    "station":             {"unit": "",     "description": "Station name"},
+    "date":                {"unit": "YYYY-MM-DD", "description": "Observation date"},
+    "time":                {"unit": "HH:MM UTC",  "description": "Observation time in UTC"},
+    # Temperature
+    "temperature_c":       {"unit": "°C",   "description": "Dry-bulb (ambient) temperature at station"},
+    "feel_like_c":         {"unit": "°C",   "description": "Apparent / feels-like temperature"},
+    "observed_max_temp":   {"unit": "°C",   "description": "Observed maximum temperature"},
+    "observed_min_temp":   {"unit": "°C",   "description": "Observed minimum temperature"},
+    # Humidity
+    "humidity_pct":        {"unit": "%",    "description": "Relative humidity at observation time"},
+    # Pressure
+    "mslp":                {"unit": "hPa",  "description": "Mean Sea Level Pressure"},
+    "atm_pressure":        {"unit": "hPa",  "description": "Atmospheric / station-level pressure"},
+    # Wind
+    "wind_speed_kmph":     {"unit": "km/h", "description": "Wind speed in kilometres per hour"},
+    "wind_speed_mps":      {"unit": "m/s",  "description": "Wind speed in metres per second"},
+    "wind_direction":      {"unit": "",     "description": "Descriptive wind direction (e.g. NE)"},
+    "wind_direction_deg":  {"unit": "°",    "description": "Wind direction in degrees (0–360)"},
+    "wind_direction_code": {"unit": "",     "description": "IMD wind direction code (see describe_wind_direction)"},
+    "wind_gust_mps":       {"unit": "m/s",  "description": "Wind gust speed in metres per second"},
+    # Rainfall
+    "past_24hrs_rainfall_mm": {"unit": "mm", "description": "Accumulated rainfall in past 24 hours"},
+    # Sky / visibility
+    "weather_description": {"unit": "",    "description": "Human-readable current weather condition text"},
+    "weather_code_raw":    {"unit": "",    "description": "WMO present weather code (01–99)"},
+    "nebulosity":          {"unit": "/8",  "description": "Cloud cover in oktas (0–8 scale, 8 = overcast)"},
+    # Location
+    "district":            {"unit": "",    "description": "District name"},
+    "state":               {"unit": "",    "description": "State name"},
+    # Data source
+    "data_source":         {"unit": "",    "description": "Data provider label (IMD or Annam Weather Station)"},
+}
+
+
+# ==============================================================================
+# ANNAM WEATHER STATION API FIELD UNITS
+# Source: Annam AWS API Gateway (/nearby/WS_Nearest_Sensors, /history/WS_Nearest_Sensors)
+# ==============================================================================
+ANNAM_WEATHER_STATION_FIELD_UNITS: dict[str, dict[str, str]] = {
+    "DeviceId":        {"unit": "",        "description": "Unique identifier of the weather station"},
+    "Annam_ID":        {"unit": "",        "description": "Alternative/legacy name identifier"},
+    "Temperature":     {"unit": "°C",      "description": "Ambient air temperature"},
+    "Humidity":        {"unit": "%",       "description": "Relative humidity percentage"},
+    "WindSpeed":       {"unit": "m/s",     "description": "Current wind speed in metres per second"},
+    "WindDirection":   {"unit": "°",       "description": "Wind direction in degrees (0° - 360°)"},
+    "AtmPressure":     {"unit": "hPa",     "description": "Atmospheric pressure reading"},
+    "Rainfall":        {"unit": "mm",      "description": "Hourly/daily cumulative rainfall depth"},
+    "WindGust":        {"unit": "m/s",     "description": "Peak wind gust speed"},
+    "LightIntensity":  {"unit": "lux",     "description": "Light/Solar radiation intensity"},
+    "TimeStamp":       {"unit": "YYYY-MM-DD HH:MM:SS", "description": "Timestamp of reading"},
+    "State":           {"unit": "",        "description": "Geographical State name"},
+    "District":        {"unit": "",        "description": "Geographical District name"},
+    "City":            {"unit": "",        "description": "City or Tehsil name"},
+    "Latitude":        {"unit": "°",       "description": "Latitude coordinate of the station"},
+    "Longitude":       {"unit": "°",       "description": "Longitude coordinate of the station"},
+    "DistanceKM":      {"unit": "km",      "description": "Calculated distance from user coordinates in kilometres"},
+}
+
+
+def get_field_unit(field_name: str) -> str:
+    """Return the unit string for a known IMD or Annam API field, or empty string if unknown."""
+    rec = (
+        CITY_FORECAST_7DAY_FIELD_UNITS.get(field_name)
+        or CURRENT_WEATHER_FIELD_UNITS.get(field_name)
+        or ANNAM_WEATHER_STATION_FIELD_UNITS.get(field_name)
+    )
+    return rec["unit"] if rec else ""
+
+
+def get_field_description(field_name: str) -> str:
+    """Return the human-readable description for a known IMD or Annam API field, or empty string."""
+    rec = (
+        CITY_FORECAST_7DAY_FIELD_UNITS.get(field_name)
+        or CURRENT_WEATHER_FIELD_UNITS.get(field_name)
+        or ANNAM_WEATHER_STATION_FIELD_UNITS.get(field_name)
+    )
+    return rec["description"] if rec else ""
