@@ -310,7 +310,7 @@ export class AnswerService extends BaseService implements IAnswerService {
     answer: string;
     metadata: {
       answeredBy: string | null;
-      sources: string | string[];
+      sources: { sourceName?: string; source: string; page?: string | number }[];
     };
   }> {
     const question = await this.questionRepo.getByMessageId(id) || await this.questionRepo.getByThreadId(id);
@@ -339,7 +339,11 @@ export class AnswerService extends BaseService implements IAnswerService {
       answer: answer.answer || '',
       metadata: {
         answeredBy: answeredBy,
-        sources: answer.sources?.map((s: any) => s.source) || []
+        sources: answer.sources?.map((s: any) => ({
+          sourceName: s.sourceName,
+          source: s.source,
+          page: s.page
+        })) || []
       }
     };
   }

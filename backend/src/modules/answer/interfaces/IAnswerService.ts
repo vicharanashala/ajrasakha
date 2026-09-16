@@ -36,7 +36,7 @@ export interface IAnswerService
     answer: string;
     metadata: {
       answeredBy: string | null;
-      sources: string | string[];
+      sources: { sourceName?: string; source: string; page?: string | number }[];
     };
   }>;
 
