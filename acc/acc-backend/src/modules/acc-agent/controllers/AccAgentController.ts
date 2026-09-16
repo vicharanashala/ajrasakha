@@ -154,10 +154,55 @@ export class AccAgentController {
       // 3. If callUuid is provided, store Q/A pairs in call_details & call_queries
       if (body.callUuid) {
         const finalAnswerObj = threadState?.values?.final_answer;
-        const finalAnswerMarkdown = typeof finalAnswerObj === 'string' ? finalAnswerObj : finalAnswerObj?.final_answer || '';
+        let finalAnswerMarkdown = '';
+        if (typeof finalAnswerObj === 'string') {
+          finalAnswerMarkdown = finalAnswerObj;
+        } else if (finalAnswerObj?.final_answer) {
+          finalAnswerMarkdown = finalAnswerObj.final_answer;
+        } else {
+          const answersList = Array.isArray(finalAnswerObj?.answers)
+            ? finalAnswerObj.answers
+            : (Array.isArray(finalAnswerObj?.final_answers) ? finalAnswerObj.final_answers : []);
+          if (answersList.length > 0) {
+            // First approach: take the last element from answers array
+            const lastAnswer = answersList[answersList.length - 1]?.answer;
+            if (lastAnswer) {
+              finalAnswerMarkdown = lastAnswer;
+            } else {
+              // Fallback to matching by query
+              const queryToMatch = (body.metadata?.extracted_query || '').trim().toLowerCase();
+              const matched = answersList.find((a: any) =>
+                a?.query && (
+                  a.query.trim().toLowerCase() === queryToMatch ||
+                  a.query.trim().toLowerCase().includes(queryToMatch) ||
+                  queryToMatch.includes(a.query.trim().toLowerCase())
+                )
+              );
+              finalAnswerMarkdown = matched?.answer || '';
+            }
+          } else {
+            finalAnswerMarkdown = threadState?.final_answer || '';
+          }
+        }
 
-        const weather = finalAnswerObj?.weather || null;
-        const similarPair = finalAnswerObj?.gdb?.similar_pair1 || finalAnswerObj?.gdb?.exact_match || null;
+        let weather = finalAnswerObj?.weather || null;
+        if (!weather && finalAnswerObj?.weather_response) {
+          try {
+            weather = typeof finalAnswerObj.weather_response === 'string'
+              ? JSON.parse(finalAnswerObj.weather_response)
+              : finalAnswerObj.weather_response;
+          } catch (e) {}
+        }
+
+        let gdbData = finalAnswerObj?.gdb || null;
+        if (!gdbData && finalAnswerObj?.gdb_response) {
+          try {
+            gdbData = typeof finalAnswerObj.gdb_response === 'string'
+              ? JSON.parse(finalAnswerObj.gdb_response)
+              : finalAnswerObj.gdb_response;
+          } catch (e) {}
+        }
+        const similarPair = gdbData?.similar_pair1 || gdbData?.exact_match || null;
         const authorName = similarPair?.details?.[0]?.author_name || "";
         const sourceName = similarPair?.details?.[0]?.source_name || "";
         const sourceLink = similarPair?.details?.[0]?.source_link || "";

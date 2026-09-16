@@ -315,22 +315,32 @@ export class AccAgentService {
         }
       );
       const data = response.data;
-      if (!data.final_answer) {
+      const rawFinalAnswer = data?.final_answer || data?.values?.final_answer;
+      if (!rawFinalAnswer && !data?.values) {
         throw new InternalServerError('Invalid response from ACC Agent API: missing final_answer');
       }
 
-      let finalAnswer = data.final_answer;
+      let finalAnswer = rawFinalAnswer;
       try {
-        const parsed = JSON.parse(finalAnswer);
-        if (parsed && typeof parsed === 'object' && parsed.final_answer) {
-          finalAnswer = parsed.final_answer;
+        const parsed = typeof finalAnswer === 'string' ? JSON.parse(finalAnswer) : finalAnswer;
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.final_answer) {
+            finalAnswer = parsed.final_answer;
+          } else {
+            const answersList = Array.isArray(parsed.answers)
+              ? parsed.answers
+              : (Array.isArray(parsed.final_answers) ? parsed.final_answers : []);
+            if (answersList.length > 0) {
+              finalAnswer = answersList[answersList.length - 1]?.answer || '';
+            }
+          }
         }
       } catch (e) {
       }
 
-      console.log(`✅ [AccAgentService] Got final answer for thread ${threadId} (${Date.now() - startTime}ms, answer length: ${finalAnswer?.length || 0})`);
+      console.log(`✅ [AccAgentService] Got final answer for thread ${threadId} (${Date.now() - startTime}ms, answer length: ${typeof finalAnswer === 'string' ? finalAnswer.length : 0})`);
       return {
-        final_answer: finalAnswer || '',
+        final_answer: typeof finalAnswer === 'string' ? finalAnswer : '',
       };
     } catch (error) {
       console.error(`❌ [AccAgentService] resumeAndGetAnswer failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
@@ -366,9 +376,20 @@ export class AccAgentService {
         }
         // Also ensure final_answer is populated at the root level of the response
         if (values.final_answer) {
-          data.final_answer = typeof values.final_answer === 'string'
-            ? values.final_answer
-            : values.final_answer.final_answer || '';
+          if (typeof values.final_answer === 'string') {
+            data.final_answer = values.final_answer;
+          } else if (values.final_answer.final_answer) {
+            data.final_answer = values.final_answer.final_answer;
+          } else {
+            const answersList = Array.isArray(values.final_answer.answers)
+              ? values.final_answer.answers
+              : (Array.isArray(values.final_answer.final_answers) ? values.final_answer.final_answers : []);
+            if (answersList.length > 0) {
+              data.final_answer = answersList[answersList.length - 1]?.answer || '';
+            } else {
+              data.final_answer = '';
+            }
+          }
         }
       }
       console.log(`✅ [AccAgentService] Got thread state for ${threadId} (${Date.now() - startTime}ms)`);
