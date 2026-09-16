@@ -575,6 +575,56 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  async getByMessageId(
+    messageId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!messageId) {
+        throw new BadRequestError('Invalid or missing messageId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { messageId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by messageId: ${error}`);
+    }
+  }
+
+  async getByThreadId(
+    threadId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!threadId) {
+        throw new BadRequestError('Invalid or missing threadId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { threadId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by threadId: ${error}`);
+    }
+  }
+
   async findByIds(ids: ObjectId[]): Promise<IQuestion[]> {
     try {
       await this.init();

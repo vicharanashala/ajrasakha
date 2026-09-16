@@ -157,6 +157,22 @@ export interface IQuestionRepository {
    */
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
 
+  /**
+   * Retrieves a question by its messageId.
+   * @param messageId - The message ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByMessageId(messageId: string, session?: ClientSession): Promise<IQuestion | null>;
+
+  /**
+   * Retrieves a question by its threadId.
+   * @param threadId - The thread ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByThreadId(threadId: string, session?: ClientSession): Promise<IQuestion | null>;
+
   /** Find questions referencing the given question (referenceQuestionId), optionally
    *  by status. Used to propagate a close to queue-duplicate children. */
   findByReferenceQuestionId(
