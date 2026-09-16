@@ -7,7 +7,7 @@ import type {PaeValidationService} from '../services/PaeValidationService.js';
  */
 export type IPaeValidationService = Pick<
   PaeValidationService,
-  | 'runPaeValidationQueueCron'
+  | 'processPaeValidationQueue'
   | 'getPaeValidationTimeline'
   | 'assignPaeValidationReviewerManually'
   | 'removePaeValidationReviewer'
