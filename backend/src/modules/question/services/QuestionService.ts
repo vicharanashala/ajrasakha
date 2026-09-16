@@ -2617,6 +2617,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
+  async getPendingByLevel(isTrainingUser?: boolean, isAdmin?: boolean) {
+    return this.queueService.getPendingByLevel(isTrainingUser, isAdmin);
+  }
+
   /**
    * Remove the second entry from history and queue arrays in a question submission.
    * This is used for migration purposes to fix duplicate entries.
@@ -2780,6 +2784,26 @@ export class QuestionService extends BaseService implements IQuestionService {
       paeExpertId,
       page,
       limit,
+    );
+  }
+
+  /** Gate-keeper-style dashboard for a PAE's answering flow: assigned + submitted
+   *  counts and a paginated list of their questions, each flagged submitted/pending. */
+  async getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    return this.questionRepo.getPaeAnswerDashboard(
+      userId,
+      page,
+      limit,
+      search,
+      startDate,
+      endDate,
     );
   }
 

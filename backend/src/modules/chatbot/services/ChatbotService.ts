@@ -65,6 +65,7 @@ import {triggerWebhook} from '#root/modules/answer/utils/triggerWebhook.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { LGD_TYPES } from '#root/modules/lgd/types.js';
 import {ILocationService} from '#root/modules/lgd/interfaces/ILocationService.js';
+import { ClientSession } from 'mongodb';
 
 type HeatMapLgdState = {
   stateCode: number;
@@ -4662,6 +4663,15 @@ async getUserQuestionsData(
       pageSize,
       this.mapDatasetUserItem,
     );
+  }
+
+  async logoutUser (userId: string): Promise<{value: boolean, message: string}> {
+    try {
+      const result = await this.chatbotRepository.logoutUser(userId, undefined);
+      return result;
+    }catch(err){
+      throw new InternalServerError(`Something went wrong ${err}`)
+    }
   }
 }
 

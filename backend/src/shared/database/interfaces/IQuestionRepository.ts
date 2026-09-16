@@ -51,6 +51,15 @@ export interface IQuestionRepository {
     sources?: string[],
   ): Promise<{status: string; count: number}[]>;
 
+  /** Per-level counts for the "Questions Allocated" section — the level of the currently
+   *  allocated expert (history.length - 1). Mirrors the allocated filter so totals match. */
+  getAllocatedLevelCounts(
+    sources?: string[],
+    requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{level: number; count: number}[]>;
+
   /**
    * Adds multiple questions for a specific context and user.
    * @param userId - The ID of the user creating the questions.
@@ -709,6 +718,24 @@ export interface IQuestionRepository {
   ): Promise<{
     assignedCount: number;
     submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
+  getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    feedbackAssigned: number;
+    feedbackPending: number;
+    feedbackCompleted: number;
+    feedbackCompletedQuestions: any[];
     questions: any[];
     totalPages: number;
     totalCount: number;

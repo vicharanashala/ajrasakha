@@ -447,6 +447,24 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.findUnknownQuestionGeo();
   }
 
+  async getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    return this.questionRepo.getPaeAnswerDashboard(
+      userId,
+      page,
+      limit,
+      search,
+      startDate,
+      endDate,
+    );
+  }
+
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
@@ -9509,6 +9527,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
       stuck: stuck as QueueDetailsResponse['stuck'],
       needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
+      needsReviewerLevelCounts: [],
+      stuckLevelCounts: [],
+      openedIdleLevelCounts: [],
+      allocatedLevelCounts: [],
       totalWork: totalWork as QueueDetailsResponse['totalWork'],
       openedIdle: openedIdle as QueueDetailsResponse['openedIdle'],
       moderatorWaiting:
@@ -9553,6 +9575,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       receivedManual: receivedManual as QueueDetailsResponse['receivedManual'],
       receivedStatusCountsManual:
         receivedStatusCountsManual as QueueDetailsResponse['receivedStatusCountsManual'],
+      needsReviewerLevelCountsManual: [],
+      stuckLevelCountsManual: [],
+      openedIdleLevelCountsManual: [],
+      allocatedLevelCountsManual: [],
       autoAllocateOffManual:
         autoAllocateOffManual as QueueDetailsResponse['autoAllocateOffManual'],
       autoAllocateOpenManual:
