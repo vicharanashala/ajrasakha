@@ -60,6 +60,7 @@ class MandiUnavailableContext(NamedTuple):
     reason: str
     crop_name: str
     mandi_name: str
+    is_district: bool = False
     
 def _compute_tools_used(plan: PlannerPlan) -> list[str]:
     """Compute the list of tools used based on plan flags.
@@ -343,10 +344,22 @@ def _daily_price_unavailable_context(
         if (tool_data.get("nearby_markets") or {}).get("price_records"):
             return None
 
+    # Check if answer is a custom synthesized message from the tool (not empty,
+    # not just a raw error message, and not the generic single-line fallback).
+    raw_error = str((tool_data or {}).get("error") or "").strip() if isinstance(tool_data, dict) else ""
+    is_generic_fallback = (
+        not answer
+        or (raw_error and answer == raw_error)
+        or answer.startswith("Mandi price data is not available")
+    )
+    if not is_generic_fallback:
+        # A tailored answer was synthesized by the tool — let assemble_answer_body deliver it.
+        return None
+
     diagnostic = " ".join(
         part
         for part in (
-            answer,
+            answer if is_generic_fallback else "",
             json.dumps(tool_data, ensure_ascii=False, default=str) if tool_data is not None else "",
         )
         if part
@@ -359,13 +372,25 @@ def _daily_price_unavailable_context(
     crop_name = str(entities.get("crop") or "Crop").strip() or "Crop"
     district = str(entities.get("district") or "").strip()
     state = str(entities.get("state") or "").strip()
-    mandi_name = _first_mandi_name(tool_data) or district or state or "Mandi"
+    named_mandi = _first_mandi_name(tool_data)
+    is_district = False
+    if named_mandi:
+        mandi_name = named_mandi
+    elif district:
+        mandi_name = district
+        is_district = True
+    elif state:
+        mandi_name = state
+        is_district = True
+    else:
+        mandi_name = "Mandi"
+
     reason = (
         "mandi_unavailable"
         if any(marker in diagnostic for marker in _MANDI_MISSING_MARKERS)
         else "crop_price_unavailable"
     )
-    return MandiUnavailableContext(reason, crop_name, mandi_name)
+    return MandiUnavailableContext(reason, crop_name, mandi_name, is_district=is_district)
 
 
 def mandi_unavailable_context(state: AjraSakhaState) -> MandiUnavailableContext | None:
@@ -440,29 +465,17 @@ async def _coords_from_plan_entities(
         dist = None
     geocode_res = await forward_geocode(state_name, dist)
     if not geocode_res:
-        from ajrasakha.tools.weather.weather_tools2 import STATE_CENTER_COORDINATES
-        st_clean = state_name.strip().lower()
-        if st_clean in STATE_CENTER_COORDINATES:
-            flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[st_clean]
-            geocode_res = {
-                "latitude": flat_c,
-                "longitude": flon_c,
-                "state": state_name,
-                "city": district or state_name,
-                "address": name_c,
-            }
-        else:
-            trace_resolution(
-                "plan_entities_geocode",
-                state=state_name,
-                state_source="plan.entities",
-                district=district,
-                district_source="plan.entities",
-                latitude=None,
-                longitude=None,
-                lat_long_source="geocode_failed",
-            )
-            return None, None, None
+        trace_resolution(
+            "plan_entities_geocode",
+            state=state_name,
+            state_source="plan.entities",
+            district=district,
+            district_source="plan.entities",
+            latitude=None,
+            longitude=None,
+            lat_long_source="geocode_failed",
+        )
+        return None, None, None
     trace_resolution(
         "plan_entities_geocode",
         state=geocode_res.get("state") or state_name,
@@ -500,7 +513,6 @@ def _entity_with_source(
     default: str,
     *,
     user_query: str = "",
-    explicit_state: Optional[str] = None,
 ) -> tuple[str, str]:
     entities = plan.get("entities") or {}
     loc = loc or {}
@@ -524,17 +536,6 @@ def _entity_with_source(
 
     # Fallback to stored profile/location ONLY when query text has no location:
     if key in {"state", "district"}:
-        query_state = str(entities.get("state") or explicit_state or "").strip().lower()
-        if key == "district" and query_state and query_state not in _PLACEHOLDER_STATES:
-            # If current query specifies a state:
-            # 1. If stored location state is known and doesn't match query state, reject stored city!
-            loc_st = str(loc.get("state") or "").strip().lower()
-            if loc_st and query_state != loc_st:
-                return default, "cross_state_city_rejected"
-            # 2. If the user asked about a state with no district in the current query, do not inherit old city
-            if not entities.get("district"):
-                return default, "state_wide_query_no_district"
-
         loc_key = "city" if key == "district" else key
         if loc.get(loc_key) and str(loc[loc_key]).strip():
             candidate = str(loc[loc_key]).strip()
@@ -542,7 +543,6 @@ def _entity_with_source(
                 return candidate, f"location.{loc_key}"
 
     return default, "default"
-
 
 
 class ResolvedToolEntities(NamedTuple):
@@ -596,7 +596,7 @@ def _resolve_reviewer_location(
 
     loc = loc or {}
     state_name, state_source = _entity_with_source(plan, "state", loc, "Not specified", user_query=user_query)
-    district, district_source = _entity_with_source(plan, "district", loc, "all", user_query=user_query, explicit_state=state_name)
+    district, district_source = _entity_with_source(plan, "district", loc, "all", user_query=user_query)
 
     # Do not infer district from GPS reverse-geocoded city — plan.entities only.
     # if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
@@ -872,29 +872,14 @@ async def build_specialist_tool_calls_from_plan(
 
             if out_transient_location is not None:
                 out_transient_location["state"] = state_name
-                out_transient_location["city"] = custom_res.get("city") if dist_to_geocode else None
                 out_transient_location["latitude"] = lat
                 out_transient_location["longitude"] = lon
                 out_transient_location["address"] = addr
         else:
-            from ajrasakha.tools.weather.weather_tools2 import STATE_CENTER_COORDINATES
-            st_check = (state_to_geocode or "").strip().lower()
-            if st_check in STATE_CENTER_COORDINATES:
-                lat, lon, addr = STATE_CENTER_COORDINATES[st_check]
-                lat_source = "state_center_fallback"
-                state_name = state_to_geocode
-                if out_transient_location is not None:
-                    out_transient_location["state"] = state_name
-                    out_transient_location["city"] = None
-                    out_transient_location["latitude"] = lat
-                    out_transient_location["longitude"] = lon
-                    out_transient_location["address"] = addr
-
-            else:
-                lat = None
-                lon = None
-                addr = dist_to_geocode if dist_to_geocode else state_to_geocode
-                lat_source = "unset"
+            lat = None
+            lon = None
+            addr = dist_to_geocode if dist_to_geocode else state_to_geocode
+            lat_source = "unset"
 
     trace_resolution(
         "specialist_tools_location",
@@ -1616,6 +1601,8 @@ def route_after_execute(state: AjraSakhaState) -> str:
         return "translate_answer"
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
         return "assemble_answer_body"
+    if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
+        return "empty_gdb_reply"
     if should_expert_queue_reply(state):
         return "empty_gdb_reply"
     if _gdb_has_usable_data(messages) or _turn_has_specialist_tool_message(messages):

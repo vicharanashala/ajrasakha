@@ -51,10 +51,15 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open, expanded]);
 
+  // The trigger is often a narrow table cell or grid column — floor the dropdown/expanded panel
+  // at a readable width instead of inheriting whatever sliver the trigger happens to have, and
+  // keep it inside the viewport rather than letting it run off the right edge.
   function computePos() {
     if (containerRef.current) {
       const r = containerRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 2, left: r.left, width: r.width });
+      const width = Math.max(r.width, 260);
+      const left = Math.min(r.left, window.innerWidth - width - 8);
+      setDropdownPos({ top: r.bottom + 2, left, width });
     }
   }
 
@@ -74,7 +79,9 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
     e.preventDefault();
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setExpandedRect({ left: rect.left, width: rect.width });
+      const width = Math.max(rect.width, 320);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setExpandedRect({ left, width });
     }
     setExpanded(true);
   }
@@ -177,10 +184,14 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
     return () => document.removeEventListener('mousedown', handler);
   }, [open, expanded]);
 
+  // See MultiSelector's computePos above — same narrow-trigger problem (this is used as the
+  // inline state/crop editor in a table cell), same fix: floor the width, keep it on-screen.
   function computePos() {
     if (containerRef.current) {
       const r = containerRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 2, left: r.left, width: r.width });
+      const width = Math.max(r.width, 260);
+      const left = Math.min(r.left, window.innerWidth - width - 8);
+      setDropdownPos({ top: r.bottom + 2, left, width });
     }
   }
 
@@ -201,7 +212,9 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
     e.preventDefault();
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setExpandedRect({ left: rect.left, width: rect.width });
+      const width = Math.max(rect.width, 320);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setExpandedRect({ left, width });
     }
     setExpanded(true);
   }

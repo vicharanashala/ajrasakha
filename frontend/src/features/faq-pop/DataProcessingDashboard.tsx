@@ -1,10 +1,12 @@
 import { useState } from "react";
 import FunctionsPanel from "./components/FunctionsPanel/FunctionsPanel";
 import PopTranslationPanel from "./components/FunctionsPanel/PopTranslationPanel";
+import DocumentManagementPanel from "./components/DocumentManagement/DocumentManagementPanel";
 
 const TABS = [
   { id: "faq-cluster", label: "FAQ-Cluster" },
   { id: "pop-translation", label: "POP-Translation" },
+  { id: "document-management", label: "Document Management" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -35,6 +37,7 @@ export function DataProcessingDashboard() {
         {activeTab === "pop-translation" && (
           <PopTranslationPanel onJobCreated={() => {}} />
         )}
+        {activeTab === "document-management" && <DocumentManagementPanel />}
       </div>
     </div>
   );

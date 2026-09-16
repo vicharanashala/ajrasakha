@@ -3,6 +3,8 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import {getISTStartOfToday} from '#root/utils/date.utils.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
+import {QuestionService} from '#root/modules/question/services/QuestionService.js';
+import type {PendingByLevel} from '#root/modules/question/interfaces/IQuestionService.js';
 
 export interface IReviewWiseStats {
   authorLevel: number;
@@ -24,6 +26,10 @@ export interface DailyStats {
   moderatorApprovalRate: number;
 
   reviewWiseCount: IReviewWiseStats;
+
+  /** Pending questions by level (Author = never allocated; levels from needs-reviewer),
+   *  split into time-bound vs manual source groups. */
+  pendingByLevel?: PendingByLevel;
 
   // Today Stats
   todayAdded: number;
@@ -160,6 +166,10 @@ export const getDailyStats = async (
     container.get<QuestionSubmissionRepository>(
       CORE_TYPES.QuestionSubmissionRepository,
     );
+
+  const questionService = container.get<QuestionService>(
+    CORE_TYPES.QuestionService,
+  );
 
   // Date window (IST) for the "today"/period counts. With no range it is today
   // onward (getISTStartOfToday) — the original behaviour. When the dashboard
@@ -364,6 +374,15 @@ export const getDailyStats = async (
   const totalQuestionsUnderExpertReview =
     totalQuestions - (totalClosedQuestions + totalInReviewQuestions);
 
+  // Pending questions by level (Author = never allocated; levels from needs-reviewer),
+  // split time-bound vs manual. isAdmin=true → all questions, no training-user filter.
+  const pendingByLevel = await questionService
+    .getPendingByLevel(undefined, true)
+    .catch(err => {
+      console.error('[getDailyStats] getPendingByLevel failed:', err?.message);
+      return undefined;
+    });
+
   return {
     totalQuestions,
     totalInReviewQuestions,
@@ -372,6 +391,7 @@ export const getDailyStats = async (
     moderatorApprovalRate,
 
     reviewWiseCount,
+    pendingByLevel,
 
     todayAdded,
     todayGolden,
