@@ -5161,4 +5161,176 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       assignedAt: r.assignedAt,
     }));
   }
+
+  async getPaeValidationCountsByPaeIds(
+    paeIds?: string[],
+    session?: ClientSession,
+  ): Promise<Map<string, { submittedCount: number; pendingCount: number }>> {
+    await this.init();
+    const matchStage: Record<string, any> = { 'paeValidation.0': { $exists: true } };
+
+    if (paeIds && paeIds.length > 0) {
+      const matchOids = paeIds
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
+      const allPaeIds = Array.from(new Set([...paeIds, ...matchOids]));
+      matchStage['paeValidation.paeId'] = { $in: allPaeIds };
+    }
+
+    const pipeline: any[] = [
+      { $match: matchStage },
+      { $unwind: '$paeValidation' },
+    ];
+
+    if (paeIds && paeIds.length > 0) {
+      const matchOids = paeIds
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
+      const allPaeIds = Array.from(new Set([...paeIds, ...matchOids]));
+      pipeline.push({
+        $match: { 'paeValidation.paeId': { $in: allPaeIds } },
+      });
+    }
+
+    pipeline.push({
+      $group: {
+        _id: { $toString: '$paeValidation.paeId' },
+        submittedCount: {
+          $sum: {
+            $cond: [{ $eq: ['$paeValidation.paeStatus', 'completed'] }, 1, 0],
+          },
+        },
+        pendingCount: {
+          $sum: {
+            $cond: [{ $eq: ['$paeValidation.paeStatus', 'in-progress'] }, 1, 0],
+          },
+        },
+      },
+    });
+
+    const rows = await this.QuestionSubmissionCollection.aggregate(
+      pipeline,
+      { session },
+    ).toArray();
+
+    const countsMap = new Map<string, { submittedCount: number; pendingCount: number }>();
+    for (const r of rows) {
+      if (r._id) {
+        countsMap.set(r._id.toString(), {
+          submittedCount: r.submittedCount || 0,
+          pendingCount: r.pendingCount || 0,
+        });
+      }
+    }
+    return countsMap;
+  }
+
+  async getPaeReviewCountsByPaeIds(
+    paeIds?: string[],
+    session?: ClientSession,
+  ): Promise<
+    Map<
+      string,
+      {
+        authorSubmittedCount: number;
+        reviewerSubmittedCount: number;
+        totalReviewCompleted: number;
+        authorPendingCount: number;
+        reviewerPendingCount: number;
+        totalReviewPending: number;
+      }
+    >
+  > {
+    await this.init();
+
+    // 1. Find all PAE questions (pae_review: true)
+    const paeQuestions = await this.QuestionCollection.find(
+      { pae_review: true },
+      { projection: { _id: 1 }, session },
+    ).toArray();
+
+    const countsMap = new Map<
+      string,
+      {
+        authorSubmittedCount: number;
+        reviewerSubmittedCount: number;
+        totalReviewCompleted: number;
+        authorPendingCount: number;
+        reviewerPendingCount: number;
+        totalReviewPending: number;
+      }
+    >();
+
+    if (paeQuestions.length === 0) {
+      return countsMap;
+    }
+
+    const paeQuestionIds = paeQuestions.map(q => q._id);
+
+    // 2. Fetch corresponding question_submissions
+    const submissions = await this.QuestionSubmissionCollection.find(
+      { questionId: { $in: paeQuestionIds } },
+      { projection: { questionId: 1, history: 1, queue: 1 }, session },
+    ).toArray();
+
+    const targetPaeIdSet =
+      paeIds && paeIds.length > 0
+        ? new Set(paeIds.map(id => id.toString()))
+        : null;
+
+    const getStats = (id: string) => {
+      let s = countsMap.get(id);
+      if (!s) {
+        s = {
+          authorSubmittedCount: 0,
+          reviewerSubmittedCount: 0,
+          totalReviewCompleted: 0,
+          authorPendingCount: 0,
+          reviewerPendingCount: 0,
+          totalReviewPending: 0,
+        };
+        countsMap.set(id, s);
+      }
+      return s;
+    };
+
+    for (const sub of submissions) {
+      const history = Array.isArray(sub.history) ? sub.history : [];
+      const queue = Array.isArray(sub.queue) ? sub.queue : [];
+
+      if (history.length === 0) {
+        // Author Level Pending — history is empty and first item in queue is the pending author
+        if (queue.length > 0) {
+          const pendingAuthorId = queue[0]?.toString();
+          if (
+            pendingAuthorId &&
+            (!targetPaeIdSet || targetPaeIdSet.has(pendingAuthorId))
+          ) {
+            const stats = getStats(pendingAuthorId);
+            stats.authorPendingCount++;
+            stats.totalReviewPending++;
+          }
+        }
+      } else {
+        // Author Level Submitted — answer field exists in history (first entry appended upon author submission)
+        const authorEntry = history[0];
+        const hasAnswer =
+          authorEntry?.answer !== undefined &&
+          authorEntry?.answer !== null &&
+          authorEntry?.answer !== '';
+        const authorId = authorEntry?.updatedBy?.toString();
+        if (
+          hasAnswer &&
+          authorId &&
+          (!targetPaeIdSet || targetPaeIdSet.has(authorId))
+        ) {
+          const stats = getStats(authorId);
+          stats.authorSubmittedCount++;
+          stats.totalReviewCompleted++;
+        }
+      }
+    }
+
+    return countsMap;
+  }
 }

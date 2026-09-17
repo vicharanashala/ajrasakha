@@ -481,6 +481,53 @@ export class UserService extends BaseService {
       opts.isTMU,
     );
 
+    const isPaeExport =
+      opts.role === 'pae_expert' || opts.role === 'ALL' || !opts.role;
+
+    // Fetch PAE validation and review metrics when exporting pae_expert or ALL
+    const paeUserIds = isPaeExport
+      ? (users as any[])
+          .filter(u => u.role === 'pae_expert')
+          .map(u => u._id?.toString())
+          .filter(Boolean)
+      : [];
+
+    let paeValidationCountsMap = new Map<
+      string,
+      { submittedCount: number; pendingCount: number }
+    >();
+    let paeReviewCountsMap = new Map<
+      string,
+      {
+        authorSubmittedCount: number;
+        reviewerSubmittedCount: number;
+        totalReviewCompleted: number;
+        authorPendingCount: number;
+        reviewerPendingCount: number;
+        totalReviewPending: number;
+      }
+    >();
+
+    if (isPaeExport && paeUserIds.length > 0) {
+      try {
+        const [validationCounts, reviewCounts] = await Promise.all([
+          this.questionSubmissionRepo.getPaeValidationCountsByPaeIds(
+            paeUserIds,
+          ),
+          this.questionSubmissionRepo.getPaeReviewCountsByPaeIds(
+            paeUserIds,
+          ),
+        ]);
+        paeValidationCountsMap = validationCounts;
+        paeReviewCountsMap = reviewCounts;
+      } catch (error) {
+        console.error(
+          '[exportUsersToXlsx] Failed to fetch PAE metrics:',
+          error,
+        );
+      }
+    }
+
     const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
     const asIST = (v: any): string => {
       if (!v) return '';
@@ -523,10 +570,54 @@ export class UserService extends BaseService {
       { header: 'Preferred Crop', value: u => u.preference?.crop ?? '' },
       { header: 'Preferred Domain', value: u => joinArr(u.preference?.domain) },
       { header: 'KVK Covered', value: u => fmtKvk(u.kvkCovered) },
+    ];
+
+    if (isPaeExport) {
+      columns.push(
+        {
+          header: 'Validation Submitted',
+          value: u => {
+            if (u.role !== 'pae_expert') return '';
+            const stats = paeValidationCountsMap.get(u._id?.toString() ?? '');
+            return stats?.submittedCount ?? 0;
+          },
+        },
+        {
+          header: 'Validation Pending',
+          value: u => {
+            if (u.role !== 'pae_expert') return '';
+            const stats = paeValidationCountsMap.get(u._id?.toString() ?? '');
+            const pendingFromSubmissions = stats?.pendingCount ?? 0;
+            const pendingFromAssigned = Array.isArray(u.paeValidationAssigned)
+              ? u.paeValidationAssigned.length
+              : 0;
+            return Math.max(pendingFromSubmissions, pendingFromAssigned);
+          },
+        },
+        {
+          header: 'Review Completed',
+          value: u => {
+            if (u.role !== 'pae_expert') return '';
+            const stats = paeReviewCountsMap.get(u._id?.toString() ?? '');
+            return stats?.totalReviewCompleted ?? 0;
+          },
+        },
+        {
+          header: 'Review Pending',
+          value: u => {
+            if (u.role !== 'pae_expert') return '';
+            const stats = paeReviewCountsMap.get(u._id?.toString() ?? '');
+            return stats?.totalReviewPending ?? 0;
+          },
+        },
+      );
+    }
+
+    columns.push(
       { header: 'Last Check-In', value: u => asIST(u.lastCheckInAt) },
       { header: 'Created At', value: u => asIST(u.createdAt) },
       { header: 'Updated At', value: u => asIST(u.updatedAt) },
-    ];
+    );
 
     // When PAE analytics are provided (PAE role + "Get Analytics"), merge the per-PAE
     // metrics onto the SAME sheet as extra columns, matched to each user by id — no separate
