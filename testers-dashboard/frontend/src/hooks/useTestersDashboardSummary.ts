@@ -38,12 +38,14 @@ export const useTestersDashboardSummary = (
     // control, not the single-value filter dropdowns.
     typeBranch: string = "all",
     staticSubTypes: string[] = [],
+    source: 'sheet' | 'db' = 'sheet',
 ) => {
     // "all" means "no filter" on both sides (EMPTY_FILTERS default), so it's
     // omitted here rather than sent literally - keeps query strings clean
     // and matches GetTestersDashboardQuery's own "?? EMPTY_FILTERS.x"
     // defaulting when a param is absent.
     const query: ITestersDashboardSummaryQuery = {
+        source,
         dateRange: filters.dateRange !== "all" ? filters.dateRange : undefined,
         category: filters.category !== "all" ? filters.category : undefined,
         build: filters.build !== "all" ? filters.build : undefined,
@@ -66,7 +68,7 @@ export const useTestersDashboardSummary = (
         // triggers a refetch - matching how the old client-side
         // `filtered`/`kpis` useMemo blocks recompute on the same
         // dependencies.
-        queryKey: ["testers-dashboard-summary", query],
+        queryKey: ["testers-dashboard-summary", source, query],
         queryFn: () => testersDashboardSummaryService.getSummary(query),
         staleTime: 1000 * 60 * 5, // 5 minutes
         // Every distinct filter combination is its own queryKey/cache entry,

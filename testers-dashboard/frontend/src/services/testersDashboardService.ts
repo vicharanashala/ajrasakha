@@ -17,10 +17,9 @@ export interface ITestersDashboardDataResponse {
 export class TestersDashboardService {
     private _baseUrl = `${API_BASE_URL}/dashboard/testers`;
 
-    async getData(): Promise<ITestersDashboardDataResponse> {
-        const response = await apiFetch<ITestersDashboardDataResponse>(
-            `${this._baseUrl}/data`,
-        );
+    async getData(source?: 'sheet' | 'db'): Promise<ITestersDashboardDataResponse> {
+        const url = source ? `${this._baseUrl}/data?source=${source}` : `${this._baseUrl}/data`;
+        const response = await apiFetch<ITestersDashboardDataResponse>(url);
 
         if (!response) {
             throw new Error("Failed to fetch testers dashboard data: No response received");

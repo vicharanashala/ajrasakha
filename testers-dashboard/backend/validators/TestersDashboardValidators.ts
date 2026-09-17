@@ -9,6 +9,14 @@ import { JSONSchema } from 'class-validator-jsonschema';
 // frontend can pass a selected option straight through.
 export class GetTestersDashboardQuery {
   @JSONSchema({
+    example: 'db',
+    description: 'Data source: "sheet" (default, reads Google Sheet CSV) or "db" (reads tester_test_cases collection)',
+  })
+  @IsOptional()
+  @IsIn(['sheet', 'db'])
+  source?: 'sheet' | 'db';
+
+  @JSONSchema({
     example: '7days',
     description: 'Date range filter: all, today, 7days, 30days, or custom',
   })
