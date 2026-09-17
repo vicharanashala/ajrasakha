@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+downloads/*
+!downloads/.gitkeep
+extracted_tables/*
+!extracted_tables/.gitkeep
+.gemini
