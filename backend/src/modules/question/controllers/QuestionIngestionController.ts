@@ -390,7 +390,7 @@ export class QuestionIngestionController {
     console.log("inside  helper ", questions)
     try {
       const result = await this.questionService.addQuestionCollection(
-        userId || 'system',
+        userId ?? null,
         questions,
       );
 
