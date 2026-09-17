@@ -10,6 +10,7 @@ import {
   IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import type { PaeAnalyticsRow } from '#root/modules/question/interfaces/IQuestionService.js';
 import {
   BadRequestError,
   ForbiddenError,
@@ -462,6 +463,8 @@ export class UserService extends BaseService {
     isVerified?: boolean;
     isSTF?: boolean;
     isTMU?: boolean;
+    /** When provided, a second "PAE Analytics" sheet is appended (one row per PAE). */
+    paeAnalytics?: PaeAnalyticsRow[];
   }): Promise<ArrayBuffer> {
     // Fetch every matching user (no pagination) via the same query the list uses.
     // 1_000_000 is an effective "no limit" cap — far above the total user count.
@@ -534,6 +537,33 @@ export class UserService extends BaseService {
       const row: Record<string, any> = {};
       for (const c of columns) row[c.header] = c.value(u);
       sheet.addRow(row);
+    }
+
+    // Optional second sheet: per-PAE analytics (only when the caller passes them, i.e. the
+    // PAE role is selected and "Get Analytics" is checked).
+    if (opts.paeAnalytics && opts.paeAnalytics.length > 0) {
+      const analyticsColumns: { header: string; value: (r: PaeAnalyticsRow) => any }[] = [
+        { header: 'Name', value: r => r.name },
+        { header: 'Email', value: r => r.email },
+        { header: 'Assigned', value: r => r.assigned },
+        { header: 'Submitted', value: r => r.submitted },
+        { header: 'Pending', value: r => r.pending },
+        { header: 'Feedback Assigned', value: r => r.feedbackAssigned },
+        { header: 'Feedback Pending', value: r => r.feedbackPending },
+        { header: 'Feedback Completed', value: r => r.feedbackCompleted },
+      ];
+      const analyticsSheet = workbook.addWorksheet('PAE Analytics');
+      analyticsSheet.columns = analyticsColumns.map(c => ({
+        header: c.header,
+        key: c.header,
+        width: 22,
+      }));
+      analyticsSheet.getRow(1).font = { bold: true };
+      for (const r of opts.paeAnalytics) {
+        const row: Record<string, any> = {};
+        for (const c of analyticsColumns) row[c.header] = c.value(r);
+        analyticsSheet.addRow(row);
+      }
     }
 
     return (await workbook.xlsx.writeBuffer()) as unknown as ArrayBuffer;

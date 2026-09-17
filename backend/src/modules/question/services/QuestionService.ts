@@ -61,6 +61,7 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import {
   IQuestionService,
   QueueSectionName,
+  PaeAnalyticsRow,
 } from '../interfaces/IQuestionService.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -2823,6 +2824,48 @@ export class QuestionService extends BaseService implements IQuestionService {
       startDate,
       endDate,
     );
+  }
+
+  /**
+   * PAE-answer dashboard analytics for EVERY PAE expert — the same per-PAE metrics the
+   * individual dashboard shows (assigned / submitted / pending answers + feedback
+   * assigned / pending / completed), one row per PAE. Reuses getPaeAnswerDashboard so the
+   * numbers match the dashboard exactly. Used for the "all PAEs" analytics export sheet.
+   */
+  async getAllPaeAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<PaeAnalyticsRow[]> {
+    const paes = await this.userRepo.findUsersByRoles(['pae_expert']);
+    const rows = await Promise.all(
+      paes.map(async u => {
+        const id = u._id!.toString();
+        const d = await this.questionRepo.getPaeAnswerDashboard(
+          id,
+          1,
+          1,
+          undefined,
+          startDate,
+          endDate,
+        );
+        const name =
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+          u.email ||
+          'Unknown';
+        return {
+          name,
+          email: u.email ?? '',
+          assigned: d.assignedCount,
+          submitted: d.submittedCount,
+          pending: Math.max(0, d.assignedCount - d.submittedCount),
+          feedbackAssigned: d.feedbackAssigned,
+          feedbackPending: d.feedbackPending,
+          feedbackCompleted: d.feedbackCompleted,
+        };
+      }),
+    );
+    // Stable, human-friendly ordering.
+    return rows.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async processPaeValidation(
