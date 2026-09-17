@@ -25,8 +25,9 @@ Take input query
       {original_query, rephrased_query, state, crop, tools: [list]}
 ```
 
-**Key principle:** LLM is used ONLY for domain/tool classification and query translation/rephrasing.  
-State and crop resolution are fully deterministic (regex-based extraction).  
+**Key principle:** LLM is used for domain/tool classification, query translation/rephrasing, and crop extraction.  
+State resolution is deterministic (regex-based extraction). The crop name comes only from the planner LLM's `entities.crop`, which translates local names and scripts; regex only detects non-specific "all crops" requests.  
+If the farmer answers a location/crop clarification with a new question, the planner sets `is_new_question` and the turn is planned as a fresh conversation.  
 GDB no longer overrides state from thread config — it uses what the planner passed.
 
 ## Always-on (not planner flags)

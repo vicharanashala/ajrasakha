@@ -17,7 +17,6 @@ from ajrasakha.agents.domains import (
 from ajrasakha.agents.location_context import (
     extract_state_from_text,
     latest_human_text,
-    recent_human_text,
 )
 from ajrasakha.agents.resolution_trace import trace_resolution
 from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
@@ -179,25 +178,6 @@ _CROP_OUTPUT_RE = re.compile(
     r"(?:\bwhat\s+should\s+i\s+(?:grow|plant|cultivate|sow)\b)",
     re.I,
 )
-
-_CROP_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("cotton", re.compile(r"\bcotton\b", re.I)),
-    ("paddy", re.compile(r"\b(paddy|rice)\b", re.I)),
-    ("wheat", re.compile(r"\bwheat\b", re.I)),
-    ("maize", re.compile(r"\b(maize|corn)\b", re.I)),
-    ("tomato", re.compile(r"\btomato\b", re.I)),
-    ("onion", re.compile(r"\bonion\b", re.I)),
-    ("chilli", re.compile(r"\b(chilli|chili|mirch)\b", re.I)),
-    ("potato", re.compile(r"\bpotato\b", re.I)),
-    ("sugarcane", re.compile(r"\bsugarcane\b", re.I)),
-    ("soybean", re.compile(r"\bsoybean\b", re.I)),
-    ("groundnut", re.compile(r"\b(groundnut|peanut)\b", re.I)),
-    ("mustard", re.compile(r"\bmustard\b", re.I)),
-    ("sunflower", re.compile(r"\bsunflower\b", re.I)),
-    ("banana", re.compile(r"\bbanana\b", re.I)),
-    ("mango", re.compile(r"\bmango\b", re.I)),
-]
-
 
 def _message_to_text(message: BaseMessage) -> str:
     content = message.content
@@ -525,77 +505,6 @@ def apply_crop_one_shot_fallback(
     return entities
 
 
-def resolve_crop_for_turn_with_source(
-    messages: list[BaseMessage],
-    *,
-    prev_plan: Optional[PlannerPlan] = None,
-) -> tuple[Optional[str], str]:
-    """Resolve the crop slot as ``specific`` or the canonical ``all`` scope.
-
-    A missing/ambiguous value is represented as ``all`` for persistence and
-    downstream tools. The requirement gate still treats ``all`` as unsatisfied
-    when the selected domain needs a specific crop, so this normalization does
-    not suppress a necessary crop follow-up.
-    """
-    crop_clarify = is_crop_clarify_turn(messages, prev_plan=prev_plan)
-    latest_text = latest_human_text(messages)
-    text = recent_human_text(messages, max_turns=3) if crop_clarify else latest_text
-
-    if is_crop_output_question(text) or is_explicit_all_crop_request(text):
-        source = (
-            "deterministic_non_specific_crop_request"
-            if is_crop_output_question(text)
-            else "deterministic_all_crop_request"
-        )
-        trace_resolution(
-            "crop_scope_from_text",
-            crop="all",
-            crop_source=source,
-            text_preview=text[:120] if text else None,
-        )
-        return "all", source
-
-    crop = extract_crop_from_text(latest_text if crop_clarify else text)
-    if crop:
-        trace_resolution(
-            "crop_from_text",
-            crop=crop,
-            crop_source="legacy_crop_pattern",
-            text_preview=(latest_text if crop_clarify else text)[:120],
-        )
-        return crop, "legacy_crop_pattern"
-
-    if crop_clarify and latest_text.strip():
-        # The user answered the crop question, but did not provide a resolvable
-        # crop. Represent that answer using MongoDB's canonical all-crops value;
-        # the planner will treat this clarification turn as resolved.
-        trace_resolution(
-            "crop_clarification_fallback",
-            crop="all",
-            crop_source="crop_clarification_default_all",
-            text_preview=latest_text[:120],
-        )
-        return "all", "crop_clarification_default_all"
-
-    trace_resolution(
-        "crop_unresolved",
-        crop="all",
-        crop_source="unresolved_default_all",
-        text_preview=text[:120] if text else None,
-    )
-    return "all", "unresolved_default_all"
-
-
-def resolve_crop_for_turn(
-    messages: list[BaseMessage],
-    *,
-    prev_plan: Optional[PlannerPlan] = None,
-) -> Optional[str]:
-    """Backward-compatible crop-only wrapper around the three-state resolver."""
-    crop, _source = resolve_crop_for_turn_with_source(messages, prev_plan=prev_plan)
-    return crop
-
-
 def is_explicit_all_crop_request(text: str | None) -> bool:
     """True when the farmer explicitly asks for non-specific/all-crop handling."""
     raw = (text or "").strip()
@@ -605,16 +514,6 @@ def is_explicit_all_crop_request(text: str | None) -> bool:
 def is_crop_output_question(text: str | None) -> bool:
     """True when the farmer asks which crop/plant to grow, not for crop input."""
     return bool(_CROP_OUTPUT_RE.search((text or "").strip()))
-
-
-def extract_crop_from_text(text: str) -> Optional[str]:
-    if not text:
-        return None
-
-    for name, pattern in _CROP_PATTERNS:
-        if pattern.search(text):
-            return name
-    return None
 
 
 def entity_text_from_plan(plan: PlannerPlan, messages: list[BaseMessage]) -> str:
@@ -652,37 +551,21 @@ def merge_entities_from_rephrased_query(
     crop_output_requested = is_crop_output_question(text) or is_crop_output_question(raw_latest_text)
     explicit_all_requested = is_explicit_all_crop_request(text) or is_explicit_all_crop_request(raw_latest_text)
 
-    if is_crop_clarify_turn(messages, prev_plan=prev_plan):
-        turn_crop = (
-            "all"
-            if crop_output_requested or explicit_all_requested
-            else extract_crop_from_text(text)
-        )
-        if turn_crop:
-            crop_source = (
-                "deterministic_non_specific_crop_request (crop_clarify_turn)"
-                if turn_crop == "all"
-                else "rephrased_query_text (crop_clarify_turn)"
-            )
-            current_crop_mentioned = True
-        else:
-            turn_crop = resolve_crop_for_turn(messages, prev_plan=prev_plan)
-            if turn_crop:
-                crop_source = "recent_human_text (crop_clarify_turn)"
-                current_crop_mentioned = True
-    else:
-        turn_crop = (
-            "all"
-            if crop_output_requested or explicit_all_requested
-            else extract_crop_from_text(text)
-        )
-        if turn_crop:
-            crop_source = (
-                "deterministic_non_specific_crop_request"
-                if turn_crop == "all"
-                else "rephrased_query_text"
-            )
-            current_crop_mentioned = True
+    # The planner LLM is the only source of the crop name (it translates local
+    # names/scripts); only the non-specific "all" scope is detected here.
+    llm_crop = (plan.get("entities") or {}).get("crop")
+    clarify_suffix = (
+        " (crop_clarify_turn)" if is_crop_clarify_turn(messages, prev_plan=prev_plan) else ""
+    )
+    turn_crop: Optional[str] = None
+    if crop_output_requested or explicit_all_requested:
+        turn_crop = "all"
+        crop_source = f"deterministic_non_specific_crop_request{clarify_suffix}"
+        current_crop_mentioned = True
+    elif has_specific_crop(llm_crop):
+        turn_crop = llm_crop
+        crop_source = f"plan.entities.crop (llm){clarify_suffix}"
+        current_crop_mentioned = True
 
     if turn_crop:
         normalized_turn_crop = normalize_crop_value(turn_crop)
