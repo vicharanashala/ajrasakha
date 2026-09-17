@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import Plivo from "plivo-browser-sdk";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { useAuthStore } from "@/stores/auth-store";
 import { plivoApi } from "@/hooks/api/plivo/api";
 import { PlivoWebSocketService } from "@/hooks/services/plivoWebSocketService";
 import type { PlivoTranscriptMessage } from "@/hooks/services/plivoWebSocketService";
@@ -82,7 +83,10 @@ const normalizePhoneNumber = (rawNumber: string): string => {
 };
 
 export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser();
+  const { user: authUser } = useAuthStore();
+  const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser({
+    enabled: !!authUser,
+  });
 
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [activeCall, setActiveCall] = useState<ActiveCallInfo | null>(null);

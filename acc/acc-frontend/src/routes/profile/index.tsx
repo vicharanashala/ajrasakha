@@ -37,7 +37,8 @@ export const Route = createFileRoute("/profile/")({
 });
 
 function ProfilePage() {
-  const { data: user, isLoading } = useGetCurrentUser({});
+  const { user: authUser } = useAuthStore();
+  const { data: user, isLoading } = useGetCurrentUser({ enabled: !!authUser });
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
 
   const handleSubmit = async (data: IUser, showToast: boolean = true) => {
