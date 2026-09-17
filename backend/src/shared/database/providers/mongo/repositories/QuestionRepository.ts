@@ -575,6 +575,56 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  async getByMessageId(
+    messageId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!messageId) {
+        throw new BadRequestError('Invalid or missing messageId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { messageId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by messageId: ${error}`);
+    }
+  }
+
+  async getByThreadId(
+    threadId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!threadId) {
+        throw new BadRequestError('Invalid or missing threadId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { threadId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by threadId: ${error}`);
+    }
+  }
+
   async findByIds(ids: ObjectId[]): Promise<IQuestion[]> {
     try {
       await this.init();
@@ -9246,6 +9296,78 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     return { count, items };
+  }
+
+  /**
+   * Per-level counts for the "Questions Allocated" section. Reuses the same allocated
+   * filter as getQueueQuestionSection('allocated', ...) — open/delayed, auto-allocate,
+   * a non-empty queue, and a fresh (unacted) last history entry — then groups by the
+   * currently-allocated expert's level = max(1, history.length - 1). Totals therefore
+   * match the section's own count.
+   */
+  async getAllocatedLevelCounts(
+    sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{ level: number; count: number }[]> {
+    await this.init();
+
+    const paeScope = requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {};
+    const allocatedMatch = {
+      source: { $in: sources },
+      isAutoAllocate: { $eq: true },
+      status: { $in: ['open', 'delayed'] },
+      ...paeScope,
+    };
+
+    const rows = await this.QuestionCollection.aggregate<{ level: number; count: number }>([
+      { $match: allocatedMatch },
+      ...(!isAdmin
+        ? [
+            {
+              $match: isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } },
+            },
+          ]
+        : []),
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $addFields: { sub: { $arrayElemAt: ['$sub', 0] } } },
+      { $match: { 'sub.queue.0': { $exists: true } } },
+      { $addFields: { lastHistory: { $arrayElemAt: [{ $ifNull: ['$sub.history', []] }, -1] } } },
+      {
+        $match: {
+          'lastHistory.answer': { $in: [null] },
+          'lastHistory.approvedAnswer': { $in: [null] },
+          'lastHistory.modifiedAnswer': { $in: [null] },
+          'lastHistory.rejectedAnswer': { $in: [null] },
+        },
+      },
+      {
+        $addFields: {
+          // Author=0, Level 1=reviewer 1 … so the current expert's level is history.length-1.
+          level: {
+            $max: [
+              0,
+              { $subtract: [{ $size: { $ifNull: ['$sub.history', []] } }, 1] },
+            ],
+          },
+        },
+      },
+      { $group: { _id: '$level', count: { $sum: 1 } } },
+      { $project: { _id: 0, level: '$_id', count: 1 } },
+      { $sort: { level: 1 } },
+    ]).toArray();
+
+    return rows;
   }
 
   /** Per-status counts for the "Questions Received" section.

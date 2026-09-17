@@ -51,6 +51,15 @@ export interface IQuestionRepository {
     sources?: string[],
   ): Promise<{status: string; count: number}[]>;
 
+  /** Per-level counts for the "Questions Allocated" section — the level of the currently
+   *  allocated expert (history.length - 1). Mirrors the allocated filter so totals match. */
+  getAllocatedLevelCounts(
+    sources?: string[],
+    requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{level: number; count: number}[]>;
+
   /**
    * Adds multiple questions for a specific context and user.
    * @param userId - The ID of the user creating the questions.
@@ -147,6 +156,22 @@ export interface IQuestionRepository {
    * @returns A promise that resolves to an array of questions.
    */
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
+
+  /**
+   * Retrieves a question by its messageId.
+   * @param messageId - The message ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByMessageId(messageId: string, session?: ClientSession): Promise<IQuestion | null>;
+
+  /**
+   * Retrieves a question by its threadId.
+   * @param threadId - The thread ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByThreadId(threadId: string, session?: ClientSession): Promise<IQuestion | null>;
 
   /** Find questions referencing the given question (referenceQuestionId), optionally
    *  by status. Used to propagate a close to queue-duplicate children. */
