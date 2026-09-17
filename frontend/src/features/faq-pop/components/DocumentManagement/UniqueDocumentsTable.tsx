@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Eye, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, RefreshCw, Trash2, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { formatDate } from "@/utils/formatDate";
 import {
   getDashboardUniqueDocuments,
   getDashboardUniqueDocument,
@@ -69,6 +70,14 @@ const FIELD_COLUMNS = [
   { key: "verification_status", label: "Verification", filterable: true, options: VERIFICATION_STATUS_OPTIONS },
   { key: "verified_by", label: "Verified By", filterType: "users" },
   { key: "document_status", label: "Doc Status", filterable: true, options: DOCUMENT_STATUS_OPTIONS },
+  // translated_by/reviewed_by are the signed-in user's display name, unverified (see
+  // TranslateReviewCell.tsx) — null on every document translated/reviewed before 2026-09-16, and
+  // cleared when the translation/review is deleted (docs/first_render_frontend.md, "Who
+  // translated / reviewed, and when"). *_at is sortable — the only sortable columns.
+  { key: "translated_by", label: "Translated By", filterable: true },
+  { key: "translated_at", label: "Translated At", filterType: "dateRange", sortable: true, formatDate: true },
+  { key: "reviewed_by", label: "Reviewed By", filterable: true },
+  { key: "reviewed_at", label: "Reviewed At", filterType: "dateRange", sortable: true, formatDate: true },
   { key: "placement_count", label: "Placements" },
 ];
 const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, view-action
@@ -82,16 +91,18 @@ const MULTI_PLACEMENT_OPTIONS = [
 export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, refreshKey, onDataChanged }) {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
+  // "" | "translated_at" | "-translated_at" | "reviewed_at" | "-reviewed_at" — "-" is newest
+  // first, the only two sortable fields (docs/first_render_frontend.md).
+  const [sort, setSort] = useState("");
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [languageOptions, setLanguageOptions] = useState([]);
-  // "all" (not just active) — filtering needs to match documents verified by someone since
-  // deactivated too, not just people who could verify something today. Falls back to a free-text
-  // filter for "Verified By" while this stays empty (see the filterType "users" render branch
-  // below) — e.g. the backend's 503 case, its users collection unreachable. Doesn't need the
+  // Admins/moderators/experts from the real reviewer-system users collection (see
+  // getDashboardUsers's comment in api.ts). Falls back to a free-text filter for "Verified By"
+  // while this stays empty (see the filterType "users" render branch below). Doesn't need the
   // edit form's extra-option handling for renamed users since this is a filter, not a value
   // picker — a filter for a name nobody has isn't wrong, it's just a filter that matches nothing.
   const [userOptions, setUserOptions] = useState([]);
@@ -99,7 +110,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     getDashboardLanguages()
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
       .catch(() => {});
-    getDashboardUsers("all")
+    getDashboardUsers()
       .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
       .catch(() => {});
   }, []);
@@ -107,7 +118,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   async function load() {
     setLoading(true);
     try {
-      const data = await getDashboardUniqueDocuments(page, filters);
+      const data = await getDashboardUniqueDocuments(page, filters, sort);
       const items = data.items || [];
       setRows(items);
       setTotal(data.total || 0);
@@ -121,10 +132,23 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load();
-  }, [page, JSON.stringify(filters), refreshKey]);
+  }, [page, JSON.stringify(filters), sort, refreshKey]);
 
   function setFilter(key, values) {
     setFilters((f) => ({ ...f, [key]: values }));
+    setPage(1);
+  }
+
+  // Cycles a sortable column none -> ascending -> descending -> none. Only one column sorts at a
+  // time (the backend only accepts a single sort= value).
+  function toggleSort(key) {
+    setSort((prev) => (prev === key ? `-${key}` : prev === `-${key}` ? "" : key));
+    setPage(1);
+  }
+
+  const hasActiveFilters = Object.values(filters).some((v) => Array.isArray(v) && v.length > 0);
+  function clearFilters() {
+    setFilters({});
     setPage(1);
   }
 
@@ -248,6 +272,14 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
               </button>
             ))}
           </div>
+          {hasActiveFilters && (
+            <button
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              onClick={clearFilters}
+            >
+              <X size={12} /> Clear all filters
+            </button>
+          )}
           <button
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             onClick={load}
@@ -294,12 +326,39 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       onChange={(a, b) => setRange(col.key, "min", "max", a, b)}
                     />
                   ) : col.filterType === "dateRange" ? (
-                    <DateRangeColumnFilter
-                      label={col.label}
-                      from={filters[`${col.key}_from`]?.[0]}
-                      to={filters[`${col.key}_to`]?.[0]}
-                      onChange={(a, b) => setRange(col.key, "from", "to", a, b)}
-                    />
+                    <div className="flex items-center gap-1">
+                      <DateRangeColumnFilter
+                        label={col.label}
+                        from={filters[`${col.key}_from`]?.[0]}
+                        to={filters[`${col.key}_to`]?.[0]}
+                        onChange={(a, b) => setRange(col.key, "from", "to", a, b)}
+                      />
+                      {col.sortable && (
+                        <button
+                          className={`shrink-0 rounded p-0.5 transition-colors cursor-pointer ${
+                            sort === col.key || sort === `-${col.key}`
+                              ? "text-primary"
+                              : "text-muted-foreground/50 hover:text-foreground"
+                          }`}
+                          title={
+                            sort === col.key
+                              ? "Sorted oldest first — click for newest first"
+                              : sort === `-${col.key}`
+                                ? "Sorted newest first — click to stop sorting"
+                                : `Sort by ${col.label}`
+                          }
+                          onClick={() => toggleSort(col.key)}
+                        >
+                          {sort === col.key ? (
+                            <ArrowUp size={11} />
+                          ) : sort === `-${col.key}` ? (
+                            <ArrowDown size={11} />
+                          ) : (
+                            <ArrowUpDown size={11} />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   ) : col.filterType === "users" ? (
                     userOptions.length > 0 ? (
                       <ColumnFilter
@@ -372,6 +431,15 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                 >
                   {FIELD_COLUMNS.map((col) => {
                     const val = row[col.key];
+                    if (col.formatDate) {
+                      return (
+                        <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">
+                          <span className="block truncate text-foreground" title={val || ""}>
+                            {val ? formatDate(new Date(val)) : "—"}
+                          </span>
+                        </td>
+                      );
+                    }
                     if (col.link && val) {
                       return (
                         <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">

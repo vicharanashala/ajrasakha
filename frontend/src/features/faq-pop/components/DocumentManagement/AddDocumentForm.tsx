@@ -87,9 +87,9 @@ export default function AddDocumentForm({ onUploadQueued }) {
 
   const [stateOptions, setStateOptions] = useState([]);
   const [languageOptions, setLanguageOptions] = useState([]);
-  // Active users only — this is who a document should get verified by going forward, not the
-  // full roster. Falls back to a plain text input in MetadataFieldInput if the list is empty
-  // (e.g. the backend's 503 case, its users collection unreachable).
+  // Admins/moderators/experts from the real reviewer-system users collection (see
+  // getDashboardUsers's comment in api.ts). Falls back to a plain text input in
+  // MetadataFieldInput if the list is empty (e.g. request failed).
   const [userOptions, setUserOptions] = useState([]);
   const [folderOptions, setFolderOptions] = useState([]);
   const [newOrg, setNewOrg] = useState("");

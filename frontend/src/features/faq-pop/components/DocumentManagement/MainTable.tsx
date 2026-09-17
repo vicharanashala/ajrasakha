@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Eye, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Eye, Pencil, Trash2, RefreshCw, X } from "lucide-react";
 import {
   getDashboardDocuments,
   updateDashboardDocument,
@@ -116,6 +116,11 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
     value: f.id,
     label: f.name || "(no folder)",
   }));
+  const hasActiveFilters = Object.values(filters).some((v) => Array.isArray(v) && v.length > 0);
+  function clearFilters() {
+    setFilters({});
+    setPage(1);
+  }
 
   const [editingId, setEditingId] = useState(null);
   const [editState, setEditState] = useState("");
@@ -203,12 +208,22 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">Documents</h2>
-        <button
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          onClick={load}
-        >
-          <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {hasActiveFilters && (
+            <button
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              onClick={clearFilters}
+            >
+              <X size={12} /> Clear all filters
+            </button>
+          )}
+          <button
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            onClick={load}
+          >
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
