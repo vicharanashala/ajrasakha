@@ -16,6 +16,7 @@ import {
   BadRequestError,
   InternalServerError,
   ForbiddenError,
+  UseBefore,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -23,6 +24,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
+import { InternalApiAuth } from '#root/shared/index.js';
 import { AnswerService } from '../services/AnswerService.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
@@ -627,4 +629,23 @@ export class AnswerController {
     );
   }
 
+  @OpenAPI({ summary: 'Get question and final answer by messageId' })
+  @Get('/message/:id')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  async getAnswerByMessageId(
+    @Param('id') id: string,
+  ) {
+    return this.answerService.getAnswerByMessageOrThreadId(id);
+  }
+
+  @OpenAPI({ summary: 'Get question and final answer by threadId' })
+  @Get('/thread/:id')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  async getAnswerByThreadId(
+    @Param('id') id: string,
+  ) {
+    return this.answerService.getAnswerByMessageOrThreadId(id);
+  }
 }
