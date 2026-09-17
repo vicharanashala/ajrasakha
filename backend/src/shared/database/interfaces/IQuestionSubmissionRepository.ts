@@ -4,6 +4,7 @@ import {
   IReviewerHeatmapResponse,
   ISubmissionHistory,
   LevelReportStat,
+  PAEAction,
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
@@ -359,11 +360,12 @@ export interface IQuestionSubmissionRepository {
   ): Promise<boolean>;
   /**
    * Update the PAE validation status in the question submission's paeValidation array.
-   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * Finds the entry matching the given paeId and updates its paeStatus, paeFinishedAt, and optional paeAction.
    * @param questionId - The question ID
    * @param paeId - The PAE expert's user ID to match in the array
    * @param paeStatus - The new status ('in-progress' | 'completed')
    * @param paeFinishedAt - The completion timestamp (null for in-progress)
+   * @param paeAction - The action taken ('approve' | 'suggestion')
    * @param session - Optional MongoDB client session for transactions
    */
   updatePaeValidationStatus(
@@ -371,6 +373,7 @@ export interface IQuestionSubmissionRepository {
     paeId: string,
     paeStatus: 'in-progress' | 'completed',
     paeFinishedAt: Date | null,
+    paeAction?: PAEAction | 'approve' | 'suggestion',
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }>;
 

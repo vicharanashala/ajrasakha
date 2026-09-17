@@ -905,6 +905,7 @@ export interface IQuestionService {
       paeAssignedAt: Date;
       paeFinishedAt: Date | null;
       paeStatus: string;
+      paeAction?: string;
     }[];
   }>;
 
