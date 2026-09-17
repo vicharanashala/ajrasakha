@@ -1,4 +1,4 @@
-import { injectable } from 'inversify';
+import { injectable, inject, optional } from 'inversify';
 import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
@@ -78,9 +78,109 @@ function escapeCsvField(value: string): string {
     return value;
 }
 
+const DB_COLLECTION = 'tester_test_cases';
+const DATABASE_TOKEN = Symbol.for('Database');
+
+interface DatabaseProvider {
+    getCollection<T>(name: string): Promise<any>;
+}
+
+export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
+    return {
+        'Test ID': entry._id ? String(entry._id) : '',
+        'Test Date': entry.testDate || (entry.createdAt ? new Date(entry.createdAt).toISOString().slice(0, 10) : ''),
+        'Tester Name': entry.testerName || '',
+        'Type of Question': entry.typeOfQuestion || '',
+        'Build / Version': entry.buildVersion || '',
+        'Sprint / Cycle': entry.sprintCycle || '',
+        'Channel Tested': entry.channelTested || '',
+        'Language Tested': entry.languageTested || '',
+        'Question ID': entry.threadId || '',
+        'Query Text (Original)': entry.queryText || '',
+        'Question Category': entry.questionCategory || '',
+        'Time Question Asked (HH:MM:SS)': entry.timeQuestionAsked || '',
+        'Time Answer Received (HH:MM:SS)': entry.timeAnswerReceived || '',
+        'Response Time (mins) [Auto] (HH:MM:SS)': entry.responseTimeMins || '',
+        'SLA Status': entry.slaStatus || '',
+        'Question in Review Model?': entry.questionInReviewModel || '',
+        'Question Correctly Framed?': entry.questionCorrectlyFramed || '',
+        'Original Language': entry.originalLanguage || '',
+        'Translated Language': entry.translatedLanguage || '',
+        'Translation Quality': entry.translationQuality || '',
+        'Translation Error Type': entry.translationErrorType || '',
+        'Tagging': entry.tagging || '',
+        'Allocated to Reviewer?': entry.allocatedToReviewer || '',
+        "Author's Name": entry.authorsName || '',
+        'Author Assignment Time': entry.authorAssignmentTime || '',
+        'Author Completion Time': entry.authorCompletionTime || '',
+        'Author TAT (mins) [Auto]': entry.authorTatMins || '',
+        'Reviewer1 Name': entry.reviewer1Name || '',
+        'Reviewer1 Assignment Time': entry.reviewer1AssignmentTime || '',
+        'Reviewer1 Completion Time': entry.reviewer1CompletionTime || '',
+        'Review1 TAT (mins) [Auto]': entry.review1TatMins || '',
+        'Reviewer2 Name': entry.reviewer2Name || '',
+        'Reviewer2 Assignment Time': entry.reviewer2AssignmentTime || '',
+        'Reviewer2 Completion Time': entry.reviewer2CompletionTime || '',
+        'Review2 TAT (mins) [Auto]': entry.review2TatMins || '',
+        'Reviewer3 Name': entry.reviewer3Name || '',
+        'Reviewer3 Assignment Time': entry.reviewer3AssignmentTime || '',
+        'Reviewer3 Completion Time': entry.reviewer3CompletionTime || '',
+        'Review3 TAT (mins) [Auto]': entry.review3TatMins || '',
+        'Reviewer4 Name': entry.reviewer4Name || '',
+        'Reviewer4 Assignment Time': entry.reviewer4AssignmentTime || '',
+        'Reviewer4 Completion Time': entry.reviewer4CompletionTime || '',
+        'Review4 TAT (mins) [Auto]': entry.review4TatMins || '',
+        'Reviewer5 Name': entry.reviewer5Name || '',
+        'Reviewer5 Assignment Time': entry.reviewer5AssignmentTime || '',
+        'Reviewer5 Completion Time': entry.reviewer5CompletionTime || '',
+        'Review5 TAT (mins) [Auto]': entry.review5TatMins || '',
+        "Moderator's Name": entry.moderatorName || '',
+        'Moderator Assignment Time': entry.moderatorAssignmentTime || '',
+        'ModeratorCompletion Time': entry.moderatorCompletionTime || '',
+        'Moderator TAT (mins) [Auto]': entry.moderatorTatMins || '',
+        'Follow-up Q in Review Model?': entry.followUpQInReviewModel || '',
+        'Answer Scientifically Correct?': entry.answerScientificallyCorrect || '',
+        'Expert Name Displayed?': entry.expertNameDisplayed || '',
+        'Correct Expert Name displayed?': entry.correctExpertNameDisplayed || '',
+        'Correct Source Links Provided?': entry.correctSourceLinksProvided || '',
+        '120-min Msg Shown to User?': entry.msg120MinShownToUser || '',
+        'Notification Received?': entry.notificationReceived || '',
+        'Notification on Same Thread?': entry.notificationOnSameThread || '',
+        'Notification Linked Correct Q-ID?': entry.notificationLinkedCorrectQId || '',
+        'Voice Input Working?': entry.voiceInputWorking || '',
+        'Voice Output Working?': entry.voiceOutputWorking || '',
+        'Voice Input Quality': entry.voiceInputQuality || '',
+        'Voice Output Quality': entry.voiceOutputQuality || '',
+        'Voice Issue Description': entry.voiceIssueDescription || '',
+        'Weather Q Answered Correctly?': entry.weatherQAnsweredCorrectly || '',
+        'Mandi Price Q Correct?': entry.mandiPriceQCorrect || '',
+        'Scheme Q Correct?': entry.schemeQCorrect || '',
+        'Question Saved in DB?': entry.questionSavedInDb || '',
+        'Answer Saved in DB?': entry.answerSavedInDb || '',
+        'Q-ID Consistent Across Systems?': entry.qIdConsistentAcrossSystems || '',
+        'WhatsApp vs Web Answer Match?': entry.whatsappVsWebAnswerMatch || '',
+        'Overall Test Status': entry.overallTestStatus || '',
+        'Defect Severity': entry.defectSeverity || '',
+        "Defect ID / Bug Ref\nZoho Desk Ticketing": entry.defectIdBugRef || '',
+        'Reviewer Remarks': entry.reviewerRemarks || '',
+        'Tester Remarks': entry.testerRemarks || '',
+        'Status': entry.status || '',
+    };
+}
+
 @injectable()
 export class TestersDashboardService implements ITestersDashboardService {
     private cachedRecords: TestersDashboardRecord[] | null = null;
+    private cachedDbRecords: TestersDashboardRecord[] | null = null;
+    private cachedDbRecordsTimestamp: number = 0;
+    private cachedDbLastSyncedAt: string | null = null;
+    private readonly DB_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+
+    constructor(
+        @optional()
+        @inject(DATABASE_TOKEN)
+        private readonly db?: DatabaseProvider,
+    ) { }
 
     private parseCSV(filePath: string): Promise<TestersDashboardRecord[]> {
         return new Promise((resolve, reject) => {
@@ -116,7 +216,57 @@ export class TestersDashboardService implements ITestersDashboardService {
         });
     }
 
-    async getData(): Promise<TestersDashboardDataResponse> {
+    private async getDbRecords(): Promise<{ records: TestersDashboardRecord[]; lastSyncedAt: string | null }> {
+        const now = Date.now();
+        if (this.cachedDbRecords && now - this.cachedDbRecordsTimestamp < this.DB_CACHE_TTL_MS) {
+            return {
+                records: this.cachedDbRecords,
+                lastSyncedAt: this.cachedDbLastSyncedAt,
+            };
+        }
+
+        if (!this.db) {
+            console.warn('[TestersDashboard] Database provider is not available for db source.');
+            return { records: [], lastSyncedAt: null };
+        }
+
+        try {
+            const collection = await this.db.getCollection(DB_COLLECTION);
+            const docs = await collection.find({}).sort({ createdAt: -1 }).toArray();
+            const records: TestersDashboardRecord[] = docs.map(mapTesterLogEntryToRecord);
+
+            let latestDate: Date | null = null;
+            for (const doc of docs) {
+                const d = doc.updatedAt || doc.createdAt;
+                if (d) {
+                    const dt = new Date(d);
+                    if (!latestDate || dt > latestDate) latestDate = dt;
+                }
+            }
+            const lastSyncedAt = latestDate ? latestDate.toISOString() : (records.length > 0 ? new Date().toISOString() : null);
+
+            this.cachedDbRecords = records;
+            this.cachedDbRecordsTimestamp = now;
+            this.cachedDbLastSyncedAt = lastSyncedAt;
+
+            return { records, lastSyncedAt };
+        } catch (err) {
+            console.error('[TestersDashboard] Error fetching tester_test_cases from database:', err);
+            return { records: [], lastSyncedAt: null };
+        }
+    }
+
+    async getData(source: 'sheet' | 'db' = 'sheet'): Promise<TestersDashboardDataResponse> {
+        if (source === 'db') {
+            const { records, lastSyncedAt } = await this.getDbRecords();
+            return {
+                success: true,
+                totalRecords: records.length,
+                records,
+                lastSyncedAt,
+            };
+        }
+
         if (!fs.existsSync(CSV_PATH)) {
             return { success: false, totalRecords: 0, records: [], lastSyncedAt: null };
         }
@@ -194,18 +344,31 @@ export class TestersDashboardService implements ITestersDashboardService {
     }
 
     async getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse> {
-        const allRecords = await this.getRecordsForSummary();
-        if (!fs.existsSync(CSV_PATH)) {
-            return {
-                success: false,
-                totalRecords: 0,
-                kpis: calculateKpis([]),
-                diagnostics: calculateDiagnostics([]),
-                chartData: calculateChartData([]),
-                previousPeriodStats: null,
-                filterOptions: buildFilterOptions([]),
-                lastSyncedAt: null,
-            };
+        const isDb = query.source === 'db';
+
+        let allRecords: TestersDashboardRecord[];
+        let lastSyncedAt: string | null = null;
+
+        if (isDb) {
+            const dbData = await this.getDbRecords();
+            allRecords = dbData.records;
+            lastSyncedAt = dbData.lastSyncedAt;
+        } else {
+            allRecords = await this.getRecordsForSummary();
+            if (!fs.existsSync(CSV_PATH)) {
+                return {
+                    success: false,
+                    totalRecords: 0,
+                    kpis: calculateKpis([]),
+                    diagnostics: calculateDiagnostics([]),
+                    chartData: calculateChartData([]),
+                    previousPeriodStats: null,
+                    filterOptions: buildFilterOptions([]),
+                    lastSyncedAt: null,
+                };
+            }
+            const stats = fs.statSync(CSV_PATH);
+            lastSyncedAt = stats.mtime.toISOString();
         }
 
         const filters = this.buildFiltersFromQuery(query);
@@ -235,8 +398,6 @@ export class TestersDashboardService implements ITestersDashboardService {
         // tester never touched).
         const filterOptions = buildFilterOptions(allRecords);
 
-        const stats = fs.statSync(CSV_PATH);
-
         return {
             success: true,
             totalRecords: allRecords.length,
@@ -245,7 +406,7 @@ export class TestersDashboardService implements ITestersDashboardService {
             chartData,
             previousPeriodStats,
             filterOptions,
-            lastSyncedAt: stats.mtime.toISOString(),
+            lastSyncedAt,
         };
     }
 

@@ -27,11 +27,10 @@ export interface TestersDashboardSummaryResponse {
 
 export interface ITestersDashboardService {
     /**
-     * Reads and parses the ACE QA tracking CSV, same shape/quirks as the
-     * standalone outreach_stt dashboard: finds the "Test ID," header row and
-     * skips boilerplate rows above it, then filters out blank/"Project:" rows.
+     * Reads QA tracking records from Google Sheet CSV (source='sheet') or
+     * MongoDB tester_test_cases collection (source='db').
      */
-    getData(): Promise<TestersDashboardDataResponse>;
+    getData(source?: 'sheet' | 'db'): Promise<TestersDashboardDataResponse>;
 
     /**
      * Server-side-filtered/computed dashboard summary: applies the given

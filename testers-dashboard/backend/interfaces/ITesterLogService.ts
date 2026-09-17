@@ -135,11 +135,17 @@ export interface ITesterLogService {
         userId: string,
         page: number,
         limit: number,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
     ): Promise<PaginatedTesterLogEntries>;
 
     getAllEntries(
         page: number,
         limit: number,
         testerId?: string,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
     ): Promise<PaginatedTesterLogEntries>;
 }

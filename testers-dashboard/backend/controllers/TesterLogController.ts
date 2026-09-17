@@ -70,7 +70,14 @@ export class TesterLogController {
         if (!userId) throw new BadRequestError('Could not resolve user ID');
         const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10) || 20));
-        return this.testerLogService.getMyEntries(userId, page, limit);
+        return this.testerLogService.getMyEntries(
+            userId,
+            page,
+            limit,
+            query.startDate,
+            query.endDate,
+            query.dateField,
+        );
     }
 
     @OpenAPI({
@@ -84,6 +91,13 @@ export class TesterLogController {
     ) {
         const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10) || 20));
-        return this.testerLogService.getAllEntries(page, limit, query.testerId);
+        return this.testerLogService.getAllEntries(
+            page,
+            limit,
+            query.testerId,
+            query.startDate,
+            query.endDate,
+            query.dateField,
+        );
     }
 }

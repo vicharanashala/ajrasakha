@@ -56,6 +56,41 @@ function computeHmsDiff(start?: string, end?: string, defaultDate?: string): str
     return `${hh}:${mm}:${ss}`;
 }
 
+function buildDateFilter(
+    startDate?: string,
+    endDate?: string,
+    dateField?: string,
+): Record<string, any> | null {
+    if (!startDate && !endDate) return null;
+
+    const sDate = startDate ? startDate.trim().slice(0, 10) : undefined;
+    const eDate = endDate ? endDate.trim().slice(0, 10) : undefined;
+
+    const testDateFilter: Record<string, string> = {};
+    if (sDate) testDateFilter.$gte = sDate;
+    if (eDate) testDateFilter.$lte = eDate;
+
+    const createdFilter: Record<string, Date> = {};
+    if (sDate) createdFilter.$gte = new Date(`${sDate}T00:00:00.000Z`);
+    if (eDate) createdFilter.$lte = new Date(`${eDate}T23:59:59.999Z`);
+
+    if (dateField === 'createdAt') {
+        return { createdAt: createdFilter };
+    }
+
+    return {
+        $or: [
+            { testDate: testDateFilter },
+            {
+                $and: [
+                    { testDate: { $in: [null, ''] } },
+                    { createdAt: createdFilter },
+                ],
+            },
+        ],
+    };
+}
+
 @injectable()
 export class TesterLogService implements ITesterLogService {
     constructor(
@@ -101,9 +136,17 @@ export class TesterLogService implements ITesterLogService {
         userId: string,
         page: number,
         limit: number,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
     ): Promise<PaginatedTesterLogEntries> {
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
-        const filter = { submittedByUserId: userId };
+        const filter: Record<string, any> = { submittedByUserId: userId };
+        const dateFilter = buildDateFilter(startDate, endDate, dateField);
+        if (dateFilter) {
+            Object.assign(filter, dateFilter);
+        }
+
         const [entries, total] = await Promise.all([
             collection
                 .find(filter)
@@ -128,9 +171,17 @@ export class TesterLogService implements ITesterLogService {
         page: number,
         limit: number,
         testerId?: string,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
     ): Promise<PaginatedTesterLogEntries> {
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const filter: Record<string, any> = testerId ? { submittedByUserId: testerId } : {};
+        const dateFilter = buildDateFilter(startDate, endDate, dateField);
+        if (dateFilter) {
+            Object.assign(filter, dateFilter);
+        }
+
         const [entries, total] = await Promise.all([
             collection
                 .find(filter)

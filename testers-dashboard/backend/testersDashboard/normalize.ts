@@ -556,6 +556,14 @@ export function parseTestDateToISO(dateStr?: string): string | null {
     if (!s || isNAlike(s)) return null;
     if (KNOWN_DATE_TYPOS[s]) return KNOWN_DATE_TYPOS[s];
 
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const [y, m, d] = s.split('-').map(Number);
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 2020 && y <= 2026) {
+            return s;
+        }
+        return warnUnparseableDate(s, 'ISO date with out-of-range day/month/year');
+    }
+
     const monthNameMatch = s.match(/^(\d{1,2})[-\s]+([A-Za-z]+)[-\s]+(\d{4})$/);
     if (monthNameMatch) {
         const day = parseInt(monthNameMatch[1], 10);

@@ -4,6 +4,7 @@ import { env } from "@/config/env";
 const API_BASE_URL = env.apiBaseUrl();
 
 export interface ITestersDashboardSummaryQuery {
+    source?: 'sheet' | 'db';
     dateRange?: string;
     customStart?: string;
     customEnd?: string;
@@ -277,6 +278,7 @@ export class TestersDashboardSummaryService {
 
     async getSummary(query: ITestersDashboardSummaryQuery): Promise<ITestersDashboardSummaryResponse> {
         const params = new URLSearchParams();
+        if (query.source) params.append("source", query.source);
         if (query.dateRange) params.append("dateRange", query.dateRange);
         if (query.customStart) params.append("customStart", query.customStart);
         if (query.customEnd) params.append("customEnd", query.customEnd);

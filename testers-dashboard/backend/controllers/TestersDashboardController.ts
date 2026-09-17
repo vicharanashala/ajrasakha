@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { JsonController, Get, Authorized, QueryParams } from 'routing-controllers';
+import { JsonController, Get, Authorized, QueryParams, QueryParam } from 'routing-controllers';
 import { inject } from 'inversify';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { DASHBOARD_TYPES } from '../types.js';
@@ -24,8 +24,8 @@ export class TestersDashboardController {
     })
     @Authorized(['admin'])
     @Get('/data')
-    async getData() {
-        return this.testersDashboardService.getData();
+    async getData(@QueryParam('source') source?: 'sheet' | 'db') {
+        return this.testersDashboardService.getData(source);
     }
 
     @OpenAPI({

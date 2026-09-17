@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTesterLogHistory } from "../hooks/useTesterLogHistory";
 import type { ITesterLogEntry } from "../types";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Loader2, RotateCcw } from "lucide-react";
 
 function Badge({ value }: { value?: string }) {
     if (!value) return <span className="text-muted-foreground text-xs">—</span>;
@@ -137,83 +137,239 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
     );
 }
 
+type DatePreset = "all" | "today" | "7days" | "30days" | "custom";
+
 export function TesterLogHistory() {
     const [page, setPage] = useState(1);
+    const [preset, setPreset] = useState<DatePreset>("all");
+    const [customStart, setCustomStart] = useState("");
+    const [customEnd, setCustomEnd] = useState("");
+    const [dateField, setDateField] = useState<"testDate" | "createdAt">("testDate");
+
     const LIMIT = 20;
-    const { data, isLoading, isError } = useTesterLogHistory(page, LIMIT);
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading your submissions...</span>
-            </div>
-        );
-    }
+    const { startDate, endDate } = useMemo(() => {
+        const now = new Date();
+        const todayStr = now.toISOString().slice(0, 10);
+        if (preset === "today") {
+            return { startDate: todayStr, endDate: todayStr };
+        }
+        if (preset === "7days") {
+            const past7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            return { startDate: past7, endDate: todayStr };
+        }
+        if (preset === "30days") {
+            const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            return { startDate: past30, endDate: todayStr };
+        }
+        if (preset === "custom") {
+            return {
+                startDate: customStart || undefined,
+                endDate: customEnd || undefined,
+            };
+        }
+        return { startDate: undefined, endDate: undefined };
+    }, [preset, customStart, customEnd]);
 
-    if (isError || !data) {
-        return (
-            <div className="text-center py-16 text-destructive text-sm">
-                Failed to load history. Please try again.
-            </div>
-        );
-    }
+    const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd);
 
-    if (data.entries.length === 0) {
-        return (
-            <div className="text-center py-16 text-muted-foreground text-sm">
-                You have not submitted any test cases yet.
-            </div>
-        );
-    }
+    const { data, isLoading, isError } = useTesterLogHistory(
+        page,
+        LIMIT,
+        startDate,
+        endDate,
+        dateField,
+    );
+
+    const clearFilter = () => {
+        setPreset("all");
+        setCustomStart("");
+        setCustomEnd("");
+        setDateField("testDate");
+        setPage(1);
+    };
 
     return (
         <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-                Showing {data.entries.length} of {data.total} entries. Click a row to expand details.
-            </p>
-
-            <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="bg-muted/60 border-b border-border">
-                            {["Test Date", "Thread ID", "Query Text", "Overall Status", "Status", "Submitted At", ""].map(h => (
-                                <th key={h} className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">
-                                    {h}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.entries.map(entry => (
-                            <EntryRow key={entry._id} entry={entry} />
+            {/* Filter Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-card border border-border rounded-lg shadow-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mr-1">
+                        <Calendar className="h-3.5 w-3.5 text-primary" />
+                        <span>Date Filter:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                        {[
+                            { key: "all" as const, label: "All Time" },
+                            { key: "today" as const, label: "Today" },
+                            { key: "7days" as const, label: "Last 7 Days" },
+                            { key: "30days" as const, label: "Last 30 Days" },
+                            { key: "custom" as const, label: "Custom" },
+                        ].map(p => (
+                            <button
+                                key={p.key}
+                                type="button"
+                                onClick={() => {
+                                    setPreset(p.key);
+                                    setPage(1);
+                                }}
+                                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                                    preset === p.key
+                                        ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                                        : "text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                                }`}
+                            >
+                                {p.label}
+                            </button>
                         ))}
-                    </tbody>
-                </table>
+                    </div>
+
+                    {/* Target Date Field Selector */}
+                    <div className="flex items-center gap-1.5 pl-2 ml-1 border-l border-border text-xs text-muted-foreground">
+                        <span>Filter by:</span>
+                        <select
+                            value={dateField}
+                            onChange={e => {
+                                setDateField(e.target.value as "testDate" | "createdAt");
+                                setPage(1);
+                            }}
+                            className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none cursor-pointer"
+                        >
+                            <option value="testDate">Test Date</option>
+                            <option value="createdAt">Submission Date</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Custom date range inputs */}
+                {preset === "custom" && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground font-medium">From:</span>
+                            <input
+                                type="date"
+                                value={customStart}
+                                onChange={e => {
+                                    setCustomStart(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground font-medium">To:</span>
+                            <input
+                                type="date"
+                                value={customEnd}
+                                onChange={e => {
+                                    setCustomEnd(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Clear button */}
+                {hasActiveFilter && (
+                    <button
+                        type="button"
+                        onClick={clearFilter}
+                        className="flex items-center gap-1 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-muted transition-colors ml-auto"
+                        title="Clear date filter"
+                    >
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Clear Filter</span>
+                    </button>
+                )}
             </div>
 
-            {/* Pagination */}
-            {data.totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 pt-2">
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="px-3 py-1.5 rounded-md border border-border text-sm disabled:opacity-40 hover:bg-accent transition-colors"
-                    >
-                        ← Previous
-                    </button>
-                    <span className="text-sm text-muted-foreground">
-                        Page {page} of {data.totalPages}
-                    </span>
-                    <button
-                        onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
-                        disabled={page === data.totalPages}
-                        className="px-3 py-1.5 rounded-md border border-border text-sm disabled:opacity-40 hover:bg-accent transition-colors"
-                    >
-                        Next →
-                    </button>
+            {/* Content States */}
+            {isLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading your submissions...</span>
                 </div>
+            ) : isError || !data ? (
+                <div className="text-center py-16 text-destructive text-sm bg-destructive/5 rounded-lg border border-destructive/20">
+                    Failed to load history. Please try again.
+                </div>
+            ) : data.entries.length === 0 ? (
+                hasActiveFilter ? (
+                    <div className="text-center py-14 space-y-3 bg-muted/20 rounded-lg border border-dashed border-border">
+                        <Calendar className="h-8 w-8 text-muted-foreground mx-auto opacity-40" />
+                        <div className="text-sm font-medium text-foreground">
+                            No submissions found for the selected date filter.
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Try adjusting your date range or clear the filter to see all test cases.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={clearFilter}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Show All Submissions
+                        </button>
+                    </div>
+                ) : (
+                    <div className="text-center py-16 text-muted-foreground text-sm">
+                        You have not submitted any test cases yet.
+                    </div>
+                )
+            ) : (
+                <>
+                    <p className="text-sm text-muted-foreground">
+                        Showing {data.entries.length} of {data.total} entries
+                        {hasActiveFilter ? " (filtered)" : ""}. Click a row to expand details.
+                    </p>
+
+                    <div className="overflow-x-auto rounded-lg border border-border">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-muted/60 border-b border-border">
+                                    {["Test Date", "Thread ID", "Query Text", "Overall Status", "Status", "Submitted At", ""].map(h => (
+                                        <th key={h} className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                                            {h}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.entries.map(entry => (
+                                    <EntryRow key={entry._id} entry={entry} />
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {data.totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-3 py-1.5 rounded-md border border-border text-sm disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                            >
+                                ← Previous
+                            </button>
+                            <span className="text-sm text-muted-foreground">
+                                Page {page} of {data.totalPages}
+                            </span>
+                            <button
+                                onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
+                                disabled={page === data.totalPages}
+                                className="px-3 py-1.5 rounded-md border border-border text-sm disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                            >
+                                Next →
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
 }
+

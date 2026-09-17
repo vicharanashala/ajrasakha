@@ -22,16 +22,36 @@ export class TesterLogService {
         return response;
     }
 
-    async getMyHistory(page = 1, limit = 20): Promise<IPaginatedTesterLogEntries> {
-        const url = `${this.baseUrl}/my?page=${page}&limit=${limit}`;
+    async getMyHistory(
+        page = 1,
+        limit = 20,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
+    ): Promise<IPaginatedTesterLogEntries> {
+        const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (startDate) params.set("startDate", startDate);
+        if (endDate) params.set("endDate", endDate);
+        if (dateField) params.set("dateField", dateField);
+        const url = `${this.baseUrl}/my?${params.toString()}`;
         const response = await apiFetch<IPaginatedTesterLogEntries>(url);
         if (!response) throw new Error("Failed to fetch test case history");
         return response;
     }
 
-    async getAllEntries(page = 1, limit = 20, testerId?: string): Promise<IPaginatedTesterLogEntries> {
+    async getAllEntries(
+        page = 1,
+        limit = 20,
+        testerId?: string,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
+    ): Promise<IPaginatedTesterLogEntries> {
         const params = new URLSearchParams({ page: String(page), limit: String(limit) });
         if (testerId) params.set("testerId", testerId);
+        if (startDate) params.set("startDate", startDate);
+        if (endDate) params.set("endDate", endDate);
+        if (dateField) params.set("dateField", dateField);
         const url = `${this.baseUrl}/all?${params.toString()}`;
         const response = await apiFetch<IPaginatedTesterLogEntries>(url);
         if (!response) throw new Error("Failed to fetch all test case entries");

@@ -242,4 +242,76 @@ describe('TestersDashboardService.getSummary', () => {
             expect(readSpy).toHaveBeenCalled();
         });
     });
+
+    describe('database source (source="db")', () => {
+        it('queries tester_test_cases collection, maps entries, and computes identical KPIs', async () => {
+            const mockEntries = [
+                {
+                    _id: 'mock-1',
+                    testDate: '2026-06-10',
+                    testerName: 'Joydeep',
+                    typeOfQuestion: 'Dynamic',
+                    questionCategory: 'Weather',
+                    channelTested: 'Web App',
+                    languageTested: 'English',
+                    overallTestStatus: 'Pass',
+                    defectSeverity: 'Low',
+                    answerScientificallyCorrect: 'Correct',
+                    weatherQAnsweredCorrectly: 'Yes',
+                    timeQuestionAsked: '10:00:00',
+                    timeAnswerReceived: '10:02:00',
+                    responseTimeMins: '00:02:00',
+                    slaStatus: 'Within SLA',
+                    createdAt: new Date('2026-06-10T10:00:00Z'),
+                    updatedAt: new Date('2026-06-10T10:02:00Z'),
+                },
+                {
+                    _id: 'mock-2',
+                    testDate: '2026-06-10',
+                    testerName: 'Joydeep',
+                    typeOfQuestion: 'Dynamic',
+                    questionCategory: 'Weather',
+                    channelTested: 'Web App',
+                    languageTested: 'English',
+                    overallTestStatus: 'Fail',
+                    defectSeverity: 'Critical',
+                    defectIdBugRef: 'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000001657999',
+                    answerScientificallyCorrect: 'Incorrect',
+                    weatherQAnsweredCorrectly: 'No',
+                    timeQuestionAsked: '11:00:00',
+                    timeAnswerReceived: '11:05:00',
+                    responseTimeMins: '00:05:00',
+                    slaStatus: 'SLA Breached',
+                    createdAt: new Date('2026-06-10T11:00:00Z'),
+                    updatedAt: new Date('2026-06-10T11:05:00Z'),
+                },
+            ];
+
+            const mockDb = {
+                getCollection: vi.fn().mockResolvedValue({
+                    find: vi.fn().mockReturnValue({
+                        sort: vi.fn().mockReturnValue({
+                            toArray: vi.fn().mockResolvedValue(mockEntries),
+                        }),
+                    }),
+                }),
+            };
+
+            const dbService = new TestersDashboardService(mockDb as any);
+            const dataResult = await dbService.getData('db');
+            expect(dataResult.success).toBe(true);
+            expect(dataResult.totalRecords).toBe(2);
+            expect(dataResult.records[0]['Test ID']).toBe('mock-1');
+            expect(dataResult.records[0]['Overall Test Status']).toBe('Pass');
+
+            const summaryResult = await dbService.getSummary({ source: 'db' });
+            expect(summaryResult.success).toBe(true);
+            expect(summaryResult.totalRecords).toBe(2);
+            expect(summaryResult.kpis.totalPassed).toBe(1);
+            expect(summaryResult.kpis.totalFailed).toBe(1);
+            expect(summaryResult.kpis.passRate).toBe(50);
+            expect(summaryResult.diagnostics.openTickets.length).toBe(1);
+            expect(summaryResult.diagnostics.openTickets[0].id).toBe('202216000001657999');
+        });
+    });
 });

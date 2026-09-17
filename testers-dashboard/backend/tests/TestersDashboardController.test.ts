@@ -110,12 +110,26 @@ describe('TestersDashboardController', () => {
                 expect(res.status).toBe(200);
             }
         });
+
+        it('passes source=db query param through to service.getSummary()', async () => {
+            await request(app).get('/dashboard/testers/summary').query({ source: 'db' });
+            expect(mockTestersDashboardService.getSummary).toHaveBeenCalledWith(
+                expect.objectContaining({ source: 'db' }),
+            );
+        });
     });
 
     describe('GET /dashboard/testers/data (existing route, unaffected)', () => {
         it('still returns 200', async () => {
             const res = await request(app).get('/dashboard/testers/data');
             expect(res.status).toBe(200);
+            expect(mockTestersDashboardService.getData).toHaveBeenCalledWith(undefined);
+        });
+
+        it('passes source=db to service.getData()', async () => {
+            const res = await request(app).get('/dashboard/testers/data').query({ source: 'db' });
+            expect(res.status).toBe(200);
+            expect(mockTestersDashboardService.getData).toHaveBeenCalledWith('db');
         });
     });
 });

@@ -143,6 +143,18 @@ export class GetTesterLogQuery {
     @IsString()
     @IsOptional()
     testerId?: string;
+
+    @IsString()
+    @IsOptional()
+    startDate?: string;
+
+    @IsString()
+    @IsOptional()
+    endDate?: string;
+
+    @IsString()
+    @IsOptional()
+    dateField?: string;
 }
 
 export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, GetTesterLogQuery];
