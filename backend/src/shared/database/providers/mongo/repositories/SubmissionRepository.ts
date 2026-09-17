@@ -9,6 +9,7 @@ import {
   IReroute,
   IReviewerHeatmapResponse,
   LevelReportStat,
+  PAEAction,
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -4267,13 +4268,14 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   /**
    * Update the PAE validation status in the question submission's paeValidation array.
-   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * Finds the entry matching the given paeId and updates its paeStatus, paeFinishedAt, and optional paeAction.
    */
   async updatePaeValidationStatus(
     questionId: string,
     paeId: string,
     paeStatus: 'in-progress' | 'completed',
     paeFinishedAt: Date | null,
+    paeAction?: PAEAction | 'approve' | 'suggestion',
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }> {
     await this.init();
@@ -4292,6 +4294,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // Only set paeFinishedAt when completing
     if (paeFinishedAt !== null) {
       updateFields['paeValidation.$.paeFinishedAt'] = paeFinishedAt;
+    }
+
+    if (paeAction !== undefined) {
+      updateFields['paeValidation.$.paeAction'] = paeAction;
     }
     
     const result = await this.QuestionSubmissionCollection.updateOne(
