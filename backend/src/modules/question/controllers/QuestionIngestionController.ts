@@ -202,7 +202,6 @@ export class QuestionIngestionController {
       body.question_collection_questions.length > 0 &&
       !file
     ) {
-      console.log("Inside ")
       return this.addQuestionCollection(userId, body.question_collection_questions, name);
     }
 
@@ -237,8 +236,6 @@ export class QuestionIngestionController {
 
       try {
         payload = parseQuestionUploadFile(file);
-
-        console.log('Paylod: ', payload);
         const actor = {
           id: user._id.toString(),
           name: `${user.firstName} ${user.lastName}`,
@@ -386,8 +383,6 @@ export class QuestionIngestionController {
         })),
       },
     };
-    console.log("inside  helper ")
-    console.log("inside  helper ", questions)
     try {
       const result = await this.questionService.addQuestionCollection(
         userId ?? null,

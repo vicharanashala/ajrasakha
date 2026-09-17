@@ -416,8 +416,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     count: number;
     questionIds: string[];
   }> {
-    console.log("inside service layer ")
-    console.log("inside service layer ", questions)
     if (!Array.isArray(questions) || questions.length === 0) {
       throw new BadRequestError('Question Collection must contain at least one question');
     }
@@ -475,7 +473,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           } catch (_) { /* ignore crop normalization failures */ }
         }
       }
-      console.log("vehore creation ")
       const base: IQuestion = {
         userId: userId?.trim() ? new ObjectId(userId) : null,
         question: q.question.trim(),
@@ -507,11 +504,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       formatted.push(base);
     }
-    console.log("formatted questions ", formatted)
     const insertedIds = await this._withTransaction(async (session: ClientSession) => {
-      console.log("Inside session")
       const questionIds = await this.questionRepo.insertMany(formatted, session);
-      console.log("questionIds ",questionIds)
       const submissions: IQuestionSubmission[] = questionIds.map((qId: string) => ({
         questionId: new ObjectId(qId),
         lastRespondedBy: null,
