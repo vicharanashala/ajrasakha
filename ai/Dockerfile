@@ -56,7 +56,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Setup cron for daily backup at 2 AM IST
 RUN echo 'SHELL=/bin/bash' >> /etc/crontab \
     && echo 'PATH=/usr/local/bin:/usr/bin:/bin' >> /etc/crontab \
-    && echo '0 2 * * * root cd /app && IS_BACKUP=true python3 -m ajrasakha.agents.backup_to_gcs >> /var/log/backup.log 2>&1' >> /etc/crontab
+    && echo '0 2 * * * root cd /app && IS_BACKUP=true python3 -m ajrasakha.agents.backup_to_gcs >> /var/log/backup.log 2>&1' >> /etc/crontab \
+    && mkdir -p /var/run /var/log \
+    && chmod 777 /var/run /var/log
 
 # Create start.sh before switching to non-root user
 RUN echo '#!/bin/bash\ncron\n/app/.venv/bin/aegra serve' > /start.sh && chmod +x /start.sh
@@ -71,7 +73,5 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/ajrasakha:$PYTHONPATH"
 
 EXPOSE 2026
-
-USER app
 
 CMD ["/start.sh"]
