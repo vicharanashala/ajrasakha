@@ -983,4 +983,22 @@ export interface IQuestionService {
     session?: ClientSession,
   ): Promise<void>;
   getPaeValidationQueueDetails(params?: PaeValidationQueueParams): Promise<PaeValidationQueueDetails>;
+
+  /**
+   * Bulk insert Question Collection questions with full validation.
+   * Creates questions with source 'QUESTION_COLLECTION', creates submissions,
+   * and triggers background processing for embeddings and crop normalization.
+   *
+   * @param userId - The user ID performing the bulk insert
+   * @param questions - Array of Question Collection items
+   * @returns Object with success status, count, and question IDs
+   */
+  addQuestionCollection(
+    userId: string,
+    questions: any[],
+  ): Promise<{
+    success: boolean;
+    count: number;
+    questionIds: string[];
+  }>;
 }

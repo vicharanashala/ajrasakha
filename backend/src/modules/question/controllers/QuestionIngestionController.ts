@@ -23,6 +23,7 @@ import {
   AddQuestionBodyDto,
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
+  AddQuestionCollectionBodyDto,
 } from '../classes/validators/QuestionVaidators.js';
 import { startBackgroundProcessing } from '#root/workers/workerManager.js';
 import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
@@ -179,6 +180,7 @@ export class QuestionIngestionController {
     @Req() req: any,
   ): Promise<Partial<any> | { message: string }> {
     verifyNotTester(user);
+    console.log('the controller body coming===', body);
     const userId = user?._id?.toString();
 
     const name = `${user?.firstName} ${user?.lastName}`;
@@ -192,6 +194,17 @@ export class QuestionIngestionController {
           source: body.source,
         }
       : null;
+
+    // ── Route to Question Collection handler if question_collection_questions is present ──
+    if (
+      body.question_collection_questions &&
+      Array.isArray(body.question_collection_questions) &&
+      body.question_collection_questions.length > 0 &&
+      !file
+    ) {
+      console.log("Inside ")
+      return this.addQuestionCollection(userId, body.question_collection_questions, name);
+    }
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -337,6 +350,95 @@ export class QuestionIngestionController {
         message: 'Question submitted successfully.',
         question_id: data._id,
       };
+    }
+  }
+
+  // ─── Question Collection bulk ingestion (routed from addQuestion) ─────────
+
+  /**
+   * Private handler for Question Collection bulk ingestion.
+   * Called when body.question_collection_questions is present.
+   * Creates questions with source='QUESTION_COLLECTION', no auto-allocation,
+   * empty submission queue, and fires background embedding generation.
+   */
+  private async addQuestionCollection(
+    userId: string | undefined,
+    questions: any[],
+    userName: string,
+  ): Promise<{success: boolean; message: string; count: number; questionIds: string[]}> {
+    const actorPayload = userId
+      ? {
+          id: userId,
+          name: userName,
+          source: 'QUESTION_COLLECTION',
+        }
+      : null;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.QUESTION_ADD,
+      actor: actorPayload,
+      context: {
+        payload: questions?.map((q: any) => ({
+          question: q.question,
+          priority: q.priority,
+          details: q.details,
+        })),
+      },
+    };
+    console.log("inside  helper ")
+    console.log("inside  helper ", questions)
+    try {
+      const result = await this.questionService.addQuestionCollection(
+        userId || 'system',
+        questions,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          after: {
+            count: result.count,
+            questionIds: result.questionIds,
+          },
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+        createdAt: new Date(),
+      };
+
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+
+      return {
+        success: true,
+        message: `Successfully ingested ${result.count} Question Collection question(s). Embeddings are being generated in the background.`,
+        count: result.count,
+        questionIds: result.questionIds,
+      };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to ingest Question Collection questions',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace',
+        },
+        createdAt: new Date(),
+      };
+
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to ingest Question Collection questions');
     }
   }
 
