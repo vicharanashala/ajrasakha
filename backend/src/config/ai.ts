@@ -1,30 +1,58 @@
-import { env } from '#root/utils/env.js';
+import {env} from '#root/utils/env.js';
 
 export const aiConfig = {
   serverIP: env('AI_SERVER_IP') || 'localhost',
   serverPort: Number(env('AI_SERVER_PORT')?.trim()) || 9017,
+
+  visionApiUrl: env('VISION_API_URL'),
+  plantNetApiKey: env('PLANTNET_API_KEY'),
+  plantNetProject: env('PLANTNET_PROJECT') || 'all',
+  plantNetMock: env('PLANTNET_MOCK') === 'true',
+  plantNetRelayBaseUrl: env('PLANTNET_RELAY_BASE_URL'),
+  plantScanLocalImageBaseUrl:
+    env('PLANT_SCAN_LOCAL_IMAGE_BASE_URL') ||
+    `http://127.0.0.1:${Number(env('APP_PORT')) || 8080}`,
+
   // Tailscale's userspace proxy (see scripts/start.sh). SOCKS5 for node http agents
   // (axios), HTTP CONNECT for undici (fetch) — tailscaled serves both on the same port.
   proxyAddress: env('AI_PROXY_ADDRESS') || 'socks5h://localhost:1055',
   httpProxyAddress: env('AI_HTTP_PROXY_ADDRESS') || 'http://localhost:1055',
+
   /** Turn the tailnet proxy off (e.g. local dev with a direct route). */
   useTailnetProxy: env('USE_TAILNET_PROXY') !== 'false',
+
   agentServerIP: env('AGENT_SERVER_IP'),
-  agerntServerPort: Number(env('AGENT_SERVER_PORT')?.trim()) || 9017,
+  agerntServerPort:
+    Number(env('AGENT_SERVER_PORT')?.trim()) || 9017,
+
   openAIServerIP: env('OPENAI_SERVER_IP'),
-  openAIServerPort: Number(env('OPENAI_SERVER_PORT')?.trim()) || 8080,
-  whatsAppServerPort: Number(env('WHATSAPP_SERVER_PORT')?.trim()) || 2026,
-  aiInitialAnswerGenerateUrl: env('AI_INITIAL_ANSWER_GENERATE_URL'),
+  openAIServerPort:
+    Number(env('OPENAI_SERVER_PORT')?.trim()) || 8080,
+
+  whatsAppServerPort:
+    Number(env('WHATSAPP_SERVER_PORT')?.trim()) || 2026,
+
+  aiInitialAnswerGenerateUrl:
+    env('AI_INITIAL_ANSWER_GENERATE_URL'),
+
   gemma_api: env('GEMMA_API'),
   gemma_api_key: env('GEMMA_API_KEY') || 'test-key',
+
   minimax_api: env('MINIMAX_API'),
   minimax_api_key: env('MINIMAX_API_KEY') || 'test-key',
+
   WHATSAPP_SERVER_URL: env('WHATSAPP_SERVER_URL'),
-  vicharanashala_api_token: env('VICHARANASHALA_API_TOKEN'),
+
+  vicharanashala_api_token:
+    env('VICHARANASHALA_API_TOKEN'),
+
   gdbServerIP: env('GDB_SERVER_IP') || 'localhost',
-  gdbServerPort: Number(env('GDB_SERVER_PORT')?.trim()) || 8110,
+  gdbServerPort:
+    Number(env('GDB_SERVER_PORT')?.trim()) || 8110,
+
   // ACC Agent (Human-in-the-Loop) Configuration
   accAgentBaseUrl: env('ACC_AGENT_BASE_URL'),
   accAgentAssistantId: env('ACC_AGENT_ASSISTANT_ID'),
-  accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
+  accAgentTimeout:
+    Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
 };

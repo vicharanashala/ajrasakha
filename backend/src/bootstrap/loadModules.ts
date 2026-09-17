@@ -32,11 +32,15 @@ export async function loadAppModules(
     const modulePath = `../modules/${file}/index.js`;
     const moduleExports = await import(modulePath);
 
-    const controllerExportKey = `${file}ModuleControllers`;
-    const validatorExportKey = `${file}ModuleValidators`;
-    const containerModulesKey = `${file}ContainerModules`;
+    const moduleKey = file.replace(
+      /-([a-z])/g,
+      (_match, character: string) => character.toUpperCase(),
+    );
+    const controllerExportKey = `${moduleKey}ModuleControllers`;
+    const validatorExportKey = `${moduleKey}ModuleValidators`;
+    const containerModulesKey = `${moduleKey}ContainerModules`;
 
-    const setupFunctionKey = `setup${file[0].toUpperCase()}${file.slice(
+    const setupFunctionKey = `setup${moduleKey[0].toUpperCase()}${moduleKey.slice(
       1,
     )}Container`;
 
