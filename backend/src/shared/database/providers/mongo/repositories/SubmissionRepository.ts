@@ -5299,7 +5299,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       const queue = Array.isArray(sub.queue) ? sub.queue : [];
 
       if (history.length === 0) {
-        // Case 2: Author Level Pending — history is empty and first item in queue is the pending author
+        // Author Level Pending — history is empty and first item in queue is the pending author
         if (queue.length > 0) {
           const pendingAuthorId = queue[0]?.toString();
           if (
@@ -5312,7 +5312,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           }
         }
       } else {
-        // Case 1: Author Level Submitted — answer field exists in history (first entry appended upon author submission)
+        // Author Level Submitted — answer field exists in history (first entry appended upon author submission)
         const authorEntry = history[0];
         const hasAnswer =
           authorEntry?.answer !== undefined &&
@@ -5327,42 +5327,6 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           const stats = getStats(authorId);
           stats.authorSubmittedCount++;
           stats.totalReviewCompleted++;
-        }
-
-        // Case 3: Reviewer Level Submitted — reviewId exists in history and status is not 'in-review'
-        for (let i = 1; i < history.length; i++) {
-          const reviewEntry = history[i];
-          const reviewerId = reviewEntry?.updatedBy?.toString();
-          const hasReviewId =
-            reviewEntry?.reviewId !== undefined &&
-            reviewEntry?.reviewId !== null &&
-            reviewEntry?.reviewId !== '';
-          const isNotRunning = reviewEntry?.status !== 'in-review';
-
-          if (
-            hasReviewId &&
-            isNotRunning &&
-            reviewerId &&
-            (!targetPaeIdSet || targetPaeIdSet.has(reviewerId))
-          ) {
-            const stats = getStats(reviewerId);
-            stats.reviewerSubmittedCount++;
-            stats.totalReviewCompleted++;
-          }
-        }
-
-        // Case 4: Reviewer Level Pending — status is 'in-review' and there is no document after it (last entry)
-        const lastEntry = history[history.length - 1];
-        if (lastEntry?.status === 'in-review') {
-          const pendingReviewerId = lastEntry?.updatedBy?.toString();
-          if (
-            pendingReviewerId &&
-            (!targetPaeIdSet || targetPaeIdSet.has(pendingReviewerId))
-          ) {
-            const stats = getStats(pendingReviewerId);
-            stats.reviewerPendingCount++;
-            stats.totalReviewPending++;
-          }
         }
       }
     }

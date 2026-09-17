@@ -266,18 +266,18 @@ describe('UserService.exportUsersToXlsx — PAE validation & review metrics', ()
 
     const pae1Stats = statsMap.get(pae1.toString());
     expect(pae1Stats).toBeDefined();
-    expect(pae1Stats?.authorPendingCount).toBe(1);   // q1
-    expect(pae1Stats?.authorSubmittedCount).toBe(1); // q2
-    expect(pae1Stats?.reviewerPendingCount).toBe(1); // q3 (in-review)
+    expect(pae1Stats?.authorPendingCount).toBe(1);   // q1 (queue[0])
+    expect(pae1Stats?.authorSubmittedCount).toBe(1); // q2 (history[0].answer)
+    expect(pae1Stats?.reviewerPendingCount).toBe(0); // reviewer level omitted
     expect(pae1Stats?.reviewerSubmittedCount).toBe(0);
-    expect(pae1Stats?.totalReviewCompleted).toBe(1); // author(1) + reviewer(0)
-    expect(pae1Stats?.totalReviewPending).toBe(2);   // author(1) + reviewer(1)
+    expect(pae1Stats?.totalReviewCompleted).toBe(1); // author submitted only
+    expect(pae1Stats?.totalReviewPending).toBe(1);   // author pending only
 
     const pae2Stats = statsMap.get(pae2.toString());
     expect(pae2Stats).toBeDefined();
-    expect(pae2Stats?.authorSubmittedCount).toBe(1); // q3
-    expect(pae2Stats?.reviewerSubmittedCount).toBe(1); // q2 (reviewId)
-    expect(pae2Stats?.totalReviewCompleted).toBe(2); // author(1) + reviewer(1)
+    expect(pae2Stats?.authorSubmittedCount).toBe(1); // q3 (history[0].answer)
+    expect(pae2Stats?.reviewerSubmittedCount).toBe(0);
+    expect(pae2Stats?.totalReviewCompleted).toBe(1); // author submitted only
     expect(pae2Stats?.totalReviewPending).toBe(0);
   });
 });
