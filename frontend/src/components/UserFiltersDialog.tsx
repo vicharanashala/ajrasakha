@@ -287,7 +287,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
           <Button variant="outline" onClick={handleReset}>
             Reset
           </Button>

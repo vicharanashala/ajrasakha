@@ -528,6 +528,27 @@ export class UserService extends BaseService {
       { header: 'Updated At', value: u => asIST(u.updatedAt) },
     ];
 
+    // When PAE analytics are provided (PAE role + "Get Analytics"), merge the per-PAE
+    // metrics onto the SAME sheet as extra columns, matched to each user by id — no separate
+    // sheet. Users without a match (shouldn't happen when filtered to PAE) get blanks.
+    if (opts.paeAnalytics && opts.paeAnalytics.length > 0) {
+      const analyticsById = new Map<string, PaeAnalyticsRow>(
+        opts.paeAnalytics.map(r => [r.id, r]),
+      );
+      const metric = (u: any, pick: (r: PaeAnalyticsRow) => number): number | '' => {
+        const r = analyticsById.get(u._id?.toString());
+        return r ? pick(r) : '';
+      };
+      columns.push(
+        { header: 'Assigned', value: u => metric(u, r => r.assigned) },
+        { header: 'Submitted', value: u => metric(u, r => r.submitted) },
+        { header: 'Pending', value: u => metric(u, r => r.pending) },
+        { header: 'Feedback Assigned', value: u => metric(u, r => r.feedbackAssigned) },
+        { header: 'Feedback Pending', value: u => metric(u, r => r.feedbackPending) },
+        { header: 'Feedback Completed', value: u => metric(u, r => r.feedbackCompleted) },
+      );
+    }
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Users');
     sheet.columns = columns.map(c => ({ header: c.header, key: c.header, width: 22 }));
@@ -537,33 +558,6 @@ export class UserService extends BaseService {
       const row: Record<string, any> = {};
       for (const c of columns) row[c.header] = c.value(u);
       sheet.addRow(row);
-    }
-
-    // Optional second sheet: per-PAE analytics (only when the caller passes them, i.e. the
-    // PAE role is selected and "Get Analytics" is checked).
-    if (opts.paeAnalytics && opts.paeAnalytics.length > 0) {
-      const analyticsColumns: { header: string; value: (r: PaeAnalyticsRow) => any }[] = [
-        { header: 'Name', value: r => r.name },
-        { header: 'Email', value: r => r.email },
-        { header: 'Assigned', value: r => r.assigned },
-        { header: 'Submitted', value: r => r.submitted },
-        { header: 'Pending', value: r => r.pending },
-        { header: 'Feedback Assigned', value: r => r.feedbackAssigned },
-        { header: 'Feedback Pending', value: r => r.feedbackPending },
-        { header: 'Feedback Completed', value: r => r.feedbackCompleted },
-      ];
-      const analyticsSheet = workbook.addWorksheet('PAE Analytics');
-      analyticsSheet.columns = analyticsColumns.map(c => ({
-        header: c.header,
-        key: c.header,
-        width: 22,
-      }));
-      analyticsSheet.getRow(1).font = { bold: true };
-      for (const r of opts.paeAnalytics) {
-        const row: Record<string, any> = {};
-        for (const c of analyticsColumns) row[c.header] = c.value(r);
-        analyticsSheet.addRow(row);
-      }
     }
 
     return (await workbook.xlsx.writeBuffer()) as unknown as ArrayBuffer;

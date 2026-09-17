@@ -156,6 +156,8 @@ export interface QueueExpertItem {
 
 /** One PAE expert's answer-dashboard analytics — mirrors the individual dashboard metrics. */
 export interface PaeAnalyticsRow {
+  /** PAE user id — used to merge these metrics onto the matching user row in the export. */
+  id: string;
   name: string;
   email: string;
   assigned: number;

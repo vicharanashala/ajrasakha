@@ -2853,6 +2853,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           u.email ||
           'Unknown';
         return {
+          id,
           name,
           email: u.email ?? '',
           assigned: d.assignedCount,
