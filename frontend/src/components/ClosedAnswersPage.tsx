@@ -270,9 +270,12 @@ const OrganizationCombobox = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full cursor-pointer justify-between bg-background font-normal"
+          className="w-full min-w-0 cursor-pointer justify-between bg-background font-normal"
         >
-          <span className={cn("truncate", !value && "text-muted-foreground")}>
+          <span
+            title={value || undefined}
+            className={cn("min-w-0 truncate", !value && "text-muted-foreground")}
+          >
             {value || "Search organization..."}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1364,7 +1367,7 @@ const AnswerSourcesEditor = ({
                 errorFor("source") ? `${fieldId}-source-error` : undefined
               }
               className={cn(
-                "bg-background sm:flex-1",
+                "bg-background sm:min-w-0 sm:flex-1",
                 errorFor("source") &&
                   "border-destructive focus-visible:ring-destructive/30",
               )}
@@ -1457,7 +1460,7 @@ const AnswerSourcesEditor = ({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor={`${fieldId}-org`} className="text-xs">
               Organization <span className="text-destructive">*</span>
             </Label>
@@ -1588,7 +1591,7 @@ const ReadOnlyField = ({
    *  with no source type. */
   error?: string;
 }) => (
-  <div className="grid gap-1.5">
+  <div className="grid min-w-0 gap-1.5">
     <Label className="text-xs text-muted-foreground">
       {label} {required && <span className="text-destructive">*</span>}
     </Label>
