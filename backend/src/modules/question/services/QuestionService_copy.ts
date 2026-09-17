@@ -465,6 +465,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
+  async getAllPaeAnalytics(): Promise<import('../interfaces/IQuestionService.js').PaeAnalyticsRow[]> {
+    return [];
+  }
+
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
