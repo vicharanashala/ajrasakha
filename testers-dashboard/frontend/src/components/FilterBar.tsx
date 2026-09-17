@@ -134,6 +134,15 @@ export function FilterBar({
     typeSummaryLabel,
   } = typeBranchState;
 
+  // Display-only: an empty sub-type array under its own selected branch
+  // means "no sub-filter, include everything in this branch" to the
+  // backend (unchanged) - but showing every checkbox unchecked in that
+  // state reads as "nothing is selected," contradicting the branch itself
+  // being selected. Both mean the whole branch is included, so both
+  // render as fully checked; the array itself is untouched.
+  const dynamicWholeBranchSelected = typeBranch === "Dynamic" && dynamicSubTypes.length === 0;
+  const staticWholeBranchSelected = typeBranch === "Static" && staticSubTypes.length === 0;
+
   return (
     <div className="flex flex-wrap gap-3 border rounded-lg p-4 w-full">
       <div className="flex-1 min-w-[150px] space-y-1">
@@ -226,7 +235,7 @@ export function FilterBar({
                   <div className="pl-3 pb-1 space-y-0.5">
                     <TreeCheckbox
                       label="Select All"
-                      checked={dynamicSubTypes.length === DYNAMIC_SUB_TYPE_OPTIONS.length}
+                      checked={dynamicWholeBranchSelected || dynamicSubTypes.length === DYNAMIC_SUB_TYPE_OPTIONS.length}
                       indeterminate={dynamicSubTypes.length > 0 && dynamicSubTypes.length < DYNAMIC_SUB_TYPE_OPTIONS.length}
                       onChange={toggleDynamicSelectAll}
                     />
@@ -234,7 +243,7 @@ export function FilterBar({
                       <TreeCheckbox
                         key={opt.value}
                         label={opt.label}
-                        checked={dynamicSubTypes.includes(opt.value)}
+                        checked={dynamicWholeBranchSelected || dynamicSubTypes.includes(opt.value)}
                         onChange={() => toggleDynamicSubType(opt.value)}
                       />
                     ))}
@@ -270,7 +279,7 @@ export function FilterBar({
                   <div className="pl-3 pb-1 space-y-0.5">
                     <TreeCheckbox
                       label="Select All"
-                      checked={staticSubTypes.length === STATIC_SUB_TYPE_OPTIONS.length}
+                      checked={staticWholeBranchSelected || staticSubTypes.length === STATIC_SUB_TYPE_OPTIONS.length}
                       indeterminate={staticSubTypes.length > 0 && staticSubTypes.length < STATIC_SUB_TYPE_OPTIONS.length}
                       onChange={toggleStaticSelectAll}
                     />
@@ -278,7 +287,7 @@ export function FilterBar({
                       <TreeCheckbox
                         key={opt.value}
                         label={opt.label}
-                        checked={staticSubTypes.includes(opt.value)}
+                        checked={staticWholeBranchSelected || staticSubTypes.includes(opt.value)}
                         onChange={() => toggleStaticSubType(opt.value)}
                       />
                     ))}

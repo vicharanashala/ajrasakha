@@ -12,6 +12,7 @@ import {
 } from '../interfaces/ITestersDashboardService.js';
 import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
 import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
+import { isFutureTestDate } from '../testersDashboard/normalize.js';
 import { calculateKpis, calculatePreviousPeriodStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
@@ -106,7 +107,18 @@ export class TestersDashboardService implements ITestersDashboardService {
                     if (
                         testId &&
                         !testId.startsWith('Project:') &&
-                        !testId.startsWith('Test ID')
+                        !testId.startsWith('Test ID') &&
+                        // Future-dated rows (Test Date after today, IST) are
+                        // dropped here, before any filter/calculation sees
+                        // them - a handful of confirmed data-entry mistakes
+                        // (month incremented while the day stayed fixed) land
+                        // months ahead of the real recording period.
+                        // Unparseable-date rows are deliberately kept - those
+                        // are real test results whose date field just isn't
+                        // readable, not garbage rows, and isFutureTestDate
+                        // returns false for them (only a row that parses
+                        // AND is future-dated is dropped).
+                        !isFutureTestDate(data['Test Date'])
                     ) {
                         results.push(data);
                     }

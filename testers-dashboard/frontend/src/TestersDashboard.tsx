@@ -442,34 +442,66 @@ export function TestersDashboard() {
   }
 
   function toggleDynamicSubType(value: string) {
-    setTypeBranch("Dynamic");
     setStaticSubTypes([]);
-    setDynamicSubTypes((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+    // An empty array under an already-selected Dynamic branch displays as
+    // "all checked" (see FilterBar's dynamicWholeBranchSelected) - toggling
+    // one item off from that state must start from the full list, not the
+    // empty array, or it would ADD `value` back (the one just unchecked)
+    // instead of removing it, e.g. unchecking Weather from all-3-checked
+    // would otherwise leave a "Weather only" selection instead of "Mandi +
+    // Schemes". Reaching zero explicit items has no separate representation
+    // from "whole branch, no restriction" (that's the same empty array), so
+    // it resets the branch to unselected rather than silently reverting to
+    // "everything included" while still showing as selected.
+    const effectivePrev =
+      dynamicSubTypes.length === 0 && typeBranch === "Dynamic" ? DYNAMIC_SUB_TYPE_OPTIONS.map((o) => o.value) : dynamicSubTypes;
+    const next = effectivePrev.includes(value) ? effectivePrev.filter((v) => v !== value) : [...effectivePrev, value];
+    setTypeBranch(next.length === 0 ? "all" : "Dynamic");
+    setDynamicSubTypes(next);
   }
 
-  // Toggles between all-selected and none; "Select All"'s own checked state
-  // is derived from the current selection, so unchecking any individual
-  // sub-type naturally un-checks it too.
+  // Toggles between all-selected and none. "All-selected" includes the
+  // implicit case (branch selected, empty array) - see
+  // dynamicWholeBranchSelected in FilterBar. Clicking it while fully
+  // checked can't just clear to `[]`, since that's the same wire value as
+  // "whole branch, no restriction" and would immediately redisplay as
+  // fully checked again - so it drops the branch selection entirely
+  // instead, matching selectAllTypes's reset.
   function toggleDynamicSelectAll() {
-    setTypeBranch("Dynamic");
     setStaticSubTypes([]);
-    setDynamicSubTypes((prev) =>
-      prev.length === DYNAMIC_SUB_TYPE_OPTIONS.length ? [] : DYNAMIC_SUB_TYPE_OPTIONS.map((o) => o.value),
-    );
+    const isFullyChecked =
+      typeBranch === "Dynamic" && (dynamicSubTypes.length === 0 || dynamicSubTypes.length === DYNAMIC_SUB_TYPE_OPTIONS.length);
+    if (isFullyChecked) {
+      setTypeBranch("all");
+      setDynamicSubTypes([]);
+    } else {
+      setTypeBranch("Dynamic");
+      setDynamicSubTypes(DYNAMIC_SUB_TYPE_OPTIONS.map((o) => o.value));
+    }
   }
 
   function toggleStaticSubType(value: string) {
-    setTypeBranch("Static");
     setDynamicSubTypes([]);
-    setStaticSubTypes((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+    // Same reasoning as toggleDynamicSubType above.
+    const effectivePrev =
+      staticSubTypes.length === 0 && typeBranch === "Static" ? STATIC_SUB_TYPE_OPTIONS.map((o) => o.value) : staticSubTypes;
+    const next = effectivePrev.includes(value) ? effectivePrev.filter((v) => v !== value) : [...effectivePrev, value];
+    setTypeBranch(next.length === 0 ? "all" : "Static");
+    setStaticSubTypes(next);
   }
 
+  // Same reasoning as toggleDynamicSelectAll above.
   function toggleStaticSelectAll() {
-    setTypeBranch("Static");
     setDynamicSubTypes([]);
-    setStaticSubTypes((prev) =>
-      prev.length === STATIC_SUB_TYPE_OPTIONS.length ? [] : STATIC_SUB_TYPE_OPTIONS.map((o) => o.value),
-    );
+    const isFullyChecked =
+      typeBranch === "Static" && (staticSubTypes.length === 0 || staticSubTypes.length === STATIC_SUB_TYPE_OPTIONS.length);
+    if (isFullyChecked) {
+      setTypeBranch("all");
+      setStaticSubTypes([]);
+    } else {
+      setTypeBranch("Static");
+      setStaticSubTypes(STATIC_SUB_TYPE_OPTIONS.map((o) => o.value));
+    }
   }
 
   function typeSummaryLabel(): string {

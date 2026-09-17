@@ -14,7 +14,7 @@ import {
     getPreviousPeriodRows,
     buildFilterOptions,
 } from './filters.js';
-import { normalizeTypeOfQuestion, normalizeDefectSeverity, matchesAny } from './normalize.js';
+import { normalizeTypeOfQuestion, normalizeDefectSeverity, matchesAny, parseTestDateToISO } from './normalize.js';
 import { dynamicSubBucketFor } from './diagnostics.js';
 
 // Loads the real live CSV the same way TestersDashboardService.parseCSV
@@ -283,14 +283,75 @@ describe('applyDateRangeFilter / applyFilters against real dates', () => {
     // 2026 date range, so the counts below are real, not synthetic.
     const NOW = new Date('2026-08-11T12:00:00.000Z');
 
-    it('7days matches rows within 7 days of "now"', () => {
+    it('7days matches rows in the IST calendar window [today-6, today]', () => {
+        // Calendar-date window, not an epoch-distance heuristic - re-derived
+        // against the fresh CSV with the fixed NOW above.
         const out = applyDateRangeFilter(records, '7days', undefined, undefined, NOW);
-        expect(out.length).toBe(1634);
+        expect(out.length).toBe(1715);
     });
 
-    it('30days matches rows within 30 days of "now"', () => {
+    it('30days matches rows in the IST calendar window [today-29, today]', () => {
         const out = applyDateRangeFilter(records, '30days', undefined, undefined, NOW);
-        expect(out.length).toBe(5054);
+        expect(out.length).toBe(5155);
+    });
+
+    it('7days/30days counts are stable across every hour of the IST day - not time-of-day dependent', () => {
+        // 48 full applyDateRangeFilter passes over ~19k rows is occasionally
+        // slow enough under full-suite parallel load to brush the 5s
+        // default - bump explicitly rather than let it flake.
+        // Regression test for the fixed epoch-distance bug: the old formula
+        // wrongly included an extra 8th/31st day for part of the day
+        // (00:00-05:29 IST). Simulating "now" at every IST hour of the same
+        // calendar day must produce an identical count throughout.
+        const counts7 = new Set<number>();
+        const counts30 = new Set<number>();
+        for (let h = 0; h < 24; h++) {
+            // Construct an instant whose IST wall-clock time is `h`:00 on
+            // 2026-08-11 (IST = UTC+5:30).
+            const hourNow = new Date(Date.UTC(2026, 7, 11, h, 0, 0) - 5.5 * 60 * 60 * 1000);
+            counts7.add(applyDateRangeFilter(records, '7days', undefined, undefined, hourNow).length);
+            counts30.add(applyDateRangeFilter(records, '30days', undefined, undefined, hourNow).length);
+        }
+        expect(counts7.size).toBe(1);
+        expect(counts30.size).toBe(1);
+        expect([...counts7][0]).toBe(1715);
+        expect([...counts30][0]).toBe(5155);
+    }, 20000);
+
+    it('excludes future-dated rows from Today/7-Days/30-Days/Custom - a future Test Date is invalid, same as an unparseable one', () => {
+        const REAL_NOW = new Date();
+        // Identify the known future rows independently: parseTestDateToISO
+        // resolves them to a real ISO string against a far-future reference
+        // "now" (nothing looks future from 2099), but to null against the
+        // real one.
+        const farFuture = new Date('2099-01-01');
+        const futureRowIds = records
+            .filter((r) => parseTestDateToISO(r['Test Date'], REAL_NOW) === null && parseTestDateToISO(r['Test Date'], farFuture) !== null)
+            .map((r) => r['Test ID']);
+        expect(futureRowIds.length).toBeGreaterThan(0);
+
+        for (const dateRange of ['today', '7days', '30days', 'custom'] as const) {
+            const customStart = dateRange === 'custom' ? '2020-01-01' : undefined;
+            const customEnd = dateRange === 'custom' ? '2099-01-01' : undefined;
+            const out = applyDateRangeFilter(records, dateRange, customStart, customEnd, REAL_NOW);
+            const leaked = out.filter((r) => futureRowIds.includes(r['Test ID']));
+            expect(leaked.length).toBe(0);
+        }
+    });
+
+    it('"All Dates" does not filter by date at all, so future-dated rows remain in the raw row set - same precedent as the 563 already-unparseable-date rows, which "All Dates" has never removed', () => {
+        // parseTestDateToISO now treats a future Test Date exactly like an
+        // unparseable one (returns null) - and an unparseable Test Date has
+        // never removed a row from "All Dates" (applyDateRangeFilter's
+        // `dateRange === 'all'` branch returns `rows` unfiltered, without
+        // ever calling parseTestDateToISO). So future-dated rows are
+        // excluded from every date-scoped view (see the test above) and
+        // from the trend chart (calculateChartData), but they still appear
+        // in the "All Dates" row set/count, exactly like the 563 rows whose
+        // Test Date could never be parsed at all.
+        const REAL_NOW = new Date();
+        const allDatesResult = applyDateRangeFilter(records, 'all', undefined, undefined, REAL_NOW);
+        expect(allDatesResult.length).toBe(records.length);
     });
 
     it('"all" and an empty custom range both return every row unfiltered', () => {
@@ -354,17 +415,17 @@ describe('getPreviousPeriodRows against real dates', () => {
     });
 
     it('7days previous-period window contains the expected real row count', () => {
-        // Real rows with Test Date in [2026-07-29, 2026-08-04]: 1097
+        // Real rows with Test Date in [2026-07-29, 2026-08-04]: 1098
         const rows = getPreviousPeriodRows(records, { ...EMPTY_FILTERS, dateRange: '7days' }, false, undefined, undefined, NOW);
         expect(rows).not.toBeNull();
-        expect(rows!.length).toBe(1097);
+        expect(rows!.length).toBe(1098);
     });
 
     it('30days previous-period window contains the expected real row count', () => {
-        // Real rows with Test Date in [2026-06-13, 2026-07-12]: 4594
+        // Real rows with Test Date in [2026-06-13, 2026-07-12]: 4620
         const rows = getPreviousPeriodRows(records, { ...EMPTY_FILTERS, dateRange: '30days' }, false, undefined, undefined, NOW);
         expect(rows).not.toBeNull();
-        expect(rows!.length).toBe(4594);
+        expect(rows!.length).toBe(4620);
     });
 
     it('the previous-period window never overlaps the current window', () => {

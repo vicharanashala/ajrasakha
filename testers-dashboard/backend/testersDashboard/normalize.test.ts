@@ -26,6 +26,7 @@ import {
     voiceQualityScore,
     parseTestDateToISO,
     getTodayIST,
+    isFutureTestDate,
 } from './normalize.js';
 
 // All "real value" fixtures below (with their occurrence counts noted in
@@ -647,6 +648,86 @@ describe('parseTestDateToISO - KNOWN_DATE_TYPOS lookup', () => {
         expect(parseTestDateToISO('11-13-2026')).toBeNull();
         expect(parseTestDateToISO('15-20-2026')).toBeNull();
         expect(parseTestDateToISO('TL-2522')).toBeNull();
+    });
+});
+
+describe('parseTestDateToISO - future-date rejection (IST)', () => {
+    // Fixed "now" so today's IST calendar date is deterministic:
+    // 2026-09-17T05:00:00Z = 2026-09-17T10:30 IST, so today is 2026-09-17.
+    const NOW = new Date('2026-09-17T05:00:00.000Z');
+
+    it('accepts a date equal to today (IST) - the boundary is inclusive', () => {
+        expect(parseTestDateToISO('17-09-2026', NOW)).toBe('2026-09-17');
+    });
+
+    it('accepts any date before today', () => {
+        expect(parseTestDateToISO('16-09-2026', NOW)).toBe('2026-09-16');
+        expect(parseTestDateToISO('01-01-2026', NOW)).toBe('2026-01-01');
+    });
+
+    it('rejects a date one day after today - the same treatment as an unparseable value', () => {
+        expect(parseTestDateToISO('18-09-2026', NOW)).toBeNull();
+    });
+
+    it('rejects the confirmed live-data future-dated rows (month incremented, day held fixed)', () => {
+        expect(parseTestDateToISO('03-10-2026', NOW)).toBeNull();
+        expect(parseTestDateToISO('04-10-2026', NOW)).toBeNull();
+        expect(parseTestDateToISO('11-10-2026', NOW)).toBeNull();
+        expect(parseTestDateToISO('03-11-2026', NOW)).toBeNull();
+        expect(parseTestDateToISO('11-12-2026', NOW)).toBeNull();
+    });
+
+    it('still rejects a KNOWN_DATE_TYPOS lookup result that lands in the future - the typo fix does not bypass the cutoff', () => {
+        // '24-06-26' -> KNOWN_DATE_TYPOS['24-06-26'] = '2026-06-24', which is
+        // before this NOW - sanity-checks the non-future case for a typo
+        // lookup, since the future case can't be exercised without adding a
+        // synthetic future entry to the real table.
+        expect(parseTestDateToISO('24-06-26', NOW)).toBe('2026-06-24');
+    });
+
+    it('is independent of the default `now` - a fixed past NOW does not reject a date that is only future relative to the real clock', () => {
+        // A date long past relative to a fixed historical "now" is accepted,
+        // proving the cutoff is relative to the injected `now`, not literally
+        // "the real current moment" - production omits `now` and gets the
+        // real one; tests pin it for determinism (same pattern as
+        // getTodayIST/applyDateRangeFilter).
+        const oldNow = new Date('2026-01-15T00:00:00.000Z');
+        expect(parseTestDateToISO('10-01-2026', oldNow)).toBe('2026-01-10');
+        expect(parseTestDateToISO('20-01-2026', oldNow)).toBeNull();
+    });
+});
+
+describe('isFutureTestDate', () => {
+    // Same fixed "now" as the parseTestDateToISO future-date suite above:
+    // today is 2026-09-17 IST.
+    const NOW = new Date('2026-09-17T05:00:00.000Z');
+
+    it('is false for a date equal to today or earlier', () => {
+        expect(isFutureTestDate('17-09-2026', NOW)).toBe(false);
+        expect(isFutureTestDate('16-09-2026', NOW)).toBe(false);
+        expect(isFutureTestDate('01-01-2026', NOW)).toBe(false);
+    });
+
+    it('is true for a date after today - this is the distinction parseTestDateToISO alone can no longer make, since it nulls both cases', () => {
+        expect(isFutureTestDate('18-09-2026', NOW)).toBe(true);
+        expect(isFutureTestDate('03-10-2026', NOW)).toBe(true);
+    });
+
+    it('is false for a genuinely unparseable value - it must not be mistaken for "future"', () => {
+        expect(isFutureTestDate('TL-2522', NOW)).toBe(false);
+        expect(isFutureTestDate('15-20-2026', NOW)).toBe(false);
+        expect(isFutureTestDate('20-06-206', NOW)).toBe(false);
+    });
+
+    it('is false for blank/NA-like values', () => {
+        expect(isFutureTestDate('', NOW)).toBe(false);
+        expect(isFutureTestDate('NA', NOW)).toBe(false);
+    });
+
+    it('is relative to the injected `now`, not the real clock', () => {
+        const oldNow = new Date('2026-01-15T00:00:00.000Z');
+        expect(isFutureTestDate('20-01-2026', oldNow)).toBe(true);
+        expect(isFutureTestDate('10-01-2026', oldNow)).toBe(false);
     });
 });
 

@@ -204,19 +204,26 @@ export function applyDateRangeFilter(
     }
 
     const todayISO = getTodayIST(now);
+    // Calendar-date windows (IST), consistent with getTodayIST and Custom
+    // Range - NOT an epoch-timestamp distance. The previous
+    // Math.abs(now - rowDate)/86400000 formula compared a real instant
+    // against a row's date parsed as UTC midnight, so its boundary silently
+    // shifted with the server's time-of-day (wrongly including an 8th/31st
+    // day for part of the day) and, via Math.abs, matched future-dated rows
+    // too. addDaysISO's UTC-internal math keeps this timezone-agnostic since
+    // we only ever compare calendar-date strings here, never a time.
+    const last7StartISO = addDaysISO(todayISO, -6);
+    const last30StartISO = addDaysISO(todayISO, -29);
     return rows.filter((r) => {
-        const iso = parseTestDateToISO(r['Test Date']);
+        const iso = parseTestDateToISO(r['Test Date'], now);
         if (!iso) return false;
-        const rDate = new Date(iso);
 
         if (dateRange === 'today') {
             return iso === todayISO;
         } else if (dateRange === '7days') {
-            const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-            return diffDays <= 7;
+            return iso >= last7StartISO && iso <= todayISO;
         } else if (dateRange === '30days') {
-            const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-            return diffDays <= 30;
+            return iso >= last30StartISO && iso <= todayISO;
         } else if (dateRange === 'custom') {
             if (customStart && iso < customStart) return false;
             if (customEnd && iso > customEnd) return false;
@@ -243,7 +250,8 @@ export function applyFilters(
 // Adds (or subtracts, with a negative value) whole days to a "YYYY-MM-DD"
 // string, using UTC internally so local-timezone DST shifts can't cause an
 // off-by-one day - the date math is otherwise timezone-agnostic since we
-// only ever compare/display the date part, never a time. Sole consumer is
+// only ever compare/display the date part, never a time. Used by
+// applyDateRangeFilter's 7days/30days windows above and by
 // getPreviousPeriodWindow() below.
 export function addDaysISO(iso: string, days: number): string {
     const [y, m, d] = iso.split('-').map(Number);
@@ -316,7 +324,7 @@ export function getPreviousPeriodRows(
     if (!window) return null;
 
     return applyNonDateFilters(allRecords, filters, excludeFailures).filter((r) => {
-        const iso = parseTestDateToISO(r['Test Date']);
+        const iso = parseTestDateToISO(r['Test Date'], now);
         return iso !== null && iso >= window.prevStart && iso <= window.prevEnd;
     });
 }

@@ -79,21 +79,43 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
         expect(dates).not.toContain('');
 
         const todayISO = getTodayIST(NOW);
-        const unparseableCount = records.filter((r) => parseTestDateToISO(r['Test Date']) === null).length;
+        // parseTestDateToISO itself now also rejects a future-dated (post-
+        // todayISO) value, returning null exactly like an unparseable one -
+        // so to separate the two causes independently here, "unparseable"
+        // is measured against a far-future reference `now` (nothing can be
+        // "future" relative to 2099), and "future" is then measured off
+        // that same far-future parse's result compared to the real
+        // (fixed-NOW) todayISO.
+        const FAR_FUTURE = new Date('2099-01-01T00:00:00.000Z');
+        const unparseableCount = records.filter((r) => parseTestDateToISO(r['Test Date'], FAR_FUTURE) === null).length;
         const futureCount = records.filter((r) => {
-            const iso = parseTestDateToISO(r['Test Date']);
+            const iso = parseTestDateToISO(r['Test Date'], FAR_FUTURE);
             return iso !== null && iso > todayISO;
         }).length;
         const groupedRowCount = records.length - unparseableCount - futureCount;
         // Re-derive the grouped total independently (not from internal
-        // state calculateChartData doesn't expose) by re-filtering per date.
-        const totalAcrossBuckets = dates.reduce(
-            (sum, d) => sum + records.filter((r) => parseTestDateToISO(r['Test Date']) === d).length,
-            0,
-        );
+        // state calculateChartData doesn't expose) - using the same fixed
+        // NOW calculateChartData was called with, so a row's future-ness is
+        // judged consistently rather than against whatever the real
+        // wall-clock date happens to be at test-run time. Parses once into a
+        // per-date count map rather than re-filtering all ~19k rows once per
+        // plotted day (that O(dates x rows) pattern is what pushed this past
+        // the 5s default timeout once parseTestDateToISO started doing an
+        // IST conversion per call).
+        const countByDate = new Map<string, number>();
+        records.forEach((r) => {
+            const iso = parseTestDateToISO(r['Test Date'], NOW);
+            if (iso) countByDate.set(iso, (countByDate.get(iso) || 0) + 1);
+        });
+        const totalAcrossBuckets = dates.reduce((sum, d) => sum + (countByDate.get(d) || 0), 0);
         expect(totalAcrossBuckets).toBe(groupedRowCount);
-        expect(unparseableCount).toBe(930);
-        expect(futureCount).toBe(10);
+        expect(unparseableCount).toBe(563);
+        // Large relative to the historical "10" this was pinned at: NOW is
+        // fixed at 2026-09-09, and the live sheet has since accumulated over
+        // a week of real rows past that date (2026-09-10..17) on top of the
+        // original data-entry-mistake artifacts - all correctly "future"
+        // relative to this fixed NOW, not a regression.
+        expect(futureCount).toBe(1487);
     });
 
     // The live sheet keeps changing between sessions (already documented
@@ -108,7 +130,11 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
     it('spot-checks 3 real dates\' trust/experience scores + hasData flags against independent re-filtering + direct calculateTrustScore/calculateExperienceScore calls', () => {
         const result = calculateChartData(records, NOW);
         const cases: { date: string; trust: number; trustHasData: boolean; experience: number; experienceHasData: boolean }[] = [
-            { date: '2022-06-22', trust: 90, trustHasData: true, experience: 35, experienceHasData: true },
+            // Was '2022-06-22' (trust=90) before the CHART_START_DATE cutoff -
+            // that date is now correctly excluded from the chart entirely
+            // (see the dedicated chart-start-date tests below), so this case
+            // was swapped for a real, still-plotted date instead.
+            { date: '2026-02-17', trust: 50, trustHasData: true, experience: 35, experienceHasData: true },
             { date: '2026-07-11', trust: 80, trustHasData: true, experience: 87, experienceHasData: true },
             // Was '2026-12-11' (trust=30/no data) before the future-date
             // cutoff - that date is now correctly excluded from the chart
@@ -183,15 +209,32 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
         result.scoreTrend.forEach((p) => expect(p.date <= todayISO).toBe(true));
         expect(result.scoreTrend[result.scoreTrend.length - 1]!.date).toBe(todayISO);
 
+        // Measured against a far-future reference `now` so parseTestDateToISO's
+        // own future-rejection doesn't null these out before this test gets
+        // to compare them against todayISO itself (see the far-future
+        // technique above).
+        const FAR_FUTURE = new Date('2099-01-01T00:00:00.000Z');
         const independentFutureDates = [
             ...new Set(
                 records
-                    .map((r) => parseTestDateToISO(r['Test Date']))
+                    .map((r) => parseTestDateToISO(r['Test Date'], FAR_FUTURE))
                     .filter((iso): iso is string => iso !== null && iso > todayISO),
             ),
         ].sort();
         expect(independentFutureDates).toEqual([
+            // 2026-09-10..17: real rows the live sheet has accumulated since
+            // NOW was pinned at 2026-09-09 (see the comment on the previous
+            // test) - genuinely after this fixed todayISO, not a bug.
+            '2026-09-10',
             '2026-09-11',
+            '2026-09-12',
+            '2026-09-13',
+            '2026-09-14',
+            '2026-09-15',
+            '2026-09-16',
+            '2026-09-17',
+            // The original confirmed data-entry-mistake artifacts (month
+            // incremented, day held fixed).
             '2026-10-03',
             '2026-10-04',
             '2026-10-11',
@@ -208,14 +251,12 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
     });
 
     // Confirms the future-date cutoff doesn't sweep up genuinely sparse (but
-    // real, non-future) historical dates alongside the future ones - low row
-    // count alone must not be mistaken for "future data-entry mistake".
-    it('does not exclude sparse-but-real non-future dates, and boundary date "today" is included', () => {
+    // real, non-future, on-or-after-CHART_START_DATE) historical dates
+    // alongside the future ones - low row count alone must not be mistaken
+    // for "future data-entry mistake" or "before the chart's start date".
+    it('does not exclude sparse-but-real dates within the chart window, and boundary date "today" is included', () => {
         const result = calculateChartData(records, NOW);
         const sparseButRealDates = [
-            '2022-06-22',
-            '2023-06-23',
-            '2025-06-15',
             '2026-02-17',
             '2026-06-03',
             '2026-06-04',
@@ -229,6 +270,45 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
             expect(point!.trustHasData).toBe(true);
             expect(point!.experienceHasData).toBe(true);
         });
+    });
+
+    // The chart must never plot a day before CHART_START_DATE (2026-01-01) -
+    // a small number of rows carry an obviously-wrong Test Date years
+    // earlier (2022/2023/2025), which stretched the x-axis and compressed
+    // the real June-2026-onward data into its right-hand edge. Excluded
+    // here entirely (chart-only, same treatment as the future-date cutoff
+    // above) - re-derived independently against the fresh CSV rather than
+    // hardcoded from a prior investigation, so this stays correct as the
+    // live sheet grows.
+    it('excludes rows dated before 2026-01-01 from the chart entirely - chart-only, they still count everywhere else', () => {
+        const result = calculateChartData(records, NOW);
+
+        // No plotted point is ever before the chart's start date.
+        result.scoreTrend.forEach((p) => expect(p.date >= '2026-01-01').toBe(true));
+
+        const independentPre2026Dates = [
+            ...new Set(
+                records
+                    .map((r) => parseTestDateToISO(r['Test Date'], NOW))
+                    .filter((iso): iso is string => iso !== null && iso < '2026-01-01'),
+            ),
+        ].sort();
+        expect(independentPre2026Dates).toEqual(['2022-06-22', '2023-06-23', '2025-06-15', '2025-09-16']);
+        independentPre2026Dates.forEach((d) => {
+            expect(result.scoreTrend.find((p) => p.date === d)).toBeUndefined();
+        });
+
+        // These rows must still be countable everywhere else on the
+        // dashboard (KPIs, diagnostics, filters) - calculateChartData only
+        // ever receives already-filtered rows and only decides what to
+        // PLOT, so this is really confirming the exclusion happens here
+        // (chart-only) and not upstream in the row set itself.
+        const preCutoffRows = records.filter((r) => {
+            const iso = parseTestDateToISO(r['Test Date'], NOW);
+            return iso !== null && iso < '2026-01-01';
+        });
+        expect(preCutoffRows.length).toBe(5);
+        expect(calculateTrustScore(preCutoffRows).score).toBeGreaterThanOrEqual(0);
     });
 
     // Synthetic - proves hasData/sampleCount mechanics directly rather than

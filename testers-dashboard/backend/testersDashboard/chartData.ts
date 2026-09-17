@@ -4,7 +4,7 @@
 // array).
 
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
-import { timeToMinutes, parseTestDateToISO, getTodayIST } from './normalize.js';
+import { timeToMinutes, parseTestDateToISO } from './normalize.js';
 import { RESPONSE_TIME_KEY } from './filters.js';
 import { calculateTrustScore, calculateExperienceScore, trustScoreHasData, experienceScoreHasData } from './kpis.js';
 import { TAT_STAGES } from './diagnostics.js';
@@ -36,31 +36,35 @@ export interface ChartData {
     scoreTrend: ScoreTrendPoint[];
 }
 
+// The real recording period starts around June 2026 - a small number of
+// rows carry an obviously-wrong Test Date years earlier (2022, 2023, 2025),
+// which stretches the chart's x-axis and compresses all the real data into
+// its right-hand edge. Chart-only, same treatment as the future-date
+// cutoff below: those rows still count everywhere else on the dashboard
+// (KPIs, diagnostics, filters), just not plotted here.
+const CHART_START_DATE = '2026-01-01';
+
 // Groups the given (already filtered) rows by their parsed ISO Test Date,
 // then computes one point per day. Rows whose Test Date doesn't parse, or
-// whose Test Date is later than today (IST), are excluded entirely, not
-// grouped under a bogus bucket.
+// falls before CHART_START_DATE, are excluded entirely, not grouped under a
+// bogus bucket - parseTestDateToISO itself also excludes (returns null for)
+// a Test Date later than today (IST), so a row with a confirmed data-entry
+// mistake landing it months ahead of the real recording period (month
+// incremented while the day stayed fixed) is excluded everywhere, not just
+// from this chart.
 //
 // `now` is injectable (defaults to the real current time) purely so "today"
 // is deterministic in tests - production callers should omit it. Same
 // pattern as applyDateRangeFilter in filters.ts, which this cutoff is
 // deliberately kept consistent with.
-//
-// The future-date exclusion exists because a handful of rows have a
-// data-entry mistake where the month was incremented while the day stayed
-// fixed, landing them months ahead of the real recording period (confirmed
-// via live-data investigation). Left in, they show up as a few isolated
-// points/lines at the far right of every tab. This only affects what the
-// chart plots - those rows aren't deleted and still count everywhere else.
 export function calculateChartData(rows: TestersDashboardRecord[], now: Date = new Date()): ChartData {
-    const todayISO = getTodayIST(now);
     const dailyGroups: Record<string, TestersDashboardRecord[]> = {};
     rows.forEach((r) => {
         // Grouped by the normalized ISO date, not the raw string - the live
         // sheet mixes date formats, and sorting those as raw strings does
         // NOT produce chronological order.
-        const iso = parseTestDateToISO(r['Test Date']);
-        if (iso && iso <= todayISO) {
+        const iso = parseTestDateToISO(r['Test Date'], now);
+        if (iso && iso >= CHART_START_DATE) {
             if (!dailyGroups[iso]) dailyGroups[iso] = [];
             dailyGroups[iso].push(r);
         }

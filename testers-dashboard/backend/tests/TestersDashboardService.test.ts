@@ -1,11 +1,16 @@
 import 'reflect-metadata';
 import fs from 'fs';
-import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
+import path from 'path';
+import { Readable } from 'stream';
+import csv from 'csv-parser';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { TestersDashboardService } from '../services/TestersDashboardService.js';
 import { EMPTY_FILTERS, applyFilters } from '../testersDashboard/filters.js';
 import { calculateKpis } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
+import { parseTestDateToISO, isFutureTestDate } from '../testersDashboard/normalize.js';
+import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
 import type { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
 
 // Wires Phases 1-3 together and verifies against the same real live CSV
@@ -241,5 +246,95 @@ describe('TestersDashboardService.getSummary', () => {
 
             expect(readSpy).toHaveBeenCalled();
         });
+    });
+});
+
+// Future-dated rows must be gone from the dataset at the load point itself
+// (parseCSV), before any filter/calculation ever sees them - "All Dates"
+// included. Unparseable-date rows are a different case entirely (real test
+// results, just an unreadable date field) and must NOT be touched here.
+//
+// The live CSV is actively re-synced by a cron job on a real interval (its
+// mtime and row count visibly changed mid-session while writing this test),
+// so two independent fs.readFileSync calls a few seconds apart are not
+// guaranteed to see the same content. `fs.readFileSync` is pinned to one
+// snapshot for the whole describe block (same technique the "caching"
+// tests above use with vi.spyOn) so the independent recount and the
+// service's own read are provably looking at identical bytes, rather than
+// racing a live writer.
+describe('TestersDashboardService - future-dated rows are dropped at load time, unparseable-date rows are kept', () => {
+    let service: TestersDashboardService;
+    let snapshotRows: TestersDashboardRecord[];
+
+    beforeAll(async () => {
+        const csvPath =
+            process.env.TESTERS_DASHBOARD_CSV_PATH || path.join(process.cwd(), 'data', 'testers-dashboard', 'updated.csv');
+        const snapshot = fs.readFileSync(csvPath, 'utf8');
+        vi.spyOn(fs, 'readFileSync').mockReturnValue(snapshot);
+
+        service = new TestersDashboardService();
+
+        // Independent re-read of the SAME pinned snapshot, replicating
+        // parseCSV's own boilerplate-skipping (find "Test ID,", drop
+        // blank/"Project:" rows) but WITHOUT going through the service -
+        // this is the "did the fix change the count, and by exactly the
+        // right rows" check, not a re-assertion of the service's own output.
+        let fileContent = snapshot;
+        const headerIndex = fileContent.indexOf('Test ID,');
+        if (headerIndex !== -1) fileContent = fileContent.substring(headerIndex);
+        snapshotRows = await new Promise((resolve, reject) => {
+            const results: TestersDashboardRecord[] = [];
+            Readable.from([fileContent])
+                .pipe(csv())
+                .on('data', (data: TestersDashboardRecord) => {
+                    const testId = data['Test ID'] ? data['Test ID'].trim() : '';
+                    if (testId && !testId.startsWith('Project:') && !testId.startsWith('Test ID')) {
+                        results.push(data);
+                    }
+                })
+                .on('end', () => resolve(results))
+                .on('error', reject);
+        });
+    });
+
+    afterAll(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('drops exactly the future-dated rows and none of the unparseable-date ones', async () => {
+        // Correlate by array position, not Test ID - the live sheet has
+        // duplicate Test ID values across distinct rows (a pre-existing
+        // data-quality issue, documented in filters.test.ts), so Test ID
+        // alone can't reliably identify "this exact row" here either.
+        const snapshotIsFuture = snapshotRows.map((r) => isFutureTestDate(r['Test Date']));
+        const snapshotIsUnparseable = snapshotRows.map(
+            (r, i) => !snapshotIsFuture[i] && parseTestDateToISO(r['Test Date']) === null,
+        );
+        const expectedFutureCount = snapshotIsFuture.filter(Boolean).length;
+        const expectedUnparseableCount = snapshotIsUnparseable.filter(Boolean).length;
+        expect(expectedFutureCount).toBeGreaterThan(0);
+
+        const { records } = await service.getData();
+        expect(records.length).toBe(snapshotRows.length - expectedFutureCount);
+
+        // Every row the loader kept must, in the snapshot, be a row that
+        // was NOT future-dated - rebuild the kept set by position and diff
+        // it against what parseCSV actually returned to confirm it's
+        // exactly {all rows} minus {future rows}, no more and no less.
+        const expectedKeptRows = snapshotRows.filter((_, i) => !snapshotIsFuture[i]);
+        expect(records).toEqual(expectedKeptRows);
+
+        // And the 563-ish unparseable-date rows specifically survived
+        // untouched among those kept rows.
+        const keptUnparseableCount = expectedKeptRows.filter(
+            (r) => parseTestDateToISO(r['Test Date']) === null,
+        ).length;
+        expect(keptUnparseableCount).toBe(expectedUnparseableCount);
+    });
+
+    it('getSummary()\'s "All Dates" totalRecords reflects the same reduced count - future rows are gone before any filter runs, not just from date-scoped views', async () => {
+        const { records } = await service.getData();
+        const result = await service.getSummary({});
+        expect(result.totalRecords).toBe(records.length);
     });
 });

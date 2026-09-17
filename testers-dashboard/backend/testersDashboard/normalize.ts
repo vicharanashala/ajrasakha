@@ -525,6 +525,21 @@ function warnUnparseableDate(raw: string, reason: string): null {
     return null;
 }
 
+// Same dedup-per-distinct-raw-value treatment as warnUnparseableDate above -
+// a handful of rows have a confirmed data-entry mistake (month incremented
+// while the day stayed fixed) landing them months into the future, and
+// without dedup they'd re-log on every request.
+const warnedFutureDates = new Set<string>();
+function warnFutureDate(raw: string, iso: string, todayISO: string): null {
+    if (!warnedFutureDates.has(raw)) {
+        warnedFutureDates.add(raw);
+        console.warn(
+            `[TestersDashboard] Future "Test Date" value ${JSON.stringify(raw)} (parsed as ${iso}, after today ${todayISO} IST) - treated as missing.`,
+        );
+    }
+    return null;
+}
+
 // Manually reviewed one-off date typos, each with an unambiguous fix.
 // Deliberately a fixed lookup, not a generic rule - remaining unparseable
 // values are genuinely ambiguous, and a generic rule risks silently guessing
@@ -545,15 +560,14 @@ const KNOWN_DATE_TYPOS: Record<string, string> = {
     '15-07-206': '2026-07-15',
 };
 
-// Normalizes the sheet's many raw Test Date formats (DD-MM-YYYY, DD/MM/YYYY,
-// DD.MM.YYYY, DD-MM-YY, DD-Month-YYYY, etc.) to "YYYY-MM-DD" so date-range
-// filtering and chart sorting are chronological - raw strings don't compare
-// correctly against that format otherwise. Returns null for values that
-// can't be confidently parsed, logging a one-time warning per distinct bad
-// value (see warnUnparseableDate above).
-export function parseTestDateToISO(dateStr?: string): string | null {
+// Format-only parse, shared by parseTestDateToISO and isFutureTestDate below -
+// no future-date rejection here, so callers that need to tell "genuinely
+// unparseable" apart from "parses fine but is a future date" (both of which
+// parseTestDateToISO itself collapses to null) can still do so.
+function parseRawTestDate(dateStr?: string): string | null {
     const s = (dateStr || '').trim();
     if (!s || isNAlike(s)) return null;
+
     if (KNOWN_DATE_TYPOS[s]) return KNOWN_DATE_TYPOS[s];
 
     const monthNameMatch = s.match(/^(\d{1,2})[-\s]+([A-Za-z]+)[-\s]+(\d{4})$/);
@@ -588,6 +602,38 @@ export function parseTestDateToISO(dateStr?: string): string | null {
     }
 
     return warnUnparseableDate(s, 'does not match any known date format');
+}
+
+// Normalizes the sheet's many raw Test Date formats (DD-MM-YYYY, DD/MM/YYYY,
+// DD.MM.YYYY, DD-MM-YY, DD-Month-YYYY, etc.) to "YYYY-MM-DD" so date-range
+// filtering and chart sorting are chronological - raw strings don't compare
+// correctly against that format otherwise. Returns null for values that
+// can't be confidently parsed, logging a one-time warning per distinct bad
+// value (see warnUnparseableDate above) - and also null for a value that
+// parses fine but lands after today's IST calendar date (see warnFutureDate
+// above), so every consumer (date-range filters, charts, KPIs, "All Dates")
+// excludes those rows automatically rather than each needing its own
+// after-the-fact cutoff. `now` is injectable (defaults to the real current
+// time) purely so this is deterministic in tests - production callers
+// should omit it, same pattern as getTodayIST/applyDateRangeFilter.
+export function parseTestDateToISO(dateStr?: string, now: Date = new Date()): string | null {
+    const raw = parseRawTestDate(dateStr);
+    if (raw === null) return null;
+
+    const todayISO = getTodayIST(now);
+    return raw > todayISO ? warnFutureDate((dateStr || '').trim(), raw, todayISO) : raw;
+}
+
+// Whether a Test Date value both parses successfully AND lands after today
+// (IST) - i.e. a genuinely future-dated row, as distinct from one that's
+// simply unparseable (parseTestDateToISO alone can no longer tell the two
+// apart, since it now nulls both). Used at CSV-load time
+// (TestersDashboardService.parseCSV) to drop future-dated rows from the
+// dataset entirely while keeping unparseable-date rows in place - those are
+// real test results whose date field just isn't readable, not garbage rows.
+export function isFutureTestDate(dateStr?: string, now: Date = new Date()): boolean {
+    const raw = parseRawTestDate(dateStr);
+    return raw !== null && raw > getTodayIST(now);
 }
 
 // Every "Test Date" is an IST calendar date (the whole app is India-specific),
