@@ -478,9 +478,10 @@ export class UserService extends BaseService {
       opts.isTMU,
     );
 
-    const isPaeExport = opts.role === 'pae_expert';
+    const isPaeExport =
+      opts.role === 'pae_expert' || opts.role === 'ALL' || !opts.role;
 
-    // Fetch PAE validation and review metrics only when exporting pae_expert role
+    // Fetch PAE validation and review metrics when exporting pae_expert or ALL
     const paeUserIds = isPaeExport
       ? (users as any[])
           .filter(u => u.role === 'pae_expert')
@@ -573,6 +574,7 @@ export class UserService extends BaseService {
         {
           header: 'Validation Submitted',
           value: u => {
+            if (u.role !== 'pae_expert') return '';
             const stats = paeValidationCountsMap.get(u._id?.toString() ?? '');
             return stats?.submittedCount ?? 0;
           },
@@ -580,6 +582,7 @@ export class UserService extends BaseService {
         {
           header: 'Validation Pending',
           value: u => {
+            if (u.role !== 'pae_expert') return '';
             const stats = paeValidationCountsMap.get(u._id?.toString() ?? '');
             const pendingFromSubmissions = stats?.pendingCount ?? 0;
             const pendingFromAssigned = Array.isArray(u.paeValidationAssigned)
@@ -591,6 +594,7 @@ export class UserService extends BaseService {
         {
           header: 'Review Completed',
           value: u => {
+            if (u.role !== 'pae_expert') return '';
             const stats = paeReviewCountsMap.get(u._id?.toString() ?? '');
             return stats?.totalReviewCompleted ?? 0;
           },
@@ -598,6 +602,7 @@ export class UserService extends BaseService {
         {
           header: 'Review Pending',
           value: u => {
+            if (u.role !== 'pae_expert') return '';
             const stats = paeReviewCountsMap.get(u._id?.toString() ?? '');
             return stats?.totalReviewPending ?? 0;
           },

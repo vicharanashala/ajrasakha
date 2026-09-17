@@ -139,7 +139,113 @@ describe('UserService.exportUsersToXlsx — PAE validation & review metrics', ()
     expect(row3.getCell(revPendIdx).value).toBe(1);  // author(0) + reviewer(1)
   });
 
-  it('should NOT include PAE validation and review columns when exporting other roles (e.g. role: "ALL" or "expert")', async () => {
+  it('should include PAE validation and review columns when exporting with role "ALL", showing counts for PAE and empty string for non-PAE', async () => {
+    const paeExpertId = new ObjectId('664f00000000000000000001');
+    const standardExpertId = new ObjectId('664f00000000000000000002');
+    const mockUsers = [
+      {
+        _id: paeExpertId,
+        firstName: 'PAE',
+        lastName: 'Expert',
+        email: 'pae@example.com',
+        role: 'pae_expert',
+        status: 'active',
+        isBlocked: false,
+        isVerified: true,
+        preference: { state: 'Punjab', crop: 'Wheat' },
+        paeValidationAssigned: ['qid1'],
+      },
+      {
+        _id: standardExpertId,
+        firstName: 'Standard',
+        lastName: 'Expert',
+        email: 'expert@example.com',
+        role: 'expert',
+        status: 'active',
+        isBlocked: false,
+        isVerified: true,
+        preference: { state: 'Haryana', crop: 'Paddy' },
+      },
+    ];
+
+    const mockUserRepo = {
+      findAllUsers: vi.fn().mockResolvedValue({
+        users: mockUsers,
+        totalUsers: 2,
+        totalPages: 1,
+      }),
+    };
+
+    const mockValidationCountsMap = new Map([
+      [paeExpertId.toString(), { submittedCount: 10, pendingCount: 2 }],
+    ]);
+    const mockReviewCountsMap = new Map([
+      [
+        paeExpertId.toString(),
+        {
+          authorSubmittedCount: 5,
+          reviewerSubmittedCount: 0,
+          totalReviewCompleted: 5,
+          authorPendingCount: 1,
+          reviewerPendingCount: 0,
+          totalReviewPending: 1,
+        },
+      ],
+    ]);
+
+    const mockQuestionSubmissionRepo = {
+      getPaeValidationCountsByPaeIds: vi.fn().mockResolvedValue(mockValidationCountsMap),
+      getPaeReviewCountsByPaeIds: vi.fn().mockResolvedValue(mockReviewCountsMap),
+    };
+
+    const userService = new UserService(
+      mockUserRepo as any,
+      {} as any,
+      {} as any,
+      mockQuestionSubmissionRepo as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const bufferAll = await userService.exportUsersToXlsx({ role: 'ALL' });
+    const workbookAll = new ExcelJS.Workbook();
+    await workbookAll.xlsx.load(Buffer.from(bufferAll) as any);
+    const sheetAll = workbookAll.getWorksheet('Users');
+    expect(sheetAll).toBeDefined();
+
+    const headers: string[] = [];
+    sheetAll!.getRow(1).eachCell(cell => {
+      headers.push(cell.value as string);
+    });
+
+    expect(headers).toContain('Validation Submitted');
+    expect(headers).toContain('Validation Pending');
+    expect(headers).toContain('Review Completed');
+    expect(headers).toContain('Review Pending');
+
+    const valSubIdx = headers.indexOf('Validation Submitted') + 1;
+    const valPendIdx = headers.indexOf('Validation Pending') + 1;
+    const revCompIdx = headers.indexOf('Review Completed') + 1;
+    const revPendIdx = headers.indexOf('Review Pending') + 1;
+
+    // Row 2: PAE Expert has stats
+    const row2 = sheetAll!.getRow(2);
+    expect(row2.getCell(valSubIdx).value).toBe(10);
+    expect(row2.getCell(valPendIdx).value).toBe(2);
+    expect(row2.getCell(revCompIdx).value).toBe(5);
+    expect(row2.getCell(revPendIdx).value).toBe(1);
+
+    // Row 3: Standard Expert has empty string for PAE fields
+    const row3 = sheetAll!.getRow(3);
+    expect(row3.getCell(valSubIdx).value).toBe('');
+    expect(row3.getCell(valPendIdx).value).toBe('');
+    expect(row3.getCell(revCompIdx).value).toBe('');
+    expect(row3.getCell(revPendIdx).value).toBe('');
+  });
+
+  it('should NOT include PAE validation and review columns when exporting specific other roles (e.g. role: "expert")', async () => {
     const expertId = new ObjectId('664f00000000000000000003');
     const mockUsers = [
       {
@@ -179,7 +285,7 @@ describe('UserService.exportUsersToXlsx — PAE validation & review metrics', ()
       {} as any,
     );
 
-    const bufferNonPae = await userService.exportUsersToXlsx({ role: 'ALL' });
+    const bufferNonPae = await userService.exportUsersToXlsx({ role: 'expert' });
     const workbookNonPae = new ExcelJS.Workbook();
     await workbookNonPae.xlsx.load(Buffer.from(bufferNonPae) as any);
     const sheetNonPae = workbookNonPae.getWorksheet('Users');
@@ -190,13 +296,13 @@ describe('UserService.exportUsersToXlsx — PAE validation & review metrics', ()
       nonPaeHeaders.push(cell.value as string);
     });
 
-    // Verify PAE columns are NOT in the export for non-PAE reports
+    // Verify PAE columns are NOT in the export for specific non-PAE role reports
     expect(nonPaeHeaders).not.toContain('Validation Submitted');
     expect(nonPaeHeaders).not.toContain('Validation Pending');
     expect(nonPaeHeaders).not.toContain('Review Completed');
     expect(nonPaeHeaders).not.toContain('Review Pending');
 
-    // Should not call PAE metrics queries for non-PAE exports
+    // Should not call PAE metrics queries for specific non-PAE exports
     expect(mockQuestionSubmissionRepo.getPaeValidationCountsByPaeIds).not.toHaveBeenCalled();
     expect(mockQuestionSubmissionRepo.getPaeReviewCountsByPaeIds).not.toHaveBeenCalled();
   });
