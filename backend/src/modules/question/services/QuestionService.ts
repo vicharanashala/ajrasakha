@@ -1065,6 +1065,23 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
   }
 
+  /**
+   * Event-driven PAE-validation queue allocation. Call after a PAE expert may have been
+   * freed (e.g. a question they held for validation was deleted) so a free PAE expert
+   * immediately picks up their next question. Fire-and-forget and best-effort:
+   * runPaeValidationQueueCron is idempotent and any failure is swallowed.
+   */
+  triggerPaeValidationQueueAllocation(context: string): void {
+    void this.paeValidationService
+      .runPaeValidationQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven PAE-validation queue allocation failed:`,
+          err?.message,
+        ),
+      );
+  }
+
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
@@ -1703,6 +1720,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Deleting a question frees any moderator that held it — run the moderator queue so
     // that freed moderator immediately picks up another in-review/pae_submitted question.
     this.triggerModeratorQueueAllocation('deleteQuestion');
+    // It may also have freed a PAE expert (if the question was assigned for PAE validation)
+    // — run the PAE-validation queue so the freed expert picks up their next question.
+    this.triggerPaeValidationQueueAllocation('deleteQuestion');
     return result;
   }
 
