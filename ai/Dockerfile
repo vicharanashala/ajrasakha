@@ -74,6 +74,4 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 EXPOSE 2026
 
-USER app
-
 CMD ["/start.sh"]
