@@ -61,6 +61,7 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import {
   IQuestionService,
   QueueSectionName,
+  PaeAnalyticsRow,
 } from '../interfaces/IQuestionService.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -1065,6 +1066,23 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
   }
 
+  /**
+   * Event-driven PAE-validation queue allocation. Call after a PAE expert may have been
+   * freed (e.g. a question they held for validation was deleted) so a free PAE expert
+   * immediately picks up their next question. Fire-and-forget and best-effort:
+   * runPaeValidationQueueCron is idempotent and any failure is swallowed.
+   */
+  triggerPaeValidationQueueAllocation(context: string): void {
+    void this.paeValidationService
+      .runPaeValidationQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven PAE-validation queue allocation failed:`,
+          err?.message,
+        ),
+      );
+  }
+
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
@@ -1683,12 +1701,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
 
-      // Pull this question from any moderator's assignedQuestionIds so no orphan entry
-      // is left behind keeping them wrongly "busy" after the question is gone.
-      await this.userRepo.removeAssignedQuestionFromAllModerators(
-        questionId,
-        activeSession,
-      );
+      // Pull this question from every user's assignment arrays (moderator
+      // assignedQuestionIds, PAE paeValidationAssigned, feedback feedbacksAssigned) so no
+      // orphan reference is left behind after the question is gone.
+      await this.userRepo.removeQuestionFromAllUsers(questionId, activeSession);
 
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
@@ -1705,6 +1721,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Deleting a question frees any moderator that held it — run the moderator queue so
     // that freed moderator immediately picks up another in-review/pae_submitted question.
     this.triggerModeratorQueueAllocation('deleteQuestion');
+    // It may also have freed a PAE expert (if the question was assigned for PAE validation)
+    // — run the PAE-validation queue so the freed expert picks up their next question.
+    this.triggerPaeValidationQueueAllocation('deleteQuestion');
     return result;
   }
 
@@ -2805,6 +2824,49 @@ export class QuestionService extends BaseService implements IQuestionService {
       startDate,
       endDate,
     );
+  }
+
+  /**
+   * PAE-answer dashboard analytics for EVERY PAE expert — the same per-PAE metrics the
+   * individual dashboard shows (assigned / submitted / pending answers + feedback
+   * assigned / pending / completed), one row per PAE. Reuses getPaeAnswerDashboard so the
+   * numbers match the dashboard exactly. Used for the "all PAEs" analytics export sheet.
+   */
+  async getAllPaeAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<PaeAnalyticsRow[]> {
+    const paes = await this.userRepo.findUsersByRoles(['pae_expert']);
+    const rows = await Promise.all(
+      paes.map(async u => {
+        const id = u._id!.toString();
+        const d = await this.questionRepo.getPaeAnswerDashboard(
+          id,
+          1,
+          1,
+          undefined,
+          startDate,
+          endDate,
+        );
+        const name =
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+          u.email ||
+          'Unknown';
+        return {
+          id,
+          name,
+          email: u.email ?? '',
+          assigned: d.assignedCount,
+          submitted: d.submittedCount,
+          pending: Math.max(0, d.assignedCount - d.submittedCount),
+          feedbackAssigned: d.feedbackAssigned,
+          feedbackPending: d.feedbackPending,
+          feedbackCompleted: d.feedbackCompleted,
+        };
+      }),
+    );
+    // Stable, human-friendly ordering.
+    return rows.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async processPaeValidation(

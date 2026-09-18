@@ -154,6 +154,20 @@ export interface QueueExpertItem {
   isTrainingUser?: boolean;
 }
 
+/** One PAE expert's answer-dashboard analytics — mirrors the individual dashboard metrics. */
+export interface PaeAnalyticsRow {
+  /** PAE user id — used to merge these metrics onto the matching user row in the export. */
+  id: string;
+  name: string;
+  email: string;
+  assigned: number;
+  submitted: number;
+  pending: number;
+  feedbackAssigned: number;
+  feedbackPending: number;
+  feedbackCompleted: number;
+}
+
 /** Pending-questions-by-level breakdown for one source group (time-bound or manual). */
 export interface PendingLevelGroup {
   /** Questions never allocated yet — pending at the Author stage. */
@@ -891,6 +905,7 @@ export interface IQuestionService {
       paeAssignedAt: Date;
       paeFinishedAt: Date | null;
       paeStatus: string;
+      paeAction?: string;
     }[];
   }>;
 
@@ -934,6 +949,12 @@ export interface IQuestionService {
     totalPages: number;
     totalCount: number;
   }>;
+
+  /** Per-PAE analytics for every PAE expert — one row per PAE for the analytics export. */
+  getAllPaeAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<PaeAnalyticsRow[]>;
 
   /**
    * Process a PAE validation decision (approve or provide feedback).

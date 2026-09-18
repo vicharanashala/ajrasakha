@@ -25,6 +25,7 @@ import {
   TIME_BOUND_SOURCES,
   MANUAL_SOURCES,
   IFeedback,
+  PAEAction,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -463,6 +464,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       startDate,
       endDate,
     );
+  }
+
+  async getAllPaeAnalytics(): Promise<import('../interfaces/IQuestionService.js').PaeAnalyticsRow[]> {
+    return [];
   }
 
   async getAllocatedQuestions(
@@ -11016,6 +11021,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           paeAssignedAt: r.paeAssignedAt,
           paeFinishedAt: r.paeFinishedAt ?? null,
           paeStatus: r.paeStatus ?? '',
+          paeAction: r.paeAction ?? null,
         }))
         .sort(
           (a, b) =>
@@ -11309,12 +11315,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        // 3. Update the question submission's paeValidation array entry to 'completed'
+        // 3. Update the question submission's paeValidation array entry to 'completed' with 'approve' action
         await this.questionSubmissionRepo.updatePaeValidationStatus(
           questionId,
           paeExpertId,
           'completed',
           new Date(),
+          PAEAction.APPROVE,
           session,
         );
       });
@@ -11328,7 +11335,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const now = new Date();
 
       await this._withTransaction(async (session: ClientSession) => {
-        // 1. Update the question submission's paeValidation array entry with paeFinishedAt
+        // 1. Update the question submission's paeValidation array entry with paeFinishedAt and 'suggestion' action
         // (Mark this validation round as finished even though we're providing feedback)
         await this.questionRepo.updatePaeValidationStatus(
           questionId,
@@ -11340,6 +11347,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           paeExpertId,
           'completed',
           now,
+          PAEAction.SUGGESTION,
           session,
         );
 

@@ -379,6 +379,11 @@ export interface IFeedbackReview {
   closedFeedbacks?: { feedbackId: string; closedAt: Date }[];
 }
 
+export enum PAEAction {
+  APPROVE = 'approve',
+  SUGGESTION = 'suggestion',
+}
+
 export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -414,6 +419,7 @@ export interface IQuestionSubmission {
     paeId: ObjectId | string;
     paeStatus: 'in-progress' | 'completed';
     paeFinishedAt?: Date | null;
+    paeAction?: PAEAction;
   }[];
   createdAt?: Date;
   updatedAt?: Date;

@@ -302,6 +302,7 @@ export interface PaeValidationReviewRound {
   paeAssignedAt: Date;
   paeFinishedAt: Date | null;
   paeStatus: string;
+  paeAction?: 'approve' | 'suggestion';
 }
 
 export interface FeedbackTimeline {

@@ -10,7 +10,7 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {IFeedbackRepository} from '#root/shared/database/interfaces/IFeedbackRepository.js';
 import {NotificationService} from '#root/modules/notification/services/NotificationService.js';
-import {IFeedback, IQuestion} from '#root/shared/interfaces/models.js';
+import {IFeedback, IQuestion, PAEAction} from '#root/shared/interfaces/models.js';
 import {isQuestionMatchForPaeExpert} from '../helpers/duplicateQuestionHelper.js';
 import {
   QueueQuestionItem,
@@ -219,6 +219,7 @@ export class PaeValidationService extends BaseService {
           paeAssignedAt: r.paeAssignedAt,
           paeFinishedAt: r.paeFinishedAt ?? null,
           paeStatus: r.paeStatus ?? '',
+          paeAction: r.paeAction ?? null,
         }))
         .sort(
           (a, b) =>
@@ -512,12 +513,13 @@ export class PaeValidationService extends BaseService {
           session,
         );
 
-        // 3. Update the question submission's paeValidation array entry to 'completed'
+        // 3. Update the question submission's paeValidation array entry to 'completed' with 'approve' action
         await this.questionSubmissionRepo.updatePaeValidationStatus(
           questionId,
           paeExpertId,
           'completed',
           new Date(),
+          PAEAction.APPROVE,
           session,
         );
       });
@@ -531,7 +533,7 @@ export class PaeValidationService extends BaseService {
       const now = new Date();
 
       await this._withTransaction(async (session: ClientSession) => {
-        // 1. Update the question submission's paeValidation array entry with paeFinishedAt
+        // 1. Update the question submission's paeValidation array entry with paeFinishedAt and 'suggestion' action
         // (Mark this validation round as finished even though we're providing feedback)
         await this.questionRepo.updatePaeValidationStatus(
           questionId,
@@ -543,6 +545,7 @@ export class PaeValidationService extends BaseService {
           paeExpertId,
           'completed',
           now,
+          PAEAction.SUGGESTION,
           session,
         );
 
