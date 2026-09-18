@@ -21,6 +21,7 @@ import {
   Shield,
   Briefcase,
   UsersRound,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
@@ -82,6 +83,7 @@ import { AddFarmerModal } from "./components/AddFarmerModal";
 import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { FarmerNameLink } from "./components/FarmerNameLink";
 import { useAddUser } from "./hooks/useAddUser";
+import { useExportUserDetails } from "./hooks/useExportUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
@@ -147,6 +149,7 @@ export function UserDetailsView({
   const updateUserMutation = useUpdateUser();
   const changeUserPasswordMutation = useChangeUserPassword();
   const addUserMutation = useAddUser();
+  const exportUserDetailsMutation = useExportUserDetails();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
@@ -365,6 +368,16 @@ export function UserDetailsView({
   const handleResetFilters = () => {
     setFilters(DEFAULT_FILTERS);
     setCurrentPage(1);
+  };
+
+  const handleDownload = () => {
+    exportUserDetailsMutation.mutate({
+      filters,
+      source,
+      userType,
+      sortBy,
+      sortOrder,
+    });
   };
 
   const handleSort = (
@@ -681,6 +694,26 @@ export function UserDetailsView({
                   onApply={handleApplyFilters}
                   hideFields={["userType"]}
                 />
+
+                {isAdmin && (
+                  <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-3.5 gap-1.5"
+                      disabled={exportUserDetailsMutation.isPending || totalUsers === 0}
+                      onClick={handleDownload}
+                    >
+                      {exportUserDetailsMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Download ({totalUsers})
+                    </Button>
+                  </motion.div>
+                )}
 
                 {isAdmin &&
                   (source === "annam" || source === "vicharanashala") && (
