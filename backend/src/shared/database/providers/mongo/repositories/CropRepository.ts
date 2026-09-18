@@ -118,6 +118,8 @@ export class CropRepository implements ICropRepository {
           region: norm(a.region),
           english_representation: norm(a.english_representation),
           native_representation: (a.native_representation ?? '').trim(),
+          source_link: a.source_link?.trim() || undefined,
+          page_number: a.page_number?.trim() || undefined,
         })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
@@ -331,6 +333,8 @@ export class CropRepository implements ICropRepository {
             region: norm(a.region),
             english_representation: norm(a.english_representation),
             native_representation: (a.native_representation ?? '').trim(),
+            source_link: a.source_link?.trim() || undefined,
+            page_number: a.page_number?.trim() || undefined,
           };
         });
 
