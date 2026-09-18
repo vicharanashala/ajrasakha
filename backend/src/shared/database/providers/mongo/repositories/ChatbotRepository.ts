@@ -7803,7 +7803,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const regex = {$regex: escaped, $options: 'i'};
         userFilter.$and = [
           ...(userFilter.$and ?? []),
-          {$or: [{name: regex}, {username: regex}, {email: regex}]},
+          {$or: [{name: regex}, {username: regex}, {email: regex}, {'farmerProfile.farmerName': regex}]},
         ];
       }
       if (crop && crop.trim()) {
@@ -8697,11 +8697,54 @@ if (endDate) {
               $push: '$createdAt',
             },
 
+            latestMcpToolCalls: {
+              $first: '$mcpToolCalls',
+            },
+
+            latestToolCalls: {
+              $first: '$toolCalls',
+            },
+
+            latestStatus: {
+              $first: '$status',
+            },
+
+            latestContent: {
+              $first: '$content',
+            },
+
+            latestConversationId: {
+              $first: '$conversationId',
+            },
+
             // Store all messageIds
             // messageIds: {
             //   $push: '$messageId',
             // },
           },
+        },
+
+        {
+          $lookup: {
+            from: 'messages',
+            let: { convId: '$latestConversationId', createdAt: '$latestCreatedAt' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$conversationId', '$$convId'] },
+                      { $gt: ['$createdAt', '$$createdAt'] },
+                      { $ne: ['$isCreatedByUser', true] }
+                    ]
+                  }
+                }
+              },
+              { $sort: { createdAt: 1 } },
+              { $limit: 1 }
+            ],
+            as: 'assistantReply'
+          }
         },
 
         {
@@ -8725,6 +8768,11 @@ if (endDate) {
             isDuplicate: {
               $gt: ['$repeatedCount', 1],
             },
+
+            mcpToolCalls: '$latestMcpToolCalls',
+            toolCalls: '$latestToolCalls',
+            status: '$latestStatus',
+            content: { $arrayElemAt: ['$assistantReply.content', 0] },
 
             // keep temporarily
           },

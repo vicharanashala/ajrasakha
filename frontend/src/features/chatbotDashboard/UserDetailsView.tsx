@@ -619,7 +619,7 @@ export function UserDetailsView({
                   type="text"
                   name="farmer-table-search"
                   autoComplete="off"
-                  placeholder="Search by name or email..."
+                  placeholder="Search by name, email or farmer name..."
                   value={filters.search}
                   onChange={(e) =>
                     setFilters((d) => ({ ...d, search: e.target.value }))
