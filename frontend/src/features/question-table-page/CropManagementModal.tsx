@@ -85,6 +85,8 @@ const emptyAliasEntry = (): ICropAliasObject => ({
   region: "",
   english_representation: "",
   native_representation: "",
+  source_link: "",
+  page_number: "",
 });
 
 type CropManagementModalProps = {
@@ -267,6 +269,33 @@ const AliasEntryForm = ({
         </div>
       </div>
 
+      {/* Source Link and Page Number */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="space-y-1">
+          <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+            Source Link
+          </span>
+          <input
+            placeholder="e.g. https://agritech.tnau.ac.in/..."
+            value={entry.source_link}
+            onChange={(e) => setEntry((f) => ({ ...f, source_link: e.target.value }))}
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+            Page Number
+          </span>
+          <input
+            placeholder="e.g. 45"
+            value={entry.page_number}
+            onChange={(e) => setEntry((f) => ({ ...f, page_number: e.target.value }))}
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+          />
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2">
         {isEditing && (
           <Button
@@ -382,8 +411,8 @@ const StructuredAliasesTable = ({
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Language", "Region", "English", "Native", ""].map((h, i) => (
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Language", "Region", "English", "Native", "Source Link", "Page #", ""].map((h, i) => (
           <div
             key={i}
             className="px-3 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
@@ -397,7 +426,7 @@ const StructuredAliasesTable = ({
       {aliases.map((alias, i) => (
         <div
           key={i}
-          className={`grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
+          className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
             ${
               i < aliases.length - 1
                 ? "border-b border-gray-100 dark:border-gray-800/60"
@@ -437,6 +466,22 @@ const StructuredAliasesTable = ({
               value={alias.native_representation}
               className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
             />
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block" title={alias.source_link}>
+              {alias.source_link || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block">
+              {alias.page_number || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
           </div>
 
           <div className="flex items-center justify-center gap-0.5 pr-1">

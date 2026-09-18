@@ -10,6 +10,8 @@ export interface ICropAlias {
   region: string;
   english_representation: string;
   native_representation: string;
+  source_link?: string;
+  page_number?: string;
 }
 
 export interface ICropResponse {
