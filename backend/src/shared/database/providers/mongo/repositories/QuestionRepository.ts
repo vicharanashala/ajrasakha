@@ -3256,11 +3256,14 @@ export class QuestionRepository implements IQuestionRepository {
     return Math.floor(index / limit) + 1;
   }
 
-  async insertMany(questions: IQuestion[]): Promise<string[]> {
+  async insertMany(
+    questions: IQuestion[],
+    session?: ClientSession,
+  ): Promise<string[]> {
     await this.init();
     if (!Array.isArray(questions) || questions.length === 0) return [];
     try {
-      const result = await this.QuestionCollection.insertMany(questions);
+      const result = await this.QuestionCollection.insertMany(questions, { session });
       if (!result.acknowledged) {
         throw new InternalServerError('Failed to insert questions');
       }
@@ -7416,6 +7419,43 @@ export class QuestionRepository implements IQuestionRepository {
       { _id: new ObjectId(questionId) },
       { $set: { embedding, updatedAt: new Date() } },
     );
+  }
+
+  async bulkUpdateEmbeddings(
+    updates: Array<{
+      questionId: string;
+      embedding: number[];
+      normalisedCrop?: string;
+    }>,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return { modifiedCount: 0 };
+    }
+
+    const bulkOps = updates.map(update => {
+      const setObj: any = {
+        updatedAt: new Date(),
+      };
+
+      // Always include embedding
+      setObj.embedding = update.embedding;
+
+      // Only add normalised_crop if provided
+      if (update.normalisedCrop !== undefined) {
+        setObj['details.normalised_crop'] = update.normalisedCrop;
+      }
+
+      return {
+        updateOne: {
+          filter: { _id: new ObjectId(update.questionId) },
+          update: { $set: setObj },
+        },
+      };
+    });
+
+    const result = await this.QuestionCollection.bulkWrite(bulkOps);
+    return { modifiedCount: result.modifiedCount };
   }
 
   async getShiftBasedMetrics(

@@ -45,6 +45,33 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
+  async addSubmissions(
+    submissions: IQuestionSubmission[],
+    session?: ClientSession,
+  ): Promise<string[]> {
+    try {
+      await this.init();
+      if (!Array.isArray(submissions) || submissions.length === 0) {
+        return [];
+      }
+
+      const result = await this.QuestionSubmissionCollection.insertMany(
+        submissions,
+        { session },
+      );
+
+      if (!result.acknowledged) {
+        throw new InternalServerError('Failed to insert question submissions');
+      }
+
+      return Object.values(result.insertedIds).map((id: any) => id.toString());
+    } catch (error: any) {
+      throw new InternalServerError(
+        error?.message || 'Failed to bulk insert question submissions',
+      );
+    }
+  }
+
   async getByQuestionId(
     questionId: string,
     session?: ClientSession,

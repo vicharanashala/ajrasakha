@@ -23,6 +23,15 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
   ): Promise<IQuestionSubmission>;
   /**
+   * Bulk insert multiple question submissions
+   * @param submissions Array of IQuestionSubmission objects
+   * @param session Optional MongoDB session for transaction
+   */
+  addSubmissions(
+    submissions: IQuestionSubmission[],
+    session?: ClientSession,
+  ): Promise<string[]>;
+  /**
    * update submission
    * @param questionId
    * @param userSubmissionData
