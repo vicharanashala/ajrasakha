@@ -7803,7 +7803,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const regex = {$regex: escaped, $options: 'i'};
         userFilter.$and = [
           ...(userFilter.$and ?? []),
-          {$or: [{name: regex}, {username: regex}, {email: regex}]},
+          {$or: [{name: regex}, {username: regex}, {email: regex}, {'farmerProfile.farmerName': regex}]},
         ];
       }
       if (crop && crop.trim()) {
