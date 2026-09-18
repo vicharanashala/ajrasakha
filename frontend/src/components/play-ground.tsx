@@ -478,7 +478,8 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user && user.role === "admin" && (
+              {user &&
+                (user.role === "admin" || user.role === "moderator" || user.role === "expert") && (
                 <TabsContent
                   value="data_processing"
                   className={cn(
@@ -490,7 +491,7 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard />
+                  <DataProcessingDashboard userRole={user.role} />
                 </TabsContent>
               )}
 
