@@ -39,13 +39,12 @@ RUN ls /app/.venv/bin/aegra
 # -----------------------------
 FROM base AS final
 
-# Install PostgreSQL 18 client and cron
+# Install PostgreSQL 18 client
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     libpq5 \
     gnupg \
-    cron \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
@@ -53,15 +52,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -sf /usr/lib/postgresql/18/bin/pg_dump /usr/local/bin/pg_dump \
     && rm -rf /var/lib/apt/lists/*
 
-# Setup cron for daily backup at 2 AM IST
-RUN echo 'SHELL=/bin/bash' >> /etc/crontab \
-    && echo 'PATH=/usr/local/bin:/usr/bin:/bin' >> /etc/crontab \
-    && echo '0 2 * * * root cd /app && IS_BACKUP=true python3 -m ajrasakha.agents.backup_to_gcs >> /var/log/backup.log 2>&1' >> /etc/crontab \
-    && mkdir -p /var/run /var/log \
-    && chmod 777 /var/run /var/log
-
-# Create start.sh before switching to non-root user
-RUN echo '#!/bin/bash\ncron\n/app/.venv/bin/aegra serve' > /start.sh && chmod +x /start.sh
+# Create start.sh - runs backup scheduler and aegra
+RUN echo '#!/bin/bash\n/app/.venv/bin/python3 -m ajrasakha.agents.backup_scheduler &\n/app/.venv/bin/aegra serve' > /start.sh && chmod +x /start.sh
 
 
 COPY README.md ./
