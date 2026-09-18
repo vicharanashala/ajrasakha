@@ -399,13 +399,147 @@ export interface FinalizedAnswersResponse {
   heatMapResults: HeatMapResult[];
 }
 
-export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
+export interface ClosedAnswerQuestion {
+  id?: string;
+  text?: string;
+  status?: string;
+  closedAt?: string;
+  priority?: string;
+  source?: string;
+  details?: {
+    state?: string;
+    district?: string;
+    crop?: string;
+    season?: string;
+    domain?: string[];
+  } | null;
+}
+
+/** Server-side filters accepted by GET /answers/closed. */
+export interface ClosedAnswerFilters {
+  closedAtStart?: string;
+  closedAtEnd?: string;
+  authorIds: string[];
+  sourcePresence?: "with" | "without";
+  sourceTypes: SourceType[];
+  minSources?: number;
+  maxSources?: number;
+  /** Review states to keep; "none" means answers nobody has started. */
+  newSourceStatuses: (
+    | "pending"
+    | "in-progress"
+    | "review-completed"
+    | "moderator-in-review"
+    | "merged"
+    | "flagged"
+  )[];
+  /** Keeps only answers a moderator has sent back to Pending at least once. */
+  sentBackToPending?: boolean;
+  /** Pop lookup outcomes recorded on the answer's reviewed sources. */
+  sourceReferenceStatuses: ("notFound" | "topLevelMatch" | "duplicateMatch")[];
+  /** Orders results by a seeded shuffle instead of newest first. */
+  shuffleSeed?: number;
+  states: string[];
+  crops: string[];
+  domains: string[];
+  priorities: string[];
+}
+
+export interface ClosedAnswerAuthor {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
+export interface ClosedAnswer {
+  _id: string;
+  questionId: string | null;
+  authorId: string | null;
+  answer: string;
+  status?: string;
+  isFinalAnswer: boolean;
+  approvalCount: number;
+  remarks?: string;
+  sources: SourceItem[];
+  // The answer's own updated_sources record status, if one exists (there's at most one per
+  // answer - see NewSourceService.startNewSource's dedup). Null when no one has started
+  // reviewing this answer's sources yet.
+  newSourceStatus?: | "pending"
+    | "review-completed"
+    | "in-progress"
+    | "moderator-in-review"
+    | "flagged"
+    | "merged"
+    | null;
+  // True when the requesting viewer is the one who put this answer's sources
+  // 'in-progress' - false (including for a 'pending'/'review-completed' record) otherwise.
+  isOwnInProgress?: boolean;
+  // True when this viewer is the moderator/admin currently holding the answer in
+  // 'moderator-in-review' - nobody else sees it while that hold is open.
+  isOwnModeratorReview?: boolean;
+  // True when any reviewed source on this answer had no matching pop document
+  // (sourceReferenceStatus 'notFound'), so the list can flag it.
+  hasNotFoundReference?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  question: ClosedAnswerQuestion;
+  author: ClosedAnswerAuthor | null;
+  approvedBy?: ClosedAnswerAuthor | null;
+}
+
+export interface ClosedAnswersResponse {
+  answers: ClosedAnswer[];
+  totalAnswers: number;
+}
+
+export type SourceType = "hyper_local" | "state" | "central" | "district" | "MODERATOR_REVIEW" | "other";
 
 export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
   page?: string | number;
+  // The matched pop_unique_documents entry's own year of release.
+  yearOfRelease?: string | number;
+  organization?: string;
+  // The matched pop_unique_documents document's own _id.
+  sourceReference?: string;
+}
+
+export interface Organization {
+  _id?: string;
+  org_name: string;
+  type?: 'central' | 'state' | 'district';
+  state?: string;
+  district?: string;
+  address?: string;
+}
+
+export interface OrganizationsResponse {
+  organizations: Organization[];
+  totalPages: number;
+}
+
+/** One row of an organization sheet import. The type is chosen once for the whole
+ *  sheet, so it is not part of the row. */
+export interface OrganizationBulkRow {
+  org_name: string;
+  state: string;
+  district?: string;
+  address?: string;
+}
+
+export interface OrganizationBulkResult {
+  name: string;
+  status: "created" | "skipped" | "failed";
+  reason: string;
+}
+
+export interface OrganizationBulkResponse {
+  results: OrganizationBulkResult[];
+  created: number;
+  skipped: number;
+  failed: number;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string
@@ -1123,6 +1257,10 @@ enum AuditAction {
   //CROP_MANAGEMENT
   ADD_CROP = 'ADD_CROP',
   UPDATE_CROP = 'UPDATE_CROP',
+  ADD_ORGANIZATION = 'ADD_ORGANIZATION',
+  UPDATE_ORGANIZATION = 'UPDATE_ORGANIZATION',
+  DELETE_ORGANIZATION = 'DELETE_ORGANIZATION',
+  ORGANIZATION_BULK_CREATE = 'ORGANIZATION_BULK_CREATE',
 
   //OUTREACH_REPORT
   SEND_OUTREACH_REPORT = 'SEND_OUTREACH_REPORT',

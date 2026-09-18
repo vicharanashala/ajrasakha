@@ -1,5 +1,6 @@
 import type { ClientSession } from 'mongodb';
 import type { IAnswer, SourceItem } from '#root/shared/interfaces/models.js';
+import type { ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import type { IAnswerReviewService } from './IAnswerReviewService.js';
 import type { IAnswerApprovalService } from './IAnswerApprovalService.js';
 import type { IAnswerSubmissionService } from './IAnswerSubmissionService.js';
@@ -51,4 +52,11 @@ export interface IAnswerService
   ): Promise<number>;
 
   getAnswerById(answerId: string): Promise<IAnswer>;
+
+  getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    filters?: ClosedAnswerFilters,
+  ): Promise<{answers: any[]; totalAnswers: number}>;
 }
