@@ -118,6 +118,11 @@ export class AccAgentController {
         farmerYearsOfExperience?: number;
         farmerHighestEducation?: string;
         farmerSmartphonesAtHome?: number;
+        queries?: Array<{
+          query: string;
+          crop?: string | null;
+          standardized_domains?: string[];
+        }>;
       };
     }
   ): Promise<{ success: boolean }> {

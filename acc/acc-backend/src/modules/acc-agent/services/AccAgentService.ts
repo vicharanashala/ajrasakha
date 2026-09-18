@@ -194,6 +194,11 @@ export class AccAgentService {
       farmerYearsOfExperience?: number;
       farmerHighestEducation?: string;
       farmerSmartphonesAtHome?: number;
+      queries?: Array<{
+        query: string;
+        crop?: string | null;
+        standardized_domains?: string[];
+      }>;
     }
   ): Promise<void> {
 
@@ -207,12 +212,27 @@ export class AccAgentService {
           ? [correctedData.domain]
           : [];
 
+      const extractedQueries = correctedData.queries && correctedData.queries.length > 0
+        ? correctedData.queries.map(q => ({
+            query: q.query,
+            crop: q.crop !== undefined ? q.crop : (correctedData.crop || null),
+            standardized_domains: Array.isArray(q.standardized_domains) ? q.standardized_domains : domainsArray,
+          }))
+        : [
+            {
+              query: correctedData.query,
+              crop: correctedData.crop || null,
+              standardized_domains: domainsArray,
+            },
+          ];
+
       const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
           as_node: 'extract',
           values: {
             extracted_query: correctedData.query,
+            extracted_queries: extractedQueries,
             extracted_crop: correctedData.crop,
             extracted_state: correctedData.state,
             extracted_district: correctedData.district,

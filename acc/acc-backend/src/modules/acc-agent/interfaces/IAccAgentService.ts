@@ -52,6 +52,11 @@ export interface IAccAgentService {
       farmerYearsOfExperience?: number;
       farmerHighestEducation?: string;
       farmerSmartphonesAtHome?: number;
+      queries?: Array<{
+        query: string;
+        crop?: string | null;
+        standardized_domains?: string[];
+      }>;
     }
   ): Promise<void>;
   resumeAndGetAnswer(threadId: string): Promise<{ final_answer: string }>;
