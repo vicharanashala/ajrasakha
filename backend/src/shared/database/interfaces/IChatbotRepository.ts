@@ -382,6 +382,9 @@ export interface UserDetailEntry {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
   activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;

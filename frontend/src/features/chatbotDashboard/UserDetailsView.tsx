@@ -925,21 +925,37 @@ export function UserDetailsView({
                                 </TableCell>
 
                                 <TableCell className="align-middle">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
                                   <button
                                     onClick={() => {
                                       setSelectedUser(user);
                                       setQuestionModalOpen(true);
                                     }}
-                                    disabled={user.totalQuestions === 0}
-                                    title="View queries"
+                                    disabled={(user.totalQueries ?? user.totalQuestions) === 0}
                                     className={`inline-flex items-center justify-center min-w-[36px] h-6 px-2.5 rounded-full text-xs font-semibold transition-all ${
-                                      user.totalQuestions > 0
+                                          (user.totalQueries ?? user.totalQuestions) > 0
                                         ? "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 cursor-pointer"
                                         : "bg-muted text-muted-foreground cursor-default"
                                     }`}
                                   >
-                                    {user.totalQuestions.toLocaleString()}
+                                    {(user.totalQueries ?? user.totalQuestions).toLocaleString()}
                                   </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="p-3">
+                                      <div className="space-y-1.5 min-w-[140px]">
+                                        <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Queries Breakdown</p>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Messages:</span>
+                                          <span className="font-medium">{user.totalMessagesCount ?? user.totalQuestions ?? 0}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Questions:</span>
+                                          <span className="font-medium">{user.totalQuestionsCount ?? 0}</span>
+                                        </div>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </TableCell>
 
                                 <TableCell className="align-middle">

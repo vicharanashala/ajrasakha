@@ -366,6 +366,36 @@ export class UserDetailEntryResponse {
   totalQuestions: number;
 
   @JSONSchema({
+    description: 'Total number of queries (messages + questions) for this user',
+    example: 50,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  totalQueries?: number;
+
+  @JSONSchema({
+    description: 'Total number of messages for this user',
+    example: 25,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  totalMessagesCount?: number;
+
+  @JSONSchema({
+    description: 'Total number of strictly questions for this user',
+    example: 25,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  totalQuestionsCount?: number;
+
+  @JSONSchema({
     description: 'Number of currently active login sessions for this user',
     example: 2,
     type: 'number',

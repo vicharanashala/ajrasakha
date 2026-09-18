@@ -8098,14 +8098,60 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }).filter(id => id !== null);
 
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      const questionMatchQuery: any = buildBaseQuestionMatch(sourceType);
+
+      if (startDate || endDate) {
+        questionMatchQuery.createdAt = {};
+        if (startDate) questionMatchQuery.createdAt.$gte = startDate;
+        if (endDate) questionMatchQuery.createdAt.$lte = endDate;
+      }
+
+      questionMatchQuery.userId = { $in: [...filteredUserIdsStr, ...filteredUserObjectIds] };
+
       const questionCountsPipeline = [
-         { $match: { userId: { $in: [...filteredUserIdsStr, ...filteredUserObjectIds] } } },
-         { $group: { _id: null, total: { $sum: 1 } } }
+         { $match: questionMatchQuery },
+         {
+           $group: {
+             _id: {
+               userId: "$userId",
+               question: {
+                 $toLower: {
+                   $trim: {
+                     input: "$question",
+                   },
+                 },
+               },
+             }
+           }
+         },
+         {
+           $group: {
+             _id: "$_id.userId",
+             total: { $sum: 1 }
+           }
+         }
       ];
       
       const questionCountsRes = await this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray();
-      const totalQuestionsCount = questionCountsRes[0]?.total || 0;
+      const questionCountMap = new Map();
+      let totalQuestionsCount = 0;
+      for (const res of questionCountsRes) {
+        const idStr = String(res._id);
+        questionCountMap.set(idStr, res.total);
+        totalQuestionsCount += res.total;
+      }
+      
       const totalQueries = totalMessagesCount + totalQuestionsCount;
+
+      // Update finalList users with their specific counts
+      for (const u of finalList) {
+        const uId = String(u.userId);
+        const qCount = questionCountMap.get(uId) || 0;
+        u.totalMessagesCount = u.totalQuestions || 0;
+        u.totalQuestionsCount = qCount;
+        u.totalQueries = u.totalMessagesCount + u.totalQuestionsCount;
+      }
 
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
