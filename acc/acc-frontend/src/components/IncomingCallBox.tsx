@@ -326,21 +326,13 @@ export const IncomingCallBox = ({
           const initialText = messageText ? messageText.trim() + " " : "";
 
           recognition.onresult = (event: any) => {
-            let interimTranscript = "";
-            let finalTranscript = "";
-
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-              if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
-              } else {
-                interimTranscript += event.results[i][0].transcript;
-              }
+            let fullTranscript = "";
+            for (let i = 0; i < event.results.length; i++) {
+              fullTranscript += event.results[i][0].transcript;
             }
-
-            const currentText = (finalTranscript || interimTranscript).trim();
-            if (currentText) {
+            if (fullTranscript.trim()) {
               hasLiveTextRef.current = true;
-              setMessageText(initialText + currentText);
+              setMessageText(initialText + fullTranscript.trim());
             }
           };
 
