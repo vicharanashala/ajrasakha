@@ -645,6 +645,8 @@ export interface ICropAlias {
   region: string; // e.g. "Andhra and Telangana"
   english_representation: string; // romanised / English representation e.g. "vari"
   native_representation: string; // native script e.g. "వరి"
+  source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
+  page_number?: string; // page number reference e.g. "45"
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});
