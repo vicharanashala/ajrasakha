@@ -445,6 +445,36 @@ export class PaginatedUserDetailsResponse {
   @IsOptional()
   @IsNumber()
   totalQuestions?: number;
+
+  @JSONSchema({
+    description: 'Total number of queries (messages + questions) across all users',
+    example: 50000,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  totalQueries?: number;
+
+  @JSONSchema({
+    description: 'Total number of messages across all users',
+    example: 25000,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  totalMessagesCount?: number;
+
+  @JSONSchema({
+    description: 'Total number of strictly questions across all users',
+    example: 25000,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  totalQuestionsCount?: number;
 }
 
 // ─── Daily Question Trend Entry ───────────────────────────────────────────────

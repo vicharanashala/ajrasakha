@@ -51,6 +51,9 @@ export interface PaginatedUserDetailsResponse {
   activeUsers: number;
   inactiveUsers: number;
   totalQuestions: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
 }
 
 export function useUserDetails(

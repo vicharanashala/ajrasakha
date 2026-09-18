@@ -8081,12 +8081,32 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
-      // const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
-      // const inactiveUsers = totalUsers - activeUsers;
-      // const totalQuestions = finalList.reduce(
-      //   (sum, u) => sum + u.totalQuestions,
-      //   0,
-      // );
+      const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
+      const inactiveUsers = totalUsers - activeUsers;
+      const totalMessagesCount = finalList.reduce(
+        (sum, u) => sum + u.totalQuestions,
+        0,
+      );
+
+      // Query QuestionCollection for total questions of these users
+      const filteredUserIdsStr = finalList.map(u => u.userId);
+      const filteredUserObjectIds = filteredUserIdsStr.map(id => {
+        try {
+          return new ObjectId(id);
+        } catch {
+          return null;
+        }
+      }).filter(id => id !== null);
+
+      const questionCountsPipeline = [
+         { $match: { userId: { $in: [...filteredUserIdsStr, ...filteredUserObjectIds] } } },
+         { $group: { _id: null, total: { $sum: 1 } } }
+      ];
+      
+      const questionCountsRes = await this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray();
+      const totalQuestionsCount = questionCountsRes[0]?.total || 0;
+      const totalQueries = totalMessagesCount + totalQuestionsCount;
+
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
       // Paginate
@@ -8101,9 +8121,12 @@ export class ChatbotRepository implements IChatbotRepository {
         totalUsers,
         totalPages,
         userRoleCounts,
-        // activeUsers,
-        // inactiveUsers,
-        // totalQuestions,
+        activeUsers,
+        inactiveUsers,
+        totalQuestions: totalMessagesCount, // Legacy field
+        totalQueries,
+        totalMessagesCount,
+        totalQuestionsCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);

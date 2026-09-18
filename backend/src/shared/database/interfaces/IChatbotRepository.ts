@@ -399,6 +399,9 @@ export interface PaginatedUserDetails {
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
 }
 
 export interface UnverifiedUserEntry {

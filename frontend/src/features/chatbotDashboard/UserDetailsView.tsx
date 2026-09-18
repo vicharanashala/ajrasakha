@@ -702,6 +702,30 @@ export function UserDetailsView({
                       </Button>
                     </motion.div>
                   )}
+
+                {data?.totalQueries !== undefined && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 h-9 rounded-md border bg-muted/30 text-sm font-medium cursor-help hover:bg-muted/50 transition-colors">
+                        <Inbox className="h-4 w-4 text-muted-foreground" />
+                        <span>Total queries asked: <span className="font-bold text-primary">{data.totalQueries}</span></span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="p-3">
+                      <div className="space-y-1.5 min-w-[140px]">
+                        <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Queries Breakdown</p>
+                        <div className="flex justify-between items-center text-sm">
+                          <span>Messages:</span>
+                          <span className="font-medium">{data.totalMessagesCount ?? 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span>Questions:</span>
+                          <span className="font-medium">{data.totalQuestionsCount ?? 0}</span>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </motion.div>
           </CardHeader>
