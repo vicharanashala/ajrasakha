@@ -987,6 +987,12 @@ export interface IQuestionService {
     suggestionSourceName?: string,
   ): Promise<{ success: boolean; message: string }>;
 
+  sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ): Promise<{ success: boolean; message: string }>;
+
 
   ensureNormalisedCrop(
     questionId: string,

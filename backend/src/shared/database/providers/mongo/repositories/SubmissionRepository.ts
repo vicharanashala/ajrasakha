@@ -5167,4 +5167,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       assignedAt: r.assignedAt,
     }));
   }
+
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   */
+  async getCompletedPaeValidationCount(paeExpertId: string): Promise<number> {
+    await this.init();
+    const paeOid = ObjectId.isValid(paeExpertId) ? new ObjectId(paeExpertId) : null;
+    const paeIds = paeOid ? [paeOid, paeExpertId] : [paeExpertId];
+
+    return await this.QuestionSubmissionCollection.countDocuments({
+      paeValidation: {
+        $elemMatch: {
+          paeId: { $in: paeIds },
+          paeStatus: 'completed',
+        },
+      },
+    });
+  }
 }

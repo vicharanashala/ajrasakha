@@ -2892,4 +2892,16 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getPaeValidationQueueDetails(params?: { section?: 'waitingAuto' | 'waitingManual' | 'assigned'; page?: number; limit?: number }) {
     return this.paeValidationService.getPaeValidationQueueDetails(params);
   }
+
+  async sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ) {
+    return this.paeValidationService.sendPaeMilestoneReport(
+      paeExpertId,
+      milestoneCount,
+      recipients,
+    );
+  }
 }
