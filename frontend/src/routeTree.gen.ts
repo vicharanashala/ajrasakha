@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
+import { Route as MarketplaceIndexRouteImport } from './routes/marketplace/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as HistoryIndexRouteImport } from './routes/history/index'
 import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
@@ -48,6 +49,11 @@ const PaeExpertIndexRoute = PaeExpertIndexRouteImport.update({
 const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
   id: '/notifications/',
   path: '/notifications/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceIndexRoute = MarketplaceIndexRouteImport.update({
+  id: '/marketplace/',
+  path: '/marketplace/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeIndexRoute = HomeIndexRouteImport.update({
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
+  '/marketplace': typeof MarketplaceIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
+  '/marketplace': typeof MarketplaceIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/flags-reported/': typeof FlagsReportedIndexRoute
   '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
+  '/marketplace/': typeof MarketplaceIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
   '/pae-expert/': typeof PaeExpertIndexRoute
   '/profile/': typeof ProfileIndexRoute
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/flags-reported'
     | '/history'
     | '/home'
+    | '/marketplace'
     | '/notifications'
     | '/pae-expert'
     | '/profile'
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/flags-reported'
     | '/history'
     | '/home'
+    | '/marketplace'
     | '/notifications'
     | '/pae-expert'
     | '/profile'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/flags-reported/'
     | '/history/'
     | '/home/'
+    | '/marketplace/'
     | '/notifications/'
     | '/pae-expert/'
     | '/profile/'
@@ -220,6 +232,7 @@ export interface RootRouteChildren {
   FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
   HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
+  MarketplaceIndexRoute: typeof MarketplaceIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   PaeExpertIndexRoute: typeof PaeExpertIndexRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace/': {
+      id: '/marketplace/'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof MarketplaceIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home/': {
@@ -348,6 +368,7 @@ const rootRouteChildren: RootRouteChildren = {
   FlagsReportedIndexRoute: FlagsReportedIndexRoute,
   HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
+  MarketplaceIndexRoute: MarketplaceIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,
   PaeExpertIndexRoute: PaeExpertIndexRoute,
   ProfileIndexRoute: ProfileIndexRoute,
