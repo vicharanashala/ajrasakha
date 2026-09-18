@@ -12,6 +12,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { LogOut, User } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { usePlivo } from "@/context/PlivoContext";
+import { UserService } from "@/hooks/services/userService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,11 +29,30 @@ import {
 export const UserProfileActions = () => {
   const { user: authUser, logout, clearUser } = useAuthStore();
   const { data: user } = useGetCurrentUser({ enabled: !!authUser });
+  const { logoutPlivo } = usePlivo();
   const navigate = useNavigate();
   const [imgError, setImgError] = React.useState(false);
 
   const handleLogout = async () => {
     try {
+      // 1. If agent is currently online, set them offline in backend first (while still authenticated)
+      const isOnline =
+        Boolean(user?.isCallAgentActive) ||
+        (Boolean(user?.agent) && user?.agent !== "not_available");
+
+      if (user?.role === "call_agent" && isOnline) {
+        try {
+          const userService = new UserService();
+          await userService.toggleAgentStatus(false);
+        } catch (statusErr) {
+          console.warn("Failed to set agent offline on logout:", statusErr);
+        }
+      }
+
+      // 2. Explicitly log out Plivo softphone and disconnect WebSocket
+      logoutPlivo();
+
+      // 3. Clear auth store and sign out of Firebase
       await logout();
       clearUser();
       navigate({ to: "/auth" });

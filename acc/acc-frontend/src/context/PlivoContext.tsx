@@ -58,6 +58,7 @@ export interface PlivoContextType {
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   resetCallState: () => void;
+  logoutPlivo: () => void;
 }
 
 const PlivoContext = createContext<PlivoContextType | null>(null);
@@ -571,6 +572,28 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     disconnectWebSocket();
   }, [disconnectWebSocket]);
 
+  const logoutPlivo = useCallback(() => {
+    try {
+      if (activeCallUuidRef.current && plivoClientRef.current?.client) {
+        try {
+          plivoClientRef.current.client.hangup();
+        } catch (e) {
+          console.warn("Error hanging up call on Plivo logout:", e);
+        }
+      }
+      if (plivoClientRef.current) {
+        console.log("🔌 [PlivoContext] Explicitly logging out Plivo client...");
+        plivoClientRef.current.client.logout();
+        plivoClientRef.current = null;
+      }
+    } catch (error) {
+      console.error("Error logging out Plivo client:", error);
+    }
+    disconnectWebSocket();
+    setCallStatus("idle");
+    setActiveCall(null);
+  }, [disconnectWebSocket]);
+
   return (
     <PlivoContext.Provider
       value={{
@@ -600,6 +623,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         connectWebSocket,
         disconnectWebSocket,
         resetCallState,
+        logoutPlivo,
       }}
     >
       {children}
@@ -637,6 +661,7 @@ const defaultFallbackPlivoContext: PlivoContextType = {
   connectWebSocket: () => {},
   disconnectWebSocket: () => {},
   resetCallState: () => {},
+  logoutPlivo: () => {},
 };
 
 export const usePlivo = (): PlivoContextType => {

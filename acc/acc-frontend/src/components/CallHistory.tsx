@@ -326,13 +326,27 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
   // Voice-to-Text STT Handler with REAL-TIME Live Recognition
   const sttSpeechRecognitionRef = useRef<any>(null);
+  const sttStreamRef = useRef<MediaStream | null>(null);
+  const hasLiveTextRef = useRef<boolean>(false);
+
+  // Cleanup audio tracks on unmount
+  useEffect(() => {
+    return () => {
+      if (sttStreamRef.current) {
+        sttStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (sttSpeechRecognitionRef.current) {
+        try { sttSpeechRecognitionRef.current.stop(); } catch (e) {}
+      }
+    };
+  }, []);
 
   const handleToggleSttRecording = async () => {
     if (isSttRecording) {
       if (sttSpeechRecognitionRef.current) {
         try {
           sttSpeechRecognitionRef.current.stop();
-        } catch (e) { }
+        } catch (e) {}
       }
       if (sttMediaRecorderRef.current && sttMediaRecorderRef.current.state !== "inactive") {
         sttMediaRecorderRef.current.stop();
@@ -341,55 +355,19 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
       return;
     }
 
-    // 1. Try Web Speech API first for REAL-TIME Live Speech-to-Text as user speaks
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        sttSpeechRecognitionRef.current = recognition;
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = selectedLanguage || "en-IN";
-
-        const baseText = messageText ? messageText + " " : "";
-
-        recognition.onresult = (event: any) => {
-          let liveText = "";
-          for (let i = 0; i < event.results.length; i++) {
-            liveText += event.results[i][0].transcript;
-          }
-          setMessageText((baseText + liveText).trim().slice(0, MAX_MESSAGE_LENGTH));
-        };
-
-        recognition.onerror = (event: any) => {
-          console.warn("Speech recognition error:", event.error);
-          if (event.error === "not-allowed") {
-            toast.error("Microphone access denied.");
-            setIsSttRecording(false);
-          }
-        };
-
-        recognition.onend = () => {
-          setIsSttRecording(false);
-        };
-
-        recognition.start();
-        setIsSttRecording(true);
-        toast.info("Speak now...");
-        return;
-      } catch (err) {
-        console.warn("Web Speech API error, falling back to Sarvam STT:", err);
-      }
-    }
-
-    // 2. Fallback / Sarvam STT: Use MediaRecorder to capture complete valid audio stream
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rawMime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      sttStreamRef.current = stream;
+      sttAudioChunksRef.current = [];
+      hasLiveTextRef.current = false;
+
+      const rawMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "";
       const mediaRecorder = new MediaRecorder(stream, rawMime ? { mimeType: rawMime } : undefined);
       sttMediaRecorderRef.current = mediaRecorder;
-      sttAudioChunksRef.current = [];
 
       const cleanMime = (mediaRecorder.mimeType || "audio/webm").split(";")[0].trim();
 
@@ -401,24 +379,38 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
+        sttStreamRef.current = null;
+
         const fullAudioBlob = new Blob(sttAudioChunksRef.current, {
           type: cleanMime || "audio/webm",
         });
 
-        if (fullAudioBlob.size === 0) {
+        if (fullAudioBlob.size < 500) {
           setIsSttRecording(false);
           return;
         }
 
+        if (hasLiveTextRef.current) {
+          setIsSttRecording(false);
+          toast.success("Voice transcribed successfully!");
+          return;
+        }
+
         setIsSttTranscribing(true);
+        const toastId = toast.loading("Transcribing voice recording with Sarvam AI...");
         try {
-          const text = await transcribeAudioWithSarvam(fullAudioBlob, selectedLanguage);
+          const text = await transcribeAudioWithSarvam(fullAudioBlob, selectedLanguage || "unknown");
           if (text && text.trim()) {
             setMessageText((prev) => (prev ? `${prev} ${text.trim()}` : text.trim()).slice(0, MAX_MESSAGE_LENGTH));
+            toast.dismiss(toastId);
             toast.success("Voice transcribed successfully!");
+          } else {
+            toast.dismiss(toastId);
+            toast.info("No speech detected.");
           }
         } catch (err: any) {
           console.error("STT Error:", err);
+          toast.dismiss(toastId);
           toast.error(err.message || "Failed to transcribe audio.");
         } finally {
           setIsSttTranscribing(false);
@@ -426,12 +418,49 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(250);
       setIsSttRecording(true);
-      toast.info("Speak into your mic, click Mic again when finished.");
+      toast.info("Listening... Speak now, click Mic again when finished.");
+
+      // Optional real-time preview via Web Speech API
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          sttSpeechRecognitionRef.current = recognition;
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = selectedLanguage || "en-IN";
+
+          const baseText = messageText ? messageText + " " : "";
+
+          recognition.onresult = (event: any) => {
+            let liveText = "";
+            for (let i = 0; i < event.results.length; i++) {
+              liveText += event.results[i][0].transcript;
+            }
+            const trimmed = liveText.trim();
+            if (trimmed) {
+              hasLiveTextRef.current = true;
+              setMessageText((baseText + liveText).trim().slice(0, MAX_MESSAGE_LENGTH));
+            }
+          };
+
+          recognition.onerror = (event: any) => {
+            console.warn("Speech recognition live preview error:", event.error);
+          };
+
+          recognition.onend = () => {};
+
+          recognition.start();
+        } catch (speechErr) {
+          console.warn("Web Speech API live preview unavailable:", speechErr);
+        }
+      }
     } catch (err) {
       console.error("Microphone access error:", err);
       toast.error("Microphone access denied or unavailable.");
+      setIsSttRecording(false);
     }
   };
 

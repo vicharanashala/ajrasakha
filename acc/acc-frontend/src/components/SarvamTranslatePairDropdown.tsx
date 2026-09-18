@@ -78,10 +78,15 @@ export default function SarvamTranslatePairDropdown({
 
     try {
       if (onTranslateStart) onTranslateStart();
+      const isEnglish = (str: string) => !/[\u0900-\u0D7F\u0600-\u06FF]/.test(str);
+      const effectiveSourceLang =
+        sourceLang ||
+        ((query1 && isEnglish(query1)) || (query2 && isEnglish(query2)) ? "en-IN" : undefined);
+
       // Translate both queries in parallel
       const [res1, res2] = await Promise.all([
-        query1.trim() ? translate(query1, lang.code, sourceLang) : Promise.resolve(null),
-        query2.trim() ? translate(query2, lang.code, sourceLang) : Promise.resolve(null),
+        query1.trim() ? translate(query1, lang.code, effectiveSourceLang) : Promise.resolve(null),
+        query2.trim() ? translate(query2, lang.code, effectiveSourceLang) : Promise.resolve(null),
       ]);
       onTranslate(res1 || query1, res2 || query2);
     } catch (err) {

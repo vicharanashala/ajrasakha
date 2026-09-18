@@ -2310,6 +2310,7 @@ export const CallInterface = () => {
                                         <SarvamTranslatePairDropdown
                                           query1={qn.question || ""}
                                           query2={qn.answer || ""}
+                                          sourceLang="en-IN"
                                           onTranslateStart={() => {
                                             setTranslatingQuestions((prev) => ({
                                               ...prev,

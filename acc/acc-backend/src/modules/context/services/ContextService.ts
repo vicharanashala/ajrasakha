@@ -66,6 +66,31 @@ export class ContextService extends BaseService {
     return chunks;
   }
 
+  private _resolveSourceLanguage(text: string, sourceLang?: string): string {
+    if (sourceLang && sourceLang !== 'auto' && sourceLang !== 'unknown') {
+      return sourceLang;
+    }
+
+    // Check for Indian / Perso-Arabic scripts
+    if (/[\u0900-\u097F]/.test(text)) return 'hi-IN'; // Devanagari (Hindi, Marathi, Sanskrit, etc.)
+    if (/[\u0980-\u09FF]/.test(text)) return 'bn-IN'; // Bengali / Assamese
+    if (/[\u0A00-\u0A7F]/.test(text)) return 'pa-IN'; // Gurmukhi (Punjabi)
+    if (/[\u0A80-\u0AFF]/.test(text)) return 'gu-IN'; // Gujarati
+    if (/[\u0B00-\u0B7F]/.test(text)) return 'od-IN'; // Odia
+    if (/[\u0B80-\u0BFF]/.test(text)) return 'ta-IN'; // Tamil
+    if (/[\u0C00-\u0C7F]/.test(text)) return 'te-IN'; // Telugu
+    if (/[\u0C80-\u0CFF]/.test(text)) return 'kn-IN'; // Kannada
+    if (/[\u0D00-\u0D7F]/.test(text)) return 'ml-IN'; // Malayalam
+    if (/[\u0600-\u06FF]/.test(text)) return 'ur-IN'; // Perso-Arabic (Urdu, Kashmiri, Sindhi)
+
+    // If text has NO Indic/Arabic scripts, treat as English
+    if (!/[\u0900-\u0D7F\u0600-\u06FF]/.test(text)) {
+      return 'en-IN';
+    }
+
+    return 'auto';
+  }
+
   async translate(
     text: string,
     targetLang: string,
@@ -77,9 +102,16 @@ export class ContextService extends BaseService {
     if (cleanText.length > MAX_TOTAL_CHARS)
       throw new BadRequestError(`Text exceeds maximum allowed length of ${MAX_TOTAL_CHARS} characters`);
 
-    // Instant bypass if already English / ASCII and translating to English
+    // Resolve source language code
+    const resolvedSourceLang = this._resolveSourceLanguage(cleanText, sourceLang);
+
+    // Instant bypass if source and target are the same language
+    if (resolvedSourceLang === targetLang) {
+      return { translated_text: cleanText };
+    }
+
     const isTargetEnglish = targetLang === 'en-IN' || targetLang.startsWith('en');
-    const isSourceEnglish = (sourceLang && sourceLang.startsWith('en')) || /^[\x00-\x7F]*$/.test(cleanText);
+    const isSourceEnglish = resolvedSourceLang === 'en-IN' || resolvedSourceLang.startsWith('en');
     if (isTargetEnglish && isSourceEnglish) {
       return { translated_text: cleanText };
     }
@@ -87,7 +119,7 @@ export class ContextService extends BaseService {
     // When translating to English, use Claude translation API on Annam servers
     if (isTargetEnglish) {
       try {
-        const sourceLangCode = sourceLang && sourceLang !== 'unknown' ? sourceLang : 'auto';
+        const sourceLangCode = resolvedSourceLang !== 'auto' ? resolvedSourceLang : 'auto';
         const api = this.createAxiosInstance();
         const response = await api.post(
           this.translateApiUrl,
@@ -113,11 +145,36 @@ export class ContextService extends BaseService {
     const apiKey = appConfig.sarvamAPI;
     if (!apiKey) throw new BadRequestError('Sarvam API key not configured');
 
+    const MAYURA_LANGUAGES = new Set([
+      'en-IN', 'hi-IN', 'bn-IN', 'gu-IN', 'kn-IN',
+      'ml-IN', 'mr-IN', 'od-IN', 'pa-IN', 'ta-IN', 'te-IN',
+    ]);
+
+    // sarvam-translate:v1 strictly forbids 'auto' as source_language_code.
+    // If source language could not be resolved (remains 'auto'):
+    if (resolvedSourceLang === 'auto') {
+      if (MAYURA_LANGUAGES.has(targetLang)) {
+        // mayura:v1 supports 'auto' for 11 major languages (max 900 chars per chunk)
+        const chunks = this._splitIntoChunks(cleanText, 900);
+        const translatedChunks = await this._translateInBatches(chunks, 'auto', targetLang, 'mayura:v1', apiKey);
+        return { translated_text: translatedChunks.join(' ') };
+      } else {
+        // Two-step: auto -> en-IN via mayura:v1, then en-IN -> targetLang via sarvam-translate:v1
+        const enChunks = this._splitIntoChunks(cleanText, 900);
+        const enResults = await this._translateInBatches(enChunks, 'auto', 'en-IN', 'mayura:v1', apiKey);
+        const enText = enResults.join(' ');
+        if (targetLang === 'en-IN') return { translated_text: enText };
+        const targetChunks = this._splitIntoChunks(enText, 1900);
+        const targetResults = await this._translateInBatches(targetChunks, 'en-IN', targetLang, 'sarvam-translate:v1', apiKey);
+        return { translated_text: targetResults.join(' ') };
+      }
+    }
+
+    // When source language is known (e.g. en-IN, hi-IN, bn-IN):
     const model = 'sarvam-translate:v1';
-    const source_language_code = sourceLang ?? 'auto';
     const maxChars = 1900;
     const chunks = this._splitIntoChunks(cleanText, maxChars);
-    const translatedChunks = await this._translateInBatches(chunks, source_language_code, targetLang, model, apiKey);
+    const translatedChunks = await this._translateInBatches(chunks, resolvedSourceLang, targetLang, model, apiKey);
     return { translated_text: translatedChunks.join(' ') };
   }
 

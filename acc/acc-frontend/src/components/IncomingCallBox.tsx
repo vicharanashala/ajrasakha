@@ -91,6 +91,22 @@ export const IncomingCallBox = ({
   const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const sttAudioChunksRef = useRef<Blob[]>([]);
   const sttSpeechRecognitionRef = useRef<any>(null);
+  const sttStreamRef = useRef<MediaStream | null>(null);
+  const hasLiveTextRef = useRef<boolean>(false);
+
+  // Cleanup audio tracks on unmount
+  useEffect(() => {
+    return () => {
+      if (sttStreamRef.current) {
+        sttStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (sttSpeechRecognitionRef.current) {
+        try {
+          sttSpeechRecognitionRef.current.stop();
+        } catch (e) {}
+      }
+    };
+  }, []);
 
   // Floating control box state
   const [isFloatingBoxVisible, setIsFloatingBoxVisible] = useState(false);
@@ -213,6 +229,7 @@ export const IncomingCallBox = ({
 
   // Voice-to-Text STT Handler
   const handleToggleSttRecording = async () => {
+    // If currently recording, stop recording and process audio
     if (isSttRecording) {
       if (sttSpeechRecognitionRef.current) {
         try {
@@ -226,91 +243,126 @@ export const IncomingCallBox = ({
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = selectedLanguage || "en-IN";
-
-        recognition.onstart = () => {
-          setIsSttRecording(true);
-        };
-
-        recognition.onresult = (event: any) => {
-          let interimTranscript = "";
-          let finalTranscript = "";
-
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript;
-            } else {
-              interimTranscript += event.results[i][0].transcript;
-            }
-          }
-
-          const currentText = finalTranscript || interimTranscript;
-          if (currentText) {
-            setMessageText((prev) => {
-              const base = prev ? prev.trim() + " " : "";
-              return base + currentText;
-            });
-          }
-        };
-
-        recognition.onerror = (event: any) => {
-          console.warn("Speech recognition error:", event.error);
-          setIsSttRecording(false);
-        };
-
-        recognition.onend = () => {
-          setIsSttRecording(false);
-        };
-
-        sttSpeechRecognitionRef.current = recognition;
-        recognition.start();
-        return;
-      } catch (err) {
-        console.warn("Web Speech API start error, falling back to Sarvam STT:", err);
-      }
-    }
-
     try {
+      // 1. Acquire microphone stream directly
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      sttMediaRecorderRef.current = mediaRecorder;
+      sttStreamRef.current = stream;
       sttAudioChunksRef.current = [];
+      hasLiveTextRef.current = false;
+
+      // Determine supported audio mime type
+      const rawMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "";
+      const mediaRecorder = new MediaRecorder(stream, rawMime ? { mimeType: rawMime } : undefined);
+      sttMediaRecorderRef.current = mediaRecorder;
+
+      const cleanMime = (mediaRecorder.mimeType || "audio/webm").split(";")[0].trim();
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           sttAudioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
+        // Free all microphone tracks immediately so the tab mic is released
         stream.getTracks().forEach((track) => track.stop());
-        const audioBlob = new Blob(sttAudioChunksRef.current, { type: "audio/wav" });
-        if (audioBlob.size > 1000) {
-          setIsSttTranscribing(true);
-          try {
-            const transcript = await transcribeAudioWithSarvam(audioBlob, selectedLanguage || "unknown");
-            if (transcript) {
-              setMessageText((prev) => (prev ? `${prev} ${transcript}` : transcript));
-            }
-          } catch (err: any) {
-            toast.error("Failed to transcribe voice recording.");
-          } finally {
-            setIsSttTranscribing(false);
+        sttStreamRef.current = null;
+
+        const audioBlob = new Blob(sttAudioChunksRef.current, { type: cleanMime || "audio/webm" });
+
+        // If user spoke very little or nothing
+        if (audioBlob.size < 500) {
+          setIsSttRecording(false);
+          return;
+        }
+
+        // If Web Speech API already transcribed text in real-time, keep it and don't re-call API
+        if (hasLiveTextRef.current) {
+          setIsSttRecording(false);
+          toast.success("Voice transcribed successfully!");
+          return;
+        }
+
+        setIsSttTranscribing(true);
+        const toastId = toast.loading("Transcribing voice recording with Sarvam AI...");
+        try {
+          // Use Sarvam Saaras v3 STT with auto language detection ("unknown")
+          const transcript = await transcribeAudioWithSarvam(audioBlob, selectedLanguage || "unknown");
+          if (transcript && transcript.trim()) {
+            setMessageText((prev) => (prev ? `${prev.trim()} ${transcript.trim()}` : transcript.trim()));
+            toast.dismiss(toastId);
+            toast.success("Voice transcribed successfully!");
+          } else {
+            toast.dismiss(toastId);
+            toast.info("No speech detected.");
           }
+        } catch (err: any) {
+          console.error("Sarvam STT transcription error:", err);
+          toast.dismiss(toastId);
+          toast.error(err.message || "Failed to transcribe voice recording.");
+        } finally {
+          setIsSttTranscribing(false);
+          setIsSttRecording(false);
         }
       };
 
       mediaRecorder.start(250);
       setIsSttRecording(true);
+      toast.info("Listening... Speak now, click Mic again to finish.");
+
+      // 2. Best-effort live preview with Web Speech API (runs concurrently with MediaRecorder)
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = selectedLanguage || "en-IN";
+
+          const initialText = messageText ? messageText.trim() + " " : "";
+
+          recognition.onresult = (event: any) => {
+            let interimTranscript = "";
+            let finalTranscript = "";
+
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+              } else {
+                interimTranscript += event.results[i][0].transcript;
+              }
+            }
+
+            const currentText = (finalTranscript || interimTranscript).trim();
+            if (currentText) {
+              hasLiveTextRef.current = true;
+              setMessageText(initialText + currentText);
+            }
+          };
+
+          recognition.onerror = (event: any) => {
+            console.warn("Speech recognition live preview warning:", event.error);
+            // Notice: We do NOT stop recording here. MediaRecorder continues recording audio safely!
+          };
+
+          recognition.onend = () => {
+            // Live preview ended, MediaRecorder is still active until user clicks Stop
+          };
+
+          sttSpeechRecognitionRef.current = recognition;
+          recognition.start();
+        } catch (speechErr) {
+          console.warn("Web Speech API live preview unavailable, MediaRecorder will handle transcription:", speechErr);
+        }
+      }
     } catch (err: any) {
       console.error("Microphone access error:", err);
-      toast.error("Could not access microphone.");
+      toast.error("Could not access microphone. Please check browser permissions.");
+      setIsSttRecording(false);
     }
   };
 
