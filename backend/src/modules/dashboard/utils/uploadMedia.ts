@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {existsSync} from 'node:fs';
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 import {Storage} from '@google-cloud/storage';
@@ -30,6 +31,17 @@ if (emulatorHost) {
   // as "Cannot call write after a stream was destroyed". Clear it so we talk to real GCS.
   delete process.env.STORAGE_EMULATOR_HOST;
   delete process.env.FIREBASE_STORAGE_EMULATOR_HOST;
+
+  // On Cloud Run the runtime already has an attached service account, so the GCS SDK can
+  // use Application Default Credentials with no key file. If GOOGLE_APPLICATION_CREDENTIALS
+  // points at a key file that isn't actually present (e.g. a secret mount that didn't
+  // happen — "/run/secrets/gcp-service-account.json does not exist"), the SDK throws ENOENT
+  // before it ever tries ADC. Drop the dangling path so it falls back to the attached
+  // service account's credentials instead of failing every upload.
+  const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (keyPath && !existsSync(keyPath)) {
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  }
 }
 
 /** Lazily-created GCS client. In production it uses Application Default Credentials
