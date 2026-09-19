@@ -68,10 +68,19 @@ export async function uploadMediaFile(
   const gcsFile = bucket.file(objectName);
 
   try {
-    await gcsFile.save(file.buffer, {
-      contentType: file.mimetype,
-      resumable: false,
-      metadata: {cacheControl: 'public, max-age=31536000'},
+    // NOTE: use an explicit one-shot write stream rather than gcsFile.save(buffer).
+    // save()'s internal buffer retry can recreate/destroy the underlying write stream and
+    // then write to it again, throwing "Cannot call write after a stream was destroyed".
+    // A single createWriteStream().end(buffer) avoids that path entirely.
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = gcsFile.createWriteStream({
+        contentType: file.mimetype,
+        resumable: false,
+        metadata: {cacheControl: 'public, max-age=31536000'},
+      });
+      writeStream.once('error', reject);
+      writeStream.once('finish', () => resolve());
+      writeStream.end(file.buffer);
     });
 
     // Best-effort public read. Buckets with uniform bucket-level access reject
