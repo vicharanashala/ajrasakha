@@ -57,6 +57,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Input } from "@/components/atoms/input";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useDeleteUser } from "./hooks/useDeleteUser";
@@ -117,6 +126,43 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   verificationStatus: "all",
   loginStatus: "all",
 };
+
+
+const yesNo = (value?: boolean) => (value == null ? "" : value ? "Yes" : "No");
+const cropList = (value?: string[]) => (value?.length ? value.join("; ") : "");
+
+const DOWNLOAD_PREVIEW_COLUMNS: {
+  key: string;
+  label: string;
+  getValue: (user: UserDetail) => React.ReactNode;
+}[] = [
+  { key: "name", label: "Name", getValue: (u) => u.name || "" },
+  { key: "email", label: "Email", getValue: (u) => u.email || "" },
+  { key: "userRole", label: "User Role", getValue: (u) => u.userRole || u.role || "" },
+  { key: "isVerified", label: "Verified", getValue: (u) => yesNo(u.isVerified) },
+  { key: "questions", label: "Questions", getValue: (u) => u.totalQuestionsCount ?? 0 },
+  { key: "messages", label: "Messages", getValue: (u) => u.totalMessagesCount ?? u.totalQuestions ?? 0 },
+  { key: "farmerName", label: "Farmer Name", getValue: (u) => u.farmerProfile?.farmerName || "" },
+  { key: "age", label: "Age", getValue: (u) => u.farmerProfile?.age ?? "" },
+  { key: "gender", label: "Gender", getValue: (u) => u.farmerProfile?.gender || "" },
+  { key: "phone", label: "Phone", getValue: (u) => u.farmerProfile?.phoneNo || "" },
+  { key: "language", label: "Language", getValue: (u) => u.farmerProfile?.languagePreference || "" },
+  { key: "experience", label: "Years Of Experience", getValue: (u) => u.farmerProfile?.yearsOfExperience ?? "" },
+  { key: "village", label: "Village", getValue: (u) => u.farmerProfile?.villageName || "" },
+  { key: "block", label: "Block", getValue: (u) => u.farmerProfile?.blockName || "" },
+  { key: "district", label: "District", getValue: (u) => u.farmerProfile?.district || "" },
+  { key: "state", label: "State", getValue: (u) => u.farmerProfile?.state || "" },
+  { key: "crops", label: "Crops Cultivated", getValue: (u) => cropList(u.farmerProfile?.cropsCultivated) },
+  { key: "primaryCrop", label: "Primary Crop", getValue: (u) => u.farmerProfile?.primaryCrop || "" },
+  { key: "secondaryCrop", label: "Secondary Crop", getValue: (u) => u.farmerProfile?.secondaryCrop || "" },
+  { key: "landhold", label: "Landhold (acres)", getValue: (u) => u.farmerProfile?.landhold ?? "" },
+  { key: "kcc", label: "Aware Of KCC", getValue: (u) => yesNo(u.farmerProfile?.awarenessOfKCC) },
+  { key: "agriApps", label: "Uses Agri Apps", getValue: (u) => yesNo(u.farmerProfile?.usesAgriApps) },
+  { key: "education", label: "Highest Educated Person", getValue: (u) => u.farmerProfile?.highestEducatedPerson || "" },
+  { key: "smartphones", label: "Number Of Smartphones", getValue: (u) => u.farmerProfile?.numberOfSmartphones ?? "" },
+  { key: "kvk", label: "Nearest KVK", getValue: (u) => u.farmerProfile?.nearestKVK || "" },
+  { key: "platform", label: "Platform", getValue: (u) => u.farmerProfile?.platform || "" },
+];
 
 const rolesForUserType = (value: "all" | "external" | "internal"): string[] => {
   if (value === "external") {
@@ -186,6 +232,7 @@ export function UserDetailsView({
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [userToView, setUserToView] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
+  const [downloadConfirmOpen, setDownloadConfirmOpen] = useState(false);
   // const [hovered, setHovered] = useState<string | null>(null);
   // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -379,6 +426,11 @@ export function UserDetailsView({
       sortBy,
       sortOrder,
     });
+  };
+
+  const handleConfirmDownload = () => {
+    setDownloadConfirmOpen(false);
+    handleDownload();
   };
 
   const handleSort = (
@@ -700,7 +752,7 @@ export function UserDetailsView({
                         size="sm"
                         className="h-9 px-3.5 gap-1.5"
                         disabled={exportUserDetailsMutation.isPending || totalUsers === 0}
-                        onClick={handleDownload}
+                        onClick={() => setDownloadConfirmOpen(true)}
                       >
                         {exportUserDetailsMutation.isPending ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -1219,6 +1271,80 @@ export function UserDetailsView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Download confirmation / preview */}
+      <Dialog
+        open={downloadConfirmOpen}
+        onOpenChange={(open) => setDownloadConfirmOpen(open)}
+      >
+        <DialogContent className="sm:max-w-6xl w-[95vw]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-4.5 w-4.5 text-primary" />
+              Download farmer data
+            </DialogTitle>
+            <DialogDescription>
+              A CSV with{" "}
+              <strong className="text-foreground">
+                {totalUsers.toLocaleString()} farmer
+                {totalUsers === 1 ? "" : "s"}
+              </strong>
+              {isFiltered ? " matching the current filters" : ""} will be
+              downloaded. Preview of the columns and first rows below.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="rounded-md border border-border/60 h-[50vh] w-full">
+            <Table className="min-w-[1400px]">
+              <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
+                <TableRow className="hover:bg-transparent">
+                  {DOWNLOAD_PREVIEW_COLUMNS.map((col) => (
+                    <TableHead
+                      key={col.key}
+                      className="h-9 whitespace-nowrap text-[11px] font-semibold text-muted-foreground uppercase tracking-wider"
+                    >
+                      {col.label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.slice(0, 5).map((user) => (
+                  <TableRow key={user.userId} className="hover:bg-transparent">
+                    {DOWNLOAD_PREVIEW_COLUMNS.map((col) => (
+                      <TableCell
+                        key={col.key}
+                        className="whitespace-nowrap text-xs"
+                      >
+                        {col.getValue(user)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+
+          <p className="text-xs text-muted-foreground">
+            Showing {Math.min(5, users.length)} of {totalUsers.toLocaleString()}{" "}
+            row{totalUsers === 1 ? "" : "s"} that will be included in the
+            download.
+          </p>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDownloadConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleConfirmDownload}>
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {verificationToConfirm && (
   <div className="fixed inset-0 z-[9999] flex items-center justify-center">
