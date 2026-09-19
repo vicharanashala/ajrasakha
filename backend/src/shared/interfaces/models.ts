@@ -675,6 +675,8 @@ export interface ICrop {
   /** Optional scientific (binomial) name, e.g. "Oryza sativa". Stored as entered. */
   scientificName?: string | null;
   status?: string; // only relevant when type === 'chemical', any custom string
+  /** Public URL of the entry's image (uploaded to GCS / storage emulator). null/absent = none. */
+  imageUrl?: string | null;
   aliases: (ICropAlias | string)[]; // string = legacy format; ICropAlias = new format
   crops?: string[]; // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;

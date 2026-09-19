@@ -41,12 +41,14 @@ const getStorage = (): Storage =>
   ));
 
 /**
- * Upload an outreach media file (image/video) to the public-dashboard media bucket and
- * return its public URL. Objects are namespaced by kind under `public-dashboard/`.
+ * Upload any media file to the media bucket under the given object prefix and return its
+ * public URL. Works against the Firebase Storage emulator locally and real GCS in
+ * staging/production with the SAME code. Reused across verticals (dashboard media, crop
+ * images, …) so upload/emulator handling lives in one place.
  */
-export async function uploadPublicDashboardMedia(
+export async function uploadMediaFile(
   file: Express.Multer.File,
-  kind: 'image' | 'video',
+  objectPrefix: string,
 ): Promise<string> {
   const bucketName = appConfig.GCP_MEDIA_BUCKET;
   if (!bucketName) {
@@ -59,9 +61,8 @@ export async function uploadPublicDashboardMedia(
   }
 
   const ext = (file.originalname.split('.').pop() || '').toLowerCase();
-  const objectName = `public-dashboard/${kind}s/${randomUUID()}${
-    ext ? `.${ext}` : ''
-  }`;
+  const prefix = objectPrefix.replace(/^\/+|\/+$/g, '');
+  const objectName = `${prefix}/${randomUUID()}${ext ? `.${ext}` : ''}`;
 
   const bucket = getStorage().bucket(bucketName);
   const gcsFile = bucket.file(objectName);
@@ -96,4 +97,15 @@ export async function uploadPublicDashboardMedia(
       `Failed to upload media to bucket ${bucketName}: ${error}`,
     );
   }
+}
+
+/**
+ * Upload an outreach media file (image/video) to the public-dashboard media bucket and
+ * return its public URL. Objects are namespaced by kind under `public-dashboard/`.
+ */
+export async function uploadPublicDashboardMedia(
+  file: Express.Multer.File,
+  kind: 'image' | 'video',
+): Promise<string> {
+  return uploadMediaFile(file, `public-dashboard/${kind}s`);
 }

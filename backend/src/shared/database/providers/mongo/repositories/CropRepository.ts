@@ -281,6 +281,7 @@ export class CropRepository implements ICropRepository {
       type?: CropType;
       crops?: string[];
       scientificName?: string | null;
+      imageUrl?: string | null;
     },
     updatedBy: string,
   ): Promise<ICrop | null> {
@@ -310,6 +311,11 @@ export class CropRepository implements ICropRepository {
 
       if (updates.crops !== undefined) {
         $set.crops = updates.crops;
+      }
+
+      // Image URL: a null/empty value clears it; otherwise store the public URL.
+      if (updates.imageUrl !== undefined) {
+        $set.imageUrl = updates.imageUrl ? updates.imageUrl : null;
       }
 
       // ── Alias conflict check ──────────────────────────────────────────────
