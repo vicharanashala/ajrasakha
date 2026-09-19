@@ -40,7 +40,7 @@ import {
   CropSuccessResponse,
 } from '../classes/validators/CropResponseValidators.js';
 import { CsvUploadFileOptions, ImageUploadFileOptions } from '../classes/validators/fileUploadOptions.js';
-import { uploadMediaFile } from '#root/modules/dashboard/utils/uploadMedia.js';
+import { uploadMediaFile, deleteMediaByUrl } from '#root/modules/dashboard/utils/uploadMedia.js';
 import { startCropBulkProcessing, startChemicalBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
 import * as XLSX from 'xlsx';
 
@@ -450,9 +450,13 @@ export class CropController {
     // New image uploaded → store its public URL, naming the object after the crop for a
     // human-readable URL. `removeImage` → clear the existing image.
     if (image) {
-      const nameForFile = (await this.cropService.getCropById(cropId))?.name;
-      body.imageUrl = await uploadMediaFile(image, 'crops', nameForFile);
+      const existing = await this.cropService.getCropById(cropId);
+      body.imageUrl = await uploadMediaFile(image, 'crops', existing?.name);
+      // Replaced an existing image → remove the old object from storage (best-effort).
+      if (existing?.imageUrl) await deleteMediaByUrl(existing.imageUrl);
     } else if (rawBody?.removeImage === 'true' || rawBody?.removeImage === true) {
+      const existing = await this.cropService.getCropById(cropId);
+      if (existing?.imageUrl) await deleteMediaByUrl(existing.imageUrl);
       body.imageUrl = null;
     }
     let updated;

@@ -137,6 +137,36 @@ export async function uploadMediaFile(
 }
 
 /**
+ * Delete a previously-uploaded object from the media bucket, given the public URL that
+ * `uploadMediaFile` returned. Handles both URL shapes (real GCS and the Firebase Storage
+ * emulator). Best-effort: never throws — a failed cleanup must not fail the caller's update.
+ */
+export async function deleteMediaByUrl(url: string): Promise<void> {
+  const bucketName = appConfig.GCP_MEDIA_BUCKET;
+  if (!bucketName || !url) return;
+  try {
+    let objectName: string | undefined;
+    // Emulator: <host>/v0/b/<bucket>/o/<url-encoded object path>?alt=media
+    const emuMatch = url.match(/\/o\/([^?]+)/);
+    if (emuMatch) {
+      objectName = decodeURIComponent(emuMatch[1]);
+    } else {
+      // Production: https://storage.googleapis.com/<bucket>/<object path>
+      const marker = `/${bucketName}/`;
+      const idx = url.indexOf(marker);
+      if (idx >= 0) objectName = url.slice(idx + marker.length);
+    }
+    if (!objectName) return;
+    await getStorage()
+      .bucket(bucketName)
+      .file(objectName)
+      .delete({ignoreNotFound: true});
+  } catch {
+    /* best-effort cleanup — orphaned object is preferable to a failed update */
+  }
+}
+
+/**
  * Upload an outreach media file (image/video) to the public-dashboard media bucket and
  * return its public URL. Objects are namespaced by kind under `public-dashboard/`.
  */
