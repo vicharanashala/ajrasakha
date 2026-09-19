@@ -11,7 +11,7 @@ import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { Textarea } from "@/components/atoms/textarea";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   ArrowDown,
   ArrowUp,

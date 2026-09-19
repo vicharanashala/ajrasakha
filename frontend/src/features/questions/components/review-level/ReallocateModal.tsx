@@ -13,7 +13,7 @@ import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { Loader2, User, UserPlus, X, AlertTriangle, Clock } from "lucide-react";
 import { useState, useMemo } from "react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { Badge } from "@/components/atoms/badge";
 import { TimerDisplay } from "@/components/timer-display";
 
@@ -74,6 +74,7 @@ export function ReallocateModal({
   };
 
   const handleSubmit = async () => {
+    let toastId;
     try {
       if (!question) {
         toast.error("Question data not available");
@@ -98,6 +99,7 @@ export function ReallocateModal({
         return;
       }
 
+      toastId = toast.loading("Reallocating expert...");
       await replaceQueueExpert({
         questionId: questionId,
         levelIndex: levelIndex,
@@ -110,8 +112,10 @@ export function ReallocateModal({
       setReasonForChange("");
       onOpenChange(false);
       onSuccess?.();
+      if (toastId) toast.dismiss(toastId);
       toast.success("Expert replaced successfully");
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."

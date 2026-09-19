@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, CalendarIcon, Timer, ChevronDown, Info } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
   Dialog,
@@ -56,9 +56,10 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
       return;
     }
 
+    let toastId;
     try {
       setIsDownloading(true);
-      toast.info("Preparing TAT report...");
+      toastId = toast.loading("Preparing TAT report...");
 
       const startDate = formatDateLocal(dateRange.from);
       const endDate = formatDateLocal(dateRange.to);
@@ -77,9 +78,11 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
+      if (toastId) toast.dismiss(toastId);
       toast.success("TAT report downloaded successfully!");
       setIsDialogOpen(false);
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       console.error("TAT report download error:", error);
       const message =
         error instanceof Error ? error.message : "Failed to download TAT report";

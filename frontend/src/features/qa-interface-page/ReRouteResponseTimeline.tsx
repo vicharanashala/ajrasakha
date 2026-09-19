@@ -1,10 +1,9 @@
 import type {
   IQuestion,
   IReviewParmeters,
-  SourceItem
 } from "@/types";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   MessageCircle,
   XCircle,

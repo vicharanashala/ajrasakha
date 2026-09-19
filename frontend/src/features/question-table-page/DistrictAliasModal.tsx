@@ -9,7 +9,7 @@ import {
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   Loader2,
   MapPin,
@@ -164,11 +164,15 @@ export const DistrictAliasModal = ({
       toast.error("District name cannot be empty.");
       return;
     }
+    let toastId;
     try {
       setSavingCode(districtCode);
+      toastId = toast.loading("Saving district...");
       await saveAliases({ districtCode, aliases: drafts[districtCode] ?? [], name });
+      if (toastId) toast.dismiss(toastId);
       toast.success("Saved.");
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error?.message || "Failed to save.");
     } finally {
       setSavingCode(null);
@@ -207,8 +211,11 @@ export const DistrictAliasModal = ({
       toast.error("A reason is required to add a district.");
       return;
     }
+    let toastId;
     try {
+      toastId = toast.loading("Adding district...");
       await addDistrictMut({ name, reason, aliases: newAliases });
+      if (toastId) toast.dismiss(toastId);
       toast.success(`District "${name}" added.`);
       setNewName("");
       setNewReason("");
@@ -216,17 +223,22 @@ export const DistrictAliasModal = ({
       setNewAliasInput("");
       setShowAddForm(false);
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error?.message || "Failed to add district.");
     }
   };
 
   const handleDeleteDistrict = async (reason: string) => {
     if (!deleteTarget) return;
+    let toastId;
     try {
+      toastId = toast.loading("Deleting district...");
       await deleteDistrictMut({ districtCode: deleteTarget.districtCode, reason });
+      if (toastId) toast.dismiss(toastId);
       toast.success(`District "${deleteTarget.districtNameEnglish}" deleted.`);
       setDeleteTarget(null);
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error?.message || "Failed to delete district.");
     }
   };

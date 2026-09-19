@@ -8,7 +8,7 @@ import { Button } from "@/components/atoms/button";
 import { Loader2, User, Clock, Activity, AlertCircle, CheckCircle, XCircle, Copy, Check, ChevronLeft, ChevronRight, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 interface AuditTrailModalProps {
   open: boolean;

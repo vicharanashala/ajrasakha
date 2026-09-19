@@ -32,7 +32,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import { useSendOutreachReport } from "@/hooks/api/question/useSendOutreachReport";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 // Simple email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -110,15 +110,19 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
       return;
     }
 
+    let toastId;
     try {
+      toastId = toast.loading("Sending outreach report...");
       await sendReport({
         startDate,
         endDate,
         emails: emails,
       });
+      if (toastId) toast.dismiss(toastId);
       setOpen(false);
       setTimeout(resetForm, 300);
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       toast.error("Failed to send report. Please try again.");
     }
   };

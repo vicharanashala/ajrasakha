@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   Select,
   SelectContent,
@@ -271,11 +271,15 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
       return;
     }
 
+    let toastId;
     try {
+      toastId = toast.loading("Submitting transcript...");
       await submitTranscript(combinedTranscript);
       setTranscript("");
+      if (toastId) toast.dismiss(toastId);
       toast.success("Transcript submitted successfully!");
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       console.error(error);
       toast.error("Failed to submit transcript. Try again!");
     }
