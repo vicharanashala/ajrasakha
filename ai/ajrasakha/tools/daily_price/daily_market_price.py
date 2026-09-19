@@ -1073,26 +1073,51 @@ def mandi_price_tool(
                 mkt = mandi_by_id.get(mid) if mid else None
                 formatted.append(_serialize_price_record(pr, mc, mkt))
 
-            # Post-filter: if exact commodity_name matches exist for the user's requested
+            # Post-filter: if commodity_name matches exist for the user's requested
             # commodity, keep only those records. This ensures that when user asks for
             # "banana", records like "banana - green" are excluded even if they share the
             # same alias group. Only fall back to all records if NO exact match exists.
             if commodity_list:
                 requested_names = {_norm(c) for c in commodity_list if _norm(c)}
-                exact_matches = [
-                    r for r in formatted
-                    if _norm(r.get("commodity_name")) in requested_names
-                ]
+
+                def _name_matches_request(rec_name: Optional[str]) -> bool:
+                    """True if the record's commodity_name is an acceptable match for
+                    any of the user's requested names.
+
+                    Accepts:
+                    1. Exact match:  "bajra" == "bajra"
+                    2. Prefix match with parenthetical qualifier added by the source:
+                       "bajra(pearl millet/cumbu)" starts with "bajra(" or "bajra "
+                       This handles the common Tamil Nadu pattern where the DB stores
+                       the commodity as "<name>(<local_name>/<english_name>)".
+                    3. The user's requested name is a substring alias of the canonical name
+                       stored in the DB (e.g. user asks "pearl millet", DB has "bajra(pearl millet/cumbu)").
+                    """
+                    norm_rec = _norm(rec_name)
+                    if not norm_rec:
+                        return False
+                    for req in requested_names:
+                        if norm_rec == req:
+                            return True
+                        # Prefix: "bajra(..." or "bajra ..." → matches "bajra"
+                        if norm_rec.startswith(req + "(") or norm_rec.startswith(req + " "):
+                            return True
+                        # Reverse prefix: user asked "pearl millet", DB has "bajra(pearl millet/cumbu)"
+                        if req in norm_rec:
+                            return True
+                    return False
+
+                exact_matches = [r for r in formatted if _name_matches_request(r.get("commodity_name"))]
                 if exact_matches:
                     logger.info(
-                        "Post-filter: kept %d exact commodity match records (from %d total). "
+                        "Post-filter: kept %d commodity match records (from %d total). "
                         "Excluded variants: %s",
                         len(exact_matches), len(formatted),
                         sorted({r.get("commodity_name") for r in formatted} - {r.get("commodity_name") for r in exact_matches}),
                     )
                     formatted = exact_matches
                 else:
-                    # No exact match for the requested commodity in any of the returned
+                    # No match for the requested commodity in any of the returned
                     # records.  This happens when the alias lookup resolves e.g.
                     # "sweet potato" → canonical "potato" and the DB only has "potato"
                     # records.  Silently serving those records would be misleading
@@ -1739,7 +1764,11 @@ def mandi_price_tool(
             from_date=from_date, to_date=to_date,
             lookback_days=eff_lookback,
             latest_price_fallback=True,
-            search_by_apmc=True,
+            # Respect the outer search_by_apmc flag: if the agent identified the
+            # market_name as a district (search_by_apmc=False), honour that here
+            # so district names like "Kallakurichi" resolve correctly instead of
+            # being treated as APMC names that don't match anything.
+            search_by_apmc=tool_search_by_apmc,
         )
         if not named_result.get("error"):
             named_result["action"] = "get_today_price"
@@ -1756,13 +1785,25 @@ def mandi_price_tool(
         # ── Part 2: Nearby markets' prices on requested date / latest available ───
         nearby_result: dict = {}
 
-        # Resolve the named mandi to get its coordinates
+        # Resolve the named mandi/district to get its coordinates.
+        # First try APMC name search; if that finds nothing (because market_name is
+        # a district, not an APMC), fall back to district resolution.
         named_market_search = _do_search_markets(
             market_name=market_name,
             state=state,
             nearest_market=False,
         )
         named_docs = named_market_search.get("_raw_docs") or []
+
+        # Fallback: treat market_name as a district name when APMC search finds nothing
+        if not named_docs and not tool_search_by_apmc:
+            named_docs = _resolve_district_markets(market_name, state)
+            logger.info(
+                "get_price_with_nearby: APMC name search found no docs; "
+                "resolved '%s' as district → %d APMCs for coordinate lookup.",
+                market_name, len(named_docs),
+            )
+
         named_mandi_names: set = set()
         named_mandi_coords: tuple | None = None
 
