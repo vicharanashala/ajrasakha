@@ -135,13 +135,14 @@ export type QuestionSource =
   | 'AJRASAKHA'
   | 'AGRI_EXPERT'
   | 'WHATSAPP'
-  | 'OUTREACH';
+  | 'OUTREACH'
+  | 'QUESTION_COLLECTION';
 
 /** Time-bound questions (SLA-driven, handled by the time-bound reallocation cron). */
 export const TIME_BOUND_SOURCES: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'];
 
 /** Manual / non-time-bound questions (added by moderators or via outreach). */
-export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH'];
+export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH', 'QUESTION_COLLECTION'];
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -645,6 +646,8 @@ export interface ICropAlias {
   region: string; // e.g. "Andhra and Telangana"
   english_representation: string; // romanised / English representation e.g. "vari"
   native_representation: string; // native script e.g. "వరి"
+  source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
+  page_number?: string; // page number reference e.g. "45"
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});
@@ -672,6 +675,8 @@ export interface ICrop {
   /** Optional scientific (binomial) name, e.g. "Oryza sativa". Stored as entered. */
   scientificName?: string | null;
   status?: string; // only relevant when type === 'chemical', any custom string
+  /** Public URL of the entry's image (uploaded to GCS / storage emulator). null/absent = none. */
+  imageUrl?: string | null;
   aliases: (ICropAlias | string)[]; // string = legacy format; ICropAlias = new format
   crops?: string[]; // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;

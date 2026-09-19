@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Eye, RefreshCw, Trash2, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
@@ -8,7 +8,9 @@ import {
   getDashboardUniqueDocument,
   deleteDashboardUniqueDocument,
   getDashboardLanguages,
-  getDashboardUsers,
+  getDashboardUploadedByOptions,
+  getDashboardTranslatedByOptions,
+  getDashboardReviewedByOptions,
   getUniqueDocumentPlacements,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
@@ -18,6 +20,7 @@ import TextFilter from "./TextFilter";
 import RangeFilter from "./RangeFilter";
 import DateRangeColumnFilter from "./DateRangeColumnFilter";
 import ServerPagination from "./ServerPagination";
+import TopScrollbar from "./TopScrollbar";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
 import {
@@ -47,6 +50,7 @@ const PAGE_SIZE = 100;
 // all filterable now.
 const FIELD_COLUMNS = [
   { key: "document_id", label: "Document ID", filterable: true, mono: true },
+  { key: "shareable_name", label: "Shareable Name", filterable: true },
   { key: "advisory_type", label: "Advisory Type", filterable: true, options: ADVISORY_TYPE_OPTIONS },
   { key: "advisory_scope", label: "Advisory Scope", filterable: true, options: ADVISORY_SCOPE_OPTIONS },
   { key: "season", label: "Season", filterable: true, options: SEASON_OPTIONS },
@@ -61,26 +65,28 @@ const FIELD_COLUMNS = [
   { key: "advisory_released_org", label: "Advisory Released Org", filterable: true },
   { key: "advisory_org_address", label: "Org Address", filterable: true },
   { key: "live_source_link", label: "Live Source Link", link: true, filterable: true },
-  { key: "shareable_name", label: "Shareable Name", filterable: true },
   { key: "language", label: "Language", filterType: "language" },
   { key: "language_source", label: "Language Source", filterable: true, options: LANGUAGE_SOURCE_OPTIONS },
   { key: "domain", label: "Domain", filterable: true, options: DOMAIN_OPTIONS },
   { key: "format_original", label: "Format (Original)", filterable: true, options: FORMAT_ORIGINAL_OPTIONS },
   { key: "num_pages", label: "Pages", filterType: "numberRange", min: 0 },
   { key: "verification_status", label: "Verification", filterable: true, options: VERIFICATION_STATUS_OPTIONS },
-  { key: "verified_by", label: "Verified By", filterType: "users" },
+  // uploaded_by (renamed from verified_by 2026-09-18) is auto-captured from the signed-in user on
+  // upload — no longer user-editable (see fields.ts/AddDocumentForm.tsx), but still filterable
+  // here the same way verified_by was.
+  { key: "uploaded_by", label: "Uploaded By", filterType: "users" },
   { key: "document_status", label: "Doc Status", filterable: true, options: DOCUMENT_STATUS_OPTIONS },
   // translated_by/reviewed_by are the signed-in user's display name, unverified (see
   // TranslateReviewCell.tsx) — null on every document translated/reviewed before 2026-09-16, and
   // cleared when the translation/review is deleted (docs/first_render_frontend.md, "Who
   // translated / reviewed, and when"). *_at is sortable — the only sortable columns.
-  { key: "translated_by", label: "Translated By", filterable: true },
+  { key: "translated_by", label: "Translated By", filterType: "users" },
   { key: "translated_at", label: "Translated At", filterType: "dateRange", sortable: true, formatDate: true },
-  { key: "reviewed_by", label: "Reviewed By", filterable: true },
+  { key: "reviewed_by", label: "Reviewed By", filterType: "users" },
   { key: "reviewed_at", label: "Reviewed At", filterType: "dateRange", sortable: true, formatDate: true },
   { key: "placement_count", label: "Placements" },
 ];
-const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, view-action
+const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, actions (delete)
 
 const MULTI_PLACEMENT_OPTIONS = [
   { key: "", label: "All" },
@@ -89,6 +95,7 @@ const MULTI_PLACEMENT_OPTIONS = [
 ];
 
 export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, refreshKey, onDataChanged }) {
+  const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   // "" | "translated_at" | "-translated_at" | "reviewed_at" | "-reviewed_at" — "-" is newest
@@ -100,20 +107,26 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const [error, setError] = useState(null);
 
   const [languageOptions, setLanguageOptions] = useState([]);
-  // Admins/moderators/experts from the real reviewer-system users collection (see
-  // getDashboardUsers's comment in api.ts). Falls back to a free-text filter for "Verified By"
-  // while this stays empty (see the filterType "users" render branch below). Doesn't need the
-  // edit form's extra-option handling for renamed users since this is a filter, not a value
-  // picker — a filter for a name nobody has isn't wrong, it's just a filter that matches nothing.
-  const [userOptions, setUserOptions] = useState([]);
+  // Distinct, non-empty names actually present on documents (see api.ts's getDashboardUploadedBy/
+  // TranslatedBy/ReviewedByOptions comment) — NOT the reviewer-system user list, since uploaded_by
+  // is filled from Zoho's "created by" and mostly isn't reviewer-system users at all. Falls back
+  // to a free-text-only filter for a "users" column while its list stays empty (see the
+  // filterType "users" render branch below). Refetched whenever refreshKey bumps (a "document" SSE
+  // event) so a newly-uploaded/translated/reviewed name shows up in the dropdown without a full
+  // page reload.
+  const [uploadedByOptions, setUploadedByOptions] = useState([]);
+  const [translatedByOptions, setTranslatedByOptions] = useState([]);
+  const [reviewedByOptions, setReviewedByOptions] = useState([]);
   useEffect(() => {
     getDashboardLanguages()
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
       .catch(() => {});
-    getDashboardUsers()
-      .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
-      .catch(() => {});
   }, []);
+  useEffect(() => {
+    getDashboardUploadedByOptions().then(setUploadedByOptions).catch(() => {});
+    getDashboardTranslatedByOptions().then(setTranslatedByOptions).catch(() => {});
+    getDashboardReviewedByOptions().then(setReviewedByOptions).catch(() => {});
+  }, [refreshKey]);
 
   async function load() {
     setLoading(true);
@@ -151,6 +164,13 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     setFilters({});
     setPage(1);
   }
+
+  // Which distinct-names list backs each "users" column's dropdown (see the fetch effect above).
+  const usersOptionsFor = {
+    uploaded_by: uploadedByOptions,
+    translated_by: translatedByOptions,
+    reviewed_by: reviewedByOptions,
+  };
 
   // Backs both numberRange (suffixes "min"/"max") and dateRange ("from"/"to") columns — two
   // filter keys per field, e.g. filters.num_pages_min / filters.num_pages_max.
@@ -196,6 +216,13 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   // it recoverable from its own trash, but nothing here does), so the confirm is built from a
   // freshly-fetched document rather than the possibly-stale list row, spelling out exactly how
   // many placements and files are about to go, per the backend's explicit ask.
+  function handleCopyId(id) {
+    navigator.clipboard.writeText(id).then(
+      () => toast.success("Copied"),
+      () => toast.error("Failed to copy"),
+    );
+  }
+
   const [deletingRowId, setDeletingRowId] = useState(null);
   async function handleDeleteRow(row) {
     setDeletingRowId(row.id);
@@ -298,7 +325,8 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
         </div>
       )}
 
-      <div className="relative overflow-x-auto rounded-lg border border-border">
+      <TopScrollbar containerRef={scrollRef} />
+      <div className="relative overflow-x-auto rounded-lg border border-border" ref={scrollRef}>
         {loading && (
           <div className="absolute inset-0 bg-background/40 flex items-start justify-center pt-4 pointer-events-none z-10">
             <RefreshCw size={16} className="animate-spin text-muted-foreground" />
@@ -360,20 +388,36 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       )}
                     </div>
                   ) : col.filterType === "users" ? (
-                    userOptions.length > 0 ? (
-                      <ColumnFilter
-                        label={col.label}
-                        options={userOptions}
-                        selected={filters[col.key] || []}
-                        onChange={(v) => setFilter(col.key, v)}
-                      />
-                    ) : (
-                      <TextFilter
-                        label={col.label}
-                        value={filters[col.key]?.[0] || ""}
-                        onChange={(v) => setFilter(col.key, v ? [v] : [])}
-                      />
-                    )
+                    (() => {
+                      // filter[uploaded_by|translated_by|reviewed_by] is a case-insensitive
+                      // substring match, comma-joined = OR — so the typed search box and the
+                      // dropdown's checked names both just add terms to the same array. Split the
+                      // current value back into "picked from the dropdown" vs "typed" by checking
+                      // membership in the known-names list — a typed substring essentially never
+                      // collides with a full name, and if it does, treating it as a pick is fine.
+                      const options = usersOptionsFor[col.key] || [];
+                      const current = filters[col.key] || [];
+                      const checked = current.filter((v) => options.includes(v));
+                      const typed = current.find((v) => !options.includes(v)) || "";
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <TextFilter
+                            label={col.label}
+                            value={typed}
+                            onChange={(v) => setFilter(col.key, v ? [...checked, v] : checked)}
+                            placeholder="Search…"
+                          />
+                          {options.length > 0 && (
+                            <ColumnFilter
+                              label="Pick from list"
+                              options={options}
+                              selected={checked}
+                              onChange={(v) => setFilter(col.key, typed ? [...v, typed] : v)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })()
                   ) : col.options ? (
                     <ColumnFilter
                       label={col.label}
@@ -455,6 +499,28 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                         </td>
                       );
                     }
+                    if (col.key === "document_id") {
+                      return (
+                        <td key={col.key} className="px-3 py-2 align-middle">
+                          <div className="flex items-center gap-1">
+                            <button
+                              className="font-mono text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                              onClick={() => handleCopyId(val)}
+                              title="Click to copy"
+                            >
+                              {val ?? "—"}
+                            </button>
+                            <button
+                              className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                              onClick={() => onOpenDetail(row.id)}
+                              title="View document"
+                            >
+                              <Eye size={11} />
+                            </button>
+                          </div>
+                        </td>
+                      );
+                    }
                     return (
                       <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">
                         <span
@@ -500,13 +566,6 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex items-center gap-1">
-                      <button
-                        className="p-1 rounded border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
-                        onClick={() => onOpenDetail(row.id)}
-                        title="View document"
-                      >
-                        <Eye size={11} />
-                      </button>
                       <button
                         className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
                         onClick={() => handleDeleteRow(row)}

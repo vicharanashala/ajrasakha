@@ -18,6 +18,10 @@ export interface UserMessage {
   updatedAt: string;
   repeatedCount: number;
   isDuplicate: boolean;
+  status?: string;
+  mcpToolCalls?: any[];
+  toolCalls?: any[];
+  content?: any[];
 }
 
 export interface PaginatedResponse<T> {

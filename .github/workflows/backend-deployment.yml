@@ -92,4 +92,5 @@ jobs:
             REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
             PAE_MILESTONE_REPORT_EMAILS=${{ secrets.PAE_MILESTONE_REPORT_EMAILS }}
             PAE_MILESTONE_REPORT_CC=${{ secrets.PAE_MILESTONE_REPORT_CC }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
           flags: --allow-unauthenticated

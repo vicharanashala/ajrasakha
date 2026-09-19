@@ -8,8 +8,18 @@ export const useUpdateCrop = () => {
 
   return useMutation({
     mutationKey: ["updateCrop"],
-    mutationFn: async ({ cropId, payload }: { cropId: string; payload: IUpdateCropPayload }): Promise<ICreateCropResponse | null> => {
-      return await cropService.updateCrop(cropId, payload);
+    mutationFn: async ({
+      cropId,
+      payload,
+      image,
+      removeImage,
+    }: {
+      cropId: string;
+      payload: IUpdateCropPayload;
+      image?: File | null;
+      removeImage?: boolean;
+    }): Promise<ICreateCropResponse | null> => {
+      return await cropService.updateCrop(cropId, payload, { image, removeImage });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crops"] });

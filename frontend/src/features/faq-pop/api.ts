@@ -1,10 +1,7 @@
 import { env } from "@/config/env";
-import { UserService } from "@/hooks/services/userService";
-import type { UserRole } from "@/types";
 
 const FAQ_API = (env.faqApiUrl() || "").replace(/\/$/, "");
 const POP_API = (env.popApiUrl() || "").replace(/\/$/, "");
-const userService = new UserService();
 
 async function _handleResponse(res: Response) {
   if (!res.ok) {
@@ -673,16 +670,24 @@ export async function getDashboardLanguages() {
   return _handleResponse(res);
 }
 
-// Backs the "Verified By" dropdown (fields.ts) — only the picked `name` is ever stored on the
-// document (verified_by stays a plain string, same as today). Goes through the same
-// GET /users/by-role the rest of the app already uses (UserService, see
-// hooks/services/userService.ts) — the real reviewer-system users collection, auth'd with the
-// signed-in user's Firebase token via apiFetch — NOT the POP backend's own /dashboard/users,
-// which turned out to read a different application's stale collection in a shared staging
-// database and was showing outdated names in prod. Every caller treats a failure here as
-// non-fatal and falls back to a free-text input (MetadataFieldInput.tsx).
-export async function getDashboardUsers(roles: UserRole[] = ["admin", "moderator", "expert"]) {
-  return (await userService.getUsersByRole(roles)) || [];
+// Backs the Uploaded By / Translated By / Reviewed By column filter dropdowns
+// (UniqueDocumentsTable.tsx's filterType: "users" columns) — distinct, non-empty values actually
+// present on documents, sorted A-Z ignoring case. NOT the reviewer-system's user list (that was
+// tried first, but uploaded_by is filled from Zoho's "created by" on all 8,748 staging docs, and
+// most of those names aren't reviewer-system users at all — the dropdown has to be sourced from
+// the data itself). Every caller treats a failure here as non-fatal and falls back to a free-text
+// filter box (see the "users" branch in UniqueDocumentsTable.tsx).
+export async function getDashboardUploadedByOptions(): Promise<string[]> {
+  const res = await fetch(`${POP_API}/dashboard/uploaded-by`);
+  return (await _handleResponse(res)) || [];
+}
+export async function getDashboardTranslatedByOptions(): Promise<string[]> {
+  const res = await fetch(`${POP_API}/dashboard/translated-by`);
+  return (await _handleResponse(res)) || [];
+}
+export async function getDashboardReviewedByOptions(): Promise<string[]> {
+  const res = await fetch(`${POP_API}/dashboard/reviewed-by`);
+  return (await _handleResponse(res)) || [];
 }
 
 // `placements` is the per-state folder-group shape: [{state, crop_ids: [...], organization_ids:
