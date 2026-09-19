@@ -8081,12 +8081,78 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
-      // const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
-      // const inactiveUsers = totalUsers - activeUsers;
-      // const totalQuestions = finalList.reduce(
-      //   (sum, u) => sum + u.totalQuestions,
-      //   0,
-      // );
+      const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
+      const inactiveUsers = totalUsers - activeUsers;
+      const totalMessagesCount = finalList.reduce(
+        (sum, u) => sum + u.totalQuestions,
+        0,
+      );
+
+      // Query QuestionCollection for total questions of these users
+      const filteredUserIdsStr = finalList.map(u => u.userId);
+      const filteredUserObjectIds = filteredUserIdsStr.map(id => {
+        try {
+          return new ObjectId(id);
+        } catch {
+          return null;
+        }
+      }).filter(id => id !== null);
+
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      const questionMatchQuery: any = buildBaseQuestionMatch(sourceType);
+
+      if (startDate || endDate) {
+        questionMatchQuery.createdAt = {};
+        if (startDate) questionMatchQuery.createdAt.$gte = startDate;
+        if (endDate) questionMatchQuery.createdAt.$lte = endDate;
+      }
+
+      questionMatchQuery.userId = { $in: [...filteredUserIdsStr, ...filteredUserObjectIds] };
+
+      const questionCountsPipeline = [
+         { $match: questionMatchQuery },
+         {
+           $group: {
+             _id: {
+               userId: "$userId",
+               question: {
+                 $toLower: {
+                   $trim: {
+                     input: "$question",
+                   },
+                 },
+               },
+             }
+           }
+         },
+         {
+           $group: {
+             _id: "$_id.userId",
+             total: { $sum: 1 }
+           }
+         }
+      ];
+      
+      const questionCountsRes = await this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray();
+      const questionCountMap = new Map();
+      let totalQuestionsCount = 0;
+      for (const res of questionCountsRes) {
+        const idStr = String(res._id);
+        questionCountMap.set(idStr, res.total);
+        totalQuestionsCount += res.total;
+      }
+      
+      const totalQueries = totalMessagesCount + totalQuestionsCount;
+
+      // Update finalList users with their specific counts
+      for (const u of finalList) {
+        const uId = String(u.userId);
+        const qCount = questionCountMap.get(uId) || 0;
+        u.totalMessagesCount = u.totalQuestions || 0;
+        u.totalQuestionsCount = qCount;
+        u.totalQueries = u.totalMessagesCount + u.totalQuestionsCount;
+      }
+
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
       // Paginate
@@ -8101,9 +8167,12 @@ export class ChatbotRepository implements IChatbotRepository {
         totalUsers,
         totalPages,
         userRoleCounts,
-        // activeUsers,
-        // inactiveUsers,
-        // totalQuestions,
+        activeUsers,
+        inactiveUsers,
+        totalQuestions: totalMessagesCount, // Legacy field
+        totalQueries,
+        totalMessagesCount,
+        totalQuestionsCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);
