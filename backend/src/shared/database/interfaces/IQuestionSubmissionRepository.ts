@@ -390,4 +390,9 @@ export interface IQuestionSubmissionRepository {
     {questionId: string; reviewerId: string; assignedAt: Date}[]
   >;
 
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   * @param paeExpertId - The PAE expert's user ID
+   */
+  getCompletedPaeValidationCount(paeExpertId: string): Promise<number>;
 }
