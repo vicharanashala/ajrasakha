@@ -83,6 +83,49 @@ const normalizePhoneNumber = (rawNumber: string): string => {
   return `+${cleaned}`;
 };
 
+const extractParentCallUuid = (...sources: any[]): string | undefined => {
+  for (const src of sources) {
+    if (!src) continue;
+    if (typeof src === "string") {
+      try {
+        const parsed = JSON.parse(src);
+        const res = extractParentCallUuid(parsed);
+        if (res) return res;
+      } catch {
+        const match = src.match(/(?:X-PH-parentCallUuid|parentCallUuid|parent_call_uuid)[:=]\s*([a-zA-Z0-9_-]+)/i);
+        if (match && match[1]) return match[1];
+      }
+    }
+    if (typeof src !== "object") continue;
+    const candidateObjects = [
+      src,
+      src.extraHeaders,
+      src.sipHeaders,
+      src.customHeaders,
+      src.custom_headers,
+      src.headers,
+      src.params,
+      src.callDetails,
+    ].filter(Boolean);
+    for (const h of candidateObjects) {
+      if (typeof h !== "object") continue;
+      for (const [k, v] of Object.entries(h)) {
+        const normalized = k.toLowerCase().replace(/[-_]/g, "");
+        if (
+          normalized === "xphparentcalluuid" ||
+          normalized === "parentcalluuid" ||
+          normalized === "parentuuid" ||
+          normalized === "parentcallid"
+        ) {
+          if (typeof v === "string" && v.trim()) return v.trim();
+          if (typeof v === "number") return String(v);
+        }
+      }
+    }
+  }
+  return undefined;
+};
+
 export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user: authUser } = useAuthStore();
   const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser({
@@ -107,6 +150,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const plivoClientRef = useRef<any>(null);
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const activeCallUuidRef = useRef<string | null>(null);
+  const parentCallUuidRef = useRef<string | null>(null);
   const lastCallUuidRef = useRef<string | null>(null);
   const activeCallInfoRef = useRef<{ number: string; direction: string } | null>(null);
   const isHangingUpRef = useRef(false);
@@ -302,17 +346,24 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const callerPhone = callerName || callerID || "Unknown Caller";
         const callUuid = callInfo?.callUUID || callInfo?.calluuid || (callerID?.includes("-") ? callerID : undefined);
 
-        console.log(`📞 [PlivoContext] Incoming call from: ${callerPhone}, callUUID: ${callUuid}`);
+        const parentUuid = extractParentCallUuid(_extraHeaders, callInfo, callerID, callerName);
+        if (parentUuid) {
+          console.log(`🔗 [PlivoContext] Captured parentCallUuid from incoming headers: ${parentUuid}`);
+          parentCallUuidRef.current = parentUuid;
+        }
+
+        const effectiveCallUuid = parentUuid || callUuid;
+        console.log(`📞 [PlivoContext] Incoming call from: ${callerPhone}, callUUID: ${effectiveCallUuid} (original: ${callUuid}, parent: ${parentUuid})`);
         toast.info(`Incoming call from ${callerPhone}`, { duration: 5000 });
 
         setActiveCall({
-          uuid: callUuid || "",
+          uuid: effectiveCallUuid || "",
           number: callerPhone,
           direction: "inbound",
           timestamp: new Date().toISOString(),
         });
         setCallStatus("incoming");
-        const currentCallId = callUuid || _extraHeaders?.call_uuid || callerID;
+        const currentCallId = effectiveCallUuid || _extraHeaders?.call_uuid || callerID;
         activeCallUuidRef.current = currentCallId;
         activeCallInfoRef.current = { number: callerPhone, direction: "inbound" };
 
@@ -334,11 +385,13 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       client.client.on("onCallAnswered", (callInfo?: any) => {
-        console.log("✅ [PlivoContext] Call answered/connected");
+        console.log("✅ [PlivoContext] Call answered/connected", callInfo);
         setCallStatus("connected");
         isHangingUpRef.current = false;
 
+        const parentUuid = extractParentCallUuid(callInfo, callInfo?.extraHeaders) || parentCallUuidRef.current;
         const answeredCallUuid =
+          parentUuid ||
           (typeof callInfo?.callUUID === "string" && callInfo.callUUID) ||
           (typeof callInfo?.calluuid === "string" && callInfo.calluuid) ||
           (typeof activeCallUuidRef.current === "string" ? activeCallUuidRef.current : undefined);
@@ -356,6 +409,13 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             phoneNumber: currentPhone || undefined,
             direction: currentDir,
             agentUserId: agentIdVal,
+          }).then((res: any) => {
+            if (res?.callUuid && res.callUuid !== answeredCallUuid) {
+              console.log(`🔄 [PlivoContext] Updating active call UUID to server-resolved parent UUID: ${res.callUuid}`);
+              activeCallUuidRef.current = res.callUuid;
+              parentCallUuidRef.current = res.callUuid;
+              setActiveCall((prev) => (prev ? { ...prev, uuid: res.callUuid } : prev));
+            }
           }).catch((e) => console.warn("Failed to notify call answered:", e));
         }
 
@@ -369,6 +429,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           isHangingUpRef.current = false;
           return;
         }
+        parentCallUuidRef.current = null;
         activeCallUuidRef.current = null;
         activeCallInfoRef.current = null;
         setCallStatus("ended");
@@ -503,6 +564,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isHangingUpRef.current = false;
       }
     }
+    parentCallUuidRef.current = null;
     activeCallUuidRef.current = null;
     activeCallInfoRef.current = null;
     setCallStatus("ended");

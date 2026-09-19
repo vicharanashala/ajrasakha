@@ -17,6 +17,8 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Edit3,
   Copy,
   Check,
@@ -456,8 +458,27 @@ export const CallInterface = () => {
     });
   };
 
-  /* const handleSelectQueryCard = (index: number) => {
-    if (index < 0 || index >= queryCards.length) return;
+  const handleSelectQueryCard = (index: number) => {
+    if (index < 0 || index >= queryCards.length || index === activeQueryIndex) return;
+
+    // Persist current in-memory edits to active card before switching
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = {
+        ...copy[activeQueryIndex],
+        query: editableQuery,
+        crop: editableCrop,
+        season: editableSeason,
+        state: editableState,
+        district: editableDistrict,
+        block: editableBlock,
+        village: editableVillage,
+        domain: editableDomain,
+      };
+      return copy;
+    });
+
     setActiveQueryIndex(index);
     const card = queryCards[index];
     if (card) {
@@ -470,7 +491,7 @@ export const CallInterface = () => {
       setEditableVillage(card.village || "");
       setEditableDomain(card.domain || []);
     }
-  }; */
+  };
 
   // Farmer Details HITL state
   const [extractedFarmerProfile, setExtractedFarmerProfile] = useState<any>(null);
@@ -607,7 +628,7 @@ export const CallInterface = () => {
     if (simMediaRecorderRef.current && simMediaRecorderRef.current.state !== "inactive") {
       try {
         simMediaRecorderRef.current.stop();
-      } catch (e) {}
+      } catch (e) { }
     }
     if (simStreamRef.current) {
       simStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -625,7 +646,7 @@ export const CallInterface = () => {
       if (simMediaRecorderRef.current && simMediaRecorderRef.current.state !== "inactive") {
         try {
           simMediaRecorderRef.current.stop();
-        } catch (e) {}
+        } catch (e) { }
       }
       if (simStreamRef.current) {
         simStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -975,12 +996,12 @@ export const CallInterface = () => {
           ? data.extracted_queries
           : data.extracted_query
             ? [{
-                query: data.extracted_query,
-                crop: data.extracted_crop || "",
-                standardized_domains: Array.isArray(data.extracted_domain)
-                  ? data.extracted_domain
-                  : data.extracted_domain ? [data.extracted_domain] : (data.standardized_domains || [])
-              }]
+              query: data.extracted_query,
+              crop: data.extracted_crop || "",
+              standardized_domains: Array.isArray(data.extracted_domain)
+                ? data.extracted_domain
+                : data.extracted_domain ? [data.extracted_domain] : (data.standardized_domains || [])
+            }]
             : [];
 
         const newCards = rawQueries.map((q, idx) => {
@@ -1127,6 +1148,23 @@ export const CallInterface = () => {
           : [extractedData.extracted_domain]
         : [];
 
+      // Sync current edits to queryCards
+      const updatedCards = [...queryCards];
+      if (updatedCards[activeQueryIndex]) {
+        updatedCards[activeQueryIndex] = {
+          ...updatedCards[activeQueryIndex],
+          query: editableQuery,
+          crop: editableCrop,
+          season: editableSeason,
+          state: editableState,
+          district: editableDistrict,
+          block: editableBlock,
+          village: editableVillage,
+          domain: finalDomain,
+        };
+        setQueryCards(updatedCards);
+      }
+
       const wasEdited =
         editableQuery !== extractedData?.extracted_query ||
         editableCrop !== extractedData?.extracted_crop ||
@@ -1137,7 +1175,7 @@ export const CallInterface = () => {
         JSON.stringify(finalDomain) !== JSON.stringify(extractedDomainArray) ||
         editableSeason !== (extractedData as any)?.extracted_season;
 
-      if (wasEdited) {
+      if (wasEdited || queryCards.length > 1) {
         // Step 3: Update state with corrections
         const currentFarmer = activeProfileRef.current || extractedFarmerProfile || {};
         await updateState({
@@ -1165,7 +1203,9 @@ export const CallInterface = () => {
             farmerSmartphonesAtHome: currentFarmer.numberOfSmartphones,
           },
         });
-        toast.info("Updated extracted data with your corrections.");
+        if (wasEdited) {
+          toast.info("Updated extracted data with your corrections.");
+        }
       }
 
       // Step 4: Auto-save farmer profile if present on real calls
@@ -1231,21 +1271,23 @@ export const CallInterface = () => {
           ? finalAnswerObj.answers
           : (Array.isArray(finalAnswerObj?.final_answers) ? finalAnswerObj.final_answers : []);
         if (answersList.length > 0) {
-          // First approach: take the last element from answers array
-          const lastAnswer = answersList[answersList.length - 1]?.answer;
-          if (lastAnswer) {
-            finalAnswerMarkdown = lastAnswer;
+          // Priority 1: Match by the active query text
+          const queryToMatch = editableQuery.trim().toLowerCase();
+          const matched = answersList.find((a: any) =>
+            a?.query && (
+              a.query.trim().toLowerCase() === queryToMatch ||
+              a.query.trim().toLowerCase().includes(queryToMatch) ||
+              queryToMatch.includes(a.query.trim().toLowerCase())
+            )
+          );
+          if (matched?.answer) {
+            finalAnswerMarkdown = matched.answer;
+          } else if (answersList[activeQueryIndex]?.answer) {
+            // Priority 2: Match by card index
+            finalAnswerMarkdown = answersList[activeQueryIndex].answer;
           } else {
-            // Fallback to matching by query
-            const queryToMatch = editableQuery.trim().toLowerCase();
-            const matched = answersList.find((a: any) =>
-              a?.query && (
-                a.query.trim().toLowerCase() === queryToMatch ||
-                a.query.trim().toLowerCase().includes(queryToMatch) ||
-                queryToMatch.includes(a.query.trim().toLowerCase())
-              )
-            );
-            finalAnswerMarkdown = matched?.answer || "";
+            // Priority 3: Fallback to last answer
+            finalAnswerMarkdown = answersList[answersList.length - 1]?.answer || "";
           }
         } else {
           finalAnswerMarkdown = result?.final_answer || "";
@@ -1258,7 +1300,7 @@ export const CallInterface = () => {
           weather = typeof finalAnswerObj.weather_response === 'string'
             ? JSON.parse(finalAnswerObj.weather_response)
             : finalAnswerObj.weather_response;
-        } catch (e) {}
+        } catch (e) { }
       }
 
       let gdbData = finalAnswerObj?.gdb || null;
@@ -1267,7 +1309,7 @@ export const CallInterface = () => {
           gdbData = typeof finalAnswerObj.gdb_response === 'string'
             ? JSON.parse(finalAnswerObj.gdb_response)
             : finalAnswerObj.gdb_response;
-        } catch (e) {}
+        } catch (e) { }
       }
       const similarPair = gdbData?.similar_pair1 || gdbData?.exact_match || null;
       const authorName = similarPair?.details?.[0]?.author_name || "";
@@ -1585,11 +1627,10 @@ export const CallInterface = () => {
                                   <button
                                     type="button"
                                     onClick={() => setEditRole("inbound")}
-                                    className={`px-2.5 py-0.5 rounded-md font-semibold text-[10.5px] transition-all flex items-center gap-1 cursor-pointer ${
-                                      editRole === "inbound"
-                                        ? "bg-amber-500 text-white shadow-xs"
-                                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                                    }`}
+                                    className={`px-2.5 py-0.5 rounded-md font-semibold text-[10.5px] transition-all flex items-center gap-1 cursor-pointer ${editRole === "inbound"
+                                      ? "bg-amber-500 text-white shadow-xs"
+                                      : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                                      }`}
                                   >
                                     <User className="h-3 w-3" />
                                     <span>Farmer</span>
@@ -1597,11 +1638,10 @@ export const CallInterface = () => {
                                   <button
                                     type="button"
                                     onClick={() => setEditRole("outbound")}
-                                    className={`px-2.5 py-0.5 rounded-md font-semibold text-[10.5px] transition-all flex items-center gap-1 cursor-pointer ${
-                                      editRole === "outbound"
-                                        ? "bg-indigo-600 text-white shadow-xs"
-                                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                                    }`}
+                                    className={`px-2.5 py-0.5 rounded-md font-semibold text-[10.5px] transition-all flex items-center gap-1 cursor-pointer ${editRole === "outbound"
+                                      ? "bg-indigo-600 text-white shadow-xs"
+                                      : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                                      }`}
                                   >
                                     <MessageSquare className="h-3 w-3" />
                                     <span>Expert</span>
@@ -1792,11 +1832,10 @@ export const CallInterface = () => {
                         onClick={handleToggleSimMic}
                         disabled={isSimProcessingAudio}
                         size="sm"
-                        className={`h-8.5 px-2.5 text-xs rounded-lg flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
-                          isSimRecording
-                            ? "bg-red-600 hover:bg-red-700 text-white animate-pulse ring-2 ring-red-400 shadow-md"
-                            : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800/60"
-                        }`}
+                        className={`h-8.5 px-2.5 text-xs rounded-lg flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${isSimRecording
+                          ? "bg-red-600 hover:bg-red-700 text-white animate-pulse ring-2 ring-red-400 shadow-md"
+                          : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800/60"
+                          }`}
                         title={
                           isSimRecording
                             ? "Recording voice... Click to finish and send"
@@ -1929,16 +1968,32 @@ export const CallInterface = () => {
                       )}
                     </div>
 
-                    {/* Multi-Query Navigation Bar (Commented out for now) */}
-                    {/* {queryCards.length > 1 && (
-                      <div className="flex items-center justify-between p-2.5 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-white dark:bg-zinc-900 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold text-xs px-2.5 py-1">
-                            Query {activeQueryIndex + 1} of {queryCards.length}
-                          </Badge>
+                    {/* Multi-Query Navigation Bar */}
+                    {queryCards.length > 1 && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {queryCards.map((card, idx) => {
+                            const isActive = idx === activeQueryIndex;
+                            return (
+                              <button
+                                key={card.id || idx}
+                                type="button"
+                                onClick={() => handleSelectQueryCard(idx)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${isActive
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                  }`}
+                              >
+                                <span>Query {idx + 1}</span>
+                                {card.isGenerated && (
+                                  <Check className={`h-3 w-3 ${isActive ? "text-emerald-300" : "text-emerald-600 dark:text-emerald-400"}`} />
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                           <Button
                             type="button"
                             variant="outline"
@@ -1963,7 +2018,7 @@ export const CallInterface = () => {
                           </Button>
                         </div>
                       </div>
-                    )} */}
+                    )}
 
                     <div className="space-y-3">
                       <div>
@@ -2129,7 +2184,7 @@ export const CallInterface = () => {
 
                     <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
                       <div className="flex items-center gap-2">
-                        {/* {queryCards.length > 1 && (
+                        {queryCards.length > 1 && (
                           <div className="flex items-center gap-1.5">
                             <Button
                               type="button"
@@ -2137,7 +2192,7 @@ export const CallInterface = () => {
                               size="sm"
                               onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
                               disabled={activeQueryIndex === 0}
-                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1"
+                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1 cursor-pointer"
                             >
                               <ChevronLeft className="h-3.5 w-3.5" />
                               <span>Prev</span>
@@ -2148,13 +2203,13 @@ export const CallInterface = () => {
                               size="sm"
                               onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
                               disabled={activeQueryIndex >= queryCards.length - 1}
-                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1"
+                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1 cursor-pointer"
                             >
                               <span>Next</span>
                               <ChevronRight className="h-3.5 w-3.5" />
                             </Button>
                           </div>
-                        )} */}
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3">

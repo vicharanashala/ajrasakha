@@ -171,10 +171,13 @@ export const mergeAndCleanCallHistory = (rawCalls: CallHistoryItem[]): CallHisto
   const isSipBridgeLeg = (call: CallHistoryItem) => {
     const to = String(call.to || '').toLowerCase();
     const direction = String(call.direction || '').toLowerCase();
-    return (
+    const isExplicitSip =
       direction === 'outbound' &&
-      (to.startsWith('sip:') || to.includes('phone.plivo.com') || to.includes('endpoint'))
-    );
+      (to.startsWith('sip:') || to.includes('phone.plivo.com') || to.includes('endpoint'));
+    const isConnectedZeroDuration =
+      (call.status?.toLowerCase() === 'connected' || call.status?.toLowerCase() === 'in-progress') &&
+      (!call.duration || call.duration === 0);
+    return isExplicitSip || isConnectedZeroDuration;
   };
 
   const mainCalls: CallHistoryItem[] = [];
@@ -191,21 +194,29 @@ export const mergeAndCleanCallHistory = (rawCalls: CallHistoryItem[]): CallHisto
     }
   }
 
-  // Correlate each SIP leg with its parent inbound call based on initiation timestamp
+  // Correlate each SIP leg with its parent call based on caller phone and initiation timestamp
   for (const sipCall of sipLegs) {
     const sipTime = sipCall.startTime ? new Date(sipCall.startTime).getTime() : 0;
+    const sipPhone = (sipCall.direction === 'outbound' ? sipCall.to : sipCall.from) || '';
+    const cleanSipPhone = sipPhone.replace(/[^\d]/g, '').slice(-10);
+
     let bestMatch: CallHistoryItem | null = null;
     let minDiff = Infinity;
 
     for (const mainCall of mainCalls) {
-      if (mainCall.direction === 'inbound') {
-        const mainTime = mainCall.startTime ? new Date(mainCall.startTime).getTime() : 0;
-        const diff = Math.abs(mainTime - sipTime);
-        // Match calls within 180 seconds of each other
-        if (diff <= 180000 && diff < minDiff) {
-          minDiff = diff;
-          bestMatch = mainCall;
-        }
+      const mainTime = mainCall.startTime ? new Date(mainCall.startTime).getTime() : 0;
+      const mainPhone = (mainCall.direction === 'outbound' ? mainCall.to : mainCall.from) || '';
+      const cleanMainPhone = mainPhone.replace(/[^\d]/g, '').slice(-10);
+
+      const phoneMatches =
+        cleanSipPhone && cleanMainPhone && (cleanSipPhone === cleanMainPhone || cleanMainPhone.includes(cleanSipPhone) || cleanSipPhone.includes(cleanMainPhone));
+      const diff = Math.abs(mainTime - sipTime);
+
+      // Match within 300 seconds if phone matches, or within 120 seconds if phone is unknown
+      const timeThreshold = phoneMatches ? 300000 : (!cleanSipPhone || cleanSipPhone === 'unknown') ? 120000 : 0;
+      if (diff <= timeThreshold && diff < minDiff) {
+        minDiff = diff;
+        bestMatch = mainCall;
       }
     }
 
@@ -234,12 +245,21 @@ export const mergeAndCleanCallHistory = (rawCalls: CallHistoryItem[]): CallHisto
           }
 
           // Merge queries
-          if (
-            (!bestMatch.callDetails.queries || bestMatch.callDetails.queries.length === 0) &&
-            sipDetails.queries &&
-            sipDetails.queries.length > 0
-          ) {
-            bestMatch.callDetails.queries = sipDetails.queries;
+          if (sipDetails.queries && Array.isArray(sipDetails.queries) && sipDetails.queries.length > 0) {
+            if (!bestMatch.callDetails.queries || bestMatch.callDetails.queries.length === 0) {
+              bestMatch.callDetails.queries = [...sipDetails.queries];
+            } else {
+              const existingSet = new Set(
+                bestMatch.callDetails.queries.map((q: any) => String(q._id || q.question || ''))
+              );
+              for (const q of sipDetails.queries) {
+                const key = String(q._id || q.question || '');
+                if (!existingSet.has(key)) {
+                  bestMatch.callDetails.queries.push(q);
+                  existingSet.add(key);
+                }
+              }
+            }
           }
 
           // Merge transcripts
@@ -314,7 +334,8 @@ export class PlivoService {
       throw new Error('Failed to fetch call history: No response received');
     }
 
-    return Array.isArray(response) ? response : [];
+    const list = Array.isArray(response) ? response : [];
+    return mergeAndCleanCallHistory(list);
   }
 
   async getFarmerByPhoneNo(phoneNo: string): Promise<CallFarmer | null> {
@@ -574,10 +595,10 @@ export class PlivoService {
     phoneNumber?: string;
     direction?: string;
     agentUserId?: string;
-  }): Promise<{ success: boolean; farmerProfile?: any }> {
+  }): Promise<{ success: boolean; callUuid?: string; farmerProfile?: any }> {
     try {
       const url = `${this._baseUrl}/call-answered`;
-      const response = await apiFetch<{ success: boolean; farmerProfile?: any }>(url, {
+      const response = await apiFetch<{ success: boolean; callUuid?: string; farmerProfile?: any }>(url, {
         method: 'POST',
         body: JSON.stringify(payload),
       });

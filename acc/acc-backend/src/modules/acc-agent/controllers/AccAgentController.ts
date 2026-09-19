@@ -169,21 +169,23 @@ export class AccAgentController {
             ? finalAnswerObj.answers
             : (Array.isArray(finalAnswerObj?.final_answers) ? finalAnswerObj.final_answers : []);
           if (answersList.length > 0) {
-            // First approach: take the last element from answers array
-            const lastAnswer = answersList[answersList.length - 1]?.answer;
-            if (lastAnswer) {
-              finalAnswerMarkdown = lastAnswer;
-            } else {
-              // Fallback to matching by query
-              const queryToMatch = (body.metadata?.extracted_query || '').trim().toLowerCase();
-              const matched = answersList.find((a: any) =>
-                a?.query && (
-                  a.query.trim().toLowerCase() === queryToMatch ||
-                  a.query.trim().toLowerCase().includes(queryToMatch) ||
-                  queryToMatch.includes(a.query.trim().toLowerCase())
+            // Priority 1: Match by target query from metadata
+            const queryToMatch = (body.metadata?.extracted_query || '').trim().toLowerCase();
+            const matched = queryToMatch
+              ? answersList.find((a: any) =>
+                  a?.query && (
+                    a.query.trim().toLowerCase() === queryToMatch ||
+                    a.query.trim().toLowerCase().includes(queryToMatch) ||
+                    queryToMatch.includes(a.query.trim().toLowerCase())
+                  )
                 )
-              );
-              finalAnswerMarkdown = matched?.answer || '';
+              : null;
+
+            if (matched?.answer) {
+              finalAnswerMarkdown = matched.answer;
+            } else {
+              // Fallback to the last element from answers array
+              finalAnswerMarkdown = answersList[answersList.length - 1]?.answer || '';
             }
           } else {
             finalAnswerMarkdown = threadState?.final_answer || '';
@@ -229,11 +231,25 @@ export class AccAgentController {
         const standardizedDomains = Array.isArray(rawDomain) ? rawDomain : (rawDomain ? [rawDomain] : []);
         const extractedSeason = meta.extracted_season || threadValues.extracted_season || '';
 
-        // Ensure call_details document exists
-        let existingCallDetails = await this.callDetailsRepository.getByCallUuid(body.callUuid);
+        // Ensure call_details document exists, resolving bridge leg to parent if necessary
+        let targetCallUuid = body.callUuid;
+        let existingCallDetails = await this.callDetailsRepository.getByCallUuid(targetCallUuid);
+
+        if ((!existingCallDetails || (existingCallDetails.status === 'connected' && (!existingCallDetails.duration || existingCallDetails.duration === 0))) && !isTestCall) {
+          const isAlreadyRegisteredParent = !!this.plivoService.getCallMetadata(targetCallUuid);
+          if (!isAlreadyRegisteredParent) {
+            const parentUuid = this.plivoService.findParentCallUuid(farmerPhone);
+            if (parentUuid && parentUuid !== targetCallUuid) {
+              console.log(`🔗 [AccAgentController] Redirected query from bridge leg ${targetCallUuid} to parent ${parentUuid}`);
+              targetCallUuid = parentUuid;
+              existingCallDetails = await this.callDetailsRepository.getByCallUuid(targetCallUuid);
+            }
+          }
+        }
+
         if (!existingCallDetails) {
-          const inMemoryMeta = this.plivoService.getCallMetadata(body.callUuid);
-          const agentUserIdStr = this.plivoService.getCallAgent(body.callUuid) || inMemoryMeta?.agentUserId;
+          const inMemoryMeta = this.plivoService.getCallMetadata(targetCallUuid);
+          const agentUserIdStr = this.plivoService.getCallAgent(targetCallUuid) || inMemoryMeta?.agentUserId;
           let agentUserIdObj: ObjectId | undefined = undefined;
           if (agentUserIdStr) {
             const idStr = String(agentUserIdStr);
@@ -245,27 +261,27 @@ export class AccAgentController {
               }
             }
           }
-          console.warn(`[AccAgentController] Call details document not found for callUuid: ${body.callUuid}. Creating new document with agent.userid: ${agentUserIdStr}`);
+          console.warn(`[AccAgentController] Call details document not found for callUuid: ${targetCallUuid}. Creating new document with agent.userid: ${agentUserIdStr}`);
           await this.callDetailsRepository.create({
-            callUuid: body.callUuid,
+            callUuid: targetCallUuid,
             from: inMemoryMeta?.from || (isTestCall ? undefined : (farmerPhone || undefined)),
             to: inMemoryMeta?.to,
             status: 'completed',
             direction: inMemoryMeta?.direction || 'inbound',
-            caller: { transcript: this.plivoService.getTranscript(body.callUuid, 'inbound'), translation: this.plivoService.getTranslation(body.callUuid, 'inbound'), detectedLanguage: this.plivoService.getDetectedLanguage(body.callUuid, 'inbound') },
-            agent: { transcript: this.plivoService.getTranscript(body.callUuid, 'outbound'), translation: this.plivoService.getTranslation(body.callUuid, 'outbound'), detectedLanguage: this.plivoService.getDetectedLanguage(body.callUuid, 'outbound'), userid: agentUserIdObj }
+            caller: { transcript: this.plivoService.getTranscript(targetCallUuid, 'inbound'), translation: this.plivoService.getTranslation(targetCallUuid, 'inbound'), detectedLanguage: this.plivoService.getDetectedLanguage(targetCallUuid, 'inbound') },
+            agent: { transcript: this.plivoService.getTranscript(targetCallUuid, 'outbound'), translation: this.plivoService.getTranslation(targetCallUuid, 'outbound'), detectedLanguage: this.plivoService.getDetectedLanguage(targetCallUuid, 'outbound'), userid: agentUserIdObj }
           });
         } else if (!isTestCall && farmerPhone) {
           const isOutbound = existingCallDetails.direction === 'outbound';
           if (isOutbound && (!existingCallDetails.to || existingCallDetails.to === 'unknown')) {
-            await this.callDetailsRepository.updateCallDetails(body.callUuid, { to: farmerPhone });
+            await this.callDetailsRepository.updateCallDetails(targetCallUuid, { to: farmerPhone });
           } else if (!isOutbound && (!existingCallDetails.from || existingCallDetails.from === 'unknown')) {
-            await this.callDetailsRepository.updateCallDetails(body.callUuid, { from: farmerPhone });
+            await this.callDetailsRepository.updateCallDetails(targetCallUuid, { from: farmerPhone });
           }
         }
 
         // Add individual query with its own metadata to call_queries collection
-        await this.callDetailsRepository.addQueryToCall(body.callUuid, {
+        await this.callDetailsRepository.addQueryToCall(targetCallUuid, {
           metadata: {
             extracted_query: extractedQuery,
             extracted_crop: extractedCrop,

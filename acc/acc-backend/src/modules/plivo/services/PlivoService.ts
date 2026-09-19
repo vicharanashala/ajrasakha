@@ -70,12 +70,23 @@ export class PlivoService {
 
   cleanupStaleSessions(): void {
     const now = Date.now();
-    const oneHourMs = 60 * 60 * 1000;
+    const maxRetentionMs = 30 * 60 * 1000; // 30 minutes TTL for call metadata
+
+    // 1. Purge stale call metadata, agent mappings, and ended call markers
+    for (const [uuid, meta] of this.callMetadataMap.entries()) {
+      const callTime = meta.startTime ? meta.startTime.getTime() : 0;
+      if (now - callTime > maxRetentionMs) {
+        this.callMetadataMap.delete(uuid);
+        this.callAgentMapping.delete(uuid);
+        this.endedCalls.delete(uuid);
+      }
+    }
+
+    // 2. Purge stale transcription/stream sessions older than 30 minutes
     for (const [callId, lastTime] of this.lastActivityMap.entries()) {
-      if (now - lastTime > oneHourMs) {
+      if (now - lastTime > maxRetentionMs) {
         console.log(`[PLIVO-SERVICE GC] Purging stale in-memory call session for ${callId}`);
         this.clearTranscript(callId);
-        this.callMetadataMap.delete(callId);
       }
     }
   }
@@ -481,6 +492,20 @@ export class PlivoService {
 
 
   registerCall(callUuid: string, info: { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }): void {
+    // Inline purge if memory map grows above 500 entries (TTL 30 minutes)
+    if (this.callMetadataMap.size > 500) {
+      const now = Date.now();
+      const maxRetentionMs = 30 * 60 * 1000;
+      for (const [uuid, meta] of this.callMetadataMap.entries()) {
+        const callTime = meta.startTime ? meta.startTime.getTime() : 0;
+        if (now - callTime > maxRetentionMs) {
+          this.callMetadataMap.delete(uuid);
+          this.callAgentMapping.delete(uuid);
+          this.endedCalls.delete(uuid);
+        }
+      }
+    }
+
     const existing = this.callMetadataMap.get(callUuid) || {};
     this.callMetadataMap.set(callUuid, {
       ...existing,
@@ -510,6 +535,60 @@ export class PlivoService {
 
   getCallDirection(callUuid: string): 'inbound' | 'outbound' {
     return this.callMetadataMap.get(callUuid)?.direction || 'inbound';
+  }
+
+  findParentCallUuid(phoneNumber?: string, agentUserId?: string): string | undefined {
+    const now = Date.now();
+    // Dialing times out in 40s. A 90s window is ample for incoming bridge connection.
+    const maxWindowMs = 90 * 1000;
+    const cleanTargetPhone = phoneNumber ? phoneNumber.replace(/[^\d]/g, '').slice(-10) : '';
+
+    // Search newest-first to always correlate with the most recent call
+    const entries = Array.from(this.callMetadataMap.entries()).reverse();
+
+    // Priority 1: Exact match on BOTH phone number AND assigned agent (Highest confidence)
+    if (cleanTargetPhone && agentUserId) {
+      for (const [uuid, meta] of entries) {
+        if (meta.direction && meta.direction !== 'inbound') continue;
+        const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
+        if (now - startTimeMs > maxWindowMs) continue;
+
+        const cleanFrom = meta.from ? meta.from.replace(/[^\d]/g, '').slice(-10) : '';
+        if (cleanFrom === cleanTargetPhone && meta.agentUserId === agentUserId) {
+          return uuid;
+        }
+      }
+    }
+
+    // Priority 2: Match on phone number alone (if caller phone is known)
+    if (cleanTargetPhone) {
+      for (const [uuid, meta] of entries) {
+        if (meta.direction && meta.direction !== 'inbound') continue;
+        const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
+        if (now - startTimeMs > maxWindowMs) continue;
+
+        const cleanFrom = meta.from ? meta.from.replace(/[^\d]/g, '').slice(-10) : '';
+        if (cleanFrom && (cleanFrom === cleanTargetPhone || cleanFrom.includes(cleanTargetPhone) || cleanTargetPhone.includes(cleanFrom))) {
+          return uuid;
+        }
+      }
+    }
+
+    // Priority 3: Fallback match on agentUserId ONLY IF caller phone was NOT provided / unknown
+    // AND the call was placed very recently (within 45s, during active ringing)
+    if (!cleanTargetPhone && agentUserId) {
+      for (const [uuid, meta] of entries) {
+        if (meta.direction && meta.direction !== 'inbound') continue;
+        const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
+        if (now - startTimeMs > 45 * 1000) continue;
+
+        if (meta.agentUserId === agentUserId) {
+          return uuid;
+        }
+      }
+    }
+
+    return undefined;
   }
 
   async saveCallDetails(callUuid: string): Promise<void> {

@@ -237,7 +237,7 @@ export class PlivoController {
                               <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
                               <Dial timeout="40" callerId="${myPlivoNumber}">
-                                        <User>${endpointUser}</User>
+                                        <User sipHeaders="X-PH-parentCallUuid=${callUuid};parentCallUuid=${callUuid}">${endpointUser}</User>
                               </Dial>
                               <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre</Speak>
                               <Wait length="5" />
@@ -535,16 +535,34 @@ export class PlivoController {
         }
       }
 
-      const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
+      let effectiveCallUuid = callUuid;
+      let existingCall = await this.callDetailsRepository.getByCallUuid(effectiveCallUuid);
       const isOutbound = direction === 'outbound' || existingCall?.direction === 'outbound';
+
+      // If call is inbound and no document exists for this UUID, check if it's an unmapped bridge leg.
+      // Note: If callUuid is ALREADY registered as the parent call in PlivoService (normal path),
+      // skip findParentCallUuid completely to guarantee zero cross-talk between concurrent calls.
+      const isAlreadyRegisteredParent = !isOutbound && !isTestCall && !!this.plivoService.getCallMetadata(callUuid);
+
+      if (!existingCall && !isOutbound && !isTestCall && !isAlreadyRegisteredParent) {
+        // Fallback: Check in-memory metadata in PlivoService for legs where SIP header was unavailable
+        const inMemoryParentUuid = this.plivoService.findParentCallUuid(phoneNumber, agentUserId);
+        if (inMemoryParentUuid && inMemoryParentUuid !== callUuid) {
+          console.log(`🔗 [PLIVO-CONTROLLER] Correlated bridge leg ${callUuid} to in-memory parent ${inMemoryParentUuid}`);
+          effectiveCallUuid = inMemoryParentUuid;
+          existingCall = await this.callDetailsRepository.getByCallUuid(effectiveCallUuid);
+        }
+      }
+
+      const inMemoryMeta = this.plivoService.getCallMetadata(effectiveCallUuid);
       const myPlivoNumber = appConfig.plivo.plivo_number;
 
       const fromNumber = isOutbound
-        ? (existingCall?.from || myPlivoNumber)
-        : (phoneNumber || existingCall?.from || '');
+        ? (existingCall?.from || inMemoryMeta?.from || myPlivoNumber)
+        : (phoneNumber || existingCall?.from || inMemoryMeta?.from || '');
       const toNumber = isOutbound
-        ? (phoneNumber || existingCall?.to || '')
-        : (existingCall?.to || myPlivoNumber);
+        ? (phoneNumber || existingCall?.to || inMemoryMeta?.to || '')
+        : (existingCall?.to || inMemoryMeta?.to || myPlivoNumber);
 
       const agentId = agentUserId || (currentUser?._id ? currentUser._id.toString() : existingCall?.agent?.userid?.toString());
       const agentObj: any = {
@@ -558,7 +576,7 @@ export class PlivoController {
 
       if (!existingCall) {
         await this.callDetailsRepository.create({
-          callUuid,
+          callUuid: effectiveCallUuid,
           from: fromNumber,
           to: toNumber,
           direction: direction || (isOutbound ? 'outbound' : 'inbound'),
@@ -571,7 +589,7 @@ export class PlivoController {
           agent: agentObj,
         });
       } else {
-        await this.callDetailsRepository.updateCallDetails(callUuid, {
+        await this.callDetailsRepository.updateCallDetails(effectiveCallUuid, {
           status: 'connected',
           ...(fromNumber ? { from: fromNumber } : {}),
           ...(toNumber ? { to: toNumber } : {}),
@@ -583,7 +601,7 @@ export class PlivoController {
         });
       }
 
-      return { success: true, farmerProfile };
+      return { success: true, callUuid: effectiveCallUuid, farmerProfile };
     } catch (error: any) {
       console.error('❌ [PLIVO-CONTROLLER] Error in call-answered endpoint:', error);
       return { success: false, error: error.message };
