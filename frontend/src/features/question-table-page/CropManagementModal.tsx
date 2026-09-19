@@ -959,6 +959,10 @@ export const CropManagementModal = ({
   const [chemicalStatus, setChemicalStatus] = useState("");
   const [newChemicalCrops, setNewChemicalCrops] = useState<string[]>([]);
   const [newScientificName, setNewScientificName] = useState("");
+  // Optional image for a new crop entry (crop tab only). Uploaded right after the crop is
+  // created, via the same update endpoint the edit form uses.
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
   // Free-text type used on the "Other" tab (a custom category the user names).
   const [customType, setCustomType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
@@ -987,6 +991,7 @@ export const CropManagementModal = ({
 
   // ── API calls ───────────────────────────────────────────────────────────────
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
+  const { mutateAsync: updateCrop, isPending: isUpdatingImage } = useUpdateCrop();
   const { mutateAsync: bulkUploadCrops, isPending: isBulkUploading } = useBulkUploadCrops();
 
   // Backend categories drive the first-class tabs (falls back to the static list).
@@ -1026,8 +1031,17 @@ export const CropManagementModal = ({
     setChemicalStatus("");
     setNewChemicalCrops([]);
     setNewScientificName("");
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(null);
+    setNewImagePreview(null);
     setCustomType("");
     setIsAddFormOpen(false);
+  };
+
+  const handlePickNewImage = (file: File | null) => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(file);
+    setNewImagePreview(file ? URL.createObjectURL(file) : null);
   };
 
   const resetAll = () => {
@@ -1048,7 +1062,7 @@ export const CropManagementModal = ({
     setSearchInput(""); setSearchQuery(""); setPage(1);
   };
 
-  const isSaving = isCreating;
+  const isSaving = isCreating || isUpdatingImage;
   const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
 
   const handleSave = async () => {
@@ -1076,6 +1090,16 @@ export const CropManagementModal = ({
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
+        // Crops can carry an image: it's uploaded to GCS via the update endpoint right after
+        // the crop exists (create is JSON-only). A failed image upload doesn't fail the create.
+        const newId = res.data?._id;
+        if (activeTab === "crop" && newImageFile && newId) {
+          try {
+            await updateCrop({ cropId: newId, payload: {}, image: newImageFile });
+          } catch {
+            toast.error("Crop added, but the image upload failed. You can add it via edit.");
+          }
+        }
         toast.success(`"${name}" added successfully!`);
         resetAddForm();
       }
@@ -1560,6 +1584,55 @@ export const CropManagementModal = ({
                       onChange={(e) => setNewScientificName(e.target.value)}
                       className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700 italic"
                     />
+                  </div>
+                )}
+
+                {/* Image — optional, crop tab only (uploaded after the crop is created) */}
+                {activeTab === "crop" && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Image
+                      <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                        — optional
+                      </span>
+                    </label>
+                    {newImagePreview ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={newImagePreview}
+                          alt={newCropName || "New crop"}
+                          className="h-16 w-16 rounded-md object-cover border border-gray-200 dark:border-gray-700"
+                        />
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-medium text-primary cursor-pointer hover:underline">
+                            Replace
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handlePickNewImage(e.target.files?.[0] ?? null)}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handlePickNewImage(null)}
+                            className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline text-left"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex h-16 items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handlePickNewImage(e.target.files?.[0] ?? null)}
+                        />
+                        Add crop image
+                      </label>
+                    )}
                   </div>
                 )}
 
