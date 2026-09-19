@@ -268,12 +268,28 @@ async def tool_execution_node(state: AccAgentState):
                         "Here are current weather condition of major Indian cities in India:\n\n"
                         + "\n\n".join(city_responses)
                     )
-                address = loc_state if d_lower == "all" else f"{district}, {loc_state}"
+                # Geocode using separate state and district (like market tool does)
+                # to avoid the "Nashik, Maharashtra" being treated as a single district name
+                geocode_district = (
+                    None
+                    if str(district).strip().lower() in {"all", "not specified", ""}
+                    else district
+                )
+                geocode_state = (
+                    None
+                    if str(loc_state).strip().lower() in {"all", "not specified", ""}
+                    else loc_state
+                )
+                geo = (
+                    await forward_geocode(state=geocode_state, district=geocode_district)
+                    if geocode_state or geocode_district
+                    else None
+                )
                 return await weather.ainvoke({
                     "query": query_text,
-                    "latitude": None,
-                    "longitude": None,
-                    "address": address,
+                    "latitude": geo.get("latitude") if geo else None,
+                    "longitude": geo.get("longitude") if geo else None,
+                    "address": None,
                 })
             if tool == "market":
                 geocode_district = (
