@@ -84,7 +84,6 @@ export default function DocumentManagementPanel() {
   // stream is unavailable, not the primary refresh mechanism.
   const [queueItems, setQueueItems] = useState([]);
   const [translationJobs, setTranslationJobs] = useState([]);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [busyUploadId, setBusyUploadId] = useState(null);
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
@@ -180,16 +179,15 @@ export default function DocumentManagementPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fallback only — GET /dashboard/events (below) is the primary way these queues stay live.
-  // 60s, and off means manual-refresh-only. Recreated on showFinishedJobs too, so toggling it
-  // doesn't leave the interval's refetchAll closure stale (it decides whether to include the
-  // finished-jobs fetch).
+  // Fallback only — GET /dashboard/events (below) is the primary way these queues stay live. Runs
+  // unconditionally every 60s (no user-facing toggle — SSE is the real mechanism now). Recreated
+  // on showFinishedJobs too, so it doesn't leave the interval's refetchAll closure stale (it
+  // decides whether to include the finished-jobs fetch).
   useEffect(() => {
-    if (!autoRefresh) return;
     const id = setInterval(refetchAll, 60000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, showFinishedJobs]);
+  }, [showFinishedJobs]);
 
   // refetchAll's own closure goes stale if captured once by the mount-only SSE effect below (it
   // reads showFinishedJobs) — mirror it in a ref so the "open" handler always calls the current
@@ -364,18 +362,9 @@ export default function DocumentManagementPanel() {
             <AddDocumentForm onUploadQueued={handleUploadQueued} />
           </div>
           <div className="w-full min-w-0 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="accent-primary"
-                />
-                Auto-refresh (30s)
-              </label>
+            <div className="flex items-center justify-end">
               <div className="flex items-center gap-2">
-                {!autoRefresh && <span className="text-[10px] text-muted-foreground">Updated <TimeAgo ts={lastUpdated} /></span>}
+                <span className="text-[10px] text-muted-foreground">Updated <TimeAgo ts={lastUpdated} /></span>
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   onClick={refetchAll}

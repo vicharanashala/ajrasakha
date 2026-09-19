@@ -32,7 +32,10 @@ export default function TranslationQueuePanel({
           <button
             className="text-xs font-medium text-primary hover:underline truncate text-left cursor-pointer"
             title={job.shareable_name}
-            onClick={() => onOpenDetail(job.unique_document_id)}
+            // unique_document_id is the backend's newer, explicit name for this — document_id is
+            // already the same hex value (confirmed by the backend), so this works whether or not
+            // the backend has deployed the unique_document_id field yet.
+            onClick={() => onOpenDetail(job.unique_document_id || job.document_id)}
           >
             {job.document_id}
             {job.shareable_name ? ` — ${job.shareable_name}` : ""}

@@ -16,6 +16,7 @@ import {
   findDuplicatesForDocument,
   mergeUniqueDocuments,
 } from "../../api";
+import { formatDate } from "@/utils/formatDate";
 import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
@@ -234,11 +235,19 @@ export default function DocumentDetailModal({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
                 {DETAIL_GRID_FIELDS.map((f) => (
                   <div key={f.key} className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                       {f.label}
                     </span>
-                    <span className="text-xs text-foreground break-words">
-                      {doc[f.key] || <span className="text-muted-foreground/40">—</span>}
+                    <span className="text-xs text-foreground break-words rounded border border-border/50 bg-muted/20 px-2 py-1">
+                      {doc[f.key] ? (
+                        f.formatDate ? (
+                          formatDate(new Date(doc[f.key]))
+                        ) : (
+                          doc[f.key]
+                        )
+                      ) : (
+                        <span className="text-muted-foreground/40">—</span>
+                      )}
                     </span>
                   </div>
                 ))}
