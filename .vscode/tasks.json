@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Playwright: Run Moderator Login (Headed)",
+      "type": "shell",
+      "command": "npx playwright test tests/flows/01-moderator-allocate.spec.ts --headed",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Playwright: Open UI Mode",
+      "type": "shell",
+      "command": "npx playwright test --ui",
+      "problemMatcher": []
+    },
+    {
+      "label": "Playwright: Show HTML Report",
+      "type": "shell",
+      "command": "npx playwright show-report",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Local Desk App",
+      "type": "shell",
+      "command": "npm run app",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}
+
