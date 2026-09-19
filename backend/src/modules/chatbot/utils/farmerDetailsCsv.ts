@@ -2,10 +2,12 @@ import type {UserDetailEntry} from '#root/shared/database/interfaces/IChatbotRep
 
 /**
  * Builds the "All Farmers" table (chatbot analytics dashboard) as CSV text, for the admin
- * "Download" button. Includes every column shown in the table plus the extra farmerProfile
- * fields shown in the row's "View More" (FarmerDetailsModal) panel, so the export always has
- * at least as much detail as the UI. Mirrors the csvEscape/UTF-8 BOM pattern already used for
- * the Response Adherence report in `responseAdherenceReport.ts`.
+ * "Download" button. Deliberately scoped down to just the farmerProfile fields plus name,
+ * email, user role, verification status, and queries asked (split into Questions and Messages,
+ * mirroring the totalQuestionsCount/totalMessagesCount split the repository already computes
+ * per user in getUserDetails) — not every column the internal user document has. Mirrors the
+ * csvEscape/UTF-8 BOM pattern already used for the Response Adherence report in
+ * `responseAdherenceReport.ts`.
  */
 
 function csvEscape(value: string | number | boolean | null | undefined): string {
@@ -25,20 +27,14 @@ function formatList(value?: string[] | string): string {
   return items.filter(Boolean).join('; ');
 }
 
-function formatDate(value?: Date | string): string {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
-}
-
 const CSV_HEADERS = [
   'Name',
-  'Farmer Name',
   'Email',
   'User Role',
   'Verified',
   'Total Questions',
-  'Created At',
+  'Total Messages',
+  'Farmer Name',
   'Age',
   'Gender',
   'Phone',
@@ -65,12 +61,12 @@ export function buildFarmerDetailsCsv(users: UserDetailEntry[]): string {
     const fp = user.farmerProfile;
     const values: (string | number | boolean | null | undefined)[] = [
       user.name,
-      fp?.farmerName,
       user.email,
       user.userRole || user.role,
       formatBoolean(user.isVerified),
-      user.totalQuestions,
-      formatDate(user.createdAt),
+      user.totalQuestionsCount ?? 0,
+      user.totalMessagesCount ?? user.totalQuestions ?? 0,
+      fp?.farmerName,
       fp?.age,
       fp?.gender,
       fp?.phoneNo,
