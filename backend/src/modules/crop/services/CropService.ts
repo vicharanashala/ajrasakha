@@ -121,7 +121,13 @@ export class CropService extends BaseService implements ICropService {
     try {
       const updatedCrop = await this.cropRepository.updateCrop(
         cropId,
-        { aliases: dto.aliases, status: dto.status, crops: dto.crops, scientificName: dto.scientificName },
+        {
+          aliases: dto.aliases,
+          status: dto.status,
+          crops: dto.crops,
+          scientificName: dto.scientificName,
+          imageUrl: dto.imageUrl,
+        },
         userId,
       );
 

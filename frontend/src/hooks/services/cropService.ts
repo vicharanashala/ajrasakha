@@ -28,6 +28,8 @@ export interface ICropResponse {
   createdByName?: string;
   updatedByName?: string;
   crops?: string[];
+  /** Public URL of the entry's image, if one has been uploaded. */
+  imageUrl?: string | null;
 }
 
 export interface ICreateCropPayload {
@@ -99,10 +101,22 @@ export class CropService {
     });
   }
 
-  async updateCrop(cropId: string, payload: IUpdateCropPayload): Promise<ICreateCropResponse | null> {
+  /**
+   * Update a crop. The image is folded into this request (multipart): the crop fields go in
+   * a JSON `payload` field, with an optional new `image` file, or `removeImage` to clear it.
+   */
+  async updateCrop(
+    cropId: string,
+    payload: IUpdateCropPayload,
+    opts?: { image?: File | null; removeImage?: boolean },
+  ): Promise<ICreateCropResponse | null> {
+    const formData = new FormData();
+    formData.append("payload", JSON.stringify(payload));
+    if (opts?.image) formData.append("image", opts.image);
+    if (opts?.removeImage) formData.append("removeImage", "true");
     return apiFetch<ICreateCropResponse>(`${this._baseUrl}/${cropId}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: formData,
     });
   }
 

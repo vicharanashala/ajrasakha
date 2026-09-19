@@ -140,6 +140,15 @@ class UpdateCropDto {
   @IsArray()
   @IsString({ each: true })
   crops?: string[];
+
+  @JSONSchema({
+    description:
+      "Public URL of the entry's image. Set by the server after uploading an image file; " +
+      'send null to remove the existing image.',
+    type: 'string',
+  })
+  @IsOptional()
+  imageUrl?: string | null;
 }
 
 // ── Query DTOs ──
