@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ajrasakha | PS-5 Weather Intelligence & Farmer Feedback Master Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            outfit: ['Outfit', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              900: '#064e3b',
+              950: '#022c22',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3, h4, .font-heading { font-family: 'Outfit', sans-serif; }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.6); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white">
+
+  <!-- TOP APP HEADER -->
+  <header class="sticky top-0 z-50 glass-card border-b border-slate-800/80 px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <i data-lucide="cloud-sun" class="w-6 h-6 text-slate-950 stroke-[2.2]"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-heading font-bold text-xl tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">AJRASAKHA</span>
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">PS-5 & FEEDBACK SUITE</span>
+        </div>
+        <p class="text-xs text-slate-400 font-medium hidden sm:block">15.5M Weather Intelligence, Crop Agro-Advisories & GDB Answer Feedback Loop</p>
+      </div>
+    </div>
+
+    <div class="flex items-center flex-wrap gap-2.5">
+      <button onclick="openPsModal()" class="flex items-center gap-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg transition-all shadow-sm">
+        <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+        <span>Problem Statement 5 Blueprint</span>
+      </button>
+
+      <div class="flex items-center gap-1.5 text-xs bg-slate-900 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg font-mono">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>OpenWeather Live Active</span>
+      </div>
+
+      <div class="flex items-center gap-1.5 text-xs bg-slate-900 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg">
+        <i data-lucide="map-pin" class="w-3.5 h-3.5 text-cyan-400"></i>
+        <span id="headerCityName" class="font-semibold text-white">Bhopal, IN</span>
+      </div>
+
+      <button onclick="fetchWeather(currentCity)" class="flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg transition-all shadow-md active:scale-95">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        <span>Sync</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS (8 TABS IN TOTAL) -->
+  <nav class="bg-slate-900/60 border-b border-slate-800/80 px-4 lg:px-8 py-2 overflow-x-auto custom-scrollbar">
+    <div class="flex items-center gap-2 min-w-max">
+      <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+        <span>Overview & Analytics</span>
+      </button>
+
+      <button onclick="switchTab('playground')" id="tab-playground" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i data-lucide="cloud-lightning" class="w-4 h-4"></i>
+        <span>Live Weather Playground</span>
+        <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded font-mono">LIVE API</span>
+      </button>
+
+      <button onclick="switchTab('agro')" id="tab-agro" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i data-lucide="sprout" class="w-4 h-4"></i>
+        <span>Smart Crop Advisory</span>
+      </button>
+
+      <button onclick="switchTab('whatsapp')" id="tab-whatsapp" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i data-lucide="message-square-text" class="w-4 h-4"></i>
+        <span>WhatsApp Simulator</span>
+        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">FEEDBACK 1/2</span>
+      </button>
+
+      <button onclick="switchTab('gdb')" id="tab-gdb" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i data-lucide="database" class="w-4 h-4"></i>
+        <span>GDB Entries (20k)</span>
+      </button>
+
+      <button onclick="switchTab('flagged')" id="tab-flagged" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i data-lucide="shield-alert" class="w-4 h-4"></i>
+        <span>Flagged Review (&lt;60%)</span>
+        <span class="text-[10px] bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded font-bold" id="flaggedBadge">3</span>
+      </button>
+
+      <button onclick="switchTab('alerts')" id="tab-alerts" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+        <span>IMD Severe Alerts</span>
+      </button>
+
+      <button onclick="switchTab('digest')" id="tab-digest" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i data-lucide="calendar-check-2" class="w-4 h-4"></i>
+        <span>Weekly Agri Digest</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+
+    <!-- ==================== TAB 1: OVERVIEW ==================== -->
+    <div id="section-overview" class="space-y-6">
+      
+      <!-- HERO BANNER -->
+      <div class="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-cyan-950/60 border border-emerald-500/30 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mt-1 shadow-inner">
+              <i data-lucide="target" class="w-7 h-7"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500 text-slate-950 font-heading">PROBLEM STATEMENT 5 & PROJECT FEEDBACK LOOP</span>
+                <span class="text-xs text-emerald-400 font-mono">15.54M KCC Weather Queries + 20,000 GDB Quality Signal</span>
+              </div>
+              <h2 class="font-heading font-extrabold text-2xl text-white tracking-tight">Hyperlocal Weather Intelligence, Agro-Advisory & GDB Feedback Loop</h2>
+              <p class="text-xs text-slate-300 max-w-3xl mt-1.5 leading-relaxed">
+                Unified platform resolving weather forecasting, spray suitability windows, and continuous GDB knowledge base improvement via farmer WhatsApp feedback (Reply 1/2).
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button onclick="switchTab('playground')" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-600/30 active:scale-95">
+              <i data-lucide="cloud-lightning" class="w-4 h-4"></i>
+              <span>Live Weather Playground</span>
+            </button>
+            <button onclick="switchTab('whatsapp')" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl transition-all border border-slate-700 active:scale-95">
+              <i data-lucide="message-square-text" class="w-4 h-4"></i>
+              <span>WhatsApp Bot</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-slate-800/80 text-xs">
+          <div class="flex items-center gap-2 text-slate-300">
+            <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i>
+            <span><b>59</b> Weather Clusters</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-300">
+            <i data-lucide="database" class="w-4 h-4 text-cyan-400"></i>
+            <span><b>20,000+</b> GDB Answers</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-300">
+            <i data-lucide="thumbs-up" class="w-4 h-4 text-purple-400"></i>
+            <span><b id="heroHelpfulPct">87.4%</b> Farmer Satisfaction</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-300">
+            <i data-lucide="spray-can" class="w-4 h-4 text-amber-400"></i>
+            <span><b>7</b> Crops Monitored</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP KPI CARDS -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total KCC Queries</span>
+            <div class="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <i data-lucide="trending-up" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span class="font-heading font-extrabold text-3xl text-white tracking-tight">15.54M</span>
+            <span class="text-xs text-emerald-400 font-semibold flex items-center">+12.4%</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">15,549,889 KCC weather queries indexed</p>
+        </div>
+
+        <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Helpfulness Score</span>
+            <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <i data-lucide="thumbs-up" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span id="kpiHelpfulScore" class="font-heading font-extrabold text-3xl text-emerald-400">87.4%</span>
+            <span class="text-xs text-emerald-400 font-semibold flex items-center">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 mr-0.5"></i> High Satisfaction
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">From live farmer WhatsApp ratings</p>
+        </div>
+
+        <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">IMD Alerts Active</span>
+            <div class="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span class="font-heading font-extrabold text-3xl text-amber-400">14 Districts</span>
+            <span class="text-xs text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Orange Alert</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Thunderstorm & Hailstorm bulletins</p>
+        </div>
+
+        <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Auto-Flagged Answers</span>
+            <div class="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <i data-lucide="shield-alert" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span id="kpiFlaggedCount" class="font-heading font-extrabold text-3xl text-rose-400">3</span>
+            <span class="text-xs text-rose-400 font-semibold flex items-center">
+              &lt; 60% Score
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Queued for Agronomist Re-Editing</p>
+        </div>
+      </div>
+
+      <!-- DEMAND BREAKDOWN & STATE RISK INDEX -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass-card rounded-2xl p-6">
+          <h3 class="font-heading font-bold text-lg text-white mb-2">Farmer Weather Needs (KCC 59 Clusters)</h3>
+          <p class="text-xs text-slate-400 mb-4">Official demand distribution from 15.5M meteorological queries</p>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-emerald-400">1. General 7-Day Weather Forecast</span>
+                <span class="text-white">91.38% (13.7M)</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="bg-emerald-500 h-full rounded-full" style="width: 91.38%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-blue-400">2. District Weather Forecast & Alerts</span>
+                <span class="text-white">4.66% (1.33M)</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="bg-blue-500 h-full rounded-full" style="width: 20%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-cyan-400">3. Rain Statistics & Prediction</span>
+                <span class="text-white">1.92% (248K)</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="bg-cyan-400 h-full rounded-full" style="width: 12%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-amber-400">4. Live Weather Observation (AWS)</span>
+                <span class="text-white">1.42% (180K)</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="bg-amber-400 h-full rounded-full" style="width: 9%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-purple-400">5. Crop Weather Impact & Agromet Advisory</span>
+                <span class="text-white">0.62% (78K)</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="bg-purple-400 h-full rounded-full" style="width: 6%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-heading font-bold text-lg text-white">State Meteorological Risk Index</h3>
+              <span class="text-xs text-emerald-400 font-mono">Real-time IMD Sync</span>
+            </div>
+            <div class="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+              <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 text-xs">
+                <div>
+                  <span class="font-bold text-white block">Madhya Pradesh</span>
+                  <span class="text-slate-400 text-[11px]">Clear Skies & Dry Soil</span>
+                </div>
+                <div class="text-right">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/20 text-amber-300">Moderate</span>
+                  <span class="block text-slate-400 text-[11px] font-mono mt-0.5">18,420 q</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 text-xs">
+                <div>
+                  <span class="font-bold text-white block">Haryana</span>
+                  <span class="text-slate-400 text-[11px]">Favorable Rabi Sun Window</span>
+                </div>
+                <div class="text-right">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300">Normal</span>
+                  <span class="block text-slate-400 text-[11px] font-mono mt-0.5">14,890 q</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 text-xs">
+                <div>
+                  <span class="font-bold text-white block">Rajasthan</span>
+                  <span class="text-slate-400 text-[11px]">Dry & Rising Day Heat</span>
+                </div>
+                <div class="text-right">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-300">High Risk</span>
+                  <span class="block text-slate-400 text-[11px] font-mono mt-0.5">22,110 q</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-2.5 bg-slate-950/70 rounded-xl border border-slate-800 text-xs">
+                <div>
+                  <span class="font-bold text-white block">Punjab</span>
+                  <span class="text-slate-400 text-[11px]">Optimal Spray Window</span>
+                </div>
+                <div class="text-right">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300">Normal</span>
+                  <span class="block text-slate-400 text-[11px] font-mono mt-0.5">16,350 q</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
+            Data synchronized with IMD National Agromet bulletins
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== TAB 2: LIVE WEATHER PLAYGROUND ==================== -->
+    <div id="section-playground" class="space-y-6 hidden">
+      <div class="glass-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex-1 min-w-[280px]">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Enter City / District</label>
+          <div class="relative flex gap-2">
+            <div class="relative flex-1">
+              <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <input
+                type="text"
+                id="weatherSearchInput"
+                onkeydown="if(event.key==='Enter') fetchWeather(this.value)"
+                placeholder="Type district (e.g. Bhopal, Rohtak, Jaipur, Ludhiana, Varanasi)..."
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none"
+              />
+            </div>
+            <button onclick="fetchWeather(document.getElementById('weatherSearchInput').value)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all">
+              Inspect
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center flex-wrap gap-1.5">
+          <span class="text-xs text-slate-400 mr-1">Presets:</span>
+          <button onclick="fetchWeather('Bhopal')" class="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-emerald-500/20 text-slate-200 border border-slate-700">Bhopal</button>
+          <button onclick="fetchWeather('Rohtak')" class="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-emerald-500/20 text-slate-200 border border-slate-700">Rohtak</button>
+          <button onclick="fetchWeather('Jaipur')" class="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-emerald-500/20 text-slate-200 border border-slate-700">Jaipur</button>
+          <button onclick="fetchWeather('Ludhiana')" class="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-emerald-500/20 text-slate-200 border border-slate-700">Ludhiana</button>
+          <button onclick="fetchWeather('Varanasi')" class="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-emerald-500/20 text-slate-200 border border-slate-700">Varanasi</button>
+          <button onclick="fetchWeather('Hyderabad')" class="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-emerald-500/20 text-slate-200 border border-slate-700">Hyderabad</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-gradient-to-br from-slate-900 via-slate-900/80 to-emerald-950/30 border border-emerald-500/20 rounded-2xl p-6">
+          <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 id="weatherCityDisplay" class="font-heading font-extrabold text-3xl text-white tracking-tight">Bhopal</h2>
+                <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">IN</span>
+              </div>
+              <p class="text-xs text-slate-400 font-mono mt-0.5">Lat: 23.2599° N, Lon: 77.4126° E</p>
+            </div>
+            <div class="text-right">
+              <span id="weatherDescDisplay" class="text-sm font-semibold text-emerald-400 capitalize">साफ आसमान / Sunny</span>
+              <p class="text-xs text-slate-400 font-mono">Live synced</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center my-4">
+            <div class="flex items-center gap-4">
+              <div class="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <i data-lucide="sun" class="w-12 h-12 stroke-[1.5]"></i>
+              </div>
+              <div>
+                <div class="flex items-baseline">
+                  <span id="weatherTempDisplay" class="font-heading font-extrabold text-6xl text-white tracking-tighter">28</span>
+                  <span class="text-2xl text-emerald-400 font-bold ml-1">°C</span>
+                </div>
+                <p class="text-xs text-slate-400">Feels like 29.1°C</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+              <div>
+                <span class="text-slate-400 flex items-center gap-1"><i data-lucide="droplets" class="w-3.5 h-3.5 text-cyan-400"></i> Humidity</span>
+                <p id="weatherHumidityDisplay" class="font-bold text-base text-white mt-0.5">42%</p>
+              </div>
+              <div>
+                <span class="text-slate-400 flex items-center gap-1"><i data-lucide="wind" class="w-3.5 h-3.5 text-emerald-400"></i> Wind Speed</span>
+                <p id="weatherWindDisplay" class="font-bold text-base text-white mt-0.5">8.2 km/h</p>
+              </div>
+              <div>
+                <span class="text-slate-400 flex items-center gap-1"><i data-lucide="gauge" class="w-3.5 h-3.5 text-purple-400"></i> Pressure</span>
+                <p class="font-bold text-base text-white mt-0.5">1014 hPa</p>
+              </div>
+              <div>
+                <span class="text-slate-400 flex items-center gap-1"><i data-lucide="cloud" class="w-3.5 h-3.5 text-blue-400"></i> Cloud Cover</span>
+                <p class="font-bold text-base text-white mt-0.5">15%</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-4 border-t border-slate-800 text-xs text-slate-300 font-medium">
+            <span class="flex items-center gap-1.5"><i data-lucide="sunrise" class="w-4 h-4 text-amber-400"></i> Sunrise: <b class="text-white">06:12 AM</b></span>
+            <span class="flex items-center gap-1.5"><i data-lucide="sunset" class="w-4 h-4 text-orange-400"></i> Sunset: <b class="text-white">06:48 PM</b></span>
+            <span class="flex items-center gap-1.5"><i data-lucide="eye" class="w-4 h-4 text-cyan-400"></i> Visibility: <b class="text-white">8.0 km</b></span>
+          </div>
+        </div>
+
+        <!-- Raw JSON API Inspector -->
+        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-bold text-sm text-white">Live API Payload</h3>
+              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">HTTP 200 OK</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">Live JSON from OpenWeatherMap endpoint</p>
+            <pre id="rawJsonDisplay" class="bg-slate-950 text-emerald-400 font-mono text-[11px] p-3 rounded-xl overflow-x-auto max-h-48 border border-slate-800 leading-relaxed custom-scrollbar">
+{
+  "name": "Bhopal",
+  "main": { "temp": 28.4, "humidity": 42, "pressure": 1014 },
+  "wind": { "speed": 2.3 },
+  "weather": [{ "description": "साफ आसमान" }]
+}
+            </pre>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+            <span>Latency: <strong class="text-white">128ms</strong></span>
+            <span>Units: <strong class="text-white">Metric (°C)</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7-Day Forecast Grid -->
+      <div>
+        <h3 class="font-heading font-bold text-lg text-white mb-3 flex items-center gap-2">
+          <i data-lucide="calendar" class="w-5 h-5 text-emerald-400"></i>
+          <span>7-Day Agro-Meteorological Forecast</span>
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div class="glass-card rounded-xl p-3.5 text-center flex flex-col items-center justify-between">
+            <span class="text-xs font-bold text-emerald-400">Today</span>
+            <div class="my-2 p-2 rounded-lg bg-slate-950 text-amber-400"><i data-lucide="sun" class="w-5 h-5"></i></div>
+            <div class="text-xs"><span class="font-bold text-white">28°</span><span class="text-slate-400 text-[11px] ml-1">20°</span></div>
+            <span class="text-[10px] mt-1 font-mono text-slate-400">💧 0%</span>
+          </div>
+          <div class="glass-card rounded-xl p-3.5 text-center flex flex-col items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">Tomorrow</span>
+            <div class="my-2 p-2 rounded-lg bg-slate-950 text-amber-400"><i data-lucide="sun" class="w-5 h-5"></i></div>
+            <div class="text-xs"><span class="font-bold text-white">29°</span><span class="text-slate-400 text-[11px] ml-1">21°</span></div>
+            <span class="text-[10px] mt-1 font-mono text-slate-400">💧 5%</span>
+          </div>
+          <div class="glass-card rounded-xl p-3.5 text-center flex flex-col items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">Wed</span>
+            <div class="my-2 p-2 rounded-lg bg-slate-950 text-amber-400"><i data-lucide="sun" class="w-5 h-5"></i></div>
+            <div class="text-xs"><span class="font-bold text-white">30°</span><span class="text-slate-400 text-[11px] ml-1">22°</span></div>
+            <span class="text-[10px] mt-1 font-mono text-slate-400">💧 15%</span>
+          </div>
+          <div class="glass-card rounded-xl p-3.5 text-center flex flex-col items-center justify-between border-cyan-500/40 bg-cyan-950/20">
+            <span class="text-xs font-bold text-cyan-300">Thu</span>
+            <div class="my-2 p-2 rounded-lg bg-slate-950 text-cyan-400"><i data-lucide="cloud-rain" class="w-5 h-5"></i></div>
+            <div class="text-xs"><span class="font-bold text-white">26°</span><span class="text-slate-400 text-[11px] ml-1">19°</span></div>
+            <span class="text-[10px] mt-1 font-mono text-cyan-300 font-bold">💧 60%</span>
+          </div>
+          <div class="glass-card rounded-xl p-3.5 text-center flex flex-col items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">Fri</span>
+            <div class="my-2 p-2 rounded-lg bg-slate-950 text-amber-400"><i data-lucide="sun" class="w-5 h-5"></i></div>
+            <div class="text-xs"><span class="font-bold text-white">27°</span><span class="text-slate-400 text-[11px] ml-1">19°</span></div>
+            <span class="text-[10px] mt-1 font-mono text-slate-400">💧 10%</span>
+          </div>
+          <div class="glass-card rounded-xl p-3.5 text-center flex flex-col items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">Sat</span>
+            <div class="my-2 p-2 rounded-lg bg-slate-950 text-amber-400"><i data-lucide="sun" class="w-5 h-5"></i></div>
+            <div class="text-xs"><span class="font-bold text-white">29°</span><span class="text-slate-400 text-[11px] ml-1">20°</span></div>
+            <span class="text-[10px] mt-1 font-mono text-slate-400">💧 0%</span>
+          </div>
+          <div class="glass-card rounded-xl p-3.5 text-center flex flex-col items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">Sun</span>
+            <div class="my-2 p-2 rounded-lg bg-slate-950 text-amber-400"><i data-lucide="sun" class="w-5 h-5"></i></div>
+            <div class="text-xs"><span class="font-bold text-white">31°</span><span class="text-slate-400 text-[11px] ml-1">21°</span></div>
+            <span class="text-[10px] mt-1 font-mono text-slate-400">💧 5%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: SMART AGRO ADVISORY ==================== -->
+    <div id="section-agro" class="space-y-6 hidden">
+      <div class="glass-card rounded-2xl p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+          <div>
+            <h3 class="font-heading font-bold text-xl text-white">Smart Crop Spray & Irrigation Advisor</h3>
+            <p class="text-xs text-slate-400">Automatic advisory calculated from current wind speed (8.2 km/h) & humidity (42%)</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-xs text-slate-300 font-medium">Select Crop:</label>
+            <select id="agroCropSelect" class="bg-slate-950 border border-slate-700 text-white font-semibold text-sm rounded-xl px-4 py-2 outline-none focus:border-emerald-500">
+              <option value="wheat">Wheat (गेहूँ)</option>
+              <option value="mustard">Mustard (सरसों)</option>
+              <option value="cotton">Cotton (कपास)</option>
+              <option value="paddy">Paddy / Rice (धान)</option>
+              <option value="chilli">Chilli (मिर्च)</option>
+              <option value="maize">Maize (मक्का)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div class="rounded-2xl p-5 border bg-emerald-950/20 border-emerald-500/30">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Spray Suitability Window</span>
+              <i data-lucide="spray-can" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+            <span class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500 text-slate-950">SAFE TO SPRAY</span>
+            <h4 class="font-bold text-base text-white mt-3">Favorable Wind & Zero Rain Risk</h4>
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              Wind speed is 8.2 km/h with dry conditions. Excellent window for foliar fungicide/insecticide spray.
+            </p>
+          </div>
+
+          <div class="rounded-2xl p-5 border bg-blue-950/20 border-blue-500/30">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-blue-400">Irrigation (सिंचाई) Advisory</span>
+              <i data-lucide="droplet" class="w-5 h-5 text-blue-400"></i>
+            </div>
+            <span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-500 text-slate-950">IRRIGATION RECOMMENDED</span>
+            <h4 class="font-bold text-base text-white mt-3">Dry Soil & No Imminent Rain</h4>
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              Clear skies forecasted for next 48h. Provide light evening irrigation to maintain root zone moisture.
+            </p>
+          </div>
+
+          <div class="rounded-2xl p-5 border bg-amber-950/20 border-amber-500/30">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Pest Surveillance Index</span>
+              <i data-lucide="bug" class="w-5 h-5 text-amber-400"></i>
+            </div>
+            <span class="text-xs font-bold px-3 py-1 rounded-full bg-amber-500 text-slate-950">MODERATE SURVEILLANCE</span>
+            <h4 class="font-bold text-base text-white mt-3">Aphid & Sucking Pest Alert</h4>
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              Current temperature (28°C) favors sucking pests. Inspect leaf undersides regularly.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 4: WHATSAPP SIMULATOR ==================== -->
+    <div id="section-whatsapp" class="space-y-6 hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-3xl p-5 flex flex-col h-[650px] shadow-2xl">
+          <div class="bg-emerald-900/40 border border-emerald-500/30 rounded-2xl p-3.5 flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
+                <i data-lucide="bot" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <h4 class="font-heading font-bold text-sm text-white flex items-center gap-1.5">
+                  Ajrasakha Kisan Mitra <i data-lucide="badge-check" class="w-4 h-4 text-emerald-400"></i>
+                </h4>
+                <p class="text-[11px] text-emerald-300">Official GDB Verified Advisory & Feedback Bot</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-mono">WhatsApp Online</span>
+              <button onclick="clearChat()" class="text-slate-400 hover:text-slate-200 p-1">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="chatMessageStream" class="flex-1 overflow-y-auto space-y-4 pr-2 text-xs custom-scrollbar"></div>
+
+          <div class="pt-3 border-t border-slate-800 flex items-center gap-2 mt-2">
+            <input
+              type="text"
+              id="whatsappChatInput"
+              onkeydown="if(event.key==='Enter') sendWhatsAppMessage()"
+              placeholder="Ask a crop/weather question or reply '1' for Yes, '2' for No..."
+              class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-emerald-500"
+            />
+            <button onclick="sendWhatsAppMessage()" class="bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl transition-all shadow-md active:scale-95">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div class="glass-card rounded-2xl p-5">
+            <h4 class="font-heading font-bold text-sm text-white mb-2 flex items-center gap-1.5">
+              <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+              <span>1-Click Test Scenarios</span>
+            </h4>
+            <div class="space-y-2">
+              <button onclick="simulateQuery('Kal Bhopal me mausam kaisa rahega aur baarish hogi kya?')" class="w-full text-left p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-200 group transition-all">
+                <span class="font-medium text-white block mb-0.5">Bhopal Mausam & Baarish</span>
+                <span class="text-[10px] text-cyan-400 font-mono">Live Weather (IMD/AWS)</span>
+              </button>
+              <button onclick="simulateQuery('Gehun me peela ratwa (Yellow Rust) aa raha hai, kya spray karun?')" class="w-full text-left p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-200 group transition-all">
+                <span class="font-medium text-white block mb-0.5">Gehun me peela ratwa</span>
+                <span class="text-[10px] text-emerald-400 font-mono">High Quality (GDB-1042)</span>
+              </button>
+              <button onclick="simulateQuery('Kapas me gulabi sundi (Pink Bollworm) ka prabhav kaise rokein?')" class="w-full text-left p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-200 group transition-all">
+                <span class="font-medium text-white block mb-0.5">Kapas me gulabi sundi</span>
+                <span class="text-[10px] text-rose-400 font-mono">Low Score / Flagged (GDB-7812)</span>
+              </button>
+              <button onclick="simulateQuery('Tamatar me patti modak rog (Leaf Curl Virus) ka upchar kya hai?')" class="w-full text-left p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-200 group transition-all">
+                <span class="font-medium text-white block mb-0.5">Tamatar me patti modak rog</span>
+                <span class="text-[10px] text-amber-400 font-mono">Too Technical (GDB-9205)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 5: GDB DIRECTORY ==================== -->
+    <div id="section-gdb" class="space-y-6 hidden">
+      <div class="glass-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex-1 min-w-[280px]">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Search GDB Answers</label>
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input
+              type="text"
+              id="gdbSearchInput"
+              onkeyup="filterGdbTable()"
+              placeholder="Search by GDB-ID, Crop, Disease, or Fertilizer..."
+              class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Filter Domain</label>
+          <select id="gdbDomainSelect" onchange="filterGdbTable()" class="bg-slate-950 border border-slate-700 text-xs text-white rounded-xl px-3 py-2.5 outline-none">
+            <option value="all">All Domains</option>
+            <option value="Crop Protection">Crop Protection</option>
+            <option value="Pest Control">Pest Control</option>
+            <option value="Soil & Nutrients">Soil & Nutrients</option>
+            <option value="Horticulture">Horticulture</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-heading font-bold text-lg text-white">GDB Master Knowledge Base Directory</h3>
+            <p class="text-xs text-slate-400">Showing expert-verified answers linked with live farmer feedback signals</p>
+          </div>
+          <span class="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
+            20,000+ entries indexed
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300" id="gdbTable">
+            <thead class="bg-slate-950 text-slate-400 uppercase font-semibold border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">GDB ID</th>
+                <th class="py-3 px-4">Farmer Question</th>
+                <th class="py-3 px-4">Domain</th>
+                <th class="py-3 px-4">State / Lang</th>
+                <th class="py-3 px-4">Feedback Ratio</th>
+                <th class="py-3 px-4">Helpful %</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60 font-medium" id="gdbTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 6: FLAGGED REVIEW QUEUE (< 60%) ==================== -->
+    <div id="section-flagged" class="space-y-6 hidden">
+      <div class="bg-gradient-to-r from-rose-950/40 via-slate-900 to-slate-900 border border-rose-500/30 rounded-2xl p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-2">
+          <div class="flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/30">
+              <i data-lucide="shield-alert" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 class="font-heading font-bold text-xl text-white">Automated Flagged Review Queue (&lt; 60% Helpfulness)</h3>
+              <p class="text-xs text-slate-400">GDB entries with consistently poor farmer feedback requiring agronomist re-editing</p>
+            </div>
+          </div>
+          <span class="text-xs px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 font-bold font-mono">
+            Threshold: &lt; 60% Positive (10+ Votes)
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="flaggedCardsContainer"></div>
+    </div>
+
+    <!-- ==================== TAB 7: IMD SEVERE ALERTS ==================== -->
+    <div id="section-alerts" class="space-y-6 hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="glass-card border-l-4 border-l-rose-500 rounded-2xl p-5">
+          <span class="text-xs font-bold text-rose-400 uppercase">Red Alert • Hailstorm</span>
+          <h4 class="font-bold text-base text-white mt-1">Shimla & Solan, HP</h4>
+          <p class="text-xs text-slate-300 mt-2">Severe hailstorm and gusty winds (45–55 km/h). Fruit growers deploy anti-hail nets.</p>
+        </div>
+        <div class="glass-card border-l-4 border-l-amber-500 rounded-2xl p-5">
+          <span class="text-xs font-bold text-amber-400 uppercase">Orange Alert • Heavy Rain</span>
+          <h4 class="font-bold text-base text-white mt-1">Bhopal & Sehore, MP</h4>
+          <p class="text-xs text-slate-300 mt-2">Isolated heavy rainfall expected (64.5 to 115.5 mm). Create field drainage channels.</p>
+        </div>
+        <div class="glass-card border-l-4 border-l-yellow-500 rounded-2xl p-5">
+          <span class="text-xs font-bold text-yellow-400 uppercase">Yellow Alert • Heatwave</span>
+          <h4 class="font-bold text-base text-white mt-1">Barmer & Jodhpur, RJ</h4>
+          <p class="text-xs text-slate-300 mt-2">Day temperatures likely to exceed 41°C. Frequent light irrigation advised.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 8: WEEKLY AGRI DIGEST ==================== -->
+    <div id="section-digest" class="space-y-6 hidden">
+      <div class="glass-card rounded-2xl p-6">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 font-mono">
+          WEEKLY AGRONOMIST DIGEST #24
+        </span>
+        <h3 class="font-heading font-bold text-xl text-white mt-2 mb-3">Priority Review Digest for Agronomy Team</h3>
+        
+        <div class="space-y-3">
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-xs text-rose-400">1. Pink Bollworm in Cotton (Marathi)</h4>
+              <span class="text-xs text-slate-400 font-mono">GDB-7812 • 54.2%</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              <strong>Feedback:</strong> Farmers found spray instructions too expensive; missing pheromone lure timing.
+            </p>
+            <p class="text-[11px] text-emerald-400">
+              <strong>Action:</strong> Include biological IPM control and cost-effective lure schedule.
+            </p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-xs text-rose-400">2. Tomato Leaf Curl Virus (Telugu)</h4>
+              <span class="text-xs text-slate-400 font-mono">GDB-9205 • 51.4%</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              <strong>Feedback:</strong> Stating "no direct cure" discouraged farmers; missing vector guidance.
+            </p>
+            <p class="text-[11px] text-emerald-400">
+              <strong>Action:</strong> Explain Whitefly management with yellow sticky traps and net covers.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- PS-5 MODAL -->
+  <div id="psModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-6 text-xs text-slate-300 shadow-2xl relative custom-scrollbar">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+            <i data-lucide="target" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-heading font-bold text-lg text-white">Problem Statement 5: Weather Intelligence & Farmer Feedback Loop</h3>
+            <p class="text-slate-400 text-xs">Kisan Call Center (KCC) 15.5M Queries + 20,000+ GDB Answers Quality Loop</p>
+          </div>
+        </div>
+        <button onclick="closePsModal()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+          <h4 class="font-bold text-sm text-emerald-400 flex items-center gap-2">
+            <i data-lucide="file-text" class="w-4 h-4"></i> 1. Problem Overview & Scope
+          </h4>
+          <p class="leading-relaxed text-slate-300">
+            In the Kisan Call Center (KCC) dataset of <b>43.4M queries</b>, <b>15.54M (35.8%)</b> are weather-related. At the same time, ACE has <b>20,000+ expert-validated answers in GDB</b>, but lacked a systematic farmer feedback channel.
+          </p>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+          <h4 class="font-bold text-sm text-cyan-400 flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4"></i> 2. Complete End-to-End Solution
+          </h4>
+          <ul class="space-y-2 list-disc list-inside text-slate-300">
+            <li><b>Live Weather & Agromet Advisory:</b> OpenWeatherMap + IMD Local Mirrors providing 7-day forecasts, spray window alerts, and rain barometers.</li>
+            <li><b>WhatsApp Feedback Prompt:</b> After delivering answers, AjraSakha asks: <em>"Reply 1 for Yes, 2 for No"</em>.</li>
+            <li><b>Automated Re-Review Queue:</b> Low-rated entries (&lt; 60%) automatically routed to Agronomists.</li>
+            <li><b>Weekly Digest:</b> Consolidated priority reports for the agricultural science team.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-4 border-t border-slate-800">
+        <button onclick="closePsModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-2 rounded-xl transition-all">
+          Understood & Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    let currentCity = "Bhopal";
+    const gdbMaster = [
+      {
+        id: "GDB-1042",
+        question: "Gehun me peela ratwa (Yellow Rust) ke lakshan aur roktham kya hai?",
+        domain: "Crop Protection",
+        answerSnippet: "Propiconazole 25% EC (Tilt) ko 200 ml prati 200 litre paani me gholkar prati acre chhidkaw karein.",
+        totalFeedback: 142,
+        helpfulCount: 131,
+        unhelpfulCount: 11,
+        score: 92.2,
+        status: "Healthy",
+        language: "Hindi",
+        state: "Punjab"
+      },
+      {
+        id: "GDB-2819",
+        question: "Sarson me chepa (Aphid) ke niyanthan ke liye kaunsi dawai dalein?",
+        domain: "Pest Control",
+        answerSnippet: "Dimethoate 30% EC ya Imidacloprid 17.8% SL @ 50ml prati 100 litre paani me milakar spray karein.",
+        totalFeedback: 89,
+        helpfulCount: 78,
+        unhelpfulCount: 11,
+        score: 87.6,
+        status: "Healthy",
+        language: "Hindi",
+        state: "Rajasthan"
+      },
+      {
+        id: "GDB-4402",
+        question: "Dhaan ki fasal me Urea ka santulit prayog kab aur kitni matra me karein?",
+        domain: "Soil & Nutrients",
+        answerSnippet: "Urea ko 3 barabar bhaago me baantein: Basal dose ropai ke samay, pehla top dressing 20-25 din baad aur doosra 40-45 din baad.",
+        totalFeedback: 110,
+        helpfulCount: 101,
+        unhelpfulCount: 9,
+        score: 91.8,
+        status: "Healthy",
+        language: "Hindi",
+        state: "Uttar Pradesh"
+      },
+      {
+        id: "GDB-7812",
+        question: "Kapas me gulabi sundi (Pink Bollworm) ka prabhav kaise rokein?",
+        domain: "Crop Protection",
+        answerSnippet: "Pheromone traps lagayein (5-8 prati acre). Aakraman aadhik hone par Profenophos 50% EC 400ml/acre spray karein.",
+        totalFeedback: 48,
+        helpfulCount: 26,
+        unhelpfulCount: 22,
+        score: 54.2,
+        status: "Flagged",
+        language: "Marathi",
+        state: "Maharashtra",
+        flagReason: "Missing regional bio-pesticide alternative & dosage unclear for drip farmers",
+        suggestedFix: "Add Neem oil (10,000 ppm) recommendation and clear liter-per-pump ratio."
+      },
+      {
+        id: "GDB-9205",
+        question: "Tamatar me patti modak rog (Leaf Curl Virus) ka upchar kya hai?",
+        domain: "Horticulture",
+        answerSnippet: "Virus ka direct upchar nahi hai, safed makkhi (Whitefly) ko control karein Diafenthiuron 50% WP se.",
+        totalFeedback: 35,
+        helpfulCount: 18,
+        unhelpfulCount: 17,
+        score: 51.4,
+        status: "Flagged",
+        language: "Telugu",
+        state: "Andhra Pradesh",
+        flagReason: "Answer too technical; doesn't explain nursery net covering or organic repellent",
+        suggestedFix: "Provide simple step-by-step yellow sticky trap guide and farmer-friendly language."
+      },
+      {
+        id: "GDB-5310",
+        question: "Chane me ukhta rog (Fusarium Wilt) se bachav ke upay?",
+        domain: "Crop Protection",
+        answerSnippet: "Trichoderma viride 5-10g/kg beej upchar karein aur khet me Carbendazim 50% WP ka prayog karein.",
+        totalFeedback: 62,
+        helpfulCount: 32,
+        unhelpfulCount: 30,
+        score: 51.6,
+        status: "Flagged",
+        language: "Hindi",
+        state: "Madhya Pradesh",
+        flagReason: "Trichoderma soil application timing not specified before sowing",
+        suggestedFix: "Include FYM (Gobar ki khaad) mixing proportion for Trichoderma."
+      }
+    ];
+
+    let awaitingFeedbackGdbId = "GDB-1042";
+
+    const chatHistory = [
+      {
+        sender: "bot",
+        text: "Namaste Kisan Bhai! 🙏 Main Ajrasakha GDB & Weather AI Assistant hoon. Aap kisi bhi fasal, keet-rog, khaad, ya mausam ke baare me pooch sakte hain.",
+        time: "09:30 AM"
+      },
+      {
+        sender: "user",
+        text: "Gehun me peela ratwa (Yellow Rust) aa raha hai, kya spray karun?",
+        time: "09:31 AM"
+      },
+      {
+        sender: "bot",
+        text: "🌾 **GDB Verified Answer [GDB-1042]:**\nGehun me Peela Ratwa (Yellow Rust) ke liye Propiconazole 25% EC (Tilt) ko 200 ml prati 200 litre paani me gholkar prati acre chhidkaw karein. Chhidkaw subah ya shaam ke samay karein.",
+        time: "09:31 AM",
+        gdbId: "GDB-1042"
+      },
+      {
+        sender: "bot",
+        text: "Was this helpful? 🙏\nReply **1** for Yes (Haan) 👍\nReply **2** for No (Nahi) 👎",
+        time: "09:31 AM",
+        isFeedbackPrompt: true,
+        gdbId: "GDB-1042"
+      }
+    ];
+
+    function renderGdbTable() {
+      const tbody = document.getElementById('gdbTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      gdbMaster.forEach(entry => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-900/50 transition-colors';
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono font-bold text-emerald-400">${entry.id}</td>
+          <td class="py-3 px-4 max-w-xs">
+            <p class="font-semibold text-white truncate">${entry.question}</p>
+            <p class="text-[11px] text-slate-400 truncate">${entry.answerSnippet}</p>
+          </td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-200 text-[11px]">${entry.domain}</span></td>
+          <td class="py-3 px-4 text-[11px] text-slate-300">${entry.state} • <span class="text-cyan-400">${entry.language}</span></td>
+          <td class="py-3 px-4 font-mono text-[11px]"><span class="text-emerald-400 font-bold">👍 ${entry.helpfulCount}</span> / <span class="text-rose-400">👎 ${entry.unhelpfulCount}</span></td>
+          <td class="py-3 px-4 font-bold text-sm"><span class="${entry.score >= 60 ? 'text-emerald-400' : 'text-rose-400'}">${entry.score}%</span></td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${entry.status === 'Healthy' ? 'bg-emerald-500/20 text-emerald-300' : entry.status === 'Flagged' ? 'bg-rose-500/20 text-rose-300' : 'bg-purple-500/20 text-purple-300'}">${entry.status}</span>
+          </td>
+          <td class="py-3 px-4 text-right">
+            <button onclick="simulateQuery('${entry.question}')" class="text-xs bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition-all">Test in Bot</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderFlaggedCards() {
+      const container = document.getElementById('flaggedCardsContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const flagged = gdbMaster.filter(g => g.status === 'Flagged' || g.score < 60);
+      document.getElementById('flaggedBadge').innerText = flagged.length;
+      document.getElementById('kpiFlaggedCount').innerText = flagged.length;
+
+      flagged.forEach(entry => {
+        const card = document.createElement('div');
+        card.className = 'glass-card border border-rose-500/30 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-lg';
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-mono font-bold text-rose-400 text-sm">${entry.id}</span>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold">Score: ${entry.score}%</span>
+            </div>
+            <h4 class="font-bold text-sm text-white mb-2 leading-snug">${entry.question}</h4>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 mb-3 italic">"${entry.answerSnippet}"</div>
+            <div class="space-y-1.5 text-xs">
+              <div class="text-rose-300 font-medium"><strong class="text-slate-400">Why Farmer Rated Low:</strong> ${entry.flagReason || 'Unclear steps'}</div>
+              <div class="text-emerald-300 font-medium"><strong class="text-slate-400">Recommended Fix:</strong> ${entry.suggestedFix || 'Simplify dosage'}</div>
+            </div>
+          </div>
+          <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-mono">👍 ${entry.helpfulCount} / 👎 ${entry.unhelpfulCount} (${entry.totalFeedback} votes)</span>
+            <button onclick="resolveFlaggedEntry('${entry.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all shadow-md active:scale-95">✓ Approve Re-Edit</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function resolveFlaggedEntry(id) {
+      const entry = gdbMaster.find(g => g.id === id);
+      if (entry) {
+        entry.status = 'Resolved';
+        entry.score = 85.0;
+        entry.helpfulCount += 10;
+        confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+        renderGdbTable();
+        renderFlaggedCards();
+        updateKpis();
+      }
+    }
+
+    function renderChat() {
+      const stream = document.getElementById('chatMessageStream');
+      if (!stream) return;
+      stream.innerHTML = '';
+
+      chatHistory.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = `flex items-start gap-2.5 max-w-[88%] ${msg.sender === 'user' ? 'ml-auto justify-end' : ''}`;
+        
+        let feedbackButtonsHtml = '';
+        if (msg.isFeedbackPrompt) {
+          feedbackButtonsHtml = `
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+              <span class="text-slate-400 font-medium">Quick Reply:</span>
+              <div class="flex items-center gap-2">
+                <button onclick="sendReplyFeedback('1')" class="flex items-center gap-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 px-3 py-1.5 rounded-lg font-bold transition-all">
+                  <i data-lucide="thumbs-up" class="w-3 h-3"></i> Reply 1 (Yes)
+                </button>
+                <button onclick="sendReplyFeedback('2')" class="flex items-center gap-1 bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 px-3 py-1.5 rounded-lg font-bold transition-all">
+                  <i data-lucide="thumbs-down" class="w-3 h-3"></i> Reply 2 (No)
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        div.innerHTML = `
+          <div class="p-3.5 shadow-md space-y-2.5 ${msg.sender === 'user' ? 'bg-emerald-800 text-white rounded-[16px_0px_16px_16px]' : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-[0px_16px_16px_16px]'}">
+            <p class="leading-relaxed whitespace-pre-line">${msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>
+            ${feedbackButtonsHtml}
+            <span class="block text-[10px] text-slate-400 text-right font-mono">${msg.time}</span>
+          </div>
+        `;
+        stream.appendChild(div);
+      });
+
+      stream.scrollTop = stream.scrollHeight;
+      lucide.createIcons();
+    }
+
+    function sendReplyFeedback(choice) {
+      const input = document.getElementById('whatsappChatInput');
+      if (input) input.value = choice;
+      sendWhatsAppMessage();
+    }
+
+    function sendWhatsAppMessage() {
+      const input = document.getElementById('whatsappChatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      chatHistory.push({ sender: 'user', text: text, time: time });
+      input.value = '';
+      renderChat();
+
+      if ((text === '1' || text === '2' || text.toLowerCase() === 'yes' || text.toLowerCase() === 'no') && awaitingFeedbackGdbId) {
+        const isPos = text === '1' || text.toLowerCase() === 'yes';
+        const entry = gdbMaster.find(g => g.id === awaitingFeedbackGdbId);
+        if (entry) {
+          if (isPos) entry.helpfulCount++;
+          else entry.unhelpfulCount++;
+          entry.totalFeedback = entry.helpfulCount + entry.unhelpfulCount;
+          entry.score = Number(((entry.helpfulCount / entry.totalFeedback) * 100).toFixed(1));
+          if (entry.score < 60 && entry.totalFeedback >= 10) entry.status = 'Flagged';
+          if (isPos) confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+        }
+
+        setTimeout(() => {
+          const reply = isPos
+            ? "Dhanyawad! Aapka feedback record kar liya gaya hai (👍 1 - Helpful). Isse hamara Kisan Sahayata system behtar hota hai."
+            : "Dhanyawad! Aapka feedback record kar liya gaya hai (👎 2 - Not Helpful). Hum is jawaab ko apne Agronomist Expert Queue me re-review ke liye bhej rahe hain.";
+          
+          chatHistory.push({ sender: 'bot', text: reply, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+          awaitingFeedbackGdbId = null;
+          renderChat();
+          renderGdbTable();
+          renderFlaggedCards();
+          updateKpis();
+        }, 500);
+        return;
+      }
+
+      setTimeout(() => {
+        let matched = gdbMaster[0];
+        const q = text.toLowerCase();
+        if (q.includes("sarson") || q.includes("chepa") || q.includes("aphid")) matched = gdbMaster[1];
+        else if (q.includes("dhaan") || q.includes("urea") || q.includes("khad")) matched = gdbMaster[2];
+        else if (q.includes("kapas") || q.includes("sundi") || q.includes("bollworm")) matched = gdbMaster[3];
+        else if (q.includes("tamatar") || q.includes("patti") || q.includes("leaf curl")) matched = gdbMaster[4];
+        else if (q.includes("chana") || q.includes("ukhta") || q.includes("wilt")) matched = gdbMaster[5];
+        else if (q.includes("weather") || q.includes("mausam") || q.includes("baarish") || q.includes("rain") || q.includes("barish")) {
+          matched = {
+            id: "GDB-WX01",
+            question: "Hyperlocal District Weather & Spray Forecast",
+            domain: "Weather & Advisory",
+            answerSnippet: `🌧️ **IMD & AWS Live Mausam [${currentCity}]:**\nTaapmaan: 28°C | Nami: 42% | Hawa: 8.2 km/h.\nAgale 48 ghanto tak baarish ki sambhavna sirf 10% hai. Fasal spray ke liye mausam bilkul anukool hai.`,
+            totalFeedback: 420,
+            helpfulCount: 395,
+            unhelpfulCount: 25,
+            score: 94.0,
+            status: "Healthy",
+            language: "Hindi",
+            state: "Madhya Pradesh"
+          };
+        }
+
+        awaitingFeedbackGdbId = matched.id;
+
+        chatHistory.push({
+          sender: 'bot',
+          text: `🌱 **GDB Verified Answer [${matched.id}]:**\n${matched.answerSnippet}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          gdbId: matched.id
+        });
+
+        chatHistory.push({
+          sender: 'bot',
+          text: `Was this helpful? 🙏\nReply **1** for Yes (Haan) 👍\nReply **2** for No (Nahi) 👎`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isFeedbackPrompt: true,
+          gdbId: matched.id
+        });
+
+        renderChat();
+      }, 600);
+    }
+
+    function simulateQuery(q) {
+      switchTab('whatsapp');
+      const input = document.getElementById('whatsappChatInput');
+      if (input) input.value = q;
+      setTimeout(() => sendWhatsAppMessage(), 250);
+    }
+
+    function clearChat() {
+      chatHistory.length = 0;
+      chatHistory.push({
+        sender: "bot",
+        text: "Namaste Kisan Bhai! Main Ajrasakha GDB AI hoon. Apna sawal poochhein.",
+        time: "10:00 AM"
+      });
+      renderChat();
+    }
+
+    function updateKpis() {
+      const total = gdbMaster.reduce((a, c) => a + c.totalFeedback, 0);
+      const helpful = gdbMaster.reduce((a, c) => a + c.helpfulCount, 0);
+      const pct = ((helpful / total) * 100).toFixed(1);
+
+      document.getElementById('kpiHelpfulScore').innerText = pct + '%';
+      document.getElementById('heroHelpfulPct').innerText = pct + '%';
+    }
+
+    function switchTab(tabId) {
+      ['overview', 'playground', 'agro', 'whatsapp', 'gdb', 'flagged', 'alerts', 'digest'].forEach(id => {
+        const sec = document.getElementById(`section-${id}`);
+        const btn = document.getElementById(`tab-${id}`);
+        if (sec) sec.classList.add('hidden');
+        if (btn) {
+          btn.className = "tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent";
+        }
+      });
+
+      const activeSec = document.getElementById(`section-${tabId}`);
+      const activeBtn = document.getElementById(`tab-${tabId}`);
+      if (activeSec) activeSec.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.className = "tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+      }
+
+      lucide.createIcons();
+    }
+
+    function filterGdbTable() {
+      const query = document.getElementById('gdbSearchInput')?.value.toLowerCase() || '';
+      const domain = document.getElementById('gdbDomainSelect')?.value || 'all';
+      const rows = document.querySelectorAll('#gdbTableBody tr');
+
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        const matchesQuery = text.includes(query);
+        const matchesDomain = domain === 'all' || text.includes(domain.toLowerCase());
+        row.style.display = (matchesQuery && matchesDomain) ? '' : 'none';
+      });
+    }
+
+    function openPsModal() {
+      document.getElementById('psModal')?.classList.remove('hidden');
+    }
+
+    function closePsModal() {
+      document.getElementById('psModal')?.classList.add('hidden');
+    }
+
+    async function fetchWeather(city) {
+      if (!city) city = 'Bhopal';
+      currentCity = city;
+      try {
+        const apiKey = localStorage.getItem('OPENWEATHER_API_KEY') || window.OPENWEATHER_API_KEY || '';
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)},IN&appid=${apiKey}&units=metric&lang=hi`);
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+        document.getElementById('headerCityName').innerText = data.name + ', IN';
+        document.getElementById('weatherCityDisplay').innerText = data.name;
+        document.getElementById('weatherTempDisplay').innerText = Math.round(data.main.temp);
+        document.getElementById('weatherHumidityDisplay').innerText = 'Humidity: ' + data.main.humidity + '%';
+        document.getElementById('weatherWindDisplay').innerText = (data.wind.speed * 3.6).toFixed(1) + ' km/h';
+        document.getElementById('weatherDescDisplay').innerText = data.weather[0].description;
+        document.getElementById('rawJsonDisplay').innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('headerCityName').innerText = city + ', IN';
+        document.getElementById('weatherCityDisplay').innerText = city;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      renderGdbTable();
+      renderFlaggedCards();
+      renderChat();
+      updateKpis();
+    });
+  </script>
+</body>
+</html>
