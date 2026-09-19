@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Eye, Pencil, Trash2, RefreshCw, X } from "lucide-react";
 import {
@@ -15,6 +15,7 @@ import { StateSelector } from "../FunctionsPanel/RunTile";
 import ServerPagination from "./ServerPagination";
 import StatusBadge from "./StatusBadge";
 import TextFilter from "./TextFilter";
+import TopScrollbar from "./TopScrollbar";
 import { ADVISORY_TYPE_OPTIONS } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
@@ -43,6 +44,7 @@ const COL_COUNT = 11; // Row ID, Document ID, Document, Advisory Type, State, Fo
 // which kind was picked, and dropdown filters send ids too since organisation names routinely
 // contain commas that would otherwise split a name-based multi-select filter.
 export default function MainTable({ onOpenDetail, refreshKey }) {
+  const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [rows, setRows] = useState([]);
@@ -185,6 +187,13 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
     }
   }
 
+  function handleCopyId(id) {
+    navigator.clipboard.writeText(id).then(
+      () => toast.success("Copied"),
+      () => toast.error("Failed to copy"),
+    );
+  }
+
   const [deletingId, setDeletingId] = useState(null);
   async function handleDelete(row) {
     if (
@@ -235,7 +244,8 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
         </div>
       )}
 
-      <div className="relative overflow-x-auto rounded-lg border border-border">
+      <TopScrollbar containerRef={scrollRef} />
+      <div className="relative overflow-x-auto rounded-lg border border-border" ref={scrollRef}>
         {loading && (
           <div className="absolute inset-0 bg-background/40 flex items-start justify-center pt-4 pointer-events-none z-10">
             <RefreshCw size={16} className="animate-spin text-muted-foreground" />
@@ -254,18 +264,18 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
                 <TextFilter
-                  label="Document ID"
-                  value={filters.document_id?.[0] || ""}
-                  onChange={(v) => setFilter("document_id", v ? [v] : [])}
-                  placeholder="ANNAM_00042"
-                />
-              </th>
-              <th className="text-left px-3 py-2 whitespace-nowrap">
-                <TextFilter
                   label="Document"
                   value={filters.shareable_name?.[0] || ""}
                   onChange={(v) => setFilter("shareable_name", v ? [v] : [])}
                   placeholder="Search name…"
+                />
+              </th>
+              <th className="text-left px-3 py-2 whitespace-nowrap">
+                <TextFilter
+                  label="Document ID"
+                  value={filters.document_id?.[0] || ""}
+                  onChange={(v) => setFilter("document_id", v ? [v] : [])}
+                  placeholder="ANNAM_00042"
                 />
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
@@ -343,26 +353,36 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                   <td className="px-3 py-2 align-middle font-mono text-[10px] text-muted-foreground">
                     {row.row_id}
                   </td>
-                  <td className="px-3 py-2 align-middle">
-                    <button
-                      className="text-primary hover:text-primary/80 hover:underline transition-colors cursor-pointer font-mono text-[11px]"
-                      onClick={() => onOpenDetail(row.unique_document_id)}
-                    >
-                      {row.document_id}
-                    </button>
-                    {row.placement_count > 1 && (
-                      <span
-                        className="ml-1 text-[10px] text-muted-foreground"
-                        title={`Filed in ${row.placement_count} places — editing anything but state/folder changes all of them`}
-                      >
-                        ×{row.placement_count}
-                      </span>
-                    )}
-                  </td>
                   <td className="px-3 py-2 align-middle max-w-[180px]">
                     <span className="block truncate text-foreground" title={row.shareable_name || ""}>
                       {row.shareable_name || "—"}
                     </span>
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="text-foreground hover:text-primary transition-colors cursor-pointer font-mono text-[11px]"
+                        onClick={() => handleCopyId(row.document_id)}
+                        title="Click to copy"
+                      >
+                        {row.document_id}
+                      </button>
+                      <button
+                        className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                        onClick={() => onOpenDetail(row.unique_document_id)}
+                        title="View document"
+                      >
+                        <Eye size={11} />
+                      </button>
+                      {row.placement_count > 1 && (
+                        <span
+                          className="text-[10px] text-muted-foreground"
+                          title={`Filed in ${row.placement_count} places — editing anything but state/folder changes all of them`}
+                        >
+                          ×{row.placement_count}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.advisory_type || "—"}</td>
                   <td className="px-3 py-2 align-middle">
@@ -435,13 +455,6 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">
-                        <button
-                          className="p-1 rounded border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
-                          onClick={() => onOpenDetail(row.unique_document_id)}
-                          title="View document"
-                        >
-                          <Eye size={11} />
-                        </button>
                         <button
                           className="p-1 rounded border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
                           onClick={() => startEdit(row)}

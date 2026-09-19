@@ -39,7 +39,8 @@ import {
   CropSingleResponse,
   CropSuccessResponse,
 } from '../classes/validators/CropResponseValidators.js';
-import { CsvUploadFileOptions } from '../classes/validators/fileUploadOptions.js';
+import { CsvUploadFileOptions, ImageUploadFileOptions } from '../classes/validators/fileUploadOptions.js';
+import { uploadMediaFile } from '#root/modules/dashboard/utils/uploadMedia.js';
 import { startCropBulkProcessing, startChemicalBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
 import * as XLSX from 'xlsx';
 
@@ -421,7 +422,12 @@ export class CropController {
   @Authorized()
   async updateCrop(
     @Params() params: CropIdParam,
-    @Body() body: UpdateCropDto,
+    // Image upload is folded into the crop update: the request is multipart/form-data with
+    // the crop fields in a JSON `payload` field plus an optional `image` file and a
+    // `removeImage` flag. (A plain JSON body still works — then rawBody IS the payload.)
+    @UploadedFile('image', { options: ImageUploadFileOptions, required: false })
+    image: Express.Multer.File | undefined,
+    @Body({ validate: false }) rawBody: any,
     @CurrentUser() user: IUser,
   ): Promise<{success: boolean; message: string; data: ICrop}> {
     // Role check
@@ -433,6 +439,22 @@ export class CropController {
 
     const {cropId} = params;
     const userId = user._id.toString();
+
+    // Crop fields come as a JSON string in `payload` on multipart requests; fall back to the
+    // raw body for a plain JSON request.
+    const body: UpdateCropDto =
+      rawBody && typeof rawBody.payload === 'string'
+        ? JSON.parse(rawBody.payload)
+        : (rawBody ?? {});
+
+    // New image uploaded → store its public URL, naming the object after the crop for a
+    // human-readable URL. `removeImage` → clear the existing image.
+    if (image) {
+      const nameForFile = (await this.cropService.getCropById(cropId))?.name;
+      body.imageUrl = await uploadMediaFile(image, 'crops', nameForFile);
+    } else if (rawBody?.removeImage === 'true' || rawBody?.removeImage === true) {
+      body.imageUrl = null;
+    }
     let updated;
     let previousCrop;
     let auditPayload: ModeratorAuditTrail = {

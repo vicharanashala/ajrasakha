@@ -1,4 +1,7 @@
 import {randomUUID} from 'node:crypto';
+import {existsSync} from 'node:fs';
+import {Readable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
 import {Storage} from '@google-cloud/storage';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {appConfig} from '#root/config/app.js';
@@ -21,6 +24,24 @@ if (emulatorHost) {
   // Ensure the GCS client enters emulator mode (skips ADC) even if the env var
   // wasn't set explicitly in .env.
   process.env.STORAGE_EMULATOR_HOST = emulatorHost;
+} else {
+  // Production / staging: the @google-cloud/storage SDK reads STORAGE_EMULATOR_HOST
+  // NATIVELY from the environment. If it is set here (e.g. inherited from a dev config),
+  // the SDK dials a non-existent emulator and the upload request is destroyed — surfacing
+  // as "Cannot call write after a stream was destroyed". Clear it so we talk to real GCS.
+  delete process.env.STORAGE_EMULATOR_HOST;
+  delete process.env.FIREBASE_STORAGE_EMULATOR_HOST;
+
+  // On Cloud Run the runtime already has an attached service account, so the GCS SDK can
+  // use Application Default Credentials with no key file. If GOOGLE_APPLICATION_CREDENTIALS
+  // points at a key file that isn't actually present (e.g. a secret mount that didn't
+  // happen — "/run/secrets/gcp-service-account.json does not exist"), the SDK throws ENOENT
+  // before it ever tries ADC. Drop the dangling path so it falls back to the attached
+  // service account's credentials instead of failing every upload.
+  const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (keyPath && !existsSync(keyPath)) {
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  }
 }
 
 /** Lazily-created GCS client. In production it uses Application Default Credentials
@@ -41,12 +62,15 @@ const getStorage = (): Storage =>
   ));
 
 /**
- * Upload an outreach media file (image/video) to the public-dashboard media bucket and
- * return its public URL. Objects are namespaced by kind under `public-dashboard/`.
+ * Upload any media file to the media bucket under the given object prefix and return its
+ * public URL. Works against the Firebase Storage emulator locally and real GCS in
+ * staging/production with the SAME code. Reused across verticals (dashboard media, crop
+ * images, …) so upload/emulator handling lives in one place.
  */
-export async function uploadPublicDashboardMedia(
+export async function uploadMediaFile(
   file: Express.Multer.File,
-  kind: 'image' | 'video',
+  objectPrefix: string,
+  baseName?: string,
 ): Promise<string> {
   const bucketName = appConfig.GCP_MEDIA_BUCKET;
   if (!bucketName) {
@@ -59,19 +83,33 @@ export async function uploadPublicDashboardMedia(
   }
 
   const ext = (file.originalname.split('.').pop() || '').toLowerCase();
-  const objectName = `public-dashboard/${kind}s/${randomUUID()}${
-    ext ? `.${ext}` : ''
-  }`;
+  const prefix = objectPrefix.replace(/^\/+|\/+$/g, '');
+  // Prefix the object with a URL-safe slug of the entry's name (e.g. "tomato-<uuid>.jpg")
+  // so the URL is human-readable. The UUID stays for uniqueness — same-named entries never
+  // collide or overwrite each other.
+  const slug = (baseName || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  const objectName = `${prefix}/${slug ? `${slug}-` : ''}${randomUUID()}${ext ? `.${ext}` : ''}`;
 
   const bucket = getStorage().bucket(bucketName);
   const gcsFile = bucket.file(objectName);
 
   try {
-    await gcsFile.save(file.buffer, {
+    // Pipe a Readable built from the buffer into the GCS write stream. This manages the
+    // stream lifecycle/backpressure correctly and, on a transport failure (e.g. the storage
+    // emulator not running, or an auth/permission error), surfaces the REAL error via
+    // pipeline() instead of the misleading "Cannot call write after a stream was destroyed"
+    // that gcsFile.save(buffer) / a manual .end(buffer) throw when the request is destroyed.
+    const writeStream = gcsFile.createWriteStream({
       contentType: file.mimetype,
       resumable: false,
       metadata: {cacheControl: 'public, max-age=31536000'},
     });
+    await pipeline(Readable.from(file.buffer), writeStream);
 
     // Best-effort public read. Buckets with uniform bucket-level access reject
     // per-object ACLs — in that case the bucket must grant allUsers read via IAM,
@@ -96,4 +134,15 @@ export async function uploadPublicDashboardMedia(
       `Failed to upload media to bucket ${bucketName}: ${error}`,
     );
   }
+}
+
+/**
+ * Upload an outreach media file (image/video) to the public-dashboard media bucket and
+ * return its public URL. Objects are namespaced by kind under `public-dashboard/`.
+ */
+export async function uploadPublicDashboardMedia(
+  file: Express.Multer.File,
+  kind: 'image' | 'video',
+): Promise<string> {
+  return uploadMediaFile(file, `public-dashboard/${kind}s`);
 }

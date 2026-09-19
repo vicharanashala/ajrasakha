@@ -535,6 +535,26 @@ const AliasManagerModal = ({
   const [chemicalCrops, setChemicalCrops] = useState<string[]>(crop.crops ?? []);
   const [scientificName, setScientificName] = useState(crop.scientificName ?? "");
 
+  // Image upload (crop entries only for now). `imageFile` = a newly picked file,
+  // `removeImage` = clear the existing one. Preview shows the pick, else the stored image.
+  const isCropType = (crop.type ?? "crop") === "crop";
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+
+  const handlePickImage = (file: File | null) => {
+    if (!file) return;
+    setImageFile(file);
+    setRemoveImage(false);
+    setImagePreview(URL.createObjectURL(file));
+  };
+  const handleClearImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setRemoveImage(true);
+  };
+  const shownImage = imagePreview ?? (removeImage ? null : crop.imageUrl ?? null);
+
   const { mutateAsync: updateCrop, isPending: isUpdating } = useUpdateCrop();
 
   const totalCount = legacyAliases.length + structuredAliases.length;
@@ -579,7 +599,12 @@ const AliasManagerModal = ({
         // Send the trimmed value; an empty string clears the scientific name.
         payload.scientificName = scientificName.trim();
       }
-      const res = await updateCrop({ cropId: crop._id, payload });
+      const res = await updateCrop({
+        cropId: crop._id,
+        payload,
+        image: isCropType ? imageFile : null,
+        removeImage: isCropType && removeImage,
+      });
       if (res?.success) {
         toast.success(`"${crop.name}" updated successfully!`);
         onClose();
@@ -648,6 +673,55 @@ const AliasManagerModal = ({
                 onChange={(e) => setScientificName(e.target.value)}
                 className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 italic"
               />
+            </div>
+          )}
+
+          {/* ── Image — crop entries only ─────────────────────────────── */}
+          {isCropType && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Image
+                <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                  — optional
+                </span>
+              </p>
+              {shownImage ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={shownImage}
+                    alt={crop.name}
+                    className="h-16 w-16 rounded-md object-cover border border-gray-200 dark:border-gray-700"
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-primary cursor-pointer hover:underline">
+                      Replace
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleClearImage}
+                      className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline text-left"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex h-16 items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+                  />
+                  Click to upload an image
+                </label>
+              )}
             </div>
           )}
 

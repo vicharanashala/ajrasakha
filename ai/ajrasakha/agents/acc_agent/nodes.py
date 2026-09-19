@@ -25,6 +25,7 @@ from ajrasakha.agents.weather_agent import weather
 from ajrasakha.agents.daily_price_agent import daily_price
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.location_context import forward_geocode
+from ajrasakha.agents.answer_footers import collect_all_sources, FOOTER_SEPARATOR
 
 
 _TOOL_DOMAINS = {
@@ -116,7 +117,12 @@ def _tools_for_query(query: dict, selected_tools: list[str]) -> list[str]:
 
 
 async def extract_node(state: AccAgentState):
-    """Extract all details, farmer details, or query details from a transcript."""
+    """Extract all details, farmer details, or query details from a transcript.
+    
+    When a new transcript is submitted (query_details or all mode), this node
+    clears any stale tool results from a previous run to prevent the old query's
+    data from leaking into the new one.
+    """
     if not state.get("transcript"):
         return {}
 
@@ -151,6 +157,20 @@ async def extract_node(state: AccAgentState):
         )
         extraction_update["extracted_state"] = normalized_state
         extraction_update["extracted_district"] = normalized_district
+        
+        # Bug fix: When a new query transcript is submitted, clear any stale
+        # tool results from a previous run. This ensures the new query gets
+        # fresh tool calls instead of returning old results.
+        if extraction_type in ("query_details", "all"):
+            extraction_update["selected_tools"] = []
+            extraction_update["gdb_response"] = None
+            extraction_update["weather_response"] = None
+            extraction_update["market_response"] = None
+            extraction_update["schemes_response"] = None
+            extraction_update["query_tool_responses"] = []
+            extraction_update["final_answers"] = []
+            extraction_update["final_answer"] = None
+        
         return extraction_update
     except Exception as e:
         if extraction_type == "farmer_details":
@@ -332,6 +352,31 @@ async def tool_execution_node(state: AccAgentState):
             response_updates[f"{tool}_response"] = None
     return response_updates
 
+def _queries_match(stored_query_texts: list[str], current_queries: list[dict]) -> bool:
+    """Check if stored query_tool_responses queries match current extracted queries.
+    
+    This prevents stale data from a previous run's queries being used for the
+    current run. Only validates when both lists have content.
+    
+    Args:
+        stored_query_texts: List of query strings from stored query_tool_responses
+        current_queries: List of query dicts from extracted_queries
+    """
+    if not current_queries:
+        # No current queries extracted - trust whatever was provided
+        return True
+    if not stored_query_texts:
+        return False
+    if len(stored_query_texts) != len(current_queries):
+        return False
+    for stored_text, current in zip(stored_query_texts, current_queries):
+        # Compare by query text which is the unique identifier
+        current_text = current.get("query", "") if isinstance(current, dict) else str(current)
+        if stored_text != current_text:
+            return False
+    return True
+
+
 async def assembler_node(state: AccAgentState):
     """Synthesize a separate answer for each extracted farmer question."""
     def parse_tool_response(response: object) -> object:
@@ -342,10 +387,28 @@ async def assembler_node(state: AccAgentState):
         except (json.JSONDecodeError, TypeError):
             return response
 
-    query_tool_responses = state.get("query_tool_responses") or []
-    if not query_tool_responses:
-        # Preserve resumability for any thread created before this state field
-        # existed by reconstructing one response per extracted question.
+    current_queries = _state_queries(state)
+    stored_responses = state.get("query_tool_responses") or []
+    
+    # Determine whether to use stored responses or rebuild fresh ones.
+    # We only use stored responses if they exactly match the current queries.
+    # This prevents stale data from a previous run's different queries leaking through.
+    use_stored = False
+    if stored_responses:
+        stored_query_texts = [
+            r.get("query", {}).get("query", "") if isinstance(r.get("query"), dict) else str(r.get("query", ""))
+            for r in stored_responses
+        ]
+        if _queries_match(stored_query_texts, current_queries):
+            use_stored = True
+    
+    if use_stored:
+        query_tool_responses = stored_responses
+    else:
+        # Build fresh query_tool_responses from current state
+        # This also handles:
+        # 1. The case where stored responses don't match current queries (stale data)
+        # 2. The legacy case for threads created before query_tool_responses existed
         query_tool_responses = [
             {
                 "query_index": index,
@@ -356,16 +419,17 @@ async def assembler_node(state: AccAgentState):
                     if state.get(f"{tool}_response") is not None
                 },
             }
-            for index, query in enumerate(_state_queries(state))
+            for index, query in enumerate(current_queries)
         ]
 
     llm = get_minimax_chat_model()
 
     async def assemble_one(query_response: dict) -> dict:
         query = query_response.get("query") or {}
+        tool_responses = query_response.get("tool_responses") or {}
         tool_data = {
             tool: parse_tool_response(response)
-            for tool, response in (query_response.get("tool_responses") or {}).items()
+            for tool, response in tool_responses.items()
         }
         context = (
             f"Farmer question:\n{query.get('query', '')}\n"
@@ -378,11 +442,24 @@ async def assembler_node(state: AccAgentState):
             SystemMessage(content=ACC_ASSEMBLER_PROMPT),
             HumanMessage(content=context),
         ])
+        
+        # Build the answer text
+        answer = str(response.content)
+        
+        # Extract and append sources from GDB data if present
+        # This ensures source attribution is always included in ACC answers
+        gdb_data = tool_data.get("gdb")
+        if gdb_data and isinstance(gdb_data, dict):
+            # Extract sources using the same function as the main ajrasakha flow
+            sources = collect_all_sources(gdb_data, question_source=None)
+            if sources:
+                answer = f"{answer}\n\n{FOOTER_SEPARATOR}\n\n{sources}"
+        
         return {
             "query": query.get("query", ""),
             "crop": query.get("crop"),
             "standardized_domains": query.get("standardized_domains") or ["Others"],
-            "answer": str(response.content),
+            "answer": answer,
         }
 
     final_answers = list(await asyncio.gather(

@@ -6,11 +6,10 @@ import {
   getDashboardStates,
   getDashboardFolders,
   getDashboardLanguages,
-  getDashboardUsers,
-  createDashboardState,
   createDashboardOrganization,
   uploadDashboardDocument,
 } from "../../api";
+import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
 import { DOCUMENT_METADATA_FIELDS } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
@@ -87,15 +86,14 @@ export default function AddDocumentForm({ onUploadQueued }) {
 
   const [stateOptions, setStateOptions] = useState([]);
   const [languageOptions, setLanguageOptions] = useState([]);
-  // Admins/moderators/experts from the real reviewer-system users collection (see
-  // getDashboardUsers's comment in api.ts). Falls back to a plain text input in
-  // MetadataFieldInput if the list is empty (e.g. request failed).
-  const [userOptions, setUserOptions] = useState([]);
   const [folderOptions, setFolderOptions] = useState([]);
   const [newOrg, setNewOrg] = useState("");
   const [addingOrg, setAddingOrg] = useState(false);
-  const [newState, setNewState] = useState("");
-  const [addingState, setAddingState] = useState(false);
+  // /api/pop has no auth, so the backend just stores whatever name it's sent, unverified — per the
+  // user's decision (same as translated_by/reviewed_by, see TranslateReviewCell.tsx), uploaded_by
+  // is always the signed-in user's display name, auto-captured on submit. There is no dropdown or
+  // free-text entry for it anywhere in this form.
+  const currentUserName = useAuthStore((s) => s.user?.name);
 
   useEffect(() => {
     getDashboardStates()
@@ -103,9 +101,6 @@ export default function AddDocumentForm({ onUploadQueued }) {
       .catch(() => {});
     getDashboardLanguages()
       .then((d) => setLanguageOptions(d || []))
-      .catch(() => {});
-    getDashboardUsers()
-      .then((d) => setUserOptions((d || []).map((u) => u.name || u).filter(Boolean)))
       .catch(() => {});
   }, []);
 
@@ -158,20 +153,6 @@ export default function AddDocumentForm({ onUploadQueued }) {
     }
   }
 
-  async function handleAddState() {
-    if (!newState.trim()) return;
-    setAddingState(true);
-    try {
-      await createDashboardState(newState.trim());
-      setStateOptions((prev) => [...new Set([...prev, newState.trim()])].sort());
-      setNewState("");
-    } catch (err) {
-      toast.error(err.message || "Failed to add state");
-    } finally {
-      setAddingState(false);
-    }
-  }
-
   async function handleSubmit() {
     if (!file) {
       toast.error("Choose a PDF file first");
@@ -215,6 +196,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
       fields.month_of_collection = m;
       fields.year_of_collection = y;
     }
+    if (currentUserName) fields.uploaded_by = currentUserName;
     setSubmitting(true);
     try {
       const result = await uploadDashboardDocument(file, fields, placements, language);
@@ -249,7 +231,6 @@ export default function AddDocumentForm({ onUploadQueued }) {
               value={values[f.key]}
               onChange={(v) => setValue(f.key, v)}
               className={inputClass}
-              options={f.key === "verified_by" ? userOptions : undefined}
             />
           </div>
         ))}
@@ -298,22 +279,6 @@ export default function AddDocumentForm({ onUploadQueued }) {
             <input
               type="text"
               className={`${inputClass} flex-1`}
-              placeholder="Add new state…"
-              value={newState}
-              onChange={(e) => setNewState(e.target.value)}
-            />
-            <button
-              className="px-2.5 py-1.5 rounded-md border border-border text-xs text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              onClick={handleAddState}
-              disabled={addingState || !newState.trim()}
-            >
-              {addingState ? "Adding…" : "Add"}
-            </button>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              className={`${inputClass} flex-1`}
               placeholder="Add new organisation…"
               value={newOrg}
               onChange={(e) => setNewOrg(e.target.value)}
@@ -328,8 +293,9 @@ export default function AddDocumentForm({ onUploadQueued }) {
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground/70 -mt-1">
-          Crops come from a shared crop master and can't be added here. Folder options above are
-          every crop/organisation this document's Advisory Type allows — not narrowed by state.
+          Crops come from a shared crop master and can't be added here. States now cover every
+          Indian state and union territory, so there's no "add state" option. Folder options above
+          are every crop/organisation this document's Advisory Type allows — not narrowed by state.
         </p>
       </div>
 
