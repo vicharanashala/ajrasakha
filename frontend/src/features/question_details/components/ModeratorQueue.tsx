@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 interface ModeratorQueueProps {
   question: IQuestionFullData;
   currentUser: IUser;
+  initialOpen?: boolean;
 }
 
 /**
@@ -57,8 +58,12 @@ interface ModeratorQueueProps {
  * it (single-select modal, styled like "Select Experts Manually") while the question
  * is still in-review or re-routed.
  */
-export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const ModeratorQueue = ({
+  question,
+  currentUser,
+  initialOpen = false,
+}: ModeratorQueueProps) => {
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -200,7 +205,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
               <UserCheck className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
+              <h2 className="text-xl sm:text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
                 Moderator Queue
               </h2>
               <p className="text-sm text-muted-foreground mt-1">

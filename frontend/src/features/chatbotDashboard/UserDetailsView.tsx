@@ -83,6 +83,7 @@ import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { FarmerNameLink } from "./components/FarmerNameLink";
 import { useAddUser } from "./hooks/useAddUser";
 import { motion, AnimatePresence } from "framer-motion";
+import CountUp from "react-countup";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
@@ -588,14 +589,14 @@ export function UserDetailsView({
   return (
     <div className="flex-1 overflow-y-auto  min-w-0 bg-gradient-to-b from-background to-muted/30">
       <div ref={tableRef}>
-        <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <Card className="gap-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
           {/* ─────────── Header ─────────── */}
           <CardHeader className="pb-4 border-b border-border/60">
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
-              className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+              className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4"
             >
               {/* Title */}
               <div className="min-w-0 flex items-start gap-3">
@@ -610,102 +611,156 @@ export function UserDetailsView({
                   <CardTitle className="text-base font-semibold tracking-tight truncate">
                     All Farmers
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5 truncate">
                     View and manage farmer details, activity, and preferences.
                   </p>
                 </div>
               </div>
 
-              {/* Search */}
-              <div className="relative w-full lg:max-w-xs lg:flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="text"
-                  name="farmer-table-search"
-                  autoComplete="off"
-                  placeholder="Search by name or email..."
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters((d) => ({ ...d, search: e.target.value }))
-                  }
-                  className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
-                />
-                <AnimatePresence>
-                  {filters.search && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      onClick={() => setFilters((d) => ({ ...d, search: "" }))}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
-                <AnimatePresence>
-                  {isFiltered && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 px-3 text-muted-foreground hover:text-foreground"
-                        onClick={handleResetFilters}
-                      >
-                        <X className="h-4 w-4 mr-1.5" />
-                        Clear Filters
-                      </Button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <button
-                  onClick={handleRefresh}
-                  className="rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-                  title="Refresh"
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 bg-background ${
-                      refreshing ? "animate-spin" : ""
-                    }`}
+              <div className="flex w-full items-center gap-2 lg:w-auto">
+                {/* Search */}
+                <div className="relative w-full min-w-0 lg:w-72 lg:shrink-0 xl:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="text"
+                    name="farmer-table-search"
+                    autoComplete="off"
+                    placeholder="Search name, email, farmer..."
+                    aria-label="Search by name, email or farmer name"
+                    value={filters.search}
+                    onChange={(e) =>
+                      setFilters((d) => ({ ...d, search: e.target.value }))
+                    }
+                    className="h-9 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
                   />
-                </button>
+                  <AnimatePresence>
+                    {filters.search && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        onClick={() => setFilters((d) => ({ ...d, search: "" }))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </div>
 
-                <UserDetailsPreferenceFilter
-                  filters={filters}
-                  onApply={handleApplyFilters}
-                  hideFields={["userType"]}
-                />
+                <div className="flex shrink-0 items-center gap-2">
+                  <AnimatePresence>
+                    {isFiltered && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Clear filters"
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={handleResetFilters}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Clear filters</TooltipContent>
+                        </Tooltip>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {isAdmin &&
-                  (source === "annam" || source === "vicharanashala") && (
-                    <motion.div
-                      whileHover={{ y: -1 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
+                  <UserDetailsPreferenceFilter
+                    filters={filters}
+                    onApply={handleApplyFilters}
+                    hideFields={["userType"]}
+                    iconOnly
+                  />
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
                       <Button
                         type="button"
-                        size="sm"
-                        className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
-                        onClick={() => {
-                          setFilters((prev) => ({ ...prev, search: "" }));
-                          setIsAddModalOpen(true);
-                        }}
+                        variant="outline"
+                        size="icon"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        aria-label="Refresh"
+                        className="border-border/60"
                       >
-                        <UserPlus className="h-4 w-4" />
-                        Add User
+                        <RefreshCw
+                          className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                        />
                       </Button>
-                    </motion.div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Refresh</TooltipContent>
+                  </Tooltip>
+
+                  {data?.totalQueries !== undefined && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          tabIndex={0}
+                          aria-label={`Total queries asked: ${data.totalQueries.toLocaleString()}`}
+                          className="flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 text-sm cursor-help hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Inbox className="h-4 w-4 text-muted-foreground" />
+                          <span className="hidden text-muted-foreground xl:inline">
+                            Total queries asked
+                          </span>
+                          <span className="font-semibold tabular-nums text-primary">
+                            <CountUp
+                              end={data.totalQueries}
+                              duration={1.2}
+                              separator=","
+                              preserveValue
+                            />
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="p-3">
+                        <div className="space-y-1.5 min-w-[160px]">
+                          <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Total queries asked</p>
+                          <div className="flex justify-between items-center text-sm">
+                            <span>Messages:</span>
+                            <span className="font-medium">{data.totalMessagesCount ?? 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span>Questions:</span>
+                            <span className="font-medium">{data.totalQuestionsCount ?? 0}</span>
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
+
+                  {isAdmin &&
+                    (source === "annam" || source === "vicharanashala") && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            aria-label="Add user"
+                            className="shadow-sm shadow-primary/20"
+                            onClick={() => {
+                              setFilters((prev) => ({ ...prev, search: "" }));
+                              setIsAddModalOpen(true);
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">Add user</TooltipContent>
+                      </Tooltip>
+                    )}
+                </div>
               </div>
             </motion.div>
           </CardHeader>
@@ -744,9 +799,9 @@ export function UserDetailsView({
             {!refreshing && !isLoading && !error && (
               <div className="overflow-x-auto">
                 <Table className="min-w-[980px]">
-                  <TableHeader className="bg-muted/40 sticky top-0 z-10 backdrop-blur">
-                    <TableRow className="hover:bg-transparent border-border/60">
-                      <TableHead className="text-center w-12 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
+                    <TableRow className="hover:bg-transparent border-b border-border">
+                      <TableHead className="text-center w-14 h-11 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         S.No
                       </TableHead>
 
@@ -772,7 +827,7 @@ export function UserDetailsView({
                         order={sortOrder}
                         onSort={handleSort}
                       />
-                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      <TableHead className="text-center h-11 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         User Role
                       </TableHead>
 
@@ -784,7 +839,7 @@ export function UserDetailsView({
                         onSort={handleSort}
                       />
 
-                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      <TableHead className="text-center h-11 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         Actions
                       </TableHead>
                     </TableRow>
@@ -874,21 +929,37 @@ export function UserDetailsView({
                                 </TableCell>
 
                                 <TableCell className="align-middle">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
                                   <button
                                     onClick={() => {
                                       setSelectedUser(user);
                                       setQuestionModalOpen(true);
                                     }}
-                                    disabled={user.totalQuestions === 0}
-                                    title="View queries"
+                                    disabled={(user.totalQueries ?? user.totalQuestions) === 0}
                                     className={`inline-flex items-center justify-center min-w-[36px] h-6 px-2.5 rounded-full text-xs font-semibold transition-all ${
-                                      user.totalQuestions > 0
+                                          (user.totalQueries ?? user.totalQuestions) > 0
                                         ? "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 cursor-pointer"
                                         : "bg-muted text-muted-foreground cursor-default"
                                     }`}
                                   >
-                                    {user.totalQuestions.toLocaleString()}
+                                    {(user.totalQueries ?? user.totalQuestions).toLocaleString()}
                                   </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="p-3">
+                                      <div className="space-y-1.5 min-w-[140px]">
+                                        <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Queries Breakdown</p>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Messages:</span>
+                                          <span className="font-medium">{user.totalMessagesCount ?? user.totalQuestions ?? 0}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Questions:</span>
+                                          <span className="font-medium">{user.totalQuestionsCount ?? 0}</span>
+                                        </div>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </TableCell>
 
                                 <TableCell className="align-middle">
@@ -1212,21 +1283,32 @@ function SortableHead({
   onSort?: (f: "totalQuestions" | "name" | "farmerName" | "email") => void;
 }) {
   const Icon = !active ? ArrowUpDown : order === "desc" ? ArrowDown : ArrowUp;
+  const ariaSort = active ? (order === "asc" ? "ascending" : "descending") : "none";
   return (
     <TableHead
-      onClick={() => !disabled && onSort?.(field)}
-      className={`text-center text-xs font-medium uppercase tracking-wide transition-colors ${
-        disabled
-          ? "cursor-not-allowed opacity-50 text-muted-foreground"
-          : "cursor-pointer hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-      }`}
+      aria-sort={ariaSort}
+      className="h-11 p-0 text-center text-[11px] font-semibold uppercase tracking-wider"
     >
-      <div className="inline-flex items-center justify-center gap-1.5">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onSort?.(field)}
+        className={`group inline-flex h-full w-full items-center justify-center gap-1.5 px-3 uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+          active
+            ? "text-foreground"
+            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        }`}
+      >
         {label}
         <Icon
-          className={`h-3 w-3 ${active ? "text-primary" : "text-muted-foreground/60"}`}
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 shrink-0 transition-opacity ${
+            active
+              ? "text-primary"
+              : "opacity-40 group-hover:opacity-100 group-focus-visible:opacity-100"
+          }`}
         />
-      </div>
+      </button>
     </TableHead>
   );
 }

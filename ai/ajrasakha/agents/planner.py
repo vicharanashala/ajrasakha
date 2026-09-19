@@ -62,13 +62,13 @@ from ajrasakha.agents.planner_rules import (
     crop_slot_satisfied,
     format_conversation_for_planner,
     format_last_queries_for_rephrasing,
+    is_crop_clarify_turn,
     is_standalone_clarification_reply,
     merge_clarification_reply_into_query,
     format_prev_plan_context,
     is_explicit_all_crop_request,
     merge_entities_from_rephrased_query,
     normalize_crop_value,
-    resolve_crop_for_turn_with_source,
     is_crop_output_question,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
@@ -156,6 +156,25 @@ class PlannerOutput(BaseModel):
             "When is_follow_up is true, copy verbatim the previous turn's rephrased_query "
             "so the follow-up node sees the underlying question that was answered before. "
             "If unclear, leave null."
+        ),
+    )
+    is_new_question: bool = Field(
+        default=False,
+        description=(
+            "Only relevant when the server asked the farmer for a missing location or crop. "
+            "True when the latest message does NOT answer that request but asks a new, different "
+            "question (e.g. we asked for the state and the farmer asked about another crop or "
+            "problem), in any language or script. False when the message supplies the location "
+            "or crop, says it does not know, or says any crop is fine. False on all other turns."
+        ),
+    )
+    is_multiple_crops: bool = Field(
+        default=False,
+        description=(
+            "True when the farmer names two or more specific crops for the question "
+            "(e.g. 'wheat and mustard'), in any language or script. False for a single crop "
+            "and for crop categories or non-specific scopes such as 'vegetables', "
+            "'rabi crops', 'all crops', or 'any crop'."
         ),
     )
     original_query_en: Optional[str] = Field(
@@ -296,6 +315,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "is_follow_up": bool(output.is_follow_up),
         "follow_up_type": output.follow_up_type,
         "main_question": output.main_question,
+        "is_multiple_crops": bool(output.is_multiple_crops),
     }
 
 
@@ -438,22 +458,9 @@ async def _apply_domain_and_crop_async(
         prev_plan=prev_plan,
     )
 
-    resolved_turn_crop, resolved_turn_source = resolve_crop_for_turn_with_source(
-        messages,
-        prev_plan=prev_plan,
-    )
-    # ``unresolved_default_all`` is only the system's fallback scope, not
-    # evidence that the farmer omitted a crop. Let the planner's entity win in
-    # that case, as it did before the August crop-scope change. Explicit crop
-    # choices and clarification answers still take deterministic precedence.
-    if resolved_turn_source == "unresolved_default_all":
-        crop = normalize_crop_value(
-            crop_prefilled or entities.get("crop") or resolved_turn_crop
-        )
-    else:
-        crop = normalize_crop_value(
-            resolved_turn_crop or crop_prefilled or entities.get("crop")
-        )
+    # The planner LLM is the only source of the crop name: it translates local
+    # names and scripts (e.g. "గోధుమ" -> "Wheat") that no English regex can.
+    crop = normalize_crop_value(crop_prefilled or entities.get("crop"))
     if deterministic_crop_output:
         # A crop-output question asks the system to recommend the crop. Any
         # crop entity inferred by the LLM (for example, "Kharif crops" or
@@ -467,16 +474,25 @@ async def _apply_domain_and_crop_async(
         entities["crop"] = "all"
         crop_required = False
         crop_requirement_source = "deterministic_all_crop_requested"
-    elif (
-        resolved_turn_crop == "all"
-        and resolved_turn_source == "crop_clarification_default_all"
-    ):
-        # A non-empty answer to an already-asked crop clarification that does
-        # not resolve to a catalog crop uses MongoDB's canonical all-crops
-        # value. Initial missing-crop turns still go through domain policy.
+    elif plan.get("is_multiple_crops"):
+        # Two or more named crops satisfy the crop requirement, so the farmer
+        # is not asked again. Retrieval searches all crops; the reviewer
+        # upload labels the question "Multiple Crops".
         entities["crop"] = "all"
         crop_required = False
-        crop_requirement_source = resolved_turn_source
+        crop_requirement_source = "multiple_crops"
+    elif (
+        is_crop_clarify_turn(messages, prev_plan=prev_plan)
+        and latest_human_text(messages).strip()
+        and not crop_slot_satisfied(crop)
+    ):
+        # A non-empty answer to an already-asked crop clarification that does
+        # not name a specific crop uses MongoDB's canonical all-crops value, so
+        # the farmer is not asked twice. Initial missing-crop turns still go
+        # through domain policy.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "crop_clarification_default_all"
     elif crop_slot_satisfied(crop):
         # Preserve the pre-existing crop-present behavior. The new JSON/LLM
         # decision path is intentionally only for turns without a crop name.
@@ -709,18 +725,6 @@ async def planner_node(
     )
 
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
-    crop_resolved, crop_resolution_source = resolve_crop_for_turn_with_source(
-        messages,
-        prev_plan=prev_plan,
-    )
-    # Do not feed the generic unresolved ``all`` fallback to the LLM as if it
-    # were a detected crop. The planner must be free to identify a crop from
-    # the full query (for example, "tomatoes" or "chillies").
-    crop_hint = (
-        None
-        if crop_resolution_source == "unresolved_default_all"
-        else crop_resolved
-    )
     clarification_query = merge_clarification_reply_into_query(prev_plan, user_text)
     previous_vocal_language = (prev_plan.get("vocal_language") or "").strip()
     previous_script_language = (prev_plan.get("script_language") or "").strip()
@@ -735,7 +739,8 @@ async def planner_node(
     if clarification_query:
         rephrasing_context = (
             f"{rephrasing_context}\n"
-            "SERVER-ASSEMBLED CLARIFICATION QUERY (canonical rephrasing input):\n"
+            "SERVER-ASSEMBLED CLARIFICATION QUERY (canonical rephrasing input "
+            "unless is_new_question=true):\n"
             f"{clarification_query}"
         )
 
@@ -756,16 +761,19 @@ async def planner_node(
     deterministic_context = (
         f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
         f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
-        f"- crop hint: {crop_hint or 'NOT RESOLVED'}\n"
     )
     if prev_plan_context:
         deterministic_context = f"{deterministic_context}\n{prev_plan_context}"
     if clarification_query:
         deterministic_context = (
             f"{deterministic_context}\n"
-            "The server assembled the following query from the previous question "
-            "and the latest clarification. Preserve its intent and all facts when "
-            "generating original_query_en and rephrased_query:\n"
+            "The server asked the farmer for a missing location/crop and assembled "
+            "the following query from the previous question and the latest message. "
+            "If the latest message answers that request, preserve the assembled "
+            "query's intent and all facts when generating original_query_en and "
+            "rephrased_query. If the latest message is instead a new, different "
+            "question, set is_new_question=true, ignore the assembled query and the "
+            "previous question, and translate/rephrase only the latest message:\n"
             f"{clarification_query}\n"
         )
     if heuristic_follow_up_active:
@@ -800,7 +808,6 @@ async def planner_node(
         model=PLANNER_MODEL,
         messages=llm_messages,
         state_hint=state_resolved,
-        crop_hint=crop_hint,
         prev_plan_context=prev_plan_context or None,
     )
 
@@ -822,6 +829,23 @@ async def planner_node(
         )
 
         plan = planner_output_to_plan(output)
+
+        if clarification_query and output.is_new_question:
+            # The farmer ignored our location/crop request and asked a new
+            # question. Merging it would corrupt both queries, so plan this
+            # turn as a fresh conversation: no previous query, routing,
+            # language, entities, or clarification history.
+            trace_event(
+                "planner_clarification_skipped_new_question",
+                previous_query=prev_plan.get("rephrased_query"),
+                missing_info=prev_plan.get("missing_info"),
+                new_question=user_text,
+            )
+            clarification_query = None
+            preserve_clarification_language = False
+            prev_plan = {}
+            prev_entities = {}
+            messages = [human]
 
         # The clarification query was supplied to the LLM before rephrasing.
         # Preserve it as the original input and fall back to it if the LLM
@@ -1008,10 +1032,14 @@ async def planner_node(
 
         if plan.get("is_complete"):
             final_entities = plan.get("entities") or {}
+            loc_lat = location.get("latitude") if location else None
+            loc_lon = location.get("longitude") if location else None
             maybe_persist_resolved_location(
                 user_id,
                 final_entities.get("state"),
                 final_entities.get("district"),
+                latitude=loc_lat,
+                longitude=loc_lon,
                 thread_id=resolve_thread_id(config),
                 state_source=location_sources.get("state_source"),
                 district_source=location_sources.get("district_source"),
@@ -1086,7 +1114,10 @@ async def planner_node(
             plan.get("rephrased_query"),
             plan.get("missing_info"),
         )
-        return {"plan": plan}
+        res: dict[str, Any] = {"plan": plan}
+        if stored_location and (not location or (location.get("latitude") is None and stored_location.get("latitude") is not None)):
+            res["location"] = stored_location
+        return res
     except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
         logger.warning("Planner failed (%s: %s) — using default knowledge_base plan", type(exc).__name__, exc)
         return {"plan": _default_plan_for_agriculture(user_text)}

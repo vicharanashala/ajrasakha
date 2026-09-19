@@ -102,6 +102,14 @@ export class DuplicateService {
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
 
+      // Prevent question from being marked as duplicate of itself
+      if (refId && refId.toString() === questionId) {
+        return {
+          message: 'Cannot mark question as duplicate of itself.',
+          isDuplicate: false,
+        };
+      }
+
       // Get submission to check queue length
       const questionSubmission =
         await this.questionSubmissionRepo.getByQuestionId(questionId);
@@ -140,6 +148,15 @@ export class DuplicateService {
           : result.referenceQuestionId
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
+
+      // Prevent question from being marked as duplicate of itself
+      if (refId && refId.toString() === questionId) {
+        return {
+          message: 'Cannot mark question as duplicate of itself.',
+          isDuplicate: false,
+        };
+      }
+
       const canMarkQueue =
         question.status === 'open' || question.status === 'delayed';
       await this.questionRepo.updateQuestion(questionId, {

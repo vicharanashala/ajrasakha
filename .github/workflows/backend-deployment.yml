@@ -90,4 +90,5 @@ jobs:
             STAGING_DB_NAME=${{ secrets.STAGING_DB_NAME }}
             DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
             REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
           flags: --allow-unauthenticated

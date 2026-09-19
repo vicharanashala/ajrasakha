@@ -135,13 +135,14 @@ export type QuestionSource =
   | 'AJRASAKHA'
   | 'AGRI_EXPERT'
   | 'WHATSAPP'
-  | 'OUTREACH';
+  | 'OUTREACH'
+  | 'QUESTION_COLLECTION';
 
 /** Time-bound questions (SLA-driven, handled by the time-bound reallocation cron). */
 export const TIME_BOUND_SOURCES: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'];
 
 /** Manual / non-time-bound questions (added by moderators or via outreach). */
-export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH'];
+export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH', 'QUESTION_COLLECTION'];
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -379,6 +380,11 @@ export interface IFeedbackReview {
   closedFeedbacks?: { feedbackId: string; closedAt: Date }[];
 }
 
+export enum PAEAction {
+  APPROVE = 'approve',
+  SUGGESTION = 'suggestion',
+}
+
 export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -414,6 +420,7 @@ export interface IQuestionSubmission {
     paeId: ObjectId | string;
     paeStatus: 'in-progress' | 'completed';
     paeFinishedAt?: Date | null;
+    paeAction?: PAEAction;
   }[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -639,15 +646,37 @@ export interface ICropAlias {
   region: string; // e.g. "Andhra and Telangana"
   english_representation: string; // romanised / English representation e.g. "vari"
   native_representation: string; // native script e.g. "వరి"
+  source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
+  page_number?: string; // page number reference e.g. "45"
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});
 
+/** Crop-side entry types that share the crop structure (title-casing, alias merge,
+ *  uniqueness). 'chemical' is handled separately and is intentionally not listed here.
+ *
+ *  ── To add a new category (e.g. 'insect') just append it here. It automatically
+ *     flows to type validation, the /crops/entry-types endpoint, and the whole UI
+ *     (add-form category dropdown, the "Other" tab filter, bulk upload). ── */
+export const CROP_ENTRY_TYPES = ['crop', 'weed', 'pest', 'disease'] as const;
+export type CropEntryType = (typeof CROP_ENTRY_TYPES)[number];
+
+/** The extensible categories shown under the "Other" grouping in the UI — every
+ *  crop-side type except the primary 'crop'. Served by /crops/entry-types. */
+export const CROP_OTHER_TYPES: string[] = CROP_ENTRY_TYPES.filter(t => t !== 'crop');
+
+/** Every type accepted by the crop create/update endpoints (crop-side + chemical). */
+export const ALLOWED_CROP_TYPES = [...CROP_ENTRY_TYPES, 'chemical'] as const;
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  type?: CropType; // 'crop' (default) | 'chemical' | any custom string
+  type?: CropType; // 'crop' (default) | 'weed' | 'pest' | 'disease' | 'chemical'
+  /** Optional scientific (binomial) name, e.g. "Oryza sativa". Stored as entered. */
+  scientificName?: string | null;
   status?: string; // only relevant when type === 'chemical', any custom string
+  /** Public URL of the entry's image (uploaded to GCS / storage emulator). null/absent = none. */
+  imageUrl?: string | null;
   aliases: (ICropAlias | string)[]; // string = legacy format; ICropAlias = new format
   crops?: string[]; // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;

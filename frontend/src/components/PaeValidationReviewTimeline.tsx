@@ -45,9 +45,11 @@ const qs = new QuestionService();
 export const PaeValidationReviewTimeline = ({
     questionId,
     canManage = false,
+    initialOpen = false,
 }: {
     questionId: string;
     canManage?: boolean;
+    initialOpen?: boolean;
 }) => {
     const queryClient = useQueryClient();
 
@@ -62,7 +64,7 @@ export const PaeValidationReviewTimeline = ({
     const autoOn = timeline?.autoAllocatePaeValidationExpert === true;
     const hasOpenRound = timeline?.hasOpenRound === true;
 
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(initialOpen);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
@@ -268,7 +270,9 @@ export const PaeValidationReviewTimeline = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
                     {timeline.reviews.map((r, index) => {
                         const done = !!r.paeFinishedAt;
-                        const styles = getStatusStyles(done ? "approved" : "waiting");
+                        const isSuggestion = r.paeAction === "suggestion";
+                        const statusKey = done ? (isSuggestion ? "modified" : "approved") : "waiting";
+                        const styles = getStatusStyles(statusKey);
                         return (
                             <div
                                 key={`${r.paeId}-${r.paeAssignedAt}-${index}`}
@@ -332,7 +336,7 @@ export const PaeValidationReviewTimeline = ({
                                             <span
                                                 className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
                                             >
-                                                {done ? "Reviewed" : "Reviewing"}
+                                                {done ? (isSuggestion ? "Suggestion" : r.paeAction === "approve" ? "Approved" : "Reviewed") : "Reviewing"}
                                             </span>
                                         </div>
 
@@ -360,12 +364,12 @@ export const PaeValidationReviewTimeline = ({
                                                 </div>
                                                 <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
                                                     <CheckCheck
-                                                        className={`w-3 h-3 mt-0.5 shrink-0 ${done ? "text-green-500" : "text-amber-500"
+                                                        className={`w-3 h-3 mt-0.5 shrink-0 ${done ? (isSuggestion ? "text-amber-500" : "text-green-500") : "text-amber-500"
                                                             }`}
                                                     />
                                                     <div className="flex flex-col min-w-0">
                                                         <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">
-                                                            Completed
+                                                            {done ? (isSuggestion ? "Suggestion" : "Approved") : "Completed"}
                                                         </span>
                                                         <span className="text-[10px] font-semibold text-foreground leading-snug break-words">
                                                             {done && r.paeFinishedAt

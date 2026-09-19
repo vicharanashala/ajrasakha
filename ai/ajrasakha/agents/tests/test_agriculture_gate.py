@@ -349,7 +349,7 @@ class TestMergeEntitiesCropInheritance:
         plan: PlannerPlan = {
             "domain": "Varieties",
             "domains": ["Varieties"],
-            "entities": {},
+            "entities": {"crop": "Paddy"},
             "rephrased_query": "Which rice variety gives the highest yield?",
         }
         messages = [HumanMessage(content="Which rice variety gives the highest yield?")]
@@ -361,5 +361,5 @@ class TestMergeEntitiesCropInheritance:
             prev_entities=prev_entities,
         )
 
-        # Current query mentions rice, so crop should be Paddy (rice is mapped to paddy in crop patterns)
+        # The planner LLM extracted Paddy for this turn, so it wins over the previous crop
         assert result.get("crop") == "Paddy"
