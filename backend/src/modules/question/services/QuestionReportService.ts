@@ -861,7 +861,16 @@ export class QuestionReportService
       // Build filter query
       const query: any = {};
       if (filters.state && filters.state !== 'all') {
-        query['details.state'] = filters.state;
+        // Handle comma-separated multiple states (single = exact match, many = $in).
+        const states = filters.state
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s);
+        if (states.length === 1) {
+          query['details.state'] = states[0];
+        } else if (states.length > 1) {
+          query['details.state'] = {$in: states};
+        }
       }
       if (filters.crop && filters.crop !== 'all') {
         query['details.crop'] = filters.crop;
@@ -896,25 +905,82 @@ export class QuestionReportService
         }
       }
       if (filters.season && filters.season !== 'all') {
-        query['details.season'] = filters.season;
-      }
-      if (filters.domain && filters.domain !== 'all') {
-        query['details.domain'] = filters.domain;
-      }
-      if (filters.status && filters.status !== 'all') {
-        if (filters.status === 'pae_closed') {
-          query.status = 'closed';
-          query.pae_review = true;
-        } else if (filters.status === 'all-closed') {
-          query.status = {
-            $in: ['closed', 'duplicate_closed', 'dynamic_closed'],
-          };
-        } else {
-          query.status = filters.status;
+        const seasons = filters.season
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s);
+        if (seasons.length === 1) {
+          query['details.season'] = seasons[0];
+        } else if (seasons.length > 1) {
+          query['details.season'] = {$in: seasons};
         }
       }
+      if (filters.domain && filters.domain !== 'all') {
+        const domains = filters.domain
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s);
+        if (domains.length === 1) {
+          query['details.domain'] = domains[0];
+        } else if (domains.length > 1) {
+          query['details.domain'] = {$in: domains};
+        }
+      }
+      // Status supports multiple comma-separated values. `all-closed` expands to its
+      // constituent closed statuses; `pae_closed` (closed + pae_review) keeps its special
+      // meaning only when selected on its own.
+      const CLOSED_STATUS_TOKENS = new Set([
+        'closed',
+        'pae_closed',
+        'dynamic_closed',
+        'duplicate_closed',
+        'all-closed',
+      ]);
+      const selectedStatusTokens =
+        filters.status && filters.status !== 'all'
+          ? filters.status
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean)
+          : [];
+      // A closed-type report (dates use closedAt, capped to 50, includes answer details)
+      // only when EVERY selected status is a closed type.
+      const isClosedStatus =
+        selectedStatusTokens.length > 0 &&
+        selectedStatusTokens.every(s => CLOSED_STATUS_TOKENS.has(s));
+
+      if (
+        selectedStatusTokens.length === 1 &&
+        selectedStatusTokens[0] === 'pae_closed'
+      ) {
+        query.status = 'closed';
+        query.pae_review = true;
+      } else if (selectedStatusTokens.length > 0) {
+        const expanded = new Set<string>();
+        for (const s of selectedStatusTokens) {
+          if (s === 'all-closed') {
+            expanded.add('closed');
+            expanded.add('duplicate_closed');
+            expanded.add('dynamic_closed');
+          } else if (s === 'pae_closed') {
+            expanded.add('closed');
+          } else {
+            expanded.add(s);
+          }
+        }
+        const list = [...expanded];
+        query.status = list.length === 1 ? list[0] : {$in: list};
+      }
       if (filters.source && filters.source !== 'all') {
-        query.source = filters.source;
+        const sources = filters.source
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s);
+        if (sources.length === 1) {
+          query.source = sources[0];
+        } else if (sources.length > 1) {
+          query.source = {$in: sources};
+        }
       }
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = {$eq: true};
@@ -923,13 +989,6 @@ export class QuestionReportService
         // For closed statuses, filter using closedAt.
         // Date boundaries are based on IST:
         // 00:00 IST = previous day 18:30 UTC
-        const isClosedStatus =
-          filters.status === 'closed' ||
-          filters.status === 'pae_closed' ||
-          filters.status === 'dynamic_closed' ||
-          filters.status === 'duplicate_closed' ||
-          filters.status === 'all-closed';
-
         const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
 
         query[dateField] = {};
@@ -957,13 +1016,6 @@ export class QuestionReportService
         }
       }
 
-      // Check if this is a closed status report - if so, limit to 50 questions
-      const isClosedStatus =
-        filters.status === 'closed' ||
-        filters.status === 'pae_closed' ||
-        filters.status === 'dynamic_closed' ||
-        filters.status === 'duplicate_closed' ||
-        filters.status === 'all-closed';
       // `allUsers` entries are "userId" or "userId:count" (an explicit per-user count).
       const parsedApprovers =
         filters.allUsers && filters.allUsers !== 'all'

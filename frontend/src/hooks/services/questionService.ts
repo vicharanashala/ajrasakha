@@ -42,6 +42,11 @@ export type QueueQuestionItem = {
   openedAt?: string | null;
   minutesSinceOpened?: number;
   workType?: "stuck" | "unallocated" | "needsReviewer";
+  /** Waiting review level (completed history steps + 1) — present for needs-reviewer items. */
+  reviewLevel?: number;
+  /** Names of experts who completed a step, in turn order — present for needs-reviewer items. */
+  completedExpertNames?: string[];
+  queueExpertNames?: string[];
 };
 
 export type QueueExpertItem = {
@@ -177,6 +182,14 @@ export type QueueDetailsResponse = {
   freeExperts: { count: number; items: QueueExpertItem[] };
   stuck: { count: number; items: QueueQuestionItem[] };
   needsReviewer: { count: number; items: QueueQuestionItem[] };
+  /** Per-level counts for the needsReviewer section (level = history steps + 1). */
+  needsReviewerLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the stuck section. */
+  stuckLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the opened-idle section. */
+  openedIdleLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the allocated section. */
+  allocatedLevelCounts: { level: number; count: number }[];
   totalWork: { count: number; items: QueueQuestionItem[] };
   openedIdle: { count: number; items: QueueQuestionItem[] };
   moderatorWaiting: { count: number; items: QueueQuestionItem[] };
@@ -211,6 +224,14 @@ export type QueueDetailsResponse = {
   freeExpertsManual: { count: number; items: QueueExpertItem[] };
   stuckManual: { count: number; items: QueueQuestionItem[] };
   needsReviewerManual: { count: number; items: QueueQuestionItem[] };
+  /** Per-level counts for the manual needsReviewer section. */
+  needsReviewerLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual stuck section. */
+  stuckLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual opened-idle section. */
+  openedIdleLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual allocated section. */
+  allocatedLevelCountsManual: { level: number; count: number }[];
   openedIdleManual: { count: number; items: QueueQuestionItem[] };
 };
 
@@ -281,6 +302,7 @@ export interface PaeValidationReviewRound {
   paeAssignedAt: Date;
   paeFinishedAt: Date | null;
   paeStatus: string;
+  paeAction?: 'approve' | 'suggestion';
 }
 
 export interface FeedbackTimeline {

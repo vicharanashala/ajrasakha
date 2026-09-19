@@ -29,6 +29,17 @@ export interface IAnswerService
     type?: string,
   ): Promise<{ insertedId: string; isFinalAnswer: boolean }>;
 
+  getAnswerByMessageOrThreadId(
+    id: string,
+  ): Promise<{
+    question: string;
+    answer: string;
+    metadata: {
+      answeredBy: string | null;
+      sources: { sourceName?: string; source: string; page?: string | number }[];
+    };
+  }>;
+
   deleteAnswer(
     questionId: string,
     answerId: string,

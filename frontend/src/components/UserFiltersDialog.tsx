@@ -17,7 +17,8 @@ import {
   SelectItem,
 } from "@/components/atoms/select";
 import { Badge } from "@/components/atoms/badge";
-import { Filter, MapPin } from "lucide-react";
+import { Checkbox } from "@/components/atoms/checkbox";
+import { Filter, MapPin, Download, Loader2 } from "lucide-react";
 import { useGetStates } from "@/hooks/api/location/useLocations";
 
 interface UserFiltersDialogProps {
@@ -36,6 +37,19 @@ interface UserFiltersDialogProps {
   setTmuFilter: (val: string) => void;
   setPage: (val: number) => void;
   activeFiltersCount: number;
+  /** Export controls (moved into this dialog). */
+  isExporting?: boolean;
+  onExport?: (overrides?: {
+    filter?: string;
+    role?: string;
+    isBlocked?: string;
+    isVerified?: string;
+    isSTF?: string;
+    isTMU?: string;
+    getAnalytics?: boolean;
+  }) => void;
+  getAnalytics?: boolean;
+  setGetAnalytics?: (val: boolean) => void;
 }
 
 export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
@@ -54,6 +68,10 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
   setTmuFilter,
   setPage,
   activeFiltersCount,
+  isExporting,
+  onExport,
+  getAnalytics,
+  setGetAnalytics,
 }) => {
   const [open, setOpen] = useState(false);
   const { data: statesResponse = [] } = useGetStates();
@@ -96,6 +114,21 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
     setDraftVerified("ALL");
     setDraftStf("ALL");
     setDraftTmu("ALL");
+  };
+
+  // Download uses the CURRENT draft filters (so it matches what's shown in the dialog),
+  // and also applies them so the table stays in sync. Explicit values avoid stale state.
+  const handleDownload = () => {
+    handleApply();
+    onExport?.({
+      filter: draftFilter === "ALL" ? "" : draftFilter,
+      role: draftRole,
+      isBlocked: draftStatus,
+      isVerified: draftVerified,
+      isSTF: draftStf,
+      isTMU: draftTmu,
+      getAnalytics: !!getAnalytics && draftRole === "pae_expert",
+    });
   };
 
   return (
@@ -238,15 +271,42 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* PAE analytics — only relevant when the PAE role is selected. When checked,
+                  Download adds a "PAE Analytics" sheet with every PAE's metrics. */}
+              {draftRole === "pae_expert" && (
+                <label className="flex items-center gap-2 pt-1 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={!!getAnalytics}
+                    onCheckedChange={(v) => setGetAnalytics?.(v === true)}
+                  />
+                  <span className="font-semibold">Include PAE Analytics sheet</span>
+                </label>
+              )}
             </>
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
           <Button variant="outline" onClick={handleReset}>
             Reset
           </Button>
-          <Button className="ml-2" onClick={handleApply}>Apply Filters</Button>
+          {isAdmin && onExport && (
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              disabled={isExporting}
+              className="gap-1.5"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isExporting ? "Exporting..." : "Download"}
+            </Button>
+          )}
+          <Button onClick={handleApply}>Apply Filters</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
