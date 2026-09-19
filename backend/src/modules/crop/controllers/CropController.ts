@@ -447,9 +447,11 @@ export class CropController {
         ? JSON.parse(rawBody.payload)
         : (rawBody ?? {});
 
-    // New image uploaded → store its public URL. `removeImage` → clear the existing image.
+    // New image uploaded → store its public URL, naming the object after the crop for a
+    // human-readable URL. `removeImage` → clear the existing image.
     if (image) {
-      body.imageUrl = await uploadMediaFile(image, 'crops');
+      const nameForFile = (await this.cropService.getCropById(cropId))?.name;
+      body.imageUrl = await uploadMediaFile(image, 'crops', nameForFile);
     } else if (rawBody?.removeImage === 'true' || rawBody?.removeImage === true) {
       body.imageUrl = null;
     }

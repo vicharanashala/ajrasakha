@@ -70,6 +70,7 @@ const getStorage = (): Storage =>
 export async function uploadMediaFile(
   file: Express.Multer.File,
   objectPrefix: string,
+  baseName?: string,
 ): Promise<string> {
   const bucketName = appConfig.GCP_MEDIA_BUCKET;
   if (!bucketName) {
@@ -83,7 +84,16 @@ export async function uploadMediaFile(
 
   const ext = (file.originalname.split('.').pop() || '').toLowerCase();
   const prefix = objectPrefix.replace(/^\/+|\/+$/g, '');
-  const objectName = `${prefix}/${randomUUID()}${ext ? `.${ext}` : ''}`;
+  // Prefix the object with a URL-safe slug of the entry's name (e.g. "tomato-<uuid>.jpg")
+  // so the URL is human-readable. The UUID stays for uniqueness — same-named entries never
+  // collide or overwrite each other.
+  const slug = (baseName || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  const objectName = `${prefix}/${slug ? `${slug}-` : ''}${randomUUID()}${ext ? `.${ext}` : ''}`;
 
   const bucket = getStorage().bucket(bucketName);
   const gcsFile = bucket.file(objectName);
