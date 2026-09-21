@@ -869,6 +869,7 @@ export interface IQuestionService {
     scanned: number;
     questionsUpdated: number;
     closedWithAnswer: number;
+    closedWithAnswerIds: string[];
     skippedNoText: number;
     failed: number;
   }>;

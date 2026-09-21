@@ -7194,6 +7194,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     scanned: number;
     questionsUpdated: number;
     closedWithAnswer: number;
+    closedWithAnswerIds: string[];
     skippedNoText: number;
     failed: number;
   }> {
@@ -7201,6 +7202,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       scanned: 0,
       questionsUpdated: 0,
       closedWithAnswer: 0,
+      closedWithAnswerIds: [],
       skippedNoText: 0,
       failed: 0,
     };

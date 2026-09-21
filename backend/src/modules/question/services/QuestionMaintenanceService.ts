@@ -201,6 +201,7 @@ export class QuestionMaintenanceService extends BaseService {
     scanned: number;
     questionsUpdated: number;
     closedWithAnswer: number;
+    closedWithAnswerIds: string[];
     skippedNoText: number;
     failed: number;
   }> {
@@ -208,6 +209,7 @@ export class QuestionMaintenanceService extends BaseService {
       scanned: 0,
       questionsUpdated: 0,
       closedWithAnswer: 0,
+      closedWithAnswerIds: [] as string[],
       skippedNoText: 0,
       failed: 0,
     };
@@ -290,7 +292,10 @@ export class QuestionMaintenanceService extends BaseService {
         // separately by backfillAnswerEmbeddings.)
         await this.questionRepo.updateQuestionEmbedding(qid, embedding);
         result.questionsUpdated++;
-        if (finalAnswerText) result.closedWithAnswer++;
+        if (finalAnswerText) {
+          result.closedWithAnswer++;
+          result.closedWithAnswerIds.push(qid);
+        }
       } catch (err) {
         console.error(`<<EMBEDDING_BACKFILL>> Failed for ${qid}:`, err);
         result.failed++;
@@ -302,6 +307,11 @@ export class QuestionMaintenanceService extends BaseService {
         `(closed w/ answer ${result.closedWithAnswer}), ❌ ${result.failed}, ` +
         `skipped ${result.skippedNoText}`,
     );
+    if (result.closedWithAnswerIds.length) {
+      console.log(
+        `<<EMBEDDING_BACKFILL>> Closed-with-answer question ids: ${result.closedWithAnswerIds.join(', ')}`,
+      );
+    }
     return result;
   }
 
