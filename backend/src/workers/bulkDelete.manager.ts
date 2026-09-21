@@ -1,6 +1,9 @@
 import { Worker } from 'worker_threads';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getContainer } from '#root/bootstrap/loadModules.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import type { QuestionService } from '#root/modules/question/services/QuestionService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,6 +68,21 @@ export const startBulkDeleteWorker = (
     }
     job.finishedAt = new Date();
     job.logs.push(`🏁 Bulk Delete Job finished with exit code ${code}`);
+
+    // Deleting questions may have freed PAE experts (a question they held for validation is
+    // now gone) — run the PAE-validation queue once so freed experts pick up their next
+    // question. Fire-and-forget and best-effort; can't affect the delete that already ran.
+    try {
+      const questionService = getContainer().get<QuestionService>(
+        CORE_TYPES.QuestionService,
+      );
+      questionService.triggerPaeValidationQueueAllocation('bulkDeleteQuestions');
+    } catch (err: any) {
+      console.error(
+        '[bulkDeleteQuestions] PAE-validation allocation trigger failed:',
+        err?.message,
+      );
+    }
   });
 
   return jobId;

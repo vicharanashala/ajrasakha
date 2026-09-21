@@ -575,6 +575,56 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  async getByMessageId(
+    messageId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!messageId) {
+        throw new BadRequestError('Invalid or missing messageId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { messageId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by messageId: ${error}`);
+    }
+  }
+
+  async getByThreadId(
+    threadId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!threadId) {
+        throw new BadRequestError('Invalid or missing threadId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { threadId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by threadId: ${error}`);
+    }
+  }
+
   async findByIds(ids: ObjectId[]): Promise<IQuestion[]> {
     try {
       await this.init();
@@ -2598,6 +2648,8 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
+        /** The reference question's approved final-answer text (shown in "Reference Question"). */
+        answer: string;
         sources: {
           source: string;
           page?: string | number | null;
@@ -2629,7 +2681,7 @@ export class QuestionRepository implements IQuestionRepository {
             ) as any,
             this.AnswersCollection.findOne(
               { questionId: refId, isFinalAnswer: true },
-              { projection: { sources: 1 } },
+              { projection: { sources: 1, answer: 1 } },
             ) as any,
           ]);
 
@@ -2639,6 +2691,7 @@ export class QuestionRepository implements IQuestionRepository {
               status: refQuestion.status || '',
               details: refQuestion.details || {},
               text: refQuestion.text || '',
+              answer: refFinalAnswer?.answer || '',
               sources: refFinalAnswer?.sources || [],
             };
           }
@@ -3203,11 +3256,14 @@ export class QuestionRepository implements IQuestionRepository {
     return Math.floor(index / limit) + 1;
   }
 
-  async insertMany(questions: IQuestion[]): Promise<string[]> {
+  async insertMany(
+    questions: IQuestion[],
+    session?: ClientSession,
+  ): Promise<string[]> {
     await this.init();
     if (!Array.isArray(questions) || questions.length === 0) return [];
     try {
-      const result = await this.QuestionCollection.insertMany(questions);
+      const result = await this.QuestionCollection.insertMany(questions, { session });
       if (!result.acknowledged) {
         throw new InternalServerError('Failed to insert questions');
       }
@@ -7365,6 +7421,43 @@ export class QuestionRepository implements IQuestionRepository {
     );
   }
 
+  async bulkUpdateEmbeddings(
+    updates: Array<{
+      questionId: string;
+      embedding: number[];
+      normalisedCrop?: string;
+    }>,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return { modifiedCount: 0 };
+    }
+
+    const bulkOps = updates.map(update => {
+      const setObj: any = {
+        updatedAt: new Date(),
+      };
+
+      // Always include embedding
+      setObj.embedding = update.embedding;
+
+      // Only add normalised_crop if provided
+      if (update.normalisedCrop !== undefined) {
+        setObj['details.normalised_crop'] = update.normalisedCrop;
+      }
+
+      return {
+        updateOne: {
+          filter: { _id: new ObjectId(update.questionId) },
+          update: { $set: setObj },
+        },
+      };
+    });
+
+    const result = await this.QuestionCollection.bulkWrite(bulkOps);
+    return { modifiedCount: result.modifiedCount };
+  }
+
   async getShiftBasedMetrics(
     startDate: string,
     // endDate: string,
@@ -8531,8 +8624,24 @@ export class QuestionRepository implements IQuestionRepository {
       ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
     return this.QuestionCollection.find(match as any)
+      .project({
+        _id: 1,
+        question: 1,
+        source: 1,
+        status: 1,
+        referenceQuestionId: 1,
+        tag: 1,
+        createdAt: 1,
+        closedAt: 1,
+        userId: 1,
+        moderatorId: 1,
+        gateKeeperId: 1,
+        auditorId: 1,
+        firstAllocationAt: 1,
+        moderatorAssignedAt: 1,
+      })
       .sort({ createdAt: 1 })
-      .toArray();
+      .toArray() as any;
   }
 
   /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
@@ -8778,6 +8887,199 @@ export class QuestionRepository implements IQuestionRepository {
       })),
       totalCount,
       totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
+    };
+  }
+
+  /** Gate-keeper-style dashboard for a single PAE (the answering flow). PAE assignment
+   *  lives in the submission `queue`; "submitted" means the PAE authored an answer in
+   *  the submission `history`. Returns assigned + submitted counts and a paginated list
+   *  of the PAE's questions, each flagged `submitted` (true) or pending (false). */
+  async getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    feedbackAssigned: number;
+    feedbackPending: number;
+    feedbackCompleted: number;
+    feedbackCompletedQuestions: any[];
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }> {
+    await this.init();
+    if (!isValidObjectId(userId)) {
+      return {
+        assignedCount: 0,
+        submittedCount: 0,
+        feedbackAssigned: 0,
+        feedbackPending: 0,
+        feedbackCompleted: 0,
+        feedbackCompletedQuestions: [],
+        questions: [],
+        totalPages: 0,
+        totalCount: 0,
+      };
+    }
+    const paeOid = new ObjectId(userId);
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
+
+    // Base pipeline: submissions this PAE is involved in, joined to their question,
+    // with a `paeAnswered` flag (they authored a history entry carrying an answer).
+    const baseStages: any[] = [
+      { $match: { $or: [{ queue: paeOid }, { 'history.updatedBy': paeOid }] } },
+      {
+        $addFields: {
+          paeAnswered: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: { $ifNull: ['$history', []] },
+                    as: 'h',
+                    cond: {
+                      $and: [
+                        { $eq: ['$$h.updatedBy', paeOid] },
+                        { $ne: [{ $ifNull: ['$$h.answer', null] }, null] },
+                        { $ne: [{ $ifNull: ['$$h.answer', ''] }, ''] },
+                      ],
+                    },
+                  },
+                },
+              },
+              0,
+            ],
+          },
+          inQueue: { $in: [paeOid, { $ifNull: ['$queue', []] }] },
+        },
+      },
+      // Keep only questions the PAE answered OR is still assigned (in queue).
+      { $match: { $or: [{ paeAnswered: true }, { inQueue: true }] } },
+      { $lookup: { from: 'questions', localField: 'questionId', foreignField: '_id', as: 'q' } },
+      { $addFields: { q: { $arrayElemAt: ['$q', 0] } } },
+      { $match: { q: { $ne: null } } },
+    ];
+
+    if (startDate && endDate) {
+      baseStages.push({ $match: { 'q.createdAt': { $gte: startDate, $lte: endDate } } });
+    }
+
+    const searchStages: any[] =
+      search && search.trim()
+        ? [
+            {
+              $match: {
+                'q.question': {
+                  $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+                  $options: 'i',
+                },
+              },
+            },
+          ]
+        : [];
+
+    const facet = (
+      await this.QuestionSubmissionCollection.aggregate([
+        ...baseStages,
+        {
+          $facet: {
+            assignedCount: [...searchStages, { $count: 'n' }],
+            submittedCount: [{ $match: { paeAnswered: true } }, ...searchStages, { $count: 'n' }],
+            questions: [
+              ...searchStages,
+              { $sort: { 'q.createdAt': -1 } },
+              { $skip: (safePage - 1) * safeLimit },
+              { $limit: safeLimit },
+              {
+                $project: {
+                  _id: '$q._id',
+                  question: '$q.question',
+                  status: '$q.status',
+                  source: '$q.source',
+                  createdAt: '$q.createdAt',
+                  submitted: '$paeAnswered',
+                  'details.state': '$q.details.state',
+                  'details.crop': '$q.details.crop',
+                },
+              },
+            ],
+          },
+        },
+      ]).toArray()
+    )[0] ?? {};
+
+    const assignedCount = facet.assignedCount?.[0]?.n ?? 0;
+    const submittedCount = facet.submittedCount?.[0]?.n ?? 0;
+    const questions = (facet.questions ?? []).map((q: any) => ({
+      ...q,
+      _id: q._id?.toString(),
+    }));
+
+    // Feedback / validation counts.
+    // Pending = the questions currently in the PAE's paeValidationAssigned array — the
+    // same source the validation list uses (completed ones are pulled from it).
+    const userDoc = await this.UsersCollection.findOne(
+      { _id: paeOid },
+      { projection: { paeValidationAssigned: 1 } },
+    );
+    const feedbackPending = Array.isArray((userDoc as any)?.paeValidationAssigned)
+      ? (userDoc as any).paeValidationAssigned.length
+      : 0;
+
+    // Completed = questions whose submission validation was done by this PAE (submission
+    // paeValidation.paeId = this PAE) and whose question-level paeValidation is 'completed'
+    // (reliably set on approve/feedback). Returns both the count and the question list.
+    const fbFacet = (
+      await this.QuestionSubmissionCollection.aggregate([
+        { $match: { 'paeValidation.paeId': { $in: [paeOid, userId] } } },
+        { $lookup: { from: 'questions', localField: 'questionId', foreignField: '_id', as: 'q' } },
+        { $addFields: { q: { $arrayElemAt: ['$q', 0] } } },
+        { $match: { 'q.paeValidation': 'completed' } },
+        {
+          $facet: {
+            count: [{ $count: 'n' }],
+            list: [
+              { $sort: { 'q.updatedAt': -1 } },
+              { $limit: 50 },
+              {
+                $project: {
+                  _id: '$q._id',
+                  question: '$q.question',
+                  status: '$q.status',
+                  source: '$q.source',
+                  createdAt: '$q.createdAt',
+                  'details.state': '$q.details.state',
+                  'details.crop': '$q.details.crop',
+                },
+              },
+            ],
+          },
+        },
+      ]).toArray()
+    )[0] ?? {};
+    const feedbackCompleted = fbFacet.count?.[0]?.n ?? 0;
+    const feedbackCompletedQuestions = (fbFacet.list ?? []).map((q: any) => ({
+      ...q,
+      _id: q._id?.toString(),
+    }));
+    const feedbackAssigned = feedbackPending + feedbackCompleted;
+
+    return {
+      assignedCount,
+      submittedCount,
+      feedbackAssigned,
+      feedbackPending,
+      feedbackCompleted,
+      feedbackCompletedQuestions,
+      questions,
+      totalCount: assignedCount,
+      totalPages: Math.max(1, Math.ceil(assignedCount / safeLimit)),
     };
   }
 
@@ -9034,6 +9336,78 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     return { count, items };
+  }
+
+  /**
+   * Per-level counts for the "Questions Allocated" section. Reuses the same allocated
+   * filter as getQueueQuestionSection('allocated', ...) — open/delayed, auto-allocate,
+   * a non-empty queue, and a fresh (unacted) last history entry — then groups by the
+   * currently-allocated expert's level = max(1, history.length - 1). Totals therefore
+   * match the section's own count.
+   */
+  async getAllocatedLevelCounts(
+    sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{ level: number; count: number }[]> {
+    await this.init();
+
+    const paeScope = requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {};
+    const allocatedMatch = {
+      source: { $in: sources },
+      isAutoAllocate: { $eq: true },
+      status: { $in: ['open', 'delayed'] },
+      ...paeScope,
+    };
+
+    const rows = await this.QuestionCollection.aggregate<{ level: number; count: number }>([
+      { $match: allocatedMatch },
+      ...(!isAdmin
+        ? [
+            {
+              $match: isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } },
+            },
+          ]
+        : []),
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $addFields: { sub: { $arrayElemAt: ['$sub', 0] } } },
+      { $match: { 'sub.queue.0': { $exists: true } } },
+      { $addFields: { lastHistory: { $arrayElemAt: [{ $ifNull: ['$sub.history', []] }, -1] } } },
+      {
+        $match: {
+          'lastHistory.answer': { $in: [null] },
+          'lastHistory.approvedAnswer': { $in: [null] },
+          'lastHistory.modifiedAnswer': { $in: [null] },
+          'lastHistory.rejectedAnswer': { $in: [null] },
+        },
+      },
+      {
+        $addFields: {
+          // Author=0, Level 1=reviewer 1 … so the current expert's level is history.length-1.
+          level: {
+            $max: [
+              0,
+              { $subtract: [{ $size: { $ifNull: ['$sub.history', []] } }, 1] },
+            ],
+          },
+        },
+      },
+      { $group: { _id: '$level', count: { $sum: 1 } } },
+      { $project: { _id: 0, level: '$_id', count: 1 } },
+      { $sort: { level: 1 } },
+    ]).toArray();
+
+    return rows;
   }
 
   /** Per-status counts for the "Questions Received" section.
@@ -9723,5 +10097,23 @@ export class QuestionRepository implements IQuestionRepository {
         $lt: [{ $size: { $ifNull: ['$assignedValidationQuestions', []] } }, 3],
       },
     });
+  }
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  async updateNormalisedCrop(
+    questionId: string,
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
   }
 }

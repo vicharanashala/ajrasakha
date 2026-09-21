@@ -15,7 +15,7 @@ import {
   BadRequestError,
   NotFoundError,
 } from 'routing-controllers';
-import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { IAnswerRepository, ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import {
@@ -205,6 +205,15 @@ export class AnswerService extends BaseService implements IAnswerService {
     return await this.answerRepo.incrementApprovalCount(answerId, session);
   }
 
+  async getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    filters?: ClosedAnswerFilters,
+  ): Promise<{answers: any[]; totalAnswers: number}> {
+    return await this.answerRepo.getClosedAnswers(page, limit, search, filters);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // DELEGATED METHODS — REVIEW
   // ─────────────────────────────────────────────────────────────────────────────
@@ -301,5 +310,50 @@ export class AnswerService extends BaseService implements IAnswerService {
     search: string,
   ): Promise<{ faqs: any[]; totalFaqs: number }> {
     return this.answerFaqService.goldenFaq(userId, page, limit, search);
+  }
+
+  async getAnswerByMessageOrThreadId(
+    id: string,
+  ): Promise<{
+    question: string;
+    answer: string;
+    metadata: {
+      answeredBy: string | null;
+      sources: { sourceName?: string; source: string; page?: string | number }[];
+    };
+  }> {
+    const question = await this.questionRepo.getByMessageId(id) || await this.questionRepo.getByThreadId(id);
+    if (!question) {
+      throw new NotFoundError(`Question with messageId or threadId ${id} not found`);
+    }
+
+    const answers = await this.answerRepo.getFinalAnswersByQuestionIds([question._id as string]);
+    if (!answers || answers.length === 0) {
+      throw new NotFoundError(`Final answer for question ${id} not found`);
+    }
+
+    const answer = answers[0];
+    let answeredBy = null;
+    if (answer.authorId) {
+      const usersCollection = await this.mongoDatabase.getCollection('users');
+      const authorIdObj = typeof answer.authorId === 'string' ? new (await import('mongodb')).ObjectId(answer.authorId) : answer.authorId;
+      const user = await usersCollection.findOne({ _id: authorIdObj });
+      if (user) {
+        answeredBy = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      }
+    }
+
+    return {
+      question: question.question || question.text || '',
+      answer: answer.answer || '',
+      metadata: {
+        answeredBy: answeredBy,
+        sources: answer.sources?.map((s: any) => ({
+          sourceName: s.sourceName,
+          source: s.source,
+          page: s.page
+        })) || []
+      }
+    };
   }
 }

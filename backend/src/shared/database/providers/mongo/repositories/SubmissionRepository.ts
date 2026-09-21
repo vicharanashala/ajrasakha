@@ -9,6 +9,7 @@ import {
   IReroute,
   IReviewerHeatmapResponse,
   LevelReportStat,
+  PAEAction,
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -44,6 +45,33 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
+  async addSubmissions(
+    submissions: IQuestionSubmission[],
+    session?: ClientSession,
+  ): Promise<string[]> {
+    try {
+      await this.init();
+      if (!Array.isArray(submissions) || submissions.length === 0) {
+        return [];
+      }
+
+      const result = await this.QuestionSubmissionCollection.insertMany(
+        submissions,
+        { session },
+      );
+
+      if (!result.acknowledged) {
+        throw new InternalServerError('Failed to insert question submissions');
+      }
+
+      return Object.values(result.insertedIds).map((id: any) => id.toString());
+    } catch (error: any) {
+      throw new InternalServerError(
+        error?.message || 'Failed to bulk insert question submissions',
+      );
+    }
+  }
+
   async getByQuestionId(
     questionId: string,
     session?: ClientSession,
@@ -68,6 +96,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async getByQuestionIds(
     questionIds: string[],
     session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
   ): Promise<IQuestionSubmission[]> {
     try {
       await this.init();
@@ -75,10 +104,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         .filter(id => ObjectId.isValid(id))
         .map(id => new ObjectId(id));
       if (!ids.length) return [];
-      return this.QuestionSubmissionCollection.find(
-        {questionId: {$in: ids}},
-        {session},
-      ).toArray();
+
+      const BATCH_SIZE = 500;
+      const results: IQuestionSubmission[] = [];
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        const options: any = {session};
+        if (projection) {
+          options.projection = projection;
+        }
+        const chunk = await this.QuestionSubmissionCollection.find(
+          {questionId: {$in: batch}},
+          options,
+        ).toArray();
+        results.push(...chunk);
+      }
+      return results;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get submissions by questionIds: ${error}`,
@@ -211,24 +252,34 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       const queueBecameEmpty =
         removedFirstExpert && (questionSubmission.queue?.length ?? 0) === 1;
       if (queueBecameEmpty) {
-        // No experts left — the question is no longer allocated to anyone. Clear
+        // No experts left — if this was still at author level (no history), clear
         // firstAllocationAt so it falls back into the never-allocated queue and can
         // be re-picked for allocation.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$unset: {firstAllocationAt: ''}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {_id: new ObjectId(questionId)},
+            {$unset: {firstAllocationAt: ''}},
+            {session},
+          );
+        }
       } else if (removedFirstExpert) {
         // Allocation shifts to the next expert (now the head of the queue). Ensure
-        // firstAllocationAt is set if it was missing/null, so the now-allocated
+        // firstAllocationAt is set only if it was missing/null at author level, so the now-allocated
         // question isn't treated as never-allocated. Only set when absent to
         // preserve the original first-allocation timestamp when it already exists.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$set: {firstAllocationAt: new Date()}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {
+              _id: new ObjectId(questionId),
+              $or: [
+                {firstAllocationAt: {$exists: false}},
+                {firstAllocationAt: null},
+              ],
+            },
+            {$set: {firstAllocationAt: new Date()}},
+            {session},
+          );
+        }
       }
 
       if (shouldCreateNextHistoryEntry) {
@@ -4244,13 +4295,14 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   /**
    * Update the PAE validation status in the question submission's paeValidation array.
-   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * Finds the entry matching the given paeId and updates its paeStatus, paeFinishedAt, and optional paeAction.
    */
   async updatePaeValidationStatus(
     questionId: string,
     paeId: string,
     paeStatus: 'in-progress' | 'completed',
     paeFinishedAt: Date | null,
+    paeAction?: PAEAction | 'approve' | 'suggestion',
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }> {
     await this.init();
@@ -4269,6 +4321,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // Only set paeFinishedAt when completing
     if (paeFinishedAt !== null) {
       updateFields['paeValidation.$.paeFinishedAt'] = paeFinishedAt;
+    }
+
+    if (paeAction !== undefined) {
+      updateFields['paeValidation.$.paeAction'] = paeAction;
     }
     
     const result = await this.QuestionSubmissionCollection.updateOne(
@@ -5137,5 +5193,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       reviewerId: r.reviewerId?.toString(),
       assignedAt: r.assignedAt,
     }));
+  }
+
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   */
+  async getCompletedPaeValidationCount(paeExpertId: string): Promise<number> {
+    await this.init();
+    const paeOid = ObjectId.isValid(paeExpertId) ? new ObjectId(paeExpertId) : null;
+    const paeIds = paeOid ? [paeOid, paeExpertId] : [paeExpertId];
+
+    return await this.QuestionSubmissionCollection.countDocuments({
+      paeValidation: {
+        $elemMatch: {
+          paeId: { $in: paeIds },
+          paeStatus: 'completed',
+        },
+      },
+    });
   }
 }

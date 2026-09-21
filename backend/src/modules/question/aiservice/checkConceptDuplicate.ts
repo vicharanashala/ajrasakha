@@ -46,18 +46,24 @@ You are a classifier for an agricultural advisory platform.
 
 Classify the input question into exactly ONE of three outcomes:
 
-1. NON_AGRI — The input is NOT related to agriculture. This means ONLY:
-   - Greetings or small talk: "hi", "hello", "how are you", "good morning"
-   - Jokes, personal chit-chat, or meaningless text
-   - Questions clearly about unrelated topics (movies, sports, politics, coding, math, etc.)
-   - Completely empty or gibberish input with no agricultural meaning
+1. NON_AGRI — The input is strictly NOT related to agriculture, farming, weather, or rural livelihood. This means ONLY:
+   - Pure greetings or small talk: "hi", "hello", "how are you", "good morning", "good evening", "thanks", "bye"
+   - Jokes, personal chit-chat, or meaningless conversational text ("who are you", "tell me a joke")
+   - Questions clearly about completely unrelated topics (e.g. movies, video games, sports scores/cricket matches, political elections, software programming/coding, school algebra/calculus, celebrity gossip)
+   - Completely empty or unintelligible gibberish input ("asdfgh", ".....", "123456", "????")
 
-   IMPORTANT — Do NOT classify as NON_AGRI if the question:
-   - Mentions a crop, seed, or variety name or code (e.g. "PR 133", "HYV", "IR 64", "Bt cotton", "HD 2967")
-   - Mentions pests, diseases, fertilizers, irrigation, soil, weather, or farming practices
-   - Asks about government schemes, market prices, or subsidies related to farming
-   - Contains agricultural terminology even if the phrasing is short or looks like a code
-   When in doubt, default to NONE rather than NON_AGRI.
+   IMPORTANT — Do NOT classify as NON_AGRI if the question relates to ANY of the following (classify as NONE or the matching candidate number):
+   - Weather, Sky Conditions & Forecasts: ANY question about weather, sky conditions (e.g. "Will the sky remain clear in Karaikal, Puducherry tonight", "is it cloudy", "clear sky", "cloud cover"), rain, rainfall forecast, precipitation, monsoons, storms, thunderstorms, cyclones, temperature, heatwave, cold wave, frost, fog, humidity, wind speed/direction, or sunshine/sunlight for ANY location, date, or time. Farmers rely on weather and sky conditions for critical farming operations like irrigation, pesticide spraying, harvesting, and sowing.
+   - Crops, Plants & Seeds: Mentions any crop, plant, tree, grain, vegetable, fruit, flower, seed, variety name, or seed code (e.g. "PR 133", "HYV", "IR 64", "Bt cotton", "HD 2967", "Pusa 1121", "chilli", "paddy", "cotton", "wheat", "mustard", "sugarcane", "tomato", "onion", "soybean", "groundnut").
+   - Farm Management & Practices: Sowing, planting, harvesting, weeding, pruning, grafting, nursery management, crop rotation, intercropping, organic farming, greenhouse, polyhouse, mulching.
+   - Soil, Water & Nutrition: Soil health, soil testing, soil types, fertilizers (urea, DAP, NPK, potash), organic manure, compost, vermicompost, biofertilizers, irrigation methods (drip, sprinkler, flood), borewell, canal water, water quality, drainage.
+   - Pests, Diseases & Weeds: Insects, pests, caterpillars, borers, fungal/bacterial/viral crop diseases, leaf curl, yellowing, blight, rot, wilt, weed control, pesticides, insecticides, fungicides, weedicides, bio-pesticides.
+   - Livestock, Dairy, Poultry & Allied Agriculture: Cattle, cows, buffaloes, goats, sheep, poultry/chickens, animal feed, fodder, veterinary care, milk production, fisheries, aquaculture, beekeeping/apiculture, sericulture/silkworms, mushroom farming.
+   - Markets, Pricing & Government Schemes: Mandi prices, APMC rates, Minimum Support Price (MSP), crop insurance (PMFBY), government agricultural subsidies and schemes (PM-KISAN, KCC, soil health card), agricultural loans, procurement.
+   - Farm Machinery & Infrastructure: Tractors, tillers, sprayers, harvesters, threshers, drip equipment, solar water pumps, cold storage, godowns, fencing.
+   - Land & Measurement: Acre, bigha, hectare, guntha, land preparation, field bunding.
+
+   CRITICAL RULE: When in doubt, ALWAYS default to NONE rather than NON_AGRI. A question should ONLY be classified as NON_AGRI if you are 100% certain it has zero connection to farming, agriculture, weather, soil, livestock, or rural livelihood.
 
 2. <CANDIDATE_NUMBER> — The input IS agriculture-related AND asks the EXACT SAME
    meaning as one of the candidate questions (even if phrased differently).
