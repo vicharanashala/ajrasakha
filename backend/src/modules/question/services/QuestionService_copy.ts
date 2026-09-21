@@ -11635,4 +11635,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       availablePaeExperts: wrap(availablePaeExpertItems),
     };
   }
+
+  async sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ): Promise<{ success: boolean; message: string }> {
+    throw new Error('Method deprecated in QuestionService_copy. Use PaeValidationService directly.');
+  }
 }
