@@ -1452,7 +1452,7 @@ export const CallInterface = () => {
         {/* Center Column: Live Conversation Dialogue + Extracted Query Details below (30%) */}
         <div className="w-full space-y-4 flex flex-col">
           <Card className="col-span-1 h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
-            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5 min-h-[96px] justify-between">
+            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5">
               {/* Row 1: Title (Left) + Test & Reset (Center/Right) + Far Right Chevron */}
               <div className="flex items-center justify-between gap-2">
                 {/* Left Side: Title and optional UUID */}
@@ -1942,7 +1942,7 @@ export const CallInterface = () => {
             <div
               className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"}`}
             >
-              <CardContent className="p-4 sm:p-5 pt-3 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
+              <CardContent className="p-4 sm:p-5 pt-1.5 sm:pt-2 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-3">
                 {isExtracting && currentExtractionType === 'query_details' ? (
                   <div className="flex flex-col space-y-3">
                     <Skeleton className="h-4 w-3/4 rounded-md" />
@@ -1962,7 +1962,7 @@ export const CallInterface = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="space-y-3">
                       <div>
                         <Label
@@ -2127,8 +2127,22 @@ export const CallInterface = () => {
 
                     {/* Multi-Query Navigation Bar (Q1, Q2, Prev, Next) */}
                     {(queryCards.length > 0 ? queryCards : [{ id: 'q1', isGenerated: false }]).length > 0 && (
-                      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center justify-between gap-2 p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
+                        {/* Far Left: Prev Button */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
+                          disabled={activeQueryIndex === 0}
+                          className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                          <span>Prev</span>
+                        </Button>
+
+                        {/* Middle: Centered Q1, Q2, Q3... */}
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap flex-1 mx-2">
                           {(queryCards.length > 0 ? queryCards : [{ id: 'q1', isGenerated: false }]).map((card, idx) => {
                             const isActive = idx === activeQueryIndex;
                             return (
@@ -2150,35 +2164,23 @@ export const CallInterface = () => {
                           })}
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
-                            disabled={activeQueryIndex === 0}
-                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
-                          >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                            <span>Prev</span>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
-                            disabled={activeQueryIndex >= (queryCards.length > 0 ? queryCards.length : 1) - 1}
-                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>Next</span>
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        {/* Far Right: Next Button */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
+                          disabled={activeQueryIndex >= (queryCards.length > 0 ? queryCards.length : 1) - 1}
+                          className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          <span>Next</span>
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     )}
 
                     {/* Action buttons (Cancel + Approve & Generate) */}
-                    <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                    <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
                       <Button
                         onClick={() => setIsHumanVerificationMode(false)}
                         variant="outline"
@@ -2251,7 +2253,7 @@ export const CallInterface = () => {
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="h-full p-3.5 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20">
+            <CardContent className="h-full p-3 sm:p-4 pt-1.5 sm:pt-2 bg-zinc-50/20 dark:bg-zinc-950/20">
               {isGeneratingQuestions && transcriptsList.length > 0 ? (
                 <div className="flex flex-col h-[300px] text-center text-muted-foreground space-y-4 justify-center">
                   <Skeleton className="h-20 w-full rounded-xl" />
