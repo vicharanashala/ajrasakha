@@ -32,8 +32,8 @@ export function ExecutiveSummary({ kpis, previousPeriodStats }: ExecutiveSummary
       title: "Pass Rate",
       infoContent: (
         <>
-          <p>Based on Critical Failures, not just "Overall Test Status" - a row is a failure if it trips ANY Critical Failure category (Incorrect Answers, Not Saved in DB, SLA Breached, etc.), a success otherwise.</p>
-          <p>Rows with Zero Failures ÷ Total Tests × 100</p>
+          <p>Share of rows with zero Critical Failures (Incorrect Answer, DB Save Failure, SLA Breach, etc.).</p>
+          <p>Zero Failures ÷ Total Tests × 100</p>
           <div className="flex justify-between"><span>Zero Failures</span><span className="font-medium">{kpis.totalPassed.toLocaleString()}</span></div>
           <div className="flex justify-between"><span>Total</span><span className="font-medium">{kpis.totalTests.toLocaleString()}</span></div>
           <div className="flex justify-between pt-1 border-t"><span>Result</span><span className="font-medium">{kpis.passRate}%</span></div>
@@ -50,8 +50,8 @@ export function ExecutiveSummary({ kpis, previousPeriodStats }: ExecutiveSummary
       title: "Fail Rate",
       infoContent: (
         <>
-          <p>Based on Critical Failures, not just "Overall Test Status" - a row is a failure if it trips ANY Critical Failure category (Incorrect Answers, Not Saved in DB, SLA Breached, etc.).</p>
-          <p>Rows with At Least One Failure ÷ Total Tests × 100 - derived as 100% − Pass Rate, so the two always sum to exactly 100%.</p>
+          <p>Share of rows with at least one Critical Failure (Incorrect Answer, DB Save Failure, SLA Breach, etc.).</p>
+          <p>Rows with a Failure ÷ Total Tests × 100</p>
           <div className="flex justify-between"><span>Rows with a Failure</span><span className="font-medium">{kpis.totalFailed.toLocaleString()}</span></div>
           <div className="flex justify-between"><span>Total</span><span className="font-medium">{kpis.totalTests.toLocaleString()}</span></div>
           <div className="flex justify-between pt-1 border-t"><span>Result</span><span className="font-medium">{kpis.failRate}%</span></div>
@@ -85,7 +85,7 @@ export function ExecutiveSummary({ kpis, previousPeriodStats }: ExecutiveSummary
       title: "Scientific Accuracy",
       infoContent: (
         <>
-          <p>Same calculation as Trust Score's Sci Accuracy: Correct ÷ Applicable × 100 (GDB/Unique/Outreach/Dynamic rows with a real answer; "Correct"/"Yes" count as correct)</p>
+          <p>Correct ÷ Applicable × 100. Applicable = GDB/Unique/Outreach/Dynamic rows with an answer recorded; "Correct" or "Yes" counts as correct.</p>
           <div className="flex justify-between"><span>Correct</span><span className="font-medium">{kpis.sciCorrectCount.toLocaleString()}</span></div>
           <div className="flex justify-between"><span>Applicable</span><span className="font-medium">{kpis.scientificAccuracyApplicableCount.toLocaleString()}</span></div>
           <div className="flex justify-between pt-1 border-t"><span>Result</span><span className="font-medium">{kpis.scientificAccuracyAllRows}%</span></div>
@@ -102,15 +102,19 @@ export function ExecutiveSummary({ kpis, previousPeriodStats }: ExecutiveSummary
       title: "Critical Defects",
       infoContent: (
         <>
-          <p>Count of rows where Defect Severity is Critical. Feeds Release Health's Critical Defect Health / Critical Severity Bug Health metrics.</p>
-          <div className="flex justify-between pt-1 border-t"><span>Count</span><span className="font-medium">{kpis.criticalBreakdown.countCriticalBugs.toLocaleString()}</span></div>
+          <p>(Critical + High severity rows) ÷ Total Test Cases × 100. Rows with no severity recorded stay in the denominator.</p>
+          <div className="flex justify-between"><span>Critical</span><span className="font-medium">{kpis.criticalDefectsCriticalCount.toLocaleString()}</span></div>
+          <div className="flex justify-between"><span>High</span><span className="font-medium">{kpis.criticalDefectsHighCount.toLocaleString()}</span></div>
+          <div className="flex justify-between"><span>No severity recorded</span><span className="font-medium">{kpis.criticalDefectsNoSeverityCount.toLocaleString()}</span></div>
+          <div className="flex justify-between"><span>Total Test Cases</span><span className="font-medium">{kpis.totalTests.toLocaleString()}</span></div>
+          <div className="flex justify-between pt-1 border-t"><span>Result</span><span className="font-medium">{kpis.criticalDefectsPct}%</span></div>
         </>
       ),
-      value: kpis.criticalBreakdown.countCriticalBugs,
+      value: `${kpis.criticalDefectsPct}%`,
       icon: <AlertTriangle className="h-5 w-5 text-red-600" />,
       iconBgClass: "bg-red-100",
-      currentValue: kpis.criticalBreakdown.countCriticalBugs,
-      previousValue: previousPeriodStats?.countCriticalBugs,
+      currentValue: kpis.criticalDefectsPct,
+      previousValue: previousPeriodStats?.criticalDefectsPct,
       lowerIsBetter: true,
     },
     {

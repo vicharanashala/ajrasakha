@@ -3,6 +3,7 @@ import {
   Card,
   CardContent,
   CardHeader,
+  CardTitle,
 } from "@/components/atoms/card";
 import { useTestersDashboardData } from "../hooks/useTestersDashboardData";
 import { useTestersDashboardSummary } from "../hooks/useTestersDashboardSummary";
@@ -12,39 +13,9 @@ import { TrendChart, buildXAxisTicks, buildRobustRangeSeries, type TrendChartPro
 import { FilterBar, DYNAMIC_SUB_TYPE_OPTIONS, STATIC_SUB_TYPE_OPTIONS, type IFilterField } from "./FilterBar";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { AdditionalMetrics } from "./AdditionalMetrics";
-import { DiagnosticsRow, type IDefectsTab } from "./DiagnosticsRow";
-import { pct, channelDisplayLabel, UNASSIGNED_TEAM_LABEL } from "../utils";
-
-const RESPONSE_TIME_PARSE_CAP_MINUTES = 100000;
-
-function timeToMinutes(timeStr?: string): number | null {
-  const trimmed = (timeStr || "").trim();
-  const lower = trimmed.toLowerCase();
-  if (!trimmed || lower === "na" || lower === "nil" || lower === "n/a") return null;
-  if (!isNaN(Number(trimmed))) {
-    const num = parseFloat(trimmed);
-    if (num < 0 || num > RESPONSE_TIME_PARSE_CAP_MINUTES) return null;
-    return num;
-  }
-
-  const parts = trimmed.split(":");
-  if (parts.length >= 3) {
-    const hrs = parseFloat(parts[0]) || 0;
-    const mins = parseFloat(parts[1]) || 0;
-    const secs = parseFloat(parts[2]) || 0;
-    const total = hrs * 60 + mins + secs / 60;
-    if (total < 0 || total > RESPONSE_TIME_PARSE_CAP_MINUTES) return null;
-    return total;
-  }
-  if (parts.length === 2) {
-    const mins = parseFloat(parts[0]) || 0;
-    const secs = parseFloat(parts[1]) || 0;
-    const total = mins + secs / 60;
-    if (total < 0 || total > RESPONSE_TIME_PARSE_CAP_MINUTES) return null;
-    return total;
-  }
-  return null;
-}
+import { DiagnosticsRow, type IDefectsTab, type ITeamBreakdown } from "./DiagnosticsRow";
+import { InfoPopover } from "./InfoPopover";
+import { channelDisplayLabel, UNASSIGNED_TEAM_LABEL } from "../utils";
 
 function normalize(value?: string): string {
   return (value || "").trim().toLowerCase();
@@ -157,8 +128,6 @@ function normalizeChannel(value?: string): string {
   return toTitleCase(value);
 }
 
-const KNOWN_CHANNEL_VALUES = new Set(["Web App", "WhatsApp", "Both"]);
-
 const KNOWN_TEST_STATUSES: Record<string, string> = {
   PASS: "Pass",
   PAS: "Pass",
@@ -269,8 +238,6 @@ function parseTestDateToISO(dateStr?: string): string | null {
   return null;
 }
 
-const RESPONSE_TIME_KEY = "Response Time (mins) [Auto] (HH:MM:SS)";
-
 const EMPTY_FILTERS = {
   dateRange: "all",
   category: "all",
@@ -317,13 +284,47 @@ export function TestersDashboardSection({
   const [excludeFailures, setExcludeFailures] = useState(false);
   const [releaseHealthExpanded, setReleaseHealthExpanded] = useState(false);
   const [weakestModuleExpanded, setWeakestModuleExpanded] = useState(false);
-  const [activeDefectsTab, setActiveDefectsTab] = useState<"open" | "closed" | "onHold" | "escalated">("open");
-  const [openTicketsPage, setOpenTicketsPage] = useState(0);
-  const [closedTicketsPage, setClosedTicketsPage] = useState(0);
-  const [onHoldTicketsPage, setOnHoldTicketsPage] = useState(0);
-  const [escalatedTicketsPage, setEscalatedTicketsPage] = useState(0);
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  // Two independent switchable views on the same card - "critical" (Critical
+  // Defect Tickets: Critical/High only, the long-standing default) and "all"
+  // (All Tickets: every sheet-linked ticket, any severity). Each view keeps
+  // its own active status tab, its own per-status pagination, and its own
+  // team-pill selection so switching back and forth never leaks one view's
+  // position into the other.
+  const [defectsView, setDefectsView] = useState<"critical" | "all">("critical");
+
+  const [activeDefectsTabCritical, setActiveDefectsTabCritical] = useState<"open" | "closed" | "onHold" | "escalated">("open");
+  const [openTicketsPageCritical, setOpenTicketsPageCritical] = useState(0);
+  const [closedTicketsPageCritical, setClosedTicketsPageCritical] = useState(0);
+  const [onHoldTicketsPageCritical, setOnHoldTicketsPageCritical] = useState(0);
+  const [escalatedTicketsPageCritical, setEscalatedTicketsPageCritical] = useState(0);
+  const [selectedTeamCritical, setSelectedTeamCritical] = useState<string | null>(null);
+
+  const [activeDefectsTabAll, setActiveDefectsTabAll] = useState<"open" | "closed" | "onHold" | "escalated">("open");
+  const [openTicketsPageAll, setOpenTicketsPageAll] = useState(0);
+  const [closedTicketsPageAll, setClosedTicketsPageAll] = useState(0);
+  const [onHoldTicketsPageAll, setOnHoldTicketsPageAll] = useState(0);
+  const [escalatedTicketsPageAll, setEscalatedTicketsPageAll] = useState(0);
+  const [selectedTeamAll, setSelectedTeamAll] = useState<string | null>(null);
+
+  const activeDefectsTab = defectsView === "critical" ? activeDefectsTabCritical : activeDefectsTabAll;
+  const setActiveDefectsTab = defectsView === "critical" ? setActiveDefectsTabCritical : setActiveDefectsTabAll;
+  const selectedTeam = defectsView === "critical" ? selectedTeamCritical : selectedTeamAll;
+  const setSelectedTeam = defectsView === "critical" ? setSelectedTeamCritical : setSelectedTeamAll;
   const toggleSelectedTeam = (key: string) => setSelectedTeam((prev) => (prev === key ? null : key));
+
+  // Switching views resets the view being switched TO back to its Open tab
+  // and page 1, so the user never lands mid-list in state left over from the
+  // other view.
+  function switchDefectsView(view: "critical" | "all") {
+    setDefectsView(view);
+    if (view === "critical") {
+      setActiveDefectsTabCritical("open");
+      setOpenTicketsPageCritical(0);
+    } else {
+      setActiveDefectsTabAll("open");
+      setOpenTicketsPageAll(0);
+    }
+  }
   const [activeChartTab, setActiveChartTab] = useState<"trust" | "farmer" | "response" | "tat">("trust");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -493,97 +494,91 @@ export function TestersDashboardSection({
   }, [allRecords, filters, excludeFailures, customStart, customEnd]);
 
   const getTicketTeam = (ticketId: string): string => zohoStatuses[ticketId]?.team || UNASSIGNED_TEAM_LABEL;
-  const matchesSelectedTeam = (ticketId: string): boolean =>
-    !selectedTeam || getTicketTeam(ticketId) === selectedTeam;
+  const matchesTeam = (ticketId: string, team: string | null): boolean => !team || getTicketTeam(ticketId) === team;
+  const matchesSelectedTeam = (ticketId: string): boolean => matchesTeam(ticketId, selectedTeam);
 
   const getTicketDisplayNumber = (ticketId: string): string => zohoStatuses[ticketId]?.ticketNumber || ticketId;
 
+  // Critical Defect Tickets view - Critical/High-only pool
+  // (diagnostics.openTickets), one reset effect per status tab, each keyed
+  // on that view's own team-pill selection so a team change on the All
+  // Tickets view never resets this view's pagination.
   useEffect(() => {
-    setOpenTicketsPage(0);
+    setOpenTicketsPageCritical(0);
   }, [
-    selectedTeam,
+    selectedTeamCritical,
     summaryQuery.data?.diagnostics.openTickets.filter((t) => {
       const status = zohoStatuses[t.id]?.status?.toLowerCase();
-      return (!status || status === "open") && matchesSelectedTeam(t.id);
+      return (!status || status === "open") && matchesTeam(t.id, selectedTeamCritical);
     }).length,
   ]);
 
   useEffect(() => {
-    setClosedTicketsPage(0);
+    setClosedTicketsPageCritical(0);
   }, [
-    selectedTeam,
+    selectedTeamCritical,
     summaryQuery.data?.diagnostics.openTickets.filter(
-      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "closed" && matchesSelectedTeam(t.id),
+      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "closed" && matchesTeam(t.id, selectedTeamCritical),
     ).length,
   ]);
 
   useEffect(() => {
-    setOnHoldTicketsPage(0);
+    setOnHoldTicketsPageCritical(0);
   }, [
-    selectedTeam,
+    selectedTeamCritical,
     summaryQuery.data?.diagnostics.openTickets.filter(
-      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "on hold" && matchesSelectedTeam(t.id),
+      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "on hold" && matchesTeam(t.id, selectedTeamCritical),
     ).length,
   ]);
 
   useEffect(() => {
-    setEscalatedTicketsPage(0);
+    setEscalatedTicketsPageCritical(0);
   }, [
-    selectedTeam,
+    selectedTeamCritical,
     summaryQuery.data?.diagnostics.openTickets.filter(
-      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "escalated" && matchesSelectedTeam(t.id),
+      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "escalated" && matchesTeam(t.id, selectedTeamCritical),
     ).length,
   ]);
 
-  const channelStats = useMemo(() => {
-    const groups: Record<string, ITestersDashboardRecord[]> = {};
-    filtered.forEach((r) => {
-      const ch = normalizeChannel(r["Channel Tested"]);
-      if (!ch || isNAlike(ch) || !KNOWN_CHANNEL_VALUES.has(ch)) return;
-      if (!groups[ch]) groups[ch] = [];
-      groups[ch].push(r);
-    });
-    return Object.entries(groups)
-      .map(([channel, rows]) => {
-        const tests = rows.length;
-        const passed = rows.filter((r) => normalizeTestStatus(r["Overall Test Status"]) === "Pass").length;
-        const failed = rows.filter((r) => normalizeTestStatus(r["Overall Test Status"]) === "Fail").length;
-        const passRate = pct(passed, passed + failed);
-        let sum = 0;
-        let count = 0;
-        rows.forEach((r) => {
-          const m = timeToMinutes(r[RESPONSE_TIME_KEY]);
-          if (m !== null) {
-            sum += m;
-            count++;
-          }
-        });
-        const avgResponse = count ? Math.round((sum / count) * 10) / 10 : 0;
-        return { channel, tests, passRate, avgResponse };
-      })
-      .sort((a, b) => b.tests - a.tests);
-  }, [filtered]);
+  // All Tickets view - every linked ticket regardless of severity
+  // (diagnostics.allTickets), same per-status reset pattern as the Critical
+  // Defect Tickets view above, but keyed on its own team-pill selection.
+  useEffect(() => {
+    setOpenTicketsPageAll(0);
+  }, [
+    selectedTeamAll,
+    summaryQuery.data?.diagnostics.allTickets.filter((t) => {
+      const status = zohoStatuses[t.id]?.status?.toLowerCase();
+      return (!status || status === "open") && matchesTeam(t.id, selectedTeamAll);
+    }).length,
+  ]);
 
-  const languageStats = useMemo(() => {
-    const groups: Record<string, ITestersDashboardRecord[]> = {};
-    filtered.forEach((r) => {
-      const lang = toTitleCase(r["Language Tested"]);
-      if (!lang || isNAlike(lang)) return;
-      if (!groups[lang]) groups[lang] = [];
-      groups[lang].push(r);
-    });
-    return Object.entries(groups)
-      .map(([language, rows]) => {
-        const tests = rows.length;
-        const translationApplicable = rows.filter((r) => !isNAlike(r["Translation Quality"]));
-        const translationAcc = pct(
-          translationApplicable.filter((r) => matchesAny(r["Translation Quality"], ["correct", "good"])).length,
-          translationApplicable.length,
-        );
-        return { language, tests, translationAcc };
-      })
-      .sort((a, b) => b.tests - a.tests);
-  }, [filtered]);
+  useEffect(() => {
+    setClosedTicketsPageAll(0);
+  }, [
+    selectedTeamAll,
+    summaryQuery.data?.diagnostics.allTickets.filter(
+      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "closed" && matchesTeam(t.id, selectedTeamAll),
+    ).length,
+  ]);
+
+  useEffect(() => {
+    setOnHoldTicketsPageAll(0);
+  }, [
+    selectedTeamAll,
+    summaryQuery.data?.diagnostics.allTickets.filter(
+      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "on hold" && matchesTeam(t.id, selectedTeamAll),
+    ).length,
+  ]);
+
+  useEffect(() => {
+    setEscalatedTicketsPageAll(0);
+  }, [
+    selectedTeamAll,
+    summaryQuery.data?.diagnostics.allTickets.filter(
+      (t) => zohoStatuses[t.id]?.status?.toLowerCase() === "escalated" && matchesTeam(t.id, selectedTeamAll),
+    ).length,
+  ]);
 
   if (isLoading || summaryQuery.isLoading || !data || !summaryQuery.data) {
     return <div className="p-6 text-muted-foreground">Loading {title.toLowerCase()} data...</div>;
@@ -602,6 +597,8 @@ export function TestersDashboardSection({
   const chartData = summaryQuery.data.chartData;
   const previousPeriodStats = summaryQuery.data.previousPeriodStats;
   const filterOptions = summaryQuery.data.filterOptions;
+  const channelStats = summaryQuery.data.channelStats;
+  const languageStats = summaryQuery.data.languageStats;
 
   const scoreTrendDates = chartData.scoreTrend.map((p) => p.date);
   const xAxisTicks = buildXAxisTicks(scoreTrendDates);
@@ -700,6 +697,19 @@ export function TestersDashboardSection({
     },
   };
 
+  // Trust/Farmer plot a true gap on a no-data day (trustHasData/
+  // experienceHasData null out the point); Avg Response/Review TAT instead
+  // plot 0 on a no-data day to keep the line continuous (see
+  // buildRobustRangeSeries's noDataPlotValue above) - the tooltip below
+  // describes each pair accurately rather than a single blanket claim.
+  const trendDaysWithData: Record<typeof activeChartTab, number> = {
+    trust: trustBase.filter((p) => p.trustHasData).length,
+    farmer: experienceBase.filter((p) => p.experienceHasData).length,
+    response: responseBase.filter((p) => p.avgLatencySampleCount > 0).length,
+    tat: tatBase.filter((p) => p.avgReviewTatSampleCount > 0).length,
+  };
+  const trendTotalDays = scoreTrendDates.length;
+
   const deriveTicketStatusKey = (ticketId: string): "open" | "closed" | "onHold" | "escalated" => {
     const status = zohoStatuses[ticketId]?.status?.toLowerCase();
     if (status === "closed") return "closed";
@@ -713,47 +723,67 @@ export function TestersDashboardSection({
     displayNumber: getTicketDisplayNumber(t.id),
   });
 
-  const openTabTickets = diagnostics.openTickets
+  // Critical Defect Tickets view scopes to diagnostics.openTickets
+  // (Critical/High only, unchanged); All Tickets view scopes to
+  // diagnostics.allTickets (every severity) - everything below (status
+  // tabs, team breakdown, pagination) is built from whichever pool the
+  // active view selects.
+  const ticketPool = defectsView === "critical" ? diagnostics.openTickets : diagnostics.allTickets;
+
+  const openTabTickets = ticketPool
     .filter((t) => deriveTicketStatusKey(t.id) === "open" && matchesSelectedTeam(t.id))
     .map(withDisplayNumber);
-  const closedTabTickets = diagnostics.openTickets
+  const closedTabTickets = ticketPool
     .filter((t) => deriveTicketStatusKey(t.id) === "closed" && matchesSelectedTeam(t.id))
     .map(withDisplayNumber);
-  const onHoldTabTickets = diagnostics.openTickets
+  const onHoldTabTickets = ticketPool
     .filter((t) => deriveTicketStatusKey(t.id) === "onHold" && matchesSelectedTeam(t.id))
     .map(withDisplayNumber);
-  const escalatedTabTickets = diagnostics.openTickets
+  const escalatedTabTickets = ticketPool
     .filter((t) => deriveTicketStatusKey(t.id) === "escalated" && matchesSelectedTeam(t.id))
     .map(withDisplayNumber);
 
-  const DEFECTS_TABS: IDefectsTab[] = [
-    { key: "open", label: "Open", tickets: openTabTickets, page: openTicketsPage, setPage: setOpenTicketsPage },
-    { key: "closed", label: "Closed", tickets: closedTabTickets, page: closedTicketsPage, setPage: setClosedTicketsPage },
-    { key: "onHold", label: "On Hold", tickets: onHoldTabTickets, page: onHoldTicketsPage, setPage: setOnHoldTicketsPage },
-    { key: "escalated", label: "Escalated", tickets: escalatedTabTickets, page: escalatedTicketsPage, setPage: setEscalatedTicketsPage },
-  ];
+  const DEFECTS_TABS: IDefectsTab[] =
+    defectsView === "critical"
+      ? [
+          { key: "open", label: "Open", tickets: openTabTickets, page: openTicketsPageCritical, setPage: setOpenTicketsPageCritical },
+          { key: "closed", label: "Closed", tickets: closedTabTickets, page: closedTicketsPageCritical, setPage: setClosedTicketsPageCritical },
+          { key: "onHold", label: "On Hold", tickets: onHoldTabTickets, page: onHoldTicketsPageCritical, setPage: setOnHoldTicketsPageCritical },
+          { key: "escalated", label: "Escalated", tickets: escalatedTabTickets, page: escalatedTicketsPageCritical, setPage: setEscalatedTicketsPageCritical },
+        ]
+      : [
+          { key: "open", label: "Open", tickets: openTabTickets, page: openTicketsPageAll, setPage: setOpenTicketsPageAll },
+          { key: "closed", label: "Closed", tickets: closedTabTickets, page: closedTicketsPageAll, setPage: setClosedTicketsPageAll },
+          { key: "onHold", label: "On Hold", tickets: onHoldTabTickets, page: onHoldTicketsPageAll, setPage: setOnHoldTicketsPageAll },
+          { key: "escalated", label: "Escalated", tickets: escalatedTabTickets, page: escalatedTicketsPageAll, setPage: setEscalatedTicketsPageAll },
+        ];
   const activeDefectsTabInfo = DEFECTS_TABS.find((t) => t.key === activeDefectsTab)!;
 
-  const teamGroups = new Map<string, typeof diagnostics.openTickets>();
-  diagnostics.openTickets.forEach((t) => {
-    const team = getTicketTeam(t.id);
-    const existing = teamGroups.get(team);
-    if (existing) existing.push(t);
-    else teamGroups.set(team, [t]);
-  });
-  const teamBreakdown = Array.from(teamGroups.entries())
-    .map(([team, tickets]) => {
-      const counts = { open: 0, closed: 0, onHold: 0, escalated: 0 };
-      tickets.forEach((t) => {
-        counts[deriveTicketStatusKey(t.id)]++;
-      });
-      return { key: team, label: team, total: tickets.length, counts };
-    })
-    .sort((a, b) => {
-      if (a.key === UNASSIGNED_TEAM_LABEL) return 1;
-      if (b.key === UNASSIGNED_TEAM_LABEL) return -1;
-      return b.total - a.total;
+  function buildTeamBreakdown(tickets: typeof diagnostics.openTickets): ITeamBreakdown[] {
+    const teamGroups = new Map<string, typeof diagnostics.openTickets>();
+    tickets.forEach((t) => {
+      const team = getTicketTeam(t.id);
+      const existing = teamGroups.get(team);
+      if (existing) existing.push(t);
+      else teamGroups.set(team, [t]);
     });
+    return Array.from(teamGroups.entries())
+      .map(([team, teamTickets]) => {
+        const counts = { open: 0, closed: 0, onHold: 0, escalated: 0 };
+        teamTickets.forEach((t) => {
+          counts[deriveTicketStatusKey(t.id)]++;
+        });
+        return { key: team, label: team, total: teamTickets.length, counts };
+      })
+      .sort((a, b) => {
+        if (a.key === UNASSIGNED_TEAM_LABEL) return 1;
+        if (b.key === UNASSIGNED_TEAM_LABEL) return -1;
+        return b.total - a.total;
+      });
+  }
+
+  const teamBreakdown = buildTeamBreakdown(ticketPool);
+  const defectsCardTitle = defectsView === "critical" ? "Critical Defect Tickets" : "All Tickets";
 
   return (
     <div className="space-y-6">
@@ -848,6 +878,10 @@ export function TestersDashboardSection({
         diagnostics={diagnostics}
         weakestModuleExpanded={weakestModuleExpanded}
         setWeakestModuleExpanded={setWeakestModuleExpanded}
+        defectsCardTitle={defectsCardTitle}
+        defectsView={defectsView}
+        onSwitchDefectsView={switchDefectsView}
+        defectsPoolCount={ticketPool.length}
         activeDefectsTab={activeDefectsTab}
         setActiveDefectsTab={setActiveDefectsTab}
         defectsTabs={DEFECTS_TABS}
@@ -859,7 +893,28 @@ export function TestersDashboardSection({
 
       <Card className="border-muted-foreground/10">
         <CardHeader className="pb-2">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex items-center gap-1.5">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Score Trend</CardTitle>
+            <InfoPopover title="Score Trend" align="start">
+              <p>
+                Each point is that day's {trendChartConfigs[activeChartTab].name}, recalculated from only that
+                day's tests — the same number the cards above would show if filtered to that single day.
+              </p>
+              {activeChartTab === "trust" || activeChartTab === "farmer" ? (
+                <p>A gap in the line means no tests that day, not a score of 0.</p>
+              ) : (
+                <p>
+                  A day with no valid readings plots as 0 and is excluded from the average. Values above the
+                  visible range are marked with a triangle, not hidden.
+                </p>
+              )}
+              <div className="flex justify-between pt-1 border-t">
+                <span>Days with data</span>
+                <span className="font-medium">{trendDaysWithData[activeChartTab]} of {trendTotalDays}</span>
+              </div>
+            </InfoPopover>
+          </div>
+          <div className="flex flex-wrap gap-1 mt-2">
             {[
               { key: "trust" as const, label: "Trust" },
               { key: "farmer" as const, label: "Farmer" },

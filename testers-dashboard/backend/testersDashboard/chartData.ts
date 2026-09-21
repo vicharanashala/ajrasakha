@@ -5,7 +5,7 @@
 
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
 import { timeToMinutes, parseTestDateToISO } from './normalize.js';
-import { RESPONSE_TIME_KEY } from './filters.js';
+import { RESPONSE_TIME_KEY, type TypeBranch } from './filters.js';
 import { calculateTrustScore, calculateExperienceScore, trustScoreHasData, experienceScoreHasData } from './kpis.js';
 import { TAT_STAGES } from './diagnostics.js';
 
@@ -13,9 +13,10 @@ export interface ScoreTrendPoint {
     date: string;
     trust: number;
     // Whether this day has real applicable data behind Trust Score, not
-    // just A_dom's zero-rows-defaults-to-100 floor - see kpis.ts's
-    // trustScoreHasData. trust still reports its computed number; the
-    // frontend renders a gap instead of the misleading floor when false.
+    // just its components' own zero-data fallbacks (e.g. pct(0,0) = 0 when a
+    // sub-metric has no applicable rows) - see kpis.ts's trustScoreHasData.
+    // trust still reports its computed number; the frontend renders a gap
+    // instead of the misleading floor when false.
     trustHasData: boolean;
     experience: number;
     // Same distinction as trustHasData, for Farmer Experience Score - see
@@ -57,7 +58,11 @@ const CHART_START_DATE = '2026-01-01';
 // is deterministic in tests - production callers should omit it. Same
 // pattern as applyDateRangeFilter in filters.ts, which this cutoff is
 // deliberately kept consistent with.
-export function calculateChartData(rows: TestersDashboardRecord[], now: Date = new Date()): ChartData {
+export function calculateChartData(
+    rows: TestersDashboardRecord[],
+    now: Date = new Date(),
+    typeBranch: TypeBranch = 'all',
+): ChartData {
     const dailyGroups: Record<string, TestersDashboardRecord[]> = {};
     rows.forEach((r) => {
         // Grouped by the normalized ISO date, not the raw string - the live
@@ -74,8 +79,10 @@ export function calculateChartData(rows: TestersDashboardRecord[], now: Date = n
     const scoreTrend: ScoreTrendPoint[] = sortedDates.map((d) => {
         const dayRows = dailyGroups[d];
         // Same functions the KPI cards use, so the chart's daily values are
-        // always consistent with what the cards show for that same period.
-        const trust = calculateTrustScore(dayRows).score;
+        // always consistent with what the cards show for that same period -
+        // typeBranch passed through so the Static branch's fixed weight
+        // table applies here too, not just to the KPI cards.
+        const trust = calculateTrustScore(dayRows, typeBranch).score;
         const trustHasData = trustScoreHasData(dayRows);
         const experience = calculateExperienceScore(dayRows).score;
         const experienceHasData = experienceScoreHasData(dayRows);

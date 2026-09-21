@@ -68,17 +68,38 @@ export interface ITestersDashboardReleaseHealthResult {
     decision: ITestersDashboardReleaseHealthDecision;
 }
 
+// Mirrors backend's TrustScoreWeights - the weight (0-1) each Trust Score
+// component carries for the current typeBranch, driven by the same table
+// backend's calculateTrustScore scores with, so these labels can't drift
+// from the actual scoring math. A_dom is null only for the 'Static' branch
+// (not part of its weight table at all - Static's fixed 35/20/15/15/15
+// table has no Dynamic Accuracy slot to redistribute).
+export interface ITestersDashboardTrustScoreWeights {
+    A_sci: number;
+    A_dom: number | null;
+    S_lnk: number;
+    Q_frm: number;
+    Q_trn: number;
+    S_sla: number;
+}
+
 // Mirrors backend's KpiSummary (testers-dashboard/backend/testersDashboard/kpis.ts)
 export interface ITestersDashboardKpiSummary {
     N: number;
     trustScore: number;
     trustBreakdown: {
         A_sci: number;
-        A_dom: number;
+        // Null when all 3 domains (Weather/Mandi Prices/Government Schemes)
+        // have zero applicable rows (e.g. filtered to the Static branch) -
+        // excluded from Trust Score's weighted average in that case, its
+        // 30% weight redistributed across the other 5 components, rather
+        // than defaulted to a misleading 100%. Render "No data", not "null%".
+        A_dom: number | null;
         S_lnk: number;
         Q_frm: number;
         Q_trn: number;
         S_sla: number;
+        weights: ITestersDashboardTrustScoreWeights;
     };
     experienceScore: number;
     experienceBreakdown: {
@@ -120,6 +141,15 @@ export interface ITestersDashboardKpiSummary {
         countDuplicateFailure: number;
         countCriticalBugs: number;
     };
+    // Executive Summary's "Critical Defects" tile: (Critical + High severity
+    // rows) ÷ N (ALL rows, including rows with no severity recorded) × 100 -
+    // a separate, wider metric from criticalBreakdown.countCriticalBugs
+    // above (Critical only), which still feeds Release Health's Critical
+    // Defect Health sub-metric unchanged.
+    criticalDefectsPct: number;
+    criticalDefectsCriticalCount: number;
+    criticalDefectsHighCount: number;
+    criticalDefectsNoSeverityCount: number;
     // Critical Failures card v2 (Failures/Successes tabs) - mirrors backend's
     // CriticalFailureCategoriesResult (kpis.ts).
     criticalFailureCategories: {
@@ -129,6 +159,17 @@ export interface ITestersDashboardKpiSummary {
             successLabel: string;
             failureCount: number;
             successCount: number;
+            // Rows where this category's underlying field(s) actually had a
+            // recorded (non-blank/NA) value - see backend's
+            // CriticalFailureCategory (kpis.ts) for why this isn't always
+            // failureCount + successCount. Optional (not just `number`)
+            // defensively - the backend always populates it today, but this
+            // crosses a network boundary (an API response, possibly served
+            // from a stale cache or an older backend build during a
+            // mid-deploy version skew), so the type shouldn't promise more
+            // than a TS type can actually guarantee at runtime. Render
+            // accordingly - see AdditionalMetrics.tsx.
+            applicableCount?: number;
         }[];
         failuresTotal: number;
         successesTotal: number;
@@ -160,10 +201,14 @@ export interface ITestersDashboardPreviousPeriodStats {
     scientificAccuracy: number;
     openCriticalDefects: number;
     // Critical-only previous-period count (mirrors kpis.criticalBreakdown.
-    // countCriticalBugs's definition) - used for the "All Critical Defects"
-    // card's trend arrow now that its headline number is Critical-only too,
-    // instead of comparing against the wider openCriticalDefects above.
+    // countCriticalBugs's definition) - kept for API completeness, but no
+    // longer what the "Critical Defects" tile's trend arrow compares
+    // against (see criticalDefectsPct below).
     countCriticalBugs: number;
+    // (Critical + High) ÷ total × 100 for the previous period - what the
+    // "Critical Defects" tile's trend arrow actually compares against, so
+    // it's percentage-vs-percentage, Critical+High-vs-Critical+High.
+    criticalDefectsPct: number;
     notificationSuccess: number;
     voiceSuccess: number;
     rangeLabel: string;
@@ -232,7 +277,12 @@ export interface ITestersDashboardDiagnostics {
     // module - see TestersDashboard.tsx).
     weakestModuleReason: string[];
     criticalDefectCount: number;
+    // Critical/High severity only - feeds the "Critical Defect Tickets" card
+    // view's Open/Closed/On Hold/Escalated tabs.
     openTickets: { id: string; url: string; severity: string }[];
+    // Every linked ticket regardless of severity or status - feeds the
+    // card's "All Tickets" view alone. Superset of openTickets.
+    allTickets: { id: string; url: string; severity: string }[];
 }
 
 // Mirrors backend's ChartData
@@ -241,9 +291,9 @@ export interface ITestersDashboardScoreTrendPoint {
     date: string;
     trust: number;
     // False when this day has no real applicable data behind Trust Score
-    // (only A_dom's empty-rows-defaults-to-100 default, with every other
-    // sub-metric at a genuine 0) - the chart nulls out `trust` for these
-    // points so the line renders a gap instead of the misleading ~20% floor.
+    // (A_dom is null, excluded, on a day with none; every other sub-metric
+    // falls back to a genuine 0) - the chart nulls out `trust` for these
+    // points so the line renders a gap instead of a misleading flat 0.
     trustHasData: boolean;
     experience: number;
     // Same distinction as trustHasData, for Farmer Experience Score.
@@ -262,6 +312,24 @@ export interface ITestersDashboardChartData {
     scoreTrend: ITestersDashboardScoreTrendPoint[];
 }
 
+// Mirrors backend's ChannelPerformanceStat/LanguagePerformanceStat
+// (testers-dashboard/backend/testersDashboard/kpis.ts) - the Channel-wise
+// Performance / Language Performance cards, computed server-side over the
+// same filtered row set as kpis/diagnostics/chartData above (including the
+// Dynamic/Static tree filter), no longer as a separate client-side calc.
+export interface ITestersDashboardChannelStat {
+    channel: string;
+    tests: number;
+    passRate: number;
+    avgResponse: number;
+}
+
+export interface ITestersDashboardLanguageStat {
+    language: string;
+    tests: number;
+    translationAcc: number;
+}
+
 export interface ITestersDashboardSummaryResponse {
     success: boolean;
     totalRecords: number;
@@ -271,6 +339,8 @@ export interface ITestersDashboardSummaryResponse {
     previousPeriodStats: ITestersDashboardPreviousPeriodStats | null;
     filterOptions: Record<string, string[]>;
     lastSyncedAt: string | null;
+    channelStats: ITestersDashboardChannelStat[];
+    languageStats: ITestersDashboardLanguageStat[];
 }
 
 export class TestersDashboardSummaryService {

@@ -107,6 +107,34 @@ export interface IPaginatedTesterLogEntries {
     totalPages: number;
 }
 
+/** One Tester filter dropdown option - mirrors backend's TesterOption. */
+export interface ITesterOption {
+    id: string;
+    name: string;
+}
+
+/** Mirrors backend's TesterLogSummary. */
+export interface ITesterLogSummary {
+    totalEntries: number;
+    entriesInRange: number;
+    passRate: number | null;
+    passCount: number;
+    statusRecordedCount: number;
+}
+
+/** Filters shared by the admin review table, summary, and export - mirrors
+ * the backend's GetTesterLogQuery fields (minus page/limit). */
+export interface ITesterLogAdminFilters {
+    testerId?: string;
+    startDate?: string;
+    endDate?: string;
+    dateField?: string;
+    typeOfQuestion?: string;
+    channelTested?: string;
+    overallTestStatus?: string;
+    defectSeverity?: string;
+}
+
 export interface ICreateTesterLogEntryResponse {
     success: boolean;
     entry: ITesterLogEntry;

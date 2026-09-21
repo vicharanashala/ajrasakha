@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { testerLogService } from '../services/testerLogService';
+import type { ITesterLogAdminFilters } from '../types';
 
 export const useTesterLogHistory = (
     page = 1,
@@ -18,14 +19,27 @@ export const useTesterLogHistory = (
 export const useAllTesterLogEntries = (
     page = 1,
     limit = 20,
-    testerId?: string,
-    startDate?: string,
-    endDate?: string,
-    dateField?: string,
+    filters: ITesterLogAdminFilters = {},
 ) => {
     return useQuery({
-        queryKey: ['tester-log-all', page, limit, testerId, startDate, endDate, dateField],
-        queryFn: () => testerLogService.getAllEntries(page, limit, testerId, startDate, endDate, dateField),
+        queryKey: ['tester-log-all', page, limit, filters],
+        queryFn: () => testerLogService.getAllEntries(page, limit, filters),
+        staleTime: 1000 * 60 * 2,
+    });
+};
+
+export const useTesterOptions = () => {
+    return useQuery({
+        queryKey: ['tester-log-testers'],
+        queryFn: () => testerLogService.getTesterOptions(),
+        staleTime: 1000 * 60 * 5,
+    });
+};
+
+export const useTesterLogSummary = (filters: ITesterLogAdminFilters = {}) => {
+    return useQuery({
+        queryKey: ['tester-log-summary', filters],
+        queryFn: () => testerLogService.getSummary(filters),
         staleTime: 1000 * 60 * 2,
     });
 };

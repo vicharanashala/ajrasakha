@@ -394,13 +394,69 @@ describe('calculateAceModulePerformance / calculateDiagnostics against the real 
 
     it('openTickets deduplicates by URL and only includes rows with a valid http link', () => {
         const result = calculateDiagnostics(records);
-        expect(result.openTickets.length).toBe(29);
+        expect(result.openTickets.length).toBe(43);
         const urls = result.openTickets.map((t) => t.url);
         expect(new Set(urls).size).toBe(urls.length); // no duplicate URLs
         for (const ticket of result.openTickets) {
             expect(ticket.url.toLowerCase().startsWith('http')).toBe(true);
             expect(['Critical', 'High']).toContain(ticket.severity);
         }
+    });
+
+    // allTickets (feeds the "All Tickets" card view): same dedup-by-URL/
+    // valid-http-link rule as openTickets, but scoped to ALL rows, not just
+    // Critical/High - so Medium/Low (and blank/NA) severity tickets,
+    // invisible in the "Critical Defect Tickets" view, show up here.
+    // openTickets must stay an exact subset (same URLs, same severities) -
+    // the Critical/High view's own scope is unchanged by this addition.
+    it('allTickets includes every severity (not just Critical/High), with openTickets as an exact Critical/High subset', () => {
+        const result = calculateDiagnostics(records);
+        expect(result.allTickets.length).toBe(251);
+        const urls = result.allTickets.map((t) => t.url);
+        expect(new Set(urls).size).toBe(urls.length); // no duplicate URLs
+        for (const ticket of result.allTickets) {
+            expect(ticket.url.toLowerCase().startsWith('http')).toBe(true);
+        }
+
+        const bySeverity: Record<string, number> = {};
+        result.allTickets.forEach((t) => {
+            bySeverity[t.severity] = (bySeverity[t.severity] || 0) + 1;
+        });
+        // Independently re-verified against a fresh CSV pull immediately
+        // before writing this test - re-derive with a one-off script
+        // against backend/data/testers-dashboard/updated.csv to spot-check,
+        // since (like every other real-data count in this file) this WILL
+        // drift as the live sheet keeps changing. '' is a blank/unparseable
+        // Defect Severity value (normalizeDefectSeverity's own scoping) -
+        // still a real, linked ticket, so it still belongs in the All
+        // Tickets view.
+        expect(bySeverity).toEqual({ Critical: 4, High: 39, Medium: 18, Low: 19, NA: 66, '': 105 });
+        // The whole point of the All Tickets view: Medium/Low severity
+        // tickets, invisible in the Critical Defect Tickets view.
+        expect(bySeverity['Medium']! + bySeverity['Low']!).toBe(37);
+
+        // openTickets (Critical+High) is an exact subset of allTickets -
+        // same URLs, same length as the Critical+High share of allTickets.
+        const allUrls = new Set(urls);
+        expect(result.openTickets.every((t) => allUrls.has(t.url))).toBe(true);
+        expect(result.openTickets.length).toBe(bySeverity['Critical']! + bySeverity['High']!);
+    });
+
+    // Synthetic - proves allTickets' severity-agnostic scope directly,
+    // rather than relying on the real dataset's specific mix.
+    it('allTickets includes Medium/Low/blank-severity tickets that openTickets excludes (synthetic)', () => {
+        const ticketField = 'Defect ID / Bug Ref\nZoho Desk Ticketing';
+        const result = calculateDiagnostics([
+            { 'Test ID': 'T1', 'Defect Severity': 'Critical', [ticketField]: 'https://desk.zoho.in/tickets/1' },
+            { 'Test ID': 'T2', 'Defect Severity': 'Medium', [ticketField]: 'https://desk.zoho.in/tickets/2' },
+            { 'Test ID': 'T3', 'Defect Severity': 'Low', [ticketField]: 'https://desk.zoho.in/tickets/3' },
+            { 'Test ID': 'T4', 'Defect Severity': '', [ticketField]: 'https://desk.zoho.in/tickets/4' },
+            { 'Test ID': 'T5', 'Defect Severity': 'Medium', [ticketField]: '' }, // no link - excluded from both
+        ]);
+        expect(result.openTickets.length).toBe(1); // Critical only
+        expect(result.openTickets[0]!.severity).toBe('Critical');
+        expect(result.allTickets.length).toBe(4); // Critical + Medium + Low + blank, the no-link row excluded
+        expect(result.allTickets.map((t) => t.severity).sort()).toEqual(['', 'Critical', 'Low', 'Medium']);
     });
 
     it('Biggest Bottleneck stage averages match a fresh independent computation (2 stages spot-checked)', () => {
@@ -429,6 +485,7 @@ describe('calculateAceModulePerformance / calculateDiagnostics against the real 
         expect(result.weakestModuleReason).toEqual([]);
         expect(result.criticalDefectCount).toBe(0);
         expect(result.openTickets).toEqual([]);
+        expect(result.allTickets).toEqual([]);
         expect(result.modulePerformance.length).toBe(6);
         expect(
             result.modulePerformance.every((m) => m.applicableRowCount === 0 && m.eligible === false && m.overallScore === null),
@@ -545,11 +602,11 @@ describe('calculateAceModulePerformance - ACE module formulas (synthetic)', () =
         expect(kgSci.applicable).toBe(agriSci.applicable);
     });
 
-    // 4. Dynamic Advisory - unlike Trust Score's A_dom (which defaults an
-    // empty domain to 100 so it doesn't drag the blended average down), a
-    // sub-metric with zero applicable rows must be SKIPPED here entirely -
-    // Weakest Module must never let an empty domain masquerade as perfect.
-    it('Dynamic Advisory skips a sub-metric with zero applicable rows, never defaulting it to 100 (unlike Trust Score A_dom)', () => {
+    // 4. Dynamic Advisory - a sub-metric with zero applicable rows must be
+    // SKIPPED here entirely, never defaulted to 100 - Weakest Module must
+    // never let an empty domain masquerade as perfect. Trust Score's A_dom
+    // now follows this exact same rule (see kpis.ts's calculateTrustScore).
+    it('Dynamic Advisory skips a sub-metric with zero applicable rows, never defaulting it to 100', () => {
         const rows: TestersDashboardRecord[] = [
             { 'Question Category': 'Climate, Weather and Stress Management', 'Type of Question': 'Dynamic', 'Weather Q Answered Correctly?': 'Yes' },
             { 'Question Category': 'Climate, Weather and Stress Management', 'Type of Question': 'Dynamic', 'Weather Q Answered Correctly?': 'No' },

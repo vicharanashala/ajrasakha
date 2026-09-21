@@ -1,4 +1,4 @@
-import type { KpiSummary, PreviousPeriodStats } from '../testersDashboard/kpis.js';
+import type { KpiSummary, PreviousPeriodStats, ChannelPerformanceStat, LanguagePerformanceStat } from '../testersDashboard/kpis.js';
 import type { DiagnosticsResult } from '../testersDashboard/diagnostics.js';
 import type { ChartData } from '../testersDashboard/chartData.js';
 import type { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
@@ -23,6 +23,12 @@ export interface TestersDashboardSummaryResponse {
     previousPeriodStats: PreviousPeriodStats | null;
     filterOptions: Record<string, string[]>;
     lastSyncedAt: string | null;
+    // Channel-wise Performance / Language Performance cards - see
+    // calculateChannelStats/calculateLanguageStats (kpis.ts). Computed over
+    // the same filtered row set as kpis/diagnostics/chartData above, so they
+    // react to every filter (including the Dynamic/Static tree) the same way.
+    channelStats: ChannelPerformanceStat[];
+    languageStats: LanguagePerformanceStat[];
 }
 
 export interface ITestersDashboardService {

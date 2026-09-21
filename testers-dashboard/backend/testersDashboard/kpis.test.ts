@@ -20,7 +20,7 @@ import {
     parseTestDateToISO,
     calculateNotificationSuccess,
 } from './normalize.js';
-import { EMPTY_FILTERS, getPreviousPeriodRows, RESPONSE_TIME_KEY } from './filters.js';
+import { EMPTY_FILTERS, applyFilters, getPreviousPeriodRows, RESPONSE_TIME_KEY } from './filters.js';
 import { dynamicSubBucketFor, isScientificAccuracyEligible } from './diagnostics.js';
 import {
     calculateTrustScore,
@@ -34,6 +34,8 @@ import {
     periodDelta,
     trustScoreHasData,
     experienceScoreHasData,
+    calculateChannelStats,
+    calculateLanguageStats,
 } from './kpis.js';
 
 // Same loader as filters.test.ts - real live CSV, parsed the same way
@@ -126,11 +128,19 @@ describe('calculateTrustScore v2 on the full unfiltered dataset (real CSV)', () 
         expect(sciApplicable.filter((r) => matchesAny(r['Answer Scientifically Correct?'], ['correct', 'yes', 'y'])).length).toBe(10301);
 
         // A_dom: each domain scoped to its own Question Category bucket via
-        // dynamicSubBucketFor, then averaged equally (10%+10%+10%).
+        // dynamicSubBucketFor, then averaged equally over only the domains
+        // that have applicable data - a domain with zero applicable rows is
+        // null (excluded from the average, not defaulted to 100). None of
+        // the 3 are empty on the full unfiltered dataset, so this branch
+        // doesn't fire here - see the dedicated synthetic tests below for
+        // the empty-domain/all-domains-empty cases.
         const domainAcc = (bucket: 'Weather' | 'Mandi Prices' | 'Government Schemes', field: string) => {
             const bucketRows = records.filter((r) => dynamicSubBucketFor(r['Question Category'], r['Type of Question']) === bucket);
             const applicable = bucketRows.filter((r) => !isNAlike(r[field]));
-            return { pct: applicable.length ? Math.round((applicable.filter((r) => isYes(r[field])).length / applicable.length) * 100) : 100, applicable: applicable.length };
+            return {
+                pct: applicable.length ? Math.round((applicable.filter((r) => isYes(r[field])).length / applicable.length) * 100) : null,
+                applicable: applicable.length,
+            };
         };
         const weather = domainAcc('Weather', 'Weather Q Answered Correctly?');
         const mandi = domainAcc('Mandi Prices', 'Mandi Price Q Correct?');
@@ -138,7 +148,8 @@ describe('calculateTrustScore v2 on the full unfiltered dataset (real CSV)', () 
         expect(weather).toEqual({ pct: 99, applicable: 1496 });
         expect(mandi).toEqual({ pct: 90, applicable: 384 });
         expect(scheme).toEqual({ pct: 100, applicable: 410 });
-        expect(breakdown.A_dom).toBe(Math.round((weather.pct + mandi.pct + scheme.pct) / 3));
+        const applicableDomainAccs = [weather.pct, mandi.pct, scheme.pct].filter((v): v is number => v !== null);
+        expect(breakdown.A_dom).toBe(Math.round(applicableDomainAccs.reduce((sum, v) => sum + v, 0) / applicableDomainAccs.length));
         expect(breakdown.A_dom).toBe(96);
 
         // S_lnk: isSourceLinkApplicable() excludes blank/NA plus the leaked
@@ -186,9 +197,14 @@ describe('calculateTrustScore v2 on the full unfiltered dataset (real CSV)', () 
         );
         expect(breakdown.S_sla).toBe(66);
 
-        // Weighted-sum cross-check, then the final score.
+        // Weighted-sum cross-check, then the final score. A_dom has real
+        // data here (asserted above), so this is the plain 6-way weighted
+        // sum (weights already total 1.0) - see the dedicated redistribution
+        // tests below for the A_dom=null case, where the other 5 weights
+        // must be rescaled instead of just dropping A_dom's term.
+        expect(breakdown.A_dom).not.toBeNull();
         expect(score).toBe(
-            Math.round(0.25 * breakdown.A_sci + 0.3 * breakdown.A_dom + 0.15 * breakdown.S_lnk + 0.1 * breakdown.Q_frm + 0.1 * breakdown.Q_trn + 0.1 * breakdown.S_sla),
+            Math.round(0.25 * breakdown.A_sci + 0.3 * breakdown.A_dom! + 0.15 * breakdown.S_lnk + 0.1 * breakdown.Q_frm + 0.1 * breakdown.Q_trn + 0.1 * breakdown.S_sla),
         );
         expect(score).toBe(94);
     });
@@ -242,8 +258,86 @@ describe('calculateTrustScore v2 on the full unfiltered dataset (real CSV)', () 
             { 'Type of Question': 'GDB', 'Weather Q Answered Correctly?': 'Yes' },
         ]);
         // If the leaked 3rd row counted: 2/3 = 67%. Category-scoped: 1/2 = 50%.
-        // Mandi/Scheme both have zero applicable rows and default to 100.
-        expect(breakdown.A_dom).toBe(Math.round((50 + 100 + 100) / 3));
+        // Mandi/Scheme both have zero applicable rows and are excluded from
+        // the average entirely (null, not defaulted to 100) - A_dom is
+        // Weather's own 50%, not an average dragged toward 2 phantom 100s.
+        expect(breakdown.A_dom).toBe(50);
+    });
+
+    // The bug this fix addresses: filtering down to a row set where NONE of
+    // the 3 domains have any applicable data (e.g. all-Static rows) used to
+    // make A_dom default to a "perfect" 100%, contributing a full 30% of
+    // untested score to Trust Score. It must now be null and excluded
+    // entirely, with its 30% weight redistributed across the other 5
+    // components instead of the term just disappearing.
+    it('A_dom is null when all 3 domains have zero applicable rows, and its weight redistributes across the other 5 components (synthetic)', () => {
+        const rows = [
+            // Static rows only - no Weather/Mandi/Scheme category data at all.
+            { 'Type of Question': 'GDB', 'Answer Scientifically Correct?': 'Correct', 'Correct Source Links Provided?': 'Yes', 'Question Correctly Framed?': 'Well Framed', 'Translation Quality': 'Correct', 'SLA Status': 'Within SLA' },
+            { 'Type of Question': 'GDB', 'Answer Scientifically Correct?': 'Incorrect', 'Correct Source Links Provided?': 'No', 'Question Correctly Framed?': 'Incorrectly Framed', 'Translation Quality': 'Incorrect', 'SLA Status': 'SLA Breached' },
+        ];
+        const { score, breakdown } = calculateTrustScore(rows);
+        expect(breakdown.A_dom).toBeNull();
+        // A_sci = S_lnk = Q_frm = Q_trn = S_sla = 50% (1 of 2 correct/positive
+        // each) - redistributing A_dom's 30% weight across the other 5
+        // (which already sum to 0.7) is a no-op when they're all equal:
+        // 0.25*50 + 0.15*50 + 0.1*50 + 0.1*50 + 0.1*50, divided by 0.7, is
+        // still exactly 50 either way. See the next test for a case where
+        // the components differ, which actually exercises the redistribution
+        // math (not just "5 equal numbers averaged with any weights = the
+        // same number").
+        expect(breakdown.A_sci).toBe(50);
+        expect(breakdown.S_lnk).toBe(50);
+        expect(breakdown.Q_frm).toBe(50);
+        expect(breakdown.Q_trn).toBe(50);
+        expect(breakdown.S_sla).toBe(50);
+        expect(score).toBe(50);
+    });
+
+    // Same all-domains-empty scenario, but with 5 DIFFERENT component values
+    // so equal-weighted redistribution is actually exercised, not masked by
+    // every component happening to already agree.
+    it('A_dom=null redistribution matches (sum of the other 5 weighted terms) / 0.7, not a straight unweighted average (synthetic)', () => {
+        const rows = [
+            // A_sci: 100% (1/1 correct).
+            { 'Type of Question': 'GDB', 'Answer Scientifically Correct?': 'Correct' },
+            // S_lnk: 0% (0/1 relevant).
+            { 'Correct Source Links Provided?': 'No' },
+            // Q_frm: 100% (1/1 well framed).
+            { 'Question Correctly Framed?': 'Well Framed' },
+            // Q_trn: 0% (0/1 correct).
+            { 'Translation Quality': 'Incorrect' },
+            // S_sla: 100% (1/1 within SLA).
+            { 'SLA Status': 'Within SLA' },
+        ];
+        const { score, breakdown } = calculateTrustScore(rows);
+        expect(breakdown.A_dom).toBeNull();
+        expect(breakdown.A_sci).toBe(100);
+        expect(breakdown.S_lnk).toBe(0);
+        expect(breakdown.Q_frm).toBe(100);
+        expect(breakdown.Q_trn).toBe(0);
+        expect(breakdown.S_sla).toBe(100);
+        // (0.25*100 + 0.15*0 + 0.1*100 + 0.1*0 + 0.1*100) / 0.7 = 45/0.7 = 64.28... -> 64.
+        // NOT (100+0+100+0+100)/5 = 60 (a plain unweighted average) and NOT
+        // 0.25*100+0.15*0+0.1*100+0.1*0+0.1*100 = 45 (dropping A_dom's term
+        // without rescaling the rest to fill its weight).
+        const plainWeightedSum = 0.25 * 100 + 0.15 * 0 + 0.1 * 100 + 0.1 * 0 + 0.1 * 100;
+        expect(plainWeightedSum).toBe(45);
+        expect(score).toBe(Math.round(plainWeightedSum / 0.7));
+        expect(score).toBe(64);
+    });
+
+    // Partial case: only SOME domains are empty - the empty ones are
+    // excluded, the rest still average normally (no redistribution needed,
+    // since A_dom itself still has a real value).
+    it('A_dom averages only the domains with applicable data when some (not all) domains are empty (synthetic)', () => {
+        const { breakdown } = calculateTrustScore([
+            // Weather: 100% (1/1 correct). Mandi/Scheme: no rows at all.
+            { 'Type of Question': 'Weather Dynamic', 'Question Category': 'Climate, Weather', 'Weather Q Answered Correctly?': 'Yes' },
+        ]);
+        // If Mandi/Scheme still defaulted to 100: (100+100+100)/3 = 100.
+        // Correctly excluded: A_dom is just Weather's own 100%.
+        expect(breakdown.A_dom).toBe(100);
     });
 
     // Testers answer "Correct Source Links Provided?" two different ways -
@@ -312,11 +406,116 @@ describe('calculateTrustScore v2 on the full unfiltered dataset (real CSV)', () 
         expect(breakdown.S_sla).toBe(50);
     });
 
-    it('returns all-zero for an empty dataset', () => {
+    it('returns all-zero for an empty dataset, with A_dom null (no data) rather than 0', () => {
         expect(calculateTrustScore([])).toEqual({
             score: 0,
-            breakdown: { A_sci: 0, A_dom: 0, S_lnk: 0, Q_frm: 0, Q_trn: 0, S_sla: 0 },
+            breakdown: {
+                A_sci: 0,
+                A_dom: null,
+                S_lnk: 0,
+                Q_frm: 0,
+                Q_trn: 0,
+                S_sla: 0,
+                weights: { A_sci: 0.25, A_dom: 0.3, S_lnk: 0.15, Q_frm: 0.1, Q_trn: 0.1, S_sla: 0.1 },
+            },
         });
+    });
+
+    it('returns the default 25/30/15/10/10/10 weight table for typeBranch omitted, "all", and "Dynamic" alike', () => {
+        expect(calculateTrustScore([]).breakdown.weights).toEqual({ A_sci: 0.25, A_dom: 0.3, S_lnk: 0.15, Q_frm: 0.1, Q_trn: 0.1, S_sla: 0.1 });
+        expect(calculateTrustScore([], 'all').breakdown.weights).toEqual({ A_sci: 0.25, A_dom: 0.3, S_lnk: 0.15, Q_frm: 0.1, Q_trn: 0.1, S_sla: 0.1 });
+        expect(calculateTrustScore([], 'Dynamic').breakdown.weights).toEqual({ A_sci: 0.25, A_dom: 0.3, S_lnk: 0.15, Q_frm: 0.1, Q_trn: 0.1, S_sla: 0.1 });
+    });
+
+    // typeBranch === 'Static': the fixed 35/20/15/15/15 business table
+    // (Dynamic Accuracy dropped entirely, not just null), not the 'all'/
+    // 'Dynamic' redistribution fallback - see the header comment on
+    // calculateTrustScore for why these are deliberately different rules
+    // that happen to both leave A_dom null.
+    it('typeBranch=Static uses the fixed 35/20/15/15/15 weight table, with A_dom excluded (not computed) rather than redistribution-derived (synthetic)', () => {
+        const rows = [
+            { 'Type of Question': 'GDB', 'Answer Scientifically Correct?': 'Correct', 'Correct Source Links Provided?': 'Yes', 'Question Correctly Framed?': 'Well Framed', 'Translation Quality': 'Correct', 'SLA Status': 'Within SLA' },
+            { 'Type of Question': 'GDB', 'Answer Scientifically Correct?': 'Incorrect', 'Correct Source Links Provided?': 'No', 'Question Correctly Framed?': 'Incorrectly Framed', 'Translation Quality': 'Incorrect', 'SLA Status': 'SLA Breached' },
+        ];
+        const { score, breakdown } = calculateTrustScore(rows, 'Static');
+        expect(breakdown.weights).toEqual({ A_sci: 0.35, A_dom: null, S_lnk: 0.2, Q_frm: 0.15, Q_trn: 0.15, S_sla: 0.15 });
+        expect(breakdown.A_dom).toBeNull();
+        // All 5 scored components are 50% (1 of 2 correct/positive each) -
+        // the fixed table's weights already sum to 1.0, so this is just
+        // 0.35*50 + 0.2*50 + 0.15*50 + 0.15*50 + 0.15*50 = 50, same as the
+        // 'all'/'Dynamic' redistribution fallback would give for 5 equal
+        // values - see the next test for a case where the two rules
+        // actually diverge.
+        expect(score).toBe(50);
+    });
+
+    // With 5 DIFFERENT component values, the fixed Static table (which
+    // weights A_sci heaviest at 35%) must diverge from the 'all'/'Dynamic'
+    // redistribution fallback (which would weight A_sci at 0.25/0.7 = 35.7%
+    // here) - these are two different rules that happen to be close, not
+    // the same formula in disguise.
+    it('typeBranch=Static weighting diverges from the redistribution fallback when components differ (synthetic)', () => {
+        const rows = [
+            { 'Type of Question': 'GDB', 'Answer Scientifically Correct?': 'Correct' }, // A_sci: 100%
+            { 'Correct Source Links Provided?': 'No' }, // S_lnk: 0%
+            { 'Question Correctly Framed?': 'Well Framed' }, // Q_frm: 100%
+            { 'Translation Quality': 'Incorrect' }, // Q_trn: 0%
+            { 'SLA Status': 'Within SLA' }, // S_sla: 100%
+        ];
+        const { score, breakdown } = calculateTrustScore(rows, 'Static');
+        expect(breakdown).toMatchObject({ A_sci: 100, A_dom: null, S_lnk: 0, Q_frm: 100, Q_trn: 0, S_sla: 100 });
+        // Fixed Static table: 0.35*100 + 0.2*0 + 0.15*100 + 0.15*0 + 0.15*100 = 65.
+        expect(score).toBe(65);
+        // The redistribution fallback ('all'/'Dynamic' formula, for contrast) on
+        // the exact same rows gives 64 (see the equivalent 'all' test above) -
+        // confirms the two rules are not interchangeable.
+        expect(calculateTrustScore(rows, 'all').score).toBe(64);
+    });
+
+    // A_dom is skipped outright for Static - even a row carrying real
+    // Weather/Mandi/Scheme category data (which shouldn't occur via the
+    // real typeBranch filter, but the function itself must not silently
+    // score it) never enters A_dom when typeBranch='Static'.
+    it('typeBranch=Static never computes A_dom, even for a row with real Dynamic domain data (synthetic)', () => {
+        const { breakdown } = calculateTrustScore(
+            [{ 'Type of Question': 'Weather Dynamic', 'Question Category': 'Climate, Weather', 'Weather Q Answered Correctly?': 'Yes' }],
+            'Static',
+        );
+        expect(breakdown.A_dom).toBeNull();
+        expect(breakdown.weights.A_dom).toBeNull();
+    });
+
+    // Real-CSV cross-check for the 3 typeBranch values the Type of Question
+    // filter can select - re-derive with a one-off script against
+    // backend/data/testers-dashboard/updated.csv to spot-check, since (like
+    // every other real-data count in this file) this WILL drift as the live
+    // sheet keeps changing.
+    it('Trust Score for All / Dynamic / Static typeBranch filters on the real CSV, each scored with its own weight table', () => {
+        const allRows = applyFilters(records, { ...EMPTY_FILTERS, typeBranch: 'all' });
+        const dynamicRows = applyFilters(records, { ...EMPTY_FILTERS, typeBranch: 'Dynamic' });
+        const staticRows = applyFilters(records, { ...EMPTY_FILTERS, typeBranch: 'Static' });
+
+        const all = calculateTrustScore(allRows, 'all');
+        const dynamic = calculateTrustScore(dynamicRows, 'Dynamic');
+        const staticResult = calculateTrustScore(staticRows, 'Static');
+
+        expect(all.score).toBe(95);
+        expect(dynamic.score).toBe(94);
+        expect(staticResult.score).toBe(93);
+
+        // Static gets its own fixed table and drops A_dom entirely, unlike
+        // All/Dynamic which keep the original 25/30/15/10/10/10 table.
+        expect(all.breakdown.weights).toEqual({ A_sci: 0.25, A_dom: 0.3, S_lnk: 0.15, Q_frm: 0.1, Q_trn: 0.1, S_sla: 0.1 });
+        expect(dynamic.breakdown.weights).toEqual({ A_sci: 0.25, A_dom: 0.3, S_lnk: 0.15, Q_frm: 0.1, Q_trn: 0.1, S_sla: 0.1 });
+        expect(staticResult.breakdown.weights).toEqual({ A_sci: 0.35, A_dom: null, S_lnk: 0.2, Q_frm: 0.15, Q_trn: 0.15, S_sla: 0.15 });
+        expect(staticResult.breakdown.A_dom).toBeNull();
+
+        // Compared against the same rows forced through the 'all'/'Dynamic'
+        // redistribution formula instead - the fixed Static table is a
+        // deliberate business choice, not a mathematical derivation of it
+        // (see the header comment on calculateTrustScore), so the two scores
+        // for the Static row set are expected to differ.
+        expect(calculateTrustScore(staticRows, 'all').score).toBe(94);
     });
 });
 
@@ -553,9 +752,10 @@ describe('calculateExperienceScore on the full unfiltered dataset (real CSV)', (
 
 describe('trustScoreHasData / experienceScoreHasData - chart-only "real data" detection', () => {
     // These exist purely for the daily trend chart (chartData.ts) to
-    // distinguish a genuine score from A_dom's (Trust Score) or a
-    // zero-denominator pct()'s (Experience Score) empty-data defaults -
-    // neither function changes calculateTrustScore/calculateExperienceScore
+    // distinguish a genuine score from a zero-denominator pct()'s (still
+    // used by A_sci/S_lnk/Q_frm/Q_trn/S_sla, and Experience Score's 5
+    // sub-metrics) empty-data defaults - neither function changes
+    // calculateTrustScore/calculateExperienceScore
     // themselves, which the main dashboard's cards still rely on unchanged.
     it('both return false for an empty row set', () => {
         expect(trustScoreHasData([])).toBe(false);
@@ -717,23 +917,49 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
         );
         expect(byKey('answer_never_received').successCount).toBe(answerReceived.length);
 
-        // Category 10 (NEW) - 3 independent (non-exclusive) SLA benchmark
-        // rows, using the raised 100,000-min parse cap (RESPONSE_TIME_PARSE_CAP_MINUTES)
-        // so the 7-day row can see genuine multi-day delays at all.
+        // Category 10 (v2, mutually exclusive bands) - each valid reading
+        // falls into exactly one of the 3 bands, using the raised
+        // 100,000-min parse cap (RESPONSE_TIME_PARSE_CAP_MINUTES) so the
+        // 7-day band can see genuine multi-day delays at all.
         const validReadings = records
             .map((r) => timeToMinutes(r[RESPONSE_TIME_KEY]))
             .filter((m): m is number => m !== null);
-        expect(validReadings.filter((m) => m > 120).length).toBe(2228);
-        expect(validReadings.filter((m) => m > 1440).length).toBe(913);
-        expect(validReadings.filter((m) => m > 10080).length).toBe(113);
-        expect(byKey('sla_breach_2hr').failureCount).toBe(2228);
-        expect(byKey('sla_breach_24hr').failureCount).toBe(913);
-        expect(byKey('sla_breach_7day').failureCount).toBe(113);
-        // Cumulative nesting: every 7-day breach is also a 24-hour and
-        // 2-hour breach, so the counts must be monotonically non-increasing
-        // as the threshold rises.
-        expect(byKey('sla_breach_2hr').failureCount).toBeGreaterThanOrEqual(byKey('sla_breach_24hr').failureCount);
-        expect(byKey('sla_breach_24hr').failureCount).toBeGreaterThanOrEqual(byKey('sla_breach_7day').failureCount);
+        const band2hr = validReadings.filter((m) => m > 120 && m < 1440);
+        const band24hr = validReadings.filter((m) => m >= 1440 && m < 10080);
+        const band7day = validReadings.filter((m) => m >= 10080);
+        expect(band2hr.length).toBe(1372);
+        expect(band24hr.length).toBe(898);
+        expect(band7day.length).toBe(125);
+        expect(byKey('sla_breach_2hr').failureCount).toBe(band2hr.length);
+        expect(byKey('sla_breach_24hr').failureCount).toBe(band24hr.length);
+        expect(byKey('sla_breach_7day').failureCount).toBe(band7day.length);
+        // Mutually exclusive bands: the 3 failure counts now sum exactly to
+        // the total breached count (every reading over 120 min), with no
+        // reading counted in more than one band - the bug this test used to
+        // document (every 7-day breach also counted as a 2-hour AND
+        // 24-hour breach) is fixed.
+        const totalBreached = validReadings.filter((m) => m > 120).length;
+        expect(totalBreached).toBe(2395);
+        expect(band2hr.length + band24hr.length + band7day.length).toBe(totalBreached);
+        expect(
+            byKey('sla_breach_2hr').failureCount + byKey('sla_breach_24hr').failureCount + byKey('sla_breach_7day').failureCount,
+        ).toBe(totalBreached);
+
+        // Successes ALSO use exclusive bands, but each success band is the
+        // adjacent (one-tier-lower) failure band's own range, mirroring
+        // "did this reading land in THIS benchmark's own target window" -
+        // Within SLA - 24 Hours' range is numerically identical to SLA
+        // Breached - 2 Hours' failure range, and Within SLA - 7 Days' to
+        // SLA Breached - 24 Hours'. This is intentional (see kpis.ts's
+        // SLA_BREACH_BANDS comment): a 300-min reading is BOTH a failure on
+        // the 2-hour row and a success on the 24-hour row at the same time
+        // - two different benchmarks, not a contradiction.
+        expect(byKey('sla_breach_2hr').successCount).toBe(validReadings.filter((m) => m <= 120).length);
+        expect(byKey('sla_breach_2hr').successCount).toBe(11134);
+        expect(byKey('sla_breach_24hr').successCount).toBe(band2hr.length);
+        expect(byKey('sla_breach_24hr').successCount).toBe(1372);
+        expect(byKey('sla_breach_7day').successCount).toBe(band24hr.length);
+        expect(byKey('sla_breach_7day').successCount).toBe(898);
 
         // Category 11 - GDB Retrieval Failure: built from Type of Question
         // === GDB (any casing/whitespace variant) AND 120-min Msg Shown to
@@ -746,6 +972,7 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
             successLabel: 'GDB Retrieved Successfully',
             failureCount: 674,
             successCount: 453,
+            applicableCount: 1403,
         });
 
         // Totals: sum of all 13 rows' counts, and distinct Test IDs counted
@@ -761,6 +988,68 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
         expect(result.evaluableRows).toBe(16945);
         expect(result.distinctFailureRows).toBeLessThan(result.failuresTotal);
         expect(result.distinctSuccessRows).toBeLessThan(result.successesTotal);
+    });
+
+    // applicableCount per category - the Critical Failures card's new
+    // "count / applicable" denominator. Numbers independently re-verified
+    // against a fresh CSV pull immediately before writing this test -
+    // re-derive with a one-off script against
+    // backend/data/testers-dashboard/updated.csv to spot-check, since (like
+    // every other real-data count in this file) this WILL drift as the
+    // live sheet keeps changing.
+    //
+    // Flags (see the task report for the full write-up): duplicate_qid and
+    // notif_failure have the lowest applicableCount-as-%-of-N among the
+    // categories that apply to every row (no Dynamic/GDB row-type
+    // restriction the way weather/mandi/scheme/gdb_retrieval_failure have) -
+    // roughly 29-36% of all rows, vs 61-79% for every other all-rows
+    // category. Testers are apparently not filling in "Q-ID Consistent
+    // Across Systems?" or the 3 notification fields as consistently as the
+    // other checks. weather/mandi/scheme/gdb_retrieval_failure's own small
+    // denominators are EXPECTED, not flagged - they're inherently scoped to
+    // a Dynamic-category or GDB-only subset of rows, not a data-quality gap.
+    it('applicableCount reflects how consistently each field is actually recorded, independent of failureCount+successCount', () => {
+        const result = calculateCriticalFailureCategories(records);
+        const byKey = (key: string) => result.categories.find((c) => c.key === key)!;
+        const N = records.length;
+
+        // Densely-recorded, all-rows-eligible categories - roughly 61-79% of N.
+        expect(byKey('incorrect_answer').applicableCount).toBe(13006);
+        expect(byKey('db_failure').applicableCount).toBe(11828);
+        expect(byKey('critical_bug').applicableCount).toBe(12349);
+        expect(byKey('answer_never_received').applicableCount).toBe(15393);
+        expect(byKey('incorrect_answer').applicableCount / N).toBeGreaterThan(0.5);
+        expect(byKey('db_failure').applicableCount / N).toBeGreaterThan(0.5);
+        expect(byKey('critical_bug').applicableCount / N).toBeGreaterThan(0.5);
+        expect(byKey('answer_never_received').applicableCount / N).toBeGreaterThan(0.5);
+
+        // Flagged: real, all-rows-eligible categories, but with the lowest
+        // coverage as a share of N (roughly 29-36%) of any category that
+        // isn't inherently scoped to a row subset.
+        expect(byKey('duplicate_qid').applicableCount).toBe(5606);
+        expect(byKey('notif_failure').applicableCount).toBe(6976);
+        expect(byKey('duplicate_qid').applicableCount / N).toBeLessThan(0.4);
+        expect(byKey('notif_failure').applicableCount / N).toBeLessThan(0.4);
+
+        // Expected-small: inherently scoped to a Dynamic-category or
+        // GDB-only subset of rows, not a data-quality gap.
+        expect(byKey('weather_incorrect').applicableCount).toBe(2283);
+        expect(byKey('mandi_incorrect').applicableCount).toBe(769);
+        expect(byKey('scheme_incorrect').applicableCount).toBe(779);
+        expect(byKey('gdb_retrieval_failure').applicableCount).toBe(1403);
+
+        // The 3 SLA bands share the exact same denominator - they check the
+        // SAME field (Response Time), just against different windows.
+        expect(byKey('sla_breach_2hr').applicableCount).toBe(13659);
+        expect(byKey('sla_breach_24hr').applicableCount).toBe(13659);
+        expect(byKey('sla_breach_7day').applicableCount).toBe(13659);
+
+        // The core semantic: applicableCount is NOT always failureCount +
+        // successCount. Incorrect Answers has a real ambiguous-but-recorded
+        // middle ground ("Partially Correct" and similar), so its
+        // applicableCount exceeds failureCount + successCount.
+        const ia = byKey('incorrect_answer');
+        expect(ia.applicableCount).toBeGreaterThan(ia.failureCount + ia.successCount);
     });
 
     // Each category's Successes-tab label must be its own distinct,
@@ -834,8 +1123,11 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
     });
 
     // Synthetic - proves the Answer Never Received mechanics directly:
-    // both signals must agree, and a disagreement lands on neither tab.
-    it('Answer Never Received requires BOTH signals to agree; a disagreement is excluded from both tabs (synthetic)', () => {
+    // both signals must agree, and a disagreement lands on neither tab -
+    // including applicableCount, which (unlike every other category) has no
+    // single field to check for blank/NA, so it's exactly failureCount +
+    // successCount here (the 2 disagreement rows are excluded from all 3).
+    it('Answer Never Received requires BOTH signals to agree; a disagreement is excluded from both tabs AND applicableCount (synthetic)', () => {
         const result = calculateCriticalFailureCategories([
             { 'Time Answer Received (HH:MM:SS)': '', [RESPONSE_TIME_KEY]: '' }, // both blank - failure
             { 'Time Answer Received (HH:MM:SS)': '10:30:00 AM', [RESPONSE_TIME_KEY]: '45' }, // both present - success
@@ -845,23 +1137,108 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
         const cat = result.categories.find((c) => c.key === 'answer_never_received')!;
         expect(cat.failureCount).toBe(1);
         expect(cat.successCount).toBe(1);
+        expect(cat.applicableCount).toBe(2);
     });
 
-    // Synthetic - proves the SLA Breached thresholds are inclusive on the
-    // "success" side (exactly at the boundary counts as within-SLA, not
-    // breached) and non-exclusive across the 3 rows.
-    it('SLA Breached: exactly-at-threshold counts as success, and a 7-day breach also counts in the 2-hour/24-hour rows (synthetic)', () => {
+    // Synthetic - proves applicableCount's core distinction: a value that's
+    // recorded but doesn't cleanly resolve to a failure or success (here,
+    // "Partially Correct") still counts as applicable - only genuinely
+    // blank/NA rows are excluded from the denominator.
+    it('applicableCount counts a recorded-but-ambiguous value ("Partially Correct"), excluding only blank/NA (synthetic)', () => {
         const result = calculateCriticalFailureCategories([
-            { [RESPONSE_TIME_KEY]: '120' }, // exactly 2hrs - success for the 2hr row
-            { [RESPONSE_TIME_KEY]: '121' }, // just over 2hrs - failure for 2hr row, success for 24hr/7day rows
-            { [RESPONSE_TIME_KEY]: '20000' }, // beyond all 3 thresholds - failure for all 3 rows
+            { 'Answer Scientifically Correct?': 'Incorrect' },
+            { 'Answer Scientifically Correct?': 'Correct' },
+            { 'Answer Scientifically Correct?': 'Partially Correct' }, // recorded, ambiguous - applicable, neither tab
+            { 'Answer Scientifically Correct?': 'NA' }, // not applicable
+            { 'Answer Scientifically Correct?': '' }, // not applicable
+        ]);
+        const cat = result.categories.find((c) => c.key === 'incorrect_answer')!;
+        expect(cat.failureCount).toBe(1);
+        expect(cat.successCount).toBe(1);
+        expect(cat.applicableCount).toBe(3);
+    });
+
+    // Synthetic - proves the OR-across-fields applicableCount rule for
+    // multi-field categories: a row needs only ONE of the checked fields
+    // recorded to count as applicable, mirroring the failure condition's
+    // own OR logic (a row with just one field filled in is still a real,
+    // checkable row for this category, not an unchecked one).
+    it('applicableCount for a multi-field category (Not Saved in DB) is OR across its 2 fields, not AND (synthetic)', () => {
+        const result = calculateCriticalFailureCategories([
+            { 'Question Saved in DB?': 'Saved', 'Answer Saved in DB?': 'Saved' }, // both recorded
+            { 'Question Saved in DB?': 'Not Saved', 'Answer Saved in DB?': '' }, // only 1 of 2 recorded - still applicable
+            { 'Question Saved in DB?': '', 'Answer Saved in DB?': 'Not Saved' }, // only 1 of 2 recorded - still applicable
+            { 'Question Saved in DB?': '', 'Answer Saved in DB?': 'NA' }, // NA is itself blank-like - not applicable
+            { 'Question Saved in DB?': '', 'Answer Saved in DB?': '' }, // neither recorded - not applicable
+        ]);
+        const cat = result.categories.find((c) => c.key === 'db_failure')!;
+        expect(cat.applicableCount).toBe(3);
+    });
+
+    // Synthetic - proves the 3 SLA Breached bands are mutually exclusive on
+    // the Failures side, based on boundary-precise range checks - 120 is a
+    // success (not yet breached), 1440/10080 land in the NEXT band up
+    // (24hr/7day's lower bounds are inclusive), and nothing is ever
+    // double-counted across the 3 FAILURE bands the way a 7-day breach used
+    // to be (counted in all 3 simultaneously).
+    it('SLA Breached: mutually exclusive failure bands - each reading counted in exactly one band, boundaries precise (synthetic)', () => {
+        const result = calculateCriticalFailureCategories([
+            { [RESPONSE_TIME_KEY]: '120' }, // exactly 2hrs - within SLA, not a breach anywhere
+            { [RESPONSE_TIME_KEY]: '121' }, // just over 2hrs - 2hr failure band
+            { [RESPONSE_TIME_KEY]: '1439' }, // just under 24hrs - still the 2hr failure band (under 1,440)
+            { [RESPONSE_TIME_KEY]: '1440' }, // exactly 24hrs - 24hr failure band (lower bound inclusive)
+            { [RESPONSE_TIME_KEY]: '10079' }, // just under 7 days - still the 24hr failure band
+            { [RESPONSE_TIME_KEY]: '10080' }, // exactly 7 days - 7day failure band (lower bound inclusive)
+            { [RESPONSE_TIME_KEY]: '20000' }, // well beyond 7 days - 7day failure band only
         ]);
         const at2hr = result.categories.find((c) => c.key === 'sla_breach_2hr')!;
         const at24hr = result.categories.find((c) => c.key === 'sla_breach_24hr')!;
         const at7day = result.categories.find((c) => c.key === 'sla_breach_7day')!;
+        // 121 and 1439 land in the 2hr failure band; 120 is the only
+        // fully-compliant reading (its 2hr success).
         expect(at2hr).toMatchObject({ failureCount: 2, successCount: 1 });
-        expect(at24hr).toMatchObject({ failureCount: 1, successCount: 2 });
-        expect(at7day).toMatchObject({ failureCount: 1, successCount: 2 });
+        // 1440 and 10079 land in the 24hr failure band. Its success count
+        // (2) is the 2hr band's own failures (121, 1439) - see the
+        // dedicated adjacent-band-success test below for why that's
+        // intentional, not a bug.
+        expect(at24hr).toMatchObject({ failureCount: 2, successCount: 2 });
+        // 10080 and 20000 land in the 7day failure band. Its success count
+        // (2) is the 24hr band's own failures (1440, 10079).
+        expect(at7day).toMatchObject({ failureCount: 2, successCount: 2 });
+        // The 6 breached readings (everything but the 120 row) are split
+        // across the 3 FAILURE bands with no overlap - sums to exactly 6,
+        // not 6+ some readings counted twice/thrice the way cumulative
+        // thresholds used to.
+        expect(at2hr.failureCount + at24hr.failureCount + at7day.failureCount).toBe(6);
+    });
+
+    // Regression test for the adjacent-band success design (Option 2, per
+    // explicit product direction): a reading can legitimately appear as a
+    // FAILURE in one band and a SUCCESS in the very next band at the same
+    // time - this is intentional (two different benchmarks being evaluated
+    // independently), not a bug to "fix" into non-overlapping failure/
+    // success tabs. Do not change this to make the tabs mutually exclusive
+    // against each other; only the 3 FAILURE bands (and, separately, the 3
+    // SUCCESS bands) need to be exclusive among themselves.
+    it('a reading can be a Failure in one SLA band and a Success in the next band at the same time - intentional, not a bug (synthetic)', () => {
+        const result = calculateCriticalFailureCategories([
+            { 'Test ID': 'T1', [RESPONSE_TIME_KEY]: '300' }, // missed the 2hr target, met the 24hr one
+        ]);
+        const at2hr = result.categories.find((c) => c.key === 'sla_breach_2hr')!;
+        const at24hr = result.categories.find((c) => c.key === 'sla_breach_24hr')!;
+        const at7day = result.categories.find((c) => c.key === 'sla_breach_7day')!;
+        // FAILS the 2-hour promise...
+        expect(at2hr.failureCount).toBe(1);
+        // ...but SUCCEEDS the 24-hour one, from the very same single row.
+        expect(at24hr.successCount).toBe(1);
+        // Not a failure OR success anywhere else - it's not in the 24hr
+        // failure band, the 7day failure band, the 2hr success range, or
+        // the 7day success range (which mirrors the 24hr failure band,
+        // [1,440, 10,080) - 300 min isn't in that range either).
+        expect(at24hr.failureCount).toBe(0);
+        expect(at7day.failureCount).toBe(0);
+        expect(at2hr.successCount).toBe(0);
+        expect(at7day.successCount).toBe(0);
     });
 
     // Fix 1 - evaluableRows: the union of every category's failure/success
@@ -942,6 +1319,13 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
             successLabel: 'GDB Retrieved Successfully',
             failureCount: 3,
             successCount: 1,
+            // 5, not failureCount+successCount(4) - the "Successfully
+            // Identified as Duplicate" row is a real, recorded (non-blank)
+            // value that resolves to neither a failure nor a success, but
+            // still counts as applicable. The blank and "NA" rows don't -
+            // those are the actual "never checked" rows. The non-GDB row is
+            // excluded entirely (never in gdbRows to begin with).
+            applicableCount: 5,
         });
     });
 
@@ -955,6 +1339,42 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
         result.categories.forEach((c) => {
             expect(c.failureCount).toBe(0);
             expect(c.successCount).toBe(0);
+            expect(c.applicableCount).toBe(0);
+        });
+    });
+
+    // Regression test for a real incident: the frontend crashed the whole
+    // dashboard with "Cannot read properties of undefined (reading
+    // 'toLocaleString')" because it called .toLocaleString() on
+    // applicableCount without checking it was defined first. The backend
+    // itself was verified correct (every category, including GDB Retrieval
+    // Failure, and the empty-dataset case above, already had a numeric
+    // applicableCount) - this test exists so a FUTURE category that forgets
+    // to pass applicableRows to addCategory is caught here, at the source,
+    // rather than surfacing as a blank page. All 13 categories, on both
+    // real data and an empty dataset, must have a numeric (never undefined)
+    // applicableCount.
+    it('every category has a numeric applicableCount - real data and empty dataset alike (regression test)', () => {
+        const withData = calculateCriticalFailureCategories(records);
+        expect(withData.categories.length).toBe(13);
+        withData.categories.forEach((c) => {
+            expect(c.applicableCount).not.toBeUndefined();
+            expect(typeof c.applicableCount).toBe('number');
+            expect(Number.isNaN(c.applicableCount)).toBe(false);
+        });
+        // GDB Retrieval Failure specifically named in the incident report -
+        // it's the one category scoped to a row subset (Type of Question
+        // === GDB) computed BEFORE addCategory is called, the likeliest
+        // place a future refactor could accidentally drop the 3rd filter.
+        const gdb = withData.categories.find((c) => c.key === 'gdb_retrieval_failure')!;
+        expect(gdb.applicableCount).not.toBeUndefined();
+        expect(typeof gdb.applicableCount).toBe('number');
+
+        const empty = calculateCriticalFailureCategories([]);
+        expect(empty.categories.length).toBe(13);
+        empty.categories.forEach((c) => {
+            expect(c.applicableCount).not.toBeUndefined();
+            expect(typeof c.applicableCount).toBe('number');
         });
     });
 });
@@ -1136,6 +1556,101 @@ describe('calculateKpis (Executive Summary + Critical Failures + Release Health)
             countDuplicateFailure: 57,
             countCriticalBugs: 121,
         });
+    });
+
+    // Executive Summary's "Critical Defects" tile (v2): (Critical + High) ÷
+    // ALL rows (N) × 100 - a separate, wider metric from
+    // criticalBreakdown.countCriticalBugs above (Critical only), which keeps
+    // feeding Release Health's Critical Defect Health sub-metric unchanged
+    // (see the dedicated cross-check test below). Numbers independently
+    // re-verified against a fresh CSV pull immediately before writing this
+    // test - re-derive with a one-off script against
+    // backend/data/testers-dashboard/updated.csv to spot-check, since (like
+    // every other real-data count in this file) this WILL drift as the live
+    // sheet keeps changing.
+    it('matches independently-computed Critical Defects % (Critical + High ÷ all rows)', () => {
+        const kpis = calculateKpis(records);
+        const criticalRows = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'Critical');
+        const highRows = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'High');
+        const noSeverityRows = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === '');
+        expect(criticalRows.length).toBe(121);
+        expect(highRows.length).toBe(307);
+        expect(noSeverityRows.length).toBe(6992);
+        expect(kpis.criticalDefectsCriticalCount).toBe(criticalRows.length);
+        expect(kpis.criticalDefectsHighCount).toBe(highRows.length);
+        expect(kpis.criticalDefectsNoSeverityCount).toBe(noSeverityRows.length);
+        // Denominator is N (every row), not defectSeverityApplicable (rows
+        // with a real severity) - the no-severity rows above still count
+        // against it, diluting the percentage rather than being excluded.
+        expect(kpis.criticalDefectsPct).toBe(
+            Math.round(((criticalRows.length + highRows.length) / records.length) * 100),
+        );
+        expect(kpis.criticalDefectsPct).toBe(2);
+    });
+
+    // Confirms Release Health's Critical Defect Health sub-metric is
+    // genuinely unaffected by the new criticalDefectsPct metric - it still
+    // reads criticalBreakdown.countCriticalBugs (Critical only, via
+    // calculateCriticalFailureCategories's shared 'critical_bug' category)
+    // scoped to defectSeverityApplicable (rows with a real severity value),
+    // NOT N the way criticalDefectsPct's denominator is.
+    it('Release Health\'s Critical Defect Health still uses the Critical-only count, unaffected by criticalDefectsPct', () => {
+        const kpis = calculateKpis(records);
+        const bucket2 = kpis.releaseHealthBreakdown.buckets.find((b) => b.key === 'functional_critical_quality')!;
+        const criticalDefectHealth = bucket2.metrics.find((m) => m.key === 'critical_defect_health')!;
+        const defectSeverityApplicable = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) !== '').length;
+        expect(defectSeverityApplicable).toBe(12231);
+        expect(criticalDefectHealth.value).toBe(
+            100 - Math.round((kpis.criticalBreakdown.countCriticalBugs / defectSeverityApplicable) * 100),
+        );
+        expect(criticalDefectHealth.value).toBe(99);
+        // Different denominator (severity-applicable rows only) than
+        // criticalDefectsPct's own (N, all rows) - confirms the two never
+        // shared a denominator, just the same Critical-only numerator source.
+        expect(defectSeverityApplicable).toBeLessThan(kpis.N);
+    });
+
+    // Synthetic - proves the formula's shape directly (combined numerator,
+    // ALL-rows denominator) rather than relying on the real dataset's
+    // specific numbers.
+    it('criticalDefectsPct combines Critical+High and divides by ALL rows, including blank-severity ones (synthetic)', () => {
+        const kpis = calculateKpis([
+            { 'Defect Severity': 'Critical' },
+            { 'Defect Severity': 'High' },
+            { 'Defect Severity': 'Medium' }, // not counted in the numerator...
+            { 'Defect Severity': 'Low' }, // ...neither is this...
+            { 'Defect Severity': 'No Defect' }, // ...nor this (normalizes to 'NA')...
+            { 'Defect Severity': '' }, // ...nor this blank row -
+            { 'Defect Severity': '' }, // but ALL 7 rows count in the denominator.
+        ]);
+        expect(kpis.criticalDefectsCriticalCount).toBe(1);
+        expect(kpis.criticalDefectsHighCount).toBe(1);
+        expect(kpis.criticalDefectsNoSeverityCount).toBe(2);
+        // 2 (Critical+High) / 7 (all rows) = 28.57...% -> 29.
+        expect(kpis.criticalDefectsPct).toBe(29);
+        // If the denominator wrongly excluded blank rows (5 severity-
+        // recorded rows instead of 7): 2/5 = 40%, a different, wrong number.
+        expect(kpis.criticalDefectsPct).not.toBe(40);
+    });
+
+    it('criticalDefectsPct is 0 for a dataset with no Critical/High rows, even with other severities and blanks present (synthetic)', () => {
+        const kpis = calculateKpis([
+            { 'Defect Severity': 'Medium' },
+            { 'Defect Severity': 'Low' },
+            { 'Defect Severity': '' },
+        ]);
+        expect(kpis.criticalDefectsPct).toBe(0);
+        expect(kpis.criticalDefectsCriticalCount).toBe(0);
+        expect(kpis.criticalDefectsHighCount).toBe(0);
+        expect(kpis.criticalDefectsNoSeverityCount).toBe(1);
+    });
+
+    it('criticalDefectsPct is 0 for an empty dataset, not NaN or divide-by-zero', () => {
+        const kpis = calculateKpis([]);
+        expect(kpis.criticalDefectsPct).toBe(0);
+        expect(kpis.criticalDefectsCriticalCount).toBe(0);
+        expect(kpis.criticalDefectsHighCount).toBe(0);
+        expect(kpis.criticalDefectsNoSeverityCount).toBe(0);
     });
 
     // Release Health v2: a 6-bucket weighted model (25/20/20/15/10/10%)
@@ -1379,6 +1894,34 @@ describe('calculateKpis (Executive Summary + Critical Failures + Release Health)
             expect(passing.buckets.find((b) => b.key === 'reliability_critical_failure_health')!.metrics[0].value).toBe(100);
         });
 
+        // Regression test for the SLA Breached exclusive-bands fix: an 8-day
+        // response (11,520 min) used to land in ALL 3 SLA Breached
+        // categories at once (>120, >1440, >10080), penalized 1+2+3=6
+        // points from a single row instead of the intended 3 (its actual,
+        // worst-tier severity). With exclusive bands it now falls in only
+        // the 7-day band (>=10080), penalized once at that band's own
+        // weight.
+        it('an 8-day breach is penalized once (7-day tier, 3pts), not 1+2+3=6pts across all 3 SLA bands (synthetic)', () => {
+            const eightDayBreach = {
+                'Time Answer Received (HH:MM:SS)': '10:00:00 AM',
+                [RESPONSE_TIME_KEY]: String(8 * 24 * 60), // 11,520 min = 8 days
+            };
+            const result = calculateReleaseHealth([eightDayBreach]);
+            // weightedPenalty = 3 (sla_breach_7day only) x 1 row, max = 1*4=4.
+            // health = round(100 - 3/4*100) = 25.
+            expect(result.buckets.find((b) => b.key === 'reliability_critical_failure_health')!.metrics[0].value).toBe(25);
+
+            // If it were still triple-counted (old cumulative bug): weightedPenalty
+            // = (1+2+3) x 1 = 6, health = max(0, round(100 - 6/4*100)) = 0 - a
+            // strictly worse (wrong) score than the correct 25 above.
+            const oldStyleWeightedPenalty = (1 + 2 + 3) * 1;
+            const oldStyleHealth = Math.max(0, Math.round(100 - (oldStyleWeightedPenalty / 4) * 100));
+            expect(oldStyleHealth).toBe(0);
+            expect(result.buckets.find((b) => b.key === 'reliability_critical_failure_health')!.metrics[0].value).toBeGreaterThan(
+                oldStyleHealth,
+            );
+        });
+
         // Channel Performance: averages only channels with real Pass+Fail
         // data - a channel absent from the filtered rows entirely must be
         // skipped from the average, not counted as a 0.
@@ -1553,6 +2096,10 @@ describe('calculatePreviousPeriodStats against a real 7-day window', () => {
             scientificAccuracy: 94,
             openCriticalDefects: 19,
             countCriticalBugs: 14,
+            // (Critical + High) ÷ totalTests × 100 = 19/1098 = 2 (rounded) -
+            // what the "Critical Defects" tile's trend arrow now compares
+            // against, matching its Critical+High-percentage headline number.
+            criticalDefectsPct: 2,
             // Fix 3: shares calculateNotificationSuccess's wider Received-field
             // match with the current-period tile, so the trend arrow compares
             // like-for-like.
@@ -1562,14 +2109,15 @@ describe('calculatePreviousPeriodStats against a real 7-day window', () => {
         });
     });
 
-    // openCriticalDefects here is Critical+High severity - a wider scope
-    // than PreviousPeriodStats.countCriticalBugs (added alongside the "All
-    // Critical Defects" summary card's switch to Critical-only, so its
-    // trend arrow can compare like-for-like against its now-Critical-only
-    // headline number instead of this wider field). Both are real,
-    // deliberately different metrics, not a copy-paste mismatch: over this
-    // same real window, Critical-only is 14 rows vs 19 for Critical+High.
-    it('openCriticalDefects counts Critical AND High, unlike countCriticalBugs (Critical only)', () => {
+    // openCriticalDefects (raw count) and criticalDefectsPct (percentage)
+    // are both Critical+High, wider than PreviousPeriodStats.countCriticalBugs
+    // (Critical only) - countCriticalBugs is kept for API completeness but
+    // the "Critical Defects" tile's trend arrow now compares against
+    // criticalDefectsPct instead (see the previous test), not this
+    // Critical-only field. Over this same real window, Critical-only is 14
+    // rows vs 19 for Critical+High - real, deliberately different metrics,
+    // not a copy-paste mismatch.
+    it('openCriticalDefects/criticalDefectsPct count Critical AND High, unlike countCriticalBugs (Critical only)', () => {
         const stats = calculatePreviousPeriodStats(
             records,
             { ...EMPTY_FILTERS, dateRange: '7days' },
@@ -1595,6 +2143,10 @@ describe('calculatePreviousPeriodStats against a real 7-day window', () => {
         expect(stats.countCriticalBugs).toBe(criticalOnlyOverSameWindow);
         expect(stats.openCriticalDefects).toBe(19);
         expect(stats.openCriticalDefects).toBeGreaterThan(criticalOnlyOverSameWindow);
+        // criticalDefectsPct is openCriticalDefects (Critical+High) as a
+        // percentage of totalTests, not countCriticalBugs (Critical only).
+        expect(stats.criticalDefectsPct).toBe(Math.round((stats.openCriticalDefects / stats.totalTests) * 100));
+        expect(stats.criticalDefectsPct).toBe(2);
     });
 });
 
@@ -1615,5 +2167,118 @@ describe('periodDelta', () => {
     it('computes a downward delta', () => {
         const delta = periodDelta(40, 50);
         expect(delta).toEqual({ text: '↓ 20% vs previous period', className: 'text-red-500' });
+    });
+});
+
+// Channel-wise Performance / Language Performance cards - moved from the
+// frontend (see TestersDashboardSection.tsx) so they run over the exact same
+// filteredRows as calculateKpis/calculateDiagnostics/calculateChartData and
+// react to the Dynamic/Static tree filter (typeBranch/dynamicSubTypes/
+// staticSubTypes) like every other card, instead of silently ignoring it.
+// Numbers asserted below were independently computed by running this exact
+// logic against the live updated.csv - re-derive them with a one-off script
+// against backend/data/testers-dashboard/updated.csv to spot-check.
+describe('calculateChannelStats / calculateLanguageStats - Channel-wise Performance / Language Performance cards (real CSV)', () => {
+    it('matches independently-computed per-channel stats on the full unfiltered dataset', async () => {
+        const records = await loadRealRecords();
+        const rows = applyFilters(records, EMPTY_FILTERS, false, undefined, undefined);
+        const stats = calculateChannelStats(rows);
+        expect(stats).toEqual([
+            { channel: 'Web App', tests: 12005, passRate: 97, avgResponse: 497.4 },
+            { channel: 'WhatsApp', tests: 6445, passRate: 97, avgResponse: 744.9 },
+            { channel: 'Both', tests: 137, passRate: 99, avgResponse: 667.6 },
+        ]);
+    });
+
+    it('matches independently-computed per-language stats on the full unfiltered dataset', async () => {
+        const records = await loadRealRecords();
+        const rows = applyFilters(records, EMPTY_FILTERS, false, undefined, undefined);
+        const stats = calculateLanguageStats(rows);
+        expect(stats).toEqual([
+            { language: 'English', tests: 18136, translationAcc: 99 },
+            { language: 'Telugu', tests: 320, translationAcc: 99 },
+            { language: 'Bengali', tests: 72, translationAcc: 0 },
+            { language: 'Hindi', tests: 39, translationAcc: 97 },
+            { language: 'Tamil', tests: 25, translationAcc: 100 },
+            { language: 'Malayalam', tests: 18, translationAcc: 93 },
+            { language: 'Kannada', tests: 9, translationAcc: 100 },
+            { language: 'Punjabi', tests: 2, translationAcc: 100 },
+        ]);
+    });
+
+    // Proves the actual bug fix: selecting the Dynamic tree branch changes
+    // both cards' numbers (previously they ignored typeBranch entirely and
+    // stayed pinned to the unfiltered totals above).
+    it('reacts to typeBranch=Dynamic - both cards change from the unfiltered totals', async () => {
+        const records = await loadRealRecords();
+        const rows = applyFilters(records, { ...EMPTY_FILTERS, typeBranch: 'Dynamic' }, false, undefined, undefined);
+        expect(rows.length).toBe(4943);
+
+        const channelStats = calculateChannelStats(rows);
+        expect(channelStats).toEqual([
+            { channel: 'Web App', tests: 2950, passRate: 87, avgResponse: 199.9 },
+            { channel: 'WhatsApp', tests: 1900, passRate: 90, avgResponse: 322.5 },
+            { channel: 'Both', tests: 7, passRate: 75, avgResponse: 2.4 },
+        ]);
+        // Every channel's test count shrank from the unfiltered totals.
+        expect(channelStats.find((c) => c.channel === 'Web App')!.tests).toBeLessThan(12005);
+        expect(channelStats.find((c) => c.channel === 'WhatsApp')!.tests).toBeLessThan(6445);
+
+        const languageStats = calculateLanguageStats(rows);
+        expect(languageStats.find((l) => l.language === 'English')!.tests).toBe(4770);
+        expect(languageStats.find((l) => l.language === 'English')!.tests).toBeLessThan(18136);
+    });
+
+    // Narrowing further to a single sub-type (Weather) must change the
+    // numbers again, distinctly from the whole-Dynamic-branch selection above.
+    it('reacts to typeBranch=Dynamic + dynamicSubTypes=[Weather] - numbers narrow further', async () => {
+        const records = await loadRealRecords();
+        const rows = applyFilters(
+            records,
+            { ...EMPTY_FILTERS, typeBranch: 'Dynamic', dynamicSubTypes: ['Weather'] },
+            false,
+            undefined,
+            undefined,
+        );
+        expect(rows.length).toBe(3018);
+
+        const channelStats = calculateChannelStats(rows);
+        expect(channelStats).toEqual([
+            { channel: 'Web App', tests: 1797, passRate: 86, avgResponse: 21.7 },
+            { channel: 'WhatsApp', tests: 1155, passRate: 89, avgResponse: 11.9 },
+            { channel: 'Both', tests: 7, passRate: 75, avgResponse: 2.4 },
+        ]);
+        // Narrower than the whole Dynamic branch above, not just than the
+        // unfiltered totals - proves dynamicSubTypes narrows on top of
+        // typeBranch rather than being ignored once the branch is selected.
+        expect(channelStats.find((c) => c.channel === 'Web App')!.tests).toBeLessThan(2950);
+        expect(channelStats.find((c) => c.channel === 'WhatsApp')!.tests).toBeLessThan(1900);
+
+        const languageStats = calculateLanguageStats(rows);
+        expect(languageStats.find((l) => l.language === 'English')!.tests).toBe(2916);
+        expect(languageStats.find((l) => l.language === 'English')!.tests).toBeLessThan(4770);
+    });
+
+    it('sorts both cards by tests descending', () => {
+        const stats = calculateChannelStats([
+            { 'Channel Tested': 'WhatsApp', 'Overall Test Status': 'Pass' } as TestersDashboardRecord,
+            { 'Channel Tested': 'Web App', 'Overall Test Status': 'Pass' } as TestersDashboardRecord,
+            { 'Channel Tested': 'Web App', 'Overall Test Status': 'Pass' } as TestersDashboardRecord,
+        ]);
+        expect(stats.map((s) => s.channel)).toEqual(['Web App', 'WhatsApp']);
+    });
+
+    it('excludes a leaked/unrecognized Channel Tested value and blank Language Tested rows', () => {
+        const rows: TestersDashboardRecord[] = [
+            { 'Channel Tested': 'English', 'Overall Test Status': 'Pass' } as TestersDashboardRecord,
+            { 'Channel Tested': 'Web App', 'Overall Test Status': 'Pass', 'Language Tested': '' } as TestersDashboardRecord,
+        ];
+        expect(calculateChannelStats(rows)).toEqual([{ channel: 'Web App', tests: 1, passRate: 100, avgResponse: 0 }]);
+        expect(calculateLanguageStats(rows)).toEqual([]);
+    });
+
+    it('returns empty arrays for an empty row set', () => {
+        expect(calculateChannelStats([])).toEqual([]);
+        expect(calculateLanguageStats([])).toEqual([]);
     });
 });

@@ -13,7 +13,7 @@ import {
 import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
 import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
 import { isFutureTestDate } from '../testersDashboard/normalize.js';
-import { calculateKpis, calculatePreviousPeriodStats } from '../testersDashboard/kpis.js';
+import { calculateKpis, calculatePreviousPeriodStats, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
 import {
@@ -71,8 +71,9 @@ function parseSheetSources(): SheetSourceConfig[] {
 const SHEET_SOURCES = parseSheetSources();
 
 // Wraps a single CSV field in quotes if it contains a comma, quote, or newline,
-// and doubles up any internal quotes - standard CSV escaping.
-function escapeCsvField(value: string): string {
+// and doubles up any internal quotes - standard CSV escaping. Exported for
+// reuse by TesterLogService's own CSV export (tester data review table).
+export function escapeCsvField(value: string): string {
     if (value.includes(',') || value.includes('"') || value.includes('\n')) {
         return `"${value.replace(/"/g, '""')}"`;
     }
@@ -377,6 +378,8 @@ export class TestersDashboardService implements ITestersDashboardService {
                     previousPeriodStats: null,
                     filterOptions: buildFilterOptions([]),
                     lastSyncedAt: null,
+                    channelStats: calculateChannelStats([]),
+                    languageStats: calculateLanguageStats([]),
                 };
             }
             const stats = fs.statSync(CSV_PATH);
@@ -391,9 +394,11 @@ export class TestersDashboardService implements ITestersDashboardService {
         const excludeFailures = query.excludeFailures === 'true';
 
         const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
-        const kpis = calculateKpis(filteredRows);
+        const kpis = calculateKpis(filteredRows, filters.typeBranch);
         const diagnostics = calculateDiagnostics(filteredRows);
-        const chartData = calculateChartData(filteredRows);
+        const chartData = calculateChartData(filteredRows, undefined, filters.typeBranch);
+        const channelStats = calculateChannelStats(filteredRows);
+        const languageStats = calculateLanguageStats(filteredRows);
         // Deliberately over the UNFILTERED records, same non-date filters -
         // getPreviousPeriodRows applies filters.type/category/etc itself,
         // just against the shifted date window instead of the current one.
@@ -419,6 +424,8 @@ export class TestersDashboardService implements ITestersDashboardService {
             previousPeriodStats,
             filterOptions,
             lastSyncedAt,
+            channelStats,
+            languageStats,
         };
     }
 

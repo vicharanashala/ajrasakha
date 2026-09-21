@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { TestersDashboardSection } from "./components/TestersDashboardSection";
+import { TesterDataView } from "./testerLog/components/TesterDataView";
 import { FileSpreadsheet, Database } from "lucide-react";
 
 export type TestersDashboardViewMode = "sheet" | "db";
+// Sub-tabs within the Database Logs Analytics side only - "analytics" is
+// the existing KPI-card view, "testerData" is the raw per-entry review
+// table (view/download only for now; editing comes later). Doesn't apply
+// to the Google Sheet side at all.
+type DbSubTab = "analytics" | "testerData";
 
 export function TestersDashboard() {
   const [viewMode, setViewMode] = useState<TestersDashboardViewMode>("sheet");
+  const [dbSubTab, setDbSubTab] = useState<DbSubTab>("analytics");
 
   return (
     <div className="p-4 space-y-6">
@@ -56,13 +63,44 @@ export function TestersDashboard() {
       )}
 
       {viewMode === "db" && (
-        <TestersDashboardSection
-          key="db-section"
-          source="db"
-          title="Database Logs Analytics"
-          description="Analytics computed live from tester_test_cases collection in database"
-          sourceBadge="Source: MongoDB (tester_test_cases)"
-        />
+        <div className="space-y-4">
+          <div className="flex items-center bg-muted p-1 rounded-lg border gap-1 w-fit">
+            <button
+              type="button"
+              onClick={() => setDbSubTab("analytics")}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dbSubTab === "analytics"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Analytics
+            </button>
+            <button
+              type="button"
+              onClick={() => setDbSubTab("testerData")}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dbSubTab === "testerData"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Tester Data
+            </button>
+          </div>
+
+          {dbSubTab === "analytics" ? (
+            <TestersDashboardSection
+              key="db-section"
+              source="db"
+              title="Database Logs Analytics"
+              description="Analytics computed live from tester_test_cases collection in database"
+              sourceBadge="Source: MongoDB (tester_test_cases)"
+            />
+          ) : (
+            <TesterDataView />
+          )}
+        </div>
       )}
     </div>
   );

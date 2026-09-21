@@ -321,12 +321,15 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
         ]);
         expect(result.scoreTrend.length).toBe(1);
         const point = result.scoreTrend[0];
-        // trust itself is deliberately UNCHANGED (still 30, from A_dom's
-        // existing default-to-100-when-empty behavior at its v2 30% weight)
-        // - this fix doesn't touch calculateTrustScore's own computation,
-        // only adds the trustHasData flag alongside it for the frontend to
-        // act on.
-        expect(point.trust).toBe(30);
+        // trust is now a genuine 0, not 30 - A_dom used to default an empty
+        // domain to 100 (30% of Trust Score), which made even a fully
+        // blank/NA day plot a misleading 30% instead of 0. Now A_dom is
+        // null on a day with zero domain data and is excluded from the
+        // weighted average instead of defaulting upward, so a day with
+        // nothing real behind ANY of the 6 components correctly computes to
+        // 0 - trustHasData still exists alongside it to distinguish this
+        // genuine 0 from "no data at all" for the chart's gap-rendering.
+        expect(point.trust).toBe(0);
         expect(point.trustHasData).toBe(false);
         expect(point.experience).toBe(0);
         expect(point.experienceHasData).toBe(false);

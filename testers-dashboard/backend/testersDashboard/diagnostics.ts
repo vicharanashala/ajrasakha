@@ -349,7 +349,8 @@ export function calculateAceModulePerformance(rows: TestersDashboardRecord[]): A
 
     // 4. Dynamic Advisory - Weather/Mandi/Scheme accuracy, each scoped to
     // its own Question Category bucket via dynamicSubBucketFor (same
-    // scoping as Trust Score's A_dom). Unlike A_dom, a sub-metric with zero
+    // scoping as Trust Score's A_dom, which now shares this exact rule too
+    // - see calculateTrustScore in kpis.ts). A sub-metric with zero
     // applicable rows is SKIPPED from the average here rather than
     // defaulting to 100 - Weakest Module must never let an empty domain
     // masquerade as a perfect score.
@@ -474,7 +475,16 @@ export interface DiagnosticsResult {
     // ticket URL was logged - a critical defect with no ticket URL logged
     // yet still counts here (not silently treated as "no active defects").
     criticalDefectCount: number;
+    // Critical/High severity only - feeds the "Critical Defect Tickets"
+    // card view's Open/Closed/On Hold/Escalated tabs. Scope intentionally
+    // unchanged by the "All Tickets" view below.
     openTickets: OpenTicket[];
+    // Every ticket linked anywhere in the (already filtered) rows,
+    // regardless of severity or status - feeds the card's "All Tickets"
+    // view alone, so Medium/Low severity tickets (excluded from openTickets
+    // above) are still visible somewhere on the card. Superset of
+    // openTickets.
+    allTickets: OpenTicket[];
 }
 
 // Biggest Bottleneck, Overall Module Performance / Weakest Module (the 6 ACE
@@ -518,22 +528,30 @@ export function calculateDiagnostics(rows: TestersDashboardRecord[]): Diagnostic
     const weakestModuleReason = weakestEntry ? weakestEntry.weakestMetricLabels : [];
 
     const criticalRows = rows.filter((r) => ['Critical', 'High'].includes(normalizeDefectSeverity(r['Defect Severity'])));
-    const seenUrls = new Set<string>();
-    const openTickets: OpenTicket[] = [];
-    criticalRows.forEach((r) => {
-        // The source sheet's header cell has a literal line break inside it
-        // (likely from Alt+Enter in Google Sheets), which Node's csv-parser
-        // preserves as an actual \n character in the column name.
-        const url = (r['Defect ID / Bug Ref\nZoho Desk Ticketing'] || '').trim();
-        if (url && url.toLowerCase().startsWith('http') && !seenUrls.has(url)) {
-            seenUrls.add(url);
-            openTickets.push({
-                id: url.split('/').pop() || url,
-                url,
-                severity: normalizeDefectSeverity(r['Defect Severity']),
-            });
-        }
-    });
+    // Shared by openTickets (Critical/High only) and allTickets (every
+    // severity) below - same dedup-by-URL rule either way: the source
+    // sheet's header cell has a literal line break inside it (likely from
+    // Alt+Enter in Google Sheets), which Node's csv-parser preserves as an
+    // actual \n character in the column name.
+    function buildTicketList(candidateRows: TestersDashboardRecord[]): OpenTicket[] {
+        const seenUrls = new Set<string>();
+        const tickets: OpenTicket[] = [];
+        candidateRows.forEach((r) => {
+            const url = (r['Defect ID / Bug Ref\nZoho Desk Ticketing'] || '').trim();
+            if (url && url.toLowerCase().startsWith('http') && !seenUrls.has(url)) {
+                seenUrls.add(url);
+                tickets.push({
+                    id: url.split('/').pop() || url,
+                    url,
+                    severity: normalizeDefectSeverity(r['Defect Severity']),
+                });
+            }
+        });
+        return tickets;
+    }
+    const openTickets = buildTicketList(criticalRows);
+    // Every row (not just Critical/High) - the "All Tickets" view's ticket list.
+    const allTickets = buildTicketList(rows);
 
     return {
         stageStats,
@@ -547,5 +565,6 @@ export function calculateDiagnostics(rows: TestersDashboardRecord[]): Diagnostic
         weakestModuleReason,
         criticalDefectCount: criticalRows.length,
         openTickets,
+        allTickets,
     };
 }

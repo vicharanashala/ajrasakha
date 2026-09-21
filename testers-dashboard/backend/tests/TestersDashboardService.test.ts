@@ -6,7 +6,7 @@ import csv from 'csv-parser';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { TestersDashboardService } from '../services/TestersDashboardService.js';
 import { EMPTY_FILTERS, applyFilters } from '../testersDashboard/filters.js';
-import { calculateKpis } from '../testersDashboard/kpis.js';
+import { calculateKpis, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
 import { parseTestDateToISO, isFutureTestDate } from '../testersDashboard/normalize.js';
@@ -83,6 +83,45 @@ describe('TestersDashboardService.getSummary', () => {
         // count - the filter narrows the KPIs, not the reported total.
         expect(result.totalRecords).toBe(17872);
     });
+
+    // Explicit timeout: unlike the single-CSV-parse tests above, this one
+    // does 2 getSummary() calls plus a getData() (which always re-reads from
+    // disk, see the caching describe block below) - 2 real parses of the
+    // ~19k-row live CSV, which can run past the 5000ms default under load.
+    it('wires channelStats/languageStats into the response and reacts to typeBranch=Dynamic (Channel-wise/Language Performance cards)', async () => {
+        // Regression test for the bug this migration fixes: these two cards
+        // used to be computed entirely client-side from an unfiltered raw
+        // fetch that never applied typeBranch/dynamicSubTypes/staticSubTypes,
+        // so selecting a Dynamic/Static tree branch changed every other card
+        // but silently left these two unchanged. They now come from the
+        // service's own filteredRows, same as kpis/diagnostics/chartData.
+        const unfiltered = await service.getSummary({});
+        const dynamicOnly = await service.getSummary({ typeBranch: 'Dynamic' });
+
+        const rawRecords = await service.getData();
+        const expectedUnfilteredRows = applyFilters(rawRecords.records, EMPTY_FILTERS, false, undefined, undefined);
+        const expectedDynamicRows = applyFilters(
+            rawRecords.records,
+            { ...EMPTY_FILTERS, typeBranch: 'Dynamic' },
+            false,
+            undefined,
+            undefined,
+        );
+
+        expect(unfiltered.channelStats).toEqual(calculateChannelStats(expectedUnfilteredRows));
+        expect(unfiltered.languageStats).toEqual(calculateLanguageStats(expectedUnfilteredRows));
+        expect(dynamicOnly.channelStats).toEqual(calculateChannelStats(expectedDynamicRows));
+        expect(dynamicOnly.languageStats).toEqual(calculateLanguageStats(expectedDynamicRows));
+
+        // The actual regression check: the Dynamic-branch numbers differ from
+        // the unfiltered ones - proves the tree filter reaches these two
+        // cards now, instead of both queries returning identical numbers.
+        expect(dynamicOnly.channelStats).not.toEqual(unfiltered.channelStats);
+        expect(dynamicOnly.languageStats).not.toEqual(unfiltered.languageStats);
+        const webAppUnfiltered = unfiltered.channelStats.find((c) => c.channel === 'Web App')!;
+        const webAppDynamic = dynamicOnly.channelStats.find((c) => c.channel === 'Web App')!;
+        expect(webAppDynamic.tests).toBeLessThan(webAppUnfiltered.tests);
+    }, 20000);
 
     it('combining status=Pass + severity=Critical filters matches direct computation', async () => {
         const result = await service.getSummary({ status: 'Pass', severity: 'Critical' });
@@ -317,6 +356,12 @@ describe('TestersDashboardService.getSummary', () => {
             expect(summaryResult.kpis.passRate).toBe(50);
             expect(summaryResult.diagnostics.openTickets.length).toBe(1);
             expect(summaryResult.diagnostics.openTickets[0].id).toBe('202216000001657999');
+            // allTickets (the "All Tickets" view) picks up the same single
+            // ticket here too - only 1 row exists, and it's Critical, so
+            // both lists agree in this mock dataset (see diagnostics.test.ts
+            // for the dedicated Medium/Low-inclusion coverage).
+            expect(summaryResult.diagnostics.allTickets.length).toBe(1);
+            expect(summaryResult.diagnostics.allTickets[0].id).toBe('202216000001657999');
         });
     });
 });
