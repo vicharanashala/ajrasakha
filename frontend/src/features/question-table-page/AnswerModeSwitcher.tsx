@@ -158,7 +158,7 @@ export function AnswerModeSwitcher({
                                     }`}
                             >
                                 <Icon className="h-4 w-4" />
-                                {(id === "draft" || id === "pae" || id === "non_agri" || id === "training") && (
+                                {(id === "annadatha") && (
                                     <TopRightBadge label="new" right={0} />
                                 )}
                                 {label}
