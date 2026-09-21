@@ -780,7 +780,7 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH"])
+  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH", "QUESTION_COLLECTION"])
   source?: string;
 
   @JSONSchema({
