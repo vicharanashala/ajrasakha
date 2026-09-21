@@ -58,6 +58,7 @@ import {
   buildResponseAdherenceCsv,
   buildResponseAdherenceHtmlTable,
 } from '../utils/responseAdherenceReport.js';
+import {buildFarmerDetailsCsv} from '../utils/farmerDetailsCsv.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
@@ -1599,6 +1600,65 @@ export class ChatbotService extends BaseService implements IChatbotService {
       return data;
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
+    }
+  }
+
+   async exportUserDetailsCsv(
+    startDate?: string,
+    endDate?: string,
+    search = '',
+    source = 'annam',
+    crop = '',
+    primaryCrops = '',
+    secondaryCrops = '',
+    village = '',
+    state = '',
+    district = '',
+    block = '',
+    profileCompleted = 'all',
+    inactiveOnly = false,
+    lowFeedbackOnly = false,
+    userType = 'all',
+    roles = '',
+    sortBy = 'totalQuestions',
+    sortOrder = 'desc',
+    activeTodayByProfile = false,
+    missingDemographicField?: string,
+    isVerified?: boolean,
+    fromMap?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
+  ): Promise<string> {
+    try {
+      const data = await this.getUserDetails(
+        startDate,
+        endDate,
+        1,
+        1_000_000,
+        search,
+        source,
+        crop,
+        primaryCrops,
+        secondaryCrops,
+        village,
+        state,
+        district,
+        block,
+        profileCompleted,
+        inactiveOnly,
+        lowFeedbackOnly,
+        userType,
+        roles,
+        sortBy,
+        sortOrder,
+        activeTodayByProfile,
+        missingDemographicField,
+        isVerified,
+        fromMap,
+        loginStatus,
+      );
+      return buildFarmerDetailsCsv(data.users);
+    } catch (error) {
+      throw new InternalServerError(`Failed to export user details: ${error}`);
     }
   }
 
