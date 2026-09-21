@@ -10,12 +10,14 @@ export type FieldDef = {
   key: string;
   label: string;
   type: FieldType;
-  // "language": options come from getDashboardLanguages(). "users": options come from
-  // getDashboardUsers() — fetched once by the consuming form and passed to MetadataFieldInput as
-  // its `options` prop (overriding `options` below). Static "select" fields just carry `options`
-  // directly, no fetch needed.
-  optionsSource?: "language" | "users";
+  // "language": options come from getDashboardLanguages() — fetched once by the consuming form
+  // and passed to MetadataFieldInput as its `options` prop (overriding `options` below). Static
+  // "select" fields just carry `options` directly, no fetch needed.
+  optionsSource?: "language";
   options?: string[] | { value: string; label: string }[];
+  // Display-only fields whose value is an ISO timestamp — DocumentDetailModal.tsx renders these
+  // with the shared formatDate() util instead of the raw string.
+  formatDate?: boolean;
 };
 
 // Hardcoded dropdown vocabularies (requested 2026-09-11) — these are UI-only constraints, not a
@@ -134,9 +136,6 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
   // case.
   { key: "format_original", label: "Form/Format of Advisory (Original)", type: "select", options: FORMAT_ORIGINAL_OPTIONS },
   { key: "verification_status", label: "Verification Status", type: "select", options: VERIFICATION_STATUS_OPTIONS },
-  // options come from getDashboardUsers() (see api.ts) via optionsSource — falls back to a plain
-  // text input in MetadataFieldInput.tsx until that API is confirmed/available (asked backend).
-  { key: "verified_by", label: "Verified By", type: "select", optionsSource: "users" },
   { key: "document_status", label: "Document Status", type: "select", options: DOCUMENT_STATUS_OPTIONS },
 ];
 
@@ -148,6 +147,14 @@ export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
 ];
 
 // Backend-derived, read-only — shown in the details grid but never submitted.
+// uploaded_by (renamed from verified_by 2026-09-18) is auto-captured from the signed-in user on
+// upload (see AddDocumentForm's handleSubmit) — there's no dropdown/free-text entry for it
+// anywhere anymore, hence living here rather than in DOCUMENT_METADATA_FIELDS.
+// translated_by/translated_at/reviewed_by/reviewed_at mirror UniqueDocumentsTable.tsx's own
+// FIELD_COLUMNS entries of the same names — added here too so they show up in the Document Detail
+// modal's grid (DocumentDetailModal.tsx's DETAIL_GRID_FIELDS). `formatDate: true` marks the two
+// timestamp fields so the modal renders them with the shared formatDate() util instead of the raw
+// ISO string.
 export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
   { key: "shareable_name", label: "Shareable Name", type: "text" },
   { key: "shareable_link", label: "Shareable Link", type: "text" },
@@ -155,6 +162,11 @@ export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
   { key: "num_pages", label: "No. of Pages", type: "number" },
   { key: "sha256", label: "SHA-256", type: "text" },
   { key: "placement_count", label: "Placement Count", type: "number" },
+  { key: "uploaded_by", label: "Uploaded By", type: "text" },
+  { key: "translated_by", label: "Translated By", type: "text" },
+  { key: "translated_at", label: "Translated At", type: "text", formatDate: true },
+  { key: "reviewed_by", label: "Reviewed By", type: "text" },
+  { key: "reviewed_at", label: "Reviewed At", type: "text", formatDate: true },
 ];
 
 export const ALL_UNIQUE_DOCUMENT_FIELDS: FieldDef[] = [

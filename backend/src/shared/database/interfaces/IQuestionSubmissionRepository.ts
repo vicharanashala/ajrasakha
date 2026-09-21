@@ -4,6 +4,7 @@ import {
   IReviewerHeatmapResponse,
   ISubmissionHistory,
   LevelReportStat,
+  PAEAction,
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
@@ -21,6 +22,15 @@ export interface IQuestionSubmissionRepository {
     submission: IQuestionSubmission,
     session?: ClientSession,
   ): Promise<IQuestionSubmission>;
+  /**
+   * Bulk insert multiple question submissions
+   * @param submissions Array of IQuestionSubmission objects
+   * @param session Optional MongoDB session for transaction
+   */
+  addSubmissions(
+    submissions: IQuestionSubmission[],
+    session?: ClientSession,
+  ): Promise<string[]>;
   /**
    * update submission
    * @param questionId
@@ -359,11 +369,12 @@ export interface IQuestionSubmissionRepository {
   ): Promise<boolean>;
   /**
    * Update the PAE validation status in the question submission's paeValidation array.
-   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * Finds the entry matching the given paeId and updates its paeStatus, paeFinishedAt, and optional paeAction.
    * @param questionId - The question ID
    * @param paeId - The PAE expert's user ID to match in the array
    * @param paeStatus - The new status ('in-progress' | 'completed')
    * @param paeFinishedAt - The completion timestamp (null for in-progress)
+   * @param paeAction - The action taken ('approve' | 'suggestion')
    * @param session - Optional MongoDB client session for transactions
    */
   updatePaeValidationStatus(
@@ -371,6 +382,7 @@ export interface IQuestionSubmissionRepository {
     paeId: string,
     paeStatus: 'in-progress' | 'completed',
     paeFinishedAt: Date | null,
+    paeAction?: PAEAction | 'approve' | 'suggestion',
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }>;
 
@@ -378,4 +390,9 @@ export interface IQuestionSubmissionRepository {
     {questionId: string; reviewerId: string; assignedAt: Date}[]
   >;
 
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   * @param paeExpertId - The PAE expert's user ID
+   */
+  getCompletedPaeValidationCount(paeExpertId: string): Promise<number>;
 }

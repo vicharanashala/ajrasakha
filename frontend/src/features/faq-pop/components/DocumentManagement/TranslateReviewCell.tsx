@@ -18,6 +18,7 @@ import {
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
 import { useAuthStore } from "@/stores/auth-store";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import FileActionIcons from "./FileActionIcons";
 import StatusBadge from "./StatusBadge";
 
@@ -71,9 +72,15 @@ export default function TranslateReviewCell({
   const fileInputRef = useRef(null);
   // /api/pop has no auth, so the backend just stores whatever name it's sent, unverified
   // (docs/first_render_frontend.md, "Who translated / reviewed, and when") — per the user's
-  // decision, this is the signed-in user's display name, same source as the app's other identity
-  // uses (see api.ts's getDashboardUsers comment).
+  // decision, this is the signed-in user's display name (useAuthStore), same as uploaded_by.
   const currentUserName = useAuthStore((s) => s.user?.name);
+  // Translate + manual translation-upload are admin-only inside POP-Management (2026-09-18 batch,
+  // item 7) — review upload stays open to moderator/expert, per the user's explicit decision.
+  // Role isn't on the Firebase-derived AuthUser (useAuthStore) — only name/email/uid/avatar — so
+  // this goes through the same react-query-cached ["user"] fetch play-ground.tsx already uses for
+  // the rest of the app's role gating, not a second/duplicate request.
+  const { data: currentUser } = useGetCurrentUser({});
+  const canTranslate = currentUser?.role === "admin";
 
   // In a placement context, re-fetch the placement row (translation_status lives there too, since
   // it's joined onto every row of the document); in a document context, re-fetch the document.
@@ -235,7 +242,7 @@ export default function TranslateReviewCell({
   // the one they picked, instead of (or after) running the auto-translate job. Available whether
   // or not a job has already produced a translation (it doubles as "Replace"), and even while a
   // job is running — that attempt is what surfaces the 409/cancel-job flow in handleTranslationFile.
-  const translationUploadControl = kind === "translation" && (
+  const translationUploadControl = kind === "translation" && canTranslate && (
     <>
       <input
         ref={fileInputRef}
@@ -309,8 +316,14 @@ export default function TranslateReviewCell({
         <button
           className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           onClick={handleTranslate}
-          disabled={busy || !translationAvailable}
-          title={!translationAvailable ? "Translation is currently out of order" : undefined}
+          disabled={busy || !translationAvailable || !canTranslate}
+          title={
+            !canTranslate
+              ? "Only admins can start a translation"
+              : !translationAvailable
+                ? "Translation is currently out of order"
+                : undefined
+          }
         >
           Translate
         </button>

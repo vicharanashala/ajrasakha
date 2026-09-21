@@ -92,6 +92,8 @@ const emptyAliasEntry = (): ICropAliasObject => ({
   region: "",
   english_representation: "",
   native_representation: "",
+  source_link: "",
+  page_number: "",
 });
 
 type CropManagementModalProps = {
@@ -274,6 +276,33 @@ const AliasEntryForm = ({
         </div>
       </div>
 
+      {/* Source Link and Page Number */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="space-y-1">
+          <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+            Source Link
+          </span>
+          <input
+            placeholder="e.g. https://agritech.tnau.ac.in/..."
+            value={entry.source_link}
+            onChange={(e) => setEntry((f) => ({ ...f, source_link: e.target.value }))}
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+            Page Number
+          </span>
+          <input
+            placeholder="e.g. 45"
+            value={entry.page_number}
+            onChange={(e) => setEntry((f) => ({ ...f, page_number: e.target.value }))}
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+          />
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2">
         {isEditing && (
           <Button
@@ -389,8 +418,8 @@ const StructuredAliasesTable = ({
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Language", "Region", "English", "Native", ""].map((h, i) => (
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Language", "Region", "English", "Native", "Source Link", "Page #", ""].map((h, i) => (
           <div
             key={i}
             className="px-3 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
@@ -404,7 +433,7 @@ const StructuredAliasesTable = ({
       {aliases.map((alias, i) => (
         <div
           key={i}
-          className={`grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
+          className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
             ${
               i < aliases.length - 1
                 ? "border-b border-gray-100 dark:border-gray-800/60"
@@ -444,6 +473,22 @@ const StructuredAliasesTable = ({
               value={alias.native_representation}
               className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
             />
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block" title={alias.source_link}>
+              {alias.source_link || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block">
+              {alias.page_number || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
           </div>
 
           <div className="flex items-center justify-center gap-0.5 pr-1">
@@ -497,6 +542,26 @@ const AliasManagerModal = ({
   const [chemicalCrops, setChemicalCrops] = useState<string[]>(crop.crops ?? []);
   const [scientificName, setScientificName] = useState(crop.scientificName ?? "");
 
+  // Image upload (crop entries only for now). `imageFile` = a newly picked file,
+  // `removeImage` = clear the existing one. Preview shows the pick, else the stored image.
+  const isCropType = (crop.type ?? "crop") === "crop";
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+
+  const handlePickImage = (file: File | null) => {
+    if (!file) return;
+    setImageFile(file);
+    setRemoveImage(false);
+    setImagePreview(URL.createObjectURL(file));
+  };
+  const handleClearImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setRemoveImage(true);
+  };
+  const shownImage = imagePreview ?? (removeImage ? null : crop.imageUrl ?? null);
+
   const { mutateAsync: updateCrop, isPending: isUpdating } = useUpdateCrop();
 
   const totalCount = legacyAliases.length + structuredAliases.length;
@@ -541,7 +606,12 @@ const AliasManagerModal = ({
         // Send the trimmed value; an empty string clears the scientific name.
         payload.scientificName = scientificName.trim();
       }
-      const res = await updateCrop({ cropId: crop._id, payload });
+      const res = await updateCrop({
+        cropId: crop._id,
+        payload,
+        image: isCropType ? imageFile : null,
+        removeImage: isCropType && removeImage,
+      });
       if (res?.success) {
         toast.success(`"${crop.name}" updated successfully!`);
         onClose();
@@ -610,6 +680,55 @@ const AliasManagerModal = ({
                 onChange={(e) => setScientificName(e.target.value)}
                 className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 italic"
               />
+            </div>
+          )}
+
+          {/* ── Image — crop entries only ─────────────────────────────── */}
+          {isCropType && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Image
+                <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                  — optional
+                </span>
+              </p>
+              {shownImage ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={shownImage}
+                    alt={crop.name}
+                    className="h-16 w-16 rounded-md object-cover border border-gray-200 dark:border-gray-700"
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-primary cursor-pointer hover:underline">
+                      Replace
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleClearImage}
+                      className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline text-left"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex h-16 items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+                  />
+                  Click to upload an image
+                </label>
+              )}
             </div>
           )}
 
@@ -848,6 +967,10 @@ export const CropManagementModal = ({
   const [chemicalStatus, setChemicalStatus] = useState("");
   const [newChemicalCrops, setNewChemicalCrops] = useState<string[]>([]);
   const [newScientificName, setNewScientificName] = useState("");
+  // Optional image for a new crop entry (crop tab only). Uploaded right after the crop is
+  // created, via the same update endpoint the edit form uses.
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
   // Free-text type used on the "Other" tab (a custom category the user names).
   const [customType, setCustomType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
@@ -907,6 +1030,7 @@ export const CropManagementModal = ({
 
   // ── API calls ───────────────────────────────────────────────────────────────
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
+  const { mutateAsync: updateCrop, isPending: isUpdatingImage } = useUpdateCrop();
   const { mutateAsync: bulkUploadCrops, isPending: isBulkUploading } = useBulkUploadCrops();
 
   // Backend categories drive the first-class tabs (falls back to the static list).
@@ -946,8 +1070,17 @@ export const CropManagementModal = ({
     setChemicalStatus("");
     setNewChemicalCrops([]);
     setNewScientificName("");
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(null);
+    setNewImagePreview(null);
     setCustomType("");
     setIsAddFormOpen(false);
+  };
+
+  const handlePickNewImage = (file: File | null) => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(file);
+    setNewImagePreview(file ? URL.createObjectURL(file) : null);
   };
 
   const resetAll = () => {
@@ -968,7 +1101,7 @@ export const CropManagementModal = ({
     setSearchInput(""); setSearchQuery(""); setPage(1);
   };
 
-  const isSaving = isCreating;
+  const isSaving = isCreating || isUpdatingImage;
   const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
 
   const handleSave = async () => {
@@ -996,6 +1129,16 @@ export const CropManagementModal = ({
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
+        // Crops can carry an image: it's uploaded to GCS via the update endpoint right after
+        // the crop exists (create is JSON-only). A failed image upload doesn't fail the create.
+        const newId = res.data?._id;
+        if (activeTab === "crop" && newImageFile && newId) {
+          try {
+            await updateCrop({ cropId: newId, payload: {}, image: newImageFile });
+          } catch {
+            toast.error("Crop added, but the image upload failed. You can add it via edit.");
+          }
+        }
         toast.success(`"${name}" added successfully!`);
         resetAddForm();
       }
@@ -1495,6 +1638,55 @@ export const CropManagementModal = ({
                       onChange={(e) => setNewScientificName(e.target.value)}
                       className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700 italic"
                     />
+                  </div>
+                )}
+
+                {/* Image — optional, crop tab only (uploaded after the crop is created) */}
+                {activeTab === "crop" && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Image
+                      <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                        — optional
+                      </span>
+                    </label>
+                    {newImagePreview ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={newImagePreview}
+                          alt={newCropName || "New crop"}
+                          className="h-16 w-16 rounded-md object-cover border border-gray-200 dark:border-gray-700"
+                        />
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-medium text-primary cursor-pointer hover:underline">
+                            Replace
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handlePickNewImage(e.target.files?.[0] ?? null)}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handlePickNewImage(null)}
+                            className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline text-left"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex h-16 items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handlePickNewImage(e.target.files?.[0] ?? null)}
+                        />
+                        Add crop image
+                      </label>
+                    )}
                   </div>
                 )}
 

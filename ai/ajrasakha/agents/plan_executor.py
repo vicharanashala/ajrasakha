@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 # Set True to run chemical_checker (planner flag + post-gdb regex follow-up batch).
 ENABLE_CHEMICAL_CHECKER = False
 
+# Reviewer-only crop label (crop_master name) when the farmer named 2+ crops;
+# retrieval still searches all crops.
+MULTIPLE_CROPS_LABEL = "Multiple Crops"
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
 _WEATHER_TOOL_NAMES = frozenset({"weather", "new_weather", "weather_server", "weather_weather_server"})
@@ -705,7 +708,7 @@ def build_reviewer_upload_calls(
         resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload", user_query=user_query)
     state_name = resolved.state
     district = resolved.district
-    crop = resolved.crop
+    crop = MULTIPLE_CROPS_LABEL if plan.get("is_multiple_crops") else resolved.crop
     domains = resolved.domains
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
@@ -1092,7 +1095,7 @@ async def build_reviewer_upload_with_tools_used(
     
     state_name = resolved.state
     district = resolved.district
-    crop = resolved.crop
+    crop = MULTIPLE_CROPS_LABEL if plan.get("is_multiple_crops") else resolved.crop
     domains = resolved.domains
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 

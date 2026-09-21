@@ -299,7 +299,7 @@ export interface IQuestionRepository {
    */
   updateExpiredAfterFourHours(): Promise<void>;
 
-  insertMany(questions: IQuestion[]): Promise<string[]>;
+  insertMany(questions: IQuestion[], session?: ClientSession): Promise<string[]>;
 
   updateQuestionStatus(
     id: string,
@@ -903,4 +903,16 @@ export interface IQuestionRepository {
    * This avoids replacing the entire details object.
    */
   updateNormalisedCrop(questionId: string, normalisedCrop: string): Promise<{ modifiedCount: number }>;
+
+  /**
+   * Bulk update embeddings for multiple questions using bulkWrite.
+   * @param updates Array of { questionId, embedding, normalisedCrop? }
+   */
+  bulkUpdateEmbeddings(
+    updates: Array<{
+      questionId: string;
+      embedding: number[];
+      normalisedCrop?: string;
+    }>,
+  ): Promise<{ modifiedCount: number }>;
 }
