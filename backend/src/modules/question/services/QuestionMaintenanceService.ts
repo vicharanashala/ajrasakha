@@ -200,6 +200,8 @@ export class QuestionMaintenanceService extends BaseService {
   async backfillMissingEmbeddings(batchLimit = 50): Promise<{
     scanned: number;
     questionsUpdated: number;
+    updatedIds: string[];
+    matchedButUnchanged: number;
     closedWithAnswer: number;
     closedWithAnswerIds: string[];
     skippedNoText: number;
@@ -208,6 +210,8 @@ export class QuestionMaintenanceService extends BaseService {
     const result = {
       scanned: 0,
       questionsUpdated: 0,
+      updatedIds: [] as string[],
+      matchedButUnchanged: 0,
       closedWithAnswer: 0,
       closedWithAnswerIds: [] as string[],
       skippedNoText: 0,
@@ -290,11 +294,24 @@ export class QuestionMaintenanceService extends BaseService {
         // as-is. The Q+A text is used purely as the embedding INPUT for closed questions so
         // the vector matches the approval flow. (Answer-collection embeddings are handled
         // separately by backfillAnswerEmbeddings.)
-        await this.questionRepo.updateQuestionEmbedding(qid, embedding);
-        result.questionsUpdated++;
-        if (finalAnswerText) {
-          result.closedWithAnswer++;
-          result.closedWithAnswerIds.push(qid);
+        const {modifiedCount} = await this.questionRepo.updateQuestionEmbedding(
+          qid,
+          embedding,
+        );
+        // Count/report ONLY questions Mongo actually changed, so the numbers reflect real
+        // DB writes (a matched-but-unchanged doc is surfaced separately, not as "updated").
+        if (modifiedCount > 0) {
+          result.questionsUpdated++;
+          result.updatedIds.push(qid);
+          if (finalAnswerText) {
+            result.closedWithAnswer++;
+            result.closedWithAnswerIds.push(qid);
+          }
+        } else {
+          result.matchedButUnchanged++;
+          console.warn(
+            `<<EMBEDDING_BACKFILL>> ${qid} matched but not modified (no DB change)`,
+          );
         }
       } catch (err) {
         console.error(`<<EMBEDDING_BACKFILL>> Failed for ${qid}:`, err);
@@ -304,12 +321,12 @@ export class QuestionMaintenanceService extends BaseService {
 
     console.log(
       `<<EMBEDDING_BACKFILL>> Done — questions ✅ ${result.questionsUpdated} ` +
-        `(closed w/ answer ${result.closedWithAnswer}), ❌ ${result.failed}, ` +
-        `skipped ${result.skippedNoText}`,
+        `(closed w/ answer ${result.closedWithAnswer}), unchanged ${result.matchedButUnchanged}, ` +
+        `❌ ${result.failed}, skipped ${result.skippedNoText}`,
     );
-    if (result.closedWithAnswerIds.length) {
+    if (result.updatedIds.length) {
       console.log(
-        `<<EMBEDDING_BACKFILL>> Closed-with-answer question ids: ${result.closedWithAnswerIds.join(', ')}`,
+        `<<EMBEDDING_BACKFILL>> Updated question ids: ${result.updatedIds.join(', ')}`,
       );
     }
     return result;

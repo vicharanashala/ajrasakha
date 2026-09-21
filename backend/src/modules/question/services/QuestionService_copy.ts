@@ -7193,6 +7193,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async backfillMissingEmbeddings(_batchLimit = 50): Promise<{
     scanned: number;
     questionsUpdated: number;
+    updatedIds: string[];
+    matchedButUnchanged: number;
     closedWithAnswer: number;
     closedWithAnswerIds: string[];
     skippedNoText: number;
@@ -7201,6 +7203,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     return {
       scanned: 0,
       questionsUpdated: 0,
+      updatedIds: [],
+      matchedButUnchanged: 0,
       closedWithAnswer: 0,
       closedWithAnswerIds: [],
       skippedNoText: 0,

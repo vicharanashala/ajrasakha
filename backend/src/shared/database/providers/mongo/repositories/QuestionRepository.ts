@@ -7437,12 +7437,13 @@ export class QuestionRepository implements IQuestionRepository {
   async updateQuestionEmbedding(
     questionId: string,
     embedding: number[],
-  ): Promise<void> {
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
     await this.init();
-    await this.QuestionCollection.updateOne(
+    const res = await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { embedding, updatedAt: new Date() } },
     );
+    return { matchedCount: res.matchedCount, modifiedCount: res.modifiedCount };
   }
 
   async bulkUpdateEmbeddings(

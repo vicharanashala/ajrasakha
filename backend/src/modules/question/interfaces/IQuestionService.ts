@@ -868,6 +868,8 @@ export interface IQuestionService {
   backfillMissingEmbeddings(batchLimit?: number): Promise<{
     scanned: number;
     questionsUpdated: number;
+    updatedIds: string[];
+    matchedButUnchanged: number;
     closedWithAnswer: number;
     closedWithAnswerIds: string[];
     skippedNoText: number;

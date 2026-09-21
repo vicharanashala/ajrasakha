@@ -609,7 +609,10 @@ export interface IQuestionRepository {
     { _id: ObjectId; question: string; text?: string; status?: string }[]
   >;
 
-  updateQuestionEmbedding(questionId: string, embedding: number[]): Promise<void>;
+  updateQuestionEmbedding(
+    questionId: string,
+    embedding: number[],
+  ): Promise<{ matchedCount: number; modifiedCount: number }>;
   getShiftBasedMetrics(
     startDate:string,
     // endDate:string,
