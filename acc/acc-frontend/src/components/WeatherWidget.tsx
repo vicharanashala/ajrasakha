@@ -276,7 +276,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
 
   return (
     <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg text-zinc-900 dark:text-zinc-100 overflow-hidden rounded-2xl transition-all duration-300">
-      <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5">
+      <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5 min-h-[96px] justify-between">
         {/* Row 1: Location & Controls */}
         <div className="flex items-center justify-between gap-2">
           {/* Location Header */}
@@ -359,7 +359,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
       </CardHeader>
 
       {!isCollapsed && (
-        <CardContent className="p-3 sm:p-3.5 space-y-3">
+        <CardContent className="p-3 sm:p-3.5 space-y-3 h-[360px] overflow-y-auto overscroll-contain pr-2 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-6 space-y-2">
               <RefreshCw className="h-5 w-5 text-indigo-600 dark:text-indigo-400 animate-spin" />

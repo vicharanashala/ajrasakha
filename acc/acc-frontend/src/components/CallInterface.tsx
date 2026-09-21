@@ -47,7 +47,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./atoms/dropdown-menu";
-import { ScrollArea, ScrollBar } from "./atoms/scroll-area";
 import {
   Accordion,
   AccordionContent,
@@ -1334,7 +1333,20 @@ export const CallInterface = () => {
 
       // Mark the active query card as generated
       setQueryCards((prev) => {
-        if (!prev[activeQueryIndex]) return prev;
+        if (!prev || prev.length === 0 || !prev[activeQueryIndex]) {
+          return [{
+            id: 'q1',
+            query: editableQuery,
+            crop: editableCrop,
+            season: editableSeason,
+            state: editableState,
+            district: editableDistrict,
+            block: editableBlock,
+            village: editableVillage,
+            domain: editableDomain,
+            isGenerated: true,
+          }];
+        }
         const copy = [...prev];
         copy[activeQueryIndex] = { ...copy[activeQueryIndex], isGenerated: true };
         return copy;
@@ -1440,7 +1452,7 @@ export const CallInterface = () => {
         {/* Center Column: Live Conversation Dialogue + Extracted Query Details below (30%) */}
         <div className="w-full space-y-4 flex flex-col">
           <Card className="col-span-1 h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
-            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5">
+            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5 min-h-[96px] justify-between">
               {/* Row 1: Title (Left) + Test & Reset (Center/Right) + Far Right Chevron */}
               <div className="flex items-center justify-between gap-2">
                 {/* Left Side: Title and optional UUID */}
@@ -1555,10 +1567,10 @@ export const CallInterface = () => {
                 : "max-h-0 opacity-0 hidden"
                 }`}
             >
-              <CardContent className="p-3 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-2.5">
+              <CardContent className="p-3 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-2.5 h-[360px] flex flex-col">
                 <div
                   ref={chatContainerRef}
-                  className="space-y-3 overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col transition-all duration-300 h-[275px]"
+                  className="space-y-3 overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col flex-1 transition-all duration-300"
                 >
                   {transcriptsList.length > 0 ? (
                     transcriptsList.map((msg, index) => {
@@ -1902,21 +1914,21 @@ export const CallInterface = () => {
             </div>
           </Card>
 
-          {/* Extracted Query Details & Summary Card (Center Column, below Live Conversation) */}
+          {/* Review & Edit Extracted Query Data Card (Center Column, below Live Conversation) */}
           <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
-            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 transition-colors">
-              <CardTitle className="flex items-center justify-between text-sm font-semibold">
+            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-4 sm:px-5 py-2.5 sm:py-3 min-h-[52px] flex items-center justify-between transition-colors">
+              <CardTitle className="flex items-center justify-between w-full text-base sm:text-lg font-bold">
                 <span
                   className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 cursor-pointer"
                   onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
                 >
-                  <FileText className="h-4 w-4" />
-                  Extracted Query Details & Summary
+                  <Edit3 className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  Review & Edit Extracted Query Data
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 hover:bg-transparent"
+                  className="h-7 w-7 p-0 hover:bg-transparent"
                   onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
                 >
                   {isSummaryExpanded ? (
@@ -1930,7 +1942,7 @@ export const CallInterface = () => {
             <div
               className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"}`}
             >
-              <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
+              <CardContent className="p-4 sm:p-5 pt-3 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
                 {isExtracting && currentExtractionType === 'query_details' ? (
                   <div className="flex flex-col space-y-3">
                     <Skeleton className="h-4 w-3/4 rounded-md" />
@@ -1951,75 +1963,6 @@ export const CallInterface = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Header bar for Query Data */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-zinc-200/50 dark:border-zinc-800/50">
-                      <div className="flex items-center gap-2">
-                        <Edit3 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                        <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                          Review & Edit Extracted Query Data
-                        </span>
-                      </div>
-
-                      {queryCards[activeQueryIndex]?.isGenerated && (
-                        <Badge className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold flex items-center gap-1">
-                          <Check className="h-3 w-3" />
-                          <span>Answer Generated</span>
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Multi-Query Navigation Bar */}
-                    {queryCards.length > 1 && (
-                      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {queryCards.map((card, idx) => {
-                            const isActive = idx === activeQueryIndex;
-                            return (
-                              <button
-                                key={card.id || idx}
-                                type="button"
-                                onClick={() => handleSelectQueryCard(idx)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${isActive
-                                  ? "bg-indigo-600 text-white shadow-xs"
-                                  : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                                  }`}
-                              >
-                                <span>Query {idx + 1}</span>
-                                {card.isGenerated && (
-                                  <Check className={`h-3 w-3 ${isActive ? "text-emerald-300" : "text-emerald-600 dark:text-emerald-400"}`} />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
-                            disabled={activeQueryIndex === 0}
-                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
-                          >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                            <span>Previous</span>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
-                            disabled={activeQueryIndex >= queryCards.length - 1}
-                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>Next</span>
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="space-y-3">
                       <div>
                         <Label
@@ -2182,66 +2125,88 @@ export const CallInterface = () => {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
-                      <div className="flex items-center gap-2">
-                        {queryCards.length > 1 && (
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
-                              disabled={activeQueryIndex === 0}
-                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1 cursor-pointer"
-                            >
-                              <ChevronLeft className="h-3.5 w-3.5" />
-                              <span>Prev</span>
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
-                              disabled={activeQueryIndex >= queryCards.length - 1}
-                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1 cursor-pointer"
-                            >
-                              <span>Next</span>
-                              <ChevronRight className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                    {/* Multi-Query Navigation Bar (Q1, Q2, Prev, Next) */}
+                    {(queryCards.length > 0 ? queryCards : [{ id: 'q1', isGenerated: false }]).length > 0 && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(queryCards.length > 0 ? queryCards : [{ id: 'q1', isGenerated: false }]).map((card, idx) => {
+                            const isActive = idx === activeQueryIndex;
+                            return (
+                              <button
+                                key={card.id || idx}
+                                type="button"
+                                onClick={() => handleSelectQueryCard(idx)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${isActive
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                  }`}
+                              >
+                                <span>Q{idx + 1}</span>
+                                {card.isGenerated && (
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shadow-xs" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
 
-                      <div className="flex items-center gap-3">
-                        <Button
-                          onClick={() => setIsHumanVerificationMode(false)}
-                          variant="outline"
-                          size="sm"
-                          className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleApproveAndResume}
-                          disabled={
-                            isResuming ||
-                            !editableQuery.trim() ||
-                            editableDomain.length === 0 ||
-                            !editableSeason
-                          }
-                          size="sm"
-                          className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                          <CheckCircle2 className="h-4 w-4 text-indigo-200" />
-                          <span>
-                            {isResuming
-                              ? "Generating Answer..."
-                              : queryCards[activeQueryIndex]?.isGenerated
-                                ? "Regenerate Answer"
-                                : "Approve & Generate Answer"}
-                          </span>
-                        </Button>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
+                            disabled={activeQueryIndex === 0}
+                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                            <span>Prev</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
+                            disabled={activeQueryIndex >= (queryCards.length > 0 ? queryCards.length : 1) - 1}
+                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
+                    )}
+
+                    {/* Action buttons (Cancel + Approve & Generate) */}
+                    <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                      <Button
+                        onClick={() => setIsHumanVerificationMode(false)}
+                        variant="outline"
+                        size="sm"
+                        className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleApproveAndResume}
+                        disabled={
+                          isResuming ||
+                          !editableQuery.trim() ||
+                          editableDomain.length === 0 ||
+                          !editableSeason
+                        }
+                        size="sm"
+                        className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-indigo-200" />
+                        <span>
+                          {isResuming
+                            ? "Generating Answer..."
+                            : queryCards[activeQueryIndex]?.isGenerated
+                              ? "Regenerate Answer"
+                              : "Approve & Generate Answer"}
+                        </span>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -2257,12 +2222,12 @@ export const CallInterface = () => {
 
           {/* Live Questions & AI Specialist Answers List */}
           <Card className="flex-1 min-h-[400px] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
-            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
-              <CardTitle className="flex items-center justify-between text-sm font-semibold">
+            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-4 sm:px-5 py-2.5 sm:py-3 min-h-[52px] flex items-center justify-between transition-colors">
+              <CardTitle className="flex items-center justify-between w-full text-base sm:text-lg font-bold">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="flex items-center gap-2 text-primary">
-                      <HelpCircle className="h-4 w-4" />
+                    <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 cursor-pointer">
+                      <HelpCircle className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                       Live Questions
                     </span>
                   </TooltipTrigger>
@@ -2270,81 +2235,148 @@ export const CallInterface = () => {
                     These are questions generated from your transcript
                   </TooltipContent>
                 </Tooltip>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline">{questions?.length} questions</Badge>
+                <div className="flex items-center gap-2.5">
+                  <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5">{questions?.length} {questions?.length === 1 ? 'question' : 'questions'}</Badge>
                   <Button
                     onClick={handleResetQuestions}
                     disabled={questions?.length === 0}
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                    className="h-7 px-2.5 text-xs font-semibold border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900 rounded-lg flex items-center gap-1 cursor-pointer"
                   >
-                    <RotateCcw className="h-3 w-3 mr-1" />
+                    <RotateCcw className="h-3 w-3 mr-0.5" />
                     Reset
                   </Button>
                 </div>
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="h-full overflow-hidden p-6 bg-zinc-50/20 dark:bg-zinc-950/20">
+            <CardContent className="h-full p-3.5 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20">
               {isGeneratingQuestions && transcriptsList.length > 0 ? (
-                <div className="flex flex-col h-[400px] text-center text-muted-foreground space-y-4">
-                  <Skeleton className="h-24 w-full rounded-md" />
-                  <Skeleton className="h-24 w-full rounded-md" />
-                  <Skeleton className="h-24 w-full rounded-md" />
+                <div className="flex flex-col h-[300px] text-center text-muted-foreground space-y-4 justify-center">
+                  <Skeleton className="h-20 w-full rounded-xl" />
+                  <Skeleton className="h-20 w-full rounded-xl" />
+                  <Skeleton className="h-20 w-full rounded-xl" />
+                </div>
+              ) : !questions || questions?.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <Lightbulb className="h-10 w-10 mb-3 opacity-40 text-amber-500" />
+                  <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    No generated questions yet
+                  </p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[260px] mt-1">
+                    Click "Approve & Generate Answer" on an extracted query to receive AI specialist recommendations.
+                  </p>
                 </div>
               ) : (
-                <ScrollArea className="h-[400px] w-full">
-                  {!questions || questions?.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground mt-10">
-                      <Lightbulb className="h-10 w-10 mb-4 opacity-50" />
-                      <p className="text-sm">
-                        Click "Generate question" to fetch AI insights from the
-                        current conversation.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4 pb-10">
-                      {questions?.map((qn, index) => {
-                        const qnKey = qn.id || `${qn.question}-${index}`;
+                <div className="max-h-[calc(100vh-250px)] min-h-[300px] overflow-y-auto overscroll-contain pr-1 sm:pr-1.5 space-y-3.5 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800">
+                  {[...questions].map((qn, originalIndex) => ({ qn, originalIndex })).reverse().map(({ qn, originalIndex }, revIdx) => {
+                    const qnKey = qn.id || `${qn.question}-${originalIndex}`;
+                    const isLatest = revIdx === 0;
 
-                        return (
-                          <div
-                            key={`${qn.question}-${qn.id + index}`}
-                            className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
+                    return (
+                      <div
+                        key={`${qn.question}-${qn.id || originalIndex}`}
+                        className={`rounded-xl border transition-all duration-300 overflow-hidden ${
+                          isLatest
+                            ? "border-indigo-300 dark:border-indigo-800/80 bg-white dark:bg-zinc-900 shadow-sm"
+                            : "border-zinc-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 hover:shadow-sm"
+                        }`}
+                      >
+                        <div className="p-3.5 sm:p-4">
+                          <div className="flex items-start justify-between gap-2 mb-2.5">
+                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50 shrink-0">
+                                Q{originalIndex + 1}
+                              </span>
+                              {isLatest && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                                  Latest
+                                </span>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                {translatingQuestions[qnKey] ? (
+                                  <div className="space-y-1.5 py-1 animate-pulse">
+                                    <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4"></div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm font-bold text-zinc-950 dark:text-zinc-50 leading-snug break-words">
+                                    {translatedQuestions[qnKey] || qn.question}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <Accordion
+                            type="single"
+                            collapsible
+                            className="w-full"
                           >
-                            <div className="p-3.5 sm:p-4">
-                              <div className="flex items-start gap-2.5 sm:gap-3 mb-3">
-                                <div className="text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0">
-                                  <HelpCircle className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  {translatingQuestions[qnKey] ? (
-                                    <div className="space-y-1.5 py-1 animate-pulse">
-                                      <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4"></div>
-                                    </div>
-                                  ) : (
-                                    <p className="text-[15px] font-bold text-zinc-950 dark:text-zinc-50 leading-snug break-words">
-                                      {translatedQuestions[qnKey] || qn.question}
-                                    </p>
-                                  )}
-                                </div>
+                            <AccordionItem
+                              value="answer"
+                              className="border-none"
+                            >
+                              <div className="flex items-center gap-2">
+                                <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline flex-1 min-w-0 cursor-pointer">
+                                  <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                                    <svg
+                                      className="w-3.5 h-3.5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                      />
+                                    </svg>
+                                    <span>View Answer & Details</span>
+                                  </div>
+                                </AccordionTrigger>
+
+                                {(qn.question?.trim() || qn.answer?.trim()) && (
+                                  <div className="shrink-0">
+                                    <SarvamTranslatePairDropdown
+                                      query1={qn.question || ""}
+                                      query2={qn.answer || ""}
+                                      sourceLang="en-IN"
+                                      onTranslateStart={() => {
+                                        setTranslatingQuestions((prev) => ({
+                                          ...prev,
+                                          [qnKey]: true,
+                                        }));
+                                      }}
+                                      onTranslateEnd={() => {
+                                        setTranslatingQuestions((prev) => ({
+                                          ...prev,
+                                          [qnKey]: false,
+                                        }));
+                                      }}
+                                      onTranslate={(translatedQn, translatedAns) => {
+                                        setTranslatedQuestions((prev) => ({
+                                          ...prev,
+                                          [qnKey]: translatedQn,
+                                        }));
+                                        setTranslatedAnswers((prev) => ({
+                                          ...prev,
+                                          [qnKey]: translatedAns,
+                                        }));
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </div>
 
-                              <Accordion
-                                type="single"
-                                collapsible
-                                className="w-full"
-                              >
-                                <AccordionItem
-                                  value="answer"
-                                  className="border-none"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                              {qn.weather && (
+                                <AccordionContent className="pt-2 pb-1">
+                                  <div className="bg-sky-50/40 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-xl p-3 space-y-2 mb-3">
+                                    <div className="flex justify-between items-center w-full px-1">
+                                      <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
                                         <svg
-                                          className="w-3.5 h-3.5"
+                                          className="w-3.5 h-3.5 animate-pulse"
                                           fill="none"
                                           stroke="currentColor"
                                           viewBox="0 0 24 24"
@@ -2353,193 +2385,87 @@ export const CallInterface = () => {
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
                                             strokeWidth={2}
-                                            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                            d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
                                           />
                                         </svg>
-                                        <span>View Answer & Details</span>
-                                      </div>
-                                    </AccordionTrigger>
-
-                                    {(qn.question?.trim() || qn.answer?.trim()) && (
-                                      <div className="shrink-0">
-                                        <SarvamTranslatePairDropdown
-                                          query1={qn.question || ""}
-                                          query2={qn.answer || ""}
-                                          sourceLang="en-IN"
-                                          onTranslateStart={() => {
-                                            setTranslatingQuestions((prev) => ({
-                                              ...prev,
-                                              [qnKey]: true,
-                                            }));
-                                          }}
-                                          onTranslateEnd={() => {
-                                            setTranslatingQuestions((prev) => ({
-                                              ...prev,
-                                              [qnKey]: false,
-                                            }));
-                                          }}
-                                          onTranslate={(translatedQn, translatedAns) => {
-                                            setTranslatedQuestions((prev) => ({
-                                              ...prev,
-                                              [qnKey]: translatedQn,
-                                            }));
-                                            setTranslatedAnswers((prev) => ({
-                                              ...prev,
-                                              [qnKey]: translatedAns,
-                                            }));
-                                          }}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {qn.weather && (
-                                    <AccordionContent className="pt-0 pb-1">
-                                      <div className="bg-sky-50/40 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-xl p-3 space-y-2 mb-3">
-                                        <div className="flex justify-between items-center w-full px-1">
-                                          <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
-                                            <svg
-                                              className="w-3.5 h-3.5 animate-pulse"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
-                                              />
-                                            </svg>
-                                            <span>Weather Insights</span>
-                                          </div>
-                                        </div>
-                                        <div className="text-xs text-sky-900 dark:text-sky-300 leading-relaxed px-1">
-                                          {renderWeatherInsights(qn.weather)}
-                                        </div>
-                                      </div>
-                                    </AccordionContent>
-                                  )}
-
-                                  {(qn.authorName || qn.sourceName) && (
-                                    <AccordionContent className="pt-0 pb-1">
-                                      <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl p-3 space-y-2 mb-3">
-                                        <div className="flex justify-between items-center w-full px-1">
-                                          <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
-                                            <User className="w-3.5 h-3.5" />
-                                            <span>
-                                              Author & Reference Document
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed px-1 space-y-1">
-                                          {qn.authorName && (
-                                            <p>
-                                              <span className="font-semibold text-zinc-900 dark:text-zinc-400">
-                                                Author Name:
-                                              </span>{" "}
-                                              {qn.authorName}
-                                            </p>
-                                          )}
-                                          {qn.sourceName && (
-                                            <p>
-                                              <span className="font-semibold text-zinc-900 dark:text-zinc-400">
-                                                Source:
-                                              </span>{" "}
-                                              {qn.sourceLink ? (
-                                                <a
-                                                  href={qn.sourceLink}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold inline-flex items-center gap-1"
-                                                >
-                                                  {qn.sourceName}
-                                                  <svg
-                                                    className="w-3.5 h-3.5"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                  >
-                                                    <path
-                                                      strokeLinecap="round"
-                                                      strokeLinejoin="round"
-                                                      strokeWidth={2}
-                                                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                                    />
-                                                  </svg>
-                                                </a>
-                                              ) : (
-                                                qn.sourceName
-                                              )}
-                                            </p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </AccordionContent>
-                                  )}
-
-                                  <AccordionContent className="pt-0 pb-1">
-                                    <div className="bg-emerald-50/20 dark:bg-emerald-950/15 border border-emerald-200/50 dark:border-emerald-900/40 rounded-xl p-3.5 space-y-2.5">
-                                      <div className="flex justify-between items-center w-full px-1">
-                                        <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold text-xs tracking-wider uppercase">
-                                          <MessageSquare className="w-3.5 h-3.5" />
-                                          <span>Specialist Answer</span>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleCopyAnswer(qnKey, translatedAnswers[qnKey] || qn.answer || "");
-                                            }}
-                                            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-100/70 dark:bg-emerald-900/30 hover:bg-emerald-200/70 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 transition-all text-[10px] font-bold uppercase tracking-wider border border-emerald-200/60 dark:border-emerald-800/50 ml-2 active:scale-95 cursor-pointer"
-                                            title="Copy Answer"
-                                          >
-                                            {copiedStates[qnKey] ? (
-                                              <>
-                                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                                <span className="text-emerald-600 dark:text-emerald-400">Copied</span>
-                                              </>
-                                            ) : (
-                                              <>
-                                                <Copy className="w-3 h-3" />
-                                                <span>Copy</span>
-                                              </>
-                                            )}
-                                          </button>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">
-                                          <User className="w-3 h-3" />
-                                          <span>
-                                            {qn.agri_specialist || "ACC_AGENT"}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="text-[14.5px] leading-relaxed px-1 text-zinc-900 dark:text-zinc-100">
-                                        {translatingQuestions[qnKey] ? (
-                                          <div className="space-y-2 py-1 animate-pulse">
-                                            <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-5/6"></div>
-                                            <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-full"></div>
-                                            <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-2/3"></div>
-                                          </div>
-                                        ) : (
-                                          renderMarkdown(translatedAnswers[qnKey] || qn.answer || "Nil", { baseFontSize: "text-[14px]" })
-                                        )}
+                                        <span>Weather Insights</span>
                                       </div>
                                     </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              </Accordion>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <ScrollBar orientation="vertical" />
-                </ScrollArea>
-              )}
+                                    <div className="text-xs text-sky-900 dark:text-sky-300 leading-relaxed px-1">
+                                      {renderWeatherInsights(qn.weather)}
+                                    </div>
+                                  </div>
+                                </AccordionContent>
+                              )}
 
-              {(questions?.length || 0) > 0 && (
-                <div className="text-center text-xs text-muted-foreground pt-4 font-medium uppercase tracking-wider">
-                  <p>Questions generated from conversation</p>
+                              {(qn.authorName || qn.sourceName) && (
+                                <AccordionContent className="pt-0 pb-1">
+                                  <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl p-3 space-y-2 mb-3">
+                                    <div className="flex justify-between items-center w-full px-1">
+                                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+                                        <User className="w-3.5 h-3.5" />
+                                        <span>Author & Reference Document</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-xs text-zinc-800 dark:text-zinc-200 px-1 space-y-1">
+                                      {qn.authorName && (
+                                        <p><span className="text-zinc-500">Author:</span> <strong>{qn.authorName}</strong></p>
+                                      )}
+                                      {qn.sourceName && (
+                                        <p><span className="text-zinc-500">Source:</span> {qn.sourceLink ? <a href={qn.sourceLink} target="_blank" rel="noreferrer" className="text-indigo-600 underline">{qn.sourceName}</a> : <strong>{qn.sourceName}</strong>}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </AccordionContent>
+                              )}
+
+                              <AccordionContent className="pt-0 pb-1">
+                                <div className="bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/50 rounded-xl p-3 space-y-2">
+                                  <div className="flex justify-between items-center w-full px-1">
+                                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs tracking-wider uppercase">
+                                      <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                                      <span>AI Specialist Recommendation</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleCopyAnswer(qnKey, translatedAnswers[qnKey] || qn.answer || "")}
+                                      className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-1"
+                                      title="Copy recommendation"
+                                    >
+                                      {copiedStates[qnKey] ? (
+                                        <>
+                                          <Check className="h-3 w-3 text-emerald-600" />
+                                          <span className="text-emerald-600 font-semibold">Copied</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="h-3 w-3" />
+                                          <span>Copy</span>
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                  <div className="text-[14.5px] leading-relaxed px-1 text-zinc-900 dark:text-zinc-100">
+                                    {translatingQuestions[qnKey] ? (
+                                      <div className="space-y-2 py-1 animate-pulse">
+                                        <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-5/6"></div>
+                                        <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-full"></div>
+                                        <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-2/3"></div>
+                                      </div>
+                                    ) : (
+                                      renderMarkdown(translatedAnswers[qnKey] || qn.answer || "Nil", { baseFontSize: "text-[14px]" })
+                                    )}
+                                  </div>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
