@@ -13,7 +13,10 @@ import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {
+  IAnswerRepository,
+  ClosedAnswerFilters,
+} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {
   Analytics,
   AnalyticsItem,
@@ -1113,6 +1116,456 @@ export class AnswerRepository implements IAnswerRepository {
       console.error(error);
       throw new InternalServerError(
         `Error while deleting answer, More/ ${error}`,
+      );
+    }
+  }
+
+  async getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    filters?: ClosedAnswerFilters,
+    session?: ClientSession,
+  ): Promise<{answers: any[]; totalAnswers: number}> {
+    try {
+      await this.init();
+      const skip = (page - 1) * limit;
+
+      const matchStage: any = {
+        isFinalAnswer: true,
+        'question.status': 'closed',
+      };
+      if (search) {
+        const searchConditions: any[] = [
+          {answer: {$regex: search, $options: 'i'}},
+          {'question.question': {$regex: search, $options: 'i'}},
+        ];
+
+        // A pasted id should find that exact answer or question, not run as a regex.
+        const trimmedSearch = search.trim();
+        if (isValidObjectId(trimmedSearch)) {
+          const searchId = new ObjectId(trimmedSearch);
+          searchConditions.push({_id: searchId}, {questionId: searchId});
+        }
+
+        matchStage.$or = searchConditions;
+      }
+
+      if (filters?.closedAtStart || filters?.closedAtEnd) {
+        const closedAtRange: {$gte?: Date; $lte?: Date} = {};
+        if (filters.closedAtStart) {
+          closedAtRange.$gte = new Date(filters.closedAtStart);
+        }
+        if (filters.closedAtEnd) {
+          // The end date is inclusive, so stretch it to the end of that day.
+          const end = new Date(filters.closedAtEnd);
+          end.setHours(23, 59, 59, 999);
+          closedAtRange.$lte = end;
+        }
+        matchStage['question.closedAt'] = closedAtRange;
+      }
+
+      const authorIds = (filters?.authorIds || []).filter(id =>
+        isValidObjectId(id),
+      );
+      if (authorIds.length > 0) {
+        matchStage.authorId = {$in: authorIds.map(id => new ObjectId(id))};
+      }
+
+      if (filters?.sourcePresence === 'with') {
+        matchStage['sources.0'] = {$exists: true};
+      } else if (filters?.sourcePresence === 'without') {
+        matchStage['sources.0'] = {$exists: false};
+      }
+
+      // Array field, so $in matches when any one source carries the outcome.
+      if (filters?.sourceReferenceStatuses?.length) {
+        matchStage.sourceReferenceStatuses = {
+          $in: filters.sourceReferenceStatuses,
+        };
+      }
+
+      if (filters?.sourceTypes?.length) {
+        matchStage['sources.sourceType'] = {$in: filters.sourceTypes};
+      }
+
+      // Source count needs $expr, since $size cannot be used inside a range operator.
+      const sourceCountConditions: any[] = [];
+      if (typeof filters?.minSources === 'number') {
+        sourceCountConditions.push({
+          $expr: {$gte: [{$size: {$ifNull: ['$sources', []]}}, filters.minSources]},
+        });
+      }
+      if (typeof filters?.maxSources === 'number') {
+        sourceCountConditions.push({
+          $expr: {$lte: [{$size: {$ifNull: ['$sources', []]}}, filters.maxSources]},
+        });
+      }
+      if (sourceCountConditions.length > 0) {
+        matchStage.$and = [...(matchStage.$and ?? []), ...sourceCountConditions];
+      }
+
+      if (filters?.states?.length) {
+        matchStage['question.details.state'] = {$in: filters.states};
+      }
+
+      if (filters?.crops?.length) {
+        matchStage['question.details.crop'] = {$in: filters.crops};
+      }
+
+      if (filters?.domains?.length) {
+        matchStage['question.details.domain'] = {$in: filters.domains};
+      }
+
+      if (filters?.priorities?.length) {
+        matchStage['question.priority'] = {$in: filters.priorities};
+      }
+
+      // Flagged reviews stay out of the list unless someone asks for them by name.
+      const requestedStatuses = filters?.newSourceStatuses ?? [];
+      const wantsSentBackToPending = filters?.sentBackToPending === true;
+      if (wantsSentBackToPending) {
+        matchStage.wasSentBackToPending = true;
+      }
+      matchStage.$and = matchStage.$and ?? [];
+      if (!requestedStatuses.includes('flagged')) {
+        // $ne also matches the answers with no record at all, which is what we want.
+        matchStage.$and.push({newSourceRecordStatus: {$ne: 'flagged'}});
+      }
+
+      if (requestedStatuses.length > 0) {
+        // 'none' stands for answers with no record yet, stored as a missing field.
+        const wantedStatuses = requestedStatuses.map(status =>
+          status === 'none' ? null : status,
+        );
+        matchStage.$and.push({newSourceRecordStatus: {$in: wantedStatuses}});
+      }
+
+      // Moderators/admins review what's been done, so they see only reviewed answers
+      // (updated_sources.status 'review-completed' or their own 'moderator-in-review')
+      // by default - 'merged' ("Approved") is excluded from that default too, same as
+      // 'flagged', and only shows up when asked for by name. Everyone else is here to
+      // add sources, so a reviewed answer leaves their list - keyed off the reviewer
+      // roles rather than 'expert' alone, so testers and other source-adding roles get
+      // the same list.
+      if (
+        filters?.viewerRole === 'moderator' ||
+        filters?.viewerRole === 'admin'
+      ) {
+        // Left alone, the reviewer list is the reviewed-but-not-yet-approved set
+        // (review-completed or their own moderator-in-review). Asking for statuses by
+        // name overrides that - otherwise picking 'Flagged' (or 'Pending') would filter
+        // to a set the default gate has already excluded, and come back empty.
+        // Answers handed back to 'pending' are no longer "completed", so asking for
+        // them has to lift the default reviewed-only gate the same way naming a status
+        // does - otherwise the two conditions cancel out and nothing comes back.
+        if (requestedStatuses.length === 0 && !wantsSentBackToPending) {
+          matchStage.hasCompletedNewSource = true;
+          // 'merged' ("Approved" in the UI) reviews stay out of the default list too,
+          // same treatment as 'flagged' above - asking for it by name
+          // (newSourceStatuses=merged) is the only way to see them.
+          matchStage.$and.push({newSourceRecordStatus: {$ne: 'merged'}});
+        }
+        // Whoever took an answer into moderator review owns finishing it - it stays in
+        // their own list and disappears from every other moderator's, filter or not.
+        matchStage.$and.push({
+          $or: [
+            {newSourceRecordStatus: {$ne: 'moderator-in-review'}},
+            {isOwnModeratorReview: true},
+          ],
+        });
+      } else {
+        matchStage.hasCompletedNewSource = false;
+      }
+
+      // A seeded key derived from the document's creation time gives a shuffled but
+      // page-stable order; without a seed the newest answers come first as before.
+      // isOwnInProgress (added to basePipeline below) always sorts first, so an expert's
+      // own in-progress reviews stay on top regardless of shuffle/date ordering.
+      // reviewStatusPriority (also added to basePipeline below) sorts right after that -
+      // for the moderator/admin list it keeps 'review-completed' answers above 'merged' ones;
+      // it's absent for experts, where it has no effect on the sort.
+      const orderingStages: any[] = filters?.shuffleSeed
+        ? [
+            {
+              $addFields: {
+                shuffleKey: {
+                  $mod: [
+                    {
+                      $multiply: [
+                        {$toLong: {$toDate: '$_id'}},
+                        filters.shuffleSeed,
+                      ],
+                    },
+                    2147483647,
+                  ],
+                },
+              },
+            },
+            {$sort: {isOwnInProgress: -1, isOwnModeratorReview: -1, reviewStatusPriority: 1, shuffleKey: 1, _id: 1}},
+          ]
+        : [{$sort: {isOwnInProgress: -1, isOwnModeratorReview: -1, reviewStatusPriority: 1, createdAt: -1}}];
+
+      const basePipeline: any[] = [
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {$unwind: '$question'},
+        // updated_sources.answerId is stored as the plain string form of the answer's _id
+        // (see NewSourceService.startNewSource), not an ObjectId, hence the $toString.
+        // 'review-completed' and 'merged' both count as "reviewed" for the moderator/admin
+        // list - see hasCompletedNewSource below - with 'review-completed' taking priority in
+        // the sort via reviewStatusPriority.
+        {
+          $lookup: {
+            from: 'updated_sources',
+            let: {answerIdStr: {$toString: '$_id'}},
+            pipeline: [
+              {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},
+              {$sort: {createdAt: -1}},
+              {$limit: 1},
+              {
+                $project: {
+                  _id: 0,
+                  status: 1,
+                  'moderatorActions.action': 1,
+                  'sources.sourceReferenceStatus': 1,
+                  'reviewArray.userId': 1,
+                  'reviewArray.role': 1,
+                  'reviewArray.closedAt': 1,
+                },
+              },
+            ],
+            as: 'completedNewSource',
+          },
+        },
+        {
+          $addFields: {
+            // The record's own state, or missing when nobody has started this answer.
+            newSourceRecordStatus: {$arrayElemAt: ['$completedNewSource.status', 0]},
+            hasCompletedNewSource: {
+              $in: [
+                {$arrayElemAt: ['$completedNewSource.status', 0]},
+                ['review-completed', 'merged', 'moderator-in-review'],
+              ],
+            },
+            // True when THIS viewer is the moderator holding the answer - used both to
+            // keep it in their list and to hide it from every other moderator.
+            isOwnModeratorReview: {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: {
+                        $ifNull: [
+                          {$arrayElemAt: ['$completedNewSource.reviewArray', 0]},
+                          [],
+                        ],
+                      },
+                      as: 'entry',
+                      cond: {
+                        $and: [
+                          {$eq: ['$$entry.userId', filters?.viewerId ?? null]},
+                          {$eq: ['$$entry.role', 'moderator']},
+                          {$eq: ['$$entry.closedAt', null]},
+                        ],
+                      },
+                    },
+                  },
+                },
+                0,
+              ],
+            },
+            // True when a moderator has sent this record back to 'pending' at least
+            // once - the record's own moderatorActions is the only trace of that, since
+            // the status itself moves on as experts pick it back up.
+            wasSentBackToPending: {
+              $in: [
+                'pending',
+                {
+                  $ifNull: [
+                    {$arrayElemAt: ['$completedNewSource.moderatorActions.action', 0]},
+                    [],
+                  ],
+                },
+              ],
+            },
+            // Every pop lookup outcome recorded on this answer's reviewed sources, so
+            // matchStage can filter on them like a normal array field.
+            sourceReferenceStatuses: {
+              $ifNull: [
+                {$arrayElemAt: ['$completedNewSource.sources.sourceReferenceStatus', 0]},
+                [],
+              ],
+            },
+            reviewStatusPriority: {
+              $cond: [
+                {$eq: [{$arrayElemAt: ['$completedNewSource.status', 0]}, 'review-completed']},
+                0,
+                1,
+              ],
+            },
+          },
+        },
+        {$match: matchStage},
+        // Whichever answer this viewer currently has 'in-progress' in updated_sources sorts
+        // to the top of their list - see orderingStages above. Scoped to matchStage's
+        // filtered set, not every answer, so this is cheap even without an index.
+        {
+          $lookup: {
+            from: 'updated_sources',
+            let: {answerIdStr: {$toString: '$_id'}},
+            pipeline: [
+              {
+                $match: {
+                  $expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']},
+                  status: 'in-progress',
+                  'reviewArray.userId': filters?.viewerId ?? null,
+                },
+              },
+              {$limit: 1},
+            ],
+            as: 'ownInProgressNewSource',
+          },
+        },
+        {
+          $addFields: {
+            isOwnInProgress: {$gt: [{$size: '$ownInProgressNewSource'}, 0]},
+          },
+        },
+      ];
+
+      const [answers, totalCountResult] = await Promise.all([
+        this.AnswerCollection.aggregate(
+          [
+            ...basePipeline,
+            ...orderingStages,
+            {$skip: skip},
+            {$limit: limit},
+            // Surfaces the answer's own updated_sources record status (whatever it is -
+            // there's at most one per answer, see NewSourceService.startNewSource's
+            // dedup) so the list can show reviewers where each answer stands, not just
+            // filter by it. Only run on the page being returned, not the count query.
+            {
+              $lookup: {
+                from: 'updated_sources',
+                let: {answerIdStr: {$toString: '$_id'}},
+                pipeline: [
+                  {$match: {$expr: {$eq: [{$toString: '$answerId'}, '$$answerIdStr']}}},
+                  {$sort: {createdAt: -1}},
+                  {$limit: 1},
+                  {$project: {_id: 0, status: 1, 'sources.sourceReferenceStatus': 1}},
+                ],
+                as: 'newSourceRecord',
+              },
+            },
+            {
+              $addFields: {
+                newSourceStatus: {$arrayElemAt: ['$newSourceRecord.status', 0]},
+                // True when at least one reviewed source failed its pop lookup, so the
+                // list can flag answers whose references still need chasing.
+                hasNotFoundReference: {
+                  $in: [
+                    'notFound',
+                    {
+                      $ifNull: [
+                        {
+                          $arrayElemAt: [
+                            '$newSourceRecord.sources.sourceReferenceStatus',
+                            0,
+                          ],
+                        },
+                        [],
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'authorId',
+                foreignField: '_id',
+                as: 'author',
+              },
+            },
+            {$unwind: {path: '$author', preserveNullAndEmptyArrays: true}},
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'approvedBy',
+                foreignField: '_id',
+                as: 'approvedByUser',
+              },
+            },
+            {$unwind: {path: '$approvedByUser', preserveNullAndEmptyArrays: true}},
+          ],
+          {session},
+        ).toArray(),
+        this.AnswerCollection.aggregate(
+          [...basePipeline, {$count: 'total'}],
+          {session},
+        ).toArray(),
+      ]);
+
+      const totalAnswers = totalCountResult[0]?.total || 0;
+
+      const formattedAnswers = answers.map(ans => ({
+        _id: ans._id?.toString(),
+        questionId: ans.questionId?.toString(),
+        authorId: ans.authorId?.toString(),
+        answer: ans.answer,
+        status: ans.status,
+        isFinalAnswer: ans.isFinalAnswer,
+        approvalCount: ans.approvalCount,
+        remarks: ans.remarks,
+        sources: ans.sources || [],
+        newSourceStatus: ans.newSourceStatus ?? null,
+        hasNotFoundReference: Boolean(ans.hasNotFoundReference),
+        // True when THIS viewer is the one who put it 'in-progress' (see isOwnInProgress
+        // above, used for sort order) - lets the UI tell "mine, still open" apart from
+        // "someone else's, locked" without a second round trip.
+        isOwnInProgress: Boolean(ans.isOwnInProgress),
+        // True when this viewer is the moderator currently holding the answer.
+        isOwnModeratorReview: Boolean(ans.isOwnModeratorReview),
+        createdAt: ans.createdAt?.toISOString(),
+        updatedAt: ans.updatedAt?.toISOString(),
+        question: {
+          id: ans.question?._id?.toString(),
+          text: ans.question?.question,
+          status: ans.question?.status,
+          closedAt: ans.question?.closedAt?.toISOString(),
+          priority: ans.question?.priority,
+          source: ans.question?.source,
+          details: ans.question?.details ?? null,
+        },
+        author: ans.author
+          ? {
+              id: ans.author._id?.toString(),
+              name: `${ans.author.firstName || ''} ${ans.author.lastName || ''}`.trim(),
+              email: ans.author.email,
+            }
+          : null,
+        approvedBy: ans.approvedByUser
+          ? {
+              id: ans.approvedByUser._id?.toString(),
+              name: `${ans.approvedByUser.firstName || ''} ${ans.approvedByUser.lastName || ''}`.trim(),
+              email: ans.approvedByUser.email,
+            }
+          : null,
+      }));
+
+      return {answers: formattedAnswers, totalAnswers};
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerError(
+        `Failed to fetch closed answers: ${error}`,
       );
     }
   }

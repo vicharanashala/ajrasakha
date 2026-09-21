@@ -15,7 +15,7 @@ import {
   BadRequestError,
   NotFoundError,
 } from 'routing-controllers';
-import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { IAnswerRepository, ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import {
@@ -203,6 +203,15 @@ export class AnswerService extends BaseService implements IAnswerService {
       );
     }
     return await this.answerRepo.incrementApprovalCount(answerId, session);
+  }
+
+  async getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    filters?: ClosedAnswerFilters,
+  ): Promise<{answers: any[]; totalAnswers: number}> {
+    return await this.answerRepo.getClosedAnswers(page, limit, search, filters);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

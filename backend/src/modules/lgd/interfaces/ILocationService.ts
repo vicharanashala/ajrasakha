@@ -50,6 +50,15 @@ export interface IKvk {
   longitude?: number;
 }
 
+/** A KVK with its LGD codes already resolved to state and district names. */
+export interface IKvkDirectoryEntry {
+  kvkId: string;
+  kvkName: string;
+  kvkAddress?: string;
+  state: string;
+  district: string;
+}
+
 export interface IKvkSyncResult {
   success: boolean;
   message: string;
@@ -98,6 +107,7 @@ export interface ILocationService {
   getBlocks(districtCode: number): Promise<ILocationBlock[]>;
   getVillages(blockCode: number): Promise<ILocationVillage[]>;
   getKvks(districtCode: number): Promise<IKvk[]>;
+  getKvkDirectory(): Promise<IKvkDirectoryEntry[]>;
   syncKvks(): Promise<IKvkSyncResult>;
 
   /** Add a new state (auto-assigns stateCode). Reason is recorded in the audit trail. */
