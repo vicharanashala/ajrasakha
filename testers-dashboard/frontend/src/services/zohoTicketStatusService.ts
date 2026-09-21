@@ -21,6 +21,52 @@ export interface IZohoTicketStatusResponse {
     statuses: Record<string, IZohoTicketStatus>;
 }
 
+export interface ZohoTeam {
+    id: string;
+    name: string;
+}
+
+export interface IZohoTeamsResponse {
+    success: boolean;
+    teams: ZohoTeam[];
+}
+
+export interface ZohoAttachmentInput {
+    filename: string;
+    contentBase64: string;
+    contentType?: string;
+    inlineBase64?: string;
+}
+
+export interface CreateZohoTicketParams {
+    subject: string;
+    description: string;
+    priority?: string;
+    email?: string;
+    testerName?: string;
+    departmentId?: string;
+    teamId?: string;
+    appName?: string;
+    issueReoccurredBefore?: boolean;
+    dueDate?: string;
+    attachments?: ZohoAttachmentInput[];
+}
+
+export interface CreatedZohoTicket {
+    ticketId: string;
+    ticketNumber: string | null;
+    url: string;
+    status: string;
+    attachmentsUploaded?: number;
+}
+
+export interface CreateZohoTicketResponse {
+    success: boolean;
+    ticket?: CreatedZohoTicket;
+    error?: string;
+    requiresScopeUpgrade?: boolean;
+}
+
 export class ZohoTicketStatusService {
     private _baseUrl = `${API_BASE_URL}/dashboard/testers`;
 
@@ -31,6 +77,34 @@ export class ZohoTicketStatusService {
 
         if (!response) {
             throw new Error("Failed to fetch Zoho ticket statuses: No response received");
+        }
+
+        return response;
+    }
+
+    async getTeams(): Promise<IZohoTeamsResponse> {
+        const response = await apiFetch<IZohoTeamsResponse>(
+            `${this._baseUrl}/zoho-teams`,
+        );
+
+        if (!response) {
+            throw new Error("Failed to fetch Zoho teams: No response received");
+        }
+
+        return response;
+    }
+
+    async createTicket(params: CreateZohoTicketParams): Promise<CreateZohoTicketResponse> {
+        const response = await apiFetch<CreateZohoTicketResponse>(
+            `${this._baseUrl}/zoho-ticket`,
+            {
+                method: "POST",
+                body: JSON.stringify(params),
+            },
+        );
+
+        if (!response) {
+            throw new Error("Failed to create Zoho ticket: No response received");
         }
 
         return response;

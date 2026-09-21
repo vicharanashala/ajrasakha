@@ -162,7 +162,7 @@ export interface ITesterLogService {
         userId: string,
         email: string,
         testerName: string,
-        body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt'>,
+        body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt' | 'testDate'> & { testDate?: string },
     ): Promise<CreateTesterLogEntryResponse>;
 
     getMyEntries(

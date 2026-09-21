@@ -142,9 +142,25 @@ export interface ICreateTesterLogEntryResponse {
 
 /** Dropdown option definitions reused by the form */
 export const TYPE_OF_QUESTION_OPTIONS = [
-    'Unique', 'GDB', 'Dynamic', 'Outreach', 'Static Dynamic',
+    'Unique', 'GDB', 'Dynamic', 'Outreach',
     'Weather Dynamic', 'Scheme Dynamic', 'Mandi Dynamic',
 ];
+
+/**
+ * Returns true if the question type is dynamic (e.g. Dynamic, Weather Dynamic,
+ * Scheme Dynamic, Mandi Dynamic, or any market/weather/scheme testing).
+ */
+export function isDynamicQuestionType(type?: string): boolean {
+    if (!type) return false;
+    const lower = type.trim().toLowerCase();
+    return (
+        lower.includes('dynamic') ||
+        lower.includes('weather') ||
+        lower.includes('scheme') ||
+        lower.includes('mandi') ||
+        lower.includes('market')
+    );
+}
 
 export const CHANNEL_OPTIONS = ['WhatsApp', 'WebApp', 'Both'];
 
