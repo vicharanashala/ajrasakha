@@ -326,7 +326,6 @@ export const CallInterface = () => {
   const { mutateAsync: updateState } = useAccAgentUpdateState();
   const { mutateAsync: resumeAndGetAnswer, isPending: isResuming } =
     useAccAgentResume();
-  const isGeneratingQuestions = isExtracting || isResuming;
 
   // Live conversation box 3-stage elastic state ("collapsed" | "half" | "full")
   const [liveConvState, setLiveConvState] = useState<"collapsed" | "half" | "full">("collapsed");
@@ -2254,24 +2253,61 @@ export const CallInterface = () => {
             </CardHeader>
 
             <CardContent className="h-full p-3 sm:p-4 pt-1.5 sm:pt-2 bg-zinc-50/20 dark:bg-zinc-950/20">
-              {isGeneratingQuestions && transcriptsList.length > 0 ? (
-                <div className="flex flex-col h-[300px] text-center text-muted-foreground space-y-4 justify-center">
-                  <Skeleton className="h-20 w-full rounded-xl" />
-                  <Skeleton className="h-20 w-full rounded-xl" />
-                  <Skeleton className="h-20 w-full rounded-xl" />
-                </div>
-              ) : !questions || questions?.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <Lightbulb className="h-10 w-10 mb-3 opacity-40 text-amber-500" />
-                  <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                    No generated questions yet
-                  </p>
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[260px] mt-1">
-                    Click "Approve & Generate Answer" on an extracted query to receive AI specialist recommendations.
-                  </p>
-                </div>
+              {(!questions || questions.length === 0) ? (
+                isResuming ? (
+                  <div className="py-2">
+                    <div className="rounded-xl border border-indigo-200/80 dark:border-indigo-800/60 bg-white/95 dark:bg-zinc-900/95 shadow-sm p-3.5 sm:p-4 space-y-3 animate-pulse">
+                      <div className="flex items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800/80 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
+                          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                            Generating AI specialist answer...
+                          </span>
+                        </div>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500 dark:text-indigo-400" />
+                      </div>
+                      <div className="space-y-2 pt-1">
+                        <Skeleton className="h-4 w-4/5 rounded-md bg-indigo-100/50 dark:bg-indigo-950/40" />
+                        <Skeleton className="h-3.5 w-full rounded-md" />
+                        <Skeleton className="h-3.5 w-11/12 rounded-md" />
+                        <Skeleton className="h-3.5 w-3/4 rounded-md" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <Lightbulb className="h-10 w-10 mb-3 opacity-40 text-amber-500" />
+                    <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                      No generated questions yet
+                    </p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[260px] mt-1">
+                      Click "Approve & Generate Answer" on an extracted query to receive AI specialist recommendations.
+                    </p>
+                  </div>
+                )
               ) : (
                 <div className="max-h-[calc(100vh-250px)] min-h-[300px] overflow-y-auto overscroll-contain pr-1 sm:pr-1.5 space-y-3.5 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800">
+                  {/* Single Skeleton Card at top during generation when older answers exist */}
+                  {isResuming && (
+                    <div className="rounded-xl border border-indigo-200/80 dark:border-indigo-800/60 bg-white/95 dark:bg-zinc-900/95 shadow-sm p-3.5 sm:p-4 space-y-3 animate-pulse">
+                      <div className="flex items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800/80 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
+                          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                            Generating AI specialist answer...
+                          </span>
+                        </div>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500 dark:text-indigo-400" />
+                      </div>
+                      <div className="space-y-2 pt-1">
+                        <Skeleton className="h-4 w-4/5 rounded-md bg-indigo-100/50 dark:bg-indigo-950/40" />
+                        <Skeleton className="h-3.5 w-full rounded-md" />
+                        <Skeleton className="h-3.5 w-11/12 rounded-md" />
+                        <Skeleton className="h-3.5 w-3/4 rounded-md" />
+                      </div>
+                    </div>
+                  )}
+
                   {[...questions].map((qn, originalIndex) => ({ qn, originalIndex })).reverse().map(({ qn, originalIndex }, revIdx) => {
                     const qnKey = qn.id || `${qn.question}-${originalIndex}`;
                     const isLatest = revIdx === 0;
