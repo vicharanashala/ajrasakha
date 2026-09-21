@@ -350,6 +350,19 @@ export interface IAnswerRepository {
     session?: ClientSession,
   ): Promise<IAnswer[]>;
 
+  /** Answers with a missing/empty `embedding`, for the answer-embedding backfill. Returns
+   *  only the fields the backfill needs (id, questionId, answer text, isFinalAnswer). */
+  getAnswersMissingEmbedding(
+    limit?: number,
+  ): Promise<
+    {
+      _id: ObjectId;
+      questionId?: ObjectId;
+      answer: string;
+      isFinalAnswer: boolean;
+    }[]
+  >;
+
   /** Question ids whose final answer was approved by any of the given moderators (approvedBy). */
   getFinalAnswerQuestionIdsByApprover(
     moderatorIds: string[],
