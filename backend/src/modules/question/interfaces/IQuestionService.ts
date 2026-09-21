@@ -865,6 +865,22 @@ export interface IQuestionService {
     skippedNoApprover: number;
   }>;
 
+  backfillMissingEmbeddings(batchLimit?: number): Promise<{
+    scanned: number;
+    questionsUpdated: number;
+    closedWithAnswer: number;
+    skippedNoText: number;
+    failed: number;
+  }>;
+
+  backfillAnswerEmbeddings(batchLimit?: number): Promise<{
+    scanned: number;
+    updated: number;
+    finalWithQuestion: number;
+    skippedNoText: number;
+    failed: number;
+  }>;
+
   getClosedAnswerMismatch(startTime?: Date, endTime?: Date): Promise<{
     window: { start: Date; end: Date };
     totalClosed: number;
