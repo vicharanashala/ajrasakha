@@ -5,6 +5,7 @@ import {
     PaginatedTesterLogEntries,
     CreateTesterLogEntryResponse,
 } from '../interfaces/ITesterLogService.js';
+import { getTodayIST } from '../testersDashboard/normalize.js';
 
 const COLLECTION = 'tester_test_cases';
 const DATABASE_TOKEN = Symbol.for('Database');
@@ -102,23 +103,25 @@ export class TesterLogService implements ITesterLogService {
         userId: string,
         email: string,
         testerName: string,
-        body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt'>,
+        body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt' | 'testDate'> & { testDate?: string },
     ): Promise<CreateTesterLogEntryResponse> {
         const now = new Date();
+        const testDate = getTodayIST(now);
 
         const entry: TesterLogEntry = {
             ...body,
+            testDate,
             submittedByUserId: userId,
             submittedByEmail: email,
             testerName,
-            responseTimeMins: computeHmsDiff(body.timeQuestionAsked, body.timeAnswerReceived, body.testDate),
-            authorTatMins: computeHmsDiff(body.authorAssignmentTime, body.authorCompletionTime, body.testDate),
-            review1TatMins: computeHmsDiff(body.reviewer1AssignmentTime, body.reviewer1CompletionTime, body.testDate),
-            review2TatMins: computeHmsDiff(body.reviewer2AssignmentTime, body.reviewer2CompletionTime, body.testDate),
-            review3TatMins: computeHmsDiff(body.reviewer3AssignmentTime, body.reviewer3CompletionTime, body.testDate),
-            review4TatMins: computeHmsDiff(body.reviewer4AssignmentTime, body.reviewer4CompletionTime, body.testDate),
-            review5TatMins: computeHmsDiff(body.reviewer5AssignmentTime, body.reviewer5CompletionTime, body.testDate),
-            moderatorTatMins: computeHmsDiff(body.moderatorAssignmentTime, body.moderatorCompletionTime, body.testDate),
+            responseTimeMins: computeHmsDiff(body.timeQuestionAsked, body.timeAnswerReceived, testDate),
+            authorTatMins: computeHmsDiff(body.authorAssignmentTime, body.authorCompletionTime, testDate),
+            review1TatMins: computeHmsDiff(body.reviewer1AssignmentTime, body.reviewer1CompletionTime, testDate),
+            review2TatMins: computeHmsDiff(body.reviewer2AssignmentTime, body.reviewer2CompletionTime, testDate),
+            review3TatMins: computeHmsDiff(body.reviewer3AssignmentTime, body.reviewer3CompletionTime, testDate),
+            review4TatMins: computeHmsDiff(body.reviewer4AssignmentTime, body.reviewer4CompletionTime, testDate),
+            review5TatMins: computeHmsDiff(body.reviewer5AssignmentTime, body.reviewer5CompletionTime, testDate),
+            moderatorTatMins: computeHmsDiff(body.moderatorAssignmentTime, body.moderatorCompletionTime, testDate),
             createdAt: now,
             updatedAt: now,
         };

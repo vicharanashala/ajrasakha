@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TesterLogService } from '../services/TesterLogService.js';
+import { getTodayIST } from '../testersDashboard/normalize.js';
 
 describe('TesterLogService date filtering', () => {
     let service: TesterLogService;
@@ -87,5 +88,23 @@ describe('TesterLogService date filtering', () => {
         expect(callArg.submittedByUserId).toBe('tester-abc');
         expect(callArg.$or).toBeDefined();
         expect(callArg.$or[0].testDate).toEqual({ $gte: '2026-09-01', $lte: '2026-09-07' });
+    });
+
+    it('records testDate as today\'s date (IST) when creating an entry', async () => {
+        mockCollection.insertOne = vi.fn().mockResolvedValue({ insertedId: 'entry-123' });
+
+        const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+            typeOfQuestion: 'Unique',
+            buildVersion: '2.1.0',
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(mockCollection.insertOne).toHaveBeenCalledTimes(1);
+
+        const insertedDoc = mockCollection.insertOne.mock.calls[0][0];
+        const expectedDate = getTodayIST(new Date());
+
+        expect(insertedDoc.testDate).toBe(expectedDate);
+        expect(result.entry.testDate).toBe(expectedDate);
     });
 });

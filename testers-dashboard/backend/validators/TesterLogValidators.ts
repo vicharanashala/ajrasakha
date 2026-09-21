@@ -1,11 +1,11 @@
-import { IsString, IsOptional, IsNotEmpty, IsNumberString } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsNumberString, IsArray, IsBoolean } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 
 export class CreateTesterLogDto {
     @JSONSchema({ description: 'Test date formatted as YYYY-MM-DD or DD/MM/YYYY' })
     @IsString()
-    @IsNotEmpty()
-    testDate: string;
+    @IsOptional()
+    testDate?: string;
 
     @JSONSchema({ description: 'Type of question, e.g. Unique, GDB, Dynamic' })
     @IsString()
@@ -157,4 +157,66 @@ export class GetTesterLogQuery {
     dateField?: string;
 }
 
-export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, GetTesterLogQuery];
+export class CreateZohoTicketDto {
+    @JSONSchema({ description: 'Ticket subject / title' })
+    @IsString()
+    @IsNotEmpty()
+    subject!: string;
+
+    @JSONSchema({ description: 'Detailed bug description or query notes' })
+    @IsString()
+    @IsNotEmpty()
+    description!: string;
+
+    @JSONSchema({ description: 'Ticket priority: Low, Medium, High, Urgent' })
+    @IsString()
+    @IsOptional()
+    priority?: string;
+
+    @JSONSchema({ description: 'Tester contact email' })
+    @IsString()
+    @IsOptional()
+    email?: string;
+
+    @JSONSchema({ description: 'Tester contact name' })
+    @IsString()
+    @IsOptional()
+    testerName?: string;
+
+    @JSONSchema({ description: 'Zoho Desk department ID' })
+    @IsString()
+    @IsOptional()
+    departmentId?: string;
+
+    @JSONSchema({ description: 'Zoho Desk owner team ID' })
+    @IsString()
+    @IsOptional()
+    teamId?: string;
+
+    @JSONSchema({ description: 'App Name (e.g. Whatsapp Bot, Web App, Reviewer System, etc.)' })
+    @IsString()
+    @IsOptional()
+    appName?: string;
+
+    @JSONSchema({ description: 'Whether the issue reoccurred before' })
+    @IsBoolean()
+    @IsOptional()
+    issueReoccurredBefore?: boolean;
+
+    @JSONSchema({ description: 'Ticket due date (e.g. YYYY-MM-DD)' })
+    @IsString()
+    @IsOptional()
+    dueDate?: string;
+
+    @JSONSchema({ description: 'List of base64 screenshots / attachments to upload to Zoho' })
+    @IsArray()
+    @IsOptional()
+    attachments?: {
+        filename: string;
+        contentBase64: string;
+        contentType?: string;
+        inlineBase64?: string;
+    }[];
+}
+
+export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto];

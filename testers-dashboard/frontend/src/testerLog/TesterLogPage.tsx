@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { TesterLogForm } from "./components/TesterLogForm";
 import { TesterLogHistory } from "./components/TesterLogHistory";
 import { ClipboardList, History } from "lucide-react";
@@ -55,6 +55,7 @@ export function TesterLogPage() {
                 {activeTab === "form" && (
                     <TesterLogForm
                         testerName={testerName}
+                        userEmail={user?.email}
                         onSuccess={() => setActiveTab("history")}
                     />
                 )}
