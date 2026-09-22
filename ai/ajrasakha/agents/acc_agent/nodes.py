@@ -315,6 +315,7 @@ async def tool_execution_node(state: AccAgentState):
                     "longitude": geo.get("longitude") if geo else None,
                     "crop": crop,
                     "state": geocode_state,
+                    "district": geocode_district,
                 })
             if tool == "schemes":
                 return await schemes.ainvoke({
