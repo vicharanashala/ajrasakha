@@ -123,6 +123,73 @@ export interface CreateTesterLogEntryResponse {
     entry: TesterLogEntry;
 }
 
+export interface TesterLogSummaryResponse {
+    success: boolean;
+    totalTests: number;
+    passed: number;
+    failed: number;
+    partial: number;
+    expectedOutput: number;
+    anomalyFound: number;
+    otherStatus: number;
+    passRate: number;
+    failRate: number;
+    slaMet: number;
+    slaBreached: number;
+    slaMetRate: number;
+    avgResponseMinutes: number | null;
+    totalDefects: number;
+    defectsBySeverity: {
+        critical: number;
+        high: number;
+        medium: number;
+        low: number;
+    };
+    byQuestionType: Record<string, number>;
+    byChannel: Record<string, number>;
+    byLanguage: Record<string, number>;
+    dailyStats: Array<{
+        date: string;
+        total: number;
+        passed: number;
+        failed: number;
+    }>;
+    scientificAccuracy: {
+        correct: number;
+        incorrect: number;
+        rate: number;
+    };
+    dbPersistence: {
+        saved: number;
+        notSaved: number;
+        rate: number;
+    };
+    voiceStats: {
+        inputWorking: number;
+        inputIssues: number;
+        outputWorking: number;
+    };
+    targetVsAchieved: TargetVsAchievedSummary;
+}
+
+export interface TargetAchievedRow {
+    questionType: string;
+    targetTotal: number;
+    achievedTotal: number;
+    targetWebApp: number;
+    achievedWebApp: number;
+    targetWhatsApp: number;
+    achievedWhatsApp: number;
+    completionRate: number;
+}
+
+export interface TargetVsAchievedSummary {
+    daysCount: number;
+    rows: TargetAchievedRow[];
+    total: TargetAchievedRow;
+}
+
+
 export interface ITesterLogService {
     createEntry(
         userId: string,
@@ -148,4 +215,12 @@ export interface ITesterLogService {
         endDate?: string,
         dateField?: string,
     ): Promise<PaginatedTesterLogEntries>;
+
+    getMySummary(
+        userId: string,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
+    ): Promise<TesterLogSummaryResponse>;
 }
+

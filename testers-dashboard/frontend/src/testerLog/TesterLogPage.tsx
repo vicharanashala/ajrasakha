@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { TesterLogForm } from "./components/TesterLogForm";
 import { TesterLogHistory } from "./components/TesterLogHistory";
-import { ClipboardList, History } from "lucide-react";
+import { TesterLogSummary } from "./components/TesterLogSummary";
+import { ClipboardList, History, BarChart3 } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { cn } from "@/lib/utils";
 
-type Tab = "form" | "history";
+type Tab = "form" | "history" | "summary";
 
 export function TesterLogPage() {
     const [activeTab, setActiveTab] = useState<Tab>("form");
@@ -19,6 +20,7 @@ export function TesterLogPage() {
     const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
         { key: "form", label: "Log New Test Case", icon: <ClipboardList className="h-4 w-4" /> },
         { key: "history", label: "My History", icon: <History className="h-4 w-4" /> },
+        { key: "summary", label: "My Summary", icon: <BarChart3 className="h-4 w-4" /> },
     ];
 
     return (
@@ -60,6 +62,9 @@ export function TesterLogPage() {
                     />
                 )}
                 {activeTab === "history" && <TesterLogHistory />}
+                {activeTab === "summary" && (
+                    <TesterLogSummary onLogNewTest={() => setActiveTab("form")} />
+                )}
             </div>
         </div>
     );

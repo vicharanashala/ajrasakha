@@ -4,6 +4,7 @@ import type {
     ICreateTesterLogEntryResponse,
     IPaginatedTesterLogEntries,
     ITesterLogEntry,
+    ITesterLogSummaryResponse,
 } from "../types";
 
 const API_BASE_URL = env.apiBaseUrl();
@@ -36,6 +37,22 @@ export class TesterLogService {
         const url = `${this.baseUrl}/my?${params.toString()}`;
         const response = await apiFetch<IPaginatedTesterLogEntries>(url);
         if (!response) throw new Error("Failed to fetch test case history");
+        return response;
+    }
+
+    async getMySummary(
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
+    ): Promise<ITesterLogSummaryResponse> {
+        const params = new URLSearchParams();
+        if (startDate) params.set("startDate", startDate);
+        if (endDate) params.set("endDate", endDate);
+        if (dateField) params.set("dateField", dateField);
+        const queryStr = params.toString();
+        const url = `${this.baseUrl}/my-summary${queryStr ? `?${queryStr}` : ""}`;
+        const response = await apiFetch<ITesterLogSummaryResponse>(url);
+        if (!response) throw new Error("Failed to fetch test case summary");
         return response;
     }
 
