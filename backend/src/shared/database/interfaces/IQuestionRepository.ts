@@ -600,7 +600,19 @@ export interface IQuestionRepository {
     limit?: number,
   ): Promise<{ _id: ObjectId; question: string; text?: string }[]>;
 
-  updateQuestionEmbedding(questionId: string, embedding: number[]): Promise<void>;
+  /** Same as {@link getQuestionsWithEmptyEmbeddings} but also returns `status`, so a
+   *  backfill can rebuild a closed question's embedding from its Q+A text (matching the
+   *  approval flow) rather than the raw question text. */
+  getQuestionsMissingEmbedding(
+    limit?: number,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  >;
+
+  updateQuestionEmbedding(
+    questionId: string,
+    embedding: number[],
+  ): Promise<{ matchedCount: number; modifiedCount: number }>;
   getShiftBasedMetrics(
     startDate:string,
     // endDate:string,

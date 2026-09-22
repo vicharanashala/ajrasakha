@@ -53,6 +53,7 @@ import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
 import { ReviewerLifecycle } from "./ReviewerTimeline";
 import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 interface ExpertDashboardProps {
   expertId?: string | null;
@@ -885,6 +886,7 @@ const [dateRange, setDateRange] = useState<
           </TabsContent>
         </Tabs>
       </div>
+      <ScrollToTopButton />
     </main>
   );
 };

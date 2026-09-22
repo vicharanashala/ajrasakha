@@ -7410,15 +7410,40 @@ export class QuestionRepository implements IQuestionRepository {
     ).toArray() as Promise<{ _id: ObjectId; question: string; text?: string }[]>;
   }
 
+  async getQuestionsMissingEmbedding(
+    limit = 50,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  > {
+    await this.init();
+
+    return this.QuestionCollection.find(
+      {
+        $or: [
+          { embedding: { $exists: false } },
+          { embedding: null },
+          { embedding: { $size: 0 } },
+        ],
+      },
+      {
+        projection: { _id: 1, question: 1, text: 1, status: 1 },
+        limit,
+      },
+    ).toArray() as Promise<
+      { _id: ObjectId; question: string; text?: string; status?: string }[]
+    >;
+  }
+
   async updateQuestionEmbedding(
     questionId: string,
     embedding: number[],
-  ): Promise<void> {
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
     await this.init();
-    await this.QuestionCollection.updateOne(
+    const res = await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { embedding, updatedAt: new Date() } },
     );
+    return { matchedCount: res.matchedCount, modifiedCount: res.modifiedCount };
   }
 
   async bulkUpdateEmbeddings(

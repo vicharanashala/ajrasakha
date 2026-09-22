@@ -160,7 +160,7 @@ export function AnswerModeSwitcher({
                                 <Icon className="h-4 w-4" />
                                 {(id === "annadatha") && (
                                     <TopRightBadge label="new" right={0} />
-                                )}
+                                )} 
                                 {label}
                                 {hasSearch && srcCount != null && (
                                     <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
