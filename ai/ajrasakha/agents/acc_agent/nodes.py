@@ -289,6 +289,8 @@ async def tool_execution_node(state: AccAgentState):
                     "query": query_text,
                     "latitude": geo.get("latitude") if geo else None,
                     "longitude": geo.get("longitude") if geo else None,
+                    "district": geocode_district,
+                    "state": geocode_state,
                     "address": None,
                 })
             if tool == "market":
