@@ -29,6 +29,7 @@ import {
   X,
   Mic,
   Loader2,
+  Radio,
 } from "lucide-react";
 import WeatherWidget from "./WeatherWidget";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
@@ -120,47 +121,283 @@ export const stripMarkdown = (text: string): string => {
     .trim();
 };
 
-const renderWeatherInsights = (weather: any) => {
-  if (!weather || typeof weather !== "object") {
-    return typeof weather === "string" ? <p>{weather}</p> : null;
+const getCompassDirection = (deg: number | string | undefined | null): string => {
+  if (deg === null || deg === undefined || deg === "") return "";
+  const d = Number(deg);
+  if (isNaN(d)) return String(deg);
+  const directions = [
+    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+  ];
+  const idx = Math.round(d / 22.5) % 16;
+  return directions[idx < 0 ? idx + 16 : idx];
+};
+
+const getWeatherSource = (weatherInput: any): { label: string; tag: string } => {
+  let weather = weatherInput;
+  if (typeof weather === "string") {
+    try {
+      weather = JSON.parse(weather);
+    } catch {
+      return { label: "IMD Weather Service", tag: "IMD" };
+    }
   }
 
-  const { result } = weather;
-  if (!result) {
-    // Fallback if structure is flat or result key is missing
+  if (!weather || typeof weather !== "object") {
+    return { label: "Weather Service", tag: "Weather" };
+  }
+
+  const rawSource = weather.source || weather.provider || weather.source_name;
+  if (rawSource) {
+    const s = String(rawSource).trim();
+    return { label: s, tag: s.toUpperCase() };
+  }
+
+  const dataType = String(weather.data_type || "").toLowerCase();
+  const res = weather.result || weather;
+
+  if (dataType === "current_aws" || res?.station) {
+    return {
+      label: "IMD AWS (Automatic Weather Station)",
+      tag: "IMD AWS",
+    };
+  }
+
+  if (dataType === "forecast" || res?.today || res?.forecast) {
+    return {
+      label: "IMD Weather Forecast",
+      tag: "IMD Forecast",
+    };
+  }
+
+  if (dataType.includes("warning")) {
+    return {
+      label: "IMD Weather Warnings",
+      tag: "IMD Warnings",
+    };
+  }
+
+  if (dataType.includes("rainfall")) {
+    return {
+      label: "IMD Rainfall",
+      tag: "IMD Rainfall",
+    };
+  }
+
+  if (res?.imd_state_sid != null) {
+    return {
+      label: "IMD (India Meteorological Department)",
+      tag: "IMD",
+    };
+  }
+
+  return {
+    label: "IMD (India Meteorological Department)",
+    tag: "IMD",
+  };
+};
+
+const renderWeatherInsights = (weatherInput: any) => {
+  if (!weatherInput) return null;
+
+  let weather = weatherInput;
+  if (typeof weather === "string") {
+    try {
+      weather = JSON.parse(weather);
+    } catch {
+      return <p className="text-xs text-sky-900 dark:text-sky-300">{weather}</p>;
+    }
+  }
+
+  if (typeof weather !== "object") {
+    return null;
+  }
+
+  let result = weather.result || weather;
+  if (typeof result === "string") {
+    try {
+      result = JSON.parse(result);
+    } catch { }
+  }
+
+  const source = getWeatherSource(weather);
+  const dataType = String(weather.data_type || "").toLowerCase();
+  const isAws = dataType === "current_aws" || Boolean(result?.station);
+
+  // Fallback if neither structured AWS nor forecast
+  if (!result || (typeof result === "object" && !isAws && !result.today && !result.forecast)) {
     return (
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        {Object.entries(weather).map(([key, val]) => {
-          if (val === null || val === undefined || typeof val === "function")
-            return null;
-          return (
-            <div key={key} className="flex gap-1.5">
-              <span className="font-semibold capitalize text-sky-900 dark:text-sky-400">
-                {key.replace(/_/g, " ")}:
-              </span>
-              <span className="text-sky-850 dark:text-sky-300">
-                {typeof val === "object" ? JSON.stringify(val) : String(val)}
-              </span>
-            </div>
-          );
-        })}
+      <div className="space-y-3 text-sky-900 dark:text-sky-300">
+        <div className="flex justify-between items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+            Weather Insights
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300 dark:border-sky-800 tracking-wide uppercase">
+            <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
+            Source: {source.tag}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          {Object.entries(result || weather).map(([key, val]) => {
+            if (val === null || val === undefined || typeof val === "function" || key === "result")
+              return null;
+            return (
+              <div key={key} className="flex gap-1.5">
+                <span className="font-semibold capitalize text-sky-900 dark:text-sky-400">
+                  {key.replace(/_/g, " ")}:
+                </span>
+                <span className="text-sky-850 dark:text-sky-300 truncate">
+                  {typeof val === "object" ? JSON.stringify(val) : String(val)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
 
+  // Branch 1: Automatic Weather Station (Live AWS Observation)
+  if (isAws) {
+    const station = result.station || {};
+    const rawDistance = result.distance_km ?? result.distance ?? result.distance_to_station_km;
+    const distance = rawDistance != null ? Number(rawDistance).toFixed(1) : null;
+    const obsTime = [station.date, station.time].filter(Boolean).join(" at ");
+    const compassDir = getCompassDirection(station.wind_direction_deg);
+
+    return (
+      <div className="space-y-3.5 text-sky-900 dark:text-sky-300">
+        {/* Top Station & Source Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2 gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+              Weather Station:{" "}
+            </span>
+            <span className="text-sm font-bold text-sky-950 dark:text-sky-100">
+              {station.name || station.district || "Automatic Weather Station"}
+            </span>
+            {distance && (
+              <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">
+                ({distance} km away)
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {obsTime && (
+              <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
+                Observed: {obsTime}
+              </span>
+            )}
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300 dark:border-sky-800 tracking-wide uppercase"
+              title={source.label}
+            >
+              <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
+              Source: {source.tag}
+            </span>
+          </div>
+        </div>
+
+        {/* Live Observation Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Card 1: Conditions & Temp */}
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">
+                Live Station Observation
+              </p>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 dark:border-emerald-800/40">
+                Real-Time
+              </span>
+            </div>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                  Condition:
+                </span>
+                <span className="font-semibold text-sky-950 dark:text-sky-100">
+                  {station.weather_message || "Clear Sky"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                  Temperature:
+                </span>
+                <span className="font-semibold text-sky-950 dark:text-sky-100">
+                  {station.temperature_c != null ? `${station.temperature_c}°C` : "--"}
+                  {station.feel_like_c != null && (
+                    <span className="text-[11px] text-sky-600 dark:text-sky-400 font-normal ml-1">
+                      (Feels {station.feel_like_c}°C)
+                    </span>
+                  )}
+                </span>
+              </div>
+              {station.mslp && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                    Pressure:
+                  </span>
+                  <span className="font-semibold text-sky-950 dark:text-sky-100">
+                    {station.mslp} hPa
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: Wind & Humidity */}
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
+            <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">
+              Atmosphere & Wind
+            </p>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                  Humidity:
+                </span>
+                <span className="font-semibold text-sky-950 dark:text-sky-100">
+                  {station.humidity_pct != null ? `${station.humidity_pct}%` : "--"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                  Wind:
+                </span>
+                <span className="font-semibold text-sky-950 dark:text-sky-100">
+                  {station.wind_speed_kmph != null ? `${station.wind_speed_kmph} km/h` : "--"}
+                  {compassDir && ` ${compassDir}`}
+                  {station.wind_direction_deg && ` (${station.wind_direction_deg}°)`}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                  Location:
+                </span>
+                <span className="font-semibold text-sky-950 dark:text-sky-100 truncate max-w-[150px]">
+                  {[station.district, station.state].filter(Boolean).join(", ") || (weather.geocode?.display_name || "--")}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Branch 2: Forecast format
   const today = result.today || {};
   const forecastList = result.forecast || [];
 
   return (
     <div className="space-y-4 text-sky-900 dark:text-sky-300">
       {/* Location / Station Info */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2 gap-1">
-        <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2 gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
             Weather Station:{" "}
           </span>
           <span className="text-sm font-bold text-sky-950 dark:text-sky-100">
-            {today.station || "Unknown"}
+            {today.station || "Forecast Station"}
           </span>
           {today.distance_to_station_km && (
             <span className="text-xs text-sky-600 dark:text-sky-400 ml-1.5 font-medium">
@@ -168,11 +405,20 @@ const renderWeatherInsights = (weather: any) => {
             </span>
           )}
         </div>
-        {today.date && (
-          <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
-            As of {today.date}
+        <div className="flex flex-wrap items-center gap-2">
+          {today.date && (
+            <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
+              As of {today.date}
+            </span>
+          )}
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300 dark:border-sky-800 tracking-wide uppercase"
+            title={source.label}
+          >
+            <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
+            Source: {source.tag}
           </span>
-        )}
+        </div>
       </div>
 
       {/* Today's Stats & Forecast Grid */}
@@ -183,7 +429,7 @@ const renderWeatherInsights = (weather: any) => {
             Today's Forecast
           </p>
           <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
                 Condition:
               </span>
@@ -191,7 +437,7 @@ const renderWeatherInsights = (weather: any) => {
                 {today.forecast || "N/A"}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
                 Temperature:
               </span>
@@ -202,7 +448,7 @@ const renderWeatherInsights = (weather: any) => {
               </span>
             </div>
             {today.past_24hrs_rainfall && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
                   Rain (Last 24h):
                 </span>
@@ -220,7 +466,7 @@ const renderWeatherInsights = (weather: any) => {
             Humidity & Solar
           </p>
           <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
                 Humidity (08:30 / 17:30):
               </span>
@@ -228,7 +474,7 @@ const renderWeatherInsights = (weather: any) => {
                 {today.humidity_0830 || "--"}% / {today.humidity_1730 || "--"}%
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
                 Sunrise / Sunset:
               </span>
@@ -1298,6 +1544,27 @@ export const CallInterface = () => {
           weather = typeof finalAnswerObj.weather_response === 'string'
             ? JSON.parse(finalAnswerObj.weather_response)
             : finalAnswerObj.weather_response;
+        } catch (e) { }
+      }
+      if (!weather && (result as any)?.values?.weather_response) {
+        try {
+          weather = typeof (result as any).values.weather_response === 'string'
+            ? JSON.parse((result as any).values.weather_response)
+            : (result as any).values.weather_response;
+        } catch (e) { }
+      }
+      if (!weather && Array.isArray((result as any)?.values?.query_tool_responses)) {
+        const toolResp = (result as any).values.query_tool_responses[activeQueryIndex]?.tool_responses?.weather
+          || (result as any).values.query_tool_responses[0]?.tool_responses?.weather;
+        if (toolResp) {
+          try {
+            weather = typeof toolResp === 'string' ? JSON.parse(toolResp) : toolResp;
+          } catch (e) { }
+        }
+      }
+      if (typeof weather === 'string') {
+        try {
+          weather = JSON.parse(weather);
         } catch (e) { }
       }
 
@@ -2428,6 +2695,13 @@ export const CallInterface = () => {
                                         </svg>
                                         <span>Weather Insights</span>
                                       </div>
+                                      <span
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100/90 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300/60 dark:border-sky-800/60 tracking-wider uppercase shadow-2xs"
+                                        title={getWeatherSource(qn.weather).label}
+                                      >
+                                        <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
+                                        {getWeatherSource(qn.weather).tag}
+                                      </span>
                                     </div>
                                     <div className="text-xs text-sky-900 dark:text-sky-300 leading-relaxed px-1">
                                       {renderWeatherInsights(qn.weather)}

@@ -328,6 +328,11 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         debug: "DEBUG",
         permOnClick: true,
         enableTracking: true,
+        audioConstraints: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
       plivoClientRef.current = client;
 

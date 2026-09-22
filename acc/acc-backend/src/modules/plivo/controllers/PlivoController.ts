@@ -183,7 +183,7 @@ export class PlivoController {
 
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Stream contentType="audio/x-l16;rate=16000" noiseCancellation="true" audioTrack="both" noise_cancellation_level="85">${streamUrl}</Stream>
+  <Stream contentType="audio/x-l16;rate=16000" noiseCancellation="true" audioTrack="both" noiseCancellationLevel="95">${streamUrl}</Stream>
   <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
   <Dial timeout="40" callerId="${effectiveCallerId}">
     <Number>${destination}</Number>
@@ -232,7 +232,7 @@ export class PlivoController {
         xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
                               <Stream contentType="audio/x-l16;rate=16000"
-          noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
+          noiseCancellation="true" audioTrack="both" noiseCancellationLevel="85"
           >${streamUrl}</Stream>
                               <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />

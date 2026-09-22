@@ -1,3 +1,5 @@
+// import fs from 'fs';
+// import path from 'path';
 import { inject, injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
 import { aiConfig } from '../../../config/ai.js';
@@ -54,6 +56,7 @@ export class PlivoService {
   private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }> = new Map();
 
   private lastActivityMap: Map<string, number> = new Map();
+  // private audioDumpBuffers: Map<string, Buffer[]> = new Map();
 
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository)
@@ -90,6 +93,70 @@ export class PlivoService {
       }
     }
   }
+
+  /*
+  // Generates a standard 44-byte RIFF/WAV header for 16-bit linear PCM audio.
+  private createWavHeader(dataLength: number, sampleRate = 16000, numChannels = 1, bitsPerSample = 16): Buffer {
+    const header = Buffer.alloc(44);
+    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+
+    // RIFF chunk descriptor
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + dataLength, 4);
+    header.write('WAVE', 8);
+
+    // "fmt " sub-chunk
+    header.write('fmt ', 12);
+    header.writeUInt32LE(16, 16); // Subchunk1Size (16 for PCM)
+    header.writeUInt16LE(1, 20); // AudioFormat (1 = PCM)
+    header.writeUInt16LE(numChannels, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(byteRate, 28);
+    header.writeUInt16LE(blockAlign, 32);
+    header.writeUInt16LE(bitsPerSample, 34);
+
+    // "data" sub-chunk
+    header.write('data', 36);
+    header.writeUInt32LE(dataLength, 40);
+
+    return header;
+  }
+
+  // Saves accumulated raw PCM chunks for a call track into a single playable WAV file.
+  saveAudioDump(callId: string, track: 'inbound' | 'outbound'): void {
+    const key = `${callId}_${track}`;
+    const chunks = this.audioDumpBuffers.get(key);
+    if (!chunks || chunks.length === 0) {
+      this.audioDumpBuffers.delete(key);
+      return;
+    }
+
+    try {
+      const dumpDir = path.resolve(process.cwd(), 'uploads', 'audio-dumps');
+      if (!fs.existsSync(dumpDir)) {
+        fs.mkdirSync(dumpDir, { recursive: true });
+      }
+
+      const pcmData = Buffer.concat(chunks);
+      const wavHeader = this.createWavHeader(pcmData.length, 16000, 1, 16);
+      const wavFile = Buffer.concat([wavHeader, pcmData]);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${callId}_${track}_${timestamp}.wav`;
+      const filePath = path.join(dumpDir, filename);
+
+      fs.writeFileSync(filePath, wavFile);
+      const durationSec = (pcmData.length / 32000).toFixed(1);
+      const sizeKB = (wavFile.length / 1024).toFixed(1);
+      console.log(`💾 [PLIVO-SERVICE] Saved single audio dump for call ${callId} (${track}) to ${filePath} (${durationSec}s, ${sizeKB} KB)`);
+    } catch (err) {
+      console.error(`❌ [PLIVO-SERVICE] Failed to save audio dump for ${key}:`, err);
+    } finally {
+      this.audioDumpBuffers.delete(key);
+    }
+  }
+  */
 
   /**
    * Fast text translation using Sarvam AI's sarvam-translate:v1 model.
@@ -170,9 +237,10 @@ export class PlivoService {
     const key = `${callId}_${track}`;
     console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam STT WebSocket stream for call ${callId} (${track})`);
 
-    const transcribeUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+    const transcribeUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=false`;
 
     const headers = {
+      'api-subscription-key': this.sarvamApiKey,
       'Api-Subscription-Key': this.sarvamApiKey,
     };
 
@@ -196,6 +264,7 @@ export class PlivoService {
     this.activeStreams.set(key, session);
 
     transcribeWs.on('open', () => {
+      // console.log(`✅ [PLIVO-SERVICE] Sarvam transcribe WS connected for ${key}`);
       transcribeWsSession.isOpen = true;
       this.flushQueue(transcribeWsSession);
     });
@@ -204,7 +273,8 @@ export class PlivoService {
       try {
         const response = JSON.parse(data.toString());
         if (response.type === 'data') {
-          const current = (response.data.transcript || '').trim();
+          const current = (response.data?.transcript || '').trim();
+          // console.log(`📩 [PLIVO-SERVICE] Sarvam STT data for ${key}: "${current}" (lang=${response.data?.language_code || session.detectedLanguage})`);
           if (!current) return;
 
           if (response.data.language_code) {
@@ -216,12 +286,8 @@ export class PlivoService {
           let delta = '';
           if (prev && current.startsWith(prev)) {
             delta = current.substring(prev.length).trim();
-          } else if (!prev) {
-            delta = current;
           } else {
-            // Streaming hypothesis revised by Sarvam STT: replace current pending segment
             delta = current;
-            session.pendingOriginal = '';
           }
 
           if (delta) {
@@ -263,8 +329,11 @@ export class PlivoService {
     const session = this.activeStreams.get(key);
     if (!session) return;
 
-    const url = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
-    const headers = { 'Api-Subscription-Key': this.sarvamApiKey };
+    const url = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=false`;
+    const headers = {
+      'api-subscription-key': this.sarvamApiKey,
+      'Api-Subscription-Key': this.sarvamApiKey,
+    };
     const newWs = new WebSocket(url, { headers });
 
     const wsSession = session.transcribeWsSession;
@@ -274,30 +343,35 @@ export class PlivoService {
     newWs.on('open', () => {
       wsSession.isOpen = true;
       this.flushQueue(wsSession);
-      console.log(`[PLIVO-SERVICE] Reconnected Sarvam transcribe WS for ${key}`);
+      console.log(`✅ [PLIVO-SERVICE] Reconnected Sarvam transcribe WS for ${key}`);
     });
 
     newWs.on('message', (data) => {
       try {
         const response = JSON.parse(data.toString());
         if (response.type === 'data') {
-          const current = response.data.transcript || '';
-          const prev = session.lastOriginal;
-          let delta = '';
-          if (current.startsWith(prev)) {
-            delta = current.substring(prev.length).trim();
-          } else {
-            delta = current.trim();
-          }
+          const current = (response.data?.transcript || '').trim();
+          // console.log(`📩 [PLIVO-SERVICE] Reconnected Sarvam STT data for ${key}: "${current}"`);
+          if (!current) return;
 
           if (response.data.language_code) {
             session.detectedLanguage = response.data.language_code;
             this.detectedLanguages.set(key, response.data.language_code);
           }
 
+          const prev = session.lastOriginal;
+          let delta = '';
+          if (prev && current.startsWith(prev)) {
+            delta = current.substring(prev.length).trim();
+          } else {
+            delta = current;
+          }
+
           if (delta) {
             session.lastOriginal = current;
-            session.pendingOriginal = (session.pendingOriginal + ' ' + delta).trim();
+            session.pendingOriginal = session.pendingOriginal
+              ? `${session.pendingOriginal} ${delta}`.trim()
+              : delta;
             this.triggerDebounce(callId, track);
           }
         }
@@ -323,7 +397,7 @@ export class PlivoService {
         const msg = JSON.stringify({
           audio: {
             data: base64Data,
-            sample_rate: '16000',
+            sample_rate: 16000,
             encoding: 'audio/wav',
           },
         });
@@ -348,6 +422,7 @@ export class PlivoService {
     session.debounceTimer = setTimeout(async () => {
       const originalText = session.pendingOriginal.trim();
       session.pendingOriginal = '';
+      session.lastOriginal = '';
 
       if (originalText) {
         // Accumulate original transcript
@@ -374,11 +449,15 @@ export class PlivoService {
         });
       }
       session.debounceTimer = null;
-    }, 1000);
+    }, 1500);
   }
 
   async finalizeTrackStream(callId: string, track: 'inbound' | 'outbound'): Promise<{ originalText: string; translatedText: string }> {
     const key = `${callId}_${track}`;
+
+    // Save single raw audio dump for this track
+    // this.saveAudioDump(callId, track);
+
     const session = this.activeStreams.get(key);
     if (!session) return { originalText: '', translatedText: '' };
 
@@ -400,6 +479,7 @@ export class PlivoService {
 
     const remainingOriginal = session.pendingOriginal.trim();
     session.pendingOriginal = '';
+    session.lastOriginal = '';
     let remainingTranslated = '';
 
     if (remainingOriginal) {
@@ -441,6 +521,15 @@ export class PlivoService {
   ): Promise<{ originalText: string; translatedText: string }> {
     this.lastActivityMap.set(callId, Date.now());
     const key = `${callId}_${track}`;
+
+    // Collect raw PCM chunk for call audio dump
+    // let bufferList = this.audioDumpBuffers.get(key);
+    // if (!bufferList) {
+    //   bufferList = [];
+    //   this.audioDumpBuffers.set(key, bufferList);
+    // }
+    // bufferList.push(audioBuffer);
+
     const session = this.activeStreams.get(key);
     if (session) {
       this.sendAudio(session.transcribeWsSession, audioBuffer);
@@ -467,6 +556,9 @@ export class PlivoService {
     this.lastActivityMap.delete(callId);
     this.endedCalls.delete(callId);
     for (const track of ['inbound', 'outbound'] as const) {
+      // Safety fallback to dump audio if not finalized prior
+      // this.saveAudioDump(callId, track);
+
       const key = `${callId}_${track}`;
       this.activeTranscriptions.delete(key);
       this.activeTranslations.delete(key);
