@@ -1,4 +1,4 @@
-export function buildBaseQuestionMatch(source?: string,isTrainingQuestion?: boolean) {
+export function buildBaseQuestionMatch(source?: string, isTrainingQuestion?: boolean) {
   const matchStage: any = {
     $and: [
       {
@@ -17,15 +17,22 @@ export function buildBaseQuestionMatch(source?: string,isTrainingQuestion?: bool
     } else if (source.includes(',')) {
       const sourcesArray = source.split(',').map(s => {
         const lower = s.trim().toLowerCase();
-        return (lower === "annam" || lower === "web application") ? "AJRASAKHA" : s.trim().toUpperCase();
+        // Handle special case mappings
+        if (lower === "annam" || lower === "web application") return "AJRASAKHA";
+        if (lower === "question_collection") return "QUESTION_COLLECTION";
+        return s.trim().toUpperCase();
       });
       matchStage.source = { $in: sourcesArray };
     } else {
       const lower = source.toLowerCase();
-      matchStage.source = 
-        (lower === "annam" || lower === "web application") 
-          ? "AJRASAKHA" 
-          : source.toUpperCase();
+      // Handle special case mappings
+      if (lower === "annam" || lower === "web application") {
+        matchStage.source = "AJRASAKHA";
+      } else if (lower === "question_collection") {
+        matchStage.source = "QUESTION_COLLECTION";
+      } else {
+        matchStage.source = source.toUpperCase();
+      }
     }
   }
 

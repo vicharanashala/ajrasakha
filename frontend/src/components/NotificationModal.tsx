@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     BellIcon,
     CheckCircle,
@@ -168,6 +169,7 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
 
     const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
         e.stopPropagation();
+        setNotifications((prev) => prev.filter((n) => n._id !== notificationId));
         try {
             await deleteNotification(notificationId);
             toast.success("Notification deleted");
@@ -294,75 +296,100 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
                 </div>
 
                 <ScrollArea className="flex-1 bg-muted/10">
-                    <div className="p-6 space-y-4">
-                        {filteredNotifications.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-center">
-                                <div className="bg-muted p-4 rounded-full mb-4">
-                                    <BellIcon className="w-8 h-8 text-muted-foreground" />
-                                </div>
-                                <h3 className="font-semibold text-lg">{emptyTitleText}</h3>
-                                <p className="text-sm text-muted-foreground">You're all caught up!</p>
-                            </div>
-                        ) : (
-                            filteredNotifications.map((n) => (
-                                <div
-                                    key={n._id}
-                                    onClick={() => handleNotificationClick(n)}
-                                    className={cn(
-                                        "flex gap-4 p-4 rounded-xl border bg-card transition-all cursor-pointer group hover:shadow-md hover:border-primary/50",
-                                        !n.is_read && "border-l-4 border-l-primary shadow-sm"
-                                    )}
+                    <div className="p-6 flex flex-col gap-4">
+                        <AnimatePresence initial={false}>
+                            {filteredNotifications.length === 0 ? (
+                                <motion.div
+                                    key="empty-notifications"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="flex flex-col items-center justify-center py-20 text-center"
                                 >
-                                    <div className="shrink-0">
-                                        <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center relative">
-                                            <BellIcon className="w-5 h-5 text-primary" />
-                                            {!n.is_read && (
-                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-card" />
-                                            )}
-                                        </div>
+                                    <div className="bg-muted p-4 rounded-full mb-4">
+                                        <BellIcon className="w-8 h-8 text-muted-foreground" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between mb-1">
-                                            <h4
-                                                className="font-bold text-sm text-foreground break-words pr-2"
-                                                title={getNotificationDisplayTitle(n)}
-                                            >
-                                                {getNotificationDisplayTitle(n)}
-                                            </h4>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
-                                            {n.message}
-                                        </p>
-                                        {n.questionText && (
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <p className="text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md line-clamp-2 leading-relaxed mb-3 border border-primary/20 cursor-help">
-                                                            {n.questionText}
-                                                        </p>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="bottom" className="max-w-sm">
-                                                        <p className="text-sm">{n.questionText}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
+                                    <h3 className="font-semibold text-lg">{emptyTitleText}</h3>
+                                    <p className="text-sm text-muted-foreground">You're all caught up!</p>
+                                </motion.div>
+                            ) : (
+                                filteredNotifications.map((n) => (
+                                    <motion.div
+                                        key={n._id}
+                                        layout
+                                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{
+                                            opacity: 0,
+                                            x: 40,
+                                            scale: 0.92,
+                                            transition: { duration: 0.22, ease: "easeOut" }
+                                        }}
+                                        transition={{
+                                            layout: { duration: 0.25, ease: "easeInOut" },
+                                            opacity: { duration: 0.18 },
+                                            y: { duration: 0.18 }
+                                        }}
+                                        onClick={() => handleNotificationClick(n)}
+                                        className={cn(
+                                            "flex gap-4 p-4 rounded-xl border bg-card transition-colors cursor-pointer group hover:shadow-md hover:border-primary/50 relative",
+                                            !n.is_read && "border-l-4 border-l-primary shadow-sm"
                                         )}
-                                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {formatDate(new Date(n.createdAt))}
+                                    >
+                                        <div className="shrink-0">
+                                            <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center relative">
+                                                <BellIcon className="w-5 h-5 text-primary" />
+                                                {!n.is_read && (
+                                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-card" />
+                                                )}
                                             </div>
                                         </div>
-                                    </div>
-                                    <button
-                                        onClick={(e) => handleDelete(e, n._id)}
-                                        className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-all self-start"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))
-                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between mb-1">
+                                                <h4
+                                                    className="font-bold text-sm text-foreground break-words pr-2"
+                                                    title={getNotificationDisplayTitle(n)}
+                                                >
+                                                    {getNotificationDisplayTitle(n)}
+                                                </h4>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                                                {n.message}
+                                            </p>
+                                            {n.questionText && (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <p className="text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md line-clamp-2 leading-relaxed mb-3 border border-primary/20 cursor-help">
+                                                                {n.questionText}
+                                                            </p>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom" className="max-w-sm">
+                                                            <p className="text-sm">{n.questionText}</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+                                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
+                                                <div className="flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {formatDate(new Date(n.createdAt))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleDelete(e, n._id)}
+                                            title="Delete notification"
+                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive text-muted-foreground rounded-lg transition-all duration-200 hover:scale-110 active:scale-90 hover:rotate-90 self-start"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </motion.div>
+                                ))
+                            )}
+                        </AnimatePresence>
 
                         {hasNextPage && (
                             <Button
