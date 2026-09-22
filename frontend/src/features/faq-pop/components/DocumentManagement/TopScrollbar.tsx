@@ -23,8 +23,16 @@ export default function TopScrollbar({ containerRef }) {
     ro.observe(table);
     ro.observe(container);
     return () => ro.disconnect();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerRef]);
 
+  // Runs once on mount, same as the effect above — but this one used to depend on the strip DOM
+  // node already existing, and the strip was conditionally rendered (`if (contentWidth <= 0)
+  // return null`, below) until the first effect's measurement landed. That meant this effect's
+  // very first (and only, given the stable `containerRef` dependency) run always found
+  // `stripRef.current` still null and bailed out — no listeners ever got attached, so dragging the
+  // strip did nothing while the real scrollbar worked fine. Fixed by always rendering the strip
+  // (see below) so the ref is there from this component's first render.
   useEffect(() => {
     const container = containerRef.current;
     const strip = stripRef.current;
@@ -48,8 +56,6 @@ export default function TopScrollbar({ containerRef }) {
       strip.removeEventListener("scroll", onStripScroll);
     };
   }, [containerRef]);
-
-  if (contentWidth <= 0) return null;
 
   return (
     <div
