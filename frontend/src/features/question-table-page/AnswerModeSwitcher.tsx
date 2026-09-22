@@ -1,13 +1,14 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { BookOpen, FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, MessageSquareDiff } from "lucide-react";
+import { BookOpen, FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, MessageSquareDiff, UtensilsCrossed } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
-    { id: "ajraskha", label: "AJRASKHA", icon: Sparkles },
+    { id: "ajraskha", label: "AJRASAKHA", icon: Sparkles },
     { id: "manual", label: "Manual", icon: UserRound },
     { id: "outreach", label: "Outreach", icon: Radio },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+    { id: "annadatha", label: "AnnaDatha", icon: UtensilsCrossed },
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
@@ -24,6 +25,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Questions coming from WhatsApp chatbot (Source: WHATSAPP)",
     outreach:
         "Questions collected via outreach programs (Source: OUTREACH)",
+    annadatha:
+        "Questions from AnnaDatha collection (Source: QUESTION_COLLECTION)",
     draft:
         "Questions saved as draft (Status: Draft)",
     pae:
@@ -45,6 +48,7 @@ const SOURCE_TO_MODE: Record<string, string> = {
     AGRI_EXPERT: "manual",
     WHATSAPP: "whatsapp",
     OUTREACH: "outreach",
+    QUESTION_COLLECTION: "annadatha",
 };
 
 export type DedicatedSubTab = "questions" | "feedbacks";
@@ -154,9 +158,9 @@ export function AnswerModeSwitcher({
                                     }`}
                             >
                                 <Icon className="h-4 w-4" />
-                                {/* {(id === "draft" || id === "pae" || id === "non_agri" || id === "training") && (
+                                {(id === "annadatha") && (
                                     <TopRightBadge label="new" right={0} />
-                                )} */}
+                                )} 
                                 {label}
                                 {hasSearch && srcCount != null && (
                                     <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">

@@ -135,7 +135,7 @@ type QuestionsFiltersProps = {
   onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -145,6 +145,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
+  if (filter.source === "QUESTION_COLLECTION") return "annadatha";
   if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
@@ -155,6 +156,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
+  if (answerMode === "annadatha") return "QUESTION_COLLECTION";
   if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
@@ -528,6 +530,8 @@ export const QuestionsFilters = ({
     } else if (nextAnswerMode === "training") {
       nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "annadatha") {
+      nextFilters = { ...advanceFilter, source: "QUESTION_COLLECTION", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);

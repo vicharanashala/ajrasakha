@@ -193,7 +193,7 @@ export interface HistoryItem {
 }
 
 export type QuestionPriority = "low" | "medium" | "high" | "critical";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH" | "QUESTION_COLLECTION";
 
 export interface IQuestion {
   id: string;
