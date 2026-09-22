@@ -15,6 +15,7 @@ from ajrasakha.agents.resolution_trace import trace_resolution
 class Location(TypedDict, total=False):
     latitude: Optional[float]
     longitude: Optional[float]
+    district: Optional[str]
     city: Optional[str]
     state: Optional[str]
     address: Optional[str]

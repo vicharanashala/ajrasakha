@@ -603,6 +603,16 @@ def merge_entities_from_rephrased_query(
     state_source: str | None = None
     district_source: str | None = None
 
+    from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
+
+    if extracted_district and extracted_district.lower().strip() in _INDIAN_STATES_LOWER:
+        if not extracted_state:
+            extracted_state = extracted_district.strip().title()
+        extracted_district = None
+
+    if extracted_district and extracted_state and extracted_district.lower().strip() == extracted_state.lower().strip():
+        extracted_district = None
+
     if extracted_state and extracted_district:
         merged["state"] = extracted_state
         merged["district"] = extracted_district
