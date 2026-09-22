@@ -118,7 +118,7 @@ def _tools_for_query(query: dict, selected_tools: list[str]) -> list[str]:
 
 async def extract_node(state: AccAgentState):
     """Extract all details, farmer details, or query details from a transcript.
-    
+
     When a new transcript is submitted (query_details or all mode), this node
     clears any stale tool results from a previous run to prevent the old query's
     data from leaking into the new one.
@@ -150,6 +150,19 @@ async def extract_node(state: AccAgentState):
             data = json.loads(json_match.group(1))
         else:
             data = json.loads(content)
+
+        # Use stored user location as PRIMARY source for state/district.
+        # This ensures metadata takes precedence over LLM extraction.
+        stored_loc = state.get("location")
+        if isinstance(stored_loc, dict):
+            stored_state = stored_loc.get("state")
+            stored_district = stored_loc.get("city") or stored_loc.get("district")
+            # Only override if LLM didn't find something explicit in the transcript
+            if stored_state and (not data.get("state") or str(data.get("state", "")).lower() in ("all", "", "not specified")):
+                data["state"] = stored_state
+            if stored_district and (not data.get("district") or str(data.get("district", "")).lower() in ("all", "", "not specified")):
+                data["district"] = stored_district
+
         extraction_update = build_extraction_update(data, extraction_type)
         normalized_state, normalized_district = await normalize_location_from_lgd(
             extraction_update.get("extracted_state"),
@@ -157,7 +170,7 @@ async def extract_node(state: AccAgentState):
         )
         extraction_update["extracted_state"] = normalized_state
         extraction_update["extracted_district"] = normalized_district
-        
+
         # Bug fix: When a new query transcript is submitted, clear any stale
         # tool results from a previous run. This ensures the new query gets
         # fresh tool calls instead of returning old results.
