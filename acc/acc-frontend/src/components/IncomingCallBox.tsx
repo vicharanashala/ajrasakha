@@ -30,7 +30,12 @@ import type { CallTranscript } from "@/context/PlivoContext";
 import { plivoApi } from "@/hooks/api/plivo/api";
 import { toast } from "sonner";
 import { translateService } from "@/hooks/services/translateService";
-import { transcribeAudioWithSarvam } from "@/hooks/services/sarvamSttService";
+import { transcribeAudioWithSarvamDetailed } from "@/hooks/services/sarvamSttService";
+import {
+  SARVAM_LANGUAGES,
+  getLanguageName,
+  detectLanguageFromText,
+} from "@/utils/languageUtils";
 
 export type { CallTranscript };
 
@@ -88,6 +93,7 @@ export const IncomingCallBox = ({
   // Voice-to-Text STT States
   const [isSttRecording, setIsSttRecording] = useState(false);
   const [isSttTranscribing, setIsSttTranscribing] = useState(false);
+  const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
   const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const sttAudioChunksRef = useRef<Blob[]>([]);
   const sttSpeechRecognitionRef = useRef<any>(null);
@@ -201,31 +207,7 @@ export const IncomingCallBox = ({
       ? lastCompletedCallDuration
       : callTimerSeconds;
 
-  const SARVAM_LANGUAGES = [
-    { code: "en-IN", name: "English" },
-    { code: "hi-IN", name: "Hindi" },
-    { code: "bn-IN", name: "Bengali" },
-    { code: "gu-IN", name: "Gujarati" },
-    { code: "kn-IN", name: "Kannada" },
-    { code: "ml-IN", name: "Malayalam" },
-    { code: "mr-IN", name: "Marathi" },
-    { code: "od-IN", name: "Odia" },
-    { code: "pa-IN", name: "Punjabi" },
-    { code: "ta-IN", name: "Tamil" },
-    { code: "te-IN", name: "Telugu" },
-    { code: "as-IN", name: "Assamese" },
-    { code: "doi-IN", name: "Dogri" },
-    { code: "kok-IN", name: "Konkani" },
-    { code: "ks-IN", name: "Kashmiri" },
-    { code: "mai-IN", name: "Maithili" },
-    { code: "mni-IN", name: "Manipuri" },
-    { code: "ne-IN", name: "Nepali" },
-    { code: "sa-IN", name: "Sanskrit" },
-    { code: "sat-IN", name: "Santali" },
-    { code: "sd-IN", name: "Sindhi" },
-    { code: "ur-IN", name: "Urdu" },
-    { code: "brx-IN", name: "Bodo" },
-  ];
+
 
   // Voice-to-Text STT Handler
   const handleToggleSttRecording = async () => {
@@ -280,22 +262,22 @@ export const IncomingCallBox = ({
           return;
         }
 
-        // If Web Speech API already transcribed text in real-time, keep it and don't re-call API
-        if (hasLiveTextRef.current) {
-          setIsSttRecording(false);
-          toast.success("Voice transcribed successfully!");
-          return;
-        }
-
         setIsSttTranscribing(true);
-        const toastId = toast.loading("Transcribing voice recording with Sarvam AI...");
+        const toastId = toast.loading("Transcribing speech & identifying language with Sarvam AI...");
         try {
-          // Use Sarvam Saaras v3 STT with auto language detection ("unknown")
-          const transcript = await transcribeAudioWithSarvam(audioBlob, selectedLanguage || "unknown");
-          if (transcript && transcript.trim()) {
-            setMessageText((prev) => (prev ? `${prev.trim()} ${transcript.trim()}` : transcript.trim()));
+          // Use Sarvam Saaras v3 STT with automatic language identification ("unknown")
+          const res = await transcribeAudioWithSarvamDetailed(audioBlob, "unknown");
+          const transcript = res.transcript?.trim();
+          const detectedLang = res.languageCode || "unknown";
+
+          if (transcript) {
+            setMessageText((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript));
+            if (detectedLang !== "unknown") {
+              setDetectedLanguage(detectedLang);
+            }
             toast.dismiss(toastId);
-            toast.success("Voice transcribed successfully!");
+            const langLabel = getLanguageName(detectedLang);
+            toast.success(`Voice transcribed (${langLabel})!`);
           } else {
             toast.dismiss(toastId);
             toast.info("No speech detected.");
@@ -303,7 +285,11 @@ export const IncomingCallBox = ({
         } catch (err: any) {
           console.error("Sarvam STT transcription error:", err);
           toast.dismiss(toastId);
-          toast.error(err.message || "Failed to transcribe voice recording.");
+          if (hasLiveTextRef.current) {
+            toast.info("Transcribed using local speech preview.");
+          } else {
+            toast.error(err.message || "Failed to transcribe voice recording.");
+          }
         } finally {
           setIsSttTranscribing(false);
           setIsSttRecording(false);
@@ -389,15 +375,25 @@ export const IncomingCallBox = ({
     }
 
     const targetLanguage = selectedLanguage;
-    if (targetLanguage === "en-IN") {
-      toast.error("Cannot translate to the same language (English). Please select a different target language.");
+    const sourceLanguage = detectLanguageFromText(messageText, detectedLanguage);
+
+    // If source and target languages are already the same, keep text and update UI smoothly
+    if (sourceLanguage !== "auto" && sourceLanguage === targetLanguage) {
+      setTranslatedText(messageText);
+      setSendTranslated(true);
+      toast.info(`Message is already in ${getLanguageName(targetLanguage)}.`);
       return;
     }
 
     setTranslating(true);
     try {
-      const translated = await translateService(messageText, targetLanguage, "en-IN");
+      const translated = await translateService(
+        messageText,
+        targetLanguage,
+        sourceLanguage !== "auto" ? sourceLanguage : undefined
+      );
       setTranslatedText(translated);
+      setSendTranslated(true);
       toast.success("Text translated successfully!");
     } catch (err: any) {
       console.error("Translation error:", err);
@@ -771,24 +767,36 @@ export const IncomingCallBox = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-              <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                  Target Language:
-                </label>
-                <select
-                  value={selectedLanguage}
-                  onChange={(e) => {
-                    setSelectedLanguage(e.target.value);
-                    setLanguageManuallyChanged(true);
-                  }}
-                  className="px-2 py-0.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                >
-                  {SARVAM_LANGUAGES.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-wrap items-center gap-2">
+                {messageText.trim() && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      Input:
+                    </span>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                      {getLanguageName(detectLanguageFromText(messageText, detectedLanguage))}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                    Target Language:
+                  </label>
+                  <select
+                    value={selectedLanguage}
+                    onChange={(e) => {
+                      setSelectedLanguage(e.target.value);
+                      setLanguageManuallyChanged(true);
+                    }}
+                    className="px-2 py-0.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    {SARVAM_LANGUAGES.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <Button
                 size="sm"

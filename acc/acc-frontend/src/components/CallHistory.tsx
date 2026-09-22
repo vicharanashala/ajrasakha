@@ -35,7 +35,12 @@ import {
   AccordionTrigger,
 } from "@radix-ui/react-accordion";
 import { translateService } from "@/hooks/services/translateService";
-import { transcribeAudioWithSarvam } from "@/hooks/services/sarvamSttService";
+import { transcribeAudioWithSarvamDetailed } from "@/hooks/services/sarvamSttService";
+import {
+  SARVAM_LANGUAGES,
+  getLanguageName,
+  detectLanguageFromText,
+} from "@/utils/languageUtils";
 import { QuestionMetadataPopover } from "./QuestionMetadataPopover";
 
 
@@ -321,6 +326,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   // Voice-to-Text STT States
   const [isSttRecording, setIsSttRecording] = useState(false);
   const [isSttTranscribing, setIsSttTranscribing] = useState(false);
+  const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
   const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const sttAudioChunksRef = useRef<Blob[]>([]);
 
@@ -390,20 +396,21 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
           return;
         }
 
-        if (hasLiveTextRef.current) {
-          setIsSttRecording(false);
-          toast.success("Voice transcribed successfully!");
-          return;
-        }
-
         setIsSttTranscribing(true);
-        const toastId = toast.loading("Transcribing voice recording with Sarvam AI...");
+        const toastId = toast.loading("Transcribing speech & identifying language with Sarvam AI...");
         try {
-          const text = await transcribeAudioWithSarvam(fullAudioBlob, selectedLanguage || "unknown");
-          if (text && text.trim()) {
-            setMessageText((prev) => (prev ? `${prev} ${text.trim()}` : text.trim()).slice(0, MAX_MESSAGE_LENGTH));
+          const res = await transcribeAudioWithSarvamDetailed(fullAudioBlob, "unknown");
+          const text = res.transcript?.trim();
+          const detectedLang = res.languageCode || "unknown";
+
+          if (text) {
+            setMessageText((prev) => (prev ? `${prev} ${text}` : text).slice(0, MAX_MESSAGE_LENGTH));
+            if (detectedLang !== "unknown") {
+              setDetectedLanguage(detectedLang);
+            }
             toast.dismiss(toastId);
-            toast.success("Voice transcribed successfully!");
+            const langLabel = getLanguageName(detectedLang);
+            toast.success(`Voice transcribed (${langLabel})!`);
           } else {
             toast.dismiss(toastId);
             toast.info("No speech detected.");
@@ -411,7 +418,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         } catch (err: any) {
           console.error("STT Error:", err);
           toast.dismiss(toastId);
-          toast.error(err.message || "Failed to transcribe audio.");
+          if (hasLiveTextRef.current) {
+            toast.info("Transcribed using local speech preview.");
+          } else {
+            toast.error(err.message || "Failed to transcribe audio.");
+          }
         } finally {
           setIsSttTranscribing(false);
           setIsSttRecording(false);
@@ -464,31 +475,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     }
   };
 
-  const SARVAM_LANGUAGES = [
-    { code: "en-IN", name: "English" },
-    { code: "hi-IN", name: "Hindi" },
-    { code: "bn-IN", name: "Bengali" },
-    { code: "gu-IN", name: "Gujarati" },
-    { code: "kn-IN", name: "Kannada" },
-    { code: "ml-IN", name: "Malayalam" },
-    { code: "mr-IN", name: "Marathi" },
-    { code: "od-IN", name: "Odia" },
-    { code: "pa-IN", name: "Punjabi" },
-    { code: "ta-IN", name: "Tamil" },
-    { code: "te-IN", name: "Telugu" },
-    { code: "as-IN", name: "Assamese" },
-    { code: "doi-IN", name: "Dogri" },
-    { code: "kok-IN", name: "Konkani" },
-    { code: "ks-IN", name: "Kashmiri" },
-    { code: "mai-IN", name: "Maithili" },
-    { code: "mni-IN", name: "Manipuri" },
-    { code: "ne-IN", name: "Nepali" },
-    { code: "sa-IN", name: "Sanskrit" },
-    { code: "sat-IN", name: "Santali" },
-    { code: "sd-IN", name: "Sindhi" },
-    { code: "ur-IN", name: "Urdu" },
-    { code: "brx-IN", name: "Bodo" },
-  ];
+
 
   // Reset translation state when message row is closed
   useEffect(() => {
@@ -627,14 +614,14 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
       return;
     }
 
-    // Always use selectedLanguage since that's what the user manually selected
     const targetLanguage = selectedLanguage;
+    const sourceLanguage = detectLanguageFromText(messageText, detectedLanguage);
 
-    // Check if source and target languages are the same
-    if (targetLanguage === "en-IN") {
-      toast.error(
-        "Cannot translate to the same language (English). Please select a different target language.",
-      );
+    // If source and target languages are already the same, keep text and update UI smoothly
+    if (sourceLanguage !== "auto" && sourceLanguage === targetLanguage) {
+      setTranslatedText(messageText);
+      setSendTranslated(true);
+      toast.info(`Message is already in ${getLanguageName(targetLanguage)}.`);
       return;
     }
 
@@ -643,9 +630,10 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
       const translated = await translateService(
         messageText,
         targetLanguage,
-        "en-IN",
+        sourceLanguage !== "auto" ? sourceLanguage : undefined,
       );
       setTranslatedText(translated);
+      setSendTranslated(true);
       toast.success("Text translated successfully!");
     } catch (err: any) {
       console.error("Translation error:", err);
@@ -1362,10 +1350,20 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       )}
                                     </Button>
                                   </div>
-                                  <div className="mt-2">
-                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                      Select Target Language:
-                                    </label>
+                                  <div className="mt-2 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-xs font-medium text-muted-foreground">
+                                        Target Language:
+                                      </label>
+                                      {messageText.trim() && (
+                                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                          <span>Input:</span>
+                                          <span className="font-semibold text-foreground px-1.5 py-0.5 rounded bg-muted/60 border text-[10px]">
+                                            {getLanguageName(detectLanguageFromText(messageText, detectedLanguage))}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
                                     <select
                                       value={selectedLanguage}
                                       onChange={(e) => {

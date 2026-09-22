@@ -17,31 +17,8 @@ import type { FarmerProfile } from "@/hooks/api/plivo/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const SARVAM_LANGUAGES = [
-  { code: "en-IN", name: "English" },
-  { code: "hi-IN", name: "Hindi" },
-  { code: "bn-IN", name: "Bengali" },
-  { code: "gu-IN", name: "Gujarati" },
-  { code: "kn-IN", name: "Kannada" },
-  { code: "ml-IN", name: "Malayalam" },
-  { code: "mr-IN", name: "Marathi" },
-  { code: "od-IN", name: "Odia" },
-  { code: "pa-IN", name: "Punjabi" },
-  { code: "ta-IN", name: "Tamil" },
-  { code: "te-IN", name: "Telugu" },
-  { code: "as-IN", name: "Assamese" },
-  { code: "doi-IN", name: "Dogri" },
-  { code: "kok-IN", name: "Konkani" },
-  { code: "ks-IN", name: "Kashmiri" },
-  { code: "mai-IN", name: "Maithili" },
-  { code: "mni-IN", name: "Manipuri" },
-  { code: "ne-IN", name: "Nepali" },
-  { code: "sa-IN", name: "Sanskrit" },
-  { code: "sat-IN", name: "Santali" },
-  { code: "sd-IN", name: "Sindhi" },
-  { code: "ur-IN", name: "Urdu" },
-  { code: "brx-IN", name: "Bodo" },
-];
+import { SARVAM_LANGUAGES } from "@/utils/languageUtils";
+export { SARVAM_LANGUAGES };
 
 
 
