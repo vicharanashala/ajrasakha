@@ -36,6 +36,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { Separator } from "@/components/atoms/separator";
 import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
 // import { useDashboardData } from "./hooks/useDashboardData";
 // import { BarGraph } from "./components/shared/BarGrapgh";
@@ -659,8 +660,8 @@ export function UserDetailsView({
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4"
             >
-              {/* Title */}
-              <div className="min-w-0 flex items-start gap-3">
+              {/* Title + summary stat */}
+              <div className="flex min-w-0 items-start gap-3">
                 <motion.div
                   whileHover={{ rotate: -6, scale: 1.05 }}
                   transition={{ type: "spring", stiffness: 300, damping: 18 }}
@@ -669,18 +670,64 @@ export function UserDetailsView({
                   <Users className="h-4 w-4 text-primary" />
                 </motion.div>
                 <div className="min-w-0">
-                  <CardTitle className="text-base font-semibold tracking-tight truncate">
-                    All Farmers
-                  </CardTitle>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-base font-semibold tracking-tight">
+                      All Farmers
+                    </CardTitle>
+                    {data?.totalQueries !== undefined && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            tabIndex={0}
+                            aria-label={`Total queries asked: ${data.totalQueries.toLocaleString()}`}
+                            className="flex h-6 items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 text-xs cursor-help hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Queries
+                            </span>
+                            <span className="font-semibold tabular-nums text-primary">
+                              <CountUp
+                                end={data.totalQueries}
+                                duration={1.2}
+                                separator=","
+                                preserveValue
+                              />
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="p-3">
+                          <div className="space-y-1.5 min-w-[160px]">
+                            <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">
+                              Total queries asked
+                            </p>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Messages:</span>
+                              <span className="font-medium">
+                                {data.totalMessagesCount ?? 0}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Questions:</span>
+                              <span className="font-medium">
+                                {data.totalQuestionsCount ?? 0}
+                              </span>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground mt-0.5 truncate">
                     View and manage farmer details, activity, and preferences.
                   </p>
                 </div>
               </div>
 
-              <div className="flex w-full items-center gap-2 lg:w-auto">
+              {/* Search + actions */}
+              <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
                 {/* Search */}
-                <div className="relative w-full min-w-0 lg:w-72 lg:shrink-0 xl:w-80">
+                <div className="relative w-full min-w-0 sm:flex-1 lg:w-72 lg:flex-none lg:shrink-0 xl:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     type="text"
@@ -710,7 +757,8 @@ export function UserDetailsView({
                   </AnimatePresence>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
+                {/* Action toolbar */}
+                <div className="flex shrink-0 items-center gap-1.5">
                   <AnimatePresence>
                     {isFiltered && (
                       <motion.div
@@ -731,7 +779,9 @@ export function UserDetailsView({
                               <X className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom">Clear filters</TooltipContent>
+                          <TooltipContent side="bottom">
+                            Clear filters
+                          </TooltipContent>
                         </Tooltip>
                       </motion.div>
                     )}
@@ -743,26 +793,6 @@ export function UserDetailsView({
                     hideFields={["userType"]}
                     iconOnly
                   />
-
-                  {isAdmin && (
-                    <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }}>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 px-3.5 gap-1.5"
-                        disabled={exportUserDetailsMutation.isPending || totalUsers === 0}
-                        onClick={() => setDownloadConfirmOpen(true)}
-                      >
-                        {exportUserDetailsMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Download className="h-4 w-4" />
-                        )}
-                        Download ({totalUsers})
-                      </Button>
-                    </motion.div>
-                  )}
 
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -783,63 +813,56 @@ export function UserDetailsView({
                     <TooltipContent side="bottom">Refresh</TooltipContent>
                   </Tooltip>
 
-                  {data?.totalQueries !== undefined && (
+                  {isAdmin && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div
-                          tabIndex={0}
-                          aria-label={`Total queries asked: ${data.totalQueries.toLocaleString()}`}
-                          className="flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 text-sm cursor-help hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label={`Download ${totalUsers} farmer details`}
+                          className="border-border/60"
+                          disabled={
+                            exportUserDetailsMutation.isPending ||
+                            totalUsers === 0
+                          }
+                          onClick={() => setDownloadConfirmOpen(true)}
                         >
-                          <Inbox className="h-4 w-4 text-muted-foreground" />
-                          <span className="hidden text-muted-foreground xl:inline">
-                            Total queries asked
-                          </span>
-                          <span className="font-semibold tabular-nums text-primary">
-                            <CountUp
-                              end={data.totalQueries}
-                              duration={1.2}
-                              separator=","
-                              preserveValue
-                            />
-                          </span>
-                        </div>
+                          {exportUserDetailsMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="p-3">
-                        <div className="space-y-1.5 min-w-[160px]">
-                          <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Total queries asked</p>
-                          <div className="flex justify-between items-center text-sm">
-                            <span>Messages:</span>
-                            <span className="font-medium">{data.totalMessagesCount ?? 0}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span>Questions:</span>
-                            <span className="font-medium">{data.totalQuestionsCount ?? 0}</span>
-                          </div>
-                        </div>
+                      <TooltipContent side="bottom">
+                        Download ({totalUsers})
                       </TooltipContent>
                     </Tooltip>
                   )}
 
                   {isAdmin &&
                     (source === "annam" || source === "vicharanashala") && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            size="icon"
-                            aria-label="Add user"
-                            className="shadow-sm shadow-primary/20"
-                            onClick={() => {
-                              setFilters((prev) => ({ ...prev, search: "" }));
-                              setIsAddModalOpen(true);
-                            }}
-                          >
-                            <UserPlus className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Add user</TooltipContent>
-                      </Tooltip>
+                      <>
+                        <Separator orientation="vertical" className="!h-6" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              aria-label="Add user"
+                              className="shadow-sm shadow-primary/20"
+                              onClick={() => {
+                                setFilters((prev) => ({ ...prev, search: "" }));
+                                setIsAddModalOpen(true);
+                              }}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Add user</TooltipContent>
+                        </Tooltip>
+                      </>
                     )}
                 </div>
               </div>
