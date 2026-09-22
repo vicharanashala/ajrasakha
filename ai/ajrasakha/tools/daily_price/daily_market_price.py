@@ -44,12 +44,30 @@ MONGO_MAX_TIME_MS = int(os.getenv("MARKET_MONGO_MAX_TIME_MS", 10000))
 _STATE_SYNONYMS: dict[str, tuple[str, ...]] = {
     "delhi": ("delhi", "nct of delhi"),
     "nct of delhi": ("delhi", "nct of delhi"),
+    "nct delhi": ("delhi", "nct of delhi"),
     "kerala": ("kerala", "keralam"),
     "keralam": ("kerala", "keralam"),
     "pondicherry": ("puducherry", "pondicherry"),
     "puducherry": ("puducherry", "pondicherry"),
     "chhattisgarh": ("chhattisgarh", "chattisgarh"),
     "chattisgarh": ("chhattisgarh", "chattisgarh"),
+    "andaman and nicobar": ("andaman and nicobar", "andaman and nicobar islands"),
+    "andaman and nicobar islands": ("andaman and nicobar", "andaman and nicobar islands"),
+    "andaman & nicobar": ("andaman and nicobar", "andaman and nicobar islands"),
+    "andaman & nicobar islands": ("andaman and nicobar", "andaman and nicobar islands"),
+    "odisha": ("odisha", "orissa"),
+    "orissa": ("odisha", "orissa"),
+    "uttarakhand": ("uttarakhand", "uttaranchal"),
+    "uttaranchal": ("uttarakhand", "uttaranchal"),
+    "jammu and kashmir": ("jammu and kashmir", "jammu & kashmir"),
+    "jammu & kashmir": ("jammu and kashmir", "jammu & kashmir"),
+    "dadra and nagar haveli": ("dadra and nagar haveli", "dadra and nagar haveli and daman and diu"),
+    "daman and diu": ("daman and diu", "dadra and nagar haveli and daman and diu"),
+    "dadra and nagar haveli and daman and diu": (
+        "dadra and nagar haveli",
+        "daman and diu",
+        "dadra and nagar haveli and daman and diu",
+    ),
 }
 
 _client: Optional[MongoClient] = None
@@ -126,6 +144,12 @@ def _norm(value: Optional[str]) -> Optional[str]:
     return cleaned or None
 
 
+def _clean_commodity_token(value: Optional[str]) -> str:
+    if not isinstance(value, str):
+        return ""
+    return re.sub(r"[^a-z0-9]", "", value.strip().lower())
+
+
 def _norm_commodity_name(
     value: Optional[Union[str, list[str]]],
 ) -> Optional[Union[str, list[str]]]:
@@ -179,8 +203,13 @@ def _filter_mc_by_commodity_preference(
         targets = info["targets"]
         canonical = info["canonical"]
 
-        # 1. Exact match with user's requested commodity name(s)
-        exact = [d for d in docs if _norm(d.get("commodity_name")) in targets]
+        # 1. Exact match with user's requested commodity name(s) (verbatim or alphanumeric match)
+        clean_targets = {_clean_commodity_token(t) for t in targets}
+        exact = [
+            d for d in docs
+            if _norm(d.get("commodity_name")) in targets
+            or _clean_commodity_token(d.get("commodity_name")) in clean_targets
+        ]
         if exact:
             kept.extend(exact)
             continue
@@ -384,14 +413,20 @@ def mandi_price_tool(
 
     def _parse_date(value: str) -> datetime:
         value = value.strip()
-        value_n = value.replace("/", "-").replace(" ", "-")
+        # Strip ordinal suffixes e.g. "19th" -> "19", "1st" -> "1"
+        value_clean = re.sub(r"(\d+)(?:st|nd|rd|th)\b", r"\1", value, flags=re.IGNORECASE)
+        value_n = value_clean.replace("/", "-").replace(" ", "-")
         fmts = [
             "%d-%b-%Y",   # 27-Jun-2025
             "%d-%B-%Y",   # 27-June-2025
             "%d-%m-%Y",   # 27-06-2025
             "%Y-%m-%d",   # 2025-06-27
+            "%B-%d-%Y",   # June-27-2025
+            "%b-%d-%Y",   # Jun-27-2025
             "%d-%b",      # 27-Jun  (no year)
             "%d-%B",      # 27-June (no year)
+            "%B-%d",      # June-27 (no year)
+            "%b-%d",      # Jun-27  (no year)
         ]
         for fmt in fmts:
             try:
@@ -548,6 +583,9 @@ def mandi_price_tool(
             # 2. User's input appears verbatim in the doc's aliases list — valid
             doc_aliases = [_norm(a) for a in (doc.get("aliases") or []) if _norm(a)]
             if user_norm in doc_aliases:
+                return True
+            clean_user = _clean_commodity_token(user_norm)
+            if clean_user and clean_user in {_clean_commodity_token(a) for a in doc_aliases}:
                 return True
             # 3. Guard: canonical is a strict sub-phrase of user's input but user has
             #    qualifier words not present in canonical (e.g. "sweet" in "sweet potato"
@@ -1086,21 +1124,29 @@ def mandi_price_tool(
 
                     Accepts:
                     1. Exact match:  "bajra" == "bajra"
-                    2. Prefix match with parenthetical qualifier added by the source:
+                    2. Clean token match (ignoring whitespace/hyphen variations, e.g.
+                       "ash gourd" == "ashgourd", "ridge gourd" == "ridgegourd")
+                    3. Prefix match with parenthetical qualifier added by the source:
                        "bajra(pearl millet/cumbu)" starts with "bajra(" or "bajra "
                        This handles the common Tamil Nadu pattern where the DB stores
                        the commodity as "<name>(<local_name>/<english_name>)".
-                    3. The user's requested name is a substring alias of the canonical name
+                    4. The user's requested name is a substring alias of the canonical name
                        stored in the DB (e.g. user asks "pearl millet", DB has "bajra(pearl millet/cumbu)").
                     """
                     norm_rec = _norm(rec_name)
                     if not norm_rec:
                         return False
+                    clean_rec = _clean_commodity_token(norm_rec)
                     for req in requested_names:
-                        if norm_rec == req:
+                        clean_req = _clean_commodity_token(req)
+                        if norm_rec == req or (clean_req and clean_rec == clean_req):
                             return True
                         # Prefix: "bajra(..." or "bajra ..." → matches "bajra"
                         if norm_rec.startswith(req + "(") or norm_rec.startswith(req + " "):
+                            return True
+                        # Clean prefix with separator e.g. "bajra(pearl millet)"
+                        paren_part = norm_rec.split("(")[0].strip()
+                        if paren_part and _clean_commodity_token(paren_part) == clean_req:
                             return True
                         # Reverse prefix: user asked "pearl millet", DB has "bajra(pearl millet/cumbu)"
                         if req in norm_rec:
@@ -1352,7 +1398,7 @@ def mandi_price_tool(
             resolution = result.setdefault("resolution", {})
             resolution["date_filter"] = resolution.get("date_filter") or date_meta
             resolution["selection_mode"] = (
-                f"priority_{chosen_stage}" if chosen_stage else market_result.get("mode")
+                f"priority_{chosen_stage}" if chosen_stage else None
             )
             resolution["location_priority_tried"] = tried
             if chosen_stage:
