@@ -154,6 +154,8 @@ async def extract_node(state: AccAgentState):
         # Use stored user location as PRIMARY source for state/district.
         # This ensures metadata takes precedence over LLM extraction.
         stored_loc = state.get("location")
+        print(f"DEBUG extract: location={state.get('location')}")
+        print(f"DEBUG extract: data['district'] before override={data.get('district')}")
         if isinstance(stored_loc, dict):
             stored_state = stored_loc.get("state")
             stored_district = stored_loc.get("city") or stored_loc.get("district")
@@ -162,6 +164,7 @@ async def extract_node(state: AccAgentState):
                 data["state"] = stored_state
             if stored_district and (not data.get("district") or str(data.get("district", "")).lower() in ("all", "", "not specified")):
                 data["district"] = stored_district
+        print(f"DEBUG extract: data['district'] after override={data.get('district')}")
 
         extraction_update = build_extraction_update(data, extraction_type)
         normalized_state, normalized_district = await normalize_location_from_lgd(
@@ -307,6 +310,7 @@ async def tool_execution_node(state: AccAgentState):
                     "address": None,
                 })
             if tool == "market":
+                print(f"DEBUG market call: district={district}, state={loc_state}")
                 geocode_district = (
                     None
                     if str(district).strip().lower() in {"all", "not specified", ""}
@@ -317,6 +321,7 @@ async def tool_execution_node(state: AccAgentState):
                     if str(loc_state).strip().lower() in {"all", "not specified", ""}
                     else loc_state
                 )
+                print(f"DEBUG market call: geocode_district={geocode_district}, geocode_state={geocode_state}")
                 geo = (
                     await forward_geocode(state=geocode_state, district=geocode_district)
                     if geocode_state or geocode_district
