@@ -30,6 +30,11 @@ import {
   Mic,
   Loader2,
   Radio,
+  Wind,
+  Droplets,
+  Gauge,
+  MapPin,
+  Clock,
 } from "lucide-react";
 import WeatherWidget from "./WeatherWidget";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
@@ -133,6 +138,36 @@ const getCompassDirection = (deg: number | string | undefined | null): string =>
   return directions[idx < 0 ? idx + 16 : idx];
 };
 
+const formatWeatherTime = (dateStr?: string, timeStr?: string) => {
+  if (!dateStr && !timeStr) return "";
+  let formattedTime = "";
+  if (timeStr) {
+    const parts = timeStr.split(":");
+    if (parts.length >= 2) {
+      const h = parseInt(parts[0], 10);
+      const m = parts[1];
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      formattedTime = `${h12}:${m} ${ampm}`;
+    } else {
+      formattedTime = timeStr;
+    }
+  }
+
+  if (dateStr) {
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        const day = d.getDate();
+        const month = d.toLocaleDateString("en-IN", { month: "short" });
+        return formattedTime ? `${day} ${month}, ${formattedTime}` : `${day} ${month}`;
+      }
+    } catch { }
+  }
+
+  return [dateStr, formattedTime || timeStr].filter(Boolean).join(" ");
+};
+
 const getWeatherSource = (weatherInput: any): { label: string; tag: string } => {
   let weather = weatherInput;
   if (typeof weather === "string") {
@@ -220,39 +255,27 @@ const renderWeatherInsights = (weatherInput: any) => {
     } catch { }
   }
 
-  const source = getWeatherSource(weather);
   const dataType = String(weather.data_type || "").toLowerCase();
   const isAws = dataType === "current_aws" || Boolean(result?.station);
 
   // Fallback if neither structured AWS nor forecast
   if (!result || (typeof result === "object" && !isAws && !result.today && !result.forecast)) {
     return (
-      <div className="space-y-3 text-sky-900 dark:text-sky-300">
-        <div className="flex justify-between items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-            Weather Insights
-          </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300 dark:border-sky-800 tracking-wide uppercase">
-            <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
-            Source: {source.tag}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {Object.entries(result || weather).map(([key, val]) => {
-            if (val === null || val === undefined || typeof val === "function" || key === "result")
-              return null;
-            return (
-              <div key={key} className="flex gap-1.5">
-                <span className="font-semibold capitalize text-sky-900 dark:text-sky-400">
-                  {key.replace(/_/g, " ")}:
-                </span>
-                <span className="text-sky-850 dark:text-sky-300 truncate">
-                  {typeof val === "object" ? JSON.stringify(val) : String(val)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+        {Object.entries(result || weather).map(([key, val]) => {
+          if (val === null || val === undefined || typeof val === "function" || key === "result")
+            return null;
+          return (
+            <div key={key} className="flex gap-1.5">
+              <span className="font-semibold capitalize text-sky-900 dark:text-sky-400">
+                {key.replace(/_/g, " ")}:
+              </span>
+              <span className="text-sky-850 dark:text-sky-300 truncate">
+                {typeof val === "object" ? JSON.stringify(val) : String(val)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -262,121 +285,105 @@ const renderWeatherInsights = (weatherInput: any) => {
     const station = result.station || {};
     const rawDistance = result.distance_km ?? result.distance ?? result.distance_to_station_km;
     const distance = rawDistance != null ? Number(rawDistance).toFixed(1) : null;
-    const obsTime = [station.date, station.time].filter(Boolean).join(" at ");
+    const obsTime = formatWeatherTime(station.date, station.time);
     const compassDir = getCompassDirection(station.wind_direction_deg);
+    const locationParts = [station.district, station.state].filter(Boolean);
+    const locationStr = locationParts.length > 0 ? locationParts.join(", ") : (weather.geocode?.state || "");
+
+    const tempVal = station.temperature_c != null ? `${station.temperature_c}°C` : "--";
+    const feelsLikeVal = station.feel_like_c != null ? `${station.feel_like_c}°C` : null;
 
     return (
-      <div className="space-y-3.5 text-sky-900 dark:text-sky-300">
-        {/* Top Station & Source Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2 gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-              Weather Station:{" "}
+      <div className="space-y-2.5 text-sky-900 dark:text-sky-300">
+        {/* Station Sub-Bar: Clean Location, Distance, and Observed Time */}
+        <div className="flex flex-wrap items-center justify-between text-[11px] pb-1.5 border-b border-sky-200/40 dark:border-sky-800/40 gap-1.5">
+          <div className="flex items-center gap-1.5 text-sky-900 dark:text-sky-200">
+            <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+            <span className="font-semibold text-sky-950 dark:text-sky-100">
+              {station.name || station.district || "Station"}
             </span>
-            <span className="text-sm font-bold text-sky-950 dark:text-sky-100">
-              {station.name || station.district || "Automatic Weather Station"}
-            </span>
+            {locationStr && locationStr.toLowerCase() !== (station.name || "").toLowerCase() && (
+              <span className="text-sky-600 dark:text-sky-400">
+                • {locationStr}
+              </span>
+            )}
             {distance && (
-              <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">
+              <span className="text-sky-600 dark:text-sky-400 font-normal">
                 ({distance} km away)
               </span>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {obsTime && (
-              <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
-                Observed: {obsTime}
+          {obsTime && (
+            <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium text-[10px]">
+              <Clock className="w-3 h-3 shrink-0" />
+              <span>{obsTime}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Primary Hero Row: Large Temp + Feels Like + Sky Condition */}
+        <div className="flex items-center justify-between bg-white/50 dark:bg-zinc-950/40 rounded-xl p-3 border border-sky-100/60 dark:border-sky-900/40">
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-sky-950 dark:text-sky-50 tracking-tight">
+              {tempVal}
+            </span>
+            {feelsLikeVal && (
+              <span className="text-xs font-medium text-sky-600 dark:text-sky-400 whitespace-nowrap">
+                Feels like <strong className="font-semibold text-sky-900 dark:text-sky-200">{feelsLikeVal}</strong>
               </span>
             )}
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300 dark:border-sky-800 tracking-wide uppercase"
-              title={source.label}
-            >
-              <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
-              Source: {source.tag}
+          </div>
+          <div className="text-right pl-2">
+            <span className="text-sm font-bold text-sky-950 dark:text-sky-100 block">
+              {station.weather_message || "Clear Sky"}
+            </span>
+            <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">
+              Sky Condition
             </span>
           </div>
         </div>
 
-        {/* Live Observation Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Card 1: Conditions & Temp */}
-          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">
-                Live Station Observation
-              </p>
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 dark:border-emerald-800/40">
-                Real-Time
-              </span>
+        {/* Stats Grid: 3 Sleek Metric Tiles */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* Humidity */}
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+              <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
+              <span>Humidity</span>
             </div>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                  Condition:
+            <span className="text-sm font-bold text-sky-950 dark:text-sky-100">
+              {station.humidity_pct != null ? `${station.humidity_pct}%` : "--"}
+            </span>
+          </div>
+
+          {/* Wind */}
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+              <Wind className="w-3 h-3 text-sky-500 shrink-0" />
+              <span>Wind</span>
+            </div>
+            <div className="flex items-baseline gap-1 text-sm font-bold text-sky-950 dark:text-sky-100 whitespace-nowrap">
+              <span>{station.wind_speed_kmph != null ? `${station.wind_speed_kmph}` : "--"}</span>
+              <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400">km/h</span>
+              {compassDir && (
+                <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 ml-0.5">
+                  {compassDir}
                 </span>
-                <span className="font-semibold text-sky-950 dark:text-sky-100">
-                  {station.weather_message || "Clear Sky"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                  Temperature:
-                </span>
-                <span className="font-semibold text-sky-950 dark:text-sky-100">
-                  {station.temperature_c != null ? `${station.temperature_c}°C` : "--"}
-                  {station.feel_like_c != null && (
-                    <span className="text-[11px] text-sky-600 dark:text-sky-400 font-normal ml-1">
-                      (Feels {station.feel_like_c}°C)
-                    </span>
-                  )}
-                </span>
-              </div>
-              {station.mslp && (
-                <div className="flex justify-between items-center">
-                  <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                    Pressure:
-                  </span>
-                  <span className="font-semibold text-sky-950 dark:text-sky-100">
-                    {station.mslp} hPa
-                  </span>
-                </div>
               )}
             </div>
           </div>
 
-          {/* Card 2: Wind & Humidity */}
-          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
-            <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">
-              Atmosphere & Wind
-            </p>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                  Humidity:
-                </span>
-                <span className="font-semibold text-sky-950 dark:text-sky-100">
-                  {station.humidity_pct != null ? `${station.humidity_pct}%` : "--"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                  Wind:
-                </span>
-                <span className="font-semibold text-sky-950 dark:text-sky-100">
-                  {station.wind_speed_kmph != null ? `${station.wind_speed_kmph} km/h` : "--"}
-                  {compassDir && ` ${compassDir}`}
-                  {station.wind_direction_deg && ` (${station.wind_direction_deg}°)`}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                  Location:
-                </span>
-                <span className="font-semibold text-sky-950 dark:text-sky-100 truncate max-w-[150px]">
-                  {[station.district, station.state].filter(Boolean).join(", ") || (weather.geocode?.display_name || "--")}
-                </span>
-              </div>
+          {/* Pressure */}
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+              <Gauge className="w-3 h-3 text-sky-500 shrink-0" />
+              <span>Pressure</span>
+            </div>
+            <div className="flex items-baseline gap-1 text-sm font-bold text-sky-950 dark:text-sky-100 whitespace-nowrap">
+              <span>{station.mslp || "--"}</span>
+              {station.mslp && (
+                <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400">hPa</span>
+              )}
             </div>
           </div>
         </div>
@@ -384,111 +391,96 @@ const renderWeatherInsights = (weatherInput: any) => {
     );
   }
 
-  // Branch 2: Forecast format
+  // Branch 2: Predictive Forecast format
   const today = result.today || {};
   const forecastList = result.forecast || [];
+  const distance = today.distance_to_station_km != null ? Number(today.distance_to_station_km).toFixed(1) : null;
+  const tempRange = (today.observed_min_temp || today.forecast_min_temp) && (today.observed_max_temp || today.forecast_max_temp)
+    ? `${today.observed_min_temp || today.forecast_min_temp}°C – ${today.observed_max_temp || today.forecast_max_temp}°C`
+    : "--";
 
   return (
-    <div className="space-y-4 text-sky-900 dark:text-sky-300">
-      {/* Location / Station Info */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2 gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-            Weather Station:{" "}
-          </span>
-          <span className="text-sm font-bold text-sky-950 dark:text-sky-100">
+    <div className="space-y-2.5 text-sky-900 dark:text-sky-300">
+      {/* Station Sub-Bar */}
+      <div className="flex flex-wrap items-center justify-between text-[11px] pb-1.5 border-b border-sky-200/40 dark:border-sky-800/40 gap-1.5">
+        <div className="flex items-center gap-1.5 text-sky-900 dark:text-sky-200">
+          <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+          <span className="font-semibold text-sky-950 dark:text-sky-100">
             {today.station || "Forecast Station"}
           </span>
-          {today.distance_to_station_km && (
-            <span className="text-xs text-sky-600 dark:text-sky-400 ml-1.5 font-medium">
-              ({Number(today.distance_to_station_km).toFixed(1)} km away)
+          {distance && (
+            <span className="text-sky-600 dark:text-sky-400 font-normal">
+              ({distance} km away)
             </span>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {today.date && (
-            <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
-              As of {today.date}
-            </span>
-          )}
-          <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300 dark:border-sky-800 tracking-wide uppercase"
-            title={source.label}
-          >
-            <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
-            Source: {source.tag}
+        {today.date && (
+          <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium text-[10px]">
+            <Clock className="w-3 h-3 shrink-0" />
+            <span>As of {today.date}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Primary Hero Row */}
+      <div className="flex items-center justify-between bg-white/50 dark:bg-zinc-950/40 rounded-xl p-3 border border-sky-100/60 dark:border-sky-900/40">
+        <div>
+          <span className="text-xl sm:text-2xl font-extrabold text-sky-950 dark:text-sky-50 tracking-tight">
+            {tempRange}
+          </span>
+          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium block">
+            Expected Temperature Range
+          </span>
+        </div>
+        <div className="text-right pl-2">
+          <span className="text-sm font-bold text-sky-950 dark:text-sky-100 block">
+            {today.forecast || "Forecast N/A"}
+          </span>
+          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">
+            Outlook
           </span>
         </div>
       </div>
 
-      {/* Today's Stats & Forecast Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Today's Condition Card */}
-        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
-          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">
-            Today's Forecast
-          </p>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                Condition:
-              </span>
-              <span className="font-semibold text-sky-950 dark:text-sky-100">
-                {today.forecast || "N/A"}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                Temperature:
-              </span>
-              <span className="font-semibold text-sky-950 dark:text-sky-100">
-                {today.observed_min_temp || today.forecast_min_temp || "--"}°C
-                to {today.observed_max_temp || today.forecast_max_temp || "--"}
-                °C
-              </span>
-            </div>
-            {today.past_24hrs_rainfall && (
-              <div className="flex justify-between items-center">
-                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                  Rain (Last 24h):
-                </span>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                  {today.past_24hrs_rainfall}
-                </span>
-              </div>
-            )}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {/* Humidity */}
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+            <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
+            <span>Humidity</span>
           </div>
+          <span className="text-xs font-bold text-sky-950 dark:text-sky-100">
+            {today.humidity_0830 || "--"}% / {today.humidity_1730 || "--"}%
+          </span>
         </div>
 
-        {/* Today's Climate details Card */}
-        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
-          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">
-            Humidity & Solar
-          </p>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                Humidity (08:30 / 17:30):
-              </span>
-              <span className="font-semibold text-sky-950 dark:text-sky-100">
-                {today.humidity_0830 || "--"}% / {today.humidity_1730 || "--"}%
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
-                Sunrise / Sunset:
-              </span>
-              <span className="font-semibold text-sky-950 dark:text-sky-100">
-                🌅 {today.sunrise || "--"} / 🌇 {today.sunset || "--"}
-              </span>
-            </div>
+        {/* Rain (Last 24h) */}
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+            <Wind className="w-3 h-3 text-sky-500 shrink-0" />
+            <span>Rain (24h)</span>
           </div>
+          <span className="text-xs font-bold text-sky-950 dark:text-sky-100 truncate">
+            {today.past_24hrs_rainfall || "Nil"}
+          </span>
+        </div>
+
+        {/* Solar */}
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+            <Clock className="w-3 h-3 text-sky-500 shrink-0" />
+            <span>Sun Timings</span>
+          </div>
+          <span className="text-[11px] font-bold text-sky-950 dark:text-sky-100 whitespace-nowrap">
+            🌅 {today.sunrise || "--"} • 🌇 {today.sunset || "--"}
+          </span>
         </div>
       </div>
 
-      {/* Multi-Day Forecast */}
+      {/* Multi-Day Forecast Table */}
       {forecastList.length > 0 && (
-        <div className="space-y-2 pt-2">
+        <div className="space-y-1.5 pt-1">
           <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">
             Upcoming Forecast
           </p>
@@ -496,26 +488,21 @@ const renderWeatherInsights = (weatherInput: any) => {
             <table className="min-w-full text-xs text-left divide-y divide-sky-100/30 dark:divide-sky-900/30">
               <thead className="bg-sky-100/40 dark:bg-sky-950/40 text-sky-850 dark:text-sky-350">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">Day</th>
-                  <th className="px-3 py-2 font-semibold">Temp (Min/Max)</th>
-                  <th className="px-3 py-2 font-semibold">
-                    Forecast Condition
-                  </th>
+                  <th className="px-3 py-1.5 font-semibold text-[11px]">Day</th>
+                  <th className="px-3 py-1.5 font-semibold text-[11px]">Temp (Min/Max)</th>
+                  <th className="px-3 py-1.5 font-semibold text-[11px]">Forecast Condition</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sky-100/20 dark:divide-sky-900/20">
                 {forecastList.map((f: any, idx: number) => (
-                  <tr
-                    key={idx}
-                    className="hover:bg-sky-50/20 dark:hover:bg-sky-950/10"
-                  >
-                    <td className="px-3 py-2 font-semibold text-sky-900 dark:text-sky-300">
+                  <tr key={idx} className="hover:bg-sky-50/20 dark:hover:bg-sky-950/10">
+                    <td className="px-3 py-1.5 font-semibold text-sky-900 dark:text-sky-300">
                       Day {f.day || idx + 2}
                     </td>
-                    <td className="px-3 py-2 font-medium text-sky-950 dark:text-sky-200">
+                    <td className="px-3 py-1.5 font-medium text-sky-950 dark:text-sky-200">
                       {f.min_temp}°C - {f.max_temp}°C
                     </td>
-                    <td className="px-3 py-2 text-sky-850 dark:text-sky-300">
+                    <td className="px-3 py-1.5 text-sky-850 dark:text-sky-300">
                       {f.forecast}
                     </td>
                   </tr>
@@ -2594,11 +2581,6 @@ export const CallInterface = () => {
                               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50 shrink-0">
                                 Q{originalIndex + 1}
                               </span>
-                              {isLatest && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
-                                  Latest
-                                </span>
-                              )}
                               <div className="flex-1 min-w-0">
                                 {translatingQuestions[qnKey] ? (
                                   <div className="space-y-1.5 py-1 animate-pulse">
