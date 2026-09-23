@@ -270,19 +270,19 @@ export class QueueService {
 
       case 'waiting': {
         // Same method (and therefore the same number) the cron logs as
-        // "Never-allocated". No date filter / no DB-side limit — paginate the
-        // full list in memory so the count always matches the console.
-        const subs =
-          (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+        // "Never-allocated". No date filter. Paged in the DB.
+        const {count, items: pageSubs} =
+          await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestionsPaged(
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
             isAdmin,
-          )) as any[];
-        const pageSubs = subs.slice(skip, skip + safeLimit);
+            skip,
+            safeLimit,
+          );
         return {
-          count: subs.length,
-          items: pageSubs.map(s => submissionToQueueItem(s)),
+          count,
+          items: (pageSubs as any[]).map(s => submissionToQueueItem(s)),
         };
       }
 
@@ -322,16 +322,17 @@ export class QueueService {
 
       case 'stuck': {
         // Same method (and therefore the same number) the cron logs as "Stuck".
-        // No date filter so the count always matches the console.
-        const stuckSubs =
-          (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+        // No date filter so the count always matches the console. Paged in the DB.
+        const {count, items: pageSubsRaw} =
+          await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocationPaged(
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
             isAdmin,
-          )) as any[];
-        const count = stuckSubs.length;
-        const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
+            skip,
+            safeLimit,
+          );
+        const pageSubs = pageSubsRaw as any[];
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
         for (const sub of pageSubs) {
@@ -369,13 +370,14 @@ export class QueueService {
 
       case 'openedIdle': {
         // Opened by the current expert > 45 min ago but still no answer. No date
-        // filter, mirroring the other time-bound sections.
-        const subs =
-          (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(
+        // filter, mirroring the other time-bound sections. Paged in the DB.
+        const {count, items: pageSubsRaw} =
+          await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestionsPaged(
             expertSources,
-          )) as any[];
-        const count = subs.length;
-        const pageSubs = subs.slice(skip, skip + safeLimit);
+            skip,
+            safeLimit,
+          );
+        const pageSubs = pageSubsRaw as any[];
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
         for (const sub of pageSubs) {
@@ -414,16 +416,17 @@ export class QueueService {
       case 'needsReviewer': {
         // Same method (and therefore the same number) the cron logs as
         // "NeedReviewer": answered/reviewed questions still awaiting the next
-        // reviewer. No date filter so the count always matches the console.
-        const subs =
-          (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+        // reviewer. No date filter so the count always matches the console. Paged in DB.
+        const {count, items: pageSubsRaw} =
+          await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewerPaged(
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
             isAdmin,
-          )) as any[];
-        const count = subs.length;
-        const pageSubs = subs.slice(skip, skip + safeLimit);
+            skip,
+            safeLimit,
+          );
+        const pageSubs = pageSubsRaw as any[];
         // Show every expert who completed a step on the question, in turn order (each
         // history entry's `updatedBy`), rather than only the last completer.
         const byQuestion = new Map<string, string[]>();
@@ -563,15 +566,16 @@ export class QueueService {
       case 'moderatorAllocated': {
         // Questions currently assigned to a moderator (moderatorId set). Re-routed
         // questions always carry a moderatorId, so they appear here too. Each item
-        // is tagged with the assigned moderator's name.
-        const qs = (await this.questionRepo.findModeratorAssignedQuestions(
-          [],
-          isTrainingUser,
-          isAdmin,
-        )) as any[];
-        const count = qs.length;
-        const pageQs = qs.slice(skip, skip + safeLimit);
-        const ids = pageQs
+        // is tagged with the assigned moderator's name. Paged in the DB.
+        const {count, items: pageQs} =
+          await this.questionRepo.findModeratorAssignedQuestionsPaged(
+            [],
+            isTrainingUser,
+            isAdmin,
+            skip,
+            safeLimit,
+          );
+        const ids = (pageQs as any[])
           .map(q => q.moderatorId?.toString())
           .filter(Boolean) as string[];
         const moderators = await resolveExpertMeta(this.userRepo, ids);
@@ -646,14 +650,15 @@ export class QueueService {
           section === 'moderatorAllocatedTimeBound'
             ? TIME_BOUND_SOURCES
             : MANUAL_SOURCES;
-        const qs = (await this.questionRepo.findModeratorAssignedQuestions(
-          sources,
-          isTrainingUser,
-          isAdmin,
-        )) as any[];
-        const count = qs.length;
-        const pageQs = qs.slice(skip, skip + safeLimit);
-        const ids = pageQs
+        const {count, items: pageQs} =
+          await this.questionRepo.findModeratorAssignedQuestionsPaged(
+            sources,
+            isTrainingUser,
+            isAdmin,
+            skip,
+            safeLimit,
+          );
+        const ids = (pageQs as any[])
           .map(q => q.moderatorId?.toString())
           .filter(Boolean) as string[];
         const moderators = await resolveExpertMeta(this.userRepo, ids);
@@ -705,15 +710,14 @@ export class QueueService {
       case 'gateKeeperWaiting':
       case 'auditorWaiting': {
         const isGK = section === 'gateKeeperWaiting';
-        const qs = await this.questionRepo.findUnassignedQuestionsForRole(
-          isGK
-            ? GATE_KEEPER_STATUSES
-            : AUDITOR_STATUSES,
-          isGK ? 'gateKeeperId' : 'auditorId',
-          isGK ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor',
-        );
-        const count = qs.length;
-        const pageQs = qs.slice(skip, skip + safeLimit);
+        const {count, items: pageQs} =
+          await this.questionRepo.findUnassignedQuestionsForRolePaged(
+            isGK ? GATE_KEEPER_STATUSES : AUDITOR_STATUSES,
+            isGK ? 'gateKeeperId' : 'auditorId',
+            isGK ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor',
+            skip,
+            safeLimit,
+          );
         return {
           count,
           items: pageQs.map(q => submissionToQueueItem({question: q})),
@@ -724,14 +728,13 @@ export class QueueService {
       case 'auditorAllocated': {
         const isGK = section === 'gateKeeperAllocated';
         const assigneeField = isGK ? 'gateKeeperId' : 'auditorId';
-        const qs = await this.questionRepo.findQuestionsAssignedToRole(
-          assigneeField,
-          isGK
-            ? GATE_KEEPER_STATUSES
-            : AUDITOR_STATUSES,
-        );
-        const count = qs.length;
-        const pageQs = qs.slice(skip, skip + safeLimit);
+        const {count, items: pageQs} =
+          await this.questionRepo.findQuestionsAssignedToRolePaged(
+            assigneeField,
+            isGK ? GATE_KEEPER_STATUSES : AUDITOR_STATUSES,
+            skip,
+            safeLimit,
+          );
         const ids = pageQs
           .map(q => (q as any)[assigneeField]?.toString())
           .filter(Boolean) as string[];
