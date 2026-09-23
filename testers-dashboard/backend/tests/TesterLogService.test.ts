@@ -183,5 +183,71 @@ describe('TesterLogService date filtering', () => {
         expect(summary.targetVsAchieved.total.targetWhatsApp).toBe(54); // 27 * 2 days
         expect(summary.targetVsAchieved.total.achievedTotal).toBe(3);
     });
+
+    it('computes both Web App and WhatsApp response times in createEntry for cross-platform tests', async () => {
+        mockCollection.insertOne = vi.fn().mockImplementation(async (entry: any) => ({
+            insertedId: 'entry-cp-1',
+        }));
+
+        const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+            channelTested: 'Both',
+            typeOfQuestion: 'Unique',
+            timeQuestionAsked: '10:00:00',
+            timeAnswerReceived: '10:00:15',
+            waTimeQuestionAsked: '10:00:00',
+            waTimeAnswerReceived: '10:00:45',
+            whatsappVsWebAnswerMatch: 'Yes',
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.entry.responseTimeMins).toBe('00:00:15');
+        expect(result.entry.waResponseTimeMins).toBe('00:00:45');
+        expect(result.entry.channelTested).toBe('Both');
+    });
+
+    it('aggregates cross-platform stats and credits both platforms in getMySummary', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-09-20',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'Yes',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-09-20',
+                typeOfQuestion: 'GDB',
+                channelTested: 'Both',
+                overallTestStatus: 'Partial',
+                whatsappVsWebAnswerMatch: 'No',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-09-20',
+                typeOfQuestion: 'Unique',
+                channelTested: 'WebApp',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Met',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-09-20', '2026-09-20');
+
+        expect(summary.crossPlatformStats).toBeDefined();
+        expect(summary.crossPlatformStats?.totalCrossPlatform).toBe(2);
+        expect(summary.crossPlatformStats?.matchedAnswers).toBe(1);
+        expect(summary.crossPlatformStats?.parityRate).toBe(50); // 1 / 2 = 50%
+
+        // Unique target: 1 WebApp test + 1 Both test => WebApp = 2, WhatsApp = 1, Total = 3
+        const uniqueRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Unique');
+        expect(uniqueRow).toBeDefined();
+        expect(uniqueRow?.achievedWebApp).toBe(2);
+        expect(uniqueRow?.achievedWhatsApp).toBe(1);
+        expect(uniqueRow?.achievedTotal).toBe(3);
+    });
 });
+
 

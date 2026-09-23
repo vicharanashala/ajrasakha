@@ -129,6 +129,23 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() reviewerRemarks?: string;
     @IsString() @IsOptional() testerRemarks?: string;
     @IsString() @IsOptional() status?: string;
+
+    // Cross-Platform Dual-Channel Fields
+    @IsString() @IsOptional() webThreadId?: string;
+    @IsString() @IsOptional() waThreadId?: string;
+    @IsString() @IsOptional() waTimeQuestionAsked?: string;
+    @IsString() @IsOptional() waTimeAnswerReceived?: string;
+    @IsString() @IsOptional() waResponseTimeMins?: string;
+    @IsString() @IsOptional() waSlaStatus?: string;
+    @IsString() @IsOptional() waVoiceInputWorking?: string;
+    @IsString() @IsOptional() waVoiceOutputWorking?: string;
+    @IsString() @IsOptional() waVoiceInputQuality?: string;
+    @IsString() @IsOptional() waVoiceOutputQuality?: string;
+    @IsString() @IsOptional() waVoiceIssueDescription?: string;
+    @IsString() @IsOptional() waNotificationReceived?: string;
+    @IsString() @IsOptional() webOverallTestStatus?: string;
+    @IsString() @IsOptional() waOverallTestStatus?: string;
+    @IsString() @IsOptional() crossPlatformDiscrepancyNotes?: string;
 }
 
 export class GetTesterLogQuery {

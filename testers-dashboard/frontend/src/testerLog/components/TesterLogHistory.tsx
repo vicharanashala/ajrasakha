@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTesterLogHistory } from "../hooks/useTesterLogHistory";
 import type { ITesterLogEntry } from "../types";
+import { isCrossPlatform } from "../types";
 import { Calendar, ChevronDown, ChevronUp, Loader2, RotateCcw } from "lucide-react";
 
 function Badge({ value }: { value?: string }) {
@@ -45,6 +46,7 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
 
 function EntryRow({ entry }: { entry: ITesterLogEntry }) {
     const [expanded, setExpanded] = useState(false);
+    const isCross = isCrossPlatform(entry.channelTested);
 
     const submittedAt = entry.createdAt
         ? new Date(entry.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
@@ -56,8 +58,20 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                 className="border-b border-border hover:bg-muted/30 cursor-pointer transition-colors"
                 onClick={() => setExpanded(e => !e)}
             >
-                <td className="px-4 py-3 text-sm">{entry.testDate || "—"}</td>
-                <td className="px-4 py-3 text-sm font-mono text-muted-foreground">{entry.threadId || "—"}</td>
+                <td className="px-4 py-3 text-sm">
+                    <div>{entry.testDate || "—"}</div>
+                    {isCross && (
+                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300">
+                            Cross-Platform
+                        </span>
+                    )}
+                </td>
+                <td className="px-4 py-3 text-sm font-mono text-muted-foreground">
+                    <div>{entry.threadId || entry.webThreadId || "—"}</div>
+                    {entry.waThreadId && (
+                        <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-sans">WA: {entry.waThreadId}</div>
+                    )}
+                </td>
                 <td className="px-4 py-3 text-sm max-w-[200px] truncate" title={entry.queryText}>{entry.queryText || "—"}</td>
                 <td className="px-4 py-3"><Badge value={entry.overallTestStatus} /></td>
                 <td className="px-4 py-3"><Badge value={entry.status} /></td>
@@ -71,6 +85,25 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
             {expanded && (
                 <tr className="border-b border-border bg-muted/20">
                     <td colSpan={7} className="px-6 py-4">
+                        {isCross && (
+                            <div className="mb-4 p-3.5 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
+                                <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                                    Cross-Platform Comparison (Web App vs. WhatsApp)
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                                    <DetailRow label="Web App Thread ID" value={entry.threadId || entry.webThreadId} />
+                                    <DetailRow label="WhatsApp Thread ID" value={entry.waThreadId} />
+                                    <DetailRow label="Web Response Time" value={entry.responseTimeMins} />
+                                    <DetailRow label="WhatsApp Response Time" value={entry.waResponseTimeMins} />
+                                    <DetailRow label="Web SLA Status" value={entry.slaStatus} />
+                                    <DetailRow label="WhatsApp SLA Status" value={entry.waSlaStatus} />
+                                    <DetailRow label="Web App Test Status" value={entry.webOverallTestStatus} />
+                                    <DetailRow label="WhatsApp Test Status" value={entry.waOverallTestStatus} />
+                                    <DetailRow label="WhatsApp vs Web Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
+                                    <DetailRow label="Discrepancy Notes" value={entry.crossPlatformDiscrepancyNotes} />
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
                             <DetailRow label="Type of Question" value={entry.typeOfQuestion} />
                             <DetailRow label="Build / Version" value={entry.buildVersion} />

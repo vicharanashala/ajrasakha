@@ -115,7 +115,8 @@ export class TesterLogService implements ITesterLogService {
             submittedByUserId: userId,
             submittedByEmail: email,
             testerName,
-            responseTimeMins: computeHmsDiff(body.timeQuestionAsked, body.timeAnswerReceived, testDate),
+            responseTimeMins: computeHmsDiff(body.timeQuestionAsked, body.timeAnswerReceived, testDate) || body.responseTimeMins || '',
+            waResponseTimeMins: computeHmsDiff(body.waTimeQuestionAsked, body.waTimeAnswerReceived, testDate) || body.waResponseTimeMins || '',
             authorTatMins: computeHmsDiff(body.authorAssignmentTime, body.authorCompletionTime, testDate),
             review1TatMins: computeHmsDiff(body.reviewer1AssignmentTime, body.reviewer1CompletionTime, testDate),
             review2TatMins: computeHmsDiff(body.reviewer2AssignmentTime, body.reviewer2CompletionTime, testDate),
@@ -257,6 +258,9 @@ export class TesterLogService implements ITesterLogService {
         let voiceInputIssues = 0;
         let voiceOutputWorking = 0;
 
+        let totalCrossPlatform = 0;
+        let matchedAnswers = 0;
+
         for (const entry of entries) {
             const overall = (entry.overallTestStatus || '').trim().toLowerCase();
             if (overall === 'pass') {
@@ -364,6 +368,15 @@ export class TesterLogService implements ITesterLogService {
 
             const vOut = (entry.voiceOutputWorking || '').trim().toLowerCase();
             if (vOut === 'yes') voiceOutputWorking++;
+
+            const ch = (entry.channelTested || '').trim().toLowerCase();
+            if (ch.includes('both') || ch.includes('cross')) {
+                totalCrossPlatform++;
+                const match = (entry.whatsappVsWebAnswerMatch || '').trim().toLowerCase();
+                if (match === 'yes' || match === 'match' || match === 'true') {
+                    matchedAnswers++;
+                }
+            }
         }
 
         const totalTests = entries.length;
@@ -433,12 +446,12 @@ export class TesterLogService implements ITesterLogService {
             }
 
             const ch = (entry.channelTested || '').trim().toLowerCase();
-            const isBoth = ch.includes('both');
+            const isBoth = ch.includes('both') || ch.includes('cross');
             const isWebApp = isBoth || ch.includes('web');
             const isWhatsApp = isBoth || ch.includes('whatsapp') || ch.includes('wa');
 
             if (targetType && categoryCounts[targetType]) {
-                categoryCounts[targetType].total++;
+                categoryCounts[targetType].total += isBoth ? 2 : 1;
                 if (isWebApp) categoryCounts[targetType].webApp++;
                 if (isWhatsApp) categoryCounts[targetType].whatsApp++;
             }
@@ -529,6 +542,11 @@ export class TesterLogService implements ITesterLogService {
                 inputWorking: voiceInputWorking,
                 inputIssues: voiceInputIssues,
                 outputWorking: voiceOutputWorking,
+            },
+            crossPlatformStats: {
+                totalCrossPlatform,
+                matchedAnswers,
+                parityRate: totalCrossPlatform > 0 ? Math.round((matchedAnswers / totalCrossPlatform) * 1000) / 10 : 0,
             },
             targetVsAchieved,
         };

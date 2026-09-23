@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useTesterLogSummary } from "../hooks/useTesterLogSummary";
 import { useTesterLogHistory } from "../hooks/useTesterLogHistory";
 import type { ITesterLogEntry } from "../types";
+import { isCrossPlatform } from "../types";
 import {
     Calendar,
     ChevronDown,
@@ -133,6 +134,7 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
 
 function EntryRow({ entry }: { entry: ITesterLogEntry }) {
     const [expanded, setExpanded] = useState(false);
+    const isCross = isCrossPlatform(entry.channelTested);
 
     const submittedAt = entry.createdAt
         ? new Date(entry.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
@@ -149,8 +151,20 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                 className="border-b border-border hover:bg-muted/30 cursor-pointer transition-colors"
                 onClick={() => setExpanded(e => !e)}
             >
-                <td className="px-4 py-3 text-sm whitespace-nowrap">{entry.testDate || "—"}</td>
-                <td className="px-4 py-3 text-sm font-mono text-muted-foreground whitespace-nowrap">{entry.threadId || "—"}</td>
+                <td className="px-4 py-3 text-sm whitespace-nowrap">
+                    <div>{entry.testDate || "—"}</div>
+                    {isCross && (
+                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300">
+                            Cross-Platform
+                        </span>
+                    )}
+                </td>
+                <td className="px-4 py-3 text-sm font-mono text-muted-foreground whitespace-nowrap">
+                    <div>{entry.threadId || entry.webThreadId || "—"}</div>
+                    {entry.waThreadId && (
+                        <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-sans">WA: {entry.waThreadId}</div>
+                    )}
+                </td>
                 <td className="px-4 py-3 text-sm max-w-[200px] truncate" title={entry.queryText}>{entry.queryText || "—"}</td>
                 <td className="px-4 py-3 text-sm whitespace-nowrap text-muted-foreground">{entry.typeOfQuestion || "—"}</td>
                 <td className="px-4 py-3 text-sm whitespace-nowrap text-muted-foreground">
@@ -179,6 +193,25 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
             {expanded && (
                 <tr className="border-b border-border bg-muted/20">
                     <td colSpan={10} className="px-6 py-4">
+                        {isCross && (
+                            <div className="mb-4 p-3.5 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
+                                <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                                    Cross-Platform Comparison (Web App vs. WhatsApp)
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                                    <DetailRow label="Web App Thread ID" value={entry.threadId || entry.webThreadId} />
+                                    <DetailRow label="WhatsApp Thread ID" value={entry.waThreadId} />
+                                    <DetailRow label="Web Response Time" value={entry.responseTimeMins} />
+                                    <DetailRow label="WhatsApp Response Time" value={entry.waResponseTimeMins} />
+                                    <DetailRow label="Web SLA Status" value={entry.slaStatus} />
+                                    <DetailRow label="WhatsApp SLA Status" value={entry.waSlaStatus} />
+                                    <DetailRow label="Web App Test Status" value={entry.webOverallTestStatus} />
+                                    <DetailRow label="WhatsApp Test Status" value={entry.waOverallTestStatus} />
+                                    <DetailRow label="WhatsApp vs Web Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
+                                    <DetailRow label="Discrepancy Notes" value={entry.crossPlatformDiscrepancyNotes} />
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
                             <DetailRow label="Type of Question" value={entry.typeOfQuestion} />
                             <DetailRow label="Build / Version" value={entry.buildVersion} />
@@ -1144,16 +1177,19 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         {Object.entries(summaryData.byChannel || {}).length === 0 ? (
                                             <span className="text-muted-foreground">—</span>
                                         ) : (
-                                            Object.entries(summaryData.byChannel).map(([channel, count]) => (
-                                                <span
-                                                    key={channel}
-                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-foreground border border-border"
-                                                >
-                                                    <Radio className="h-3 w-3 text-muted-foreground" />
-                                                    <span>{channel}</span>
-                                                    <span className="font-semibold text-primary">({count})</span>
-                                                </span>
-                                            ))
+                                            Object.entries(summaryData.byChannel).map(([channel, count]) => {
+                                                const label = channel.toLowerCase() === "both" ? "Cross-Platform" : channel;
+                                                return (
+                                                    <span
+                                                        key={channel}
+                                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-foreground border border-border"
+                                                    >
+                                                        <Radio className="h-3 w-3 text-muted-foreground" />
+                                                        <span>{label}</span>
+                                                        <span className="font-semibold text-primary">({count})</span>
+                                                    </span>
+                                                );
+                                            })
                                         )}
                                     </div>
 
@@ -1213,6 +1249,18 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             {summaryData.voiceStats.inputWorking} in / {summaryData.voiceStats.outputWorking} out
                                         </span>
                                     </div>
+
+                                    {summaryData.crossPlatformStats && summaryData.crossPlatformStats.totalCrossPlatform > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                                                <Layers className="h-3.5 w-3.5 text-purple-500" />
+                                                Cross-Platform Parity:
+                                            </span>
+                                            <span className="font-semibold text-purple-600 dark:text-purple-400">
+                                                {summaryData.crossPlatformStats.parityRate}% ({summaryData.crossPlatformStats.matchedAnswers} / {summaryData.crossPlatformStats.totalCrossPlatform})
+                                            </span>
+                                        </div>
+                                    )}
 
                                     <div className="pt-2 border-t border-border flex items-center justify-between text-[11px]">
                                         <span className="text-muted-foreground">Defect Severities:</span>
