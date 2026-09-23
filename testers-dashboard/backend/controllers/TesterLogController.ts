@@ -82,6 +82,27 @@ export class TesterLogController {
     }
 
     @OpenAPI({
+        summary: 'Get summary KPIs and breakdowns of current tester own submissions',
+        description: 'Returns aggregated test metrics and breakdowns for the authenticated tester based on date filter.',
+    })
+    @Authorized(['tester'])
+    @Get('/my-summary')
+    async getMySummary(
+        @CurrentUser() currentUser: AuthenticatedUser,
+        @QueryParams() query: GetTesterLogQuery,
+    ) {
+        const userId = currentUser._id?.toString();
+        if (!userId) throw new BadRequestError('Could not resolve user ID');
+        return this.testerLogService.getMySummary(
+            userId,
+            query.startDate,
+            query.endDate,
+            query.dateField,
+        );
+    }
+
+
+    @OpenAPI({
         summary: 'Get all tester submissions (admin only)',
         description: 'Returns a paginated list of all test-case entries from all testers. Optionally filter by testerId, question type, channel, overall status, and defect severity.',
     })
