@@ -1209,18 +1209,42 @@ export const CallInterface = () => {
 
       if (extractionType === 'query_details') {
         const farmer = activeProfileRef.current || extractedFarmerProfile || {};
-        const rootState = (data.extracted_state && data.extracted_state.trim())
-          ? data.extracted_state.trim()
-          : ((farmer.state || farmer.stateName || editableState || "").trim());
-        const rootDistrict = (data.extracted_district && data.extracted_district.trim())
-          ? data.extracted_district.trim()
-          : ((farmer.district || farmer.districtName || editableDistrict || "").trim());
-        const rootBlock = (data.extracted_block && data.extracted_block.trim())
-          ? data.extracted_block.trim()
-          : ((farmer.blockName || farmer.block || editableBlock || "").trim());
-        const rootVillage = (data.extracted_village && data.extracted_village.trim())
-          ? data.extracted_village.trim()
-          : ((farmer.villageName || farmer.village || editableVillage || "").trim());
+        const resolveLocation = (
+          extractedVal?: string | null,
+          farmerVal?: string | null,
+          fallbackVal: string = ""
+        ): string => {
+          const ext = (extractedVal || "").trim();
+          const isExtEmptyOrAll = !ext || ext.toLowerCase() === "all";
+          const farm = (farmerVal || "").trim();
+          const isFarmValid = Boolean(farm && farm.toLowerCase() !== "all");
+
+          if (isExtEmptyOrAll && isFarmValid) {
+            return farm;
+          }
+          return ext || (fallbackVal || "").trim();
+        };
+
+        const rootState = resolveLocation(
+          data.extracted_state,
+          farmer.state || farmer.stateName,
+          editableState
+        );
+        const rootDistrict = resolveLocation(
+          data.extracted_district,
+          farmer.district || farmer.districtName,
+          editableDistrict
+        );
+        const rootBlock = resolveLocation(
+          data.extracted_block,
+          farmer.blockName || farmer.block,
+          editableBlock
+        );
+        const rootVillage = resolveLocation(
+          data.extracted_village,
+          farmer.villageName || farmer.village,
+          editableVillage
+        );
         const defaultSeason = (data as any).extracted_season || editableSeason || getAutoSelectedSeason();
 
         const rawQueries = data.extracted_queries && data.extracted_queries.length > 0
