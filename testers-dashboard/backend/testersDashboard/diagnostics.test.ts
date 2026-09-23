@@ -4,6 +4,7 @@ import path from 'path';
 import { Readable } from 'stream';
 import csv from 'csv-parser';
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
+import type { ZohoTicketStatus } from '../interfaces/IZohoTicketStatusService.js';
 import { normalizeDefectSeverity, isNAlike, matchesAny, isYes } from './normalize.js';
 import {
     TAT_STAGES,
@@ -19,12 +20,9 @@ import {
 
 // Same loader as filters.test.ts/kpis.test.ts - real live CSV, parsed the
 // same way TestersDashboardService.parseCSV does. Pulled FRESH at test run
-// time (not a cached snapshot) - this session has repeatedly confirmed the
-// live sheet keeps changing between sessions (the 302-vs-316 defect-count
-// drift, the *_DYNAMIC row-count drift, the Joydeep-total drift), so every
-// number asserted below was independently computed against this exact same
-// file immediately before writing these assertions, not carried over from
-// an earlier phase's snapshot.
+// time (not a cached snapshot) - the live sheet keeps changing, so numbers
+// asserted below should be re-derived against a fresh pull if this starts
+// failing.
 function loadRealRecords(): Promise<TestersDashboardRecord[]> {
     // Same TESTERS_DASHBOARD_CSV_PATH override the real service uses - the
     // CSV lives at backend/data/testers-dashboard/updated.csv and did not
@@ -72,11 +70,10 @@ describe('moduleGroupFor', () => {
         expect(moduleGroupFor('Dynmic')).toBe('Dynamic');
     });
 
-    // The fix landed earlier this session: an exact `=== "Dynamic"` check
-    // was silently excluding ~550 real Test Log 2.0 rows from Weakest
-    // Module. This must still bucket the Weather/Mandi/Scheme compound
-    // variants as Dynamic (their subtypes are Dynamic's own sub-breakdown,
-    // see dynamicSubBucketFor below).
+    // An exact `=== "Dynamic"` check would silently exclude real Test Log
+    // 2.0 rows from Weakest Module. This must still bucket the
+    // Weather/Mandi/Scheme compound variants as Dynamic (their subtypes are
+    // Dynamic's own sub-breakdown, see dynamicSubBucketFor below).
     it('buckets Test Log 2.0 compound Dynamic variants as Dynamic (the *_DYNAMIC fix)', () => {
         expect(moduleGroupFor('WEATHER DYNAMIC')).toBe('Dynamic');
         expect(moduleGroupFor('MANDI DYNAMIC')).toBe('Dynamic');
@@ -392,15 +389,77 @@ describe('calculateAceModulePerformance / calculateDiagnostics against the real 
         expect(result.criticalDefectCount).toBeGreaterThan(criticalOnly);
     });
 
-    it('openTickets deduplicates by URL and only includes rows with a valid http link', () => {
-        const result = calculateDiagnostics(records);
-        expect(result.openTickets.length).toBe(29);
-        const urls = result.openTickets.map((t) => t.url);
-        expect(new Set(urls).size).toBe(urls.length); // no duplicate URLs
-        for (const ticket of result.openTickets) {
-            expect(ticket.url.toLowerCase().startsWith('http')).toBe(true);
-            expect(['Critical', 'High']).toContain(ticket.severity);
-        }
+    // openTickets/allTickets now come from a SEPARATE `zohoTickets` param
+    // (the already-synced Zoho ticket cache), not from `rows`/the sheet's
+    // Defect ID / Bug Ref column at all - passing real sheet rows with
+    // ticket links but an empty (default) zohoTickets map must produce
+    // empty ticket lists, proving `rows` no longer feeds these two fields
+    // in any way (per the manager's decision that the ticket card ignores
+    // the dashboard filters entirely, since most Zoho tickets have no sheet
+    // row).
+    it('openTickets/allTickets ignore `rows` entirely - no zohoTickets param means no tickets, even with sheet-linked rows', () => {
+        const ticketField = 'Defect ID / Bug Ref\nZoho Desk Ticketing';
+        const result = calculateDiagnostics([
+            { 'Test ID': 'T1', 'Defect Severity': 'Critical', [ticketField]: 'https://desk.zoho.in/tickets/1' },
+        ]);
+        expect(result.openTickets).toEqual([]);
+        expect(result.allTickets).toEqual([]);
+    });
+
+    function zohoStatus(overrides: Partial<ZohoTicketStatus> & { ticketId: string; severity: string }): ZohoTicketStatus {
+        return {
+            status: 'Open',
+            team: null,
+            ticketNumber: null,
+            priority: null,
+            url: `https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/${overrides.ticketId}`,
+            lastCheckedAt: '2026-01-01T00:00:00.000Z',
+            ...overrides,
+        };
+    }
+
+    it('allTickets mirrors every ticket in the zohoTickets cache, independent of `rows`', () => {
+        const zohoTickets: Record<string, ZohoTicketStatus> = {
+            '1': zohoStatus({ ticketId: '1', severity: 'Critical' }),
+            '2': zohoStatus({ ticketId: '2', severity: 'High' }),
+            '3': zohoStatus({ ticketId: '3', severity: 'Medium' }),
+            '4': zohoStatus({ ticketId: '4', severity: 'Low' }),
+            '5': zohoStatus({ ticketId: '5', severity: 'No priority' }),
+        };
+        // Empty rows - proves allTickets doesn't need any sheet data at all.
+        const result = calculateDiagnostics([], zohoTickets);
+        expect(result.allTickets.length).toBe(5);
+        expect(result.allTickets.map((t) => t.id).sort()).toEqual(['1', '2', '3', '4', '5']);
+        expect(result.allTickets.map((t) => t.severity).sort()).toEqual(['Critical', 'High', 'Low', 'Medium', 'No priority']);
+        // Every ticket carries the URL straight from the cache, unchanged.
+        result.allTickets.forEach((t) => {
+            expect(t.url).toBe(zohoTickets[t.id]!.url);
+        });
+    });
+
+    // Critical Defect Tickets view = Critical + High only; All Tickets view
+    // = everything, "No priority" included - the exact split the manager
+    // asked for, now driven by mapZohoPriorityToSeverity's output on the
+    // `severity` field rather than the sheet's Defect Severity.
+    it('openTickets is exactly the Critical+High subset of allTickets, including when "No priority" tickets are present', () => {
+        const zohoTickets: Record<string, ZohoTicketStatus> = {
+            '1': zohoStatus({ ticketId: '1', severity: 'Critical' }),
+            '2': zohoStatus({ ticketId: '2', severity: 'High' }),
+            '3': zohoStatus({ ticketId: '3', severity: 'Medium' }),
+            '4': zohoStatus({ ticketId: '4', severity: 'Low' }),
+            '5': zohoStatus({ ticketId: '5', severity: 'No priority' }),
+        };
+        const result = calculateDiagnostics([], zohoTickets);
+        expect(result.openTickets.map((t) => t.id).sort()).toEqual(['1', '2']);
+        expect(result.openTickets.every((t) => t.severity === 'Critical' || t.severity === 'High')).toBe(true);
+        expect(result.allTickets.length).toBe(5);
+        expect(result.allTickets.some((t) => t.severity === 'No priority')).toBe(true);
+    });
+
+    it('openTickets/allTickets are both empty when the zohoTickets cache is empty (e.g. before the first sync)', () => {
+        const result = calculateDiagnostics(records, {});
+        expect(result.openTickets).toEqual([]);
+        expect(result.allTickets).toEqual([]);
     });
 
     it('Biggest Bottleneck stage averages match a fresh independent computation (2 stages spot-checked)', () => {
@@ -429,6 +488,7 @@ describe('calculateAceModulePerformance / calculateDiagnostics against the real 
         expect(result.weakestModuleReason).toEqual([]);
         expect(result.criticalDefectCount).toBe(0);
         expect(result.openTickets).toEqual([]);
+        expect(result.allTickets).toEqual([]);
         expect(result.modulePerformance.length).toBe(6);
         expect(
             result.modulePerformance.every((m) => m.applicableRowCount === 0 && m.eligible === false && m.overallScore === null),
@@ -545,11 +605,11 @@ describe('calculateAceModulePerformance - ACE module formulas (synthetic)', () =
         expect(kgSci.applicable).toBe(agriSci.applicable);
     });
 
-    // 4. Dynamic Advisory - unlike Trust Score's A_dom (which defaults an
-    // empty domain to 100 so it doesn't drag the blended average down), a
-    // sub-metric with zero applicable rows must be SKIPPED here entirely -
-    // Weakest Module must never let an empty domain masquerade as perfect.
-    it('Dynamic Advisory skips a sub-metric with zero applicable rows, never defaulting it to 100 (unlike Trust Score A_dom)', () => {
+    // 4. Dynamic Advisory - a sub-metric with zero applicable rows must be
+    // SKIPPED here entirely, never defaulted to 100 - Weakest Module must
+    // never let an empty domain masquerade as perfect. Trust Score's A_dom
+    // now follows this exact same rule (see kpis.ts's calculateTrustScore).
+    it('Dynamic Advisory skips a sub-metric with zero applicable rows, never defaulting it to 100', () => {
         const rows: TestersDashboardRecord[] = [
             { 'Question Category': 'Climate, Weather and Stress Management', 'Type of Question': 'Dynamic', 'Weather Q Answered Correctly?': 'Yes' },
             { 'Question Category': 'Climate, Weather and Stress Management', 'Type of Question': 'Dynamic', 'Weather Q Answered Correctly?': 'No' },
@@ -671,15 +731,14 @@ describe('calculateAceModulePerformance - ACE module formulas (synthetic)', () =
 });
 
 // Sheet 3.0's real Test Log tab was fetched and inspected before merging it
-// in (Step 0 of the Sheet 3.0 sync work) - every distinct Type of
-// Question/Question Category value it actually contains was tabulated
-// against the live sheet and confirmed by name here, NOT assumed. This
-// isn't testing sheetMerge.ts's merge mechanics (see sheetMerge.test.ts for
-// that, with synthetic fixtures) - it's confirming that once Sheet 3.0's
-// real rows are physically present in updated.csv (post-sync), the
-// EXISTING generic moduleGroupFor/dynamicSubBucketFor logic - unchanged by
-// the Sheet 3.0 work - resolves all of them correctly with zero new
-// per-value mapping code, exactly as the Step 0 investigation predicted.
+// in - every distinct Type of Question/Question Category value it actually
+// contains was tabulated against the live sheet and confirmed by name here,
+// NOT assumed. This isn't testing sheetMerge.ts's merge mechanics (see
+// sheetMerge.test.ts for that, with synthetic fixtures) - it's confirming
+// that once Sheet 3.0's real rows are physically present in updated.csv
+// (post-sync), the EXISTING generic moduleGroupFor/dynamicSubBucketFor
+// logic - unchanged by the Sheet 3.0 work - resolves all of them correctly
+// with zero new per-value mapping code.
 describe('Sheet 3.0 real values resolve via the existing moduleGroupFor/dynamicSubBucketFor logic (no new mapping needed)', () => {
     // Confirmed via a direct Sheets API fetch of Sheet 3.0's "Test Log" tab
     // immediately before this test was written - the complete, exact set of

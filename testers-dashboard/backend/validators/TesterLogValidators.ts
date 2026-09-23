@@ -172,6 +172,26 @@ export class GetTesterLogQuery {
     @IsString()
     @IsOptional()
     dateField?: string;
+
+    @JSONSchema({ description: 'Type of question, e.g. Unique, GDB, Dynamic' })
+    @IsString()
+    @IsOptional()
+    typeOfQuestion?: string;
+
+    @JSONSchema({ description: 'Channel tested: WhatsApp, WebApp, Both' })
+    @IsString()
+    @IsOptional()
+    channelTested?: string;
+
+    @JSONSchema({ description: 'Overall Test Status: Pass, Fail, Partial, NA' })
+    @IsString()
+    @IsOptional()
+    overallTestStatus?: string;
+
+    @JSONSchema({ description: 'Defect Severity: Critical, High, Medium, Low, Nil' })
+    @IsString()
+    @IsOptional()
+    defectSeverity?: string;
 }
 
 export class CreateZohoTicketDto {

@@ -1,4 +1,4 @@
-import type { KpiSummary, PreviousPeriodStats } from '../testersDashboard/kpis.js';
+import type { KpiSummary, PreviousPeriodStats, ChannelPerformanceStat, LanguagePerformanceStat } from '../testersDashboard/kpis.js';
 import type { DiagnosticsResult } from '../testersDashboard/diagnostics.js';
 import type { ChartData } from '../testersDashboard/chartData.js';
 import type { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
@@ -23,6 +23,11 @@ export interface TestersDashboardSummaryResponse {
     previousPeriodStats: PreviousPeriodStats | null;
     filterOptions: Record<string, string[]>;
     lastSyncedAt: string | null;
+    // Channel-wise Performance / Language Performance cards (see kpis.ts). Computed over the
+    // same filtered row set as kpis/diagnostics/chartData above, so they react to every filter
+    // (including the Dynamic/Static tree) the same way.
+    channelStats: ChannelPerformanceStat[];
+    languageStats: LanguagePerformanceStat[];
 }
 
 export interface ITestersDashboardService {
@@ -33,11 +38,9 @@ export interface ITestersDashboardService {
     getData(source?: 'sheet' | 'db'): Promise<TestersDashboardDataResponse>;
 
     /**
-     * Server-side-filtered/computed dashboard summary: applies the given
-     * query's filters to the cached records, then returns the resulting
-     * KPIs, diagnostics (Biggest Bottleneck, Weakest Modules, Open Critical
-     * Defects), the daily trend chart data, the "vs previous period"
-     * comparison, and filter-dropdown options built from the full
+     * Server-side-filtered/computed dashboard summary: applies the query's filters to the
+     * cached records and returns the resulting KPIs, diagnostics, daily trend chart data,
+     * "vs previous period" comparison, and filter-dropdown options built from the full
      * (unfiltered) dataset.
      */
     getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse>;

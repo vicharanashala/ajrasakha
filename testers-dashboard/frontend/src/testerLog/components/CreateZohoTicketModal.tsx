@@ -155,7 +155,6 @@ export function CreateZohoTicketModal({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const wasOpenRef = useRef(false);
 
-    // Fetch teams on modal open
     useEffect(() => {
         if (!isOpen) return;
 
@@ -185,7 +184,7 @@ export function CreateZohoTicketModal({
         };
     }, [isOpen]);
 
-    // Populate default subject & description ONLY when modal first opens (never overwrite user edits on parent re-render)
+    // Populate default subject & description only on first open - never overwrite user edits on parent re-render
     useEffect(() => {
         if (!isOpen) {
             setSuccessInfo(null);
@@ -199,7 +198,6 @@ export function CreateZohoTicketModal({
         if (!wasOpenRef.current) {
             wasOpenRef.current = true;
 
-            // Owner team pre-selection based on channel
             setTeamId(getAutoSelectedTeamId(initialData.channelTested, teams));
 
             // Map defectSeverity to priority (Urgent/P0 -> High/P1 -> Medium/P2 -> Low/P3)
@@ -216,7 +214,7 @@ export function CreateZohoTicketModal({
             }
             setPriority(defaultPriority);
 
-            // Smart auto-detect App Name from channel tested
+            // Auto-detect App Name from channel tested
             const ch = (initialData.channelTested || "").toLowerCase();
             const isCross = ch.includes("both") || ch.includes("cross");
             if (isCross) {
@@ -248,7 +246,6 @@ export function CreateZohoTicketModal({
                     `• WhatsApp Thread ID: ${initialData.waThreadId || "N/A"}`
                 ]
                 : [`• Thread ID: ${initialData.threadId || "N/A"}`];
-
             const descParts = [
                 "QA Defect Report",
                 "----------------",

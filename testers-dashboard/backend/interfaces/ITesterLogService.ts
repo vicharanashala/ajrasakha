@@ -140,6 +140,86 @@ export interface CreateTesterLogEntryResponse {
     entry: TesterLogEntry;
 }
 
+// One dropdown option for the admin Tester filter - every distinct submittedByUserId
+// with at least one entry, labeled with that tester's most recently used testerName.
+export interface TesterOption {
+    id: string;
+    name: string;
+}
+
+export interface TesterLogSummary {
+    // Every entry by this tester (or, with none selected, the whole collection), regardless
+    // of any filter - a stable "how many has this tester ever logged" baseline.
+    totalEntries: number;
+    // Entries matching the full current filter set - the same count the table below paginates over.
+    entriesInRange: number;
+    // Pass ÷ (entries with Overall Test Status recorded), as a percentage. Ignores any Overall
+    // Test Status filter itself (else filtering to "Fail" would always show 0% pass rate).
+    // Null when no entry in scope has a status recorded.
+    passRate: number | null;
+    passCount: number;
+    statusRecordedCount: number;
+}
+
+export interface TesterLogExportResult {
+    buffer: Buffer;
+    contentType: string;
+    filename: string;
+}
+
+// The 6 question-type categories the Summary tab's targets are defined over. Target numbers
+// come from the business's "End to End Testing Pipeline" sheet - see TesterLogService.ts's
+// QUESTION_TYPE_DAILY_TARGETS.
+export type QuestionTypeKey = 'unique' | 'gdb' | 'outreach' | 'weather' | 'scheme' | 'mandi';
+
+export interface QuestionTypeCountRow {
+    // 'total' appears once, as the summed row across all 6 categories.
+    key: QuestionTypeKey | 'total';
+    label: string;
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
+
+export interface ChannelCountSummary {
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
+
+// One row of the Summary tab's per-tester table (All Testers view only).
+export interface TesterQuestionTypeRow {
+    testerId: string;
+    testerName: string;
+    // Distinct testDate values this tester logged at least one entry against, within the
+    // current date filter - informational only (attendance); targets scale by workingDays
+    // (see TesterQuestionTypeSummaryResult), not this figure.
+    daysWorked: number;
+    counts: Record<QuestionTypeKey, number>;
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
+
+export interface TesterQuestionTypeSummaryResult {
+    // Working days in the filter range (calendar days × 6/7, rounded - testers work 6 days a
+    // week with their own weekly day off). The SAME figure every tester's (and every
+    // per-type/per-channel) target scales by, regardless of whether that tester logged
+    // anything. See TesterLogService.ts's workingDaysInRange/calendarDaysInRange.
+    workingDays: number;
+    overall: {
+        target: number;
+        actual: number;
+        achievementPct: number;
+    };
+    webApp: ChannelCountSummary;
+    whatsApp: ChannelCountSummary;
+    // The 6 categories plus a trailing Total row (7 entries).
+    byType: QuestionTypeCountRow[];
+    // Present only when no single tester is selected (All Testers).
+    byTester?: TesterQuestionTypeRow[];
+}
+
 export interface TesterLogSummaryResponse {
     success: boolean;
     totalTests: number;
@@ -211,7 +291,6 @@ export interface TargetVsAchievedSummary {
     total: TargetAchievedRow;
 }
 
-
 export interface ITesterLogService {
     createEntry(
         userId: string,
@@ -236,7 +315,34 @@ export interface ITesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        typeOfQuestion?: string,
+        channelTested?: string,
+        overallTestStatus?: string,
+        defectSeverity?: string,
     ): Promise<PaginatedTesterLogEntries>;
+
+    getTesterOptions(): Promise<TesterOption[]>;
+
+    getSummary(
+        testerId?: string,
+        startDate?: string,
+        endDate?: string,
+        dateField?: string,
+        typeOfQuestion?: string,
+        channelTested?: string,
+        overallTestStatus?: string,
+        defectSeverity?: string,
+    ): Promise<TesterLogSummary>;
+
+    // Excel is the only export format. Takes no filter params - always every row, regardless
+    // of the review table's current on-screen filters.
+    exportEntries(): Promise<TesterLogExportResult>;
+
+    getQuestionTypeSummary(
+        testerId?: string,
+        startDate?: string,
+        endDate?: string,
+    ): Promise<TesterQuestionTypeSummaryResult>;
 
     getMySummary(
         userId: string,

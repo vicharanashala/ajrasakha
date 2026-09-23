@@ -4,11 +4,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ShieldAlert, ListChecks } from "lucide-react";
 import type { ITestersDashboardDiagnostics } from "../services/testersDashboardSummaryService";
 import { InfoPopover } from "./InfoPopover";
 
-const CRITICAL_DEFECTS_PAGE_SIZE = 10;
+const CRITICAL_DEFECTS_PAGE_SIZE = 6;
 
 export interface IDefectsTab {
   key: "open" | "closed" | "onHold" | "escalated";
@@ -16,6 +16,26 @@ export interface IDefectsTab {
   tickets: { id: string; url: string; severity: string; displayNumber: string }[];
   page: number;
   setPage: (value: number | ((prev: number) => number)) => void;
+}
+
+export type DefectsView = "critical" | "all";
+
+// Case-insensitive since normalizeDefectSeverity returns Title Case
+// ('Critical'/'High'/'Medium'/'Low') but the badge itself renders uppercase
+// via CSS - matching case-sensitively here would silently miss every tier.
+function severityBadgeClass(severity: string): string {
+  switch (severity.trim().toLowerCase()) {
+    case "critical":
+      return "bg-red-100 text-red-700";
+    case "high":
+      return "bg-orange-100 text-orange-700";
+    case "medium":
+      return "bg-yellow-100 text-yellow-700";
+    case "low":
+      return "bg-blue-100 text-blue-700";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
 }
 
 export interface ITeamBreakdown {
@@ -29,6 +49,12 @@ export interface DiagnosticsRowProps {
   diagnostics: ITestersDashboardDiagnostics;
   weakestModuleExpanded: boolean;
   setWeakestModuleExpanded: (value: boolean | ((prev: boolean) => boolean)) => void;
+  defectsCardTitle: string;
+  defectsView: DefectsView;
+  onSwitchDefectsView: (view: DefectsView) => void;
+  // Ticket pool size before the team pill narrows it - distinguishes
+  // "nothing linked" from "some exist, none match the current tab/team".
+  defectsPoolCount: number;
   activeDefectsTab: IDefectsTab["key"];
   setActiveDefectsTab: (value: IDefectsTab["key"]) => void;
   defectsTabs: IDefectsTab[];
@@ -42,6 +68,10 @@ export function DiagnosticsRow({
   diagnostics,
   weakestModuleExpanded,
   setWeakestModuleExpanded,
+  defectsCardTitle,
+  defectsView,
+  onSwitchDefectsView,
+  defectsPoolCount,
   activeDefectsTab,
   setActiveDefectsTab,
   defectsTabs,
@@ -93,17 +123,16 @@ export function DiagnosticsRow({
               <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Weakest Modules</CardTitle>
               <InfoPopover title="Weakest Modules" align="start">
                 <p>
-                  6 ACE modules, each scored from its own related columns (not a Type of Question row grouping):
-                  Farmer Interaction, Agri Advisory, Knowledge &amp; GDB, Dynamic Advisory, Multilingual &amp; Voice,
-                  Communication &amp; Notifications.
+                  Lowest-scoring of 6 modules: Farmer Interaction, Agri Advisory, Knowledge &amp; GDB, Dynamic
+                  Advisory, Multilingual &amp; Voice, Communication &amp; Notifications.
                 </p>
                 <p>
-                  Each module's score is the average of its own sub-metrics — a sub-metric with no applicable rows is
-                  skipped, not counted as 0. A module needs at least 10 applicable rows (across all its sub-metrics
-                  combined) to be eligible as "weakest".
+                  Module score = average of its sub-metrics; a sub-metric with no applicable rows is skipped, not
+                  counted as 0. Needs ≥10 applicable rows to be eligible.
                 </p>
                 <p>
-                  A few modules aren't scored yet because the required data isn't being recorded in the sheet.
+                  Review &amp; Quality, Farmer Context, and ACE Platform &amp; Integrations are not scored — the
+                  sheet does not record the needed data.
                 </p>
               </InfoPopover>
             </div>
@@ -128,7 +157,7 @@ export function DiagnosticsRow({
               weakestModuleExpanded ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0"
             }`}
           >
-            <div className="overflow-hidden space-y-3 text-xs border-t pt-2 max-h-[136px] overflow-y-auto">
+            <div className="overflow-hidden space-y-3 text-xs border-t pt-2 max-h-[168px] overflow-y-auto">
               {(diagnostics.modulePerformance ?? []).map((m) => (
                 <div key={m.key} className="space-y-1">
                   <div className="flex justify-between">
@@ -162,21 +191,53 @@ export function DiagnosticsRow({
 
       <Card className="border-muted-foreground/10">
         <CardHeader className="pb-2">
-          <div className="flex items-center gap-1.5">
-            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">
-              Critical Defect Tickets
-            </CardTitle>
-            <InfoPopover title="Team Grouping" align="start">
-              <p>
-                Each ticket is grouped by its linked Zoho Desk ticket's <strong>Team</strong> field, looked up live
-                from Zoho (not the sheet). Tickets whose Zoho ticket has no team set — or whose live Zoho data hasn't
-                synced yet — fall into "Unassigned" rather than being dropped.
-              </p>
-              <p className="text-[10px] text-muted-foreground pt-1">
-                Team names come directly from Zoho; the list below only shows teams that actually own at least one of
-                these tickets, not every team in the org.
-              </p>
-            </InfoPopover>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">
+                {defectsCardTitle}
+              </CardTitle>
+              <InfoPopover title="Ticket Data" align="start">
+                <p>
+                  Shows all tickets in Zoho Desk's <strong>Bugs Tracker</strong> layout, fetched directly from Zoho
+                  — not just tickets linked in the QA sheet. Not affected by the dashboard filters (Date Range,
+                  Type of Question, Channel, Tester, etc.) since most Zoho tickets have no sheet row for those
+                  filters to apply to.
+                </p>
+                <p>
+                  Grouped by each ticket's <strong>Team</strong> field in Zoho (not the sheet). Tickets with no team
+                  set, or awaiting their next Zoho sync, show as "Unassigned".
+                </p>
+                <p className="text-[10px] text-muted-foreground pt-1">
+                  Only teams with at least one of these tickets are listed.
+                </p>
+              </InfoPopover>
+            </div>
+            <div className="flex items-center bg-muted p-1 rounded-lg border gap-1">
+              <button
+                type="button"
+                onClick={() => onSwitchDefectsView("critical")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                  defectsView === "critical"
+                    ? "bg-background text-foreground shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ShieldAlert className="h-3.5 w-3.5 text-red-600" />
+                Critical Defect Tickets
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchDefectsView("all")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                  defectsView === "all"
+                    ? "bg-background text-foreground shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ListChecks className="h-3.5 w-3.5 text-primary" />
+                All Tickets
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1 mt-2">
             {defectsTabs.map((tab) => (
@@ -196,8 +257,8 @@ export function DiagnosticsRow({
           </div>
         </CardHeader>
         <CardContent>
-          {diagnostics.criticalDefectCount === 0 ? (
-            <p className="text-sm text-muted-foreground">No active critical/high defects.</p>
+          {defectsPoolCount === 0 ? (
+            <p className="text-sm text-muted-foreground">No tickets linked yet.</p>
           ) : (
             <>
               {teamBreakdown.length > 0 && (
@@ -251,14 +312,14 @@ export function DiagnosticsRow({
                 </div>
               )}
               <p className="text-xs text-muted-foreground mb-2">
-                {activeDefectsTabInfo.tickets.length} {activeDefectsTabInfo.label.toLowerCase()} critical/high
-                defect{activeDefectsTabInfo.tickets.length === 1 ? "" : "s"} total.
+                {activeDefectsTabInfo.tickets.length} {activeDefectsTabInfo.label.toLowerCase()}{" "}
+                {defectsView === "all" ? "ticket" : "critical/high defect"}
+                {activeDefectsTabInfo.tickets.length === 1 ? "" : "s"} total.
               </p>
-              {diagnostics.openTickets.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No ticket links logged for these yet.</p>
-              ) : activeDefectsTabInfo.tickets.length === 0 ? (
+              {activeDefectsTabInfo.tickets.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No {activeDefectsTabInfo.label.toLowerCase()} critical/high tickets.
+                  No {activeDefectsTabInfo.label.toLowerCase()}{" "}
+                  {defectsView === "all" ? "tickets" : "critical/high tickets"}.
                 </p>
               ) : (
                 <>
@@ -279,9 +340,7 @@ export function DiagnosticsRow({
                             Ticket #{t.displayNumber}
                           </a>
                           <span
-                            className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
-                              t.severity === "critical" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
-                            }`}
+                            className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${severityBadgeClass(t.severity)}`}
                           >
                             {t.severity}
                           </span>

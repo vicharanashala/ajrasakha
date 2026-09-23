@@ -1,24 +1,32 @@
 export interface ZohoTicketStatus {
     ticketId: string;
     status: string; // "Open", "Closed", "On Hold", etc.
-    // The Zoho ticket's Team field (owning team's name), resolved via the
-    // `?include=team` param on the ticket fetch - not the same as the
-    // ticket's individual assignee. Null when Zoho has no team set on the
-    // ticket (e.g. an older ticket predating team routing).
+    // Owning team's name, resolved via the `?include=team` param on the ticket fetch - not
+    // the same as the ticket's individual assignee. Null when Zoho has no team set.
     team: string | null;
-    // Zoho's short human-facing ticket number (e.g. "539"), distinct from
-    // the long internal `ticketId` used for lookups/URLs. Null when Zoho
-    // hasn't returned one yet (e.g. not synced).
+    // Zoho's short human-facing ticket number (e.g. "539"), distinct from the long internal
+    // `ticketId` used for lookups/URLs. Null when Zoho hasn't returned one yet.
     ticketNumber: string | null;
+    // Zoho's raw `priority` field value (e.g. "P0 - Critical"), kept alongside `severity` so
+    // the mapping rule that produced it (mapZohoPriorityToSeverity) stays inspectable.
+    priority: string | null;
+    // Display severity, derived from `priority` via mapZohoPriorityToSeverity. This is the
+    // ONE severity source the ticket card uses; the Executive Summary's Critical Defects tile
+    // (kpis.ts) uses a separate, sheet-based severity definition unaffected by this.
+    severity: string;
+    // Ticket's Zoho Desk web URL - Zoho's own `webUrl` when present, else built from
+    // ZOHO_PORTAL_URL + ticketId. Not sourced from the sheet's Defect ID / Bug Ref column.
+    url: string;
     lastCheckedAt: string;
 }
 
 export interface IZohoTicketStatusService {
     /**
-     * Refreshes cached status for the given ticket IDs (pulled from the
-     * Defect ID / Bug Ref links already in the sheet), via the Zoho Desk API.
+     * Pages through Zoho Desk's ticket list endpoint, keeps only tickets in the "Bugs
+     * Tracker" layout (other products' layouts are excluded), and replaces the cache
+     * wholesale. This is the ticket card's ONLY source of tickets - not the sheet.
      */
-    syncTicketStatuses(ticketIds: string[]): Promise<void>;
+    syncAllBugsTrackerTickets(): Promise<void>;
 
     /**
      * Returns whatever statuses are currently cached (does not hit Zoho).

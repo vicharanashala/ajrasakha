@@ -24,8 +24,7 @@ export interface SheetFetchResult {
 // Column B === "Test Date" is present and unambiguous in every known
 // sheet's real header row regardless of column-A quirks (see
 // SHEET_HEADER_QUIRKS below - anchoring on column A instead would be
-// unreliable) - finds the real header row past each sheet's boilerplate
-// rows (e.g. "Prepared by: ... Version: 1.0").
+// unreliable) - finds the real header row past each sheet's boilerplate rows.
 export function findHeaderRowIndex(rows: string[][]): number {
     for (let i = 0; i < rows.length; i++) {
         const secondCell = (rows[i][1] || '').trim();

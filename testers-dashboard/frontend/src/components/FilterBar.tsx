@@ -38,9 +38,9 @@ export const STATIC_SUB_TYPE_OPTIONS = [
   { value: "Outreach", label: "Outreach" },
 ];
 
-// "Static Dynamic" is confirmed removed from the Type of Question taxonomy
-// (matches the backend). "UX Feedback" is deliberately left out of the
-// Dynamic/Static tree below - TODO: where it belongs is still unresolved.
+// "Static Dynamic" is not part of the Type of Question taxonomy (matches
+// the backend). "UX Feedback" is deliberately left out of the Dynamic/
+// Static tree below - TODO: where it belongs is still unresolved.
 
 export interface IFilterBarFiltersState {
   dateRange: string;
@@ -69,8 +69,7 @@ export interface IFilterField {
 }
 
 // Bundled since the Type of Question tree control has a lot of coupled
-// state/handlers - passing them as one object keeps FilterBarProps readable
-// instead of 12 separate flat props.
+// state/handlers - keeps FilterBarProps readable instead of many flat props.
 export interface ITypeBranchState {
   typeBranch: "all" | "Dynamic" | "Static";
   dynamicSubTypes: string[];
@@ -104,8 +103,7 @@ export interface FilterBarProps {
 // are added/removed, instead of needing a hand-kept column count.
 // min-w-[150px] keeps a cell from being squeezed unreadable before
 // wrapping. Custom Range Start/End get their own basis-full row below
-// rather than sharing the Date Range cell, which used to crush them into an
-// unusably narrow shared column.
+// rather than sharing the Date Range cell.
 export function FilterBar({
   filters,
   setFilters,
@@ -136,10 +134,9 @@ export function FilterBar({
 
   // Display-only: an empty sub-type array under its own selected branch
   // means "no sub-filter, include everything in this branch" to the
-  // backend (unchanged) - but showing every checkbox unchecked in that
-  // state reads as "nothing is selected," contradicting the branch itself
-  // being selected. Both mean the whole branch is included, so both
-  // render as fully checked; the array itself is untouched.
+  // backend, but showing every checkbox unchecked would contradict the
+  // branch being selected - so both states render as fully checked; the
+  // array itself is untouched.
   const dynamicWholeBranchSelected = typeBranch === "Dynamic" && dynamicSubTypes.length === 0;
   const staticWholeBranchSelected = typeBranch === "Static" && staticSubTypes.length === 0;
 

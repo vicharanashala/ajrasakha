@@ -13,7 +13,7 @@ import {
 import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
 import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
 import { isFutureTestDate } from '../testersDashboard/normalize.js';
-import { calculateKpis, calculatePreviousPeriodStats } from '../testersDashboard/kpis.js';
+import { calculateKpis, calculatePreviousPeriodStats, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
 import {
@@ -21,10 +21,10 @@ import {
     type SheetFetchResult,
     type SheetSourceConfig,
 } from '../testersDashboard/sheetMerge.js';
+import { DASHBOARD_TYPES } from '../types.js';
+import type { IZohoTicketStatusService } from '../interfaces/IZohoTicketStatusService.js';
 
-// TODO: confirm final location with the team - for now this expects the same
-// updated.csv used by outreach_stt/dashboard, copied/synced into this backend.
-// Configurable via env so we don't hardcode a path that only exists on one machine.
+// Configurable via env so this doesn't hardcode a path that only exists on one machine.
 const CSV_PATH =
     process.env.TESTERS_DASHBOARD_CSV_PATH ||
     path.join(process.cwd(), 'data', 'testers-dashboard', 'updated.csv');
@@ -33,13 +33,10 @@ const SERVICE_ACCOUNT_PATH =
     process.env.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH || '';
 
 // Any number of Test Log sheets to merge, e.g.:
-//   [{"id":"...","tab":"Test Log_1","label":"1.0"},
-//    {"id":"...","tab":"Test Log","label":"2.0"},
-//    {"id":"...","tab":"Test Log","label":"3.0"}]
-// Adding a sheet is a config change, not a code change. Order matters only
-// in that whichever entry is first to produce usable rows becomes the
-// header baseline (see sheetMerge.ts's mergeSheetSources) - list the most
-// reliable/established sheet first.
+//   [{"id":"...","tab":"Test Log_1","label":"1.0"},{"id":"...","tab":"Test Log","label":"2.0"}]
+// Adding a sheet is a config change, not a code change. The first entry to produce usable
+// rows becomes the header baseline (see sheetMerge.ts's mergeSheetSources), so list the
+// most reliable/established sheet first.
 function parseSheetSources(): SheetSourceConfig[] {
     const raw = process.env.TESTERS_DASHBOARD_SHEETS || '';
     if (!raw.trim()) return [];
@@ -70,9 +67,8 @@ function parseSheetSources(): SheetSourceConfig[] {
 
 const SHEET_SOURCES = parseSheetSources();
 
-// Wraps a single CSV field in quotes if it contains a comma, quote, or newline,
-// and doubles up any internal quotes - standard CSV escaping.
-function escapeCsvField(value: string): string {
+// Standard CSV field escaping. Exported for reuse by TesterLogService's own CSV export.
+export function escapeCsvField(value: string): string {
     if (value.includes(',') || value.includes('"') || value.includes('\n')) {
         return `"${value.replace(/"/g, '""')}"`;
     }
@@ -181,6 +177,17 @@ export class TestersDashboardService implements ITestersDashboardService {
         @optional()
         @inject(DATABASE_TOKEN)
         private readonly db?: DatabaseProvider,
+        // Optional so every existing `new TestersDashboardService()`/
+        // `new TestersDashboardService(db)` call (tests included) keeps
+        // working unchanged - when absent, the ticket card's Zoho-sourced
+        // openTickets/allTickets just come back empty (see getSummary
+        // below) rather than throwing.
+        // Optional for backward compatibility with existing call sites; when absent, the
+        // ticket card's Zoho-sourced openTickets/allTickets just come back empty (see
+        // getSummary below) rather than throwing.
+        @optional()
+        @inject(DASHBOARD_TYPES.ZohoTicketStatusService)
+        private readonly zohoTicketStatusService?: IZohoTicketStatusService,
     ) { }
 
     private parseCSV(filePath: string): Promise<TestersDashboardRecord[]> {
@@ -208,16 +215,10 @@ export class TestersDashboardService implements ITestersDashboardService {
                         testId &&
                         !testId.startsWith('Project:') &&
                         !testId.startsWith('Test ID') &&
-                        // Future-dated rows (Test Date after today, IST) are
-                        // dropped here, before any filter/calculation sees
-                        // them - a handful of confirmed data-entry mistakes
-                        // (month incremented while the day stayed fixed) land
-                        // months ahead of the real recording period.
-                        // Unparseable-date rows are deliberately kept - those
-                        // are real test results whose date field just isn't
-                        // readable, not garbage rows, and isFutureTestDate
-                        // returns false for them (only a row that parses
-                        // AND is future-dated is dropped).
+                        // Future-dated rows (Test Date after today, IST) are dropped before any
+                        // filter/calculation sees them - these are data-entry mistakes, not real
+                        // results. Unparseable dates are kept (isFutureTestDate only returns true
+                        // for a row that parses AND is in the future).
                         !isFutureTestDate(data['Test Date'])
                     ) {
                         results.push(data);
@@ -286,10 +287,8 @@ export class TestersDashboardService implements ITestersDashboardService {
         const records = await this.parseCSV(CSV_PATH);
         this.cachedRecords = records;
 
-        // The file's last-modified time is exactly when the 30-min cron job
-        // (syncFromSheet) last overwrote it with fresh data from the Google
-        // Sheet - this is genuinely "when did we last sync," not just "when did
-        // the browser last ask for data."
+        // File's last-modified time is when the sync cron (syncFromSheet) last overwrote it -
+        // genuinely "when did we last sync," not just "when did the browser last ask."
         const stats = fs.statSync(CSV_PATH);
 
         return {
@@ -300,12 +299,9 @@ export class TestersDashboardService implements ITestersDashboardService {
         };
     }
 
-    // Serves cachedRecords when already populated instead of re-parsing the
-    // whole CSV on every filter change - getData() (used by the raw /data
-    // route) still always re-reads from disk, since that route's existing
-    // contract is "give me the freshest possible data." The cache is
-    // invalidated in syncFromSheet() below, so a stale cache can only ever
-    // be at most as stale as the last sync.
+    // Serves cachedRecords when populated instead of re-parsing the whole CSV on every
+    // filter change. getData() (the raw /data route) always re-reads from disk since that
+    // route's contract is "freshest possible data." Cache is invalidated in syncFromSheet().
     private async getRecordsForSummary(): Promise<TestersDashboardRecord[]> {
         if (this.cachedRecords) {
             return this.cachedRecords;
@@ -320,10 +316,8 @@ export class TestersDashboardService implements ITestersDashboardService {
 
     private buildFiltersFromQuery(query: GetTestersDashboardQuery): TestersDashboardFilters {
         return {
-            // query.dateRange is typed as plain `string` (see
-            // TestersDashboardValidators.ts), but @IsIn(['all', 'today',
-            // '7days', '30days', 'custom']) already guarantees it's one of
-            // those exact values by the time this runs, so the cast is safe.
+            // query.dateRange is typed as plain `string` (see TestersDashboardValidators.ts),
+            // but @IsIn(...) already guarantees it's one of the valid values, so the cast is safe.
             dateRange: (query.dateRange ?? EMPTY_FILTERS.dateRange) as TestersDashboardFilters['dateRange'],
             type: query.type ?? EMPTY_FILTERS.type,
             category: query.category ?? EMPTY_FILTERS.category,
@@ -333,17 +327,15 @@ export class TestersDashboardService implements ITestersDashboardService {
             tester: query.tester ?? EMPTY_FILTERS.tester,
             status: query.status ?? EMPTY_FILTERS.status,
             severity: query.severity ?? EMPTY_FILTERS.severity,
-            // Wire format is a comma-separated string (see
-            // TestersDashboardValidators.ts) - parsed into the string[]
-            // TestersDashboardFilters expects here, once, so every
-            // downstream consumer sees a plain array.
+            // Wire format is a comma-separated string (see TestersDashboardValidators.ts),
+            // parsed into a string[] here once so every downstream consumer sees a plain array.
             dynamicSubTypes: query.dynamicSubTypes
                 ? query.dynamicSubTypes
                       .split(',')
                       .map((s) => s.trim())
                       .filter(Boolean)
                 : EMPTY_FILTERS.dynamicSubTypes,
-            // Same cast rationale as dateRange above (@IsIn guarantees it).
+            // Same cast rationale as dateRange above.
             typeBranch: (query.typeBranch ?? EMPTY_FILTERS.typeBranch) as TestersDashboardFilters['typeBranch'],
             // Same comma-separated wire format as dynamicSubTypes above.
             staticSubTypes: query.staticSubTypes
@@ -357,6 +349,10 @@ export class TestersDashboardService implements ITestersDashboardService {
 
     async getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse> {
         const isDb = query.source === 'db';
+
+        // Ticket card's Critical Defect Tickets / All Tickets lists come from this cache
+        // (see calculateDiagnostics's zohoTickets param) - independent of source/filters.
+        const zohoTickets = this.zohoTicketStatusService?.getCachedStatuses() ?? {};
 
         let allRecords: TestersDashboardRecord[];
         let lastSyncedAt: string | null = null;
@@ -372,11 +368,13 @@ export class TestersDashboardService implements ITestersDashboardService {
                     success: false,
                     totalRecords: 0,
                     kpis: calculateKpis([]),
-                    diagnostics: calculateDiagnostics([]),
+                    diagnostics: calculateDiagnostics([], zohoTickets),
                     chartData: calculateChartData([]),
                     previousPeriodStats: null,
                     filterOptions: buildFilterOptions([]),
                     lastSyncedAt: null,
+                    channelStats: calculateChannelStats([]),
+                    languageStats: calculateLanguageStats([]),
                 };
             }
             const stats = fs.statSync(CSV_PATH);
@@ -384,19 +382,18 @@ export class TestersDashboardService implements ITestersDashboardService {
         }
 
         const filters = this.buildFiltersFromQuery(query);
-        // excludeFailures arrives as the string "true"/"false" (see
-        // TestersDashboardValidators.ts's @IsBooleanString() comment) since
-        // query params are always strings and this app doesn't enable
-        // implicit type conversion.
+        // excludeFailures arrives as the string "true"/"false" since query params are always
+        // strings and this app doesn't enable implicit type conversion.
         const excludeFailures = query.excludeFailures === 'true';
 
         const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
-        const kpis = calculateKpis(filteredRows);
-        const diagnostics = calculateDiagnostics(filteredRows);
-        const chartData = calculateChartData(filteredRows);
-        // Deliberately over the UNFILTERED records, same non-date filters -
-        // getPreviousPeriodRows applies filters.type/category/etc itself,
-        // just against the shifted date window instead of the current one.
+        const kpis = calculateKpis(filteredRows, filters.typeBranch);
+        const diagnostics = calculateDiagnostics(filteredRows, zohoTickets);
+        const chartData = calculateChartData(filteredRows, undefined, filters.typeBranch);
+        const channelStats = calculateChannelStats(filteredRows);
+        const languageStats = calculateLanguageStats(filteredRows);
+        // Deliberately over the UNFILTERED records - getPreviousPeriodRows applies the
+        // same non-date filters itself, against the shifted date window instead of the current one.
         const previousPeriodStats = calculatePreviousPeriodStats(
             allRecords,
             filters,
@@ -404,10 +401,8 @@ export class TestersDashboardService implements ITestersDashboardService {
             query.customStart,
             query.customEnd,
         );
-        // Built from the unfiltered records - dropdown options shouldn't
-        // shrink based on the user's own filter selections (e.g. picking a
-        // Tester Name shouldn't remove other Build/Version options that
-        // tester never touched).
+        // Built from the unfiltered records - dropdown options shouldn't shrink based on the
+        // user's own filter selections.
         const filterOptions = buildFilterOptions(allRecords);
 
         return {
@@ -419,12 +414,13 @@ export class TestersDashboardService implements ITestersDashboardService {
             previousPeriodStats,
             filterOptions,
             lastSyncedAt,
+            channelStats,
+            languageStats,
         };
     }
 
-    // Fetches one sheet's raw rows via the Sheets API. Returns null (not
-    // throws) on missing config or an empty result, so the caller can
-    // gracefully skip that source without failing the whole sync.
+    // Fetches one sheet's raw rows via the Sheets API. Returns null (not throws) on missing
+    // config or an empty result, so the caller can skip that source without failing the sync.
     private async fetchSheetRows(
         auth: InstanceType<typeof google.auth.GoogleAuth>,
         sheetId: string,
@@ -461,10 +457,8 @@ export class TestersDashboardService implements ITestersDashboardService {
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
 
-        // Fetch every configured sheet independently - one sheet's fetch
-        // failing (network/auth/API error) must not be fatal to the whole
-        // sync, so each gets its own try/catch rather than one wrapping the
-        // whole loop.
+        // Fetch every configured sheet independently - one sheet's fetch failing must not be
+        // fatal to the whole sync, so each gets its own try/catch.
         const fetchResults: SheetFetchResult[] = [];
         for (const source of SHEET_SOURCES) {
             try {
@@ -505,9 +499,8 @@ export class TestersDashboardService implements ITestersDashboardService {
         }
         fs.writeFileSync(CSV_PATH, csvContent, 'utf8');
 
-        // The just-written CSV is newer than whatever getRecordsForSummary()
-        // may have cached - invalidate so the next /summary request re-reads
-        // from disk instead of serving stale pre-sync data.
+        // Invalidate the cache so the next /summary request re-reads from disk instead of
+        // serving stale pre-sync data.
         this.cachedRecords = null;
 
         const summary = merged.map((m) => `${m.count} rows from ${m.label}`).join(' + ');

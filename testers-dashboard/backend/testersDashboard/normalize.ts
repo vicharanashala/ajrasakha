@@ -8,25 +8,18 @@
 // Also home to 4 shared composite formulas (translationQualityPct,
 // calculateSlaCompliance, calculateVoiceSuccess,
 // calculateNotificationExperience) reused by both kpis.ts and
-// diagnostics.ts. They live here rather than in kpis.ts to avoid an import
-// cycle: kpis.ts depends on filters.ts, which depends on diagnostics.ts for
-// dynamicSubBucketFor, so diagnostics.ts importing kpis.ts directly would
-// create a cycle. normalize.ts has no dependency on either, so both can
-// safely share these from here.
+// diagnostics.ts. They live here, not in kpis.ts, to avoid an import cycle:
+// kpis.ts -> filters.ts -> diagnostics.ts (for dynamicSubBucketFor), so
+// diagnostics.ts importing kpis.ts directly would create a cycle.
+// normalize.ts depends on neither, so both can safely share these from here.
 
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
 
 // Upper bound for a parseable Response/TAT time reading - the live sheet has
 // corrupted values (data-entry/formula errors) ranging into the tens of
-// millions of minutes. A live-data investigation confirmed a clean gap
-// between genuine long delays and corrupted values: 97 real rows fall
-// between 7 and ~61 days (max 87,578 min), while the next-smallest
-// corrupted value is ~66.5 million minutes (~127 years) - a ~760x gap, so
-// 100,000 min (~69 days) safely keeps every genuine reading while excluding
-// every corrupted one. Previously capped at 10,080 min (7 days), which
-// wrongly discarded those 97 genuine multi-day delays as if they were
-// corrupted - re-verify against a fresh CSV pull if this starts rejecting
-// real data again.
+// millions of minutes. 100,000 min (~69 days) safely keeps genuine
+// multi-day delays while excluding corrupted values, which are orders of
+// magnitude larger.
 export const RESPONSE_TIME_PARSE_CAP_MINUTES = 100000;
 
 export function timeToMinutes(timeStr?: string): number | null {
@@ -92,6 +85,19 @@ export function normalizeBuildVersion(value?: string): string {
     const v = (value || '').trim();
     if (!v) return v;
     return '1.0';
+}
+
+// A single Defect ID / Bug Ref cell can hold more than one Zoho ticket link -
+// testers type multiple URLs into the same cell separated by a space, comma,
+// " and ", or " . ". Extracts every http(s) URL found rather than treating
+// the whole cell as a single URL, so a second link never hides the one(s)
+// before it. Trailing punctuation directly after a URL is a separator, not
+// part of the URL, so it's stripped.
+export function extractTicketUrls(value?: string): string[] {
+    const raw = (value || '').trim();
+    if (!raw) return [];
+    const matches = raw.match(/https?:\/\/[^\s,]+/gi) || [];
+    return matches.map((m) => m.replace(/[.,]+$/, '')).filter(Boolean);
 }
 
 // Confirmed severity typos/merges: Crtical -> Critical, Extreme -> Critical
@@ -187,10 +193,9 @@ export function normalizeChannel(value?: string): string {
     return toTitleCase(value);
 }
 
-// "Lavanya Mathialagan" and "Ithagani Shireesha" (1 row each) are Tester
-// Name values that leaked into this column - a column-shift/data-entry
-// error, not a real Type of Question value. Excluded (returns '') the same
-// way KNOWN_LEAKED_TEST_IDS excludes "TL-2523" from Tester Name below.
+// Tester Name values that leaked into this column via a column-shift
+// data-entry error, not a real Type of Question value - excluded (returns
+// ''), the same treatment KNOWN_LEAKED_TEST_IDS gives "TL-2523" below.
 const KNOWN_LEAKED_TESTER_NAMES = new Set(['LAVANYA MATHIALAGAN', 'ITHAGANI SHIREESHA']);
 
 // "GDB"/"GDP" are acronyms and should stay fully uppercase rather than
@@ -307,9 +312,9 @@ const SOURCE_LINK_NEGATIVE_VALUES = new Set([
 ]);
 
 // "Successfully Identified as Duplicate" is a leaked "Q-ID Consistent Across
-// Systems?" value (32 rows); "0:00:00" is a leaked time value (1 row) -
-// neither is a real answer to this question, so both are excluded from the
-// denominator entirely rather than counted as either answer.
+// Systems?" value; "0:00:00" is a leaked time value - neither is a real
+// answer to this question, so both are excluded from the denominator
+// entirely rather than counted as either answer.
 const SOURCE_LINK_LEAKED_VALUES = new Set(['successfully identified as duplicate', '0:00:00']);
 
 // Applicability check for S_lnk's denominator - blank/NA (isNAlike) plus the
@@ -334,22 +339,16 @@ export function isSourceLinkExplicitlyIrrelevant(value?: string): boolean {
 // The single "correct" definition for every Scientific Accuracy consumer on
 // the dashboard - Trust Score's A_sci, Overall Module Performance's Agri
 // Advisory and Knowledge & GDB sub-metrics, and the Executive Summary
-// "Scientific Accuracy" tile (via kpis.ts's calculateScientificAccuracy) all
-// call this same function, so a plain "yes"/"y" counts as correct
-// everywhere, not just in some of them. The Executive Summary tile used to
-// keep its own separate "correct"-only definition, which is what let it
-// show 87% while A_sci showed 95% on identical data - see
-// calculateScientificAccuracy's own comment (kpis.ts) for that history.
+// "Scientific Accuracy" tile all call this same function, so a plain
+// "yes"/"y" counts as correct everywhere, not just in some of them.
 export function isScientificallyCorrect(value?: string): boolean {
     return matchesAny(value, ['correct', 'yes', 'y']);
 }
 
-// "Question Correctly Framed?" (Trust Score v2's new Question Properly
-// Framed component). "English" is a confirmed leaked Language Tested value
-// (11 rows) that landed in this column via a column-shift data-entry error -
-// excluded from the denominator entirely, the same treatment as other
-// confirmed column leaks elsewhere in this file (KNOWN_LEAKED_TESTER_NAMES,
-// KNOWN_LEAKED_TEST_IDS).
+// "English" is a leaked Language Tested value that landed in this column via
+// a column-shift data-entry error - excluded from the denominator, the same
+// treatment as other confirmed column leaks in this file
+// (KNOWN_LEAKED_TESTER_NAMES, KNOWN_LEAKED_TEST_IDS).
 export function isQuestionFramedApplicable(value?: string): boolean {
     if (isNAlike(value)) return false;
     return normalize(value) !== 'english';
@@ -464,12 +463,10 @@ export interface NotificationSuccessResult {
 // Notification Success: denominator is rows with a real (non-blank/NA)
 // value in "Notification Received?" alone. Match set is deliberately the
 // same as N_exp's own Received-field condition ('received on time',
-// 'received late', or a bare 'yes') rather than "received on time" only -
-// the two metrics read the same column and a bare "yes" answer shouldn't
-// count as a notification-experience success but a notification-success
-// failure. Shared by the Release Health Farmer Experience bucket, the
-// Executive Summary tile, and the previous-period comparison, so all three
-// can't drift apart.
+// 'received late', or a bare 'yes') so the same column can't disagree with
+// itself between the two metrics. Shared by the Release Health Farmer
+// Experience bucket, the Executive Summary tile, and the previous-period
+// comparison, so all three can't drift apart.
 export function calculateNotificationSuccess(rows: TestersDashboardRecord[]): NotificationSuccessResult {
     const applicableRows = rows.filter((r) => !isNAlike(r['Notification Received?']));
     const onTimeRows = applicableRows.filter((r) =>
@@ -561,9 +558,9 @@ const KNOWN_DATE_TYPOS: Record<string, string> = {
 };
 
 // Format-only parse, shared by parseTestDateToISO and isFutureTestDate below -
-// no future-date rejection here, so callers that need to tell "genuinely
+// no future-date rejection here, so callers can still tell "genuinely
 // unparseable" apart from "parses fine but is a future date" (both of which
-// parseTestDateToISO itself collapses to null) can still do so.
+// parseTestDateToISO collapses to null).
 function parseRawTestDate(dateStr?: string): string | null {
     const s = (dateStr || '').trim();
     if (!s || isNAlike(s)) return null;
@@ -614,16 +611,13 @@ function parseRawTestDate(dateStr?: string): string | null {
 
 // Normalizes the sheet's many raw Test Date formats (DD-MM-YYYY, DD/MM/YYYY,
 // DD.MM.YYYY, DD-MM-YY, DD-Month-YYYY, etc.) to "YYYY-MM-DD" so date-range
-// filtering and chart sorting are chronological - raw strings don't compare
-// correctly against that format otherwise. Returns null for values that
-// can't be confidently parsed, logging a one-time warning per distinct bad
-// value (see warnUnparseableDate above) - and also null for a value that
-// parses fine but lands after today's IST calendar date (see warnFutureDate
-// above), so every consumer (date-range filters, charts, KPIs, "All Dates")
-// excludes those rows automatically rather than each needing its own
-// after-the-fact cutoff. `now` is injectable (defaults to the real current
-// time) purely so this is deterministic in tests - production callers
-// should omit it, same pattern as getTodayIST/applyDateRangeFilter.
+// filtering and chart sorting are chronological. Returns null for values
+// that can't be confidently parsed (logging a one-time warning per distinct
+// bad value), and also null for a value that parses fine but lands after
+// today's IST calendar date, so every consumer excludes those rows
+// automatically rather than each needing its own after-the-fact cutoff.
+// `now` is injectable purely for deterministic tests; production callers
+// should omit it.
 export function parseTestDateToISO(dateStr?: string, now: Date = new Date()): string | null {
     const raw = parseRawTestDate(dateStr);
     if (raw === null) return null;
@@ -633,11 +627,9 @@ export function parseTestDateToISO(dateStr?: string, now: Date = new Date()): st
 }
 
 // Whether a Test Date value both parses successfully AND lands after today
-// (IST) - i.e. a genuinely future-dated row, as distinct from one that's
-// simply unparseable (parseTestDateToISO alone can no longer tell the two
-// apart, since it now nulls both). Used at CSV-load time
-// (TestersDashboardService.parseCSV) to drop future-dated rows from the
-// dataset entirely while keeping unparseable-date rows in place - those are
+// (IST) - distinct from simply unparseable, which parseTestDateToISO alone
+// can't tell apart (it nulls both). Used at CSV-load time to drop
+// future-dated rows while keeping unparseable-date rows in place - those are
 // real test results whose date field just isn't readable, not garbage rows.
 export function isFutureTestDate(dateStr?: string, now: Date = new Date()): boolean {
     const raw = parseRawTestDate(dateStr);

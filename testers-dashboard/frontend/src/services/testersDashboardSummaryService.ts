@@ -18,17 +18,13 @@ export interface ITestersDashboardSummaryQuery {
     severity?: string;
     excludeFailures?: boolean;
     // Comma-separated list of dynamicSubBucketFor values (Weather, Mandi
-    // Prices, Government Schemes) - see TestersDashboardValidators.ts's
-    // dynamicSubTypes for the wire format. Independent of `type`.
+    // Prices, Government Schemes). See TestersDashboardValidators.ts.
     dynamicSubTypes?: string;
     // Dynamic/Static tree filter (whole-branch selection) - "Dynamic" or
-    // "Static", independent of the legacy `type` param above. See
-    // TestersDashboardValidators.ts's typeBranch.
+    // "Static". See TestersDashboardValidators.ts's typeBranch.
     typeBranch?: string;
-    // Comma-separated list of GDB/Unique/Outreach (multi-select OR, same
-    // wire format as dynamicSubTypes above) - only meaningful when
-    // typeBranch="Static". See TestersDashboardValidators.ts's
-    // staticSubTypes.
+    // Comma-separated list of GDB/Unique/Outreach (multi-select OR) - only
+    // meaningful when typeBranch="Static". See TestersDashboardValidators.ts.
     staticSubTypes?: string;
 }
 
@@ -59,13 +55,24 @@ export type ITestersDashboardReleaseHealthDecision = "GO" | "GO_WITH_CONDITIONS"
 export interface ITestersDashboardReleaseHealthResult {
     score: number;
     buckets: ITestersDashboardReleaseHealthBucket[];
-    // Score-only GO / GO WITH CONDITIONS / NO-GO call (>=95 / >=90 / below
-    // 90) - see backend's releaseHealthDecision() for the important caveat:
-    // the business plan's full rule also requires all mandatory release
-    // gates (rollback tested, monitoring active, backup available, no
-    // critical blocking defect, etc.) to PASS, which the test sheet has no
-    // data for yet - this is score-only until that data exists.
+    // Score-only GO / GO WITH CONDITIONS / NO-GO call. The full business
+    // rule also requires mandatory release gates (rollback tested,
+    // monitoring active, backup available, no critical blocking defect) to
+    // PASS - not evaluated here since the sheet has no data for those yet.
     decision: ITestersDashboardReleaseHealthDecision;
+}
+
+// Mirrors backend's TrustScoreWeights - the weight (0-1) each Trust Score
+// component carries for the current typeBranch, driven by the same table
+// backend's calculateTrustScore scores with. A_dom is null only for the
+// 'Static' branch, whose fixed weight table has no Dynamic Accuracy slot.
+export interface ITestersDashboardTrustScoreWeights {
+    A_sci: number;
+    A_dom: number | null;
+    S_lnk: number;
+    Q_frm: number;
+    Q_trn: number;
+    S_sla: number;
 }
 
 // Mirrors backend's KpiSummary (testers-dashboard/backend/testersDashboard/kpis.ts)
@@ -74,11 +81,17 @@ export interface ITestersDashboardKpiSummary {
     trustScore: number;
     trustBreakdown: {
         A_sci: number;
-        A_dom: number;
+        // Null when all 3 domains (Weather/Mandi Prices/Government Schemes)
+        // have zero applicable rows - excluded from Trust Score's weighted
+        // average in that case, its weight redistributed across the other
+        // components rather than defaulted to a misleading 100%. Render
+        // "No data", not "null%".
+        A_dom: number | null;
         S_lnk: number;
         Q_frm: number;
         Q_trn: number;
         S_sla: number;
+        weights: ITestersDashboardTrustScoreWeights;
     };
     experienceScore: number;
     experienceBreakdown: {
@@ -120,7 +133,20 @@ export interface ITestersDashboardKpiSummary {
         countDuplicateFailure: number;
         countCriticalBugs: number;
     };
-    // Critical Failures card v2 (Failures/Successes tabs) - mirrors backend's
+    // Executive Summary's "Critical Defects" tile: (Critical + High severity
+    // rows) ÷ rows with a severity recorded × 100 - wider (Critical+High)
+    // numerator than criticalBreakdown.countCriticalBugs (Critical only,
+    // feeds Release Health's Critical Defect Health sub-metric), but shares
+    // that sub-metric's denominator scope. Keep the two denominators in
+    // sync - do not fork them apart.
+    criticalDefectsPct: number;
+    criticalDefectsCriticalCount: number;
+    criticalDefectsHighCount: number;
+    // Denominator of criticalDefectsPct - rows with a recorded Defect
+    // Severity value.
+    criticalDefectsApplicableCount: number;
+    criticalDefectsNoSeverityCount: number;
+    // Critical Failures card (Failures/Successes tabs) - mirrors backend's
     // CriticalFailureCategoriesResult (kpis.ts).
     criticalFailureCategories: {
         categories: {
@@ -129,6 +155,14 @@ export interface ITestersDashboardKpiSummary {
             successLabel: string;
             failureCount: number;
             successCount: number;
+            // Rows where this category's underlying field(s) actually had a
+            // recorded (non-blank/NA) value - not always failureCount +
+            // successCount (see backend's CriticalFailureCategory in
+            // kpis.ts). Optional defensively, since this crosses a network
+            // boundary (possibly a stale cache or version-skewed backend
+            // build) where a TS type can't guarantee runtime presence.
+            // Render accordingly - see AdditionalMetrics.tsx.
+            applicableCount?: number;
         }[];
         failuresTotal: number;
         successesTotal: number;
@@ -136,9 +170,7 @@ export interface ITestersDashboardKpiSummary {
         distinctSuccessRows: number;
     };
     releaseHealth: number;
-    // Mirrors backend's ReleaseHealthResult - the 6-bucket weighted model
-    // (25/20/20/15/10/10%) replacing the old Pass Rate - Critical Defect
-    // Rate - Data Integrity Rate formula.
+    // Mirrors backend's ReleaseHealthResult - the 6-bucket weighted model.
     releaseHealthBreakdown: ITestersDashboardReleaseHealthResult;
     slaBreakdown: {
         validRows: number;
@@ -160,10 +192,14 @@ export interface ITestersDashboardPreviousPeriodStats {
     scientificAccuracy: number;
     openCriticalDefects: number;
     // Critical-only previous-period count (mirrors kpis.criticalBreakdown.
-    // countCriticalBugs's definition) - used for the "All Critical Defects"
-    // card's trend arrow now that its headline number is Critical-only too,
-    // instead of comparing against the wider openCriticalDefects above.
+    // countCriticalBugs's definition). Kept for API completeness; the
+    // "Critical Defects" tile's trend arrow uses criticalDefectsPct below.
     countCriticalBugs: number;
+    // (Critical + High) ÷ rows with a severity recorded × 100 for the
+    // previous period - what the "Critical Defects" tile's trend arrow
+    // compares against, so it's percentage-vs-percentage with the same
+    // applicable-rows scope.
+    criticalDefectsPct: number;
     notificationSuccess: number;
     voiceSuccess: number;
     rangeLabel: string;
@@ -227,12 +263,19 @@ export interface ITestersDashboardDiagnostics {
     // Weakest Module card shows.
     weakestModuleScore: number | null;
     // The weakest eligible module's weakestMetricLabels - kept for API
-    // completeness, but the card's headline text no longer reads from this
-    // (it shows a fixed methodology explanation instead, the same for every
-    // module - see TestersDashboard.tsx).
+    // completeness; the card shows a fixed methodology explanation instead
+    // of this field (same text for every module - see TestersDashboard.tsx).
     weakestModuleReason: string[];
     criticalDefectCount: number;
+    // Sourced from Zoho's own ticket list (Bugs Tracker layout), not from
+    // tickets linked in the sheet - ignores every dashboard filter, since
+    // most Zoho tickets have no underlying sheet row. Critical/High
+    // severity only - feeds the "Critical Defect Tickets" card view's
+    // Open/Closed/On Hold/Escalated tabs.
     openTickets: { id: string; url: string; severity: string }[];
+    // Every Bugs Tracker ticket regardless of severity or status - feeds the
+    // card's "All Tickets" view. Superset of openTickets.
+    allTickets: { id: string; url: string; severity: string }[];
 }
 
 // Mirrors backend's ChartData
@@ -240,10 +283,9 @@ export interface ITestersDashboardDiagnostics {
 export interface ITestersDashboardScoreTrendPoint {
     date: string;
     trust: number;
-    // False when this day has no real applicable data behind Trust Score
-    // (only A_dom's empty-rows-defaults-to-100 default, with every other
-    // sub-metric at a genuine 0) - the chart nulls out `trust` for these
-    // points so the line renders a gap instead of the misleading ~20% floor.
+    // False when this day has no real applicable data behind Trust Score -
+    // the chart nulls out `trust` for these points so the line renders a
+    // gap instead of a misleading flat 0.
     trustHasData: boolean;
     experience: number;
     // Same distinction as trustHasData, for Farmer Experience Score.
@@ -262,6 +304,23 @@ export interface ITestersDashboardChartData {
     scoreTrend: ITestersDashboardScoreTrendPoint[];
 }
 
+// Mirrors backend's ChannelPerformanceStat/LanguagePerformanceStat
+// (testers-dashboard/backend/testersDashboard/kpis.ts) - the Channel-wise
+// Performance / Language Performance cards, computed server-side so they
+// respect the same Dynamic/Static tree filter as kpis/diagnostics/chartData.
+export interface ITestersDashboardChannelStat {
+    channel: string;
+    tests: number;
+    passRate: number;
+    avgResponse: number;
+}
+
+export interface ITestersDashboardLanguageStat {
+    language: string;
+    tests: number;
+    translationAcc: number;
+}
+
 export interface ITestersDashboardSummaryResponse {
     success: boolean;
     totalRecords: number;
@@ -271,6 +330,8 @@ export interface ITestersDashboardSummaryResponse {
     previousPeriodStats: ITestersDashboardPreviousPeriodStats | null;
     filterOptions: Record<string, string[]>;
     lastSyncedAt: string | null;
+    channelStats: ITestersDashboardChannelStat[];
+    languageStats: ITestersDashboardLanguageStat[];
 }
 
 export class TestersDashboardSummaryService {

@@ -124,9 +124,91 @@ export interface IPaginatedTesterLogEntries {
     totalPages: number;
 }
 
+/** One Tester filter dropdown option - mirrors backend's TesterOption. */
+export interface ITesterOption {
+    id: string;
+    name: string;
+}
+
+/** Mirrors backend's TesterLogSummary. */
+export interface ITesterLogSummary {
+    totalEntries: number;
+    entriesInRange: number;
+    passRate: number | null;
+    passCount: number;
+    statusRecordedCount: number;
+}
+
+/** Filters shared by the admin review table, summary, and export - mirrors
+ * the backend's GetTesterLogQuery fields (minus page/limit). */
+export interface ITesterLogAdminFilters {
+    testerId?: string;
+    startDate?: string;
+    endDate?: string;
+    dateField?: string;
+    typeOfQuestion?: string;
+    channelTested?: string;
+    overallTestStatus?: string;
+    defectSeverity?: string;
+}
+
 export interface ICreateTesterLogEntryResponse {
     success: boolean;
     entry: ITesterLogEntry;
+}
+
+/** The question-type categories the Summary tab's targets are defined over.
+ * Mirrors the backend's QuestionTypeKey - see TesterLogService.ts's
+ * QUESTION_TYPE_DAILY_TARGETS for the actual numbers (this side has no
+ * target table of its own; the API response carries the resolved
+ * target/actual/achievement figures). */
+export type IQuestionTypeKey = 'unique' | 'gdb' | 'outreach' | 'weather' | 'scheme' | 'mandi';
+
+export interface IQuestionTypeCountRow {
+    key: IQuestionTypeKey | 'total';
+    label: string;
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
+
+export interface IChannelCountSummary {
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
+
+export interface ITesterQuestionTypeRow {
+    testerId: string;
+    testerName: string;
+    /** Distinct days this tester actually logged something in range -
+     * informational (attendance) only, not what the target scales by. */
+    daysWorked: number;
+    counts: Record<IQuestionTypeKey, number>;
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
+
+export interface ITesterQuestionTypeSummary {
+    /** Working days in the filter range (calendar days × 6÷7, rounded) -
+     * the same figure every tester's target scales by, whether they
+     * logged anything or not. See TesterQuestionTypeSummaryView's card
+     * copy for the plain-language rule. */
+    workingDays: number;
+    overall: { target: number; actual: number; achievementPct: number };
+    webApp: IChannelCountSummary;
+    whatsApp: IChannelCountSummary;
+    byType: IQuestionTypeCountRow[];
+    byTester?: ITesterQuestionTypeRow[];
+}
+
+/** Filters for the Summary tab - just Tester and Date, unlike the wider
+ * Tester Data review table's filter set. */
+export interface ITesterQuestionTypeSummaryFilters {
+    testerId?: string;
+    startDate?: string;
+    endDate?: string;
 }
 
 export interface ITesterLogSummaryResponse {
@@ -199,8 +281,6 @@ export interface ITargetVsAchievedSummary {
     rows: ITargetAchievedRow[];
     total: ITargetAchievedRow;
 }
-
-
 
 /** Dropdown option definitions reused by the form */
 export const TYPE_OF_QUESTION_OPTIONS = [

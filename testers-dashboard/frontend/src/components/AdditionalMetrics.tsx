@@ -46,23 +46,30 @@ export function AdditionalMetrics({
   releaseHealthExpanded,
   setReleaseHealthExpanded,
 }: AdditionalMetricsProps) {
+  // Trust Score's weight labels are driven by kpis.trustBreakdown.weights,
+  // the same weight table the backend scores with, so they can't drift from
+  // a hand-copied static string. Static branch uses its own fixed weights
+  // (no Dynamic Accuracy slot), unlike Dynamic/all's redistribution formula.
+  const trustWeights = kpis.trustBreakdown.weights;
+  const trustWeightPct = (key: keyof typeof trustWeights): number => Math.round((trustWeights[key] ?? 0) * 100);
+
   const [activeCriticalTab, setActiveCriticalTab] = useState<"failures" | "successes">("failures");
-  const activeCriticalTotal =
-    activeCriticalTab === "failures"
-      ? kpis.criticalFailureCategories.failuresTotal
-      : kpis.criticalFailureCategories.successesTotal;
+  // Successes headline reuses kpis.totalPassed (zero failures in any
+  // category, same count Pass Rate is built from) rather than
+  // distinctSuccessRows, which double-counts rows with failures elsewhere -
+  // this keeps Failures + Successes summing to N and Successes matching Pass Rate.
   const activeCriticalDistinctRows =
     activeCriticalTab === "failures"
       ? kpis.criticalFailureCategories.distinctFailureRows
-      : kpis.criticalFailureCategories.distinctSuccessRows;
-  // Sorted by count within the active tab, matching the previous card's
-  // sort-by-value behavior - a category's rank can differ between the two
-  // tabs (e.g. a category with few failures but many successes).
+      : kpis.totalPassed;
+  // Sorted by count within the active tab; a category's rank can differ
+  // between the Failures and Successes tabs.
   const activeCriticalCategories = [...kpis.criticalFailureCategories.categories]
     .map((c) => ({
       key: c.key,
       label: activeCriticalTab === "failures" ? c.label : c.successLabel,
       value: activeCriticalTab === "failures" ? c.failureCount : c.successCount,
+      applicable: c.applicableCount,
     }))
     .sort((a, b) => b.value - a.value);
 
@@ -81,15 +88,24 @@ export function AdditionalMetrics({
                 <CardTitle className="text-xs text-muted-foreground uppercase">Trust Score</CardTitle>
               </div>
               <InfoPopover title="Trust Score" align="start">
-                <p>25% Sci Accuracy + 30% Dynamic Accuracy (Weather/Mandi/Schemes) + 15% Source Links + 10% Question Framed + 10% Translation + 10% SLA</p>
+                <p>
+                  {trustWeightPct("A_sci")}% Sci Accuracy
+                  {trustWeights.A_dom !== null && ` + ${trustWeightPct("A_dom")}% Dynamic Accuracy (Weather/Mandi/Schemes)`}
+                  {` + ${trustWeightPct("S_lnk")}% Source Links + ${trustWeightPct("Q_frm")}% Question Framed + ${trustWeightPct("Q_trn")}% Translation + ${trustWeightPct("S_sla")}% SLA`}
+                  {trustWeights.A_dom === null && " (Dynamic Accuracy excluded for Static)"}
+                </p>
                 <div className="flex justify-between"><span>Sci Accuracy</span><span className="font-medium">{kpis.trustBreakdown.A_sci}%</span></div>
-                <div className="flex justify-between"><span>Dynamic Accuracy</span><span className="font-medium">{kpis.trustBreakdown.A_dom}%</span></div>
+                {trustWeights.A_dom !== null && (
+                  <div className="flex justify-between"><span>Dynamic Accuracy</span><span className="font-medium">{kpis.trustBreakdown.A_dom !== null ? `${kpis.trustBreakdown.A_dom}%` : "No data"}</span></div>
+                )}
                 <div className="flex justify-between"><span>Source Links</span><span className="font-medium">{kpis.trustBreakdown.S_lnk}%</span></div>
                 <div className="flex justify-between"><span>Question Framed</span><span className="font-medium">{kpis.trustBreakdown.Q_frm}%</span></div>
                 <div className="flex justify-between"><span>Translation</span><span className="font-medium">{kpis.trustBreakdown.Q_trn}%</span></div>
                 <div className="flex justify-between"><span>SLA</span><span className="font-medium">{kpis.trustBreakdown.S_sla}%</span></div>
                 <p className="text-[10px] text-muted-foreground pt-1">
-                  Sci Accuracy is scoped to Static questions (GDB/Unique/Outreach) only. Dynamic Accuracy averages Weather, Mandi Prices, and Government Schemes correctness, each scoped to its own question category.
+                  Sci Accuracy = Static questions only (GDB/Unique/Outreach). Dynamic Accuracy = average of Weather, Mandi Price, and Scheme correctness.
+                  {trustWeights.A_dom !== null && kpis.trustBreakdown.A_dom === null &&
+                    ` No Dynamic rows in this filter, so Dynamic Accuracy is excluded and its ${trustWeightPct("A_dom")}% weight is redistributed across the other 5.`}
                 </p>
                 <div className="flex justify-between pt-1 border-t"><span>Result</span><span className="font-medium">{kpis.trustScore}%</span></div>
               </InfoPopover>
@@ -103,12 +119,17 @@ export function AdditionalMetrics({
               </span>
             </div>
             <div className="mt-2 space-y-0.5 text-xs">
-              <div className="flex justify-between"><span>Sci Accuracy (25%)</span><span>{kpis.trustBreakdown.A_sci}%</span></div>
-              <div className="flex justify-between"><span>Dynamic Accuracy (30%)</span><span>{kpis.trustBreakdown.A_dom}%</span></div>
-              <div className="flex justify-between"><span>Source Links (15%)</span><span>{kpis.trustBreakdown.S_lnk}%</span></div>
-              <div className="flex justify-between"><span>Question Framed (10%)</span><span>{kpis.trustBreakdown.Q_frm}%</span></div>
-              <div className="flex justify-between"><span>Translation Quality (10%)</span><span>{kpis.trustBreakdown.Q_trn}%</span></div>
-              <div className="flex justify-between"><span>SLA (10%)</span><span>{kpis.trustBreakdown.S_sla}%</span></div>
+              <div className="flex justify-between"><span>Sci Accuracy ({trustWeightPct("A_sci")}%)</span><span>{kpis.trustBreakdown.A_sci}%</span></div>
+              {trustWeights.A_dom !== null && (
+                <div className="flex justify-between">
+                  <span>Dynamic Accuracy {kpis.trustBreakdown.A_dom !== null ? `(${trustWeightPct("A_dom")}%)` : "(excluded)"}</span>
+                  <span>{kpis.trustBreakdown.A_dom !== null ? `${kpis.trustBreakdown.A_dom}%` : "No data"}</span>
+                </div>
+              )}
+              <div className="flex justify-between"><span>Source Links ({trustWeightPct("S_lnk")}%)</span><span>{kpis.trustBreakdown.S_lnk}%</span></div>
+              <div className="flex justify-between"><span>Question Framed ({trustWeightPct("Q_frm")}%)</span><span>{kpis.trustBreakdown.Q_frm}%</span></div>
+              <div className="flex justify-between"><span>Translation Quality ({trustWeightPct("Q_trn")}%)</span><span>{kpis.trustBreakdown.Q_trn}%</span></div>
+              <div className="flex justify-between"><span>SLA ({trustWeightPct("S_sla")}%)</span><span>{kpis.trustBreakdown.S_sla}%</span></div>
             </div>
           </CardContent>
         </Card>
@@ -158,10 +179,22 @@ export function AdditionalMetrics({
                 <CardTitle className="text-xs text-muted-foreground uppercase">{criticalFailuresLabel(filters.dateRange, Boolean(customStart || customEnd))}</CardTitle>
               </div>
               <InfoPopover title="Critical Failures" align="end">
-                <p>Failures tab: what went wrong, one row per category. Successes tab: the exact opposite for each category, same field(s), NA/blank excluded from both sides.</p>
-                <p>The headline number counts each row once. A row can trip more than one category (e.g. a 7-day SLA breach is also a 2-hour and 24-hour breach), so the category list below may count the same row more than once, and the sum across categories can exceed the headline.</p>
+                {activeCriticalTab === "failures" ? (
+                  <>
+                    <p>What went wrong, by category. NA/blank rows excluded.</p>
+                    <p>Headline = distinct rows with ≥1 failure.</p>
+                  </>
+                ) : (
+                  <>
+                    <p>What went right, by category. NA/blank rows excluded.</p>
+                    <p>Headline = tests with no failures in any category - matches Pass Rate.</p>
+                  </>
+                )}
+                <p>
+                  Each row reads count / applicable - applicable is how many rows had this category's field(s)
+                  actually recorded (non-blank/NA), not the full dataset. Denominators vary widely by category.
+                </p>
                 <div className="flex justify-between pt-1 border-t"><span>Distinct rows</span><span className="font-medium">{activeCriticalDistinctRows.toLocaleString()}</span></div>
-                <div className="flex justify-between"><span>Sum of categories</span><span className="font-medium">{activeCriticalTotal.toLocaleString()}</span></div>
               </InfoPopover>
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
@@ -188,19 +221,20 @@ export function AdditionalMetrics({
           </CardHeader>
           <CardContent className="pt-0 flex-1 flex flex-col">
             <div className="text-3xl font-bold">{activeCriticalDistinctRows.toLocaleString()}</div>
-            <div className="text-[10px] text-muted-foreground mb-1">
-              {activeCriticalTotal.toLocaleString()} across all categories (rows may appear in more than one)
-            </div>
-            <div className="mt-1 space-y-1 text-xs overflow-hidden max-h-[136px] overflow-y-auto">
+            <div className="mt-2 space-y-1 text-xs overflow-hidden max-h-[136px] overflow-y-auto">
               {activeCriticalCategories.map((row, i) => {
                 const dotColor = i === 0 ? "bg-red-500" : i === 1 ? "bg-orange-500" : i === 2 ? "bg-yellow-500" : "bg-slate-300";
                 return (
-                  <div key={row.key} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
-                      {row.label}
+                  <div key={row.key} className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />
+                      <span className="truncate">{row.label}</span>
                     </span>
-                    <span>{row.value}</span>
+                    <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+                      <span className="text-foreground font-medium">{row.value.toLocaleString()}</span>
+                      {" / "}
+                      {row.applicable !== undefined ? row.applicable.toLocaleString() : "—"}
+                    </span>
                   </div>
                 );
               })}
@@ -234,7 +268,7 @@ export function AdditionalMetrics({
                   <div className="flex justify-between"><span>🟡 GO WITH CONDITIONS</span><span>90 – 94</span></div>
                   <div className="flex justify-between"><span>🔴 NO-GO</span><span>below 90</span></div>
                   <p className="text-[10px] text-muted-foreground pt-1">
-                    Score-only for now - the full decision rule also requires mandatory release gates (rollback tested, monitoring active, backup available, no critical blocking defect) to PASS. Those aren't tracked in the test sheet yet, so this decision doesn't include them.
+                    Score-only: mandatory release gates (rollback tested, monitoring active, backup available, no critical blocking defect) are not evaluated.
                   </p>
                 </InfoPopover>
                 <ChevronDown
@@ -315,7 +349,7 @@ export function AdditionalMetrics({
               </div>
               <InfoPopover title="Channel-wise Performance" align="start">
                 <p>Grouped by Channel Tested.</p>
-                <p>Pass % = Passed ÷ (Passed + Failed) for that channel - Partial/NA/ungraded rows excluded, matching the main dashboard's Pass Rate.</p>
+                <p>Pass % = Passed ÷ (Passed + Failed) for that channel; Partial/NA/ungraded rows excluded.</p>
                 <p>Avg Resp = average response time for that channel's rows.</p>
               </InfoPopover>
             </div>
@@ -349,9 +383,19 @@ export function AdditionalMetrics({
 
         <Card className="border-muted-foreground/10 min-h-[260px] flex flex-col">
           <CardHeader className="pb-1">
-            <div className="flex items-center gap-1.5">
-              <div className="h-6 w-6 rounded-full bg-teal-100 flex items-center justify-center shrink-0"><Languages className="h-3.5 w-3.5 text-teal-600" /></div>
-              <CardTitle className="text-xs text-muted-foreground uppercase">Language Performance</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="h-6 w-6 rounded-full bg-teal-100 flex items-center justify-center shrink-0"><Languages className="h-3.5 w-3.5 text-teal-600" /></div>
+                <CardTitle className="text-xs text-muted-foreground uppercase">Language Performance</CardTitle>
+              </div>
+              <InfoPopover title="Language Performance" align="end">
+                <p>Grouped by Language Tested.</p>
+                <p>Translation Acc. = Correct/Good ÷ Tests with Translation Quality recorded, per language.</p>
+                <p className="text-[10px] text-muted-foreground pt-1">
+                  0% can mean Translation Quality was never recorded for that language, not that translations failed
+                  — check the language's own row count before reading it as a failure rate.
+                </p>
+              </InfoPopover>
             </div>
           </CardHeader>
           <CardContent className="pt-0 flex-1 flex flex-col">
@@ -381,9 +425,31 @@ export function AdditionalMetrics({
 
         <Card className="border-muted-foreground/10 min-h-[260px] flex flex-col">
           <CardHeader className="pb-1">
-            <div className="flex items-center gap-1.5">
-              <div className="h-6 w-6 rounded-full bg-cyan-100 flex items-center justify-center shrink-0"><Mic className="h-3.5 w-3.5 text-cyan-600" /></div>
-              <CardTitle className="text-xs text-muted-foreground uppercase">Voice Performance</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="h-6 w-6 rounded-full bg-cyan-100 flex items-center justify-center shrink-0"><Mic className="h-3.5 w-3.5 text-cyan-600" /></div>
+                <CardTitle className="text-xs text-muted-foreground uppercase">Voice Performance</CardTitle>
+              </div>
+              <InfoPopover title="Voice Performance" align="end">
+                <p>Voice Input and Voice Output Quality, scored 0–10 by testers.</p>
+                <p>Average = sum of scores ÷ readings scored, per direction.</p>
+                <div className="flex justify-between pt-1 border-t">
+                  <span>Input readings</span>
+                  <span className="font-medium">{kpis.voiceSuccess.inputCount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Input avg</span>
+                  <span className="font-medium">{kpis.voiceSuccess.inputAvg !== null ? `${kpis.voiceSuccess.inputAvg}/10` : "No data"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Output readings</span>
+                  <span className="font-medium">{kpis.voiceSuccess.outputCount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Output avg</span>
+                  <span className="font-medium">{kpis.voiceSuccess.outputAvg !== null ? `${kpis.voiceSuccess.outputAvg}/10` : "No data"}</span>
+                </div>
+              </InfoPopover>
             </div>
           </CardHeader>
           <CardContent className="pt-0 flex-1 flex flex-col justify-center space-y-3 text-xs">
@@ -430,7 +496,7 @@ export function AdditionalMetrics({
                 <CardTitle className="text-xs text-muted-foreground uppercase">SLA Compliance</CardTitle>
               </div>
               <InfoPopover title="SLA Compliance" align="end">
-                <p>Based on the "SLA Status" column as marked by testers (Within SLA vs SLA Breached) - blank/NA/Not Applicable rows are excluded, not counted as breached.</p>
+                <p>Within SLA ÷ (Within SLA + Breached) × 100, from tester-marked SLA status. Blank/NA rows excluded.</p>
                 <div className="flex justify-between pt-1 border-t"><span>Valid SLA rows</span><span className="font-medium">{kpis.slaBreakdown.validRows.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span>Within SLA</span><span className="font-medium">{kpis.slaBreakdown.withinSlaCount.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span>SLA Breached</span><span className="font-medium">{kpis.slaBreakdown.breachedCount.toLocaleString()}</span></div>

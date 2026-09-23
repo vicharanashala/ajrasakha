@@ -6,7 +6,7 @@ import csv from 'csv-parser';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { TestersDashboardService } from '../services/TestersDashboardService.js';
 import { EMPTY_FILTERS, applyFilters } from '../testersDashboard/filters.js';
-import { calculateKpis } from '../testersDashboard/kpis.js';
+import { calculateKpis, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
 import { parseTestDateToISO, isFutureTestDate } from '../testersDashboard/normalize.js';
@@ -67,7 +67,7 @@ describe('TestersDashboardService.getSummary', () => {
     it('type=GDB filter produces the same KPIs as calling applyFilters+calculateKpis directly', async () => {
         const result = await service.getSummary({ type: 'GDB' });
 
-        // Independently re-derive the expected KPIs by calling Phase 2/3's
+        // Independently re-derive the expected KPIs by calling the same
         // pure functions directly against the same raw records the service
         // used internally - this is the actual "wiring" check: proves
         // getSummary() is really composing applyFilters + calculateKpis,
@@ -83,6 +83,45 @@ describe('TestersDashboardService.getSummary', () => {
         // count - the filter narrows the KPIs, not the reported total.
         expect(result.totalRecords).toBe(17872);
     });
+
+    // Explicit timeout: unlike the single-CSV-parse tests above, this one
+    // does 2 getSummary() calls plus a getData() (which always re-reads from
+    // disk, see the caching describe block below) - 2 real parses of the
+    // ~19k-row live CSV, which can run past the 5000ms default under load.
+    it('wires channelStats/languageStats into the response and reacts to typeBranch=Dynamic (Channel-wise/Language Performance cards)', async () => {
+        // Regression test for the bug this migration fixes: these two cards
+        // used to be computed entirely client-side from an unfiltered raw
+        // fetch that never applied typeBranch/dynamicSubTypes/staticSubTypes,
+        // so selecting a Dynamic/Static tree branch changed every other card
+        // but silently left these two unchanged. They now come from the
+        // service's own filteredRows, same as kpis/diagnostics/chartData.
+        const unfiltered = await service.getSummary({});
+        const dynamicOnly = await service.getSummary({ typeBranch: 'Dynamic' });
+
+        const rawRecords = await service.getData();
+        const expectedUnfilteredRows = applyFilters(rawRecords.records, EMPTY_FILTERS, false, undefined, undefined);
+        const expectedDynamicRows = applyFilters(
+            rawRecords.records,
+            { ...EMPTY_FILTERS, typeBranch: 'Dynamic' },
+            false,
+            undefined,
+            undefined,
+        );
+
+        expect(unfiltered.channelStats).toEqual(calculateChannelStats(expectedUnfilteredRows));
+        expect(unfiltered.languageStats).toEqual(calculateLanguageStats(expectedUnfilteredRows));
+        expect(dynamicOnly.channelStats).toEqual(calculateChannelStats(expectedDynamicRows));
+        expect(dynamicOnly.languageStats).toEqual(calculateLanguageStats(expectedDynamicRows));
+
+        // The actual regression check: the Dynamic-branch numbers differ from
+        // the unfiltered ones - proves the tree filter reaches these two
+        // cards now, instead of both queries returning identical numbers.
+        expect(dynamicOnly.channelStats).not.toEqual(unfiltered.channelStats);
+        expect(dynamicOnly.languageStats).not.toEqual(unfiltered.languageStats);
+        const webAppUnfiltered = unfiltered.channelStats.find((c) => c.channel === 'Web App')!;
+        const webAppDynamic = dynamicOnly.channelStats.find((c) => c.channel === 'Web App')!;
+        expect(webAppDynamic.tests).toBeLessThan(webAppUnfiltered.tests);
+    }, 20000);
 
     it('combining status=Pass + severity=Critical filters matches direct computation', async () => {
         const result = await service.getSummary({ status: 'Pass', severity: 'Critical' });
@@ -104,8 +143,8 @@ describe('TestersDashboardService.getSummary', () => {
         const result = await service.getSummary({ type: 'GDB' });
 
         // Same "prove the wiring, not just the logic" approach as the KPI
-        // test above - independently re-derive expected diagnostics via
-        // Phase 2/4's pure functions against the same raw records, over the
+        // test above - independently re-derive expected diagnostics via the
+        // same pure functions against the same raw records, over the
         // SAME filtered rows kpis is computed from (not a separate refilter).
         const rawRecords = await service.getData();
         const expectedRows = applyFilters(rawRecords.records, { ...EMPTY_FILTERS, type: 'GDB' }, false, undefined, undefined);
@@ -131,7 +170,7 @@ describe('TestersDashboardService.getSummary', () => {
 
         // Same "prove the wiring, not just the logic" approach as the
         // kpis/diagnostics tests above - independently re-derive expected
-        // chartData via Phase 2/5's pure functions against the same raw
+        // chartData via the same pure functions against the same raw
         // records, over the SAME filtered rows kpis/diagnostics are
         // computed from (not a separate refilter).
         const rawRecords = await service.getData();
@@ -315,9 +354,73 @@ describe('TestersDashboardService.getSummary', () => {
             expect(summaryResult.kpis.totalPassed).toBe(1);
             expect(summaryResult.kpis.totalFailed).toBe(1);
             expect(summaryResult.kpis.passRate).toBe(50);
-            expect(summaryResult.diagnostics.openTickets.length).toBe(1);
-            expect(summaryResult.diagnostics.openTickets[0].id).toBe('202216000001657999');
+            // The ticket card's openTickets/allTickets no longer come from
+            // the sheet/DB's "Defect ID / Bug Ref" field at all (see the
+            // dedicated describe block below) - with no ZohoTicketStatusService
+            // injected (this constructor call only passes `mockDb`), they
+            // come back empty even though mock-2 has a defectIdBugRef link.
+            expect(summaryResult.diagnostics.openTickets).toEqual([]);
+            expect(summaryResult.diagnostics.allTickets).toEqual([]);
         });
+    });
+});
+
+// The ticket card's Critical Defect Tickets / All Tickets lists now come
+// from Zoho's own ticket list (via ZohoTicketStatusService's cache), not
+// from the sheet's "Defect ID / Bug Ref" column - confirmed missing ~251
+// tickets, including 17 P0 Critical, when scoped to sheet-linked tickets
+// only. TestersDashboardService.getSummary reads
+// zohoTicketStatusService.getCachedStatuses() and passes it straight through
+// to calculateDiagnostics, regardless of source ("sheet" or "db") or any
+// applied filter.
+describe('TestersDashboardService.getSummary - ticket card sourced from Zoho, not the sheet', () => {
+    function makeZohoService(cached: Record<string, unknown>) {
+        return { getCachedStatuses: () => cached } as any;
+    }
+
+    it('populates diagnostics.openTickets/allTickets from the injected ZohoTicketStatusService, ignoring the sheet\'s Defect ID / Bug Ref column entirely', async () => {
+        const zohoTicketStatusService = makeZohoService({
+            '111': { ticketId: '111', status: 'Open', team: 'QA Team', ticketNumber: '11', priority: 'P0 - Critical', severity: 'Critical', url: 'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/111', lastCheckedAt: '2026-01-01T00:00:00.000Z' },
+            '222': { ticketId: '222', status: 'Closed', team: null, ticketNumber: '22', priority: null, severity: 'No priority', url: 'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/222', lastCheckedAt: '2026-01-01T00:00:00.000Z' },
+        });
+        const service = new TestersDashboardService(undefined, zohoTicketStatusService);
+
+        // A sheet row linking a DIFFERENT ticket (999) than anything in the
+        // Zoho cache - if the old sheet-based extraction were still active,
+        // this would show up as ticket "999"; it must not.
+        const mockDb = {
+            getCollection: vi.fn().mockResolvedValue({
+                find: vi.fn().mockReturnValue({
+                    sort: vi.fn().mockReturnValue({
+                        toArray: vi.fn().mockResolvedValue([
+                            {
+                                _id: 'mock-1',
+                                testDate: '2026-06-10',
+                                overallTestStatus: 'Fail',
+                                defectSeverity: 'Critical',
+                                defectIdBugRef: 'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/999',
+                            },
+                        ]),
+                    }),
+                }),
+            }),
+        };
+        const dbService = new TestersDashboardService(mockDb as any, zohoTicketStatusService);
+
+        for (const s of [service, dbService]) {
+            const query = s === dbService ? { source: 'db' as const } : {};
+            const result = await s.getSummary(query);
+            expect(result.diagnostics.allTickets.map((t) => t.id).sort()).toEqual(['111', '222']);
+            expect(result.diagnostics.openTickets.map((t) => t.id)).toEqual(['111']);
+            expect(result.diagnostics.allTickets.find((t) => t.id === '999')).toBeUndefined();
+        }
+    });
+
+    it('still returns empty ticket lists when no ZohoTicketStatusService is injected (existing behavior, not a crash)', async () => {
+        const service = new TestersDashboardService();
+        const result = await service.getSummary({});
+        expect(result.diagnostics.openTickets).toEqual([]);
+        expect(result.diagnostics.allTickets).toEqual([]);
     });
 });
 

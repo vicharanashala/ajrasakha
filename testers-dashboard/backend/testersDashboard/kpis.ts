@@ -13,6 +13,7 @@ import {
     normalizeDefectSeverity,
     normalizeSlaStatus,
     normalizeChannel,
+    toTitleCase,
     isSourceLinkRelevant,
     isSourceLinkApplicable,
     isScientificallyCorrect,
@@ -31,23 +32,43 @@ import {
     getPreviousPeriodWindow,
     getPreviousPeriodRows,
     type TestersDashboardFilters,
+    type TypeBranch,
 } from './filters.js';
 import { isScientificAccuracyEligible, dynamicSubBucketFor, moduleGroupFor, type DynamicSubBucket } from './diagnostics.js';
 
-// translationQualityPct/calculateSlaCompliance/calculateVoiceSuccess/
-// calculateNotificationExperience live in normalize.js (see its header
-// comment for why) - re-exported here so existing importers of this module
-// keep working unchanged.
+// Re-exported so existing importers of this module keep working unchanged;
+// the implementations live in normalize.js.
 export { calculateVoiceSuccess };
 export type { VoiceSuccessResult };
 
-export interface TrustScoreBreakdown {
+// The configured weight (0-1) of each Trust Score component for a given
+// typeBranch - not the actual per-request weight after A_dom-null
+// redistribution (see calculateTrustScore). A_dom is null here only for
+// 'Static', which excludes it from the weight table entirely by design -
+// distinct from breakdown.A_dom being null because a request simply had no
+// Dynamic rows. Exposed to the frontend so it can render "(NN%)" labels
+// without a second, driftable copy of the weight table.
+export interface TrustScoreWeights {
     A_sci: number;
-    A_dom: number;
+    A_dom: number | null;
     S_lnk: number;
     Q_frm: number;
     Q_trn: number;
     S_sla: number;
+}
+
+export interface TrustScoreBreakdown {
+    A_sci: number;
+    // Null when all 3 domains (Weather/Mandi Prices/Government Schemes) have
+    // zero applicable rows - excluded from the weighted Trust Score rather
+    // than defaulted to 100 or 0 (same "no data -> excluded, not scored"
+    // rule Weakest Module's sub-metrics use in diagnostics.ts).
+    A_dom: number | null;
+    S_lnk: number;
+    Q_frm: number;
+    Q_trn: number;
+    S_sla: number;
+    weights: TrustScoreWeights;
 }
 
 export interface TrustScoreResult {
@@ -55,11 +76,27 @@ export interface TrustScoreResult {
     breakdown: TrustScoreBreakdown;
 }
 
-// Generic NA-exclusion percentage helper: % of rows matching matchFn, over
-// only that field's own non-blank/NA rows (not shared across other fields -
-// unlike calculateSlaCompliance/N_exp's single shared applicable set, each
-// call scopes independently to its own field). Used by V_io's 4 sub-fields
-// below, each of which is blank on a different subset of rows.
+// Single source of truth for both calculateTrustScore's weighting math and
+// the weights exposed to the frontend via TrustScoreBreakdown.weights, so
+// they can't drift apart.
+const TRUST_SCORE_WEIGHTS_STATIC: TrustScoreWeights = { A_sci: 0.35, A_dom: null, S_lnk: 0.2, Q_frm: 0.15, Q_trn: 0.15, S_sla: 0.15 };
+const TRUST_SCORE_WEIGHTS_DEFAULT: TrustScoreWeights = { A_sci: 0.25, A_dom: 0.3, S_lnk: 0.15, Q_frm: 0.1, Q_trn: 0.1, S_sla: 0.1 };
+function trustScoreWeightsFor(typeBranch: TypeBranch): TrustScoreWeights {
+    return typeBranch === 'Static' ? TRUST_SCORE_WEIGHTS_STATIC : TRUST_SCORE_WEIGHTS_DEFAULT;
+}
+
+// Rows with a recorded Defect Severity value ('' covers blank AND
+// unparseable free text; 'NA'/"No Defect" is a genuine recorded verdict and
+// stays included). Shared denominator for Release Health's Critical Defect
+// Health and the Executive Summary's "Critical Defects" tile - do not fork
+// this into two separate filters, the two scopes must not drift apart.
+function defectSeverityRecordedRows(rows: TestersDashboardRecord[]): TestersDashboardRecord[] {
+    return rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) !== '');
+}
+
+// % of rows matching matchFn, over only that field's own non-blank/NA rows -
+// each call scopes independently to its own field, not a shared applicable
+// set. Used by V_io's 4 sub-fields, each blank on a different subset of rows.
 function applicablePct(
     rows: TestersDashboardRecord[],
     field: string,
@@ -76,16 +113,11 @@ export interface ScientificAccuracyResult {
 }
 
 // Single source of truth for "Scientific Accuracy" - shared by Trust
-// Score's A_sci below, the Executive Summary "Scientific Accuracy" tile,
-// and its previous-period comparison (calculatePreviousPeriodStats).
-// Scoped to isScientificAccuracyEligible rows (diagnostics.ts - any
-// recognized Type of Question, Static or Dynamic alike) with a real
-// (non-NA) answer, counting "correct"/"yes"/"y" as correct
-// (isScientificallyCorrect). The Executive Summary tile used to run its
-// own narrower calculation here (no Type-of-Question scoping at all, plus
-// "correct"-only matching) which let it silently drift from A_sci - 87%
-// vs 95% on the live CSV, from the same underlying rows. Routing both
-// through this one function makes that drift structurally impossible.
+// Score's A_sci, the Executive Summary "Scientific Accuracy" tile, and its
+// previous-period comparison. Scoped to isScientificAccuracyEligible rows
+// (any recognized Type of Question, Static or Dynamic alike) with a real
+// (non-NA) answer; do not let any of these callers fork their own
+// narrower/differently-scoped copy of this calculation.
 export function calculateScientificAccuracy(rows: TestersDashboardRecord[]): ScientificAccuracyResult {
     const eligible = rows.filter((r) => isScientificAccuracyEligible(r['Type of Question']));
     const applicable = eligible.filter((r) => !isNAlike(r['Answer Scientifically Correct?']));
@@ -93,62 +125,64 @@ export function calculateScientificAccuracy(rows: TestersDashboardRecord[]): Sci
     return { correctCount, applicableCount: applicable.length, pct: pct(correctCount, applicable.length) };
 }
 
-// Trust Score v2: 25% Scientific Accuracy (all rows, Static and Dynamic
-// alike, with a real answer) + 30% Dynamic Accuracy (Weather/Mandi/Schemes,
-// each scoped to its own Question Category bucket and averaged equally) +
-// 15% Correct Source Links + 10% Question Properly Framed + 10% Translation
-// Quality + 10% SLA.
+// Trust Score: weighted average of Scientific Accuracy (A_sci, 25%), Dynamic
+// Accuracy (A_dom, 30% - Weather/Mandi/Schemes averaged equally), Correct
+// Source Links (S_lnk, 15%), Question Properly Framed (Q_frm, 10%),
+// Translation Quality (Q_trn, 10%) and SLA (S_sla, 10%). When A_dom has no
+// data at all (e.g. Static branch, which has none of the 3 Dynamic buckets),
+// it's excluded and its weight redistributes across the other 5 instead of
+// silently defaulting to a "perfect" 100%.
 //
-// Expert Matching and Channel Consistency were removed entirely - they no
-// longer feed Trust Score (their underlying fields/matching logic aren't
-// reused by anything else in Trust Score, so there's nothing left to keep
-// here; Channel Tested's normalizeChannel etc. remain used elsewhere on the
-// dashboard).
+// Static branch (typeBranch === 'Static') does NOT use that redistribution:
+// it gets its own fixed weight table instead (35/20/15/15/15, A_dom dropped
+// entirely) - a deliberate business call, not a derivation of the 'all'/
+// 'Dynamic' formula. typeBranch defaults to 'all'.
 //
-// All 6 components exclude blank/NA rows from their own denominator - a row
-// where the field was never filled in isn't a wrong answer, it's not
-// applicable/not evaluated. A value that's neither the clear positive nor
-// blank/NA (e.g. "Partially Correct", "Ambiguous") stays in the denominator
-// but counts as incorrect - only the specific matched positive value counts.
-export function calculateTrustScore(rows: TestersDashboardRecord[]): TrustScoreResult {
+// All 6 components exclude blank/NA rows from their own denominator; a value
+// that's neither the clear positive nor blank/NA (e.g. "Partially Correct")
+// stays in the denominator but counts as incorrect.
+export function calculateTrustScore(rows: TestersDashboardRecord[], typeBranch: TypeBranch = 'all'): TrustScoreResult {
     const N = rows.length;
     if (!N) {
-        return { score: 0, breakdown: { A_sci: 0, A_dom: 0, S_lnk: 0, Q_frm: 0, Q_trn: 0, S_sla: 0 } };
+        return { score: 0, breakdown: { A_sci: 0, A_dom: null, S_lnk: 0, Q_frm: 0, Q_trn: 0, S_sla: 0, weights: trustScoreWeightsFor(typeBranch) } };
     }
 
-    // A_sci: every row with a recognized Type of Question - GDB, Unique,
-    // Outreach, OR Dynamic - and a real answer in Answer Scientifically
-    // Correct?. No longer scoped to Static rows only, but still excludes
-    // rows with no real Type of Question tag at all (blank, "Quality
-    // Checking", "Static Dynamic", leaked tester names) - those aren't
-    // Dynamic rows either, just untagged/garbage rows that happen to have a
-    // value in this field. calculateScientificAccuracy() above is the
-    // single shared source of this scoping rule AND match rule - Agri
-    // Advisory, Knowledge & GDB, and the Executive Summary tile all reuse
-    // it (directly or via this A_sci value), so none of them can drift
-    // apart again.
+    // A_sci: every row with a recognized Type of Question (GDB, Unique,
+    // Outreach, or Dynamic) and a real answer - excludes untagged/garbage
+    // rows (blank, "Quality Checking", leaked tester names) that happen to
+    // have a value in this field but aren't a real Type of Question.
     const A_sci = calculateScientificAccuracy(rows).pct;
 
     // A_dom: each of Weather/Mandi Prices/Government Schemes scoped to its
-    // own Question Category bucket (dynamicSubBucketFor) rather than "every
-    // row where this field happens to be filled in" - a real minority of
-    // non-blank domain-correctness answers land outside their own category
-    // bucket (tagging inconsistency), so category-scoping is the
-    // methodologically correct denominator. Each domain still defaults to
-    // 100 when it has zero applicable rows, so an empty domain doesn't drag
-    // the average down as if it scored 0.
-    function domainAccuracy(bucket: DynamicSubBucket, field: string): number {
+    // own Question Category bucket (dynamicSubBucketFor), not "every row
+    // where this field happens to be filled in" - some non-blank answers
+    // land outside their own category bucket (tagging inconsistency), so
+    // category-scoping is the methodologically correct denominator. A domain
+    // with zero applicable rows is null, excluded from the average below
+    // rather than defaulted to 100.
+    function domainAccuracy(bucket: DynamicSubBucket, field: string): number | null {
         const bucketRows = rows.filter((r) => dynamicSubBucketFor(r['Question Category'], r['Type of Question']) === bucket);
         const applicable = bucketRows.filter((r) => !isNAlike(r[field]));
-        return applicable.length ? pct(applicable.filter((r) => isYes(r[field])).length, applicable.length) : 100;
+        return applicable.length ? pct(applicable.filter((r) => isYes(r[field])).length, applicable.length) : null;
     }
-    const weatherAcc = domainAccuracy('Weather', 'Weather Q Answered Correctly?');
-    const mandiAcc = domainAccuracy('Mandi Prices', 'Mandi Price Q Correct?');
-    const schemeAcc = domainAccuracy('Government Schemes', 'Scheme Q Correct?');
-    const A_dom = Math.round((weatherAcc + mandiAcc + schemeAcc) / 3);
+    // Skipped outright for Static (which has none of the 3 Dynamic buckets
+    // by construction) so its fixed weight table is the only thing driving
+    // its score, not a redistribution fallback.
+    let A_dom: number | null = null;
+    if (typeBranch !== 'Static') {
+        const weatherAcc = domainAccuracy('Weather', 'Weather Q Answered Correctly?');
+        const mandiAcc = domainAccuracy('Mandi Prices', 'Mandi Price Q Correct?');
+        const schemeAcc = domainAccuracy('Government Schemes', 'Scheme Q Correct?');
+        // Average of only the domains with real applicable data - null only
+        // when all 3 are empty.
+        const applicableDomainAccs = [weatherAcc, mandiAcc, schemeAcc].filter((v): v is number => v !== null);
+        A_dom = applicableDomainAccs.length
+            ? Math.round(applicableDomainAccs.reduce((sum, v) => sum + v, 0) / applicableDomainAccs.length)
+            : null;
+    }
 
-    // S_lnk: isSourceLinkApplicable() excludes blank/NA plus the confirmed
-    // leaked "Successfully Identified as Duplicate"/"0:00:00" values;
+    // S_lnk: isSourceLinkApplicable() excludes blank/NA plus leaked
+    // "Successfully Identified as Duplicate"/"0:00:00" values;
     // isSourceLinkRelevant() accepts both answer styles testers use ("Yes"
     // and "Provided & Relevant" mean the same thing).
     const lnkApplicable = rows.filter((r) => isSourceLinkApplicable(r['Correct Source Links Provided?']));
@@ -157,38 +191,46 @@ export function calculateTrustScore(rows: TestersDashboardRecord[]): TrustScoreR
         lnkApplicable.length,
     );
 
-    // Q_frm: new component. isQuestionFramedApplicable() excludes the
-    // confirmed leaked "English" value (a Language Tested answer that
-    // landed in this column) in addition to blank/NA.
+    // Q_frm: isQuestionFramedApplicable() excludes a leaked "English" value
+    // (a Language Tested answer landing in this column) in addition to blank/NA.
     const frmApplicable = rows.filter((r) => isQuestionFramedApplicable(r['Question Correctly Framed?']));
     const Q_frm = pct(
         frmApplicable.filter((r) => isQuestionWellFramed(r['Question Correctly Framed?'])).length,
         frmApplicable.length,
     );
 
-    // Q_trn: unchanged shared formula.
     const Q_trn = translationQualityPct(rows).pct;
 
-    // S_sla: unchanged shared formula (Within SLA ÷ (Within + Breached),
-    // NA/blank/Not Applicable/unrecognized excluded). The leaked "Well
-    // Framed" value (from Question Correctly Framed) is already excluded
-    // here - it doesn't match any entry in normalizeSlaStatus's whitelist,
-    // so it falls out via the same "unrecognized -> excluded" path as any
-    // other garbage value, with no extra handling needed.
+    // S_sla: Within SLA ÷ (Within + Breached), NA/blank/unrecognized
+    // excluded (calculateSlaCompliance).
     const S_sla = calculateSlaCompliance(rows).withinSlaPct;
 
-    const score = Math.round(0.25 * A_sci + 0.3 * A_dom + 0.15 * S_lnk + 0.1 * Q_frm + 0.1 * Q_trn + 0.1 * S_sla);
-    return { score, breakdown: { A_sci, A_dom, S_lnk, Q_frm, Q_trn, S_sla } };
+    // 'all'/'Dynamic': weighted average over only the components that have a
+    // real value - when A_dom is null, its 0.3 weight redistributes
+    // proportionally across the other 5 (dividing by their combined 0.7
+    // weight instead of 1.0). Static uses its own fixed table (35/20/15/
+    // 15/15, already summing to 1.0) instead of this redistribution.
+    const weights = trustScoreWeightsFor(typeBranch);
+    const weightedComponents: { value: number; weight: number }[] = [
+        { value: A_sci, weight: weights.A_sci },
+        { value: S_lnk, weight: weights.S_lnk },
+        { value: Q_frm, weight: weights.Q_frm },
+        { value: Q_trn, weight: weights.Q_trn },
+        { value: S_sla, weight: weights.S_sla },
+    ];
+    if (typeBranch !== 'Static' && A_dom !== null) {
+        weightedComponents.push({ value: A_dom, weight: weights.A_dom! });
+    }
+    const totalWeight = weightedComponents.reduce((sum, c) => sum + c.weight, 0);
+    const score = Math.round(weightedComponents.reduce((sum, c) => sum + c.value * c.weight, 0) / totalWeight);
+    return { score, breakdown: { A_sci, A_dom, S_lnk, Q_frm, Q_trn, S_sla, weights } };
 }
 
 // Whether this set of rows has real (non-blank/NA) data in ANY of Trust
 // Score's 6 sub-metric fields - used only by the daily trend chart to
-// render a gap instead of a misleading number. Needed as a separate check
-// because A_dom's default-to-100-when-empty (see calculateTrustScore above)
-// would otherwise let a day with ZERO real rows still produce a
-// "real-looking" 30% score. hasSci/hasDomain mirror calculateTrustScore's
-// own scoping for A_sci/A_dom, so a row that wouldn't actually feed either
-// there doesn't get counted as "has data" here either.
+// render a gap instead of a misleading number, since each component falls
+// back to pct(0,0) = 0 (not null) on zero applicable rows. hasSci/hasDomain
+// mirror calculateTrustScore's own scoping for A_sci/A_dom.
 export function trustScoreHasData(rows: TestersDashboardRecord[]): boolean {
     if (!rows.length) return false;
     const hasSci = rows.some(
@@ -248,8 +290,8 @@ export function calculateExperienceScore(rows: TestersDashboardRecord[]): Experi
 
     const S_sla = calculateSlaCompliance(rows).withinSlaPct;
 
-    // V_io: each of the 4 sub-fields scoped to its own non-blank rows, not
-    // shared N, since each field's blank rate varies independently.
+    // V_io: each of the 4 sub-fields scoped to its own non-blank rows, since
+    // each field's blank rate varies independently.
     const voiceInWorking = applicablePct(rows, 'Voice Input Working?', (r) => isYes(r['Voice Input Working?']));
     const voiceOutWorking = applicablePct(rows, 'Voice Output Working?', (r) => isYes(r['Voice Output Working?']));
     const voiceInQuality = applicablePct(rows, 'Voice Input Quality', (r) => matchesAny(r['Voice Input Quality'], ['clear']));
@@ -258,8 +300,6 @@ export function calculateExperienceScore(rows: TestersDashboardRecord[]): Experi
 
     const Q_trn = translationQualityPct(rows).pct;
 
-    // N_exp: all 3 conditions required, denominator scoped to applicable
-    // (non-blank/NA) rows - see calculateNotificationExperience (normalize.js).
     const N_exp = calculateNotificationExperience(rows).pct;
 
     const score = Math.round(0.3 * S_rsp + 0.2 * S_sla + 0.2 * V_io + 0.15 * Q_trn + 0.15 * N_exp);
@@ -267,10 +307,8 @@ export function calculateExperienceScore(rows: TestersDashboardRecord[]): Experi
 }
 
 // Same purpose as trustScoreHasData above, for Farmer Experience Score's 5
-// sub-metrics. Unlike A_dom, none of these default to a non-zero value on
-// empty data, so a fully-empty day already scores a true 0% - this
-// distinguishes that genuine 0% from "no data at all" so the chart can
-// render a gap instead of a flat line at 0.
+// sub-metrics - distinguishes a genuine 0% from "no data at all" so the
+// chart can render a gap instead of a flat line at 0.
 export function experienceScoreHasData(rows: TestersDashboardRecord[]): boolean {
     if (!rows.length) return false;
     const hasRsp = rows.some((r) => timeToMinutes(r[RESPONSE_TIME_KEY]) !== null);
@@ -296,7 +334,7 @@ export interface CriticalFailuresBreakdown {
     countCriticalBugs: number;
 }
 
-// Critical Failures card v2: Failures/Successes tabs, one row per category.
+// Critical Failures card: Failures/Successes tabs, one row per category.
 // Each category's Failures count and its exact opposite Successes count
 // share the same source field(s) with blank/NA excluded from both sides -
 // a row that's ambiguous for a category (e.g. "Partially Correct", a bare
@@ -305,84 +343,111 @@ export interface CriticalFailuresBreakdown {
 export interface CriticalFailureCategory {
     key: string;
     label: string;
-    // The Successes tab's own label for this category - deliberately NOT
-    // the same string as `label` (e.g. "Within SLA - 2 Hours", not "SLA
-    // Breached - 2 Hours"), since reusing the failure name on the success
-    // side reads as nonsense ("SLA Breached - 2 Hours: 12,151" shown as a
-    // success). `label` itself is unchanged and still describes the
-    // Failures tab's meaning.
+    // Deliberately NOT the same string as `label` (e.g. "Within SLA - 2
+    // Hours", not "SLA Breached - 2 Hours") - reusing the failure name on
+    // the success side would read as nonsense.
     successLabel: string;
     failureCount: number;
     successCount: number;
+    // Rows where this category's underlying field(s) had a recorded
+    // (non-blank/NA) value, whether or not it resolved cleanly to a failure
+    // or success - computed independently, not derived from failureCount +
+    // successCount, since several categories have an ambiguous-but-recorded
+    // middle ground (see each category's comment below). Powers the
+    // Critical Failures card's "count / applicable" display.
+    applicableCount: number;
 }
 
 export interface CriticalFailureCategoriesResult {
     categories: CriticalFailureCategory[];
-    // Sum of failureCount/successCount across all categories - a row that
-    // trips more than one category (increasingly likely as categories are
-    // added, e.g. the 3 SLA Breached rows are deliberately non-exclusive)
-    // is counted once per category it trips, so this can exceed the
-    // distinct-row counts below.
+    // Sum across all categories - a row that trips more than one category is
+    // counted once per category, so this can exceed the distinct-row counts
+    // below.
     failuresTotal: number;
     successesTotal: number;
     // Distinct rows (by Test ID) counted in AT LEAST ONE category on that
-    // tab - the number to use when the question is "how many rows have a
-    // problem," as opposed to "how many problems were found."
+    // tab - "how many rows have a problem," not "how many problems."
     distinctFailureRows: number;
     distinctSuccessRows: number;
-    // Distinct rows counted on EITHER tab (union of the two sets above) -
-    // i.e. rows with real, evaluable data in at least one of the 12
-    // categories' underlying columns. Used as Pass Rate's own denominator
-    // (Fix 1): a row with no evaluable data anywhere isn't a "pass by
-    // elimination," it's untested and must be excluded, the same
-    // applicable-only convention Trust Score already uses.
+    // Union of the two distinct-row sets above - rows with real, evaluable
+    // data in at least one category. Used as Pass Rate's own denominator: a
+    // row with no evaluable data anywhere is untested, not a "pass by
+    // elimination."
     evaluableRows: number;
 }
 
 const TIME_ANSWER_RECEIVED_KEY = 'Time Answer Received (HH:MM:SS)';
 
-// Category 10 (SLA Breached): 3 independent benchmark rows against the same
-// valid Response Time readings, not mutually exclusive by design - a reading
-// that breaches the 7-day benchmark also breaches the 2-hour and 24-hour
-// ones, matching how the team described "beyond 3 benchmark timelines."
-// 10,080 min (7 days) here is a BUSINESS THRESHOLD for this category, not
-// the same thing as normalize.ts's RESPONSE_TIME_PARSE_CAP_MINUTES (which
-// governs what counts as a parseable reading at all) - raising the parse
-// cap to 100,000 is what makes readings beyond 10,080 min visible to this
-// category in the first place; the 10,080 benchmark itself is unchanged.
-const SLA_BREACH_THRESHOLDS: { key: string; label: string; successLabel: string; minutes: number }[] = [
-    { key: 'sla_breach_2hr', label: 'SLA Breached - 2 Hours', successLabel: 'Within SLA - 2 Hours', minutes: 120 },
-    { key: 'sla_breach_24hr', label: 'SLA Breached - 24 Hours', successLabel: 'Within SLA - 24 Hours', minutes: 1440 },
-    { key: 'sla_breach_7day', label: 'SLA Breached - 7 Days', successLabel: 'Within SLA - 7 Days', minutes: 10080 },
+// Category 10 (SLA Breached): 3 MUTUALLY EXCLUSIVE bands against the same
+// valid Response Time readings, on both the Failures side and the
+// Successes side - each reading falls into exactly one failure band and
+// (independently) exactly one success band, based on where it lands, not
+// every threshold it happens to exceed:
+//   Failures:  2hr (120-1440min) / 24hr (1440-10080min) / 7day (>=10080min)
+//   Successes: 2hr (<=120min) / 24hr (120-1440min) / 7day (1440-10080min)
+//
+// WARNING: Within SLA - 24 Hours' success range is numerically IDENTICAL to
+// SLA Breached - 2 Hours' failure range (and 7 Days' to 24 Hours'), BY
+// DESIGN, NOT A BUG. A 300-minute reading legitimately shows up as a FAILURE
+// on "SLA Breached - 2 Hours" (missed the 2-hour promise) AND a SUCCESS on
+// "Within SLA - 24 Hours" (still landed within a day) - two different
+// benchmarks evaluated independently, not one benchmark's failure/success
+// split. Do not "fix" this into non-overlapping tiers across the two tabs.
+//
+// 10,080 min (7 days) is a business threshold for this category, distinct
+// from normalize.ts's RESPONSE_TIME_PARSE_CAP_MINUTES (which governs what
+// counts as a parseable reading at all).
+interface MinutesRange {
+    from: number;
+    fromInclusive: boolean;
+    // null means "no upper bound."
+    to: number | null;
+    toInclusive: boolean;
+}
+function inMinutesRange(minutes: number, range: MinutesRange): boolean {
+    const atOrPastFrom = range.fromInclusive ? minutes >= range.from : minutes > range.from;
+    const atOrBeforeTo = range.to === null ? true : range.toInclusive ? minutes <= range.to : minutes < range.to;
+    return atOrPastFrom && atOrBeforeTo;
+}
+
+// Defined once and reused below as the NEXT tier's success range too, so a
+// band's failure range and the adjacent band's success range can't drift
+// apart from each other.
+const SLA_BAND_2HR_FAILURE_RANGE: MinutesRange = { from: 120, fromInclusive: false, to: 1440, toInclusive: false };
+const SLA_BAND_24HR_FAILURE_RANGE: MinutesRange = { from: 1440, fromInclusive: true, to: 10080, toInclusive: false };
+const SLA_BAND_7DAY_FAILURE_RANGE: MinutesRange = { from: 10080, fromInclusive: true, to: null, toInclusive: false };
+// The only fully-compliant range - Within SLA - 2 Hours' own success range,
+// with no adjacent failure band below it to mirror.
+const SLA_FULLY_COMPLIANT_RANGE: MinutesRange = { from: 0, fromInclusive: true, to: 120, toInclusive: true };
+
+const SLA_BREACH_BANDS: {
+    key: string;
+    label: string;
+    successLabel: string;
+    failureRange: MinutesRange;
+    successRange: MinutesRange;
+}[] = [
+    { key: 'sla_breach_2hr', label: 'SLA Breached - 2 Hours', successLabel: 'Within SLA - 2 Hours', failureRange: SLA_BAND_2HR_FAILURE_RANGE, successRange: SLA_FULLY_COMPLIANT_RANGE },
+    { key: 'sla_breach_24hr', label: 'SLA Breached - 24 Hours', successLabel: 'Within SLA - 24 Hours', failureRange: SLA_BAND_24HR_FAILURE_RANGE, successRange: SLA_BAND_2HR_FAILURE_RANGE },
+    { key: 'sla_breach_7day', label: 'SLA Breached - 7 Days', successLabel: 'Within SLA - 7 Days', failureRange: SLA_BAND_7DAY_FAILURE_RANGE, successRange: SLA_BAND_24HR_FAILURE_RANGE },
 ];
 
 // Category 11 - GDB Retrieval Failure (API). A GDB question already has a
 // stored answer and should return immediately; if the farmer instead sees
 // the "answer within 2 hours" disclaimer, the stored answer failed to come
-// back through the API. Built from two existing columns - Type of Question
-// === GDB (any casing/whitespace variant, via moduleGroupFor) AND
-// 120-min Msg Shown to User? === Yes (via isYes) - no dedicated sheet column
-// was ever needed.
+// back through the API. Built from Type of Question === GDB AND 120-min Msg
+// Shown to User? === Yes - no dedicated sheet column was ever needed.
 //
-// KNOWN DATA QUALITY CONCERN (live-CSV investigation, confirmed 674
-// failures / 453 successes / 3,344 excluded as blank/NA/duplicate-detection
-// values): a large share of the 674 failure rows have a sub-1-minute
-// Response Time despite the 2-hour disclaimer supposedly having fired, which
-// reads as contradictory - either the disclaimer really fired and was
-// corrected fast afterward, or (more likely, since "120-min Msg Shown to
-// User?" is also reused to store duplicate-detection values like
-// "Successfully Identified as Duplicate" on other rows) some testers are
-// mis-marking this overloaded column on GDB rows. Response Time can't be
-// used to corroborate the signal either way. Treat this count as an upper
-// bound until the sheet data/column usage improves.
+// KNOWN DATA QUALITY CONCERN: "120-min Msg Shown to User?" is also reused to
+// store duplicate-detection values (e.g. "Successfully Identified as
+// Duplicate") on other rows, so some testers may be mis-marking this
+// overloaded column on GDB rows; Response Time can't corroborate the signal
+// either way. Treat this count as an upper bound.
 
 // Builds all 13 active categories, each with a Failures count and its
-// Successes counterpart. Categories 1-8
-// reuse the exact same failure conditions calculateKpis has always used
-// (see the comments on each below for why its Successes counterpart is
-// defined the way it is) - calculateKpis derives its own
-// CriticalFailuresBreakdown fields from this same computation rather than
-// re-filtering, so the two can never drift apart.
+// Successes counterpart. calculateKpis derives its own CriticalFailuresBreakdown
+// fields from this same computation rather than re-filtering, so the two
+// can never drift apart.
 export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[]): CriticalFailureCategoriesResult {
     const categories: CriticalFailureCategory[] = [];
     const failureRowIds = new Set<string>();
@@ -396,6 +461,7 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
         successLabel: string,
         failureRows: TestersDashboardRecord[],
         successRows: TestersDashboardRecord[],
+        applicableRows: TestersDashboardRecord[],
     ): void {
         failureRows.forEach((r) => failureRowIds.add(r['Test ID']));
         successRows.forEach((r) => successRowIds.add(r['Test ID']));
@@ -407,28 +473,31 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
             successLabel,
             failureCount: failureRows.length,
             successCount: successRows.length,
+            applicableCount: applicableRows.length,
         });
     }
 
     // 1. Incorrect Answers - success is specifically "Correct" (not merely
-    // "not Incorrect"), so "Partially Correct" lands on neither tab.
+    // "not Incorrect"), so "Partially Correct" lands on neither tab but still
+    // counts as applicable.
     addCategory(
         'incorrect_answer',
         'Incorrect Answers',
         'Correct Answers',
         rows.filter((r) => matchesAny(r['Answer Scientifically Correct?'], ['incorrect'])),
         rows.filter((r) => matchesAny(r['Answer Scientifically Correct?'], ['correct'])),
+        rows.filter((r) => !isNAlike(r['Answer Scientifically Correct?'])),
     );
 
-    // 2-4. Weather/Mandi/Scheme Q Incorrect - Yes/No are natural exact
-    // opposites; blank/NA matches neither isYes nor isNo, excluding it from
-    // both sides automatically.
+    // 2-4. Weather/Mandi/Scheme Q Incorrect - Yes/No are exact opposites;
+    // blank/NA matches neither, excluding it from both sides automatically.
     addCategory(
         'weather_incorrect',
         'Weather Q Incorrect',
         'Weather Q Correct',
         rows.filter((r) => isNo(r['Weather Q Answered Correctly?'])),
         rows.filter((r) => isYes(r['Weather Q Answered Correctly?'])),
+        rows.filter((r) => !isNAlike(r['Weather Q Answered Correctly?'])),
     );
     addCategory(
         'mandi_incorrect',
@@ -436,6 +505,7 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
         'Mandi Price Q Correct',
         rows.filter((r) => isNo(r['Mandi Price Q Correct?'])),
         rows.filter((r) => isYes(r['Mandi Price Q Correct?'])),
+        rows.filter((r) => !isNAlike(r['Mandi Price Q Correct?'])),
     );
     addCategory(
         'scheme_incorrect',
@@ -443,12 +513,12 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
         'Scheme Q Correct',
         rows.filter((r) => isNo(r['Scheme Q Correct?'])),
         rows.filter((r) => isYes(r['Scheme Q Correct?'])),
+        rows.filter((r) => !isNAlike(r['Scheme Q Correct?'])),
     );
 
     // 5. Not Saved in DB - failure is "either field says not saved";
     // success requires BOTH fields to explicitly say "Saved", so ambiguous
-    // values ("Duplicate", a bare "Yes", "Partial Save") land on neither
-    // tab rather than being misread as a clean success.
+    // values ("Duplicate", a bare "Yes", "Partial Save") land on neither tab.
     addCategory(
         'db_failure',
         'Not Saved in DB',
@@ -461,11 +531,12 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
         rows.filter(
             (r) => matchesAny(r['Question Saved in DB?'], ['saved']) && matchesAny(r['Answer Saved in DB?'], ['saved']),
         ),
+        rows.filter((r) => !isNAlike(r['Question Saved in DB?']) || !isNAlike(r['Answer Saved in DB?'])),
     );
 
     // 6. Notification Failure - failure is "any one of 3 signals is bad";
     // success requires all 3 to explicitly agree (received + same thread +
-    // correct Q-ID), the exact mirror.
+    // correct Q-ID).
     addCategory(
         'notif_failure',
         'Notification Failure',
@@ -482,64 +553,81 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
                 isYes(r['Notification on Same Thread?']) &&
                 isYes(r['Notification Linked Correct Q-ID?']),
         ),
+        rows.filter(
+            (r) =>
+                !isNAlike(r['Notification Received?']) ||
+                !isNAlike(r['Notification on Same Thread?']) ||
+                !isNAlike(r['Notification Linked Correct Q-ID?']),
+        ),
     );
 
     // 7. Duplicate Q-ID Detected - success is "Yes" (genuinely consistent
     // across systems), not "Successfully Identified as Duplicate" (a real
-    // duplicate correctly caught - a different outcome, not "consistent").
+    // duplicate correctly caught - a different outcome).
     addCategory(
         'duplicate_qid',
         'Duplicate Q-ID Detected',
         'Q-ID Consistent',
         rows.filter((r) => matchesAny(r['Q-ID Consistent Across Systems?'], ['wrongly identified as duplicate'])),
         rows.filter((r) => isYes(r['Q-ID Consistent Across Systems?'])),
+        rows.filter((r) => !isNAlike(r['Q-ID Consistent Across Systems?'])),
     );
 
     // 8. Critical Severity Bugs - success is "No Defect"
-    // (normalizeDefectSeverity's 'NA' bucket), not merely "non-Critical" -
-    // a High/Medium/Low bug is still a real defect, not a success, so it
-    // lands on neither tab.
+    // (normalizeDefectSeverity's 'NA' bucket), not merely "non-Critical" - a
+    // High/Medium/Low bug is a real defect, not a success, so it lands on
+    // neither tab though it's still applicable.
     addCategory(
         'critical_bug',
         'Critical Severity Bugs',
         'No Critical Bugs',
         rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'Critical'),
         rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'NA'),
+        rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) !== ''),
     );
 
-    // 9. Answer Never Received (NEW) - both signals must agree: no answer
+    // 9. Answer Never Received - both signals must agree: no answer
     // timestamp logged AND no valid Response Time reading. A row where the
-    // two signals disagree (e.g. a timestamp exists but Response Time is
-    // garbage) is ambiguous and excluded from both tabs, not guessed either
-    // way.
+    // two signals disagree is ambiguous and excluded from both tabs and
+    // from applicableCount.
+    const answerNeverReceivedFailure = rows.filter(
+        (r) => isNAlike(r[TIME_ANSWER_RECEIVED_KEY]) && timeToMinutes(r[RESPONSE_TIME_KEY]) === null,
+    );
+    const answerNeverReceivedSuccess = rows.filter(
+        (r) => !isNAlike(r[TIME_ANSWER_RECEIVED_KEY]) && timeToMinutes(r[RESPONSE_TIME_KEY]) !== null,
+    );
     addCategory(
         'answer_never_received',
         'Answer Never Received',
         'Answer Received',
-        rows.filter((r) => isNAlike(r[TIME_ANSWER_RECEIVED_KEY]) && timeToMinutes(r[RESPONSE_TIME_KEY]) === null),
-        rows.filter((r) => !isNAlike(r[TIME_ANSWER_RECEIVED_KEY]) && timeToMinutes(r[RESPONSE_TIME_KEY]) !== null),
+        answerNeverReceivedFailure,
+        answerNeverReceivedSuccess,
+        [...answerNeverReceivedFailure, ...answerNeverReceivedSuccess],
     );
 
-    // 10. SLA Breached (NEW) - 3 rows, see SLA_BREACH_THRESHOLDS above for
-    // why they're independent rather than exclusive buckets.
+    // 10. SLA Breached - see SLA_BREACH_BANDS above for band definitions and
+    // the overlap warning. applicableCount is the same "has a parseable
+    // Response Time reading" population for all 3 bands, unlike every other
+    // category here where the denominator varies band to band.
     const responseTimeReadings = rows
         .map((r) => ({ r, minutes: timeToMinutes(r[RESPONSE_TIME_KEY]) }))
         .filter((x): x is { r: TestersDashboardRecord; minutes: number } => x.minutes !== null);
-    SLA_BREACH_THRESHOLDS.forEach(({ key, label, successLabel, minutes: threshold }) => {
+    const responseTimeApplicableRows = responseTimeReadings.map((x) => x.r);
+    SLA_BREACH_BANDS.forEach(({ key, label, successLabel, failureRange, successRange }) => {
         addCategory(
             key,
             label,
             successLabel,
-            responseTimeReadings.filter((x) => x.minutes > threshold).map((x) => x.r),
-            responseTimeReadings.filter((x) => x.minutes <= threshold).map((x) => x.r),
+            responseTimeReadings.filter((x) => inMinutesRange(x.minutes, failureRange)).map((x) => x.r),
+            responseTimeReadings.filter((x) => inMinutesRange(x.minutes, successRange)).map((x) => x.r),
+            responseTimeApplicableRows,
         );
     });
 
-    // 11. GDB Retrieval Failure (API) - see comment above this function's
-    // SLA_BREACH_THRESHOLDS/category-11 block for the rule and the known
-    // data quality concern. isYes/isNo only match "yes"/"y" and "no"/"n"
-    // respectively, so the duplicate-detection values sharing this column
-    // ("Successfully Identified as Duplicate", "Duplicate", etc.) fall into
+    // 11. GDB Retrieval Failure (API) - see the category-11 comment above
+    // for the rule and known data quality concern. isYes/isNo only match
+    // "yes"/"no" variants, so duplicate-detection values sharing this
+    // column ("Successfully Identified as Duplicate", etc.) fall into
     // neither side, same as blank/NA.
     const gdbRows = rows.filter((r) => moduleGroupFor(r['Type of Question']) === 'GDB');
     addCategory(
@@ -548,6 +636,7 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
         'GDB Retrieved Successfully',
         gdbRows.filter((r) => isYes(r['120-min Msg Shown to User?'])),
         gdbRows.filter((r) => isNo(r['120-min Msg Shown to User?'])),
+        gdbRows.filter((r) => !isNAlike(r['120-min Msg Shown to User?'])),
     );
 
     const evaluableRowIds = new Set<string>([...failureRowIds, ...successRowIds]);
@@ -565,10 +654,10 @@ export function calculateCriticalFailureCategories(rows: TestersDashboardRecord[
 export interface ReleaseHealthMetric {
     key: string;
     label: string;
-    // This metric's weight within its own bucket (0-1) - all of a bucket's
-    // metric weights sum to 1.
+    // Weight within its own bucket (0-1) - all of a bucket's metric weights
+    // sum to 1.
     weight: number;
-    // 0-100 health score (already "higher is better" - a rate like Critical
+    // 0-100 health score, already "higher is better" (a rate like Critical
     // Defect Rate is pre-inverted into "...Health" before landing here).
     value: number;
 }
@@ -576,10 +665,9 @@ export interface ReleaseHealthMetric {
 export interface ReleaseHealthBucket {
     key: string;
     label: string;
-    // This bucket's weight within the overall Release Health score (0-1) -
-    // all 6 buckets' weights sum to 1 (25/20/20/15/10/10%).
+    // Weight within the overall Release Health score (0-1) - all 6 buckets'
+    // weights sum to 1 (25/20/20/15/10/10%).
     weight: number;
-    // 0-100, the weighted average of this bucket's own metrics.
     score: number;
     metrics: ReleaseHealthMetric[];
 }
@@ -587,25 +675,16 @@ export interface ReleaseHealthBucket {
 export type ReleaseHealthDecision = 'GO' | 'GO_WITH_CONDITIONS' | 'NO_GO';
 
 export interface ReleaseHealthResult {
-    // 0-100, the weighted average of all 6 buckets' scores.
     score: number;
     buckets: ReleaseHealthBucket[];
-    // Score-only GO / GO WITH CONDITIONS / NO-GO call - see
-    // releaseHealthDecision() below for the important caveat on what this
-    // does NOT yet account for.
     decision: ReleaseHealthDecision;
 }
 
-// GO/NO-GO thresholds, score-only for now.
-//
-// IMPORTANT / INCOMPLETE: the business plan's full decision rule is
-// "score threshold AND all mandatory release gates PASS" (rollback tested,
-// monitoring active, backup available, no critical blocking defect, etc.) -
-// none of those gates exist as columns in the test sheet yet, so this
-// function can only evaluate the score half of the rule. A high score here
-// is NOT a substitute for checking those gates manually - this is a
-// deliberate gap pending sheet data, not an oversight. Wire the gate check
-// in once that data exists, rather than treating this decision as final.
+// Score-only GO/NO-GO call. INCOMPLETE BY DESIGN: the business plan's full
+// decision rule also requires mandatory release gates (rollback tested,
+// monitoring active, backup available, no critical blocking defect) that
+// don't exist as sheet columns yet - a high score here is not a substitute
+// for checking those gates manually.
 export function releaseHealthDecision(score: number): ReleaseHealthDecision {
     if (score >= 95) return 'GO';
     if (score >= 90) return 'GO_WITH_CONDITIONS';
@@ -614,24 +693,19 @@ export function releaseHealthDecision(score: number): ReleaseHealthDecision {
 
 // Release Health's Response Time Health (Performance & SLA bucket): a
 // straight 0-100 line over a 24-hour scale - 0min reads as 100, 1,440min
-// (24hrs) reads as 0, floored at 0 beyond that. A BUSINESS THRESHOLD (the
-// plan's own choice of scale), independent of the 120min confirmed SLA
-// limit used elsewhere (S_sla/S_rsp) and of RESPONSE_TIME_PARSE_CAP_MINUTES
-// (which governs what counts as a parseable reading at all).
+// reads as 0, floored at 0 beyond that. A business threshold, independent of
+// the 120min confirmed SLA limit used elsewhere (S_sla/S_rsp).
 const RESPONSE_TIME_HEALTH_SCALE_MINUTES = 1440;
 
-// Channel Performance (Farmer Experience & Channel Quality bucket): the
-// dashboard's 3 real Channel Tested values - see normalizeChannel (Web
-// App/WhatsApp/Both, "Both" displayed as "Cross-Platform" on the frontend).
+// The dashboard's 3 real Channel Tested values (normalizeChannel): Web
+// App/WhatsApp/Both, "Both" displayed as "Cross-Platform" on the frontend.
 const CHANNEL_PERFORMANCE_CHANNELS = ['Web App', 'WhatsApp', 'Both'] as const;
 
 // Pooled Pass Rate (total Pass ÷ total Pass+Fail, Partial/NA/ungraded
-// excluded - same formula the Channel-wise Performance card uses) across
-// Web App, WhatsApp, and Cross-Platform combined. Fix 4: previously the 3
-// channels' own pass rates were averaged unweighted, so a low-volume channel
-// (e.g. Cross-Platform, a few hundred rows) counted exactly as much as
-// Web App (thousands of rows). Pooling the raw counts before dividing means
-// each channel contributes in proportion to its actual Pass+Fail volume.
+// excluded) across Web App, WhatsApp, and Cross-Platform combined - raw
+// counts pooled before dividing so a low-volume channel doesn't count as
+// much as a high-volume one would under an unweighted average of the 3
+// channels' own pass rates.
 function calculateChannelPerformance(rows: TestersDashboardRecord[]): number {
     let totalPassed = 0;
     let totalPassPlusFail = 0;
@@ -645,63 +719,131 @@ function calculateChannelPerformance(rows: TestersDashboardRecord[]): number {
     return pct(totalPassed, totalPassPlusFail);
 }
 
-// Release Health v2: a 6-bucket weighted model (25/20/20/15/10/10%),
-// replacing the old Pass Rate - Critical Defect Rate - Data Integrity Rate
-// formula. Each bucket blends 1-5 of its own 0-100 "...Health" metrics
-// (reusing existing scores where one already exists, e.g. Trust Score,
-// Pass Rate, SLA Compliance) with its own internal weights; the 6 buckets
-// then combine at the top level. Two buckets from the wider plan - Security
-// & Privacy and Release & Recovery Readiness - are deliberately NOT built
-// here: there's no sheet data yet to back either one.
-export function calculateReleaseHealth(rows: TestersDashboardRecord[]): ReleaseHealthResult {
+export interface ChannelPerformanceStat {
+    channel: string;
+    tests: number;
+    passRate: number;
+    avgResponse: number;
+}
+
+// Channel-wise Performance card. Runs over the same filteredRows as
+// calculateKpis/calculateDiagnostics/calculateChartData, scoped to the same
+// 3 known Channel Tested values as calculateChannelPerformance above - a
+// leaked/unrecognized channel value is excluded rather than shown as a
+// bogus row.
+export function calculateChannelStats(rows: TestersDashboardRecord[]): ChannelPerformanceStat[] {
+    const knownChannels: readonly string[] = CHANNEL_PERFORMANCE_CHANNELS;
+    const groups = new Map<string, TestersDashboardRecord[]>();
+    rows.forEach((r) => {
+        const ch = normalizeChannel(r['Channel Tested']);
+        if (!ch || isNAlike(ch) || !knownChannels.includes(ch)) return;
+        const existing = groups.get(ch);
+        if (existing) existing.push(r);
+        else groups.set(ch, [r]);
+    });
+    return Array.from(groups.entries())
+        .map(([channel, channelRows]) => {
+            const tests = channelRows.length;
+            // Pass % scoped to Pass+Fail rows only - distinct from the
+            // Critical-Failures-based Pass Rate in calculateKpis.
+            const passed = channelRows.filter((r) => normalizeTestStatus(r['Overall Test Status']) === 'Pass').length;
+            const failed = channelRows.filter((r) => normalizeTestStatus(r['Overall Test Status']) === 'Fail').length;
+            const passRate = pct(passed, passed + failed);
+            let sum = 0;
+            let count = 0;
+            channelRows.forEach((r) => {
+                const m = timeToMinutes(r[RESPONSE_TIME_KEY]);
+                if (m !== null) {
+                    sum += m;
+                    count++;
+                }
+            });
+            const avgResponse = count ? Math.round((sum / count) * 10) / 10 : 0;
+            return { channel, tests, passRate, avgResponse };
+        })
+        .sort((a, b) => b.tests - a.tests);
+}
+
+export interface LanguagePerformanceStat {
+    language: string;
+    tests: number;
+    translationAcc: number;
+}
+
+// Language Performance card. translationAcc excludes blank/NA Translation
+// Quality rows from its own denominator, mirroring Trust/Farmer Experience's
+// shared translationQualityPct formula (grouped by language first, so it
+// can't reuse that function directly, but keeps its matching rule -
+// "correct"/"good" counts as accurate).
+export function calculateLanguageStats(rows: TestersDashboardRecord[]): LanguagePerformanceStat[] {
+    const groups = new Map<string, TestersDashboardRecord[]>();
+    rows.forEach((r) => {
+        const lang = toTitleCase(r['Language Tested']);
+        if (!lang || isNAlike(lang)) return;
+        const existing = groups.get(lang);
+        if (existing) existing.push(r);
+        else groups.set(lang, [r]);
+    });
+    return Array.from(groups.entries())
+        .map(([language, langRows]) => {
+            const tests = langRows.length;
+            const translationApplicable = langRows.filter((r) => !isNAlike(r['Translation Quality']));
+            const translationAcc = pct(
+                translationApplicable.filter((r) => matchesAny(r['Translation Quality'], ['correct', 'good'])).length,
+                translationApplicable.length,
+            );
+            return { language, tests, translationAcc };
+        })
+        .sort((a, b) => b.tests - a.tests);
+}
+
+// Release Health: a 6-bucket weighted model (25/20/20/15/10/10%). Each
+// bucket blends 1-5 of its own 0-100 "...Health" metrics (reusing existing
+// scores where one already exists, e.g. Trust Score, Pass Rate, SLA
+// Compliance) with its own internal weights; the 6 buckets then combine at
+// the top level. Two buckets from the wider plan - Security & Privacy and
+// Release & Recovery Readiness - are deliberately not built here: there's no
+// sheet data yet to back either one.
+export function calculateReleaseHealth(rows: TestersDashboardRecord[], typeBranch: TypeBranch = 'all'): ReleaseHealthResult {
     const N = rows.length;
     const categories = calculateCriticalFailureCategories(rows);
     const failureCount = (key: string): number => categories.categories.find((c) => c.key === key)!.failureCount;
-    // 100 - failure rate scoped to APPLICABLE rows only (Fix 1) - a row with
-    // no interpretable signal for a given check is excluded from its own
+    // 100 - failure rate scoped to APPLICABLE rows only - a row with no
+    // interpretable signal for a given check is excluded from its own
     // denominator rather than silently counted as healthy, the same
-    // convention Trust Score's six components already use. Zero applicable
-    // rows reads as 0 health, not a default-high 100 (same trap
-    // responseTimeHealth's own zero-readings case avoids below).
+    // convention Trust Score's six components use. Zero applicable rows
+    // reads as 0 health, not a default-high 100.
     const applicableHealth = (failCount: number, applicable: number): number =>
         applicable ? 100 - pct(failCount, applicable) : 0;
 
-    // Bucket 1 - AI & Response Quality: Trust Score, reused directly.
-    const trustScore = calculateTrustScore(rows).score;
+    // Bucket 1 - AI & Response Quality: Trust Score, reused directly - same
+    // typeBranch passed through so this bucket can't silently disagree with
+    // the Executive Summary's own Trust Score tile on the Static branch.
+    const trustScore = calculateTrustScore(rows, typeBranch).score;
 
     // Bucket 2 - Functional & Critical Quality.
     //
-    // Pass Rate (Fix 1): denominator is rows with real, evaluable data in AT
-    // LEAST ONE of the 13 Critical Failure categories (categories.evaluableRows)
-    // - a row untested everywhere no longer "passes by elimination" just
-    // because it never tripped a failure condition.
+    // Pass Rate: denominator is rows with real, evaluable data in at least
+    // one of the 13 Critical Failure categories (categories.evaluableRows) -
+    // a row untested everywhere doesn't "pass by elimination."
     const passApplicable = categories.evaluableRows;
     const passRateV2 = passApplicable ? pct(passApplicable - categories.distinctFailureRows, passApplicable) : 0;
 
-    // Critical Defect Health (Fix 2): merges the former "Critical Defects"
-    // and "Critical Severity Bugs" line items - both read the exact same
-    // column and exact same value (Defect Severity === 'Critical') and
-    // always returned identical numbers, so the plan's two separate weighted
-    // entries are collapsed into one 50%-weighted metric. Denominator
-    // (Fix 1) excludes rows with no interpretable Defect Severity value at
-    // all (blank, undefined column, or unparseable free text), not every row.
+    // Critical Defect Health: shares its denominator with the Executive
+    // Summary's "Critical Defects" tile (defectSeverityRecordedRows) - do
+    // not let these two scopes drift apart.
     const countCriticalBugs = failureCount('critical_bug');
-    const defectSeverityApplicable = rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) !== '').length;
+    const defectSeverityApplicable = defectSeverityRecordedRows(rows).length;
     const criticalDefectHealth = applicableHealth(countCriticalBugs, defectSeverityApplicable);
 
-    // Bucket 3 - Data Integrity & Persistence. Fix 1: each metric below now
-    // excludes rows with no interpretable signal instead of dividing by N.
+    // Bucket 3 - Data Integrity & Persistence.
     //
-    // Data Integrity Health: mirrors the pre-v2 Release Health's own wider
-    // dataIntegrityRate definition (Not Saved in DB on either field, OR
-    // wrongly-identified-duplicate) - a wider set than Not Saved in DB
+    // Data Integrity Health: Not Saved in DB on either field, OR
+    // wrongly-identified-duplicate - a wider set than Not Saved in DB
     // Health/Duplicate Record Health's own single-category counts below, so
-    // the 3 metrics aren't redundant. A row is applicable if AT LEAST ONE of
-    // the 3 fields carries a clear, non-ambiguous verdict ("Saved"/"Not
-    // Saved" on either DB field, or "Yes"/"Wrongly Identified as Duplicate"
-    // on the Q-ID field) - a row ambiguous on all 3 (blank everywhere, or
-    // e.g. "Duplicate"/"Successfully Identified as Duplicate" with nothing
-    // else to go on) is excluded rather than defaulting to healthy.
+    // the 3 metrics aren't redundant. A row is applicable if at least one of
+    // the 3 fields carries a clear, non-ambiguous verdict; a row ambiguous
+    // on all 3 is excluded rather than defaulting to healthy.
     const isQSavedClear = (r: TestersDashboardRecord) =>
         matchesAny(r['Question Saved in DB?'], ['saved']) || matchesAny(r['Question Saved in DB?'], ['not saved']);
     const isASavedClear = (r: TestersDashboardRecord) =>
@@ -719,10 +861,9 @@ export function calculateReleaseHealth(rows: TestersDashboardRecord[]): ReleaseH
     const dataIntegrityHealth = applicableHealth(dataIntegrityFailures, dataIntegrityApplicableRows.length);
 
     // Not Saved in DB Health / Duplicate Record Health: denominator is only
-    // rows their own category (calculateCriticalFailureCategories) confirmed
-    // one way or the other - failureCount + successCount. The large
-    // "ambiguous" remainder (e.g. "Duplicate", blank, NA, "Successfully
-    // Identified as Duplicate") is excluded rather than counted as healthy.
+    // rows their own category confirmed one way or the other (failureCount +
+    // successCount) - the "ambiguous" remainder is excluded rather than
+    // counted as healthy.
     const dbFailureCategory = categories.categories.find((c) => c.key === 'db_failure')!;
     const notSavedInDbHealth = applicableHealth(
         dbFailureCategory.failureCount,
@@ -745,9 +886,7 @@ export function calculateReleaseHealth(rows: TestersDashboardRecord[]): ReleaseH
             responseMinutesCount++;
         }
     });
-    // No valid readings must NOT default to a "perfect" 0min score (the same
-    // trap A_dom's empty-bucket default exists to avoid elsewhere) - 0 real
-    // data reads as 0 health here, not 100.
+    // No valid readings reads as 0 health here, not a default-high 100.
     const responseTimeHealth = responseMinutesCount
         ? Math.max(
               0,
@@ -756,26 +895,20 @@ export function calculateReleaseHealth(rows: TestersDashboardRecord[]): ReleaseH
         : 0;
     const responseSpeed = calculateExperienceScore(rows).breakdown.S_rsp;
 
-    // Bucket 5 - Farmer Experience & Channel Quality. Notification Success
-    // (Fix 3): shares calculateNotificationSuccess's Received-field match
-    // rule with N_exp below (received on time/late, or a bare yes) - a
-    // "yes" answer no longer counts as a failure here while counting toward
-    // N_exp's success side, which was the original inconsistency.
+    // Bucket 5 - Farmer Experience & Channel Quality.
     const notificationSuccessPct = calculateNotificationSuccess(rows).pct;
     const voiceSuccess = calculateVoiceSuccess(rows);
     const voicePerformance = Math.round((voiceSuccess.score / 10) * 100);
     const translationQuality = translationQualityPct(rows).pct;
-    // Channel Performance (Fix 4): pooled across channels, see
-    // calculateChannelPerformance's own comment.
     const channelPerformance = calculateChannelPerformance(rows);
     const notificationExperience = calculateNotificationExperience(rows).pct;
 
     // Bucket 6 - Reliability & Critical Failure Health. Failures are
-    // weighted by severity rather than treated equally (a plain
-    // 100 - failure rate) - Critical categories cost 4x as much per
-    // occurrence as Low ones. Categories are NOT mutually exclusive (e.g. a
-    // 7-day SLA breach is also a 2-hour and 24-hour breach), so a single bad
-    // row can rack up multiple categories' penalties, by design.
+    // weighted by severity rather than treated equally - Critical categories
+    // cost 4x as much per occurrence as Low ones. Categories are not
+    // mutually exclusive here (e.g. a 7-day SLA breach is also a 2-hour and
+    // 24-hour breach), so a single bad row can rack up multiple categories'
+    // penalties, by design.
     const SEVERITY_PENALTIES: { key: string; penalty: number }[] = [
         { key: 'answer_never_received', penalty: 4 },
         { key: 'db_failure', penalty: 4 },
@@ -795,10 +928,9 @@ export function calculateReleaseHealth(rows: TestersDashboardRecord[]): ReleaseH
     const maxPenalty = N * 4;
     const reliabilityHealth = maxPenalty ? Math.max(0, Math.round(100 - (weightedPenalty / maxPenalty) * 100)) : 0;
 
-    // Rounds each metric's value to a whole number, then rounds the
-    // bucket's own weighted-sum score - same "round components, then round
-    // the combination" convention calculateTrustScore/calculateExperienceScore
-    // already use, rather than carrying float precision through to the top.
+    // Rounds each metric's value, then rounds the bucket's own weighted-sum
+    // score - same "round components, then round the combination"
+    // convention calculateTrustScore/calculateExperienceScore use.
     function buildBucket(
         key: string,
         label: string,
@@ -850,20 +982,19 @@ export function calculateReleaseHealth(rows: TestersDashboardRecord[]): ReleaseH
 // not a fresh Response-Time-based recomputation.
 export interface SlaBreakdown {
     // Rows with a real, recognized SLA Status value - blank/NA/Not
-    // Applicable/garbage are excluded from this denominator entirely, not
-    // folded into "not within SLA".
+    // Applicable/garbage are excluded from this denominator, not folded into
+    // "not within SLA".
     validRows: number;
     withinSlaCount: number;
     withinSlaPct: number;
     exceededSlaPct: number;
     breachedCount: number;
-    // Of breachedCount, how many had NO parseable Response Time reading and
-    // therefore could not contribute to avgDelayMinutes - reported
-    // separately so that number's sample size is visibly smaller than the
-    // breach count shown in the gauge, not silently so.
+    // Of breachedCount, how many had no parseable Response Time reading and
+    // couldn't contribute to avgDelayMinutes - reported separately so that
+    // number's sample size is visibly smaller than breachedCount.
     breachedWithoutTimeCount: number;
     // Average (actual Response Time - 120min confirmed SLA limit) across
-    // only breached rows that also have a valid Response Time reading.
+    // breached rows with a valid Response Time reading.
     avgDelayMinutes: number;
 }
 
@@ -889,8 +1020,20 @@ export interface KpiSummary {
     notificationSuccessTotalCount: number;
     criticalFailuresToday: number;
     criticalBreakdown: CriticalFailuresBreakdown;
-    // Critical Failures card v2 (Failures/Successes tabs, 11 active
-    // categories) - see calculateCriticalFailureCategories.
+    // Executive Summary's "Critical Defects" tile: (Critical + High
+    // severity rows) ÷ rows with a severity recorded × 100 - a separate
+    // metric from criticalBreakdown.countCriticalBugs (Critical only, still
+    // feeding Release Health), not a replacement for it.
+    criticalDefectsPct: number;
+    criticalDefectsCriticalCount: number;
+    criticalDefectsHighCount: number;
+    // Denominator of criticalDefectsPct (defectSeverityRecordedRows), same
+    // scope Release Health's Critical Defect Health metric uses.
+    criticalDefectsApplicableCount: number;
+    // Rows with no usable Defect Severity value - excluded from
+    // criticalDefectsPct's denominator. Distinct from a "NA"/"No Defect"
+    // row, which is a recorded assessment and stays in the denominator.
+    criticalDefectsNoSeverityCount: number;
     criticalFailureCategories: CriticalFailureCategoriesResult;
     releaseHealth: number;
     releaseHealthBreakdown: ReleaseHealthResult;
@@ -901,20 +1044,17 @@ export interface KpiSummary {
 // computation. Composes calculateTrustScore/calculateExperienceScore/
 // calculateVoiceSuccess rather than recomputing their sub-metrics.
 //
-// Note on Q_trn: calculateTrustScore and calculateExperienceScore each
-// compute their own Translation Quality percentage internally, using the
-// identical formula over the same `rows` - so trustBreakdown.Q_trn and
-// experienceBreakdown.Q_trn are always numerically equal, just computed
-// independently rather than shared.
-export function calculateKpis(rows: TestersDashboardRecord[]): KpiSummary {
+// trustBreakdown.Q_trn and experienceBreakdown.Q_trn are always numerically
+// equal (same formula, same rows) but computed independently, not shared.
+export function calculateKpis(rows: TestersDashboardRecord[], typeBranch: TypeBranch = 'all'): KpiSummary {
     const N = rows.length;
 
-    const trust = calculateTrustScore(rows);
+    const trust = calculateTrustScore(rows, typeBranch);
     const experience = calculateExperienceScore(rows);
 
     // Overall average response time in actual minutes, for the Executive
-    // Summary tile - different from S_rsp above, which is a 0-100 "speed
-    // score" derived from response time, not the raw minutes value itself.
+    // Summary tile - distinct from S_rsp, a 0-100 "speed score" derived from
+    // response time.
     let avgResponseMinutes = 0;
     {
         let sum = 0;
@@ -937,20 +1077,16 @@ export function calculateKpis(rows: TestersDashboardRecord[]): KpiSummary {
     })();
 
     // Executive Summary's standalone "Scientific Accuracy" tile - reads
-    // Trust Score's A_sci directly (same calculateScientificAccuracy() call,
-    // so the two headline numbers can never drift apart again). The
-    // Correct/Applicable counts behind the tooltip come from the same call,
-    // so they always add up to this same percentage.
+    // Trust Score's A_sci directly so the two headline numbers can never
+    // drift apart.
     const sciAccuracy = calculateScientificAccuracy(rows);
     const sciCorrectCount = sciAccuracy.correctCount;
     const scientificAccuracyApplicableCount = sciAccuracy.applicableCount;
     const scientificAccuracyAllRows = trust.breakdown.A_sci;
 
     // criticalBreakdown/criticalFailuresToday below are derived from this
-    // one computation (not re-filtered independently), so the legacy
-    // fixed-shape fields (still consumed by Executive Summary's "Critical
-    // Defects" tile via countCriticalBugs) can never drift from the new
-    // per-category card's numbers.
+    // one computation rather than re-filtered independently, so they can
+    // never drift from the per-category card's numbers.
     const criticalFailureCategories = calculateCriticalFailureCategories(rows);
     const categoryFailureCount = (key: string): number =>
         criticalFailureCategories.categories.find((c) => c.key === key)!.failureCount;
@@ -962,11 +1098,9 @@ export function calculateKpis(rows: TestersDashboardRecord[]): KpiSummary {
     const countNotifFailure = categoryFailureCount('notif_failure');
     const countDuplicateFailure = categoryFailureCount('duplicate_qid');
     const countCriticalBugs = categoryFailureCount('critical_bug');
-    // Original 8-category sum only - deliberately excludes the newer
-    // Answer Never Received/SLA Breached/GDB Retrieval categories, so this
-    // legacy total's meaning doesn't silently change. Use
-    // criticalFailureCategories.failuresTotal for the redesigned card's
-    // headline number instead.
+    // Sum of these 8 categories only - deliberately excludes Answer Never
+    // Received/SLA Breached/GDB Retrieval. Use
+    // criticalFailureCategories.failuresTotal for the full card total instead.
     const criticalFailuresToday =
         countIncorrect +
         countWeatherIncorrect +
@@ -977,22 +1111,15 @@ export function calculateKpis(rows: TestersDashboardRecord[]): KpiSummary {
         countDuplicateFailure +
         countCriticalBugs;
 
-    // Release Health v2 (6-bucket weighted model) - computed independently
-    // by calculateReleaseHealth rather than inline here, so it stays
-    // directly unit-testable on its own (same "independently callable and
-    // tested" pattern as calculateTrustScore/calculateExperienceScore).
-    const releaseHealthResult = calculateReleaseHealth(rows);
+    const releaseHealthResult = calculateReleaseHealth(rows, typeBranch);
 
-    // Executive Summary's Pass Rate / Fail Rate (v2): a row is a "failure"
-    // if it trips ANY Critical Failure category, a "success" otherwise -
-    // reuses criticalFailureCategories.distinctFailureRows computed above
-    // rather than recomputing independently, so the two can never drift
-    // apart. Denominator is N (Total Tests Executed), not a Pass+Fail
-    // subset, since every row is classifiable as one or the other under
-    // this rule. Pass Rate is computed first and Fail Rate derived as its
-    // complement (100 - passRate), so the two always sum to exactly 100% -
-    // two independent Math.round() calls on complementary percentages can
-    // otherwise land on 101 or 99.
+    // Executive Summary's Pass Rate / Fail Rate: a row is a "failure" if it
+    // trips any Critical Failure category, a "success" otherwise. Denominator
+    // is N (Total Tests Executed), not a Pass+Fail subset, since every row is
+    // classifiable one way or the other under this rule. Fail Rate is
+    // derived as Pass Rate's complement so the two always sum to exactly
+    // 100% - two independent Math.round() calls on complementary percentages
+    // can otherwise land on 101 or 99.
     const failedRowCount = criticalFailureCategories.distinctFailureRows;
     const passedRowCount = N - failedRowCount;
     const passRate = pct(passedRowCount, N);
@@ -1000,15 +1127,11 @@ export function calculateKpis(rows: TestersDashboardRecord[]): KpiSummary {
     const totalPassed = passedRowCount;
     const totalFailed = failedRowCount;
 
-    // Uses the same calculateSlaCompliance() helper Farmer Experience's
-    // S_sla uses, so the two never disagree.
     const slaCompliance = calculateSlaCompliance(rows);
 
     // Avg Delay: SLA Status doesn't store minutes-over, so it's derived as
     // Response Time - 120 (the SLA limit), only for rows marked "SLA
-    // Breached" that also have a valid, parseable Response Time reading.
-    // breachedWithoutTimeCount is reported separately so avgDelayMinutes'
-    // real sample size is visible, not silently smaller than breachedCount.
+    // Breached" with a valid, parseable Response Time reading.
     const breachedRows = slaCompliance.rows.filter((r) => normalizeSlaStatus(r['SLA Status']) === 'SLA Breached');
     const breachedWithTime = breachedRows
         .map((r) => ({ mins: timeToMinutes(r[RESPONSE_TIME_KEY]) }))
@@ -1022,17 +1145,26 @@ export function calculateKpis(rows: TestersDashboardRecord[]): KpiSummary {
 
     const voiceSuccess = calculateVoiceSuccess(rows);
 
-    // Notification Success (Fix 3): shares calculateNotificationSuccess's
-    // Received-field match rule with Release Health's own Bucket 5 metric
-    // and with N_exp (received on time/late, or a bare yes) - NOT the
-    // stricter same-thread/correct-Q-ID combination used inside Farmer
-    // Experience Score's N_exp itself (a separate, intentionally stricter
-    // metric). Denominator is rows with any real value in "Notification
-    // Received?".
+    // Notification Success: Denominator is rows with any real value in
+    // "Notification Received?" - not the stricter same-thread/correct-Q-ID
+    // combination N_exp uses (a separate, intentionally stricter metric).
     const notificationSuccessResult = calculateNotificationSuccess(rows);
     const notificationSuccess = notificationSuccessResult.pct;
     const notificationSuccessOnTimeCount = notificationSuccessResult.onTime;
     const notificationSuccessTotalCount = notificationSuccessResult.applicable;
+
+    // Executive Summary's "Critical Defects" tile: Critical + High severity
+    // rows ÷ rows with a severity recorded × 100. Numerator is wider than
+    // criticalBreakdown.countCriticalBugs (Critical only, which still feeds
+    // Release Health's Critical Defect Health unchanged); denominator is
+    // defectSeverityRecordedRows, not all rows (N) - a row with no severity
+    // recorded is excluded rather than counted against the total.
+    const severityRecordedRows = defectSeverityRecordedRows(rows);
+    const criticalDefectsCriticalCount = rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'Critical').length;
+    const criticalDefectsHighCount = rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'High').length;
+    const criticalDefectsNoSeverityCount = rows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === '').length;
+    const criticalDefectsApplicableCount = severityRecordedRows.length;
+    const criticalDefectsPct = pct(criticalDefectsCriticalCount + criticalDefectsHighCount, criticalDefectsApplicableCount);
 
     return {
         N,
@@ -1065,6 +1197,11 @@ export function calculateKpis(rows: TestersDashboardRecord[]): KpiSummary {
             countDuplicateFailure,
             countCriticalBugs,
         },
+        criticalDefectsPct,
+        criticalDefectsCriticalCount,
+        criticalDefectsHighCount,
+        criticalDefectsApplicableCount,
+        criticalDefectsNoSeverityCount,
         criticalFailureCategories,
         releaseHealth: releaseHealthResult.score,
         releaseHealthBreakdown: releaseHealthResult,
@@ -1086,13 +1223,16 @@ export interface PreviousPeriodStats {
     failRate: number;
     avgResponseMinutes: number;
     scientificAccuracy: number;
+    // Critical + High severity count for the previous period.
     openCriticalDefects: number;
     // Critical-only previous-period count, mirroring criticalBreakdown.
-    // countCriticalBugs exactly - lets the "All Critical Defects" card's
-    // trend arrow compare like-for-like against its Critical-only headline
-    // number instead of the wider Critical+High openCriticalDefects above,
-    // which could otherwise point the wrong direction on a High-only spike.
+    // countCriticalBugs - not what the "Critical Defects" tile's trend arrow
+    // compares against (see criticalDefectsPct below).
     countCriticalBugs: number;
+    // Same wider-numerator/matching-denominator definition as calculateKpis'
+    // criticalDefectsPct, so the "Critical Defects" tile's trend arrow
+    // compares like-for-like against countCriticalBugs' narrower scope above.
+    criticalDefectsPct: number;
     notificationSuccess: number;
     voiceSuccess: number;
     rangeLabel: string;
@@ -1103,10 +1243,6 @@ export interface PreviousPeriodStats {
 // non-date filters as the main view. Returns null when there's no
 // well-defined period to compare against (Date Range = "All Dates", or
 // "Custom Range" with only one of start/end set).
-//
-// openCriticalDefects here counts Critical AND High severity - a
-// deliberately different (wider) scope than criticalFailuresToday's
-// countCriticalBugs (Critical only).
 export function calculatePreviousPeriodStats(
     allRecords: TestersDashboardRecord[],
     filters: TestersDashboardFilters,
@@ -1121,19 +1257,12 @@ export function calculatePreviousPeriodStats(
     const prevRows = getPreviousPeriodRows(allRecords, filters, excludeFailures, customStart, customEnd, now)!;
 
     const total = prevRows.length;
-    // Same Critical-Failures-based Pass Rate / Fail Rate as calculateKpis
-    // above (a row is a "failure" if it trips any Critical Failure
-    // category), so the Executive Summary trend arrow compares like-for-like
-    // against the previous period rather than mixing definitions. failRate
-    // derived as the complement so the two always sum to exactly 100%.
+    // Same Critical-Failures-based Pass Rate / Fail Rate as calculateKpis, so
+    // the trend arrow compares like-for-like against the previous period.
     const prevFailedRowCount = calculateCriticalFailureCategories(prevRows).distinctFailureRows;
     const prevPassedRowCount = total - prevFailedRowCount;
     const prevPassRate = pct(prevPassedRowCount, total);
     const prevFailRate = total ? 100 - prevPassRate : 0;
-    // Same calculateScientificAccuracy() as the current-period tile (see its
-    // definition above calculateTrustScore), so the trend arrow compares
-    // like-for-like instead of the old narrower, differently-scoped
-    // definition this used to run independently.
     const prevSciAccuracy = calculateScientificAccuracy(prevRows);
     let sumMin = 0;
     let countMin = 0;
@@ -1147,10 +1276,10 @@ export function calculatePreviousPeriodStats(
     const prevCriticalDefects = prevRows.filter((r) =>
         ['Critical', 'High'].includes(normalizeDefectSeverity(r['Defect Severity'])),
     ).length;
-    // Same 'Critical'-only definition as calculateKpis' countCriticalBugs
-    // above, just over the previous-period window.
     const prevCriticalBugsOnly = prevRows.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'Critical').length;
-    // Fix 3: same calculateNotificationSuccess definition as the current-period tile, so the trend arrow compares like-for-like.
+    // Same definition as calculateKpis' criticalDefectsPct, over the
+    // previous-period window's own applicable rows.
+    const prevCriticalDefectsPct = pct(prevCriticalDefects, defectSeverityRecordedRows(prevRows).length);
     const prevNotificationSuccess = calculateNotificationSuccess(prevRows);
     const prevVoiceSuccess = calculateVoiceSuccess(prevRows);
 
@@ -1162,6 +1291,7 @@ export function calculatePreviousPeriodStats(
         scientificAccuracy: prevSciAccuracy.pct,
         openCriticalDefects: prevCriticalDefects,
         countCriticalBugs: prevCriticalBugsOnly,
+        criticalDefectsPct: prevCriticalDefectsPct,
         notificationSuccess: prevNotificationSuccess.pct,
         voiceSuccess: prevVoiceSuccess.score,
         rangeLabel: `${window.prevStart} to ${window.prevEnd}`,
