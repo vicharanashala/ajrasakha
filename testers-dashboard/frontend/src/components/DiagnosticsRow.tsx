@@ -52,9 +52,8 @@ export interface DiagnosticsRowProps {
   defectsCardTitle: string;
   defectsView: DefectsView;
   onSwitchDefectsView: (view: DefectsView) => void;
-  // Size of the current view's ticket pool before the team pill narrows it -
-  // distinguishes "nothing linked in this scope at all" from "some exist,
-  // just none match the current status tab/team".
+  // Ticket pool size before the team pill narrows it - distinguishes
+  // "nothing linked" from "some exist, none match the current tab/team".
   defectsPoolCount: number;
   activeDefectsTab: IDefectsTab["key"];
   setActiveDefectsTab: (value: IDefectsTab["key"]) => void;
@@ -197,7 +196,13 @@ export function DiagnosticsRow({
               <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">
                 {defectsCardTitle}
               </CardTitle>
-              <InfoPopover title="Team Grouping" align="start">
+              <InfoPopover title="Ticket Data" align="start">
+                <p>
+                  Shows all tickets in Zoho Desk's <strong>Bugs Tracker</strong> layout, fetched directly from Zoho
+                  — not just tickets linked in the QA sheet. Not affected by the dashboard filters (Date Range,
+                  Type of Question, Channel, Tester, etc.) since most Zoho tickets have no sheet row for those
+                  filters to apply to.
+                </p>
                 <p>
                   Grouped by each ticket's <strong>Team</strong> field in Zoho (not the sheet). Tickets with no team
                   set, or awaiting their next Zoho sync, show as "Unassigned".

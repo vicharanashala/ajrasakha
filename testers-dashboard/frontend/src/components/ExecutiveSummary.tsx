@@ -102,11 +102,11 @@ export function ExecutiveSummary({ kpis, previousPeriodStats }: ExecutiveSummary
       title: "Critical Defects",
       infoContent: (
         <>
-          <p>(Critical + High severity rows) ÷ Total Test Cases × 100. Rows with no severity recorded stay in the denominator.</p>
+          <p>(Critical + High severity rows) ÷ Rows with a severity recorded × 100.</p>
           <div className="flex justify-between"><span>Critical</span><span className="font-medium">{kpis.criticalDefectsCriticalCount.toLocaleString()}</span></div>
           <div className="flex justify-between"><span>High</span><span className="font-medium">{kpis.criticalDefectsHighCount.toLocaleString()}</span></div>
-          <div className="flex justify-between"><span>No severity recorded</span><span className="font-medium">{kpis.criticalDefectsNoSeverityCount.toLocaleString()}</span></div>
-          <div className="flex justify-between"><span>Total Test Cases</span><span className="font-medium">{kpis.totalTests.toLocaleString()}</span></div>
+          <div className="flex justify-between"><span>Severity Recorded</span><span className="font-medium">{kpis.criticalDefectsApplicableCount.toLocaleString()}</span></div>
+          <div className="flex justify-between"><span>No Severity Recorded (excluded)</span><span className="font-medium">{kpis.criticalDefectsNoSeverityCount.toLocaleString()}</span></div>
           <div className="flex justify-between pt-1 border-t"><span>Result</span><span className="font-medium">{kpis.criticalDefectsPct}%</span></div>
         </>
       ),

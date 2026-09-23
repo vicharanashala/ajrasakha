@@ -47,20 +47,23 @@ export function AdditionalMetrics({
   setReleaseHealthExpanded,
 }: AdditionalMetricsProps) {
   // Trust Score's weight labels are driven by kpis.trustBreakdown.weights,
-  // the same weight table the backend actually scores with (branch-specific:
-  // 35/20/15/15/15 for Static, 25/30/15/10/10/10 otherwise) - not a second,
-  // hand-copied static string that could drift from the backend's table.
+  // the same weight table the backend scores with, so they can't drift from
+  // a hand-copied static string. Static branch uses its own fixed weights
+  // (no Dynamic Accuracy slot), unlike Dynamic/all's redistribution formula.
   const trustWeights = kpis.trustBreakdown.weights;
   const trustWeightPct = (key: keyof typeof trustWeights): number => Math.round((trustWeights[key] ?? 0) * 100);
 
   const [activeCriticalTab, setActiveCriticalTab] = useState<"failures" | "successes">("failures");
+  // Successes headline reuses kpis.totalPassed (zero failures in any
+  // category, same count Pass Rate is built from) rather than
+  // distinctSuccessRows, which double-counts rows with failures elsewhere -
+  // this keeps Failures + Successes summing to N and Successes matching Pass Rate.
   const activeCriticalDistinctRows =
     activeCriticalTab === "failures"
       ? kpis.criticalFailureCategories.distinctFailureRows
-      : kpis.criticalFailureCategories.distinctSuccessRows;
-  // Sorted by count within the active tab, matching the previous card's
-  // sort-by-value behavior - a category's rank can differ between the two
-  // tabs (e.g. a category with few failures but many successes).
+      : kpis.totalPassed;
+  // Sorted by count within the active tab; a category's rank can differ
+  // between the Failures and Successes tabs.
   const activeCriticalCategories = [...kpis.criticalFailureCategories.categories]
     .map((c) => ({
       key: c.key,
@@ -184,7 +187,7 @@ export function AdditionalMetrics({
                 ) : (
                   <>
                     <p>What went right, by category. NA/blank rows excluded.</p>
-                    <p>Headline = distinct rows with ≥1 success.</p>
+                    <p>Headline = tests with no failures in any category - matches Pass Rate.</p>
                   </>
                 )}
                 <p>

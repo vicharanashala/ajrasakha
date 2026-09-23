@@ -12,24 +12,19 @@ import { TAT_STAGES } from './diagnostics.js';
 export interface ScoreTrendPoint {
     date: string;
     trust: number;
-    // Whether this day has real applicable data behind Trust Score, not
-    // just its components' own zero-data fallbacks (e.g. pct(0,0) = 0 when a
-    // sub-metric has no applicable rows) - see kpis.ts's trustScoreHasData.
-    // trust still reports its computed number; the frontend renders a gap
-    // instead of the misleading floor when false.
+    // Whether this day has real applicable data behind Trust Score (kpis.ts's
+    // trustScoreHasData) - trust still reports its computed number; the
+    // frontend renders a gap instead of the misleading floor when false.
     trustHasData: boolean;
     experience: number;
-    // Same distinction as trustHasData, for Farmer Experience Score - see
-    // kpis.ts's experienceScoreHasData.
+    // Same distinction as trustHasData, for Farmer Experience Score.
     experienceHasData: boolean;
     avgLatency: number;
     // Count of rows this day with a parseable Response Time reading -
-    // avgLatency is 0 both when every reading genuinely averaged to ~0min
-    // and when there were zero readings; this lets the frontend tell those
-    // apart (0 readings -> gap, not a plotted 0).
+    // avgLatency is 0 both when readings genuinely averaged to ~0min and when
+    // there were zero readings; this lets the frontend tell those apart.
     avgLatencySampleCount: number;
     avgReviewTat: number;
-    // Same distinction as avgLatencySampleCount, for Review TAT.
     avgReviewTatSampleCount: number;
 }
 
@@ -37,27 +32,21 @@ export interface ChartData {
     scoreTrend: ScoreTrendPoint[];
 }
 
-// The real recording period starts around June 2026 - a small number of
-// rows carry an obviously-wrong Test Date years earlier (2022, 2023, 2025),
-// which stretches the chart's x-axis and compresses all the real data into
-// its right-hand edge. Chart-only, same treatment as the future-date
-// cutoff below: those rows still count everywhere else on the dashboard
-// (KPIs, diagnostics, filters), just not plotted here.
+// The real recording period starts around 2026 - a small number of rows
+// carry an obviously-wrong Test Date years earlier, which stretches the
+// chart's x-axis and compresses all the real data into its right-hand edge.
+// Chart-only: those rows still count everywhere else on the dashboard (KPIs,
+// diagnostics, filters), just not plotted here.
 const CHART_START_DATE = '2026-01-01';
 
 // Groups the given (already filtered) rows by their parsed ISO Test Date,
 // then computes one point per day. Rows whose Test Date doesn't parse, or
 // falls before CHART_START_DATE, are excluded entirely, not grouped under a
-// bogus bucket - parseTestDateToISO itself also excludes (returns null for)
-// a Test Date later than today (IST), so a row with a confirmed data-entry
-// mistake landing it months ahead of the real recording period (month
-// incremented while the day stayed fixed) is excluded everywhere, not just
-// from this chart.
+// bogus bucket - parseTestDateToISO itself also excludes future-dated rows.
 //
-// `now` is injectable (defaults to the real current time) purely so "today"
-// is deterministic in tests - production callers should omit it. Same
-// pattern as applyDateRangeFilter in filters.ts, which this cutoff is
-// deliberately kept consistent with.
+// `now` is injectable purely so "today" is deterministic in tests -
+// production callers should omit it, consistent with applyDateRangeFilter
+// in filters.ts.
 export function calculateChartData(
     rows: TestersDashboardRecord[],
     now: Date = new Date(),
@@ -79,9 +68,8 @@ export function calculateChartData(
     const scoreTrend: ScoreTrendPoint[] = sortedDates.map((d) => {
         const dayRows = dailyGroups[d];
         // Same functions the KPI cards use, so the chart's daily values are
-        // always consistent with what the cards show for that same period -
-        // typeBranch passed through so the Static branch's fixed weight
-        // table applies here too, not just to the KPI cards.
+        // always consistent with what the cards show - typeBranch passed
+        // through so the Static branch's fixed weight table applies here too.
         const trust = calculateTrustScore(dayRows, typeBranch).score;
         const trustHasData = trustScoreHasData(dayRows);
         const experience = calculateExperienceScore(dayRows).score;

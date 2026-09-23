@@ -31,8 +31,7 @@ export function healthColorHex(value: number): string {
 }
 
 // Release Health gauge color - mirrors the GO / GO WITH CONDITIONS / NO-GO
-// decision thresholds (see releaseHealthDecisionDisplay() / kpis.ts's
-// releaseHealthDecision()) so the gauge never contradicts the decision label.
+// decision thresholds so the gauge never contradicts the decision label.
 export function releaseHealthColorHex(value: number): string {
   if (value < 90) return "#ef4444"; // red-500 - NO-GO
   if (value < 95) return "#eab308"; // yellow-500 - GO WITH CONDITIONS
@@ -51,9 +50,7 @@ export function channelDisplayLabel(value: string): string {
 }
 
 // Release Health's GO / GO WITH CONDITIONS / NO-GO headline decision -
-// display-only mapping of backend's score-only ReleaseHealthDecision (see
-// kpis.ts's releaseHealthDecision() for the thresholds and the mandatory-
-// release-gates caveat).
+// display-only mapping of the backend's score-only ReleaseHealthDecision.
 const RELEASE_HEALTH_DECISION_DISPLAY: Record<string, { label: string; emoji: string; className: string }> = {
   GO: { label: "GO", emoji: "🟢", className: "text-emerald-600" },
   GO_WITH_CONDITIONS: { label: "GO WITH CONDITIONS", emoji: "🟡", className: "text-amber-500" },

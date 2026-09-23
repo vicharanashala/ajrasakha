@@ -138,6 +138,22 @@ export class TesterLogController {
     }
 
     @OpenAPI({
+        summary: 'Get question-type target achievement summary (admin only)',
+        description: 'Each tester\'s question counts against the fixed per-question-type targets, for the Summary tab. Targets scale by the working days in the date range (calendar days × 6÷7, rounded - testers work 6 days a week with their own weekly day off), the same for every tester regardless of whether they logged anything. Returns a per-tester breakdown - sourced from the active tester roster, not just testers who happened to log an entry - when no testerId is given (All Testers).',
+    })
+    @Authorized(['admin'])
+    @Get('/question-type-summary')
+    async getQuestionTypeSummary(
+        @QueryParams() query: GetTesterLogQuery,
+    ) {
+        return this.testerLogService.getQuestionTypeSummary(
+            query.testerId,
+            query.startDate,
+            query.endDate,
+        );
+    }
+
+    @OpenAPI({
         summary: 'Download every tester submission as Excel (admin only)',
         description: 'Generates the file server-side over every Google Sheet-matching column (not just the review table\'s visible ones) for every row in the collection - ignores the review table\'s on-screen filters and applies no pagination, by design, so the download always contains the complete dataset.',
     })

@@ -9,6 +9,7 @@ import {
     timeToMinutes,
     RESPONSE_TIME_PARSE_CAP_MINUTES,
     normalizeBuildVersion,
+    extractTicketUrls,
     normalizeDefectSeverity,
     toTitleCase,
     normalizeQuestionCategory,
@@ -168,6 +169,78 @@ describe('normalizeBuildVersion', () => {
     it('preserves blank (missing data, not a value to normalize)', () => {
         expect(normalizeBuildVersion('')).toBe('');
         expect(normalizeBuildVersion(undefined)).toBe('');
+    });
+});
+
+describe('extractTicketUrls', () => {
+    it('returns an empty array for blank or missing cells', () => {
+        expect(extractTicketUrls('')).toEqual([]);
+        expect(extractTicketUrls('   ')).toEqual([]);
+        expect(extractTicketUrls(undefined)).toEqual([]);
+    });
+
+    it('returns an empty array for non-link placeholder values', () => {
+        expect(extractTicketUrls('NA')).toEqual([]);
+        expect(extractTicketUrls('NIL')).toEqual([]);
+        expect(extractTicketUrls('Unable to submit ticket')).toEqual([]);
+    });
+
+    it('extracts a single url unchanged', () => {
+        expect(extractTicketUrls('https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000001657001')).toEqual([
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000001657001',
+        ]);
+    });
+
+    // Every one of these is a real cell value from the live sheet (8 rows
+    // total, confirmed via a one-off script against
+    // backend/data/testers-dashboard/updated.csv) - two Zoho ticket links
+    // typed into the same cell, using 4 different separators. The old
+    // logic (treating the whole cell as one url and taking
+    // `cell.split('/').pop()`) silently dropped the FIRST link in every one
+    // of these and kept only the second - these fixtures pin down that both
+    // are now recovered, in order.
+    it('extracts both urls from a cell holding two links separated by double-space-dot-double-space (TL-0561)', () => {
+        expect(
+            extractTicketUrls(
+                'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000001771114  .    https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000001774051',
+            ),
+        ).toEqual([
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000001771114',
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000001774051',
+        ]);
+    });
+
+    it('extracts both urls from a cell holding two links separated by a single space (TL-1069)', () => {
+        expect(
+            extractTicketUrls(
+                'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002109061 https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002112001',
+            ),
+        ).toEqual([
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002109061',
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002112001',
+        ]);
+    });
+
+    it('extracts both urls from a cell holding two links separated by a comma (TL_1-3915)', () => {
+        expect(
+            extractTicketUrls(
+                'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002538001 ,  https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002638001',
+            ),
+        ).toEqual([
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002538001',
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000002638001',
+        ]);
+    });
+
+    it('extracts both urls from a cell holding two links separated by " and " (TL_1-11440)', () => {
+        expect(
+            extractTicketUrls(
+                'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000003154001 and https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000003270067',
+            ),
+        ).toEqual([
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000003154001',
+            'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/202216000003270067',
+        ]);
     });
 });
 
@@ -335,8 +408,8 @@ describe('normalizeTypeOfQuestion', () => {
     });
     it('title-cases dynamic sub-category values unchanged (not collapsed here)', () => {
         // These stay as their own distinct values at this layer - bucketing
-        // them under "Dynamic" is diagnostics-layer logic (Phase 4), not
-        // this normalizer's job.
+        // them under "Dynamic" is diagnostics-layer logic, not this
+        // normalizer's job.
         expect(normalizeTypeOfQuestion('WEATHER DYNAMIC')).toBe('Weather Dynamic'); // 338
         expect(normalizeTypeOfQuestion('SCHEME DYNAMIC')).toBe('Scheme Dynamic'); // 133
         expect(normalizeTypeOfQuestion('MANDI DYNAMIC')).toBe('Mandi Dynamic'); // 70

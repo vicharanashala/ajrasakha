@@ -2,10 +2,9 @@ import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * HH:MM:SS time input that wraps a native <input type="time" step="1">.
- * The step="1" attribute enables seconds in modern browsers (Chrome, Edge, Firefox).
- * The value is always a string in HH:MM:SS or HH:MM format, matching what the
- * browser reports and what the API stores.
+ * Time entry built on <input type="datetime-local" step="1"> (read-only fields
+ * render as plain text since they show a computed HH:MM:SS duration, not a
+ * pickable date). step="1" enables seconds in modern browsers.
  */
 interface TimeInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
     label?: string;

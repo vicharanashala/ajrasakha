@@ -8,37 +8,50 @@ import {
     TesterOption,
     TesterLogSummary,
     TesterLogExportResult,
+    QuestionTypeKey,
+    TesterQuestionTypeSummaryResult,
+    TesterQuestionTypeRow,
+    QuestionTypeCountRow,
 } from '../interfaces/ITesterLogService.js';
-import { getTodayIST } from '../testersDashboard/normalize.js';
+import { getTodayIST, normalizeChannel, pct } from '../testersDashboard/normalize.js';
 
 const COLLECTION = 'tester_test_cases';
+// Same 'users' collection the main app's UserRepository reads (this module
+// shares the app's single Database binding) - used only to list active
+// testers for the Summary tab (getActiveTesters), not for anything
+// auth-related.
+const USERS_COLLECTION = 'users';
 const DATABASE_TOKEN = Symbol.for('Database');
 
 interface DatabaseProvider {
     getCollection<T>(name: string): Promise<any>;
 }
 
+// Minimal shape read off the 'users' collection for getActiveTesters -
+// deliberately not the app's full IUser, just the fields needed to list and
+// label active testers.
+interface TesterUserRecord {
+    _id: unknown;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+    isBlocked?: boolean;
+    status?: string;
+}
+
 // Every column of the Google Sheet's "Agri Advisory QA Test Log", in the
 // Sheet's own exact order with the Sheet's own exact header text (including
-// its 2 quirks: "ModeratorCompletion Time" - no space - and "Correct Expert
-// Name displayed?" - lowercase "displayed", inconsistent with "Expert Name
-// Displayed?" above it - both preserved verbatim rather than "corrected",
+// its quirks - "ModeratorCompletion Time" with no space, and "Correct Expert
+// Name displayed?" with lowercase "displayed" - both preserved verbatim
 // since the whole point of this export is to be a drop-in match for the
 // Sheet layout). Re-derive/verify against
 // backend/data/testers-dashboard/updated.csv's header row if the Sheet ever
 // adds/renames a column.
 //
-// Every one of these 78 Sheet columns has exactly one DB field behind it
-// (confirmed by walking the Sheet header against TesterLogEntry field by
-// field) - there is no Sheet column left without a DB equivalent, so no
-// blank placeholder columns are needed here. The Defect ID / Bug Ref header
-// carries the Sheet's own embedded line break (Alt+Enter in the header
-// cell) as a literal "\n", matching the live Sheet exactly.
-//
-// 4 DB fields have NO Sheet equivalent and are deliberately left out of this
-// export so the column layout stays an exact match: submittedByUserId,
-// submittedByEmail, createdAt, updatedAt (all app-internal bookkeeping, not
-// part of the Sheet's own log format).
+// submittedByUserId, submittedByEmail, createdAt, updatedAt have no Sheet
+// equivalent and are deliberately left out of this export (app-internal
+// bookkeeping, not part of the Sheet's own log format).
 const EXPORT_COLUMNS: { key: keyof TesterLogEntry; header: string }[] = [
     { key: '_id', header: 'Test ID' },
     { key: 'testDate', header: 'Test Date' },
@@ -207,6 +220,91 @@ function buildDateFilter(
     };
 }
 
+// Summary tab (Database Logs Analytics side): daily per-tester targets, from
+// the business's "End to End Testing Pipeline" sheet. This is the ONLY place
+// these numbers are defined - the API response carries the resolved
+// target/actual/achievement figures to the frontend, which has no target
+// table of its own, so there's exactly one place to edit when the business
+// changes them.
+const QUESTION_TYPE_DAILY_TARGETS: {
+    key: QuestionTypeKey;
+    label: string;
+    // Exact typeOfQuestion value TesterLogForm's dropdown writes for this
+    // category (types.ts's TYPE_OF_QUESTION_OPTIONS) - matched via
+    // normalizeQuestionTypeKey below, not the Sheet-side's fuzzy
+    // Question-Category-based dynamicSubBucketFor, since a DB-native entry
+    // always carries one of these exact dropdown values.
+    typeOfQuestion: string;
+    total: number;
+    webApp: number;
+    whatsApp: number;
+}[] = [
+    { key: 'unique', label: 'Unique', typeOfQuestion: 'Unique', total: 8, webApp: 4, whatsApp: 4 },
+    { key: 'gdb', label: 'GDB', typeOfQuestion: 'GDB', total: 8, webApp: 4, whatsApp: 4 },
+    { key: 'outreach', label: 'Outreach', typeOfQuestion: 'Outreach', total: 11, webApp: 6, whatsApp: 5 },
+    { key: 'weather', label: 'Dynamic – Weather', typeOfQuestion: 'Weather Dynamic', total: 19, webApp: 9, whatsApp: 10 },
+    { key: 'scheme', label: 'Dynamic – Scheme', typeOfQuestion: 'Scheme Dynamic', total: 6, webApp: 3, whatsApp: 3 },
+    { key: 'mandi', label: 'Dynamic – Mandi', typeOfQuestion: 'Mandi Dynamic', total: 2, webApp: 1, whatsApp: 1 },
+];
+
+// typeOfQuestion -> QuestionTypeKey, matched against TYPE_OF_QUESTION_OPTIONS'
+// exact dropdown values (case/whitespace-insensitive). A bare "Dynamic" (no
+// Weather/Scheme/Mandi suffix) has no target row on the business's sheet and
+// deliberately maps to null - excluded from every category count and the
+// Total, rather than guessed into one of the 3 Dynamic sub-categories.
+const QUESTION_TYPE_KEY_BY_VALUE = new Map<string, QuestionTypeKey>(
+    QUESTION_TYPE_DAILY_TARGETS.map((t) => [t.typeOfQuestion.toLowerCase(), t.key]),
+);
+function normalizeQuestionTypeKey(typeOfQuestion?: string): QuestionTypeKey | null {
+    return QUESTION_TYPE_KEY_BY_VALUE.get((typeOfQuestion || '').trim().toLowerCase()) ?? null;
+}
+
+// channelTested -> which of the 2 target columns (Web App / WhatsApp) a row
+// counts against. "Both" counts toward BOTH columns' actuals (the tester
+// tested the question on both channels), so Web App + WhatsApp actuals can
+// exceed the category's own Total actual - by design, not a bug.
+function channelCountsTowards(channelTested: string | undefined, column: 'webApp' | 'whatsApp'): boolean {
+    const normalized = normalizeChannel(channelTested);
+    if (normalized === 'Both') return true;
+    return column === 'webApp' ? normalized === 'Web App' : normalized === 'WhatsApp';
+}
+
+function emptyTypeCounts(): Record<QuestionTypeKey, number> {
+    return { unique: 0, gdb: 0, outreach: 0, weather: 0, scheme: 0, mandi: 0 };
+}
+
+// Calendar days spanned by [startDate, endDate], inclusive on both ends.
+// When either bound is missing, falls back to the earliest/latest testDate
+// found among the (already tester+range-filtered) entries on whichever side
+// has no explicit bound. Returns 0 when there's no explicit range and no
+// entries to derive one from.
+function calendarDaysInRange(startDate: string | undefined, endDate: string | undefined, entries: TesterLogEntry[]): number {
+    let s = startDate?.trim().slice(0, 10) || undefined;
+    let e = endDate?.trim().slice(0, 10) || undefined;
+    if (!s || !e) {
+        const testDates = entries.map((r) => (r.testDate || '').trim()).filter(Boolean).sort();
+        if (!s) s = testDates[0];
+        if (!e) e = testDates[testDates.length - 1];
+    }
+    if (!s || !e) return 0;
+
+    const sMs = Date.parse(`${s}T00:00:00.000Z`);
+    const eMs = Date.parse(`${e}T00:00:00.000Z`);
+    if (isNaN(sMs) || isNaN(eMs) || eMs < sMs) return 0;
+    return Math.round((eMs - sMs) / (24 * 60 * 60 * 1000)) + 1;
+}
+
+// Testers work 6 days a week, each with their own weekly day off (some
+// Saturday, some Sunday), so there's no single shared "off day" to subtract
+// from a calendar range - scaling by 6/7 and rounding to the nearest whole
+// day is the agreed stand-in. Every tester in a given range is scored
+// against this same working-day count, whether they logged anything or not
+// - do not scale a tester's target by their own distinct logged days
+// instead, that makes a tester who logged nothing vanish from their target.
+function workingDaysInRange(calendarDays: number): number {
+    return Math.round((calendarDays * 6) / 7);
+}
+
 @injectable()
 export class TesterLogService implements ITesterLogService {
     constructor(
@@ -351,8 +449,7 @@ export class TesterLogService implements ITesterLogService {
 
     // Distinct testers with at least one entry, for the admin Tester filter
     // dropdown - each labeled with that tester's most recently used
-    // testerName (sorted by createdAt desc before grouping so $first picks
-    // the latest one, in case a name ever changes).
+    // testerName (sorted by createdAt desc so $first picks the latest one).
     async getTesterOptions(): Promise<TesterOption[]> {
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const results = await collection
@@ -429,6 +526,172 @@ export class TesterLogService implements ITesterLogService {
             buffer,
             contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             filename: `tester-entries-${timestamp}.xlsx`,
+        };
+    }
+
+    // Active testers straight from the 'users' collection's role assignment,
+    // NOT derived from who happened to log an entry - this is what lets a
+    // tester with zero entries in the selected range still appear on the
+    // Summary tab's All Testers table (0 against their real target) instead
+    // of silently disappearing. Same "active" filter
+    // UserRepository.findAvailableUsersByRole uses elsewhere in the main app.
+    private async getActiveTesters(): Promise<{ id: string; name: string }[]> {
+        const usersCollection = await this.db.getCollection<TesterUserRecord>(USERS_COLLECTION);
+        const users: TesterUserRecord[] = await usersCollection
+            .find({ role: 'tester', isBlocked: { $ne: true }, status: { $ne: 'in-active' } })
+            .toArray();
+        return users.map((u) => ({
+            id: String(u._id),
+            name: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email || String(u._id),
+        }));
+    }
+
+    // Summary tab: each tester's question counts against the fixed daily
+    // targets in QUESTION_TYPE_DAILY_TARGETS, scoped to testerId/date range
+    // like every other admin view here. Target scales with working days in
+    // the range (workingDaysInRange) - the same figure for every tester in
+    // that range, not however many days that particular tester logged.
+    async getQuestionTypeSummary(
+        testerId?: string,
+        startDate?: string,
+        endDate?: string,
+    ): Promise<TesterQuestionTypeSummaryResult> {
+        const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
+        const filter = this.buildEntryFilter(testerId, startDate, endDate);
+        const entries: TesterLogEntry[] = await collection.find(filter).toArray();
+
+        const workingDays = workingDaysInRange(calendarDaysInRange(startDate, endDate, entries));
+
+        // Group by tester - for actual counts and the informational
+        // per-tester "days logged" figure; every tester in scope shares the
+        // same workingDays value above.
+        const byTesterId = new Map<
+            string,
+            { testerName: string; testerNameAt: Date; rows: TesterLogEntry[] }
+        >();
+        for (const entry of entries) {
+            const id = entry.submittedByUserId;
+            const existing = byTesterId.get(id);
+            const createdAt = entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt);
+            if (!existing) {
+                byTesterId.set(id, { testerName: entry.testerName || id, testerNameAt: createdAt, rows: [entry] });
+            } else {
+                existing.rows.push(entry);
+                // Most-recently-created entry's name wins, same convention
+                // getTesterOptions uses.
+                if (createdAt > existing.testerNameAt) {
+                    existing.testerName = entry.testerName || id;
+                    existing.testerNameAt = createdAt;
+                }
+            }
+        }
+
+        function countsFor(rows: TesterLogEntry[]): Record<QuestionTypeKey, number> {
+            const counts = emptyTypeCounts();
+            for (const row of rows) {
+                const key = normalizeQuestionTypeKey(row.typeOfQuestion);
+                if (key) counts[key] += 1;
+            }
+            return counts;
+        }
+
+        if (testerId) {
+            // Single tester selected - no roster lookup needed, a specific
+            // tester was already chosen, active or not.
+            const rows = byTesterId.get(testerId)?.rows ?? [];
+            const counts = countsFor(rows);
+            const target = QUESTION_TYPE_DAILY_TARGETS.reduce((sum, t) => sum + t.total * workingDays, 0);
+            const actual = QUESTION_TYPE_DAILY_TARGETS.reduce((sum, t) => sum + counts[t.key], 0);
+
+            const byType: QuestionTypeCountRow[] = QUESTION_TYPE_DAILY_TARGETS.map((t) => {
+                const typeTarget = t.total * workingDays;
+                return { key: t.key, label: t.label, target: typeTarget, actual: counts[t.key], achievementPct: pct(counts[t.key], typeTarget) };
+            });
+            byType.push({ key: 'total', label: 'Total', target, actual, achievementPct: pct(actual, target) });
+
+            function channelSummarySingle(column: 'webApp' | 'whatsApp') {
+                const chTarget = QUESTION_TYPE_DAILY_TARGETS.reduce((sum, t) => sum + t[column] * workingDays, 0);
+                const chActual = rows.filter(
+                    (e) => normalizeQuestionTypeKey(e.typeOfQuestion) && channelCountsTowards(e.channelTested, column),
+                ).length;
+                return { target: chTarget, actual: chActual, achievementPct: pct(chActual, chTarget) };
+            }
+
+            return {
+                workingDays,
+                overall: { target, actual, achievementPct: pct(actual, target) },
+                webApp: channelSummarySingle('webApp'),
+                whatsApp: channelSummarySingle('whatsApp'),
+                byType,
+                byTester: undefined,
+            };
+        }
+
+        // All Testers - union of the active tester-role roster (so a tester
+        // with zero entries in range still gets a row) and any
+        // submittedByUserId with real entries in range but not currently on
+        // that roster, so real historical data is never silently dropped.
+        const activeTesters = await this.getActiveTesters();
+        const testerIds = new Set<string>(activeTesters.map((t) => t.id));
+        byTesterId.forEach((_v, id) => testerIds.add(id));
+
+        const testerRows: TesterQuestionTypeRow[] = [...testerIds].map((id) => {
+            const fromEntries = byTesterId.get(id);
+            const fromRoster = activeTesters.find((t) => t.id === id);
+            const testerName = fromRoster?.name || fromEntries?.testerName || id;
+            const rows = fromEntries?.rows ?? [];
+            const counts = countsFor(rows);
+            const target = QUESTION_TYPE_DAILY_TARGETS.reduce((sum, t) => sum + t.total * workingDays, 0);
+            const actual = QUESTION_TYPE_DAILY_TARGETS.reduce((sum, t) => sum + counts[t.key], 0);
+            return {
+                testerId: id,
+                testerName,
+                // Informational only (distinct days this tester actually
+                // logged something) - not what the target scales by.
+                daysWorked: new Set(rows.map((r) => r.testDate).filter(Boolean)).size,
+                counts,
+                target,
+                actual,
+                achievementPct: pct(actual, target),
+            };
+        }).sort((a, b) => a.testerName.localeCompare(b.testerName));
+
+        const byType: QuestionTypeCountRow[] = QUESTION_TYPE_DAILY_TARGETS.map((t) => {
+            // Sum of each included tester's own target (not a single
+            // testerCount × rate × workingDays shortcut), so this can never
+            // drift from testerRows' own per-tester targets above.
+            const target = testerRows.reduce((sum) => sum + t.total * workingDays, 0);
+            const actual = testerRows.reduce((sum, tr) => sum + tr.counts[t.key], 0);
+            return { key: t.key, label: t.label, target, actual, achievementPct: pct(actual, target) };
+        });
+        const totalTarget = byType.reduce((sum, r) => sum + r.target, 0);
+        const totalActual = byType.reduce((sum, r) => sum + r.actual, 0);
+        byType.push({
+            key: 'total',
+            label: 'Total',
+            target: totalTarget,
+            actual: totalActual,
+            achievementPct: pct(totalActual, totalTarget),
+        });
+
+        function channelSummary(column: 'webApp' | 'whatsApp') {
+            const target = testerRows.reduce(
+                (sum) => sum + QUESTION_TYPE_DAILY_TARGETS.reduce((s, t) => s + t[column] * workingDays, 0),
+                0,
+            );
+            const actual = entries.filter(
+                (e) => normalizeQuestionTypeKey(e.typeOfQuestion) && channelCountsTowards(e.channelTested, column),
+            ).length;
+            return { target, actual, achievementPct: pct(actual, target) };
+        }
+
+        return {
+            workingDays,
+            overall: { target: totalTarget, actual: totalActual, achievementPct: pct(totalActual, totalTarget) },
+            webApp: channelSummary('webApp'),
+            whatsApp: channelSummary('whatsApp'),
+            byType,
+            byTester: testerRows,
         };
     }
 }

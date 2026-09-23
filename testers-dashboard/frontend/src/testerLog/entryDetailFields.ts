@@ -3,6 +3,8 @@ import type { ITesterLogEntry } from "./types";
 export interface IEntryDetailField {
     key: keyof ITesterLogEntry;
     label: string;
+    /** Render the value with formatDateTimeIST instead of as raw text. */
+    isDateTime?: boolean;
 }
 
 export interface IEntryDetailGroup {
@@ -11,12 +13,10 @@ export interface IEntryDetailGroup {
 }
 
 // Every field on ITesterLogEntry, grouped and labelled the same way
-// TesterLogForm.tsx presents them at submission time - so a reviewer opening
-// "View more" sees the same field names they already know from the form,
-// not a second, differently-worded vocabulary. Covers all ~82 fields on the
-// interface (verified against ITesterLogService.ts): the table above shows
-// only the 10 columns reviewers need at a glance (TABLE_COLUMNS in
-// TesterDataView.tsx); this is the complete record behind that row.
+// TesterLogForm.tsx presents them at submission time - so "View more" shows
+// the same field names as the form, not a second vocabulary. The table
+// (TABLE_COLUMNS in TesterDataView.tsx) only shows a handful of columns at a
+// glance; this is the complete record behind that row.
 export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
     {
         title: "Record Info",
@@ -25,8 +25,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
             { key: "testerName", label: "Tester Name" },
             { key: "submittedByEmail", label: "Submitted By Email" },
             { key: "submittedByUserId", label: "Submitted By (User ID)" },
-            { key: "createdAt", label: "Submitted At" },
-            { key: "updatedAt", label: "Last Updated At" },
+            { key: "createdAt", label: "Submitted At", isDateTime: true },
+            { key: "updatedAt", label: "Last Updated At", isDateTime: true },
         ],
     },
     {
@@ -46,8 +46,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
     {
         title: "2. Timing & SLA",
         fields: [
-            { key: "timeQuestionAsked", label: "Time Question Asked" },
-            { key: "timeAnswerReceived", label: "Time Answer Received" },
+            { key: "timeQuestionAsked", label: "Time Question Asked", isDateTime: true },
+            { key: "timeAnswerReceived", label: "Time Answer Received", isDateTime: true },
             { key: "responseTimeMins", label: "Response Time [Auto]" },
             { key: "slaStatus", label: "SLA Status" },
         ],
@@ -69,8 +69,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         fields: [
             { key: "allocatedToReviewer", label: "Allocated to Reviewer?" },
             { key: "authorsName", label: "Author Name" },
-            { key: "authorAssignmentTime", label: "Author Assignment Time" },
-            { key: "authorCompletionTime", label: "Author Completion Time" },
+            { key: "authorAssignmentTime", label: "Author Assignment Time", isDateTime: true },
+            { key: "authorCompletionTime", label: "Author Completion Time", isDateTime: true },
             { key: "authorTatMins", label: "Author TAT [Auto]" },
         ],
     },
@@ -78,8 +78,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "4. Reviewer Workflow - Reviewer 1",
         fields: [
             { key: "reviewer1Name", label: "Reviewer 1 Name" },
-            { key: "reviewer1AssignmentTime", label: "Reviewer 1 Assignment Time" },
-            { key: "reviewer1CompletionTime", label: "Reviewer 1 Completion Time" },
+            { key: "reviewer1AssignmentTime", label: "Reviewer 1 Assignment Time", isDateTime: true },
+            { key: "reviewer1CompletionTime", label: "Reviewer 1 Completion Time", isDateTime: true },
             { key: "review1TatMins", label: "Review 1 TAT [Auto]" },
         ],
     },
@@ -87,8 +87,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "4. Reviewer Workflow - Reviewer 2",
         fields: [
             { key: "reviewer2Name", label: "Reviewer 2 Name" },
-            { key: "reviewer2AssignmentTime", label: "Reviewer 2 Assignment Time" },
-            { key: "reviewer2CompletionTime", label: "Reviewer 2 Completion Time" },
+            { key: "reviewer2AssignmentTime", label: "Reviewer 2 Assignment Time", isDateTime: true },
+            { key: "reviewer2CompletionTime", label: "Reviewer 2 Completion Time", isDateTime: true },
             { key: "review2TatMins", label: "Review 2 TAT [Auto]" },
         ],
     },
@@ -96,8 +96,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "4. Reviewer Workflow - Reviewer 3",
         fields: [
             { key: "reviewer3Name", label: "Reviewer 3 Name" },
-            { key: "reviewer3AssignmentTime", label: "Reviewer 3 Assignment Time" },
-            { key: "reviewer3CompletionTime", label: "Reviewer 3 Completion Time" },
+            { key: "reviewer3AssignmentTime", label: "Reviewer 3 Assignment Time", isDateTime: true },
+            { key: "reviewer3CompletionTime", label: "Reviewer 3 Completion Time", isDateTime: true },
             { key: "review3TatMins", label: "Review 3 TAT [Auto]" },
         ],
     },
@@ -105,8 +105,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "4. Reviewer Workflow - Reviewer 4",
         fields: [
             { key: "reviewer4Name", label: "Reviewer 4 Name" },
-            { key: "reviewer4AssignmentTime", label: "Reviewer 4 Assignment Time" },
-            { key: "reviewer4CompletionTime", label: "Reviewer 4 Completion Time" },
+            { key: "reviewer4AssignmentTime", label: "Reviewer 4 Assignment Time", isDateTime: true },
+            { key: "reviewer4CompletionTime", label: "Reviewer 4 Completion Time", isDateTime: true },
             { key: "review4TatMins", label: "Review 4 TAT [Auto]" },
         ],
     },
@@ -114,8 +114,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "4. Reviewer Workflow - Reviewer 5",
         fields: [
             { key: "reviewer5Name", label: "Reviewer 5 Name" },
-            { key: "reviewer5AssignmentTime", label: "Reviewer 5 Assignment Time" },
-            { key: "reviewer5CompletionTime", label: "Reviewer 5 Completion Time" },
+            { key: "reviewer5AssignmentTime", label: "Reviewer 5 Assignment Time", isDateTime: true },
+            { key: "reviewer5CompletionTime", label: "Reviewer 5 Completion Time", isDateTime: true },
             { key: "review5TatMins", label: "Review 5 TAT [Auto]" },
         ],
     },
@@ -123,8 +123,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "4. Reviewer Workflow - Moderator",
         fields: [
             { key: "moderatorName", label: "Moderator Name" },
-            { key: "moderatorAssignmentTime", label: "Moderator Assignment Time" },
-            { key: "moderatorCompletionTime", label: "Moderator Completion Time" },
+            { key: "moderatorAssignmentTime", label: "Moderator Assignment Time", isDateTime: true },
+            { key: "moderatorCompletionTime", label: "Moderator Completion Time", isDateTime: true },
             { key: "moderatorTatMins", label: "Moderator TAT [Auto]" },
         ],
     },

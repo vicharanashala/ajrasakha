@@ -9,18 +9,16 @@ import {
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import type { ITesterLogEntry } from "../types";
 import { ENTRY_DETAIL_GROUPS } from "../entryDetailFields";
+import { formatDateTimeIST } from "../utils/formatIST";
 
 interface TesterEntryDetailDialogProps {
     entry: ITesterLogEntry;
 }
 
-// Full-record detail view for a single Tester Data row - the table only
-// shows 10 columns at a glance; this shows all ~82 fields on the entry,
-// grouped and labelled the same way the submission form does, so nothing
-// requires horizontal scrolling to read (values wrap, the dialog itself
-// scrolls vertically). Mirrors the wide-Dialog + ScrollArea pattern already
-// used for "View More" elsewhere in the app (see
-// features/question_details/components/answer_item/ViewMoreDialog.tsx).
+// Full-record detail view for a tester log entry - the table shows only a
+// handful of columns at a glance; this lists every field, grouped and
+// labelled like the submission form, with vertical scroll instead of
+// horizontal so nothing gets cut off.
 export function TesterEntryDetailDialog({ entry }: TesterEntryDetailDialogProps) {
     return (
         <Dialog>
@@ -33,7 +31,7 @@ export function TesterEntryDetailDialog({ entry }: TesterEntryDetailDialogProps)
                     View more
                 </button>
             </DialogTrigger>
-            <DialogContent className="w-[95vw] max-w-4xl h-[85vh] flex flex-col">
+            <DialogContent className="w-[95vw] max-w-[1600px] h-[85vh] flex flex-col">
                 <DialogHeader className="pb-3 border-b">
                     <DialogTitle className="text-lg font-semibold">
                         Test Entry Details
@@ -50,9 +48,12 @@ export function TesterEntryDetailDialog({ entry }: TesterEntryDetailDialogProps)
                                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 pb-1 border-b">
                                     {group.title}
                                 </h3>
-                                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                                <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2.5">
                                     {group.fields.map((field) => {
-                                        const value = entry[field.key] as string | undefined;
+                                        const rawValue = entry[field.key] as string | undefined;
+                                        const value = field.isDateTime
+                                            ? formatDateTimeIST(rawValue)
+                                            : rawValue;
                                         return (
                                             <div key={String(field.key)} className="min-w-0">
                                                 <dt className="text-[11px] font-medium text-muted-foreground">

@@ -1,11 +1,9 @@
 import { IsIn, IsOptional, IsString, IsBooleanString } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 
-// Query params for the server-side-filtered Testers Dashboard summary
-// endpoint - the 9 filter dimensions plus Date Range, matching filters.ts's
-// TestersDashboardFilters shape. Every filter value is a normalized value
-// (e.g. "GDB", "Pass", "Critical") or "all"/omitted for no filter - the
-// same values buildFilterOptions() returns for each dropdown, so the
+// Query params for the server-side-filtered Testers Dashboard summary endpoint, matching
+// filters.ts's TestersDashboardFilters shape. Every filter value is a normalized value or
+// "all"/omitted - the same values buildFilterOptions() returns for each dropdown, so the
 // frontend can pass a selected option straight through.
 export class GetTestersDashboardQuery {
   @JSONSchema({
@@ -20,15 +18,11 @@ export class GetTestersDashboardQuery {
     example: '7days',
     description: 'Date range filter: all, today, 7days, 30days, or custom',
   })
-  // Deliberately typed as plain `string`, NOT TestersDashboardDateRange (a
-  // string-literal union). TypeScript erases type aliases at compile time,
-  // so a union-typed property has no runtime constructor for
-  // emitDecoratorMetadata to reflect - routing-controllers then treats the
-  // param as "not a primitive" and tries JSON.parse() on the raw query
-  // string, throwing a 400 for every value including valid ones. @IsIn
-  // still fully validates the allowed values at runtime regardless of the
-  // compile-time type; TestersDashboardService casts to
-  // TestersDashboardDateRange after validation has already run.
+  // Deliberately typed as plain `string`, not a string-literal union type: TypeScript erases
+  // type aliases at compile time, so a union-typed property has no runtime constructor for
+  // emitDecoratorMetadata to reflect, and routing-controllers would try JSON.parse() on the
+  // raw query string and throw a 400 for every value. @IsIn still fully validates the allowed
+  // values at runtime; TestersDashboardService casts to the real union type afterward.
   @IsOptional()
   @IsIn(['all', 'today', '7days', '30days', 'custom'])
   dateRange?: string;
@@ -96,12 +90,10 @@ export class GetTestersDashboardQuery {
       '(Weather, Mandi Prices, Government Schemes). Independent of `type` - selecting sub-types does not require ' +
       'type=Dynamic. Omitted/empty means no filter.',
   })
-  // A true array-typed query param (@IsArray()) would need the frontend to
-  // send repeated keys (?dynamicSubTypes=Weather&dynamicSubTypes=Mandi...) -
-  // a single comma-separated string is simpler on both ends and avoids this
-  // endpoint's array/union-type query parsing (see dateRange's comment
-  // above). Parsed into a string[] in
-  // TestersDashboardService.buildFiltersFromQuery.
+  // A true array-typed query param would need the frontend to send repeated keys
+  // (?dynamicSubTypes=Weather&dynamicSubTypes=Mandi...) - a comma-separated string is simpler
+  // on both ends and avoids the same query-parsing pitfall as dateRange above. Parsed into a
+  // string[] in TestersDashboardService.buildFiltersFromQuery.
   @IsOptional()
   @IsString()
   dynamicSubTypes?: string;
@@ -131,10 +123,9 @@ export class GetTestersDashboardQuery {
     example: 'true',
     description: 'Exclude rows with a DB-save failure, a wrongly-flagged duplicate, or a Critical defect - "true" or "false"',
   })
-  // Query params always arrive as strings and this app doesn't enable
-  // implicit type conversion, so @IsBoolean() would reject every real
-  // request (?excludeFailures=true is the string "true", not a boolean).
-  // The consumer compares against the literal string "true".
+  // Query params always arrive as strings and this app doesn't enable implicit type
+  // conversion, so @IsBoolean() would reject every real request. The consumer compares
+  // against the literal string "true".
   @IsOptional()
   @IsBooleanString()
   excludeFailures?: string;

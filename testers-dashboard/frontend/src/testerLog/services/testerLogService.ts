@@ -9,6 +9,8 @@ import type {
     ITesterOption,
     ITesterLogSummary,
     ITesterLogAdminFilters,
+    ITesterQuestionTypeSummary,
+    ITesterQuestionTypeSummaryFilters,
 } from "../types";
 
 const API_BASE_URL = env.apiBaseUrl();
@@ -85,12 +87,22 @@ export class TesterLogService {
         return response;
     }
 
-    // Raw fetch (not apiFetch) since the response is a file body, not JSON -
-    // same Bearer-token pattern questionService.downloadOverallReport uses.
-    // Excel is the only export format - no `format` param to select, since
-    // there's nothing else to choose between. Deliberately takes no filters -
-    // this always downloads every row in the collection, regardless of
-    // whatever the admin currently has the review table filtered to.
+    async getQuestionTypeSummary(
+        filters: ITesterQuestionTypeSummaryFilters = {},
+    ): Promise<ITesterQuestionTypeSummary> {
+        const params = new URLSearchParams();
+        if (filters.testerId) params.set("testerId", filters.testerId);
+        if (filters.startDate) params.set("startDate", filters.startDate);
+        if (filters.endDate) params.set("endDate", filters.endDate);
+        const url = `${this.baseUrl}/question-type-summary?${params.toString()}`;
+        const response = await apiFetch<ITesterQuestionTypeSummary>(url);
+        if (!response) throw new Error("Failed to fetch question-type summary");
+        return response;
+    }
+
+    // Raw fetch (not apiFetch) since the response is a file body, not JSON.
+    // Deliberately takes no filters - always downloads every row in the
+    // collection, regardless of the admin's current table filters.
     async downloadEntries(): Promise<Blob> {
         const firebaseUser = auth.currentUser;
         if (!firebaseUser) throw new Error("User not authenticated");

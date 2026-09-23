@@ -32,7 +32,7 @@ export interface KpiCardProps {
   value: ReactNode;
   // Rendered in a smaller, muted span after `value` (e.g. "min", "/10") -
   // NOT used for "%" cards, which bake the percent sign directly into
-  // `value` instead (matches each card's original markup).
+  // `value` instead.
   suffix?: string;
   icon: ReactNode;
   iconBgClass: string;

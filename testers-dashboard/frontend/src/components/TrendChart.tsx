@@ -40,13 +40,11 @@ function formatFullDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
-// Picks a subset of the given (already chronologically sorted) ISO dates as
-// X-axis tick labels, spaced by array index rather than calendar distance:
-// Recharts renders a string dataKey as a category axis, placing every point
-// at equal pixel width by index regardless of real date gaps. Calendar-based
-// spacing would over-label a sliver of pixel width containing far-apart
-// outlier dates while under-labeling the dense main range. Always keeps the
-// first and last date so the axis never looks truncated.
+// Picks a subset of the given (chronologically sorted) ISO dates as X-axis
+// tick labels, spaced by array index rather than calendar distance - since
+// Recharts renders a string dataKey as a category axis (equal pixel width
+// per point regardless of real date gaps), calendar-based spacing would
+// over/under-label unevenly. Always keeps the first and last date.
 export function buildXAxisTicks(dates: string[]): string[] {
   if (dates.length <= X_AXIS_TARGET_TICK_COUNT) return dates;
   const step = Math.max(1, Math.ceil(dates.length / X_AXIS_TARGET_TICK_COUNT));
@@ -73,13 +71,11 @@ export interface OutlierInfo {
 
 // Clamps each day's plotted value to the OUTLIER_PERCENTILE of real
 // (non-null) values, so one extreme day can't flatten the whole axis;
-// clamped points are flagged via outlierKeyOut, but the original raw value
-// (rawKey) survives untouched for the tooltip - only the drawn position is
-// capped. noDataPlotValue controls what a no-data day plots as: null (the
-// default) renders a true gap; Avg Response/Review TAT pass 0 instead,
-// prioritizing visual line continuity over the 0-vs-no-data distinction for
-// just those 2 tabs, while still excluding those days from the percentile
-// math via rawKey being null for them.
+// clamped points are flagged via outlierKeyOut, but the raw value (rawKey)
+// survives untouched for the tooltip - only the drawn position is capped.
+// noDataPlotValue controls what a no-data day plots as: null (default)
+// renders a true gap; Avg Response/Review TAT pass 0 instead to keep the
+// line continuous, while still excluding those days from the percentile math.
 export function buildRobustRangeSeries<T extends { date: string }>(
   points: T[],
   rawKey: string,
@@ -167,9 +163,8 @@ function TrendTooltip({
 
   // Trust/Farmer (hasDataKey) show a "No valid data" fallback. Avg
   // Response/Review TAT (sampleCountKey, no hasDataKey) always show the
-  // value + reading count, even at 0 readings - since those 2 tabs plot 0
-  // rather than a gap, the reading count is what lets a hovering user tell
-  // a real 0 apart from no data.
+  // value + reading count, since those tabs plot 0 rather than a gap - the
+  // reading count is what lets a hovering user tell a real 0 from no data.
   const hasData = config.hasDataKey ? Boolean(point[config.hasDataKey]) : true;
 
   const sampleCount = config.sampleCountKey ? Number(point[config.sampleCountKey] ?? 0) : null;

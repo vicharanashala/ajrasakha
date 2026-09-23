@@ -5,7 +5,6 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 // testers-dashboard/backend/ - only the cron.schedule(...) registration and
 // container lookup stay here (see that package's jobs/zohoTicketStatusSyncCron.ts
 // for why).
-import type { TestersDashboardService } from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js';
 import type { ZohoTicketStatusService } from '../../../../testers-dashboard/backend/build/services/ZohoTicketStatusService.js';
 import { runZohoTicketStatusSync } from '../../../../testers-dashboard/backend/build/jobs/zohoTicketStatusSyncCron.js';
 
@@ -14,8 +13,5 @@ cron.schedule('1,31 * * * *', async () => {
     const zohoTicketStatusService = container.get<ZohoTicketStatusService>(
         CORE_TYPES.ZohoTicketStatusService,
     );
-    const testersDashboardService = container.get<TestersDashboardService>(
-        CORE_TYPES.TestersDashboardService,
-    );
-    await runZohoTicketStatusSync(zohoTicketStatusService, testersDashboardService);
+    await runZohoTicketStatusSync(zohoTicketStatusService);
 });

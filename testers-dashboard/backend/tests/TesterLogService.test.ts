@@ -14,6 +14,9 @@ describe('TesterLogService date filtering', () => {
     let mockAggregate: any;
     let mockAggregateToArray: any;
     let mockCollection: any;
+    let mockUsersFind: any;
+    let mockUsersToArray: any;
+    let mockUsersCollection: any;
     let mockDb: any;
 
     beforeEach(() => {
@@ -24,7 +27,11 @@ describe('TesterLogService date filtering', () => {
         // toArray directly) - both need to work off the same mock.
         mockSkip = vi.fn().mockReturnValue({ limit: mockLimit });
         mockSort = vi.fn().mockReturnValue({ skip: mockSkip, toArray: mockToArray });
-        mockFind = vi.fn().mockReturnValue({ sort: mockSort });
+        // getQuestionTypeSummary calls find(filter).toArray() directly, with
+        // no sort/skip/limit chain - toArray needs to be reachable straight
+        // off find()'s return too, same as a real MongoDB cursor supports
+        // both call styles.
+        mockFind = vi.fn().mockReturnValue({ sort: mockSort, toArray: mockToArray });
         mockCountDocuments = vi.fn().mockResolvedValue(0);
         mockAggregateToArray = vi.fn().mockResolvedValue([]);
         mockAggregate = vi.fn().mockReturnValue({ toArray: mockAggregateToArray });
@@ -36,8 +43,20 @@ describe('TesterLogService date filtering', () => {
             insertOne: vi.fn(),
         };
 
+        // Separate mock for the 'users' collection (getActiveTesters) -
+        // defaults to an empty active-tester roster unless a test overrides
+        // it, kept independent of mockCollection/mockToArray so a
+        // getQuestionTypeSummary test can control the entries result and
+        // the active-tester-roster result separately, the way 2 distinct
+        // real MongoDB collections would never share a cursor.
+        mockUsersToArray = vi.fn().mockResolvedValue([]);
+        mockUsersFind = vi.fn().mockReturnValue({ toArray: mockUsersToArray });
+        mockUsersCollection = { find: mockUsersFind };
+
         mockDb = {
-            getCollection: vi.fn().mockResolvedValue(mockCollection),
+            getCollection: vi.fn((name: string) =>
+                Promise.resolve(name === 'users' ? mockUsersCollection : mockCollection),
+            ),
         };
 
         service = new TesterLogService(mockDb);
@@ -181,6 +200,233 @@ describe('TesterLogService date filtering', () => {
             const summary = await service.getSummary();
 
             expect(summary.passRate).toBeNull();
+        });
+    });
+
+    describe('getQuestionTypeSummary', () => {
+        // Day 1 (2026-09-01): Alice - Unique/WebApp, GDB/WhatsApp
+        // Day 2 (2026-09-02): Alice - Weather Dynamic/Both, Dynamic (no
+        //   sub-type)/WebApp - the bare "Dynamic" row has no target-sheet
+        //   category and must be excluded from every count.
+        //   Bob (user-2) - Outreach/WhatsApp, same day.
+        const entries = [
+            { submittedByUserId: 'user-1', testerName: 'Alice', testDate: '2026-09-01', typeOfQuestion: 'Unique', channelTested: 'WebApp', createdAt: new Date('2026-09-01T09:00:00Z') },
+            { submittedByUserId: 'user-1', testerName: 'Alice', testDate: '2026-09-01', typeOfQuestion: 'GDB', channelTested: 'WhatsApp', createdAt: new Date('2026-09-01T10:00:00Z') },
+            { submittedByUserId: 'user-1', testerName: 'Alice', testDate: '2026-09-02', typeOfQuestion: 'Weather Dynamic', channelTested: 'Both', createdAt: new Date('2026-09-02T09:00:00Z') },
+            { submittedByUserId: 'user-1', testerName: 'Alice', testDate: '2026-09-02', typeOfQuestion: 'Dynamic', channelTested: 'WebApp', createdAt: new Date('2026-09-02T09:30:00Z') },
+            { submittedByUserId: 'user-2', testerName: 'Bob', testDate: '2026-09-02', typeOfQuestion: 'Outreach', channelTested: 'WhatsApp', createdAt: new Date('2026-09-02T09:00:00Z') },
+        ];
+        // Same as the mock does for every other method here (see the top of
+        // this file), find()'s filter argument doesn't actually filter the
+        // stubbed result - so a single-tester test must hand mockToArray
+        // only that tester's own rows, the way a real MongoDB query already
+        // scoped to submittedByUserId would.
+        const aliceEntries = entries.slice(0, 4);
+
+        it('the daily target table sums to the business sheet\'s numbers (54 total / 27 Web App / 27 WhatsApp) for a 1-calendar-day range', async () => {
+            mockToArray.mockResolvedValueOnce([
+                { submittedByUserId: 'user-1', testerName: 'Alice', testDate: '2026-09-01', typeOfQuestion: 'Unique', channelTested: 'WebApp', createdAt: new Date() },
+            ]);
+
+            // 1 calendar day -> round(1 * 6/7) = 1 working day -> the full
+            // daily rate, same numbers the business sheet defines.
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-01');
+
+            expect(result.workingDays).toBe(1);
+            expect(result.byType.map((r) => [r.key, r.target])).toEqual([
+                ['unique', 8], ['gdb', 8], ['outreach', 11],
+                ['weather', 19], ['scheme', 6], ['mandi', 2],
+                ['total', 54],
+            ]);
+            expect(result.webApp.target).toBe(27);
+            expect(result.whatsApp.target).toBe(27);
+        });
+
+        // Pins the 3 worked examples from the spec exactly: working days =
+        // calendar days × 6÷7 rounded, target = 54 × working days. Uses a
+        // tester with ZERO matching entries to prove the target comes
+        // purely from the date range, never from what (if anything) that
+        // tester logged.
+        it.each([
+            ['2026-09-01', '2026-09-07', 7, 6, 324],
+            ['2026-09-01', '2026-09-14', 14, 12, 648],
+            ['2026-09-01', '2026-09-30', 30, 26, 1404],
+        ])('%s..%s (%i calendar days) -> %i working days -> target %i, even with zero entries logged', async (start, end, _calendarDays, expectedWorkingDays, expectedTarget) => {
+            mockToArray.mockResolvedValueOnce([]);
+
+            const result = await service.getQuestionTypeSummary('user-1', start, end);
+
+            expect(result.workingDays).toBe(expectedWorkingDays);
+            expect(result.overall.target).toBe(expectedTarget);
+            expect(result.overall.actual).toBe(0);
+            expect(result.overall.achievementPct).toBe(0);
+        });
+
+        it('per-type and per-channel targets scale by working days the same way (Weather = 19 × working days)', async () => {
+            mockToArray.mockResolvedValueOnce([]);
+
+            // 7 calendar days -> 6 working days (same as the 324 example above).
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-07');
+
+            expect(result.byType.find((r) => r.key === 'weather')!.target).toBe(19 * 6);
+            expect(result.byType.find((r) => r.key === 'outreach')!.target).toBe(11 * 6);
+            // Web App/WhatsApp rates sum to 27 each (confirmed by the
+            // business-sheet test above), even though the individual
+            // category splits differ (e.g. Outreach is 6/5, Weather 9/10) -
+            // both channel totals scale by the same working-days count.
+            expect(result.webApp.target).toBe(27 * 6);
+            expect(result.whatsApp.target).toBe(27 * 6);
+        });
+
+        it('Today (a 1-day range) uses a target of 54 per tester, regardless of entries', async () => {
+            mockToArray.mockResolvedValueOnce([]);
+
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-01');
+
+            expect(result.workingDays).toBe(1);
+            expect(result.overall.target).toBe(54);
+        });
+
+        it('a bare "Dynamic" row (no Weather/Scheme/Mandi suffix) is excluded from every category and the Total, but the range-based target is unaffected', async () => {
+            mockToArray.mockResolvedValueOnce(aliceEntries);
+
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-02');
+
+            const totalActualAcrossCategories = result.byType
+                .filter((r) => r.key !== 'total')
+                .reduce((sum, r) => sum + r.actual, 0);
+            expect(totalActualAcrossCategories).toBe(3); // Unique + GDB + Weather - "Dynamic" excluded
+            expect(result.byType.find((r) => r.key === 'total')!.actual).toBe(3);
+        });
+
+        it('a "Both" channel entry counts toward both Web App and WhatsApp actuals', async () => {
+            mockToArray.mockResolvedValueOnce(aliceEntries);
+
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-02');
+
+            // Web App: Unique (WebApp) + Weather (Both) = 2. The unmapped
+            // "Dynamic"/WebApp row is excluded (no target category).
+            expect(result.webApp.actual).toBe(2);
+            // WhatsApp: GDB (WhatsApp) + Weather (Both) = 2.
+            expect(result.whatsApp.actual).toBe(2);
+        });
+
+        it('single tester with zero entries in range still gets a real target (0 shown against it, not omitted)', async () => {
+            mockToArray.mockResolvedValueOnce([]); // this tester logged nothing in range
+
+            const result = await service.getQuestionTypeSummary('user-3', '2026-09-01', '2026-09-07');
+
+            expect(result.overall.target).toBe(324); // same target a tester who logged something would get
+            expect(result.overall.actual).toBe(0);
+            expect(result.overall.achievementPct).toBe(0);
+        });
+
+        it('does not query the users collection when a single tester is selected (target is formula-only, no roster lookup needed)', async () => {
+            mockToArray.mockResolvedValueOnce(aliceEntries);
+
+            await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-02');
+
+            expect(mockUsersFind).not.toHaveBeenCalled();
+        });
+
+        it('omits byTester when a single tester is selected', async () => {
+            mockToArray.mockResolvedValueOnce(aliceEntries);
+
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-02');
+
+            expect(result.byTester).toBeUndefined();
+        });
+
+        it('scopes to submittedByUserId and the date range, same as the other admin endpoints', async () => {
+            mockToArray.mockResolvedValueOnce([]);
+
+            await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-02');
+
+            const callArg = mockFind.mock.calls[0][0];
+            expect(callArg.submittedByUserId).toBe('user-1');
+            expect(callArg.$or[0].testDate).toEqual({ $gte: '2026-09-01', $lte: '2026-09-02' });
+        });
+
+        // All Testers - byTester is now sourced from the active tester
+        // roster (the 'users' collection, role: 'tester'), unioned with any
+        // submittedByUserId that has entries but isn't currently on that
+        // roster - see TesterLogService.ts's getActiveTesters/
+        // getQuestionTypeSummary comments for why both halves of that union
+        // matter.
+        describe('All Testers', () => {
+            it('includes a tester with zero entries in range, sourced from the active-tester roster (not from entries)', async () => {
+                mockToArray.mockResolvedValueOnce(entries); // Alice + Bob logged something
+                mockUsersToArray.mockResolvedValueOnce([
+                    { _id: 'user-1', firstName: 'Alice' },
+                    { _id: 'user-3', firstName: 'Carol' }, // logged nothing - not in `entries` at all
+                ]);
+
+                const result = await service.getQuestionTypeSummary(undefined, '2026-09-01', '2026-09-01');
+
+                expect(mockUsersFind).toHaveBeenCalledWith({ role: 'tester', isBlocked: { $ne: true }, status: { $ne: 'in-active' } });
+                const carol = result.byTester!.find((t) => t.testerId === 'user-3')!;
+                expect(carol).toBeDefined();
+                expect(carol.testerName).toBe('Carol');
+                expect(carol.actual).toBe(0);
+                expect(carol.daysWorked).toBe(0);
+                expect(carol.target).toBe(54); // 1-day range -> 1 working day -> same target as everyone else
+            });
+
+            it('still includes a tester with real entries who is not on the current active-tester roster (union, not a roster-only list)', async () => {
+                mockToArray.mockResolvedValueOnce(entries); // Bob (user-2) has an entry
+                mockUsersToArray.mockResolvedValueOnce([{ _id: 'user-1', firstName: 'Alice' }]); // Bob not on the roster
+
+                const result = await service.getQuestionTypeSummary(undefined, '2026-09-01', '2026-09-02');
+
+                expect(result.byTester!.map((t) => t.testerId)).toContain('user-2');
+            });
+
+            it('overall/byType targets are the sum of each included tester\'s own working-days-scaled target', async () => {
+                // Only the 2026-09-02 rows (find()'s stubbed result stands
+                // in for whatever a real date-scoped Mongo query would
+                // actually return - see the mock's own comment at the top
+                // of this file): Alice's Weather (counted) + bare Dynamic
+                // (excluded), and Bob's Outreach.
+                mockToArray.mockResolvedValueOnce([entries[2], entries[3], entries[4]]);
+                mockUsersToArray.mockResolvedValueOnce([
+                    { _id: 'user-1', firstName: 'Alice' },
+                    { _id: 'user-3', firstName: 'Carol' },
+                ]);
+                // testerIds = {user-1, user-3} (roster) ∪ {user-1, user-2} (entries) = 3 testers.
+
+                // 1-day range -> 1 working day -> 54 per tester.
+                const result = await service.getQuestionTypeSummary(undefined, '2026-09-02', '2026-09-02');
+
+                expect(result.byTester!.map((t) => [t.testerName, t.target, t.actual]).sort()).toEqual(
+                    [['Alice', 54, 1], ['Bob', 54, 1], ['Carol', 54, 0]].sort(),
+                );
+                expect(result.overall.target).toBe(54 * 3); // each tester's own target, added together
+                expect(result.overall.actual).toBe(1 + 1 + 0);
+
+                const outreachRow = result.byType.find((r) => r.key === 'outreach')!;
+                expect(outreachRow.target).toBe(11 * 3); // 11 × 1 working day, per each of the 3 testers
+                expect(outreachRow.actual).toBe(1); // only Bob logged an Outreach row
+            });
+        });
+
+        it('falls back to the earliest/latest testDate among matched entries when no explicit date range is given (e.g. "All Time")', async () => {
+            // Span is 2026-09-01..2026-09-02: 2 calendar days -> round(2*6/7) = round(1.71) = 2 working days.
+            mockToArray.mockResolvedValueOnce(aliceEntries);
+
+            const result = await service.getQuestionTypeSummary('user-1');
+
+            expect(result.workingDays).toBe(2);
+            expect(result.overall.target).toBe(108); // 54 * 2
+        });
+
+        it('zero entries and no date range produces a zero target, not a crash (nothing to derive a range from)', async () => {
+            mockToArray.mockResolvedValueOnce([]);
+
+            const result = await service.getQuestionTypeSummary();
+
+            expect(result.workingDays).toBe(0);
+            expect(result.overall).toEqual({ target: 0, actual: 0, achievementPct: 0 });
+            expect(result.byTester).toEqual([]);
         });
     });
 

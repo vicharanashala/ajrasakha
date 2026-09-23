@@ -831,11 +831,8 @@ describe('trustScoreHasData / experienceScoreHasData - chart-only "real data" de
     // dates - pinned exact values, so a future drift shows up as a visible
     // diff. Re-derive with a one-off script against
     // backend/data/testers-dashboard/updated.csv to spot-check if this
-    // starts failing (the live sheet keeps growing, so this list itself has
-    // already changed twice this session as more real rows landed on
-    // previously-near-empty dates - most of the original 13 now have enough
-    // real data that both flags read true, leaving only the "-11" dates
-    // genuinely empty for both metrics today).
+    // starts failing (the live sheet keeps growing, so this list will
+    // change as more real rows land on previously-near-empty dates).
     it('correctly flags the currently-empty dates as no-data for both Trust Score and Farmer Experience', () => {
         const byDate = (iso: string) => records.filter((r) => parseTestDateToISO(r['Test Date']) === iso);
         const noDataDates = ['2026-09-11', '2026-10-11', '2026-11-11', '2026-12-11'];
@@ -998,7 +995,7 @@ describe('calculateCriticalFailureCategories - Critical Failures card v2 (real C
     // every other real-data count in this file) this WILL drift as the
     // live sheet keeps changing.
     //
-    // Flags (see the task report for the full write-up): duplicate_qid and
+    // Flags: duplicate_qid and
     // notif_failure have the lowest applicableCount-as-%-of-N among the
     // categories that apply to every row (no Dynamic/GDB row-type
     // restriction the way weather/mandi/scheme/gdb_retrieval_failure have) -
@@ -1520,6 +1517,31 @@ describe('calculateKpis (Executive Summary + Critical Failures + Release Health)
         expect(kpis.passRate + kpis.failRate).toBe(100);
     });
 
+    // The Critical Failures card's Successes tab headline must show
+    // kpis.totalPassed (rows with ZERO failures across every category, the
+    // same numerator Pass Rate uses) - NOT
+    // calculateCriticalFailureCategories().distinctSuccessRows (rows with
+    // >=1 success, which double-counts a row that also fails elsewhere).
+    // This row is exactly that double-counted case: it succeeds the Weather
+    // Q Correct category but still fails Incorrect Answers, so it must land
+    // as a Fail, not inflate the Successes headline.
+    it('a row with a success in one category and a failure in another counts as a Fail, not a Success (guards the Successes-tab headline fix)', () => {
+        const rows: TestersDashboardRecord[] = [
+            {
+                'Weather Q Answered Correctly?': 'Yes', // trips a success category
+                'Answer Scientifically Correct?': 'Incorrect', // also trips a failure category
+            },
+        ];
+        const distinctSuccessRows = calculateCriticalFailureCategories(rows).distinctSuccessRows;
+        expect(distinctSuccessRows).toBe(1); // old (buggy) definition would count this row as a Success
+
+        const kpis = calculateKpis(rows);
+        expect(kpis.totalPassed).toBe(0); // new definition: zero failures required
+        expect(kpis.totalFailed).toBe(1);
+        expect(kpis.passRate).toBe(0);
+        expect(kpis.totalPassed).not.toBe(distinctSuccessRows);
+    });
+
     it('reuses each score function\'s own breakdown (Q_trn agrees, not a shared/stale variable)', () => {
         const kpis = calculateKpis(records);
         expect(kpis.trustBreakdown.Q_trn).toBe(kpis.experienceBreakdown.Q_trn);
@@ -1559,78 +1581,83 @@ describe('calculateKpis (Executive Summary + Critical Failures + Release Health)
     });
 
     // Executive Summary's "Critical Defects" tile (v2): (Critical + High) ÷
-    // ALL rows (N) × 100 - a separate, wider metric from
-    // criticalBreakdown.countCriticalBugs above (Critical only), which keeps
-    // feeding Release Health's Critical Defect Health sub-metric unchanged
+    // rows with a severity recorded × 100 - a separate, wider-numerator
+    // metric from criticalBreakdown.countCriticalBugs above (Critical only),
+    // which keeps feeding Release Health's Critical Defect Health sub-metric
+    // unchanged, but now shares that same sub-metric's denominator scope
     // (see the dedicated cross-check test below). Numbers independently
     // re-verified against a fresh CSV pull immediately before writing this
     // test - re-derive with a one-off script against
     // backend/data/testers-dashboard/updated.csv to spot-check, since (like
     // every other real-data count in this file) this WILL drift as the live
     // sheet keeps changing.
-    it('matches independently-computed Critical Defects % (Critical + High ÷ all rows)', () => {
+    it('matches independently-computed Critical Defects % (Critical + High ÷ rows with a severity recorded)', () => {
         const kpis = calculateKpis(records);
         const criticalRows = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'Critical');
         const highRows = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === 'High');
         const noSeverityRows = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) === '');
+        const severityRecordedRows = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) !== '');
         expect(criticalRows.length).toBe(121);
-        expect(highRows.length).toBe(307);
-        expect(noSeverityRows.length).toBe(6992);
+        expect(highRows.length).toBe(308);
+        expect(noSeverityRows.length).toBe(7377);
         expect(kpis.criticalDefectsCriticalCount).toBe(criticalRows.length);
         expect(kpis.criticalDefectsHighCount).toBe(highRows.length);
         expect(kpis.criticalDefectsNoSeverityCount).toBe(noSeverityRows.length);
-        // Denominator is N (every row), not defectSeverityApplicable (rows
-        // with a real severity) - the no-severity rows above still count
-        // against it, diluting the percentage rather than being excluded.
+        // Denominator is rows with a severity recorded, NOT N (every row) -
+        // the no-severity rows above are excluded entirely rather than
+        // diluting the percentage. It equals total minus blank-severity rows.
+        expect(kpis.criticalDefectsApplicableCount).toBe(severityRecordedRows.length);
+        expect(kpis.criticalDefectsApplicableCount).toBe(records.length - noSeverityRows.length);
         expect(kpis.criticalDefectsPct).toBe(
-            Math.round(((criticalRows.length + highRows.length) / records.length) * 100),
+            Math.round(((criticalRows.length + highRows.length) / severityRecordedRows.length) * 100),
         );
-        expect(kpis.criticalDefectsPct).toBe(2);
+        expect(kpis.criticalDefectsPct).toBe(3);
     });
 
-    // Confirms Release Health's Critical Defect Health sub-metric is
-    // genuinely unaffected by the new criticalDefectsPct metric - it still
-    // reads criticalBreakdown.countCriticalBugs (Critical only, via
-    // calculateCriticalFailureCategories's shared 'critical_bug' category)
-    // scoped to defectSeverityApplicable (rows with a real severity value),
-    // NOT N the way criticalDefectsPct's denominator is.
-    it('Release Health\'s Critical Defect Health still uses the Critical-only count, unaffected by criticalDefectsPct', () => {
+    // Confirms Release Health's Critical Defect Health sub-metric and the
+    // Executive Summary's Critical Defects tile now share the exact same
+    // "severity recorded" denominator (defectSeverityRecordedRows), even
+    // though their numerators differ (Critical-only vs Critical+High) - the
+    // two scopes can't drift apart since both route through the same helper.
+    it('Critical Defect Health and criticalDefectsPct share the same "severity recorded" denominator', () => {
         const kpis = calculateKpis(records);
         const bucket2 = kpis.releaseHealthBreakdown.buckets.find((b) => b.key === 'functional_critical_quality')!;
         const criticalDefectHealth = bucket2.metrics.find((m) => m.key === 'critical_defect_health')!;
         const defectSeverityApplicable = records.filter((r) => normalizeDefectSeverity(r['Defect Severity']) !== '').length;
-        expect(defectSeverityApplicable).toBe(12231);
+        expect(defectSeverityApplicable).toBe(12872);
         expect(criticalDefectHealth.value).toBe(
             100 - Math.round((kpis.criticalBreakdown.countCriticalBugs / defectSeverityApplicable) * 100),
         );
         expect(criticalDefectHealth.value).toBe(99);
-        // Different denominator (severity-applicable rows only) than
-        // criticalDefectsPct's own (N, all rows) - confirms the two never
-        // shared a denominator, just the same Critical-only numerator source.
+        // Same denominator as criticalDefectsPct's own - confirms the two
+        // metrics can no longer drift apart on what "applicable" means.
+        expect(kpis.criticalDefectsApplicableCount).toBe(defectSeverityApplicable);
         expect(defectSeverityApplicable).toBeLessThan(kpis.N);
     });
 
     // Synthetic - proves the formula's shape directly (combined numerator,
-    // ALL-rows denominator) rather than relying on the real dataset's
-    // specific numbers.
-    it('criticalDefectsPct combines Critical+High and divides by ALL rows, including blank-severity ones (synthetic)', () => {
+    // severity-recorded-only denominator) rather than relying on the real
+    // dataset's specific numbers.
+    it('criticalDefectsPct combines Critical+High and divides by rows with a severity recorded, excluding blanks (synthetic)', () => {
         const kpis = calculateKpis([
             { 'Defect Severity': 'Critical' },
             { 'Defect Severity': 'High' },
             { 'Defect Severity': 'Medium' }, // not counted in the numerator...
             { 'Defect Severity': 'Low' }, // ...neither is this...
-            { 'Defect Severity': 'No Defect' }, // ...nor this (normalizes to 'NA')...
-            { 'Defect Severity': '' }, // ...nor this blank row -
-            { 'Defect Severity': '' }, // but ALL 7 rows count in the denominator.
+            { 'Defect Severity': 'No Defect' }, // ...but IS counted in the denominator (a real recorded verdict)...
+            { 'Defect Severity': '' }, // ...unlike this blank row -
+            { 'Defect Severity': '' }, // and this one, both EXCLUDED from the denominator.
         ]);
         expect(kpis.criticalDefectsCriticalCount).toBe(1);
         expect(kpis.criticalDefectsHighCount).toBe(1);
         expect(kpis.criticalDefectsNoSeverityCount).toBe(2);
-        // 2 (Critical+High) / 7 (all rows) = 28.57...% -> 29.
-        expect(kpis.criticalDefectsPct).toBe(29);
-        // If the denominator wrongly excluded blank rows (5 severity-
-        // recorded rows instead of 7): 2/5 = 40%, a different, wrong number.
-        expect(kpis.criticalDefectsPct).not.toBe(40);
+        // Denominator is 5 (severity-recorded rows: Critical/High/Medium/Low/No Defect), not 7 (all rows).
+        expect(kpis.criticalDefectsApplicableCount).toBe(5);
+        // 2 (Critical+High) / 5 (severity-recorded rows) = 40%.
+        expect(kpis.criticalDefectsPct).toBe(40);
+        // If the denominator wrongly included the 2 blank rows (7 rows
+        // instead of 5): 2/7 = 28.57...% -> 29, a different, wrong number.
+        expect(kpis.criticalDefectsPct).not.toBe(29);
     });
 
     it('criticalDefectsPct is 0 for a dataset with no Critical/High rows, even with other severities and blanks present (synthetic)', () => {
@@ -1643,6 +1670,7 @@ describe('calculateKpis (Executive Summary + Critical Failures + Release Health)
         expect(kpis.criticalDefectsCriticalCount).toBe(0);
         expect(kpis.criticalDefectsHighCount).toBe(0);
         expect(kpis.criticalDefectsNoSeverityCount).toBe(1);
+        expect(kpis.criticalDefectsApplicableCount).toBe(2);
     });
 
     it('criticalDefectsPct is 0 for an empty dataset, not NaN or divide-by-zero', () => {
@@ -1651,6 +1679,20 @@ describe('calculateKpis (Executive Summary + Critical Failures + Release Health)
         expect(kpis.criticalDefectsCriticalCount).toBe(0);
         expect(kpis.criticalDefectsHighCount).toBe(0);
         expect(kpis.criticalDefectsNoSeverityCount).toBe(0);
+        expect(kpis.criticalDefectsApplicableCount).toBe(0);
+    });
+
+    // All-blank dataset: denominator (severity-recorded rows) is 0, so pct
+    // must fall back to 0 rather than dividing by zero - distinct from the
+    // empty-dataset case above (N=0 there; here N>0 but applicable=0).
+    it('criticalDefectsPct is 0 when every row has a blank Defect Severity (synthetic)', () => {
+        const kpis = calculateKpis([
+            { 'Defect Severity': '' },
+            { 'Defect Severity': '' },
+        ]);
+        expect(kpis.criticalDefectsApplicableCount).toBe(0);
+        expect(kpis.criticalDefectsNoSeverityCount).toBe(2);
+        expect(kpis.criticalDefectsPct).toBe(0);
     });
 
     // Release Health v2: a 6-bucket weighted model (25/20/20/15/10/10%)
@@ -2070,8 +2112,7 @@ describe('calculateKpis (Executive Summary + Critical Failures + Release Health)
 });
 
 describe('calculatePreviousPeriodStats against a real 7-day window', () => {
-    // Matches Phase 2's already-verified previous-7days window:
-    // [2026-07-29, 2026-08-04], 1097 real rows.
+    // Previous-7days window: [2026-07-29, 2026-08-04], 1097 real rows.
     const NOW = new Date('2026-08-11T12:00:00.000Z');
 
     it('returns null when there is no well-defined previous period', () => {

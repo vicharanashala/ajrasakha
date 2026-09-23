@@ -13,12 +13,10 @@ import { calculateChartData } from './chartData.js';
 // range (same convention as filters.test.ts's NOW).
 const NOW = new Date('2026-09-09T12:00:00.000Z');
 
-// Same loader as every previous phase's test - real live CSV, parsed the
-// same way TestersDashboardService.parseCSV does. Pulled FRESH at test run
-// time (not a cached snapshot) - every phase this session has confirmed
-// the live sheet keeps changing between sessions, so every number asserted
-// below was independently computed against this exact same file
-// immediately before writing these assertions.
+// Real live CSV, parsed the same way TestersDashboardService.parseCSV
+// does. Pulled FRESH at test run time (not a cached snapshot) - the live
+// sheet keeps changing, so every number asserted below should be
+// re-derived against a fresh pull if this starts failing.
 function loadRealRecords(): Promise<TestersDashboardRecord[]> {
     // Same TESTERS_DASHBOARD_CSV_PATH override the real service uses - the
     // CSV lives at backend/data/testers-dashboard/updated.csv and did not
@@ -118,28 +116,17 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
         expect(futureCount).toBe(1487);
     });
 
-    // The live sheet keeps changing between sessions (already documented
-    // repeatedly throughout this codebase's tests) - numbers below
-    // independently re-verified against a fresh CSV pull immediately
-    // before writing this test; re-derive with a one-off script against
-    // backend/data/testers-dashboard/updated.csv to spot-check if this
-    // starts failing. Trust values reflect Trust Score v2's formula
+    // The live sheet keeps changing, so these numbers WILL drift - re-derive
+    // with a one-off script against backend/data/testers-dashboard/updated.csv
+    // to spot-check if this starts failing. Trust values reflect Trust Score v2's formula
     // (25% Scientific Accuracy [Static + Dynamic rows with a real answer] +
     // 30% Dynamic Accuracy + 15% Source Links + 10% Question Framed + 10%
     // Translation + 10% SLA).
     it('spot-checks 3 real dates\' trust/experience scores + hasData flags against independent re-filtering + direct calculateTrustScore/calculateExperienceScore calls', () => {
         const result = calculateChartData(records, NOW);
         const cases: { date: string; trust: number; trustHasData: boolean; experience: number; experienceHasData: boolean }[] = [
-            // Was '2022-06-22' (trust=90) before the CHART_START_DATE cutoff -
-            // that date is now correctly excluded from the chart entirely
-            // (see the dedicated chart-start-date tests below), so this case
-            // was swapped for a real, still-plotted date instead.
             { date: '2026-02-17', trust: 50, trustHasData: true, experience: 35, experienceHasData: true },
             { date: '2026-07-11', trust: 80, trustHasData: true, experience: 87, experienceHasData: true },
-            // Was '2026-12-11' (trust=30/no data) before the future-date
-            // cutoff - that date is now correctly excluded from the chart
-            // entirely (see the dedicated future-date tests below), so this
-            // case was swapped for a real, still-plotted date instead.
             { date: '2026-09-05', trust: 99, trustHasData: true, experience: 97, experienceHasData: true },
         ];
 
@@ -164,8 +151,7 @@ describe('calculateChartData against the real live CSV (fresh pull)', () => {
     });
 
     // Manual, completely independent recomputation (no timeToMinutes call)
-    // for a high-volume date - same rigor as Phase 4's Biggest Bottleneck
-    // spot-check. WILL drift as the live sheet keeps growing.
+    // for a high-volume date. WILL drift as the live sheet keeps growing.
     it('spot-checks avgLatency/avgReviewTat + their sample counts for a high-volume date via manual independent computation', () => {
         const result = calculateChartData(records, NOW);
         const point = result.scoreTrend.find((p) => p.date === '2026-08-06');

@@ -285,11 +285,10 @@ export function TestersDashboardSection({
   const [releaseHealthExpanded, setReleaseHealthExpanded] = useState(false);
   const [weakestModuleExpanded, setWeakestModuleExpanded] = useState(false);
   // Two independent switchable views on the same card - "critical" (Critical
-  // Defect Tickets: Critical/High only, the long-standing default) and "all"
-  // (All Tickets: every sheet-linked ticket, any severity). Each view keeps
-  // its own active status tab, its own per-status pagination, and its own
-  // team-pill selection so switching back and forth never leaks one view's
-  // position into the other.
+  // Defect Tickets: Critical/High only) and "all" (All Tickets: every
+  // sheet-linked ticket, any severity). Each keeps its own active status
+  // tab, pagination, and team-pill selection so switching views never leaks
+  // one view's position into the other.
   const [defectsView, setDefectsView] = useState<"critical" | "all">("critical");
 
   const [activeDefectsTabCritical, setActiveDefectsTabCritical] = useState<"open" | "closed" | "onHold" | "escalated">("open");
@@ -312,9 +311,8 @@ export function TestersDashboardSection({
   const setSelectedTeam = defectsView === "critical" ? setSelectedTeamCritical : setSelectedTeamAll;
   const toggleSelectedTeam = (key: string) => setSelectedTeam((prev) => (prev === key ? null : key));
 
-  // Switching views resets the view being switched TO back to its Open tab
-  // and page 1, so the user never lands mid-list in state left over from the
-  // other view.
+  // Switching views resets the target view to its Open tab and page 1, so
+  // the user never lands mid-list in state left over from the other view.
   function switchDefectsView(view: "critical" | "all") {
     setDefectsView(view);
     if (view === "critical") {
@@ -349,15 +347,11 @@ export function TestersDashboardSection({
   function toggleDynamicSubType(value: string) {
     setStaticSubTypes([]);
     // An empty array under an already-selected Dynamic branch displays as
-    // "all checked" (see FilterBar's dynamicWholeBranchSelected) - toggling
-    // one item off from that state must start from the full list, not the
-    // empty array, or it would ADD `value` back (the one just unchecked)
-    // instead of removing it, e.g. unchecking Weather from all-3-checked
-    // would otherwise leave a "Weather only" selection instead of "Mandi +
-    // Schemes". Reaching zero explicit items has no separate representation
-    // from "whole branch, no restriction" (that's the same empty array), so
-    // it resets the branch to unselected rather than silently reverting to
-    // "everything included" while still showing as selected.
+    // "all checked" (see FilterBar's dynamicWholeBranchSelected), so
+    // toggling one item off must start from the full list, not the empty
+    // array, or it would re-add the unchecked item instead of removing it.
+    // Reaching zero items resets the branch to unselected rather than
+    // reverting to "everything included" while still showing as selected.
     const effectivePrev =
       dynamicSubTypes.length === 0 && typeBranch === "Dynamic" ? DYNAMIC_SUB_TYPE_OPTIONS.map((o) => o.value) : dynamicSubTypes;
     const next = effectivePrev.includes(value) ? effectivePrev.filter((v) => v !== value) : [...effectivePrev, value];
@@ -370,8 +364,7 @@ export function TestersDashboardSection({
   // dynamicWholeBranchSelected in FilterBar. Clicking it while fully
   // checked can't just clear to `[]`, since that's the same wire value as
   // "whole branch, no restriction" and would immediately redisplay as
-  // fully checked again - so it drops the branch selection entirely
-  // instead, matching selectAllTypes's reset.
+  // fully checked - so it drops the branch selection entirely instead.
   function toggleDynamicSelectAll() {
     setStaticSubTypes([]);
     const isFullyChecked =
@@ -500,8 +493,8 @@ export function TestersDashboardSection({
   const getTicketDisplayNumber = (ticketId: string): string => zohoStatuses[ticketId]?.ticketNumber || ticketId;
 
   // Critical Defect Tickets view - Critical/High-only pool
-  // (diagnostics.openTickets), one reset effect per status tab, each keyed
-  // on that view's own team-pill selection so a team change on the All
+  // (diagnostics.openTickets); one reset effect per status tab, each keyed
+  // on this view's own team-pill selection so a team change on the All
   // Tickets view never resets this view's pagination.
   useEffect(() => {
     setOpenTicketsPageCritical(0);
@@ -541,8 +534,8 @@ export function TestersDashboardSection({
   ]);
 
   // All Tickets view - every linked ticket regardless of severity
-  // (diagnostics.allTickets), same per-status reset pattern as the Critical
-  // Defect Tickets view above, but keyed on its own team-pill selection.
+  // (diagnostics.allTickets); same per-status reset pattern as above, keyed
+  // on its own team-pill selection.
   useEffect(() => {
     setOpenTicketsPageAll(0);
   }, [
@@ -697,11 +690,10 @@ export function TestersDashboardSection({
     },
   };
 
-  // Trust/Farmer plot a true gap on a no-data day (trustHasData/
-  // experienceHasData null out the point); Avg Response/Review TAT instead
-  // plot 0 on a no-data day to keep the line continuous (see
-  // buildRobustRangeSeries's noDataPlotValue above) - the tooltip below
-  // describes each pair accurately rather than a single blanket claim.
+  // Trust/Farmer plot a true gap on a no-data day (hasData flags null out
+  // the point, avoiding a misleading 0); Avg Response/Review TAT instead
+  // plot 0 to keep the line continuous (see buildRobustRangeSeries's
+  // noDataPlotValue) - the tooltip below describes each pair accordingly.
   const trendDaysWithData: Record<typeof activeChartTab, number> = {
     trust: trustBase.filter((p) => p.trustHasData).length,
     farmer: experienceBase.filter((p) => p.experienceHasData).length,
@@ -724,10 +716,9 @@ export function TestersDashboardSection({
   });
 
   // Critical Defect Tickets view scopes to diagnostics.openTickets
-  // (Critical/High only, unchanged); All Tickets view scopes to
-  // diagnostics.allTickets (every severity) - everything below (status
-  // tabs, team breakdown, pagination) is built from whichever pool the
-  // active view selects.
+  // (Critical/High only); All Tickets view scopes to diagnostics.allTickets
+  // (every severity) - everything below (status tabs, team breakdown,
+  // pagination) is built from whichever pool the active view selects.
   const ticketPool = defectsView === "critical" ? diagnostics.openTickets : diagnostics.allTickets;
 
   const openTabTickets = ticketPool

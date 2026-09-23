@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { TestersDashboardSection } from "./components/TestersDashboardSection";
 import { TesterDataView } from "./testerLog/components/TesterDataView";
+import { TesterQuestionTypeSummaryView } from "./testerLog/components/TesterQuestionTypeSummaryView";
 import { FileSpreadsheet, Database } from "lucide-react";
 
 export type TestersDashboardViewMode = "sheet" | "db";
-// Sub-tabs within the Database Logs Analytics side only - "analytics" is
-// the existing KPI-card view, "testerData" is the raw per-entry review
-// table (view/download only for now; editing comes later). Doesn't apply
-// to the Google Sheet side at all.
-type DbSubTab = "analytics" | "testerData";
+// Sub-tabs within Database Logs Analytics only: "analytics" is the KPI-card
+// view, "testerData" is the raw per-entry table, "summary" is each tester's
+// daily question counts against per-question-type targets. Not used by the
+// Google Sheet side.
+type DbSubTab = "analytics" | "testerData" | "summary";
 
 export function TestersDashboard() {
   const [viewMode, setViewMode] = useState<TestersDashboardViewMode>("sheet");
@@ -87,6 +88,17 @@ export function TestersDashboard() {
             >
               Tester Data
             </button>
+            <button
+              type="button"
+              onClick={() => setDbSubTab("summary")}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dbSubTab === "summary"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Summary
+            </button>
           </div>
 
           {dbSubTab === "analytics" ? (
@@ -97,8 +109,10 @@ export function TestersDashboard() {
               description="Analytics computed live from tester_test_cases collection in database"
               sourceBadge="Source: MongoDB (tester_test_cases)"
             />
-          ) : (
+          ) : dbSubTab === "testerData" ? (
             <TesterDataView />
+          ) : (
+            <TesterQuestionTypeSummaryView />
           )}
         </div>
       )}

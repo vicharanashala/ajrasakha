@@ -65,9 +65,8 @@ function severityBadgeClass(value?: string): string {
     }
 }
 
-// The 10 columns reviewers actually need at a glance - real fields on
-// TesterLogEntry (see ITesterLogService.ts), not a mirror of the Google
-// Sheet's much wider column set.
+// Columns reviewers need at a glance - real fields on TesterLogEntry
+// (see ITesterLogService.ts), not a mirror of the Google Sheet's wider column set.
 const TABLE_COLUMNS: { key: keyof ITesterLogEntry; label: string }[] = [
     { key: "_id", label: "Test ID" },
     { key: "testDate", label: "Test Date" },
@@ -132,8 +131,7 @@ export function TesterDataView() {
     async function handleDownload() {
         setDownloading(true);
         try {
-            // Ignores the on-screen filters by design - this always
-            // downloads every row in the database, see downloadEntries.
+            // Ignores the on-screen filters by design - always downloads every row in the database.
             const blob = await testerLogService.downloadEntries();
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");

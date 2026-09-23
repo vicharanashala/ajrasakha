@@ -1,12 +1,16 @@
 // Diagnostics for the Testers Dashboard - Biggest Bottleneck (TAT stage
 // averages), Overall Module Performance / Weakest Module (the 6 ACE modules
-// below), and the Open Critical Defects ticket list.
+// below), and the ticket card's Critical Defect Tickets / All Tickets lists.
 //
-// Deliberately excludes live Zoho ticket-status matching - that's a
-// frontend-only concern (it calls a separate Zoho endpoint on a timer). This
-// only surfaces "which tickets exist and what's their severity."
+// openTickets/allTickets are the one exception to this file's usual
+// "everything comes from `rows`" shape - they're built from the already-
+// synced Zoho ticket cache (a separate `zohoTickets` param), NOT from
+// `rows`, so they're deliberately unaffected by the dashboard's row filters
+// (most Zoho tickets have no sheet row for those filters to apply to). Live
+// Zoho ticket status/team matching is still a frontend-only concern.
 
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
+import type { ZohoTicketStatus } from '../interfaces/IZohoTicketStatusService.js';
 import {
     timeToMinutes,
     pct,
@@ -43,18 +47,15 @@ export type ModuleGroup = 'GDB' | 'Dynamic' | 'Unique Questions' | 'Outreach';
 export type DynamicSubBucket = 'Weather' | 'Mandi Prices' | 'Government Schemes';
 
 // Maps a row's Type of Question into one of the four top-level Weakest
-// Module buckets. "Quality Checking" isn't mapped to any bucket yet -
-// TODO: pending clarification from the team on where it belongs. Returning
-// null for unmapped values keeps them out of the buckets rather than
-// silently mis-grouping them.
+// Module buckets. "Quality Checking" isn't mapped to any bucket - returning
+// null for unmapped values keeps them out rather than mis-grouping them.
 //
 // Matches "contains dynamic" (case-insensitive), not just the exact string
 // "Dynamic", so compound values like "WEATHER DYNAMIC" bucket correctly.
-// "Static Dynamic" is a deliberate exception - confirmed removed from the
-// taxonomy entirely, so it must return null here rather than falling into
-// the general Dynamic bucket (its value DOES contain the substring
-// "dynamic"). This check has to run before the general "contains dynamic"
-// check below, since that substring also matches "static dynamic".
+// "Static Dynamic" is a deliberate exception, removed from the taxonomy
+// entirely, so it must return null rather than falling into the general
+// Dynamic bucket - this check has to run first since "static dynamic" also
+// contains the substring "dynamic".
 export function moduleGroupFor(typeOfQuestion?: string): ModuleGroup | null {
     const t = normalizeTypeOfQuestion(typeOfQuestion);
     if (t === 'GDB') return 'GDB';
@@ -69,41 +70,24 @@ export function moduleGroupFor(typeOfQuestion?: string): ModuleGroup | null {
 // Mandi Prices, and Government Schemes. Gates on EITHER
 // moduleGroupFor(typeOfQuestion) === 'Dynamic', OR Type of Question being
 // blank/empty - a row has to genuinely BE Dynamic-typed, OR never have had a
-// Type of Question tag at all, before its Question Category/Type of
-// Question text is even consulted for which sub-bucket it falls into.
+// Type of Question tag at all, before its Category/Type text is consulted.
 //
 // The blank-type fallback exists because Sheet 1.0-era rows predate the
-// Type of Question column entirely - a live-CSV investigation confirmed 85
-// Weather / 43 Mandi Prices rows with a blank Type of Question, a clearly
-// domain-matching Question Category (e.g. "Climate, Weather and Stress
-// Management"), AND query text that genuinely asks about that domain (e.g.
-// "Will it rain tomorrow?"). Gating purely on moduleGroupFor was wrongly
-// discarding all of them as if they were unrelated static rows.
+// Type of Question column entirely but still carry a genuine domain-matching
+// Question Category and query text. It is deliberately NOT relaxed for any
+// other null-returning Type of Question (GDB/Unique/Outreach/Static
+// Dynamic/Quality Checking) - those are cross-contamination leaks, where a
+// single Dynamic-typed test row gets a value written into all 3
+// domain-correctness columns regardless of relevance, so a GDB/Outreach-typed
+// row with a real Weather value is a leak, not a genuine weather answer, and
+// must stay excluded.
 //
-// Deliberately NOT relaxed for any other null-returning Type of Question
-// (GDB/Unique/Outreach/Static Dynamic/Quality Checking/leaked tester names)
-// - the same investigation confirmed those are a DIFFERENT, much larger
-// pattern: cross-contamination leaks, where a single Dynamic-typed test row
-// gets a value written into all 3 domain-correctness columns
-// (Weather/Mandi/Scheme) regardless of which one is actually relevant. A
-// GDB/Outreach-typed row with a real Weather Q Answered Correctly? value is
-// one of those leaks, not a genuine weather answer - it must stay excluded.
-//
-// Known unresolved gap: Government Schemes has 16 more genuinely
-// scheme-related rows (query text confirms it) tagged Outreach, not blank -
-// this fix does NOT recover those, since relaxing the gate for Outreach
-// would also let its much larger cross-contamination leak back in. Left
-// excluded pending a more targeted fix (e.g. keying off Query Text itself).
-//
-// This is also what keeps the standalone Dynamic sub-type filter
-// (filters.ts) consistent with the whole-branch Dynamic filter, which
-// matches this same function returning non-null - do not remove this gate
-// without updating both.
+// This is also what keeps the standalone Dynamic sub-type filter (filters.ts)
+// consistent with the whole-branch Dynamic filter, which matches this same
+// function returning non-null - do not remove this gate without updating both.
 //
 // Question Category is checked first, falling back to Type of Question when
-// category doesn't resolve a bucket (some rows leave Question Category
-// blank/unclear but carry the sub-bucket directly in Type of Question
-// instead, e.g. "WEATHER DYNAMIC" -> Weather).
+// category doesn't resolve a bucket (e.g. "WEATHER DYNAMIC" -> Weather).
 export function dynamicSubBucketFor(category?: string, typeOfQuestion?: string): DynamicSubBucket | null {
     const isBlankType = !(typeOfQuestion || '').trim();
     if (moduleGroupFor(typeOfQuestion) !== 'Dynamic' && !isBlankType) return null;
@@ -115,9 +99,6 @@ export function dynamicSubBucketFor(category?: string, typeOfQuestion?: string):
         if (c.includes('scheme')) return 'Government Schemes';
     }
 
-    // Blank-Type-of-Question rows have nothing left to fall back to here
-    // (typeOfQuestion is empty by definition) - Category alone is what can
-    // rescue them, above.
     const t = normalize(typeOfQuestion);
     if (t) {
         if (t.includes('weather')) return 'Weather';
@@ -129,14 +110,9 @@ export function dynamicSubBucketFor(category?: string, typeOfQuestion?: string):
 }
 
 // Rows eligible for Scientific Accuracy scoring: any row with a recognized
-// Type of Question - GDB, Unique, Outreach, OR Dynamic (moduleGroupFor
-// non-null) - Static and Dynamic alike. Rows with no real Type of Question
-// tag at all (blank, "Quality Checking", "Static Dynamic", leaked tester
-// names) are excluded - they were never Static OR Dynamic, just
-// untagged/garbage rows that happen to have a value in this field. Shared
-// by Trust Score's A_sci (kpis.ts), Agri Advisory, and Knowledge & GDB's
-// Scientific Accuracy sub-metric below, so the three scopes can't drift
-// apart if this rule changes again.
+// Type of Question (GDB, Unique, Outreach, or Dynamic). Shared by Trust
+// Score's A_sci (kpis.ts), Agri Advisory, and Knowledge & GDB's Scientific
+// Accuracy sub-metric below, so the three scopes can't drift apart.
 export function isScientificAccuracyEligible(typeOfQuestion?: string): boolean {
     return moduleGroupFor(typeOfQuestion) !== null;
 }
@@ -159,13 +135,10 @@ export interface OpenTicket {
 }
 
 // Overall Module Performance / Weakest Module: the 6 ACE modules below, each
-// scored from its own related columns rather than by grouping rows into a
-// Type-of-Question bucket (the old GDB/Unique Questions/Outreach/Dynamic
-// sub-type system this replaces). The business module list numbers 1-10,
-// but only 1-6 are built here - see calculateAceModulePerformance's comment
-// for why 7-10 are deliberately left out (module 7 doesn't exist at all;
-// modules 8-10 are ACE_COMING_SOON_MODULES below, unscored rather than
-// hidden).
+// scored from its own related columns. The business module list numbers
+// 1-10, but only 1-6 are built here - see calculateAceModulePerformance's
+// comment for why 7-10 are left out (module 7 doesn't exist at all; modules
+// 8-10 are ACE_COMING_SOON_MODULES below, unscored rather than hidden).
 export type AceModuleKey =
     | 'farmer_interaction'
     | 'agri_advisory'
@@ -174,8 +147,8 @@ export type AceModuleKey =
     | 'multilingual_voice'
     | 'communication_notifications';
 
-// Fixed display/computation order - mirrors the old MODULE_PERFORMANCE_BUCKETS
-// pattern (not sorted by score; see DiagnosticsResult.modulePerformance).
+// Fixed display/computation order, not sorted by score - see
+// DiagnosticsResult.modulePerformance.
 export const ACE_MODULE_KEYS: AceModuleKey[] = [
     'farmer_interaction',
     'agri_advisory',
@@ -192,12 +165,11 @@ export interface AceComingSoonModule {
     label: string;
 }
 
-// Modules 8-10 of the business's 10-module list (module 7 doesn't exist -
-// the list jumps 6 straight to 8, see the comment above
-// calculateAceModulePerformance) - built but never scoreable with the
-// sheet's current columns, so the Weakest Modules card lists them as
-// "Coming soon" instead of hiding them. Never eligible for weakestModule
-// (calculateDiagnostics only reduces over modulePerformance, not this list).
+// Modules 8-10 of the business's 10-module list (module 7 doesn't exist) -
+// never scoreable with the sheet's current columns, so the Weakest Modules
+// card lists them as "Coming soon" instead of hiding them. Never eligible
+// for weakestModule (calculateDiagnostics only reduces over
+// modulePerformance, not this list).
 export const ACE_COMING_SOON_MODULES: AceComingSoonModule[] = [
     { key: 'review_quality', label: 'Review & Quality' },
     { key: 'farmer_context', label: 'Farmer Context' },
@@ -222,31 +194,26 @@ export interface AceModuleEntry {
     key: AceModuleKey;
     label: string;
     subMetrics: AceModuleSubMetric[];
-    // Distinct rows applicable to AT LEAST ONE of this module's sub-metrics.
-    // Unlike the old bucket system (one row set per bucket), an ACE module's
-    // sub-metrics each scope to their own column/rows, so there's no single
-    // "the module's rows" - this union is the closest equivalent, and what
-    // MIN_ROWS_FOR_WEAKEST_MODULE gates eligibility on.
+    // Distinct rows applicable to at least one of this module's sub-metrics -
+    // each sub-metric scopes to its own column/rows, so there's no single
+    // "the module's rows"; this union is what MIN_ROWS_FOR_WEAKEST_MODULE
+    // gates eligibility on.
     applicableRowCount: number;
     eligible: boolean;
     // Average of only the sub-metrics with real applicable data - null only
-    // when NO sub-metric had any applicable data at all (degenerate/empty
-    // module).
+    // when no sub-metric had any applicable data at all.
     overallScore: number | null;
     // The 1-2 lowest-scoring applicable sub-metrics behind overallScore, by
-    // label - genuinely derived by ranking this module's own applicable
-    // sub-metric values, not a hardcoded guess. Empty only when overallScore
-    // is null.
+    // label - derived by ranking, not a hardcoded guess. Empty only when
+    // overallScore is null.
     weakestMetricLabels: string[];
 }
 
 interface AceSubMetricInput {
     key: string;
     label: string;
-    // Pre-filtered to this sub-metric's own applicable (non-blank/NA, or
-    // otherwise scoped) rows - the caller decides applicability, since it
-    // varies per sub-metric (isNAlike alone for most, but
-    // isQuestionFramedApplicable/isSourceLinkApplicable for a couple).
+    // Pre-filtered to this sub-metric's own applicable rows - the caller
+    // decides applicability, since it varies per sub-metric.
     applicableRows: TestersDashboardRecord[];
     isPositive: (r: TestersDashboardRecord) => boolean;
 }
@@ -259,9 +226,7 @@ function buildAceModule(key: AceModuleKey, label: string, subMetricInputs: AceSu
         applicable: applicableRows.length,
     }));
 
-    // Union of rows applicable to at least one sub-metric - see
-    // AceModuleEntry.applicableRowCount's comment for why this is the
-    // module-level sample-size stand-in used for eligibility.
+    // Union of rows applicable to at least one sub-metric.
     const applicableRowSet = new Set<TestersDashboardRecord>();
     subMetricInputs.forEach(({ applicableRows }) => applicableRows.forEach((r) => applicableRowSet.add(r)));
     const applicableRowCount = applicableRowSet.size;
@@ -273,8 +238,7 @@ function buildAceModule(key: AceModuleKey, label: string, subMetricInputs: AceSu
         : null;
 
     // "Mainly affected by X [and Y]" - the lowest 1-2 applicable sub-metrics
-    // by value, genuinely derived from this module's own numbers, not a
-    // hardcoded label per module.
+    // by value, not a hardcoded label per module.
     const weakestMetricLabels = [...scoreable].sort((a, b) => a.value - b.value).slice(0, 2).map((m) => m.label);
 
     return { key, label, subMetrics, applicableRowCount, eligible, overallScore, weakestMetricLabels };
@@ -304,11 +268,8 @@ export function calculateAceModulePerformance(rows: TestersDashboardRecord[]): A
     ]);
 
     // 2. Agri Advisory - Answer Scientifically Correct?, scoped via
-    // isScientificAccuracyEligible (any recognized Type of Question - Static
-    // or Dynamic alike) - same scoping AND "correct" definition
-    // (isScientificallyCorrect - accepts a plain yes/y too) as Trust Score's
-    // own A_sci (kpis.ts). No longer Static-only - a Dynamic row with a real
-    // answer now counts here too.
+    // isScientificAccuracyEligible - same scoping and "correct" definition
+    // (isScientificallyCorrect) as Trust Score's own A_sci (kpis.ts).
     const agriAdvisory = buildAceModule('agri_advisory', 'Agri Advisory', [
         {
             key: 'scientific_accuracy_static',
@@ -320,16 +281,10 @@ export function calculateAceModulePerformance(rows: TestersDashboardRecord[]): A
         },
     ]);
 
-    // 3. Knowledge & GDB - Correct Source Links (global, same
-    // isSourceLinkApplicable/isSourceLinkRelevant matching as Trust Score's
-    // S_lnk) averaged with Scientific Accuracy - now identical in both
-    // scoping (isScientificAccuracyEligible) AND match rule
-    // (isScientificallyCorrect) to Agri Advisory/A_sci. Used to keep its own
-    // "correct"-only match left over from when this sub-metric was scoped to
-    // GDB rows only - that meant a "Yes" answer counted as correct in Agri
-    // Advisory but not here, for no principled reason once both share the
-    // same eligible-row scope. All three now reuse the exact same functions,
-    // so they can't drift apart again.
+    // 3. Knowledge & GDB - Correct Source Links (same isSourceLinkApplicable/
+    // isSourceLinkRelevant matching as Trust Score's S_lnk) averaged with
+    // Scientific Accuracy, using the same scoping and match rule as Agri
+    // Advisory/A_sci so the three can't drift apart.
     const knowledgeGdb = buildAceModule('knowledge_gdb', 'Knowledge & GDB', [
         {
             key: 'correct_source_links',
@@ -347,13 +302,10 @@ export function calculateAceModulePerformance(rows: TestersDashboardRecord[]): A
         },
     ]);
 
-    // 4. Dynamic Advisory - Weather/Mandi/Scheme accuracy, each scoped to
-    // its own Question Category bucket via dynamicSubBucketFor (same
-    // scoping as Trust Score's A_dom, which now shares this exact rule too
-    // - see calculateTrustScore in kpis.ts). A sub-metric with zero
-    // applicable rows is SKIPPED from the average here rather than
-    // defaulting to 100 - Weakest Module must never let an empty domain
-    // masquerade as a perfect score.
+    // 4. Dynamic Advisory - Weather/Mandi/Scheme accuracy, each scoped to its
+    // own Question Category bucket via dynamicSubBucketFor (same scoping as
+    // Trust Score's A_dom in kpis.ts). A sub-metric with zero applicable rows
+    // is skipped from the average rather than defaulting to 100.
     const domainApplicableRows = (bucket: DynamicSubBucket, field: string) => {
         const bucketRows = rows.filter((r) => dynamicSubBucketFor(r['Question Category'], r['Type of Question']) === bucket);
         return bucketRows.filter((r) => !isNAlike(r[field]));
@@ -380,10 +332,9 @@ export function calculateAceModulePerformance(rows: TestersDashboardRecord[]): A
     ]);
 
     // 5. Multilingual & Voice - Translation Quality (mirrors
-    // translationQualityPct's own ['correct','good'] definition in
-    // normalize.ts) averaged with Voice Input/Output Quality (Clear-only,
-    // stricter than calculateVoiceSuccess's 0-10 scale) and Voice
-    // Input/Output Working.
+    // translationQualityPct's ['correct','good'] definition) averaged with
+    // Voice Input/Output Quality (Clear-only, stricter than
+    // calculateVoiceSuccess's 0-10 scale) and Voice Input/Output Working.
     const multilingualVoice = buildAceModule('multilingual_voice', 'Multilingual & Voice', [
         {
             key: 'translation_quality',
@@ -452,45 +403,58 @@ export interface DiagnosticsResult {
     stageStats: TatStageStat[];
     bottleneckName: string;
     bottleneckTime: number;
-    // All 6 ACE modules, in the fixed ACE_MODULE_KEYS order (Farmer
-    // Interaction, Agri Advisory, Knowledge & GDB, Dynamic Advisory,
-    // Multilingual & Voice, Communication & Notifications) - NOT sorted by
-    // score, and independent of weakestModule below, which still picks the
-    // lowest-scoring eligible module regardless of display order.
+    // Fixed ACE_MODULE_KEYS order, not sorted by score - independent of
+    // weakestModule below, which still picks the lowest-scoring eligible
+    // module regardless of display order.
     modulePerformance: AceModuleEntry[];
-    // Modules 8-10 - unscored, listed after modulePerformance for the
-    // Weakest Modules card to render as "Coming soon". Static (doesn't
-    // depend on rows) and always ACE_COMING_SOON_MODULES verbatim - never
-    // considered by the weakestModule reduction below, which only ever
-    // looks at modulePerformance.
+    // Modules 8-10 - unscored, always ACE_COMING_SOON_MODULES verbatim,
+    // never considered by the weakestModule reduction below.
     comingSoonModules: AceComingSoonModule[];
     weakestModule: string;
     weakestModuleRowCount: number;
     weakestModuleScore: number | null;
-    // The weakest eligible module's weakestMetricLabels - kept for callers
-    // that want the specific sub-metric breakdown, though the card itself
-    // shows a fixed, methodology-only line instead.
     weakestModuleReason: string[];
     // Total critical/high defects by severity, independent of whether a
-    // ticket URL was logged - a critical defect with no ticket URL logged
-    // yet still counts here (not silently treated as "no active defects").
+    // ticket URL was logged. Sheet-based (normalizeDefectSeverity over
+    // `rows`), same source as the Executive Summary's Critical Defects tile -
+    // unaffected by the Zoho-sourced openTickets/allTickets below.
     criticalDefectCount: number;
-    // Critical/High severity only - feeds the "Critical Defect Tickets"
-    // card view's Open/Closed/On Hold/Escalated tabs. Scope intentionally
-    // unchanged by the "All Tickets" view below.
+    // Critical/High severity only (mapZohoPriorityToSeverity) - feeds the
+    // "Critical Defect Tickets" card view's tabs. Built from the Zoho ticket
+    // cache, NOT from `rows` - ignores every dashboard filter, since most
+    // Zoho tickets have no sheet row at all.
     openTickets: OpenTicket[];
-    // Every ticket linked anywhere in the (already filtered) rows,
-    // regardless of severity or status - feeds the card's "All Tickets"
-    // view alone, so Medium/Low severity tickets (excluded from openTickets
-    // above) are still visible somewhere on the card. Superset of
-    // openTickets.
+    // Every Bugs Tracker ticket in the Zoho cache, regardless of severity or
+    // status - feeds the card's "All Tickets" view. Superset of openTickets.
     allTickets: OpenTicket[];
 }
 
-// Biggest Bottleneck, Overall Module Performance / Weakest Module (the 6 ACE
-// modules), and the Open Critical Defects ticket list, all computed over the
-// given (already filtered) rows.
-export function calculateDiagnostics(rows: TestersDashboardRecord[]): DiagnosticsResult {
+// Builds the ticket card's two lists directly from the already-synced Zoho
+// ticket cache (ZohoTicketStatusService.getCachedStatuses(), populated by
+// syncAllBugsTrackerTickets - already filtered to the Bugs Tracker layout;
+// Annam.ai/Anveshan tickets never enter this cache). Deliberately takes NO
+// `rows`/filters parameter - most Zoho tickets have no sheet row for the
+// dashboard's filters to apply to.
+function buildZohoTicketLists(zohoTickets: Record<string, ZohoTicketStatus>): { openTickets: OpenTicket[]; allTickets: OpenTicket[] } {
+    const allTickets: OpenTicket[] = Object.values(zohoTickets).map((t) => ({
+        id: t.ticketId,
+        url: t.url,
+        severity: t.severity,
+    }));
+    // Severity comes from mapZohoPriorityToSeverity, not the sheet's Defect
+    // Severity column.
+    const openTickets = allTickets.filter((t) => t.severity === 'Critical' || t.severity === 'High');
+    return { openTickets, allTickets };
+}
+
+// Biggest Bottleneck and the 6 ACE modules are computed over the given
+// (already filtered) rows; the ticket card's openTickets/allTickets are
+// computed from `zohoTickets` instead (see buildZohoTicketLists above) -
+// defaults to `{}` so callers that don't pass it get empty ticket lists.
+export function calculateDiagnostics(
+    rows: TestersDashboardRecord[],
+    zohoTickets: Record<string, ZohoTicketStatus> = {},
+): DiagnosticsResult {
     const stageStats: TatStageStat[] = TAT_STAGES.map((stage) => {
         let sum = 0;
         let count = 0;
@@ -513,8 +477,6 @@ export function calculateDiagnostics(rows: TestersDashboardRecord[]): Diagnostic
         }
     });
 
-    // The 6 ACE modules - see calculateAceModulePerformance's comment for
-    // what each one scores and why modules 7-10 aren't built yet.
     const modulePerformance: AceModuleEntry[] = calculateAceModulePerformance(rows);
 
     const weakestEntry = modulePerformance.reduce<AceModuleEntry | null>((weakest, m) => {
@@ -528,30 +490,7 @@ export function calculateDiagnostics(rows: TestersDashboardRecord[]): Diagnostic
     const weakestModuleReason = weakestEntry ? weakestEntry.weakestMetricLabels : [];
 
     const criticalRows = rows.filter((r) => ['Critical', 'High'].includes(normalizeDefectSeverity(r['Defect Severity'])));
-    // Shared by openTickets (Critical/High only) and allTickets (every
-    // severity) below - same dedup-by-URL rule either way: the source
-    // sheet's header cell has a literal line break inside it (likely from
-    // Alt+Enter in Google Sheets), which Node's csv-parser preserves as an
-    // actual \n character in the column name.
-    function buildTicketList(candidateRows: TestersDashboardRecord[]): OpenTicket[] {
-        const seenUrls = new Set<string>();
-        const tickets: OpenTicket[] = [];
-        candidateRows.forEach((r) => {
-            const url = (r['Defect ID / Bug Ref\nZoho Desk Ticketing'] || '').trim();
-            if (url && url.toLowerCase().startsWith('http') && !seenUrls.has(url)) {
-                seenUrls.add(url);
-                tickets.push({
-                    id: url.split('/').pop() || url,
-                    url,
-                    severity: normalizeDefectSeverity(r['Defect Severity']),
-                });
-            }
-        });
-        return tickets;
-    }
-    const openTickets = buildTicketList(criticalRows);
-    // Every row (not just Critical/High) - the "All Tickets" view's ticket list.
-    const allTickets = buildTicketList(rows);
+    const { openTickets, allTickets } = buildZohoTicketLists(zohoTickets);
 
     return {
         stageStats,

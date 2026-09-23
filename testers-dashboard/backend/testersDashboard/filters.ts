@@ -49,11 +49,9 @@ export interface TestersDashboardFilters {
     // isn't engaged. Independent of the legacy `type` field (kept for API
     // back-compat) rather than replacing it.
     //
-    // "Static Dynamic" is deliberately left out of both branches - confirmed
-    // removed for good, matches moduleGroupFor in diagnostics.ts and the
-    // Type of Question dropdown whitelist below. "UX Feedback" remains
-    // genuinely unresolved (TODO) - still pending clarification on where,
-    // if anywhere, it should fit.
+    // "Static Dynamic" is deliberately left out of both branches, matching
+    // moduleGroupFor in diagnostics.ts and the Type of Question dropdown
+    // whitelist below.
     typeBranch: TypeBranch;
     // Multi-select OR filter on Static's sub-types - GDB/Unique/Outreach.
     // Empty array = no narrowing; when typeBranch === 'Static' with an
@@ -129,13 +127,11 @@ export function applyNonDateFilters(
                 !matchesAny(r['Answer Saved in DB?'], ['not saved']) &&
                 !matchesAny(r['Q-ID Consistent Across Systems?'], ['wrongly identified as duplicate']) &&
                 normalizeDefectSeverity(r['Defect Severity']) !== 'Critical' &&
-                // A row with no identifiable Type of Question (blank, orphan
-                // Dynamic, "Quality Checking", "Static Dynamic", or a leaked
-                // tester name) can't be attributed to any real module, so it's
-                // treated as a failure too. Reuses the exact same classifiers
-                // the Dynamic/Static branch filters below use (dynamicSubBucketFor,
-                // STATIC_SUB_TYPES) rather than re-deriving the taxonomy, so this
-                // can't drift from how Dynamic/Static are defined elsewhere.
+                // A row with no identifiable Type of Question can't be
+                // attributed to any real module, so it's treated as a failure
+                // too. Reuses the exact same classifiers the Dynamic/Static
+                // branch filters below use, so this can't drift from how
+                // Dynamic/Static are defined elsewhere.
                 (dynamicSubBucketFor(r['Question Category'], r['Type of Question']) !== null ||
                     STATIC_SUB_TYPES.has(normalizeTypeOfQuestion(r['Type of Question']))),
         );
@@ -168,13 +164,10 @@ export function applyNonDateFilters(
         out = out.filter((r) => allowed.has(normalizeTypeOfQuestion(r['Type of Question'])));
     }
 
-    // Whole-branch selection (no sub-type chosen) - typeBranch with a
-    // non-empty dynamicSubTypes/staticSubTypes is already handled by the two
-    // OR blocks above. Dynamic matches dynamicSubBucketFor returning
-    // non-null - the SAME classifier the Dynamic sub-type OR block above
-    // uses, deliberately, so the whole-branch count is always exactly the
-    // sum of its 3 sub-types, the same guarantee Static already has (one
-    // classifier drives both levels for both branches).
+    // Whole-branch selection (no sub-type chosen) - the non-empty-array cases
+    // are already handled by the two OR blocks above. Uses the SAME
+    // classifier the sub-type OR blocks use for each branch, so the
+    // whole-branch count is always exactly the sum of its sub-types.
     if (filters.typeBranch === 'Dynamic' && filters.dynamicSubTypes.length === 0) {
         out = out.filter((r) => dynamicSubBucketFor(r['Question Category'], r['Type of Question']) !== null);
     } else if (filters.typeBranch === 'Static' && filters.staticSubTypes.length === 0) {
@@ -205,13 +198,10 @@ export function applyDateRangeFilter(
 
     const todayISO = getTodayIST(now);
     // Calendar-date windows (IST), consistent with getTodayIST and Custom
-    // Range - NOT an epoch-timestamp distance. The previous
-    // Math.abs(now - rowDate)/86400000 formula compared a real instant
-    // against a row's date parsed as UTC midnight, so its boundary silently
-    // shifted with the server's time-of-day (wrongly including an 8th/31st
-    // day for part of the day) and, via Math.abs, matched future-dated rows
-    // too. addDaysISO's UTC-internal math keeps this timezone-agnostic since
-    // we only ever compare calendar-date strings here, never a time.
+    // Range - not an epoch-timestamp distance, which would shift its
+    // boundary with the server's time-of-day and match future-dated rows via
+    // Math.abs. addDaysISO's UTC-internal math keeps this timezone-agnostic
+    // since we only ever compare calendar-date strings, never a time.
     const last7StartISO = addDaysISO(todayISO, -6);
     const last30StartISO = addDaysISO(todayISO, -29);
     return rows.filter((r) => {
@@ -341,18 +331,13 @@ export function buildFilterOptions(allRecords: TestersDashboardRecord[]): Record
             .filter((v) => v !== '' && v !== 'NIL' && (field.keepNA || v !== 'NA'))
             .sort((a, b) => a.localeCompare(b));
 
-        // Type of Question: exactly these 4 confirmed real top-level values,
-        // in this fixed display order (not alphabetical). "Static Dynamic"
-        // is confirmed removed for good (matches moduleGroupFor). Weather/
-        // Mandi/Scheme stay excluded from this top-level list (they're
-        // Dynamic subtypes, only visible via Weakest Modules' Dynamic
-        // sub-breakdown - see dynamicSubBucketFor in diagnostics.ts). All 4
-        // are always shown regardless of how many currently have rows.
-        // Hardcoding the list (rather than filtering `unique` down to a
-        // whitelist) means any leaked garbage value is excluded by
-        // construction - the "Ithagani Shireesha"/"Lavanya Mathialagan"
-        // column-shift leaks are additionally normalized to '' at the source
-        // (normalizeTypeOfQuestion's KNOWN_LEAKED_TESTER_NAMES).
+        // Type of Question: hardcoded to exactly these 4 real top-level
+        // values, in this fixed display order (not alphabetical), always
+        // shown regardless of how many currently have rows - Weather/Mandi/
+        // Scheme are Dynamic subtypes, not shown at this top level (see
+        // dynamicSubBucketFor in diagnostics.ts). Hardcoding rather than
+        // filtering `unique` means any leaked garbage value is excluded by
+        // construction.
         if (field.key === 'type') {
             unique = ['GDB', 'Unique', 'Outreach', 'Dynamic'];
         }
@@ -364,10 +349,9 @@ export function buildFilterOptions(allRecords: TestersDashboardRecord[]): Record
             unique = unique.filter((v) => v !== 'General');
         }
 
-        // Same whitelist principle as Type of Question above: Channel
-        // Tested has exactly 3 confirmed real values - a stray leaked value
-        // ("English") would otherwise pass through normalizeChannel's
-        // title-case fallback unchanged and show up as a bogus option.
+        // Same whitelist principle as Type of Question above: a stray leaked
+        // value would otherwise pass through normalizeChannel's title-case
+        // fallback unchanged and show up as a bogus option.
         if (field.key === 'channel') {
             const KNOWN_CHANNEL_VALUES = new Set(['Web App', 'WhatsApp', 'Both']);
             unique = unique.filter((v) => KNOWN_CHANNEL_VALUES.has(v));

@@ -4,6 +4,7 @@ import path from 'path';
 import { Readable } from 'stream';
 import csv from 'csv-parser';
 import type { TestersDashboardRecord } from '../interfaces/ITestersDashboardService.js';
+import type { ZohoTicketStatus } from '../interfaces/IZohoTicketStatusService.js';
 import { normalizeDefectSeverity, isNAlike, matchesAny, isYes } from './normalize.js';
 import {
     TAT_STAGES,
@@ -19,12 +20,9 @@ import {
 
 // Same loader as filters.test.ts/kpis.test.ts - real live CSV, parsed the
 // same way TestersDashboardService.parseCSV does. Pulled FRESH at test run
-// time (not a cached snapshot) - this session has repeatedly confirmed the
-// live sheet keeps changing between sessions (the 302-vs-316 defect-count
-// drift, the *_DYNAMIC row-count drift, the Joydeep-total drift), so every
-// number asserted below was independently computed against this exact same
-// file immediately before writing these assertions, not carried over from
-// an earlier phase's snapshot.
+// time (not a cached snapshot) - the live sheet keeps changing, so numbers
+// asserted below should be re-derived against a fresh pull if this starts
+// failing.
 function loadRealRecords(): Promise<TestersDashboardRecord[]> {
     // Same TESTERS_DASHBOARD_CSV_PATH override the real service uses - the
     // CSV lives at backend/data/testers-dashboard/updated.csv and did not
@@ -72,11 +70,10 @@ describe('moduleGroupFor', () => {
         expect(moduleGroupFor('Dynmic')).toBe('Dynamic');
     });
 
-    // The fix landed earlier this session: an exact `=== "Dynamic"` check
-    // was silently excluding ~550 real Test Log 2.0 rows from Weakest
-    // Module. This must still bucket the Weather/Mandi/Scheme compound
-    // variants as Dynamic (their subtypes are Dynamic's own sub-breakdown,
-    // see dynamicSubBucketFor below).
+    // An exact `=== "Dynamic"` check would silently exclude real Test Log
+    // 2.0 rows from Weakest Module. This must still bucket the
+    // Weather/Mandi/Scheme compound variants as Dynamic (their subtypes are
+    // Dynamic's own sub-breakdown, see dynamicSubBucketFor below).
     it('buckets Test Log 2.0 compound Dynamic variants as Dynamic (the *_DYNAMIC fix)', () => {
         expect(moduleGroupFor('WEATHER DYNAMIC')).toBe('Dynamic');
         expect(moduleGroupFor('MANDI DYNAMIC')).toBe('Dynamic');
@@ -392,71 +389,77 @@ describe('calculateAceModulePerformance / calculateDiagnostics against the real 
         expect(result.criticalDefectCount).toBeGreaterThan(criticalOnly);
     });
 
-    it('openTickets deduplicates by URL and only includes rows with a valid http link', () => {
-        const result = calculateDiagnostics(records);
-        expect(result.openTickets.length).toBe(43);
-        const urls = result.openTickets.map((t) => t.url);
-        expect(new Set(urls).size).toBe(urls.length); // no duplicate URLs
-        for (const ticket of result.openTickets) {
-            expect(ticket.url.toLowerCase().startsWith('http')).toBe(true);
-            expect(['Critical', 'High']).toContain(ticket.severity);
-        }
-    });
-
-    // allTickets (feeds the "All Tickets" card view): same dedup-by-URL/
-    // valid-http-link rule as openTickets, but scoped to ALL rows, not just
-    // Critical/High - so Medium/Low (and blank/NA) severity tickets,
-    // invisible in the "Critical Defect Tickets" view, show up here.
-    // openTickets must stay an exact subset (same URLs, same severities) -
-    // the Critical/High view's own scope is unchanged by this addition.
-    it('allTickets includes every severity (not just Critical/High), with openTickets as an exact Critical/High subset', () => {
-        const result = calculateDiagnostics(records);
-        expect(result.allTickets.length).toBe(251);
-        const urls = result.allTickets.map((t) => t.url);
-        expect(new Set(urls).size).toBe(urls.length); // no duplicate URLs
-        for (const ticket of result.allTickets) {
-            expect(ticket.url.toLowerCase().startsWith('http')).toBe(true);
-        }
-
-        const bySeverity: Record<string, number> = {};
-        result.allTickets.forEach((t) => {
-            bySeverity[t.severity] = (bySeverity[t.severity] || 0) + 1;
-        });
-        // Independently re-verified against a fresh CSV pull immediately
-        // before writing this test - re-derive with a one-off script
-        // against backend/data/testers-dashboard/updated.csv to spot-check,
-        // since (like every other real-data count in this file) this WILL
-        // drift as the live sheet keeps changing. '' is a blank/unparseable
-        // Defect Severity value (normalizeDefectSeverity's own scoping) -
-        // still a real, linked ticket, so it still belongs in the All
-        // Tickets view.
-        expect(bySeverity).toEqual({ Critical: 4, High: 39, Medium: 18, Low: 19, NA: 66, '': 105 });
-        // The whole point of the All Tickets view: Medium/Low severity
-        // tickets, invisible in the Critical Defect Tickets view.
-        expect(bySeverity['Medium']! + bySeverity['Low']!).toBe(37);
-
-        // openTickets (Critical+High) is an exact subset of allTickets -
-        // same URLs, same length as the Critical+High share of allTickets.
-        const allUrls = new Set(urls);
-        expect(result.openTickets.every((t) => allUrls.has(t.url))).toBe(true);
-        expect(result.openTickets.length).toBe(bySeverity['Critical']! + bySeverity['High']!);
-    });
-
-    // Synthetic - proves allTickets' severity-agnostic scope directly,
-    // rather than relying on the real dataset's specific mix.
-    it('allTickets includes Medium/Low/blank-severity tickets that openTickets excludes (synthetic)', () => {
+    // openTickets/allTickets now come from a SEPARATE `zohoTickets` param
+    // (the already-synced Zoho ticket cache), not from `rows`/the sheet's
+    // Defect ID / Bug Ref column at all - passing real sheet rows with
+    // ticket links but an empty (default) zohoTickets map must produce
+    // empty ticket lists, proving `rows` no longer feeds these two fields
+    // in any way (per the manager's decision that the ticket card ignores
+    // the dashboard filters entirely, since most Zoho tickets have no sheet
+    // row).
+    it('openTickets/allTickets ignore `rows` entirely - no zohoTickets param means no tickets, even with sheet-linked rows', () => {
         const ticketField = 'Defect ID / Bug Ref\nZoho Desk Ticketing';
         const result = calculateDiagnostics([
             { 'Test ID': 'T1', 'Defect Severity': 'Critical', [ticketField]: 'https://desk.zoho.in/tickets/1' },
-            { 'Test ID': 'T2', 'Defect Severity': 'Medium', [ticketField]: 'https://desk.zoho.in/tickets/2' },
-            { 'Test ID': 'T3', 'Defect Severity': 'Low', [ticketField]: 'https://desk.zoho.in/tickets/3' },
-            { 'Test ID': 'T4', 'Defect Severity': '', [ticketField]: 'https://desk.zoho.in/tickets/4' },
-            { 'Test ID': 'T5', 'Defect Severity': 'Medium', [ticketField]: '' }, // no link - excluded from both
         ]);
-        expect(result.openTickets.length).toBe(1); // Critical only
-        expect(result.openTickets[0]!.severity).toBe('Critical');
-        expect(result.allTickets.length).toBe(4); // Critical + Medium + Low + blank, the no-link row excluded
-        expect(result.allTickets.map((t) => t.severity).sort()).toEqual(['', 'Critical', 'Low', 'Medium']);
+        expect(result.openTickets).toEqual([]);
+        expect(result.allTickets).toEqual([]);
+    });
+
+    function zohoStatus(overrides: Partial<ZohoTicketStatus> & { ticketId: string; severity: string }): ZohoTicketStatus {
+        return {
+            status: 'Open',
+            team: null,
+            ticketNumber: null,
+            priority: null,
+            url: `https://desk.zoho.in/agent/annamai/annam-ai/tickets/details/${overrides.ticketId}`,
+            lastCheckedAt: '2026-01-01T00:00:00.000Z',
+            ...overrides,
+        };
+    }
+
+    it('allTickets mirrors every ticket in the zohoTickets cache, independent of `rows`', () => {
+        const zohoTickets: Record<string, ZohoTicketStatus> = {
+            '1': zohoStatus({ ticketId: '1', severity: 'Critical' }),
+            '2': zohoStatus({ ticketId: '2', severity: 'High' }),
+            '3': zohoStatus({ ticketId: '3', severity: 'Medium' }),
+            '4': zohoStatus({ ticketId: '4', severity: 'Low' }),
+            '5': zohoStatus({ ticketId: '5', severity: 'No priority' }),
+        };
+        // Empty rows - proves allTickets doesn't need any sheet data at all.
+        const result = calculateDiagnostics([], zohoTickets);
+        expect(result.allTickets.length).toBe(5);
+        expect(result.allTickets.map((t) => t.id).sort()).toEqual(['1', '2', '3', '4', '5']);
+        expect(result.allTickets.map((t) => t.severity).sort()).toEqual(['Critical', 'High', 'Low', 'Medium', 'No priority']);
+        // Every ticket carries the URL straight from the cache, unchanged.
+        result.allTickets.forEach((t) => {
+            expect(t.url).toBe(zohoTickets[t.id]!.url);
+        });
+    });
+
+    // Critical Defect Tickets view = Critical + High only; All Tickets view
+    // = everything, "No priority" included - the exact split the manager
+    // asked for, now driven by mapZohoPriorityToSeverity's output on the
+    // `severity` field rather than the sheet's Defect Severity.
+    it('openTickets is exactly the Critical+High subset of allTickets, including when "No priority" tickets are present', () => {
+        const zohoTickets: Record<string, ZohoTicketStatus> = {
+            '1': zohoStatus({ ticketId: '1', severity: 'Critical' }),
+            '2': zohoStatus({ ticketId: '2', severity: 'High' }),
+            '3': zohoStatus({ ticketId: '3', severity: 'Medium' }),
+            '4': zohoStatus({ ticketId: '4', severity: 'Low' }),
+            '5': zohoStatus({ ticketId: '5', severity: 'No priority' }),
+        };
+        const result = calculateDiagnostics([], zohoTickets);
+        expect(result.openTickets.map((t) => t.id).sort()).toEqual(['1', '2']);
+        expect(result.openTickets.every((t) => t.severity === 'Critical' || t.severity === 'High')).toBe(true);
+        expect(result.allTickets.length).toBe(5);
+        expect(result.allTickets.some((t) => t.severity === 'No priority')).toBe(true);
+    });
+
+    it('openTickets/allTickets are both empty when the zohoTickets cache is empty (e.g. before the first sync)', () => {
+        const result = calculateDiagnostics(records, {});
+        expect(result.openTickets).toEqual([]);
+        expect(result.allTickets).toEqual([]);
     });
 
     it('Biggest Bottleneck stage averages match a fresh independent computation (2 stages spot-checked)', () => {
@@ -728,15 +731,14 @@ describe('calculateAceModulePerformance - ACE module formulas (synthetic)', () =
 });
 
 // Sheet 3.0's real Test Log tab was fetched and inspected before merging it
-// in (Step 0 of the Sheet 3.0 sync work) - every distinct Type of
-// Question/Question Category value it actually contains was tabulated
-// against the live sheet and confirmed by name here, NOT assumed. This
-// isn't testing sheetMerge.ts's merge mechanics (see sheetMerge.test.ts for
-// that, with synthetic fixtures) - it's confirming that once Sheet 3.0's
-// real rows are physically present in updated.csv (post-sync), the
-// EXISTING generic moduleGroupFor/dynamicSubBucketFor logic - unchanged by
-// the Sheet 3.0 work - resolves all of them correctly with zero new
-// per-value mapping code, exactly as the Step 0 investigation predicted.
+// in - every distinct Type of Question/Question Category value it actually
+// contains was tabulated against the live sheet and confirmed by name here,
+// NOT assumed. This isn't testing sheetMerge.ts's merge mechanics (see
+// sheetMerge.test.ts for that, with synthetic fixtures) - it's confirming
+// that once Sheet 3.0's real rows are physically present in updated.csv
+// (post-sync), the EXISTING generic moduleGroupFor/dynamicSubBucketFor
+// logic - unchanged by the Sheet 3.0 work - resolves all of them correctly
+// with zero new per-value mapping code.
 describe('Sheet 3.0 real values resolve via the existing moduleGroupFor/dynamicSubBucketFor logic (no new mapping needed)', () => {
     // Confirmed via a direct Sheets API fetch of Sheet 3.0's "Test Log" tab
     // immediately before this test was written - the complete, exact set of

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { testerLogService } from '../services/testerLogService';
-import type { ITesterLogAdminFilters } from '../types';
+import type { ITesterLogAdminFilters, ITesterQuestionTypeSummaryFilters } from '../types';
 
 export const useTesterLogHistory = (
     page = 1,
@@ -40,6 +40,14 @@ export const useTesterLogSummary = (filters: ITesterLogAdminFilters = {}) => {
     return useQuery({
         queryKey: ['tester-log-summary', filters],
         queryFn: () => testerLogService.getSummary(filters),
+        staleTime: 1000 * 60 * 2,
+    });
+};
+
+export const useTesterQuestionTypeSummary = (filters: ITesterQuestionTypeSummaryFilters = {}) => {
+    return useQuery({
+        queryKey: ['tester-log-question-type-summary', filters],
+        queryFn: () => testerLogService.getQuestionTypeSummary(filters),
         staleTime: 1000 * 60 * 2,
     });
 };

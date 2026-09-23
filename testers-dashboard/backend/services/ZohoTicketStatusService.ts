@@ -12,16 +12,78 @@ const ZOHO_CLIENT_SECRET = process.env.ZOHO_CLIENT_SECRET || '';
 const ZOHO_REFRESH_TOKEN = process.env.ZOHO_REFRESH_TOKEN || '';
 const ZOHO_ORG_ID = process.env.ZOHO_ORG_ID || '';
 
+// Zoho Desk's documented max page size for the ticket list endpoint.
+const ZOHO_TICKET_LIST_PAGE_SIZE = 100;
+
 // Two SEPARATE domains, both taken directly from what Zoho actually
-// returned during the OAuth exchange - not derived/guessed from each
-// other. The accounts domain (for token refresh) and the API domain (for
-// actual ticket calls) don't follow a predictable naming pattern relative
-// to each other (confirmed: real api_domain was "www.zohoapis.in", not
-// "desk.zoho.in" as originally assumed - a string-replace derivation
-// between them silently breaks). Both values should be entered WITHOUT
-// "https://" - it's prepended below.
+// returned during the OAuth exchange - not derived/guessed from each other.
+// The accounts domain (for token refresh) and the API domain (for actual
+// ticket calls) don't follow a predictable naming pattern relative to each
+// other, so a string-replace derivation between them silently breaks. Both
+// values should be entered WITHOUT "https://" - it's prepended below.
 const ZOHO_ACCOUNTS_DOMAIN = process.env.ZOHO_ACCOUNTS_DOMAIN || 'accounts.zoho.in';
 const ZOHO_API_DOMAIN = process.env.ZOHO_API_DOMAIN || 'desk.zoho.in';
+
+// The only Zoho Desk ticket layout the ticket card shows - Annam.ai and
+// Anveshan are separate products' layouts in the same Zoho org and must be
+// excluded at sync time, not just filtered client-side.
+//
+// Filtered by layoutId, NOT a layout name: Zoho Desk's ticket list endpoint
+// only ever returns the raw `layoutId` on each ticket, and both
+// `include=layoutDetails`/`include=layout` and the dedicated /api/v1/layouts
+// endpoint that would resolve id -> name are blocked for this token (422 /
+// 403 SCOPE_MISMATCH). Confirm this ID against Zoho Desk Admin >
+// Customization > Layouts (or grant the /layouts OAuth scope) if the org's
+// layout IDs ever change.
+export const ZOHO_BUGS_TRACKER_LAYOUT_ID = process.env.ZOHO_BUGS_TRACKER_LAYOUT_ID || '202216000001458257';
+
+function isBugsTrackerLayout(layoutId?: string | null): boolean {
+    return (layoutId || '').trim() === ZOHO_BUGS_TRACKER_LAYOUT_ID;
+}
+
+// Teams whose tickets belong to a different service entirely, not the
+// Testers Dashboard, and must never surface on the ticket card in any view
+// or count. Excluded here at sync time (not client-side) so a filtered-out
+// ticket never enters the cache at all. "Agent Calling Center Team" owns the
+// separate ACC service's tickets, which happen to live in the same Zoho org
+// and Bugs Tracker layout but are unrelated to testing - add more names here
+// if other unrelated teams' tickets turn up the same way.
+const EXCLUDED_TEAM_NAMES = new Set(['Agent Calling Center Team']);
+
+function isExcludedTeam(teamName?: string | null): boolean {
+    return EXCLUDED_TEAM_NAMES.has((teamName || '').trim());
+}
+
+// Single shared mapping from Zoho's `priority` field to the severity label
+// the ticket card displays - used for every ticket, so this is the one and
+// only severity rule for the ticket card. Both naming styles Zoho tickets
+// use ("P1 - High" from tickets created via this app's own createTicket()
+// below, plain "High" from tickets created directly in Zoho's UI) map to the
+// same severity. Anything else maps to "No priority" rather than being
+// dropped; the "All Tickets" view deliberately includes these.
+//
+// NOT the same thing as normalizeDefectSeverity (normalize.ts), which reads
+// the QA sheet's own "Defect Severity" column and feeds the Executive
+// Summary's Critical Defects tile - a different metric over a different
+// data source, unaffected by this one.
+export function mapZohoPriorityToSeverity(priority?: string | null): string {
+    const normalized = (priority || '').trim().toLowerCase();
+    switch (normalized) {
+        case 'p0 - critical':
+            return 'Critical';
+        case 'p1 - high':
+        case 'high':
+            return 'High';
+        case 'p2 - medium':
+        case 'medium':
+            return 'Medium';
+        case 'p3 - low':
+        case 'low':
+            return 'Low';
+        default:
+            return 'No priority';
+    }
+}
 
 function formatDescriptionToHtml(text: string): string {
     if (!text) return '';
@@ -112,34 +174,42 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
         return this.accessToken;
     }
 
-    // Extracts the numeric Zoho ticket ID from a full ticket URL, e.g.
-    // ".../tickets/details/202216000001768123" -> "202216000001768123".
-    // Matches the same extraction logic already used on the frontend for
-    // the "Ticket #..." display label.
-    private extractTicketId(urlOrId: string): string {
-        const trimmed = urlOrId.trim();
-        const parts = trimmed.split('/');
-        return parts[parts.length - 1] || trimmed;
+    // Ticket's Zoho Desk web URL - Zoho's own `webUrl` when the response
+    // includes one, otherwise built from the ticket ID - list-endpoint pages
+    // don't reliably include webUrl the way a single ticket-create response
+    // does.
+    private buildTicketUrl(ticketId: string, webUrl?: string | null): string {
+        const portalBase = process.env.ZOHO_PORTAL_URL || 'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details';
+        return webUrl || `${portalBase}/${ticketId}`;
     }
 
-    async syncTicketStatuses(ticketIdsOrUrls: string[]): Promise<void> {
+    // Pages through Zoho Desk's ticket list endpoint (GET /api/v1/tickets),
+    // keeps only Bugs Tracker-layout tickets (see ZOHO_BUGS_TRACKER_LAYOUT_ID
+    // above), and replaces the cache wholesale with the result - this is the
+    // ticket card's ONLY source of tickets. Tickets are NOT sourced from the
+    // sheet's Defect ID / Bug Ref column, since many real tickets (including
+    // Critical ones) are never linked there; querying Zoho directly is the
+    // only way to see every ticket. include=team embeds each ticket's Team
+    // as {id, name} directly, since the dedicated /api/v1/teams resolver
+    // needs a broader OAuth scope than this token has - `include` accepts
+    // only a small fixed set of values for this endpoint; anything else
+    // (e.g. `layoutDetails`) is rejected outright with a 422.
+    async syncAllBugsTrackerTickets(): Promise<void> {
         const token = await this.getAccessToken();
         if (!token) return;
 
-        const uniqueIds = Array.from(new Set(ticketIdsOrUrls.map((t) => this.extractTicketId(t))));
+        const newCache: Record<string, ZohoTicketStatus> = {};
+        let from = 0;
+        let totalFetched = 0;
+        let bugsTrackerCount = 0;
 
-        // Sequential, not parallel - this list is small (confirmed ~11-12
-        // tickets currently have a linked URL at all), and sequential calls
-        // are gentler on Zoho's rate limits than firing them all at once.
-        for (const ticketId of uniqueIds) {
-            try {
-                // `?include=team` embeds the ticket's Team as {id, name}
-                // directly on the response - the dedicated /api/v1/teams
-                // resolver endpoint needs a broader OAuth scope than this
-                // token has (confirmed: 403 SCOPE_MISMATCH), but this embed
-                // works with the ticket-read scope already granted.
+        try {
+            // "Last page" is signalled by a page shorter than the requested
+            // limit - Zoho's ticket list endpoint doesn't return a reliable
+            // upfront total count.
+            while (true) {
                 const response = await fetch(
-                    `https://${ZOHO_API_DOMAIN}/api/v1/tickets/${ticketId}?include=team`,
+                    `https://${ZOHO_API_DOMAIN}/api/v1/tickets?include=team&from=${from}&limit=${ZOHO_TICKET_LIST_PAGE_SIZE}`,
                     {
                         headers: {
                             Authorization: `Zoho-oauthtoken ${token}`,
@@ -150,32 +220,56 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
 
                 if (!response.ok) {
                     const errorBody = await response.text();
-                    console.warn(
-                        `[ZohoTicketStatus] Failed to fetch ticket ${ticketId}: ${response.status} - ${errorBody}`,
-                    );
-                    continue;
+                    throw new Error(`Failed to fetch tickets at offset ${from}: ${response.status} - ${errorBody}`);
                 }
 
-                const data = (await response.json()) as {
-                    id: string;
-                    status: string;
-                    ticketNumber?: string;
-                    team?: { id: string; name: string } | null;
+                const page = (await response.json()) as {
+                    data?: {
+                        id: string;
+                        status: string;
+                        priority?: string | null;
+                        ticketNumber?: string;
+                        webUrl?: string;
+                        layoutId?: string | null;
+                        team?: { id: string; name: string } | null;
+                    }[];
                 };
-                this.cache[ticketId] = {
-                    ticketId,
-                    status: data.status,
-                    team: data.team?.name ?? null,
-                    ticketNumber: data.ticketNumber ?? null,
-                    lastCheckedAt: new Date().toISOString(),
-                };
-            } catch (err) {
-                console.error(`[ZohoTicketStatus] Error fetching ticket ${ticketId}:`, err);
-            }
-        }
+                const tickets = page.data ?? [];
+                totalFetched += tickets.length;
 
-        console.log(`[ZohoTicketStatus] Synced status for ${uniqueIds.length} ticket(s).`);
-        
+                tickets.forEach((t) => {
+                    if (!isBugsTrackerLayout(t.layoutId)) return;
+                    if (isExcludedTeam(t.team?.name)) return;
+                    bugsTrackerCount++;
+                    const ticketId = String(t.id);
+                    const priority = t.priority ?? null;
+                    newCache[ticketId] = {
+                        ticketId,
+                        status: t.status,
+                        team: t.team?.name ?? null,
+                        ticketNumber: t.ticketNumber ? String(t.ticketNumber) : null,
+                        priority,
+                        severity: mapZohoPriorityToSeverity(priority),
+                        url: this.buildTicketUrl(ticketId, t.webUrl),
+                        lastCheckedAt: new Date().toISOString(),
+                    };
+                });
+
+                if (tickets.length < ZOHO_TICKET_LIST_PAGE_SIZE) break;
+                from += ZOHO_TICKET_LIST_PAGE_SIZE;
+            }
+
+            // Atomic swap - only replace the cache once the entire paged
+            // fetch has succeeded, so a rate-limit blip partway through
+            // (caught below) can't wipe out a still-valid cache with a
+            // half-fetched one.
+            this.cache = newCache;
+            console.log(
+                `[ZohoTicketStatus] Synced ${bugsTrackerCount} Bugs Tracker ticket(s) (of ${totalFetched} total fetched across all layouts).`,
+            );
+        } catch (err) {
+            console.error('[ZohoTicketStatus] Error syncing Bugs Tracker tickets:', err);
+        }
     }
 
     getCachedStatuses(): Record<string, ZohoTicketStatus> {
@@ -232,7 +326,6 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
         const contactLastName = (params.testerName || 'QA Tester').trim();
         const contactEmail = (params.email || 'tester@annamai.org').trim();
 
-        // Map frontend priority to Zoho Desk layout values
         const rawPriority = (params.priority || 'Medium').trim();
         let zohoPriority = 'P2 - Medium';
         const pLower = rawPriority.toLowerCase();
@@ -299,6 +392,8 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
             const d = new Date(raw);
             if (!isNaN(d.getTime())) {
                 // If user selected a plain date like "YYYY-MM-DD", set time to end of day IST (23:59:59 IST = 18:29:59 UTC)
+                // A plain "YYYY-MM-DD" date sets time to end of day IST
+                // (23:59:59 IST = 18:29:59 UTC).
                 if (raw.length === 10) {
                     d.setUTCHours(18, 29, 59, 999);
                 }
@@ -314,9 +409,10 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
         if (typeof params.issueReoccurredBefore === 'boolean') {
             cf.cf_issue_reoccurred_before = params.issueReoccurredBefore;
         }
-        // NOTE: cf and teamId are intentionally patched AFTER attachment upload
-        // because setting cf_app_name or teamId immediately triggers Zoho Desk auto-assignment rules,
-        // which locks the ticket permissions and prevents attachment uploads from non-team members.
+        // cf and teamId are intentionally patched AFTER attachment upload:
+        // setting them immediately triggers Zoho Desk auto-assignment rules,
+        // which lock ticket permissions and block attachment uploads from
+        // non-team members. Do not move this patch earlier.
 
         try {
             const response = await fetch(`https://${ZOHO_API_DOMAIN}/api/v1/tickets`, {
@@ -333,7 +429,6 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
                 const errorText = await response.text();
                 console.error(`[ZohoTicketStatus] Ticket creation failed: ${response.status} - ${errorText}`);
 
-                // Detect true OAuth scope mismatch
                 const isScopeError =
                     errorText.toLowerCase().includes('scope') ||
                     errorText.toLowerCase().includes('oauth_scope_mismatch');
@@ -370,11 +465,9 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
 
             const ticketId = String(data.id);
             const ticketNumber = data.ticketNumber ? String(data.ticketNumber) : null;
-            const portalBase = process.env.ZOHO_PORTAL_URL || 'https://desk.zoho.in/agent/annamai/annam-ai/tickets/details';
-            const url = data.webUrl || `${portalBase}/${ticketId}`;
+            const url = this.buildTicketUrl(ticketId, data.webUrl);
             const status = data.status || 'Open';
 
-            // Upload screenshots / attachments to Zoho Cloud if provided
             let attachmentsUploaded = 0;
             if (params.attachments && Array.isArray(params.attachments) && params.attachments.length > 0) {
                 for (const att of params.attachments) {
@@ -406,9 +499,6 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
                 }
             }
 
-            // Assign owner team and custom fields (cf_app_name, cf_issue_reoccurred_before) after attachments are uploaded.
-            // (Setting teamId or cf_app_name initially triggers Zoho Desk auto-assignment rules, which can restrict
-            // creator attachment permissions in Zoho Desk profile rules before attachments are uploaded)
             let assignedTeamName = data.team?.name ?? null;
             const patchBody: Record<string, any> = {};
             if (params.teamId && params.teamId.trim()) {
@@ -417,8 +507,9 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
             if (Object.keys(cf).length > 0) {
                 patchBody.cf = cf;
             }
-            // Zoho Desk's internal SLA rules overwrite the initial dueDate on creation with the default SLA time (e.g. 4 or 8 hours).
-            // Patching it here ensures the user's chosen deadline is preserved.
+            // Zoho Desk's internal SLA rules overwrite the initial dueDate on
+            // creation with the default SLA time - patching it here ensures
+            // the user's chosen deadline is preserved.
             if (formattedDueDateIso) {
                 patchBody.dueDate = formattedDueDateIso;
             }
@@ -451,12 +542,18 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
                 }
             }
 
-            // Cache the newly created ticket status immediately
+            // Cache the newly created ticket status immediately - same
+            // priority->severity mapping syncAllBugsTrackerTickets uses, so
+            // a just-created ticket already matches the ticket card's
+            // severity rule before its next full sync even runs.
             this.cache[ticketId] = {
                 ticketId,
                 status,
                 team: assignedTeamName,
                 ticketNumber,
+                priority: zohoPriority,
+                severity: mapZohoPriorityToSeverity(zohoPriority),
+                url,
                 lastCheckedAt: new Date().toISOString(),
             };
 
