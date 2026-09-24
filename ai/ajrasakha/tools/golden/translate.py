@@ -1,6 +1,7 @@
 """
 Translation module using Claude Sonnet model.
 Translates input text to English for downstream processing.
+Uses MCP local aliases tool to resolve local/regional crop names before translation.
 """
 
 from __future__ import annotations
@@ -15,6 +16,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
 
+# Flag to enable/disable MCP local aliases resolution
+ENABLE_LOCAL_ALIASES = os.getenv("ENABLE_LOCAL_ALIASES", "true").lower() == "true"
+
 # Default to claude-sonnet-4-6 (same model used in agents/config.py)
 DEFAULT_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
@@ -28,6 +32,7 @@ Rules:
 4. Maintain the original meaning and intent of the text
 5. If the input is already in English, return it as-is
 6. Do not add explanations or notes - only provide the translation
+7. If you recognize local/regional crop names (e.g., vazhuthana, baigana), translate them to their canonical English names (e.g., Brinjal, Brinjal).
 """
 
 def get_translation_model(
@@ -59,11 +64,34 @@ def get_translation_model(
     )
 
 
+async def _resolve_local_names(text: str) -> tuple[str, list[tuple[str, str]]]:
+    """
+    Resolve local/regional names in text to canonical names using MCP.
+    
+    Returns:
+        Tuple of (resolved_text, list of (original, canonical) pairs found)
+    """
+    if not ENABLE_LOCAL_ALIASES:
+        return text, []
+    
+    try:
+        # Import here to avoid circular imports and allow graceful degradation
+        from mcp_client import resolve_local_names_in_text
+        return await resolve_local_names_in_text(text)
+    except ImportError:
+        logger.debug("mcp_client not available, skipping local name resolution")
+        return text, []
+    except Exception as exc:
+        logger.warning("_resolve_local_names: error - %s: %s", type(exc).__name__, exc)
+        return text, []
+
+
 async def translate_to_english(
     text: str,
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     source_language: Optional[str] = None,
+    resolve_local_names: bool = True,
 ) -> str:
     """
     Translate input text to English using Claude Sonnet.
@@ -73,6 +101,7 @@ async def translate_to_english(
         model: Optional Claude model override
         api_key: Optional API key override
         source_language: Optional hint about the source language (e.g., "Hindi", "Bengali")
+        resolve_local_names: Whether to resolve local/regional names via MCP (default: True)
     
     Returns:
         English translation of the input text
@@ -85,7 +114,19 @@ async def translate_to_english(
     if not text or not text.strip():
         return ""
     
-    text = text.strip()
+    original_text = text.strip()
+    text = original_text
+    
+    # Step 1: Resolve local/regional names to canonical names via MCP
+    resolved_pairs: list[tuple[str, str]] = []
+    if resolve_local_names:
+        text, resolved_pairs = await _resolve_local_names(text)
+        if resolved_pairs:
+            logger.info(
+                "translate_to_english: resolved %d local names: %s",
+                len(resolved_pairs),
+                resolved_pairs,
+            )
     
     llm = get_translation_model(model=model, api_key=api_key)
     
@@ -97,6 +138,13 @@ async def translate_to_english(
     else:
         human_msg = f"Translate the following text to English:\n\n{text}"
     
+    # Add context about resolved local names if any
+    if resolved_pairs:
+        context = "\n\nNote: The following local names were identified and should be translated to their canonical English equivalents:\n"
+        for original, canonical in resolved_pairs:
+            context += f"- {original} → {canonical}\n"
+        human_msg += context
+    
     messages = [
         SystemMessage(content=TRANSLATION_SYSTEM_PROMPT),
         HumanMessage(content=human_msg),
@@ -107,9 +155,10 @@ async def translate_to_english(
         translated = response.content.strip() if hasattr(response, 'content') else str(response).strip()
         
         logger.info(
-            "translate_to_english: original_len=%d translated_len=%d",
-            len(text),
+            "translate_to_english: original_len=%d translated_len=%d local_names_resolved=%d",
+            len(original_text),
             len(translated),
+            len(resolved_pairs),
         )
         
         return translated
@@ -117,7 +166,7 @@ async def translate_to_english(
     except (APITimeoutError, APIConnectionError, APIStatusError):
         logger.warning(
             "translate_to_english: API error - returning original text (len=%d)",
-            len(text),
+            len(original_text),
         )
         raise
 
@@ -127,6 +176,7 @@ def translate_to_english_sync(
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     source_language: Optional[str] = None,
+    resolve_local_names: bool = True,
 ) -> str:
     """
     Synchronous version of translate_to_english.
@@ -137,6 +187,7 @@ def translate_to_english_sync(
         model: Optional Claude model override
         api_key: Optional API key override
         source_language: Optional hint about the source language
+        resolve_local_names: Whether to resolve local/regional names via MCP (default: True)
     
     Returns:
         English translation of the input text
@@ -144,7 +195,41 @@ def translate_to_english_sync(
     if not text or not text.strip():
         return ""
     
-    text = text.strip()
+    original_text = text.strip()
+    text = original_text
+    
+    # Step 1: Resolve local/regional names to canonical names via MCP (sync version)
+    resolved_pairs: list[tuple[str, str]] = []
+    if resolve_local_names and ENABLE_LOCAL_ALIASES:
+        try:
+            from mcp_client import lookup_local_name_sync
+            
+            # Simple approach: split on whitespace - works for any language
+            words = text.split()
+            
+            for word in words:
+                if not word.strip():
+                    continue
+                    
+                canonical = lookup_local_name_sync(word)
+                if canonical != word:
+                    resolved_pairs.append((word, canonical))
+                    text = text.replace(word, canonical, 1)
+            
+            if resolved_pairs:
+                logger.info(
+                    "translate_to_english_sync: resolved %d local names: %s",
+                    len(resolved_pairs),
+                    resolved_pairs,
+                )
+        except ImportError:
+            logger.debug("mcp_client not available, skipping local name resolution")
+        except Exception as exc:
+            logger.warning(
+                "translate_to_english_sync: local name resolution error - %s: %s",
+                type(exc).__name__,
+                exc,
+            )
     
     effective_model = model or DEFAULT_MODEL
     effective_api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
@@ -166,6 +251,13 @@ def translate_to_english_sync(
     else:
         human_msg = f"Translate the following text to English:\n\n{text}"
     
+    # Add context about resolved local names if any
+    if resolved_pairs:
+        context = "\n\nNote: The following local names were identified and should be translated to their canonical English equivalents:\n"
+        for original, canonical in resolved_pairs:
+            context += f"- {original} → {canonical}\n"
+        human_msg += context
+    
     messages = [
         SystemMessage(content=TRANSLATION_SYSTEM_PROMPT),
         HumanMessage(content=human_msg),
@@ -176,9 +268,10 @@ def translate_to_english_sync(
         translated = response.content.strip() if hasattr(response, 'content') else str(response).strip()
         
         logger.info(
-            "translate_to_english_sync: original_len=%d translated_len=%d",
-            len(text),
+            "translate_to_english_sync: original_len=%d translated_len=%d local_names_resolved=%d",
+            len(original_text),
             len(translated),
+            len(resolved_pairs),
         )
         
         return translated
@@ -186,7 +279,7 @@ def translate_to_english_sync(
     except (APITimeoutError, APIConnectionError, APIStatusError) as exc:
         logger.warning(
             "translate_to_english_sync: API error - returning original text (len=%d): %s",
-            len(text),
+            len(original_text),
             exc,
         )
-        return text
+        return original_text
