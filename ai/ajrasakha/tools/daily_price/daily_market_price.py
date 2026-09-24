@@ -2141,7 +2141,11 @@ def mandi_price_tool(
 
     if not multi_mode and len(actions) == 1:
         key = actions[0]
-        return _execute_action_with_multi_crop(key)
+        try:
+            return _execute_action_with_multi_crop(key)
+        except Exception as exc:
+            logger.exception("mandi_price_tool action=%s failed", key)
+            return {"error": str(exc), "action": key}
 
     results: dict[str, dict] = {}
     for key in actions:

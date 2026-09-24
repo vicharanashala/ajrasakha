@@ -150,6 +150,6 @@ MCP_URLS = {
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
     # "daily_price": f"http://{REMOTE_IP}:8111/mcp",
-    "daily_price":f"http://127.0.0.1:8111/mcp",
+    "daily_price": f"http://127.0.0.1:8111/mcp",
 
 }
