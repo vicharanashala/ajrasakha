@@ -1655,5 +1655,32 @@ async processPaeValidation(
     return res;
   }
 
+  /**
+   * Fetches the background worker status of a question bulk upload job.
+   */
+  async getBulkJobStatus(jobId: string): Promise<IQuestionBulkJobStatus | null> {
+    const res = await apiFetch<IQuestionBulkJobStatus>(
+      `${this._baseUrl}/background/jobs/${jobId}`,
+      { method: "GET" }
+    );
+    return res;
+  }
+
 }
+
+export interface IQuestionBulkJobStatus {
+  id: string;
+  total: number;
+  processed: number;
+  created: number;
+  duplicates: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+  startedAt: string | Date;
+  finishedAt?: string | Date;
+  logs: string[];
+  errors?: any[];
+  successIds?: string[];
+}
+
   
