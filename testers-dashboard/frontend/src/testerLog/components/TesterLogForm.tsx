@@ -472,6 +472,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 <Field label="Tester Name">
                     <input type="text" className={inputClass + " bg-muted text-muted-foreground cursor-default"} value={testerName} readOnly />
                 </Field>
+                <TextInput label="Test ID (TL-005)" placeholder="e.g. TL-005-001" {...register("testId")} />
                 <SelectInput label="Type of Question" options={TYPE_OF_QUESTION_OPTIONS} {...register("typeOfQuestion")} />
                 <TextInput label="Build / Version" placeholder="e.g. 2.1.0" {...register("buildVersion")} />
                 <SelectInput label="Channel Tested" options={CHANNEL_OPTIONS} {...register("channelTested")} />

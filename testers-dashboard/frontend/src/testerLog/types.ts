@@ -8,6 +8,7 @@ export interface ITesterLogEntry {
     updatedAt?: string;
 
     testDate: string;
+    testId?: string;
     typeOfQuestion?: string;
     buildVersion?: string;
     sprintCycle?: string;
@@ -284,7 +285,7 @@ export interface ITargetVsAchievedSummary {
 
 /** Dropdown option definitions reused by the form */
 export const TYPE_OF_QUESTION_OPTIONS = [
-    'Unique', 'GDB', 'Dynamic', 'Outreach',
+    'Unique', 'GDB', 'Outreach',
     'Weather Dynamic', 'Scheme Dynamic', 'Mandi Dynamic',
 ];
 

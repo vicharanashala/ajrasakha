@@ -12,6 +12,7 @@ export interface TesterLogEntry {
 
     // Section 1: Basic Info
     testDate: string;
+    testId?: string;
     typeOfQuestion?: string;
     buildVersion?: string;
     sprintCycle?: string;

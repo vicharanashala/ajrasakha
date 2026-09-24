@@ -56,6 +56,7 @@ interface TesterUserRecord {
 const EXPORT_COLUMNS: { key: keyof TesterLogEntry; header: string }[] = [
     { key: '_id', header: 'Test ID' },
     { key: 'testDate', header: 'Test Date' },
+    { key: 'testId', header: 'Test ID (TL-005)' },
     { key: 'testerName', header: 'Tester Name' },
     { key: 'typeOfQuestion', header: 'Type of Question' },
     { key: 'buildVersion', header: 'Build / Version' },
