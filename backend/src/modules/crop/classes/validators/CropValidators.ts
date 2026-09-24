@@ -48,6 +48,16 @@ class CropAliasDto {
   @IsNotEmpty()
   @IsString()
   native_representation: string;
+
+  @JSONSchema({ description: 'Source URL reference', example: 'https://agritech.tnau.ac.in/...' })
+  @IsOptional()
+  @IsString()
+  source_link?: string;
+
+  @JSONSchema({ description: 'Page number reference', example: '45' })
+  @IsOptional()
+  @IsString()
+  page_number?: string;
 }
 
 // ── Body DTOs ──
@@ -91,7 +101,7 @@ class CreateCropDto {
 
   @JSONSchema({
     description: 'Structured aliases across languages',
-    example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి' }],
+    example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి', source_link: 'https://agritech.tnau.ac.in/...', page_number: '45' }],
     type: 'array',
   })
   @IsOptional()
@@ -110,7 +120,7 @@ class CreateCropDto {
 class UpdateCropDto {
   @JSONSchema({
     description: 'Updated aliases — accepts both legacy strings and new structured objects',
-    example: [{ language: 'hi-IN', region: 'North India', english_representation: 'dhan', native_representation: 'धान' }],
+    example: [{ language: 'hi-IN', region: 'North India', english_representation: 'dhan', native_representation: 'धान', source_link: 'https://agritech.tnau.ac.in/...', page_number: '45' }],
     type: 'array',
   })
   @IsOptional()
@@ -140,6 +150,15 @@ class UpdateCropDto {
   @IsArray()
   @IsString({ each: true })
   crops?: string[];
+
+  @JSONSchema({
+    description:
+      "Public URL of the entry's image. Set by the server after uploading an image file; " +
+      'send null to remove the existing image.',
+    type: 'string',
+  })
+  @IsOptional()
+  imageUrl?: string | null;
 }
 
 // ── Query DTOs ──

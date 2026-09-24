@@ -1354,6 +1354,41 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  /**
+   * Remove a (deleted) question from every user's assignment arrays — the moderator
+   * `assignedQuestionIds`, the PAE `paeValidationAssigned`, and the feedback
+   * `feedbacksAssigned`. Called on question deletion so no user is left holding an orphan
+   * reference to a question that no longer exists. Matches both ObjectId and string forms
+   * since the id arrays may store either.
+   */
+  async removeQuestionFromAllUsers(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    // paeValidationAssigned / feedbacksAssigned may hold ids as ObjectId or string.
+    const idForms = [qid, questionId] as (ObjectId | string)[];
+    await this.usersCollection.updateMany(
+      {
+        $or: [
+          {'assignedQuestionIds.questionId': qid},
+          {paeValidationAssigned: {$in: idForms}},
+          {feedbacksAssigned: {$in: idForms}},
+        ],
+      },
+      {
+        $pull: {
+          assignedQuestionIds: {questionId: qid},
+          paeValidationAssigned: {$in: idForms},
+          feedbacksAssigned: {$in: idForms},
+        },
+        $set: {updatedAt: new Date()},
+      } as any,
+      {session},
+    );
+  }
+
   async findAdmins(session?: ClientSession): Promise<IUser[]> {
     await this.init();
     return await this.usersCollection

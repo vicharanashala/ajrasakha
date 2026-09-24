@@ -15,6 +15,7 @@ import type {
   ILocationBlock,
   ILocationVillage,
   IKvk,
+  IKvkDirectoryEntry,
   IKvkSyncResult,
   IAuditActor,
   ILocationAudit,
@@ -550,6 +551,39 @@ export class LocationService implements ILocationService {
       stateCode: record.stateCode,
       latitude: record.latitude,
       longitude: record.longitude,
+    }));
+  }
+
+  // Returns every KVK with its stateCode/districtCode already resolved to names.
+  // States and districts are loaded once and matched in memory rather than looked
+  // up per KVK, so this stays three queries regardless of directory size.
+  public async getKvkDirectory(): Promise<IKvkDirectoryEntry[]> {
+    const [statesCollection, districtsCollection, kvksCollection] =
+      await Promise.all([
+        this.db.getCollection<any>('states'),
+        this.db.getCollection<any>('districts'),
+        this.db.getCollection<any>('kvks'),
+      ]);
+
+    const [states, districts, kvks] = await Promise.all([
+      statesCollection.find({}, {projection: {stateCode: 1, stateNameEnglish: 1}}).toArray(),
+      districtsCollection.find({}, {projection: {districtCode: 1, districtNameEnglish: 1}}).toArray(),
+      kvksCollection.find({}).sort({kvkName: 1}).toArray(),
+    ]);
+
+    const stateNames = new Map<number, string>(
+      states.map((s: any) => [s.stateCode, s.stateNameEnglish]),
+    );
+    const districtNames = new Map<number, string>(
+      districts.map((d: any) => [d.districtCode, d.districtNameEnglish]),
+    );
+
+    return kvks.map((kvk: any) => ({
+      kvkId: kvk.kvkId,
+      kvkName: kvk.kvkName,
+      kvkAddress: kvk.kvkAddress,
+      state: stateNames.get(kvk.stateCode) ?? '',
+      district: districtNames.get(kvk.districtCode) ?? '',
     }));
   }
 

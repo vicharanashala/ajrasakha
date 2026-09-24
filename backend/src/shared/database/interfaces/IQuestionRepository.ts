@@ -157,6 +157,22 @@ export interface IQuestionRepository {
    */
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
 
+  /**
+   * Retrieves a question by its messageId.
+   * @param messageId - The message ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByMessageId(messageId: string, session?: ClientSession): Promise<IQuestion | null>;
+
+  /**
+   * Retrieves a question by its threadId.
+   * @param threadId - The thread ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByThreadId(threadId: string, session?: ClientSession): Promise<IQuestion | null>;
+
   /** Find questions referencing the given question (referenceQuestionId), optionally
    *  by status. Used to propagate a close to queue-duplicate children. */
   findByReferenceQuestionId(
@@ -283,7 +299,7 @@ export interface IQuestionRepository {
    */
   updateExpiredAfterFourHours(): Promise<void>;
 
-  insertMany(questions: IQuestion[]): Promise<string[]>;
+  insertMany(questions: IQuestion[], session?: ClientSession): Promise<string[]>;
 
   updateQuestionStatus(
     id: string,
@@ -584,7 +600,19 @@ export interface IQuestionRepository {
     limit?: number,
   ): Promise<{ _id: ObjectId; question: string; text?: string }[]>;
 
-  updateQuestionEmbedding(questionId: string, embedding: number[]): Promise<void>;
+  /** Same as {@link getQuestionsWithEmptyEmbeddings} but also returns `status`, so a
+   *  backfill can rebuild a closed question's embedding from its Q+A text (matching the
+   *  approval flow) rather than the raw question text. */
+  getQuestionsMissingEmbedding(
+    limit?: number,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  >;
+
+  updateQuestionEmbedding(
+    questionId: string,
+    embedding: number[],
+  ): Promise<{ matchedCount: number; modifiedCount: number }>;
   getShiftBasedMetrics(
     startDate:string,
     // endDate:string,
@@ -659,6 +687,13 @@ export interface IQuestionRepository {
 
   findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findModeratorAssignedQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>
   findQuestionsWithOpenFeedbacks(
     requireAutoAllocate?: boolean,
   ): Promise<IQuestion[]>;
@@ -674,6 +709,13 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
   ): Promise<IQuestion[]>;
+  findUnassignedQuestionsForRolePaged(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>;
   findQuestionsForTatReport(
     from: Date,
     to: Date,
@@ -684,6 +726,12 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     statuses: QuestionStatus[],
   ): Promise<IQuestion[]>;
+  findQuestionsAssignedToRolePaged(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>;
   findLeakedRoleAssignments(
     assigneeField: 'gateKeeperId' | 'auditorId',
     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
@@ -887,4 +935,16 @@ export interface IQuestionRepository {
    * This avoids replacing the entire details object.
    */
   updateNormalisedCrop(questionId: string, normalisedCrop: string): Promise<{ modifiedCount: number }>;
+
+  /**
+   * Bulk update embeddings for multiple questions using bulkWrite.
+   * @param updates Array of { questionId, embedding, normalisedCrop? }
+   */
+  bulkUpdateEmbeddings(
+    updates: Array<{
+      questionId: string;
+      embedding: number[];
+      normalisedCrop?: string;
+    }>,
+  ): Promise<{ modifiedCount: number }>;
 }

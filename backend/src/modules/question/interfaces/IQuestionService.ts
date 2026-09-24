@@ -154,6 +154,20 @@ export interface QueueExpertItem {
   isTrainingUser?: boolean;
 }
 
+/** One PAE expert's answer-dashboard analytics — mirrors the individual dashboard metrics. */
+export interface PaeAnalyticsRow {
+  /** PAE user id — used to merge these metrics onto the matching user row in the export. */
+  id: string;
+  name: string;
+  email: string;
+  assigned: number;
+  submitted: number;
+  pending: number;
+  feedbackAssigned: number;
+  feedbackPending: number;
+  feedbackCompleted: number;
+}
+
 /** Pending-questions-by-level breakdown for one source group (time-bound or manual). */
 export interface PendingLevelGroup {
   /** Questions never allocated yet — pending at the Author stage. */
@@ -851,6 +865,25 @@ export interface IQuestionService {
     skippedNoApprover: number;
   }>;
 
+  backfillMissingEmbeddings(batchLimit?: number): Promise<{
+    scanned: number;
+    questionsUpdated: number;
+    updatedIds: string[];
+    matchedButUnchanged: number;
+    closedWithAnswer: number;
+    closedWithAnswerIds: string[];
+    skippedNoText: number;
+    failed: number;
+  }>;
+
+  backfillAnswerEmbeddings(batchLimit?: number): Promise<{
+    scanned: number;
+    updated: number;
+    finalWithQuestion: number;
+    skippedNoText: number;
+    failed: number;
+  }>;
+
   getClosedAnswerMismatch(startTime?: Date, endTime?: Date): Promise<{
     window: { start: Date; end: Date };
     totalClosed: number;
@@ -891,6 +924,7 @@ export interface IQuestionService {
       paeAssignedAt: Date;
       paeFinishedAt: Date | null;
       paeStatus: string;
+      paeAction?: string;
     }[];
   }>;
 
@@ -935,6 +969,12 @@ export interface IQuestionService {
     totalCount: number;
   }>;
 
+  /** Per-PAE analytics for every PAE expert — one row per PAE for the analytics export. */
+  getAllPaeAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<PaeAnalyticsRow[]>;
+
   /**
    * Process a PAE validation decision (approve or provide feedback).
    * 
@@ -966,6 +1006,12 @@ export interface IQuestionService {
     suggestionSourceName?: string,
   ): Promise<{ success: boolean; message: string }>;
 
+  sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ): Promise<{ success: boolean; message: string }>;
+
 
   ensureNormalisedCrop(
     questionId: string,
@@ -983,4 +1029,22 @@ export interface IQuestionService {
     session?: ClientSession,
   ): Promise<void>;
   getPaeValidationQueueDetails(params?: PaeValidationQueueParams): Promise<PaeValidationQueueDetails>;
+
+  /**
+   * Bulk insert Question Collection questions with full validation.
+   * Creates questions with source 'QUESTION_COLLECTION', creates submissions,
+   * and triggers background processing for embeddings and crop normalization.
+   *
+   * @param userId - The user ID performing the bulk insert
+   * @param questions - Array of Question Collection items
+   * @returns Object with success status, count, and question IDs
+   */
+  addQuestionCollection(
+    userId: string,
+    questions: any[],
+  ): Promise<{
+    success: boolean;
+    count: number;
+    questionIds: string[];
+  }>;
 }

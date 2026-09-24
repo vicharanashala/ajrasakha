@@ -12,6 +12,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.runnables import RunnableConfig, patch_config
 
 from ajrasakha.agents.location_context import (
+    extract_location_from_query,
     extract_state_from_text,
     forward_geocode,
     gps_state_from_location,
@@ -37,6 +38,9 @@ logger = logging.getLogger(__name__)
 # Set True to run chemical_checker (planner flag + post-gdb regex follow-up batch).
 ENABLE_CHEMICAL_CHECKER = False
 
+# Reviewer-only crop label (crop_master name) when the farmer named 2+ crops;
+# retrieval still searches all crops.
+MULTIPLE_CROPS_LABEL = "Multiple Crops"
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
 _WEATHER_TOOL_NAMES = frozenset({"weather", "new_weather", "weather_server", "weather_weather_server"})
@@ -456,12 +460,13 @@ def _plan_only_location(plan: PlannerPlan) -> dict[str, Any]:
 async def _coords_from_plan_entities(
     state_name: str,
     district: str,
-) -> tuple[Optional[float], Optional[float], Optional[str]]:
-    """Forward-geocode plan state/district — never read lat/lon from thread GPS."""
+) -> tuple[Optional[float], Optional[float], Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """Forward-geocode plan state/district — returns (lat, lon, addr, res_state, res_dist, res_city)."""
     if state_name.strip().lower() in _PLACEHOLDER_STATES:
-        return None, None, None
+        return None, None, None, None, None, None
     dist: Optional[str] = district
-    if not dist or dist.strip().lower() in _PLACEHOLDER_STATES:
+    from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
+    if not dist or dist.strip().lower() in _PLACEHOLDER_STATES or dist.strip().lower() in _INDIAN_STATES_LOWER:
         dist = None
     geocode_res = await forward_geocode(state_name, dist)
     if not geocode_res:
@@ -475,12 +480,15 @@ async def _coords_from_plan_entities(
             longitude=None,
             lat_long_source="geocode_failed",
         )
-        return None, None, None
+        return None, None, None, None, None, None
+    res_state = geocode_res.get("state") or state_name
+    res_dist = geocode_res.get("district")
+    res_city = geocode_res.get("city")
     trace_resolution(
         "plan_entities_geocode",
-        state=geocode_res.get("state") or state_name,
+        state=res_state,
         state_source="nominatim_forward_geocode",
-        district=geocode_res.get("city") or district,
+        district=res_dist or res_city or district,
         district_source="nominatim_forward_geocode",
         latitude=geocode_res.get("latitude"),
         longitude=geocode_res.get("longitude"),
@@ -491,6 +499,9 @@ async def _coords_from_plan_entities(
         geocode_res.get("latitude"),
         geocode_res.get("longitude"),
         geocode_res.get("address"),
+        res_state,
+        res_dist,
+        res_city,
     )
 
 
@@ -536,7 +547,7 @@ def _entity_with_source(
 
     # Fallback to stored profile/location ONLY when query text has no location:
     if key in {"state", "district"}:
-        loc_key = "city" if key == "district" else key
+        loc_key = "district" if (key == "district" and loc.get("district")) else ("city" if key == "district" else key)
         if loc.get(loc_key) and str(loc[loc_key]).strip():
             candidate = str(loc[loc_key]).strip()
             if candidate.lower() not in _PLACEHOLDER_STATES:
@@ -705,7 +716,7 @@ def build_reviewer_upload_calls(
         resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload", user_query=user_query)
     state_name = resolved.state
     district = resolved.district
-    crop = resolved.crop
+    crop = MULTIPLE_CROPS_LABEL if plan.get("is_multiple_crops") else resolved.crop
     domains = resolved.domains
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
@@ -812,28 +823,74 @@ async def build_specialist_tool_calls_from_plan(
         or (curr_dist_ent and str(curr_dist_ent).strip().lower() not in _PLACEHOLDER_STATES)
     )
 
+    query_text = (
+        (plan.get("rephrased_query") or "").strip()
+        or (plan.get("original_query_en") or "").strip()
+        or user_query
+    )
+    query_place, query_state = extract_location_from_query(query_text)
+    target_place_to_geocode = query_place or district
+
+    curr_sub_loc: Optional[str] = query_place.title() if query_place else None
     if needs_coords:
-        if has_explicit_query_location:
-            # Priority 1: User explicitly asked about a specific place (e.g. "Varanasi weather")
-            lat, lon, addr = await _coords_from_plan_entities(state_name, district)
+        if has_explicit_query_location or query_place:
+            # Priority 1: User explicitly asked about a specific place (e.g. "Varanasi weather", "Kakkanad", "Manarcad")
+            (
+                lat,
+                lon,
+                addr,
+                res_state,
+                res_dist,
+                res_city,
+            ) = await _coords_from_plan_entities(state_name, target_place_to_geocode)
             if lat is not None:
                 lat_source = "nominatim_forward_geocode"
+            if res_state:
+                state_name = res_state
+            if res_dist:
+                district = res_dist
+                curr_sub_loc = query_place.title() if query_place else res_city
+            elif res_city and res_city.lower() != (res_state or "").lower():
+                curr_sub_loc = query_place.title() if query_place else res_city
+            elif query_place:
+                curr_sub_loc = query_place.title()
         elif loc.get("latitude") is not None and loc.get("longitude") is not None:
             # Priority 2: Query has NO place (e.g. "Aaj barish?") -> Use user's GPS!
             lat = float(loc["latitude"])
             lon = float(loc["longitude"])
             addr = loc.get("address") or loc.get("city") or loc.get("state")
             lat_source = "thread_gps"
+            if loc.get("district"):
+                district = loc["district"]
+            curr_sub_loc = loc.get("city")
         elif state_name.strip().lower() not in _PLACEHOLDER_STATES:
             # Priority 3: No GPS coords, but user profile/home state/district is known
-            lat, lon, addr = await _coords_from_plan_entities(state_name, district)
+            (
+                lat,
+                lon,
+                addr,
+                res_state,
+                res_dist,
+                res_city,
+            ) = await _coords_from_plan_entities(state_name, target_place_to_geocode)
             if lat is not None:
                 lat_source = "nominatim_forward_geocode"
+            if res_state:
+                state_name = res_state
+            if res_dist:
+                district = res_dist
+                curr_sub_loc = query_place.title() if query_place else res_city
+            elif res_city and res_city.lower() != (res_state or "").lower():
+                curr_sub_loc = query_place.title() if query_place else res_city
+            elif query_place:
+                curr_sub_loc = query_place.title()
 
         if out_transient_location is not None and lat is not None and lon is not None:
             effective_state = state_name if state_name.strip().lower() not in _PLACEHOLDER_STATES else loc.get("state")
-            effective_city = district if district != "all" and district.strip().lower() not in _PLACEHOLDER_STATES else loc.get("city")
+            effective_city = curr_sub_loc or district if district != "all" and district.strip().lower() not in _PLACEHOLDER_STATES else loc.get("city")
             out_transient_location["state"] = effective_state
+            if district and district != "all" and district.strip().lower() not in _PLACEHOLDER_STATES:
+                out_transient_location["district"] = district
             out_transient_location["city"] = effective_city
             out_transient_location["latitude"] = lat
             out_transient_location["longitude"] = lon
@@ -851,8 +908,9 @@ async def build_specialist_tool_calls_from_plan(
             is_custom_location = True
     
     if is_custom_location:
+        from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
         state_to_geocode = curr_state_ent if curr_state_ent and curr_state_ent.strip().lower() not in {"all", "not specified", "unknown"} else None
-        dist_to_geocode = district if district and district.strip().lower() not in {"all", "not specified", "unknown"} else None
+        dist_to_geocode = target_place_to_geocode if target_place_to_geocode and target_place_to_geocode.strip().lower() not in {"all", "not specified", "unknown"} and target_place_to_geocode.strip().lower() not in _INDIAN_STATES_LOWER else None
 
         logger.info("build_specialist_tool_calls_from_plan: Geocoding custom transient location state=%s district=%s", state_to_geocode, dist_to_geocode)
         if out_transient_location is not None:
@@ -869,9 +927,19 @@ async def build_specialist_tool_calls_from_plan(
             resolved_state = custom_res.get("state")
             if resolved_state:
                 state_name = resolved_state
+            resolved_district = custom_res.get("district")
+            if resolved_district:
+                district = resolved_district
+                curr_sub_loc = query_place.title() if query_place else custom_res.get("city")
+            elif custom_res.get("city"):
+                curr_sub_loc = query_place.title() if query_place else custom_res.get("city")
+            elif query_place:
+                curr_sub_loc = query_place.title()
 
             if out_transient_location is not None:
                 out_transient_location["state"] = state_name
+                out_transient_location["district"] = district
+                out_transient_location["city"] = curr_sub_loc or district
                 out_transient_location["latitude"] = lat
                 out_transient_location["longitude"] = lon
                 out_transient_location["address"] = addr
@@ -880,6 +948,17 @@ async def build_specialist_tool_calls_from_plan(
             lon = None
             addr = dist_to_geocode if dist_to_geocode else state_to_geocode
             lat_source = "unset"
+
+    from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
+    eff_district = district
+    if eff_district:
+        d_lower = eff_district.strip().lower()
+        if d_lower in {"all", "not specified", "unknown", "none", "null"}:
+            eff_district = None
+        elif state_name and d_lower == state_name.strip().lower():
+            eff_district = None
+        elif d_lower in _INDIAN_STATES_LOWER:
+            eff_district = None
 
     trace_resolution(
         "specialist_tools_location",
@@ -905,8 +984,9 @@ async def build_specialist_tool_calls_from_plan(
             "name": "new_weather",
             "args": {
                 "query": weather_query,
-                "district": district if district and district.lower() not in {"all", "not specified", "unknown"} else None,
+                "district": eff_district,
                 "state": state_name if state_name and state_name.lower() not in {"not specified", "unknown"} else None,
+                "location": curr_sub_loc,
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -1092,7 +1172,7 @@ async def build_reviewer_upload_with_tools_used(
     
     state_name = resolved.state
     district = resolved.district
-    crop = resolved.crop
+    crop = MULTIPLE_CROPS_LABEL if plan.get("is_multiple_crops") else resolved.crop
     domains = resolved.domains
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
@@ -1200,18 +1280,33 @@ async def ensure_location_node(
     # if _needs_location_resolve(loc): ...
 
     # Forward-geocode plan.entities when state/district are known (never use thread GPS).
-    state_resolved = entities.get("state")
-    district_resolved = entities.get("district")
+    messages = state.get("messages") or []
+    user_query = _last_human_text(messages)
+    query_text = (plan.get("rephrased_query") or "").strip() or (plan.get("original_query_en") or "").strip() or user_query
+
+    # Extract any specific place named in the query (e.g. Kakkanad, Manarcad, Chintapally)
+    query_place, query_state = extract_location_from_query(query_text)
+    state_resolved = query_state or entities.get("state")
+    district_resolved = query_place or entities.get("district")
 
     if state_resolved and state_resolved.strip().lower() in {"all", "not specified", "unknown", "general", "none"}:
         state_resolved = None
     if district_resolved and district_resolved.strip().lower() in {"all", "not specified", "unknown", "general", "none"}:
         district_resolved = None
 
-    # If coordinates already exist (from device GPS or MongoDB), skip external geocoding!
-    if loc.get("latitude") is not None and loc.get("longitude") is not None:
+    # If coordinates already exist for matching state/district/city, skip external geocoding!
+    loc_state = (loc.get("state") or "").strip().lower()
+    loc_dist = (loc.get("district") or "").strip().lower()
+    loc_city = (loc.get("city") or "").strip().lower()
+    matches_state = not state_resolved or (loc_state == state_resolved.strip().lower())
+    matches_district = not district_resolved or (loc_dist == district_resolved.strip().lower()) or (loc_city == district_resolved.strip().lower())
+
+    if matches_state and matches_district and loc.get("latitude") is not None and loc.get("longitude") is not None:
         logger.info(
-            "ensure_location_node: Coordinates already present (lat=%s, lon=%s), skipping forward_geocode",
+            "ensure_location_node: Coordinates already present for state=%s district=%s city=%s (lat=%s, lon=%s), skipping forward_geocode",
+            loc.get("state"),
+            loc.get("district"),
+            loc.get("city"),
             loc.get("latitude"),
             loc.get("longitude"),
         )
@@ -1238,13 +1333,30 @@ async def ensure_location_node(
             # Merge geocode result; do not retain client GPS coords on thread location.
             base = {k: v for k, v in (loc or {}).items() if k not in ("latitude", "longitude")}
             merged_loc = merge_location_dict(base, geocode_res)
+            if geocode_res.get("district"):
+                merged_loc["district"] = geocode_res["district"]
+            elif state_resolved and (not district_resolved or district_resolved.lower() == state_resolved.lower()):
+                merged_loc.pop("district", None)
+
+            # Update plan.entities with the official resolved district & state
+            updated_plan = dict(plan)
+            updated_entities = dict(entities)
+            if geocode_res.get("state"):
+                updated_entities["state"] = geocode_res["state"]
+            if geocode_res.get("district"):
+                updated_entities["district"] = geocode_res["district"]
+            elif state_resolved and (not district_resolved or district_resolved.lower() == state_resolved.lower()):
+                updated_entities.pop("district", None)
+            if geocode_res.get("city"):
+                updated_entities["city"] = geocode_res["city"]
+            updated_plan["entities"] = updated_entities
 
             user_id = resolve_user_id(config)
             if user_id and geocode_res.get("latitude") is not None and geocode_res.get("longitude") is not None:
                 maybe_persist_resolved_location(
                     user_id,
-                    state_resolved,
-                    district_resolved,
+                    updated_entities.get("state"),
+                    updated_entities.get("district"),
                     latitude=geocode_res.get("latitude"),
                     longitude=geocode_res.get("longitude"),
                     thread_id=resolve_thread_id(config),
@@ -1256,14 +1368,14 @@ async def ensure_location_node(
                 "ensure_location_forward_geocode_result",
                 state=merged_loc.get("state"),
                 state_source="nominatim_forward_geocode",
-                district=merged_loc.get("city"),
+                district=merged_loc.get("district") or merged_loc.get("city"),
                 district_source="nominatim_forward_geocode",
                 latitude=merged_loc.get("latitude"),
                 longitude=merged_loc.get("longitude"),
                 lat_long_source="nominatim_forward_geocode",
                 address=merged_loc.get("address"),
             )
-            return {"location": merged_loc}
+            return {"location": merged_loc, "plan": updated_plan}
         trace_resolution(
             "ensure_location_forward_geocode_result",
             state=state_resolved,

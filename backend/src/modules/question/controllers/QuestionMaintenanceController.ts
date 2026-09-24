@@ -102,6 +102,36 @@ export class QuestionMaintenanceController {
     return { success: true, data: result };
   }
 
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Post('/admin/backfill-embeddings')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Backfill missing/empty question embeddings (one batch per call). Closed questions are re-embedded from their Q+A text and their final answer embedding is repaired; other questions from the question text. Call repeatedly until scanned=0.',
+  })
+  async backfillMissingEmbeddings(@Body() body: { limit?: number }) {
+    const safeLimit = Math.max(1, Math.min(Number(body?.limit) || 50, 500));
+    const result =
+      await this.questionService.backfillMissingEmbeddings(safeLimit);
+    return { success: true, data: result };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Post('/admin/backfill-answer-embeddings')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Backfill missing/empty ANSWER embeddings (one batch per call). Final answers are embedded from their Q+A text; other answers from the answer text alone. Call repeatedly until scanned=0.',
+  })
+  async backfillAnswerEmbeddings(@Body() body: { limit?: number }) {
+    const safeLimit = Math.max(1, Math.min(Number(body?.limit) || 50, 500));
+    const result =
+      await this.questionService.backfillAnswerEmbeddings(safeLimit);
+    return { success: true, data: result };
+  }
+
   // ─── Migration & Data Fix Endpoints (internal API key auth) ───────────────
 
   @Post('/background/process')

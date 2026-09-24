@@ -4,6 +4,7 @@ import {
   IReviewerHeatmapResponse,
   ISubmissionHistory,
   LevelReportStat,
+  PAEAction,
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
@@ -21,6 +22,15 @@ export interface IQuestionSubmissionRepository {
     submission: IQuestionSubmission,
     session?: ClientSession,
   ): Promise<IQuestionSubmission>;
+  /**
+   * Bulk insert multiple question submissions
+   * @param submissions Array of IQuestionSubmission objects
+   * @param session Optional MongoDB session for transaction
+   */
+  addSubmissions(
+    submissions: IQuestionSubmission[],
+    session?: ClientSession,
+  ): Promise<string[]>;
   /**
    * update submission
    * @param questionId
@@ -300,6 +310,15 @@ export interface IQuestionSubmissionRepository {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findTimeBoundQuestionsForReallocation (count + one DB page). */
+  findTimeBoundQuestionsForReallocationPaged(
+    sources: QuestionSource[] | undefined,
+    requirePaeReviewNotDone: boolean | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Find all single-allocation submissions that were never allocated — queue is
    *  empty and currentExpertAllocatedAt is null/missing. Defaults to time-bound
@@ -310,6 +329,15 @@ export interface IQuestionSubmissionRepository {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findUnallocatedTimeBoundQuestions (count + one DB page). */
+  findUnallocatedTimeBoundQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    requirePaeReviewNotDone: boolean | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Find time-bound submissions the current expert opened > 45 min ago but still
    *  hasn't answered (latest history entry has no answer/approved/modified/rejected).
@@ -317,6 +345,12 @@ export interface IQuestionSubmissionRepository {
   findOpenedButIdleTimeBoundQuestions(
     sources?: QuestionSource[],
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findOpenedButIdleTimeBoundQuestions (count + one DB page). */
+  findOpenedButIdleTimeBoundQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Find submissions where the initial answer was submitted (last history entry
    *  has an answer) but status is still open/delayed — needs a reviewer. */
@@ -326,6 +360,15 @@ export interface IQuestionSubmissionRepository {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findAnsweredQuestionsNeedingReviewer (count + one DB page). */
+  findAnsweredQuestionsNeedingReviewerPaged(
+    sources: QuestionSource[] | undefined,
+    requirePaeReviewNotDone: boolean | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Atomically push reviewer into queue, add an in-review history entry, and
    *  reset the 45-min allocation clock (currentExpertAllocatedAt/OpenedAt). */
@@ -359,11 +402,12 @@ export interface IQuestionSubmissionRepository {
   ): Promise<boolean>;
   /**
    * Update the PAE validation status in the question submission's paeValidation array.
-   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * Finds the entry matching the given paeId and updates its paeStatus, paeFinishedAt, and optional paeAction.
    * @param questionId - The question ID
    * @param paeId - The PAE expert's user ID to match in the array
    * @param paeStatus - The new status ('in-progress' | 'completed')
    * @param paeFinishedAt - The completion timestamp (null for in-progress)
+   * @param paeAction - The action taken ('approve' | 'suggestion')
    * @param session - Optional MongoDB client session for transactions
    */
   updatePaeValidationStatus(
@@ -371,6 +415,7 @@ export interface IQuestionSubmissionRepository {
     paeId: string,
     paeStatus: 'in-progress' | 'completed',
     paeFinishedAt: Date | null,
+    paeAction?: PAEAction | 'approve' | 'suggestion',
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }>;
 
@@ -378,4 +423,9 @@ export interface IQuestionSubmissionRepository {
     {questionId: string; reviewerId: string; assignedAt: Date}[]
   >;
 
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   * @param paeExpertId - The PAE expert's user ID
+   */
+  getCompletedPaeValidationCount(paeExpertId: string): Promise<number>;
 }

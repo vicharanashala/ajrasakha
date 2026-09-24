@@ -135,7 +135,7 @@ type QuestionsFiltersProps = {
   onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -145,6 +145,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
+  if (filter.source === "QUESTION_COLLECTION") return "annadatha";
   if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
@@ -155,6 +156,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
+  if (answerMode === "annadatha") return "QUESTION_COLLECTION";
   if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
@@ -528,6 +530,8 @@ export const QuestionsFilters = ({
     } else if (nextAnswerMode === "training") {
       nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "annadatha") {
+      nextFilters = { ...advanceFilter, source: "QUESTION_COLLECTION", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
@@ -1168,7 +1172,6 @@ export const QuestionsFilters = ({
                     setIsSidebarOpen(false);
                   }}
                 >
-                  <TopRightBadge label="new" left={0} />
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
                       <MessageSquare size={20} />
@@ -1294,13 +1297,6 @@ export const QuestionsFilters = ({
                       </p>
                     </div>
                   </div>
-
-                  <Badge
-                    variant="default"
-                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                  >
-                    New
-                  </Badge>
                 </button>
               )}
 
@@ -1464,7 +1460,6 @@ export const QuestionsFilters = ({
                 onClick={handleClick}
                 className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
               >
-                <TopRightBadge label="new" left={0} />
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
                     <AlertTriangle size={20} />
