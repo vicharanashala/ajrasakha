@@ -6,7 +6,7 @@ import {
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Download, AlertTriangle, CheckCircle2, RefreshCw, MinusCircle, XCircle } from "lucide-react";
-import type { IBulkJobResult } from "@/hooks/services/cropService";
+import type { IBulkJobResult, CropUploadType } from "@/hooks/services/cropService";
 
 const STATUS_META: Record<
   string,
@@ -24,10 +24,10 @@ const csvEscape = (v: string) => `"${(v ?? "").replace(/"/g, '""')}"`;
  *  auto-download that fires the moment a bulk job completes. */
 export const downloadBulkResultsCsv = (
   results: IBulkJobResult[],
-  type: "crop" | "chemical",
+  type: CropUploadType,
 ) => {
   if (!results.length) return;
-  const label = type === "chemical" ? "Chemical" : "Crop";
+  const label = type === "chemical" ? "Chemical" : type === "crop" ? "Crop" : type.charAt(0).toUpperCase() + type.slice(1);
   const rows = [
     `${label} Name,Status,Reason`,
     ...results.map(
@@ -53,7 +53,7 @@ export const BulkResultsModal = ({
   open: boolean;
   onClose: () => void;
   results: IBulkJobResult[];
-  type: "crop" | "chemical";
+  type: CropUploadType;
 }) => {
   const counts = results.reduce<Record<string, number>>((acc, r) => {
     acc[r.status] = (acc[r.status] ?? 0) + 1;
@@ -99,7 +99,7 @@ export const BulkResultsModal = ({
         {/* Results table */}
         <div className="mt-3 flex-1 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
           <div className="grid grid-cols-[1fr_100px_1.4fr] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60 sticky top-0">
-            {[type === "chemical" ? "Chemical Name" : "Crop Name", "Status", "Reason"].map((h) => (
+            {[`${type === "chemical" ? "Chemical" : type === "crop" ? "Crop" : type.charAt(0).toUpperCase() + type.slice(1)} Name`, "Status", "Reason"].map((h) => (
               <div key={h} className="px-3 py-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 {h}
               </div>

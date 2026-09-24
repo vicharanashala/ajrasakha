@@ -12,6 +12,8 @@ import time
 from difflib import get_close_matches
 from typing import Any, Optional, Dict, List, Tuple
 
+from datetime import datetime, timedelta
+
 import requests
 
 logger = logging.getLogger(__name__)
@@ -149,6 +151,15 @@ def _safe_float(x: Any) -> float | None:
         return None
 
 
+def _fmt_rain_val(x: Any) -> str:
+    if x is None:
+        return "0.0"
+    s = str(x).strip()
+    if not s or s.upper() in {"NIL", "NA", "N/A", "NONE", "NULL", "TRACE", "TR"}:
+        return "0.0"
+    return s
+
+
 class _TTLCache:
     def __init__(self, ttl_seconds: float):
         self.ttl = ttl_seconds
@@ -175,12 +186,12 @@ class LatLonWeatherService:
         self,
         city_base: str | None = None,
         mausam_base: str | None = None,
-        timeout: float = 25.0,
+        timeout: float | None = None,
         district_index_ttl: float = 3600.0,
     ):
         self.city_base = (city_base or DEFAULT_CITY_BASE).rstrip("/")
         self.mausam_base = (mausam_base or DEFAULT_MAUSAM_BASE).rstrip("/")
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else float(os.getenv("IMD_TIMEOUT", "6.0"))
         self._district_rows = _TTLCache(district_index_ttl)
 
     def _get_json(self, base: str, path: str, params: dict | None = None) -> Any:
@@ -360,10 +371,13 @@ class LatLonWeatherService:
         return STATE_NAME_TO_SID.get(spaced)
 
     def _load_district_rows(self) -> list[dict[str, Any]]:
-        data = self._get_json(self.mausam_base, "districtwise_rainfall_api.php")
-        if not isinstance(data, list):
-            return []
-        return data
+        try:
+            data = self._get_json(self.mausam_base, "districtwise_rainfall_api.php")
+            if isinstance(data, list) and data:
+                return data
+        except Exception as exc:
+            logger.warning("_load_district_rows failed: %s", exc)
+        return []
 
     def get_district_rows_cached(self) -> list[dict[str, Any]]:
         return self._district_rows.get(self._load_district_rows)
@@ -481,7 +495,7 @@ class LatLonWeatherService:
             "station_code": station.get("Station_Code"),
             "observed_min_temp": station.get("Today_Min_temp"),
             "observed_max_temp": station.get("Today_Max_temp"),
-            "past_24hrs_rainfall": station.get("Past_24_hrs_Rainfall"),
+            "past_24hrs_rainfall": _fmt_rain_val(station.get("Past_24_hrs_Rainfall")),
             "humidity_0830": station.get("Relative_Humidity_at_0830"),
             "humidity_1730": station.get("Relative_Humidity_at_1730"),
             "sunrise": station.get("Sunrise_time"),
@@ -859,25 +873,90 @@ class LatLonWeatherService:
         except requests.RequestException as e:
             return {"success": False, "error": str(e)}
         subdivisions = data if isinstance(data, list) else [data] if data else []
+        base_date_str = subdivisions[0].get("date_obs") if subdivisions else None
+        try:
+            base_dt = datetime.strptime(base_date_str, "%Y-%m-%d") if base_date_str else datetime.now()
+        except Exception:
+            base_dt = datetime.now()
+
         return {
             "success": True,
-            "date": subdivisions[0].get("date_obs") if subdivisions else None,
+            "date": base_date_str,
             "total_subdivisions": len(subdivisions),
             "data": [
                 {
                     "subdivision": s.get("SUBDIV"),
+                    "date_obs": s.get("date_obs") or base_date_str,
                     "forecast": [
                         {
                             "day": f"Day {d}",
+                            "date": (base_dt + timedelta(days=d - 1)).strftime("%Y-%m-%d"),
                             "distribution": s.get(f"day{d}_distribution"),
                             "coverage": s.get(f"day{d}_distribution_percentage"),
+                            "color": s.get(f"day{d}_color"),
                         }
                         for d in range(1, 8)
                     ],
+                    "raw_record": s,
                 }
                 for s in subdivisions
             ],
         }
+
+    def get_subdivision_rainfall_for_location(
+        self, state: str | None, district: str | None = None
+    ) -> dict[str, Any] | None:
+        """Find the matching 7-day subdivisional rainfall forecast for a given state/district."""
+        all_rf = self.get_subdivision_rainfall_forecast()
+        if not all_rf.get("success") or not all_rf.get("data"):
+            return None
+        from ajrasakha.tools.weather.code import resolve_subdivision_name
+        target_sub = resolve_subdivision_name(state, district)
+        s_low = (state or "").strip().lower()
+        d_low = (district or "").strip().lower()
+
+        # 1. Exact match via resolver
+        if target_sub:
+            for item in all_rf["data"]:
+                if (item.get("subdivision") or "").strip().lower() == target_sub.lower():
+                    return item
+
+        # 2. Substring match on subdivision name
+        for item in all_rf["data"]:
+            sub_name = (item.get("subdivision") or "").lower()
+            if s_low and (s_low in sub_name or sub_name in s_low):
+                return item
+            if d_low and d_low in sub_name:
+                return item
+
+        return None
+
+    def get_state_district_rainfall_forecast(
+        self, obj_id: int | str | None = None, state: str | None = None, district: str | None = None
+    ) -> dict[str, Any]:
+        """Fetch 5-day state district rainfall forecast (API 17) if available on endpoint."""
+        data = None
+        for endpoint in ("state_district_rainfall_forecast", "state_district_rainfall_forecast.php"):
+            try:
+                data = self._get_json(self.mausam_base, endpoint)
+                if data:
+                    break
+            except Exception:
+                continue
+        records = data if isinstance(data, list) else [data] if data else []
+        if not records:
+            return {"success": False, "error": "No district rainfall forecast records returned"}
+        if obj_id:
+            for r in records:
+                if str(r.get("Obj_id") or r.get("OBJ_ID")) == str(obj_id):
+                    return {"success": True, "record": r}
+        if district:
+            d_clean = district.strip().lower()
+            for r in records:
+                if d_clean in (r.get("District") or "").strip().lower():
+                    return {"success": True, "record": r}
+        return {"success": True, "data": records}
+
 
     def bundle(
         self,

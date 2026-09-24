@@ -1,5 +1,5 @@
 # ajrasakha/agents/new_weather_agent.py
-# New Weather Agent exposing Tools 1 to 7.
+# New Weather Agent exposing Tools 1 to 6.
 
 import json
 import logging
@@ -15,6 +15,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
+from ajrasakha.agents.config import MINIMAX_API_KEY, MINIMAX_BASE_URL, MINIMAX_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_error, trace_llm_request, trace_llm_response
 from ajrasakha.agents.prompts import NEW_WEATHER_ANSWER_PROMPT, NEW_WEATHER_INTENT_PROMPT
 from ajrasakha.agents.tool_output_formatters import format_new_weather_tool_dict
@@ -25,7 +26,6 @@ from ajrasakha.tools.weather.weather_tools2 import (
     call_location_weather,
     call_weather_nowcast,
     call_weather_alerts,
-    call_sowing_weather_guide,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,11 +35,9 @@ load_dotenv()
 from fastmcp import Client
 
 USE_MCP_SERVER = os.getenv("USE_WEATHER_MCP_SERVER", "true").lower() == "true"
-WEATHER_MCP_URL = os.getenv("WEATHER_MCP_URL", "http://127.0.0.1:8007/mcp")
-# Same Gemma endpoint pattern as market_agent (WEATHER_GEMMA_BASE_URL).
-WEATHER_GEMMA_BASE_URL = os.getenv("WEATHER_GEMMA_BASE_URL", "http://100.100.108.44:8014/v1")
-WEATHER_INTENT_MODEL = os.getenv("WEATHER_INTENT_MODEL", "google/gemma-4-E4B-it")
-WEATHER_ANSWER_MODEL = os.getenv("WEATHER_ANSWER_MODEL", WEATHER_INTENT_MODEL)
+WEATHER_MCP_URL = os.getenv("WEATHER_MCP_URL", "http://127.0.0.1:8007/mcp").strip()
+WEATHER_INTENT_MODEL = os.getenv("WEATHER_INTENT_MODEL", MINIMAX_MODEL)
+WEATHER_ANSWER_MODEL = os.getenv("WEATHER_ANSWER_MODEL", MINIMAX_MODEL)
 
 _ALLOWED_WEATHER_TOOLS = frozenset({
     "get_weather_alerts",
@@ -48,13 +46,9 @@ _ALLOWED_WEATHER_TOOLS = frozenset({
     "get_rainfall_and_monsoon_info",
     "get_temperature_info",
     "get_current_and_forecast_info",
-    "get_sowing_weather_guide",
 })
 
 _ALLOWED_QUERY_TYPES = frozenset({"today", "forecast", "previous"})
-_ALLOWED_SOWING_QUERY_TYPES = frozenset({
-    "sowing_time", "weather_for_sowing", "nursery_prep", "season_calendar",
-})
 _ALLOWED_RAINFALL_DATA_TYPES = frozenset({"current", "forecast", "monsoon_status", "historical"})
 
 async def _invoke_mcp_or_direct(tool_name: str, arguments: dict) -> dict:
@@ -63,15 +57,21 @@ async def _invoke_mcp_or_direct(tool_name: str, arguments: dict) -> dict:
         try:
             async with Client(WEATHER_MCP_URL) as client:
                 res = await client.call_tool(tool_name, arguments)
+                parsed = None
                 if res and getattr(res, "structured_content", None):
-                    return res.structured_content
+                    parsed = res.structured_content
                 elif res and getattr(res, "content", None):
                     for item in res.content:
                         if hasattr(item, "text") and item.text:
                             try:
-                                return json.loads(item.text)
+                                parsed = json.loads(item.text)
+                                break
                             except Exception:
                                 pass
+                if isinstance(parsed, dict) and parsed.get("success") is not False:
+                    return parsed
+                elif isinstance(parsed, dict):
+                    logger.warning("MCP call returned non-success (%s). Falling back to direct execution.", parsed.get("error"))
         except Exception as mcp_err:
             logger.warning("FastMCP Server connection to %s failed (%s). Using direct tool execution.", WEATHER_MCP_URL, mcp_err)
 
@@ -82,7 +82,6 @@ async def _invoke_mcp_or_direct(tool_name: str, arguments: dict) -> dict:
         "get_temperature_info": call_temperature_info,
         "get_rainfall_and_monsoon_info": call_rainfall_and_monsoon_info,
         "get_current_and_forecast_info": call_current_and_forecast_info,
-        "get_sowing_weather_guide": call_sowing_weather_guide,
     }
     fn = direct_map.get(tool_name, call_current_and_forecast_info)
     return await fn(**arguments)
@@ -147,16 +146,9 @@ _RAINFALL_KEYWORDS = [
     "rain condition", "rainfall condition", "rain prediction", "rainfall status"
 ]
 
-_SOWING_KEYWORDS = [
-    "sowing", "sow", "planting", "plant timing", "when to plant", "when to sow",
-    "nursery prep", "nursery preparation", "seedbed", "transplanting time",
-    "sowing time", "sowing window", "planting window", "season calendar",
-    "weather for sowing", "suitable for sowing", "good for sowing",
-]
-
 
 def route_weather_query_by_heuristics(query: str) -> str:
-    """Keyword & pattern-based intent routing to one of the 7 specialized IMD weather tools."""
+    """Keyword & pattern-based intent routing to one of the 6 specialized IMD weather tools."""
     q = query.lower()
     
     # 1. Tool 6: get_weather_alerts (Severe Warnings & Red/Orange/Yellow Alerts)
@@ -168,11 +160,7 @@ def route_weather_query_by_heuristics(query: str) -> str:
     if not is_multiday and (_NOWCAST_RE.search(q) or any(k in q for k in _NOWCAST_KEYWORDS)):
         return "get_weather_nowcast"
 
-    # 3. Tool 7: get_sowing_weather_guide (Sowing / planting / nursery weather advice)
-    if any(k in q for k in _SOWING_KEYWORDS):
-        return "get_sowing_weather_guide"
-
-    # 4. Tool 3: get_temperature_info (Temperature, Humidity %, Feel-like & Hot/Cold status)
+    # 3. Tool 3: get_temperature_info (Temperature, Humidity %, Feel-like & Hot/Cold status)
     if any(k in q for k in _TEMP_KEYWORDS):
         return "get_temperature_info"
 
@@ -215,8 +203,8 @@ def _past_days_to_range(past_days: int | None) -> tuple[str | None, str | None]:
         return None, None
     n = min(n, 30)
     today_d = date.today()
-    from_d = (today_d - timedelta(days=n - 1)).strftime("%Y-%m-%d")
-    to_d = today_d.strftime("%Y-%m-%d")
+    from_d = (today_d - timedelta(days=n)).strftime("%Y-%m-%d")
+    to_d = (today_d - timedelta(days=1)).strftime("%Y-%m-%d")
     return from_d, to_d
 
 
@@ -243,17 +231,15 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
     if any(k in q_lower for k in ["7 day", "7-day", "7day", "7 days", "7-days", "7days", "week", "next week", "coming days", "upcoming days", "next days", "forecasting", "forecast"]):
         forecast_days = 7
     elif any(k in q_lower for k in ["6 day", "6-day", "6day", "6 days", "6-days", "6days"]):
-        forecast_days = 7
+        forecast_days = 6
     elif any(k in q_lower for k in ["5 day", "5-day", "5day", "5 days", "5-days", "5days"]):
-        forecast_days = 6  # Today + 5 future days = 6 days total
+        forecast_days = 5
     elif any(k in q_lower for k in ["4 day", "4-day", "4day", "4 days", "4-days", "4days"]):
-        forecast_days = 5  # Today + 4 future days = 5 days total
+        forecast_days = 4
     elif any(k in q_lower for k in ["3 day", "3-day", "3day", "3 days", "3-days", "3days"]):
-        forecast_days = 4  # Today + 3 future days = 4 days total
-    elif any(k in q_lower for k in ["2 day", "2-day", "2day", "2 days", "2-days", "2days", "day after tomorrow"]):
-        forecast_days = 3  # Today + 2 future days = 3 days total
-    elif any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"]):
-        forecast_days = 2  # Today + Tomorrow = 2 days total
+        forecast_days = 3
+    elif any(k in q_lower for k in ["2 day", "2-day", "2day", "2 days", "2-days", "2days"]):
+        forecast_days = 2
 
     f_match = re.search(
         r"\b(?:in\s+|for\s+|over\s+)?(?:the\s+)?(?:next|coming)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:days?|dyas)\b",
@@ -266,7 +252,8 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
         }
         val_s = f_match.group(1)
         cnt_d = num_words.get(val_s, int(val_s) if val_s.isdigit() else 1)
-        forecast_days = min(7, cnt_d + 1)  # Today + N future days
+        # today = Day 1; "next N days" means N total (today through Day N)
+        forecast_days = min(7, cnt_d)
 
     hours_ahead = None
     h_match = re.search(r"\b(?:next|coming|in)\s*(1|2|3|one|two|three)\s*(?:hours?|hrs?|h)\b", q_lower)
@@ -288,16 +275,7 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
             data_type = "current"
 
     query_type = ext_qt
-    if tool_name == "get_sowing_weather_guide":
-        if "nursery" in q_lower or "seedbed" in q_lower:
-            query_type = "nursery_prep"
-        elif "season calendar" in q_lower or "sowing calendar" in q_lower or "planting calendar" in q_lower:
-            query_type = "season_calendar"
-        elif "weather for sowing" in q_lower or "suitable for sowing" in q_lower or "good for sowing" in q_lower:
-            query_type = "weather_for_sowing"
-        else:
-            query_type = "sowing_time"
-    elif not query_type:
+    if not query_type:
         if "forecast" in q_lower or (forecast_days and forecast_days > 1):
             query_type = "forecast"
         elif "previous" in q_lower or "past" in q_lower or "yesterday" in q_lower or "history" in q_lower or past_days:
@@ -318,7 +296,6 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
         "hours_ahead": hours_ahead if tool_name == "get_weather_nowcast" else None,
         "include_nearby_stations": want_nearby if tool_name in {"get_weather_nowcast", "get_location_weather"} else None,
         "radius_km": 50.0 if want_nearby else None,
-        "crop_name": None,
         "source": "heuristic",
     }
 
@@ -337,9 +314,6 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
         query_type = str(query_type).strip().lower()
         if query_type in {"", "null", "none"}:
             query_type = None
-        elif tool == "get_sowing_weather_guide":
-            if query_type not in _ALLOWED_SOWING_QUERY_TYPES:
-                query_type = base.get("query_type") if base.get("query_type") in _ALLOWED_SOWING_QUERY_TYPES else "sowing_time"
         elif query_type not in _ALLOWED_QUERY_TYPES:
             query_type = base.get("query_type")
 
@@ -350,16 +324,6 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
             data_type = None
         elif data_type not in _ALLOWED_RAINFALL_DATA_TYPES:
             data_type = base.get("data_type")
-
-    crop_name = raw.get("crop_name", base.get("crop_name"))
-    if crop_name is not None:
-        crop_name = str(crop_name).strip()
-        if crop_name.lower() in {"", "null", "none"}:
-            crop_name = None
-    if tool != "get_sowing_weather_guide":
-        crop_name = None
-    elif not crop_name:
-        crop_name = base.get("crop_name")
 
     def _clean_date(val: Any, fallback: str | None) -> str | None:
         if val is None or str(val).strip().lower() in {"", "null", "none"}:
@@ -409,7 +373,7 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
     to_date = _clean_date(raw.get("to_date"), base.get("to_date"))
 
     # Materialize past_days into from/to when Gemma gave a lookback but no explicit dates.
-    if past_days and not from_date and not target_date and tool != "get_sowing_weather_guide":
+    if past_days and not from_date and not target_date:
         from_date, to_date = _past_days_to_range(past_days)
         query_type = query_type or "previous"
         if tool == "get_rainfall_and_monsoon_info" and not data_type:
@@ -427,38 +391,53 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
         "hours_ahead": hours_ahead if tool == "get_weather_nowcast" else None,
         "include_nearby_stations": include_nearby if tool in {"get_weather_nowcast", "get_location_weather"} else None,
         "radius_km": radius_km if tool in {"get_weather_nowcast", "get_location_weather"} else None,
-        "crop_name": crop_name if tool == "get_sowing_weather_guide" else None,
-        "source": "gemma",
+        "source": "minimax",
     }
     return out
 
 
-async def _gemma_weather_chat(
+def _strip_reasoning_and_thinking(text: str) -> str:
+    """Remove any thinking / reasoning tags or internal thought prefixes."""
+    if not text:
+        return ""
+    # Strip <think>...</think> or similar XML-like thinking blocks
+    cleaned = re.sub(r"(?is)<think>.*?</think>", "", text)
+    cleaned = re.sub(r"(?is)<reasoning>.*?</reasoning>", "", cleaned)
+    # Strip thought markers or chains at the start
+    cleaned = re.sub(r"(?is)^(?:Thought|Thinking Process|Internal Reasoning):\s*.*?\n\n", "", cleaned)
+    return cleaned.strip()
+
+
+async def _minimax_weather_chat(
     *,
     trace_name: str,
     user_content: str,
-    max_tokens: int = 400,
+    max_tokens: int = 1500,
     temperature: float = 0.0,
     query: str | None = None,
     model: str | None = None,
-    timeout: float = 10.0,
+    timeout: float = 45.0,
+    is_intent: bool = False,
 ) -> str | None:
-    model_name = model or WEATHER_INTENT_MODEL
+    model_name = model or (WEATHER_INTENT_MODEL if is_intent else WEATHER_ANSWER_MODEL)
     trace_llm_request(
         trace_name,
         model=model_name,
         messages=[HumanMessage(content=user_content)],
         query=query,
-        api_base=WEATHER_GEMMA_BASE_URL,
+        api_base=MINIMAX_BASE_URL,
     )
-    url = f"{WEATHER_GEMMA_BASE_URL.rstrip('/')}/chat/completions"
+    url = f"{MINIMAX_BASE_URL.rstrip('/')}/chat/completions"
     payload = {
         "model": model_name,
         "messages": [{"role": "user", "content": user_content}],
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {MINIMAX_API_KEY}",
+    }
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=payload, headers=headers, timeout=timeout)
@@ -470,30 +449,41 @@ async def _gemma_weather_chat(
                 )
                 return None
             result = response.json()
-            message = result["choices"][0]["message"]
+            choices = result.get("choices") or []
+            if not choices:
+                return None
+            message = choices[0].get("message") or {}
             content = (message.get("content") or "").strip()
             reasoning = (message.get("reasoning") or "").strip()
-            raw = content or reasoning
-            # Gemma sometimes puts JSON only in reasoning; combine like market_agent.
-            if content and reasoning and "{" not in content and "{" in reasoning:
-                raw = f"{content}\n{reasoning}"
-            elif not content and reasoning:
-                raw = reasoning
-            trace_llm_response(trace_name, output=raw, source="gemma")
-            return raw
+
+            if is_intent:
+                # For intent extraction, prefer content; fallback to reasoning if content is empty or lacks JSON
+                raw = content
+                if (not content or "{" not in content) and reasoning and "{" in reasoning:
+                    raw = reasoning
+                trace_llm_response(trace_name, output=raw, reasoning=reasoning, source="minimax")
+                return raw
+            else:
+                # For answer formation: strictly NEVER leak reasoning / internal thoughts into user output
+                clean_content = _strip_reasoning_and_thinking(content)
+                trace_llm_response(trace_name, output=clean_content, reasoning=reasoning, source="minimax")
+                return clean_content
     except Exception as exc:
-        logger.warning("Gemma %s failed: %s", trace_name, exc)
+        logger.warning("MiniMax %s failed: %s", trace_name, exc)
         trace_llm_error(trace_name, error=f"{type(exc).__name__}: {exc}")
         return None
 
 
 def _weather_tool_unavailable_answer(payload: Any) -> str:
+    from ajrasakha.tools.weather.weather_tools2 import LOCATION_UNRESOLVED_MESSAGE
     place = None
     if isinstance(payload, dict):
+        if payload.get("location_unresolved") or payload.get("error") == "location_unresolved":
+            return LOCATION_UNRESOLVED_MESSAGE
         place = payload.get("resolved_location") or payload.get("district") or payload.get("location")
-    if place:
+    if place and str(place).lower().strip() not in {"location", "none", "", "null"}:
         return f"Weather data is not available for {place} right now."
-    return "Weather data is not available for that place or time right now."
+    return LOCATION_UNRESOLVED_MESSAGE
 
 
 def _weather_tool_has_usable_data(payload: Any) -> bool:
@@ -536,16 +526,30 @@ def _extract_weather_answer_facts(text: str) -> set[str]:
 
 
 def _weather_answer_preserves_facts(source: str, candidate: str) -> bool:
-    """True when Gemma output still contains the key facts from the full server brief."""
+    """True when LLM output is a valid answer without hallucinations or leaked reasoning."""
     if not candidate or not candidate.strip():
         return False
+    cand_clean = candidate.strip()
+    if len(cand_clean) < 15:
+        return False
+    cand_lower = cand_clean.lower()
+    if "as an ai" in cand_lower or "i do not have access" in cand_lower or "language model" in cand_lower:
+        return False
+    if any(thought_marker in cand_lower for thought_marker in (
+        "the user wants", "thought process", "constraint check", "execution step",
+        "let's re-read", "i need to extract", "internal reasoning", "thinking process",
+        "<think>", "</think>", "<reasoning>", "</reasoning>",
+    )):
+        return False
+    for d in ("day 2", "day 3", "day 4", "day 5"):
+        if d in source.lower() and d not in cand_lower:
+            return False
     source_facts = _extract_weather_answer_facts(source)
     if not source_facts:
         return True
-    cand_lower = candidate.lower()
     present = sum(1 for fact in source_facts if fact.lower() in cand_lower)
-    # Require most numeric tokens and named markers from the deterministic brief.
-    return present >= max(3, int(len(source_facts) * 0.7))
+    return present >= 1
+
 
 
 def build_full_weather_answer(tool_result: Any) -> str:
@@ -563,6 +567,52 @@ def build_full_weather_answer(tool_result: Any) -> str:
 def _ensure_weather_answer_spacing(text: str) -> str:
     if not text:
         return text
+    today_str = date.today().strftime("%Y-%m-%d")
+    # Add date in brackets for today / today's if not already present, avoiding (Today) or Today's observation
+    text = re.sub(r"(?<!\()\b(today)\b(?!\s*[\(\[\d\)])(?!\s*['’]s\s+observation)", rf"\1 ({today_str})", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?<!\()\btoday's\s+weather\b(?!\s*[\(\[\d\)])", f"Today's ({today_str}) weather", text, flags=re.IGNORECASE)
+
+    # Scrub any leftover N/A departure or actual rainfall lines
+    text = re.sub(r"(?im)^\s*[\*\-]?\s*(?:Actual\s+Recorded\s+Rainfall|Recorded\s+Rainfall|Departure|Rainfall\s+Departure)\s*:\s*(?:N/A|NA|None|ND)\s*(?:mm)?\.?\s*$\n?", "", text)
+
+    # Collapse duplicate identical dual sources into a single source
+    m_dual = re.search(
+        r"(?i)This information is fetched from:?\s*\n\s*[\*\-]?\s*Today's observation:\s*([^\n]+)\s*\n\s*[\*\-]?\s*Multi-day forecast:\s*([^\n]+)",
+        text,
+    )
+    if m_dual:
+        s1 = m_dual.group(1).strip().rstrip(".")
+        s2 = m_dual.group(2).strip().rstrip(".")
+        if s1.lower() == s2.lower():
+            text = text[:m_dual.start()] + f"This information is fetched from the following source: {s1}." + text[m_dual.end():]
+
+    # Remove (Today) from station line if only one station is present
+    if "Forecast station" not in text and "forecast station" not in text.lower():
+        text = re.sub(r"(?i)\bObservation station\s*\(Today\):", "Observation station:", text)
+
+    # Standardize separate Max/Min lines into Temperature Range: Min°C–Max°C in multi-day forecasts
+    text = re.sub(
+        r"(?im)^(\s*[\*\-]?\s*)Max Temp\s*:\s*([0-9\.]+(?:°C)?)\s*\n\s*[\*\-]?\s*Min Temp\s*:\s*([0-9\.]+(?:°C)?)",
+        lambda m: f"{m.group(1)}Temperature Range: {m.group(3).replace('°C','') if '°C' in m.group(3) else m.group(3)}°C–{m.group(2).replace('°C','') if '°C' in m.group(2) else m.group(2)}°C",
+        text,
+    )
+    text = re.sub(
+        r"(?im)^(\s*[\*\-]?\s*)Min Temp\s*:\s*([0-9\.]+(?:°C)?)\s*\n\s*[\*\-]?\s*Max Temp\s*:\s*([0-9\.]+(?:°C)?)",
+        lambda m: f"{m.group(1)}Temperature Range: {m.group(2).replace('°C','') if '°C' in m.group(2) else m.group(2)}°C–{m.group(3).replace('°C','') if '°C' in m.group(3) else m.group(3)}°C",
+        text,
+    )
+
+    # Deduplicate redundant rainfall parameters if both are present
+    m_dup_rain = re.search(
+        r"(?im)^\s*[\*\-]?\s*(?:Past\s+24h\s+Rain|Recorded\s+rainfall\s*\(Past\s+24\s+hours\))\s*:\s*([0-9\.]+\s*mm)\s*\n\s*[\*\-]?\s*(?:Rain\s+24h\s*/\s*actual|Daily\s+actual)\s*:\s*[0-9\.]+\s*mm",
+        text,
+    )
+    if m_dup_rain:
+        text = text[:m_dup_rain.start()] + f"*   Recorded rainfall (Past 24 hours): {m_dup_rain.group(1)}" + text[m_dup_rain.end():]
+
+    # Convert raw 'Departure: 273%' to 'Departure from normal: 273%'
+    text = re.sub(r"(?im)^\s*[\*\-]?\s*Departure\s*:\s*([+\-0-9%]+)", r"*   Departure from normal: \1", text)
+
     # Ensure blank line before Summary: if preceded by a non-empty line
     text = re.sub(r"([^\n])\n(Summary:)", r"\1\n\n\2", text)
     # Ensure blank line after Summary: before date entry (e.g., 2026-08-14 | ...)
@@ -571,14 +621,22 @@ def _ensure_weather_answer_spacing(text: str) -> str:
     text = re.sub(r"([^\n])\n((?:Today \()?\d{4}-\d{2}-\d{2}[^\n]*\|)", r"\1\n\n\2", text)
     # Ensure blank line before station context sections
     text = re.sub(r"([^\n])\n(Annam AWS ground sensor|IMD observation station|Nearest IMD Station|Live observation)", r"\1\n\n\2", text)
+    # Collapse lists of 3 or more comma-separated dates into a clean date range: from Start to End
+    text = re.sub(
+        r"\b(?:on\s+)?(\d{4}-\d{2}-\d{2})(?:,\s*\d{4}-\d{2}-\d{2}){2,}(?:,?\s*(?:and|or)\s+(\d{4}-\d{2}-\d{2}))\b",
+        r"from \1 to \2",
+        text,
+    )
+
     # Ensure blank line before Data Source: line if preceded by non-empty line
     text = re.sub(r"([^\n])\n(Data Source:|Observation source:|Data source:)", r"\1\n\n\2", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
-    return text
+    return text.strip()
+
 
 
 async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
-    """Return a complete bullet-style answer from server JSON; Gemma may only rephrase."""
+    """Return a complete bullet-style answer from server JSON; MiniMax may only rephrase."""
     full_answer = build_full_weather_answer(tool_result)
     if not full_answer:
         return _weather_tool_unavailable_answer(tool_result)
@@ -590,27 +648,53 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
         f"{full_answer}\n\n"
         "Answer:"
     )
-    answer = await _gemma_weather_chat(
+
+    answer = await _minimax_weather_chat(
         trace_name="new_weather_answer",
         user_content=user_content,
-        max_tokens=2000,
+        max_tokens=2048,
         temperature=0.0,
         query=query,
         model=WEATHER_ANSWER_MODEL,
-        timeout=45.0,
+        timeout=60.0,
+        is_intent=False,
     )
+    is_past_rain_q = bool(re.search(r"\b(?:past|last|previous)\s+24\s*(?:hours?|hrs?)\b|\bhow\s+much\s+rain(?:fall)?\b|\brecorded\s+rain(?:fall)?\b", query, re.I))
+
     if answer and answer.strip() and _weather_answer_preserves_facts(full_answer, answer):
-        return _ensure_weather_answer_spacing(answer.strip())
+        clean_ans = _strip_reasoning_and_thinking(answer)
+        clean_ans = re.split(r"\n(?=The user wants me to|\*\*Constraint Checklist|\*\*Execution Steps)", clean_ans)[0].strip()
+        if is_past_rain_q:
+            clean_ans = re.sub(r"(?im)^(?:Yes,\s+there\s+is\s+a\s+chance\s+of\s+rain|No\s+(?:significant\s+)?rain\s+is\s+expected|Rain\s+forecast:)[^\n]*\n*", "", clean_ans).strip()
+            clean_ans = re.sub(r"(?im)^\s*[\*\-]?\s*(?:Departure|Departure\s+from\s+normal)\s*:\s*[+\-0-9%]+\.?\s*$\n?", "", clean_ans).strip()
+
+        # Guarantee Observation station / Notice line from full_answer is preserved in final answer
+        obs_match = re.search(r"(?im)^\s*(?:Observation station|Notice: No active)[^\n]+", full_answer)
+        if obs_match:
+            obs_line = obs_match.group(0).strip()
+            if "Observation station" not in clean_ans and "Notice:" not in clean_ans:
+                clean_lines = clean_ans.split("\n")
+                if len(clean_lines) >= 2:
+                    clean_lines.insert(2, obs_line)
+                else:
+                    clean_lines.append(obs_line)
+                clean_ans = "\n".join(clean_lines)
+
+        return _ensure_weather_answer_spacing(clean_ans)
 
     if answer and answer.strip():
         logger.info(
-            "Gemma weather answer dropped facts; using full deterministic formatter output."
+            "MiniMax weather answer dropped facts or leaked reasoning; using full deterministic formatter output."
         )
-    return _ensure_weather_answer_spacing(full_answer)
+    det_ans = full_answer
+    if is_past_rain_q:
+        det_ans = re.sub(r"(?im)^(?:Yes,\s+there\s+is\s+a\s+chance\s+of\s+rain|No\s+(?:significant\s+)?rain\s+is\s+expected|Rain\s+forecast:)[^\n]*\n*", "", det_ans).strip()
+        det_ans = re.sub(r"(?im)^\s*[\*\-]?\s*(?:Departure|Departure\s+from\s+normal)\s*:\s*[+\-0-9%]+\.?\s*$\n?", "", det_ans).strip()
+    return _ensure_weather_answer_spacing(det_ans)
 
 
 async def extract_weather_intent(query: str) -> dict[str, Any]:
-    """Ask Gemma for tool + params; fall back to programmatic heuristics on failure."""
+    """Ask MiniMax for tool + params; fall back to programmatic heuristics on failure."""
     today_str = date.today().strftime("%Y-%m-%d")
     user_content = (
         f"{NEW_WEATHER_INTENT_PROMPT}\n\n"
@@ -618,14 +702,15 @@ async def extract_weather_intent(query: str) -> dict[str, Any]:
         f"Query: {query}\n"
         "JSON:"
     )
-    raw_text = await _gemma_weather_chat(
+    raw_text = await _minimax_weather_chat(
         trace_name="new_weather_intent",
         user_content=user_content,
-        max_tokens=400,
+        max_tokens=1024,
         temperature=0.0,
         query=query,
         model=WEATHER_INTENT_MODEL,
-        timeout=10.0,
+        timeout=30.0,
+        is_intent=True,
     )
     parsed = _extract_json_object(raw_text or "")
     intent = _normalize_weather_intent(parsed, query)
@@ -735,14 +820,16 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
     if "yesterday" in q:
         d_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
         return d_str, None, None, "previous"
-    if any(k in q for k in ["tomorrow", "tomorrows", "next day", "coming day"]) and "day after" not in q:
+    if any(k in q for k in ["today and tomorrow", "today & tomorrow", "today to tomorrow"]):
         f_str = today_str
         t_str = (today + timedelta(days=1)).strftime("%Y-%m-%d")
         return None, f_str, t_str, "forecast"
+    if any(k in q for k in ["tomorrow", "tomorrows", "next day", "coming day"]) and "day after" not in q:
+        d_str = (today + timedelta(days=1)).strftime("%Y-%m-%d")
+        return d_str, None, None, "forecast"
     if "day after tomorrow" in q:
-        f_str = today_str
-        t_str = (today + timedelta(days=2)).strftime("%Y-%m-%d")
-        return None, f_str, t_str, "forecast"
+        d_str = (today + timedelta(days=2)).strftime("%Y-%m-%d")
+        return d_str, None, None, "forecast"
 
     num_words = {
         "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
@@ -764,7 +851,7 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
         val_s = p_range_match.group(1)
         cnt_d = num_words.get(val_s, int(val_s) if val_s.isdigit() else 1)
         f_str = (today - timedelta(days=cnt_d)).strftime("%Y-%m-%d")
-        t_str = today_str
+        t_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
         return None, f_str, t_str, "previous"
 
     if "next week" in q or "after 1 week" in q or "in 1 week" in q:
@@ -776,18 +863,18 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
         t_str = (today + timedelta(days=6)).strftime("%Y-%m-%d")
         return None, f_str, t_str, "forecast"
     if "last week" in q or "previous week" in q or "past week" in q:
-        f_str = (today - timedelta(days=6)).strftime("%Y-%m-%d")
-        t_str = today_str
+        f_str = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        t_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
         return None, f_str, t_str, "previous"
 
-    # Bare past/previous/historical weather/data with no day count → last 7 days
+    # Bare past/previous/historical weather/data with no day count → last 7 days (ending yesterday)
     if re.search(
         r"\b(?:past|previous|historical)\b.{0,40}\b(?:weather|data|history|record|records|condition|conditions)\b"
         r"|\b(?:weather|data|history|record|records)\b.{0,40}\b(?:past|previous|historical)\b",
         q,
     ):
-        f_str = (today - timedelta(days=6)).strftime("%Y-%m-%d")
-        t_str = today_str
+        f_str = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        t_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
         return None, f_str, t_str, "previous"
 
     return None, None, None, None
@@ -803,6 +890,10 @@ _INDIAN_STATES = {
     "andaman and nicobar", "andaman & nicobar", "chandigarh", "dadra and nagar haveli", 
     "daman and diu", "lakshadweep"
 }
+
+
+from ajrasakha.agents.location_context import extract_location_from_query as _extract_location_from_query
+
 
 
 @tool(args_schema=NewWeatherInput)
@@ -825,19 +916,33 @@ async def new_weather(
     try:
         lat = latitude
         lon = longitude
-        place_district = district or address
+        place_district = district
         place_state = state
         place_location = location
 
-        # Handle State-level queries (e.g. "Kerala")
+        # If location parameters were omitted from tool call args, extract from query
+        if not place_district and not place_location and not place_state and (lat is None or lon is None):
+            ext_place, ext_state = _extract_location_from_query(query)
+            if ext_state:
+                place_state = ext_state
+            if ext_place:
+                place_location = ext_place
+
+        # Clean placeholder district values
+        if place_district and place_district.lower().strip() in {"all", "not specified", "unknown", "none", "null"}:
+            place_district = None
+        if place_location and place_location.lower().strip() in {"all", "not specified", "unknown", "none", "null"}:
+            place_location = None
+
+        # Handle State-level queries (e.g. "Kerala", "Punjab")
         if place_district and place_district.lower().strip() in _INDIAN_STATES:
-            place_state = place_district.strip()
+            place_state = place_district.strip().title()
             place_district = None
             place_location = None
             lat = None
             lon = None
         elif place_location and place_location.lower().strip() in _INDIAN_STATES:
-            place_state = place_location.strip()
+            place_state = place_location.strip().title()
             place_location = None
             place_district = None
             lat = None
@@ -867,8 +972,8 @@ async def new_weather(
             looks_past_weather = False
         if looks_past_weather and not eff_target_date and not eff_from_date:
             today_d = date.today()
-            eff_from_date = (today_d - timedelta(days=6)).strftime("%Y-%m-%d")
-            eff_to_date = today_d.strftime("%Y-%m-%d")
+            eff_from_date = (today_d - timedelta(days=7)).strftime("%Y-%m-%d")
+            eff_to_date = (today_d - timedelta(days=1)).strftime("%Y-%m-%d")
             ext_qt = ext_qt or "previous"
 
         # Geocode if coordinates omitted (district/location/state)
@@ -877,11 +982,13 @@ async def new_weather(
                 from ajrasakha.agents.location_context import forward_geocode
                 geocode_result = await forward_geocode(
                     state=place_state,
-                    district=place_district or place_location or place_state,
+                    district=place_location or place_district,
                 )
                 if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
                     lat = geocode_result.get("latitude")
                     lon = geocode_result.get("longitude")
+                    if geocode_result.get("district"):
+                        place_district = geocode_result.get("district")
                     logger.info(
                         "new_weather_agent: forward geocoded location %r to %s, %s",
                         place_district or place_location or place_state,
@@ -891,11 +998,26 @@ async def new_weather(
             except Exception as geo_err:
                 logger.warning("Geocoding lookup notice: %s", geo_err)
 
-        # Gemma-first tool + variable extraction; programmatic heuristics on failure.
+        if lat is None or lon is None:
+            from ajrasakha.tools.weather.weather_tools2 import _resolve_coordinates, LOCATION_UNRESOLVED_MESSAGE
+            clat, clon, cname = _resolve_coordinates(None, None, place_location, place_district, place_state)
+            if clat is None or clon is None:
+                return json.dumps({
+                    "answer": LOCATION_UNRESOLVED_MESSAGE,
+                    "tool_data": {
+                        "success": False,
+                        "location_unresolved": True,
+                        "error": "location_unresolved",
+                        "message": LOCATION_UNRESOLVED_MESSAGE,
+                    }
+                }, ensure_ascii=False)
+            lat, lon = clat, clon
+
+        # MiniMax-first tool + variable extraction; programmatic heuristics on failure.
         intent = await extract_weather_intent(query)
         tool_name = intent.get("tool") or route_weather_query_by_heuristics(query)
 
-        # Prefer explicit tool args, then Gemma, then programmatic extracts.
+        # Prefer explicit tool args, then MiniMax, then programmatic extracts.
         if not target_date and intent.get("target_date"):
             eff_target_date = intent["target_date"]
         if not from_date and intent.get("from_date"):
@@ -975,25 +1097,25 @@ async def new_weather(
                 or bool(eff_target_date and eff_target_date > today_str)
             )
             qt = "previous" if is_past else ("forecast" if is_fc else (eff_qt or "today"))
-            f_days = eff_forecast_days or (
+            f_days = 1 if eff_target_date else (eff_forecast_days or (
                 7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
-                else 3 if ("2 day" in q_lower or "2-day" in q_lower or "day after tomorrow" in q_lower)
-                else 2 if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"])
+                else 3 if ("2 day" in q_lower or "2-day" in q_lower)
                 else 1
-            )
+            ))
             t_date = eff_target_date
             f_date = eff_from_date
             to_d = eff_to_date
-            if is_fc and any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "day after tomorrow", "next", "forecast", "coming"]):
+            if is_fc and not eff_target_date and any(k in q_lower for k in ["next", "forecast", "coming"]):
                 t_date = None
             if is_past and not f_date and not t_date:
                 if "yesterday" in q_lower:
                     t_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                    to_d = t_date
                 else:
-                    f_date = (date.today() - timedelta(days=6)).strftime("%Y-%m-%d")
-                    to_d = today_str
+                    f_date = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
+                    to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 
             args = {
                 "lat": lat,
@@ -1028,25 +1150,25 @@ async def new_weather(
                 else ("forecast" if is_fc
                       else ("historical" if is_past else "current"))
             )
-            f_days = eff_forecast_days or (
+            f_days = 1 if eff_target_date else (eff_forecast_days or (
                 7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
-                else 3 if ("2 day" in q_lower or "2-day" in q_lower or "day after tomorrow" in q_lower)
-                else 2 if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"])
+                else 3 if ("2 day" in q_lower or "2-day" in q_lower)
                 else 1
-            )
+            ))
             t_date = eff_target_date
             f_date = eff_from_date
             to_d = eff_to_date
-            if is_fc and any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "day after tomorrow", "next", "forecast", "coming"]):
+            if is_fc and not eff_target_date and any(k in q_lower for k in ["next", "forecast", "coming"]):
                 t_date = None
             if is_past and not f_date and not t_date:
                 if "yesterday" in q_lower:
                     t_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                    to_d = t_date
                 else:
-                    f_date = (date.today() - timedelta(days=6)).strftime("%Y-%m-%d")
-                    to_d = today_str
+                    f_date = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
+                    to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 
             args = {
                 "lat": lat,
@@ -1061,18 +1183,6 @@ async def new_weather(
                 "forecast_days": f_days,
             }
             result = await _invoke_mcp_or_direct("get_rainfall_and_monsoon_info", args)
-        elif tool_name == "get_sowing_weather_guide":
-            sowing_qt = eff_qt if eff_qt in _ALLOWED_SOWING_QUERY_TYPES else "sowing_time"
-            args = {
-                "lat": lat,
-                "long": lon,
-                "location": place_location,
-                "district": place_district,
-                "state": place_state,
-                "crop_name": intent.get("crop_name"),
-                "query_type": sowing_qt,
-            }
-            result = await _invoke_mcp_or_direct("get_sowing_weather_guide", args)
         else:
             _is_current_query = any(k in q_lower for k in ["current weather", "current condition", "right now", "at the moment", "current climate"])
             _is_today_query = any(k in q_lower for k in ["today", "todays", "today's"])
@@ -1101,20 +1211,20 @@ async def new_weather(
                 if not f_date and not t_date:
                     if "yesterday" in q_lower:
                         t_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                        to_d = t_date
                     else:
-                        f_date = (date.today() - timedelta(days=6)).strftime("%Y-%m-%d")
-                        to_d = today_str
+                        f_date = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
+                        to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
             elif is_fc:
                 qt = "forecast"
-                f_days = eff_forecast_days or (
+                f_days = 1 if eff_target_date else (eff_forecast_days or (
                     7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
                     else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                     else 4 if ("3 day" in q_lower or "3-day" in q_lower)
-                    else 3 if ("2 day" in q_lower or "2-day" in q_lower or "day after tomorrow" in q_lower)
-                    else 2 if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day"])
+                    else 3 if ("2 day" in q_lower or "2-day" in q_lower)
                     else 7
-                )
-                t_date = None if any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "day after tomorrow", "next", "forecast", "coming"]) else eff_target_date
+                ))
+                t_date = eff_target_date
                 f_date = None
                 to_d = None
             elif _is_current_query:

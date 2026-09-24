@@ -1,5 +1,5 @@
 
-import {IAnswer, PreviousAnswersItem, SourceItem} from '#root/shared/interfaces/models.js';
+import {IAnswer, PreviousAnswersItem, SourceItem, UserRole} from '#root/shared/interfaces/models.js';
 import {
   Analytics,
   AnswerStatusOverview,
@@ -11,6 +11,63 @@ import { SubmissionResponse } from '#root/modules/answer/classes/validators/Answ
 /**
  * Interface representing a repository for answer-related operations.
  */
+/** Optional server-side filters for the closed answers list. */
+export interface ClosedAnswerFilters {
+  /** Inclusive start of the question's closedAt range (ISO date). */
+  closedAtStart?: string;
+  /** Inclusive end of the question's closedAt range (ISO date). */
+  closedAtEnd?: string;
+  /** Answer authors to include. */
+  authorIds?: string[];
+  /** Whether the answer must have sources ('with') or must have none ('without'). */
+  sourcePresence?: 'with' | 'without';
+  /** Source types the answer must carry at least one of. */
+  sourceTypes?: string[];
+  /**
+   * updated_sources record states to keep ('pending' | 'in-progress' | 'review-completed' |
+   * 'merged' | 'flagged'). 'none' (answers nobody has started) is still accepted for
+   * completeness but the UI no longer offers it. Flagged records are hidden from the
+   * list unless 'flagged' is asked for here.
+   */
+  newSourceStatuses?: string[];
+  /**
+   * Pop lookup outcomes ('notFound' | 'topLevelMatch' | 'duplicateMatch') recorded on
+   * the answer's reviewed sources. Matches when any one source carries the outcome.
+   */
+  sourceReferenceStatuses?: string[];
+  /**
+   * Keeps only answers whose updated_sources record was sent back to 'pending' by a
+   * moderator at least once (a moderatorActions entry with action 'pending'), so the
+   * answers handed back from moderation can be picked out of the queue.
+   */
+  sentBackToPending?: boolean;
+  /** Inclusive bounds on how many sources the answer carries. */
+  minSources?: number;
+  maxSources?: number;
+  /**
+   * Orders the results by a stable pseudo-random key derived from this seed instead
+   * of by creation date. The same seed keeps paging consistent; a new one reshuffles.
+   */
+  shuffleSeed?: number;
+  /** Question detail filters. */
+  states?: string[];
+  crops?: string[];
+  domains?: string[];
+  priorities?: string[];
+  /**
+   * The requesting user's role — controls visibility based on the answer's
+   * updated_sources review state, not a user-facing query param. Experts don't see
+   * answers whose updated_sources record is already 'review-completed'; moderators/admins
+   * see only those that are.
+   */
+  viewerRole?: UserRole;
+  /**
+   * The requesting user's id — not a user-facing query param. Answers where this user
+   * has an 'in-progress' updated_sources record are sorted to the top of their list.
+   */
+  viewerId?: string;
+}
+
 export interface IAnswerRepository {
   /**
    * Adds a new answer for a specific question.
@@ -183,6 +240,23 @@ export interface IAnswerRepository {
     session?: ClientSession,
   ): Promise<{faqs: any[]; totalFaqs: number}>;
 
+  /**
+   * Retrieves every answer (including non-final submissions) belonging to
+   * a question whose status is 'closed'.
+   * @param page - Current page count.
+   * @param limit - Total limit count.
+   * @param search - Optional search across the answer text and question text.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to the closed answers and their total count.
+   */
+  getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    filters?: ClosedAnswerFilters,
+    session?: ClientSession,
+  ): Promise<{answers: any[]; totalAnswers: number}>;
+
   updateAnswerStatus(
     answerId: string,
     updates: Partial<IAnswer>,
@@ -275,6 +349,19 @@ export interface IAnswerRepository {
     questionIds: string[],
     session?: ClientSession,
   ): Promise<IAnswer[]>;
+
+  /** Answers with a missing/empty `embedding`, for the answer-embedding backfill. Returns
+   *  only the fields the backfill needs (id, questionId, answer text, isFinalAnswer). */
+  getAnswersMissingEmbedding(
+    limit?: number,
+  ): Promise<
+    {
+      _id: ObjectId;
+      questionId?: ObjectId;
+      answer: string;
+      isFinalAnswer: boolean;
+    }[]
+  >;
 
   /** Question ids whose final answer was approved by any of the given moderators (approvedBy). */
   getFinalAnswerQuestionIdsByApprover(

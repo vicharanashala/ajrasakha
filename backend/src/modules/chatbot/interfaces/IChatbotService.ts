@@ -25,6 +25,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { ClientSession } from 'mongodb';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
@@ -193,6 +194,7 @@ export interface IChatbotService {
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
   getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, fromMap?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
+  exportUserDetailsCsv(startDate?: string, endDate?: string, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?: string, sortOrder?: string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, fromMap?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<string>;
   getUsersByDemographic(
     category: string,
     value: string,
@@ -670,4 +672,6 @@ export interface IChatbotService {
     page?: number,
     pageSize?: number,
   ): Promise<DatasetListResponse<DatasetUserListItem>>;
+
+  logoutUser (userId: string): Promise<{value: boolean, message: string}>
 }

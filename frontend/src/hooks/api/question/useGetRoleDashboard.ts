@@ -15,7 +15,7 @@ export const useGetRoleDashboard = (
   options: {
     enabled?: boolean;
     userId?: string;
-    role?: "gate_keeper" | "auditor";
+    role?: "gate_keeper" | "auditor" | "moderator";
     startDate?: string;
     endDate?: string;
     dateFilterType?: "assigned" | "completed" | "both";

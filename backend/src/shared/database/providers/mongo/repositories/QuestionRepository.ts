@@ -74,6 +74,10 @@ export class QuestionRepository implements IQuestionRepository {
   private ReviewCollection: Collection<IReview>;
   private ReRouteCollection: Collection<IReroute>;
 
+  /** Queue/moderator-details indexes are built once per process (createIndex is idempotent
+   *  but we still avoid the extra round-trips on every init()). */
+  private indexesEnsured = false;
+
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -92,13 +96,96 @@ export class QuestionRepository implements IQuestionRepository {
     this.AnswersCollection = await this.db.getCollection<IAnswer>('answers');
     this.ReviewCollection = await this.db.getCollection<IReview>('reviews');
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+
+    // Build the queue/moderator-details indexes once, in the background, on first use.
+    if (!this.indexesEnsured) {
+      this.indexesEnsured = true;
+      void this.ensureIndexes();
+    }
   }
 
   private async ensureIndexes() {
     try {
-      await this.QuestionCollection.createIndex({ status: 1, createdAt: 1 });
+      await Promise.all([
+        // Existing status/time index (kept).
+        this.QuestionCollection.createIndex({ status: 1, createdAt: 1 }),
+
+        // ── Queue-details: expert sections ────────────────────────────────
+        // received / allocated / autoAllocateOff / autoAllocateOpen /
+        // autoAllocateDelayed + allocated-level-counts all filter
+        // source(+isAutoAllocate)+status and sort by createdAt desc.
+        this.QuestionCollection.createIndex(
+          { source: 1, isAutoAllocate: 1, status: 1, createdAt: -1 },
+          { name: 'queue_expert_sections' },
+        ),
+        // "received" (source only, optional createdAt range) and the
+        // getReceivedStatusCounts group-by-status.
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, createdAt: -1 },
+          { name: 'queue_received' },
+        ),
+
+        // ── Queue-details: moderator sections ─────────────────────────────
+        // findUnassignedInReviewQuestions (waiting moderator queue).
+        this.QuestionCollection.createIndex(
+          {
+            status: 1,
+            autoAllocateModerator: 1,
+            moderatorId: 1,
+            createdAt: 1,
+          },
+          { name: 'queue_moderator_waiting' },
+        ),
+        // findModeratorAssignedQuestions (allocated moderator queue).
+        this.QuestionCollection.createIndex(
+          { status: 1, moderatorId: 1, createdAt: 1 },
+          { name: 'queue_moderator_allocated' },
+        ),
+        // findQuestionsWithOpenFeedbacks (waiting-feedback questions merged into the
+        // moderator queue): closed questions with an open feedback entry, ordered by
+        // recentFeedback. (feedbacks.status is multikey — feedbacks is an array.)
+        this.QuestionCollection.createIndex(
+          {
+            status: 1,
+            'feedbacks.status': 1,
+            recentFeedback: 1,
+            createdAt: 1,
+          },
+          { name: 'queue_feedback_waiting' },
+        ),
+
+        // ── Queue-details: gate keeper / auditor role sections ────────────
+        // findUnassignedQuestionsForRole (per assignee field).
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, gateKeeperId: 1, createdAt: 1 },
+          { name: 'queue_gatekeeper' },
+        ),
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, auditorId: 1, createdAt: 1 },
+          { name: 'queue_auditor' },
+        ),
+
+        // ── The $lookup join key used by nearly every queue aggregation ───
+        // Every queue-details section that reads submission queue/history does
+        // a $lookup from question_submissions on questionId. Without this the
+        // join scans the whole collection per question — the biggest win here.
+        this.QuestionSubmissionCollection.createIndex(
+          { questionId: 1 },
+          { name: 'submission_questionId' },
+        ),
+        // "Stuck" section: submissions allocated >45min ago and never opened.
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertAllocatedAt: 1 },
+          { name: 'submission_stuck' },
+        ),
+        // "Opened but idle" section: submissions opened >45min ago.
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertOpenedAt: 1 },
+          { name: 'submission_opened_idle' },
+        ),
+      ]);
     } catch (error) {
-      console.error('Failed to create index:', error);
+      console.error('Failed to create queue-details indexes:', error);
     }
   }
 
@@ -572,6 +659,56 @@ export class QuestionRepository implements IQuestionRepository {
       return formattedQuestion;
     } catch (error) {
       throw new InternalServerError(`Failed to get Question:, More/ ${error}`);
+    }
+  }
+
+  async getByMessageId(
+    messageId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!messageId) {
+        throw new BadRequestError('Invalid or missing messageId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { messageId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by messageId: ${error}`);
+    }
+  }
+
+  async getByThreadId(
+    threadId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!threadId) {
+        throw new BadRequestError('Invalid or missing threadId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { threadId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by threadId: ${error}`);
     }
   }
 
@@ -2598,6 +2735,8 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
+        /** The reference question's approved final-answer text (shown in "Reference Question"). */
+        answer: string;
         sources: {
           source: string;
           page?: string | number | null;
@@ -2629,7 +2768,7 @@ export class QuestionRepository implements IQuestionRepository {
             ) as any,
             this.AnswersCollection.findOne(
               { questionId: refId, isFinalAnswer: true },
-              { projection: { sources: 1 } },
+              { projection: { sources: 1, answer: 1 } },
             ) as any,
           ]);
 
@@ -2639,6 +2778,7 @@ export class QuestionRepository implements IQuestionRepository {
               status: refQuestion.status || '',
               details: refQuestion.details || {},
               text: refQuestion.text || '',
+              answer: refFinalAnswer?.answer || '',
               sources: refFinalAnswer?.sources || [],
             };
           }
@@ -3203,11 +3343,14 @@ export class QuestionRepository implements IQuestionRepository {
     return Math.floor(index / limit) + 1;
   }
 
-  async insertMany(questions: IQuestion[]): Promise<string[]> {
+  async insertMany(
+    questions: IQuestion[],
+    session?: ClientSession,
+  ): Promise<string[]> {
     await this.init();
     if (!Array.isArray(questions) || questions.length === 0) return [];
     try {
-      const result = await this.QuestionCollection.insertMany(questions);
+      const result = await this.QuestionCollection.insertMany(questions, { session });
       if (!result.acknowledged) {
         throw new InternalServerError('Failed to insert questions');
       }
@@ -7354,15 +7497,77 @@ export class QuestionRepository implements IQuestionRepository {
     ).toArray() as Promise<{ _id: ObjectId; question: string; text?: string }[]>;
   }
 
+  async getQuestionsMissingEmbedding(
+    limit = 50,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  > {
+    await this.init();
+
+    return this.QuestionCollection.find(
+      {
+        $or: [
+          { embedding: { $exists: false } },
+          { embedding: null },
+          { embedding: { $size: 0 } },
+        ],
+      },
+      {
+        projection: { _id: 1, question: 1, text: 1, status: 1 },
+        limit,
+      },
+    ).toArray() as Promise<
+      { _id: ObjectId; question: string; text?: string; status?: string }[]
+    >;
+  }
+
   async updateQuestionEmbedding(
     questionId: string,
     embedding: number[],
-  ): Promise<void> {
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
     await this.init();
-    await this.QuestionCollection.updateOne(
+    const res = await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { embedding, updatedAt: new Date() } },
     );
+    return { matchedCount: res.matchedCount, modifiedCount: res.modifiedCount };
+  }
+
+  async bulkUpdateEmbeddings(
+    updates: Array<{
+      questionId: string;
+      embedding: number[];
+      normalisedCrop?: string;
+    }>,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return { modifiedCount: 0 };
+    }
+
+    const bulkOps = updates.map(update => {
+      const setObj: any = {
+        updatedAt: new Date(),
+      };
+
+      // Always include embedding
+      setObj.embedding = update.embedding;
+
+      // Only add normalised_crop if provided
+      if (update.normalisedCrop !== undefined) {
+        setObj['details.normalised_crop'] = update.normalisedCrop;
+      }
+
+      return {
+        updateOne: {
+          filter: { _id: new ObjectId(update.questionId) },
+          update: { $set: setObj },
+        },
+      };
+    });
+
+    const result = await this.QuestionCollection.bulkWrite(bulkOps);
+    return { modifiedCount: result.modifiedCount };
   }
 
   async getShiftBasedMetrics(
@@ -8412,6 +8617,38 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Paginated variant of {@link findModeratorAssignedQuestions}: exact total count plus a
+   *  single DB page (skip/limit), so the queue-details UI doesn't load the whole list into
+   *  memory just to show one page. Same filter/sort as the non-paged method. */
+  async findModeratorAssignedQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] },
+      moderatorId: { $exists: true, $ne: null },
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser ? true : { $ne: true };
+    }
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
+  }
+
   /** Mark ONE feedback source's entry (DATASET / WEB_APPLICATION / PAE_Validation) as
    *  closed on the question, then report whether EVERY feedback entry is now closed.
    *  Used so a reviewer's feedbacksAssigned id is removed and the review round is
@@ -8500,6 +8737,34 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Paginated variant of {@link findUnassignedQuestionsForRole}: exact total count plus a
+   *  single DB page (skip/limit). Same filter/sort as the non-paged method. */
+  async findUnassignedQuestionsForRolePaged(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: statuses },
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      [assigneeField]: { $in: [null, undefined] },
+      [autoAllocateField]: { $eq: true },
+      isOnHold: { $ne: true },
+    };
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
+  }
+
   /** Questions created in a window, for the TAT (turnaround-time) lifecycle report.
    *  Mirrors scripts/timebound-question-cycle-report.js: default scope is time-bound
    *  (AJRASAKHA/WHATSAPP + isAutoAllocate), test questions excluded. `allSources` drops
@@ -8531,8 +8796,24 @@ export class QuestionRepository implements IQuestionRepository {
       ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
     return this.QuestionCollection.find(match as any)
+      .project({
+        _id: 1,
+        question: 1,
+        source: 1,
+        status: 1,
+        referenceQuestionId: 1,
+        tag: 1,
+        createdAt: 1,
+        closedAt: 1,
+        userId: 1,
+        moderatorId: 1,
+        gateKeeperId: 1,
+        auditorId: 1,
+        firstAllocationAt: 1,
+        moderatorAssignedAt: 1,
+      })
       .sort({ createdAt: 1 })
-      .toArray();
+      .toArray() as any;
   }
 
   /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
@@ -8549,6 +8830,31 @@ export class QuestionRepository implements IQuestionRepository {
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
     } as any)
       .toArray();
+  }
+
+  /** Paginated variant of {@link findQuestionsAssignedToRole}: exact total count plus a
+   *  single DB page (skip/limit), ordered oldest-first for stable pagination. */
+  async findQuestionsAssignedToRolePaged(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter = {
+      [assigneeField]: { $ne: null, $exists: true },
+      status: { $in: statuses },
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+    };
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
   }
 
   /** "Leaked" role assignments: a question still points to a gate keeper / auditor
@@ -8673,6 +8979,304 @@ export class QuestionRepository implements IQuestionRepository {
       questions: questions.map(q => ({ ...q, _id: q._id?.toString() })),
       totalCount,
       totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
+    };
+  }
+
+  /** Dashboard for a single moderator: assigned + completed counts and a paginated
+   *  list of the questions they hold (moderatorId). Unlike gate keeper / auditor,
+   *  a moderator has no persisted "finished" field — a question is treated as
+   *  completed once it is closed or passed (moderatorCompletedAt = closedAt || passedAt),
+   *  so completion filters/counts run over closedAt / passedAt instead of a single field. */
+  async getModeratorDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType: 'assigned' | 'completed' | 'both' = 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }> {
+    await this.init();
+    if (!isValidObjectId(userId)) {
+      return { assignedCount: 0, submittedCount: 0, questions: [], totalPages: 0, totalCount: 0 };
+    }
+    const oid = new ObjectId(userId);
+
+    // A moderator "completes" a question when it is closed or passed.
+    const completedOr = [{ closedAt: { $ne: null } }, { passedAt: { $ne: null } }];
+    const range =
+      startDate && endDate ? { $gte: startDate, $lte: endDate } : null;
+
+    // Date-window clauses (ANDed into a match) depending on the selected filter type.
+    const dateClauses = (): Record<string, unknown>[] => {
+      if (!range) return [];
+      if (dateFilterType === 'assigned') return [{ moderatorAssignedAt: range }];
+      if (dateFilterType === 'completed') {
+        return [{ $or: [{ closedAt: range }, { passedAt: range }] }];
+      }
+      // 'both' — assigned OR completed within the range.
+      return [
+        {
+          $or: [
+            { moderatorAssignedAt: range },
+            { closedAt: range },
+            { passedAt: range },
+          ],
+        },
+      ];
+    };
+
+    const baseMatch: Record<string, unknown> = { moderatorId: oid };
+    if (search && search.trim()) {
+      baseMatch.question = {
+        $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        $options: 'i',
+      };
+    }
+    const baseDate = dateClauses();
+    if (baseDate.length) baseMatch.$and = baseDate;
+
+    const assignedCountMatch: Record<string, unknown> = { moderatorId: oid };
+    const assignedDate = dateClauses();
+    if (assignedDate.length) assignedCountMatch.$and = assignedDate;
+
+    // Completed (closed/passed) count — completion $or plus any date window, ANDed
+    // together so the two $or groups don't collide at the top level.
+    const submittedCountMatch: Record<string, unknown> = {
+      moderatorId: oid,
+      $and: [{ $or: completedOr }, ...dateClauses()],
+    };
+
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
+
+    const [assignedCount, submittedCount, totalCount, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments(assignedCountMatch as any),
+      this.QuestionCollection.countDocuments(submittedCountMatch as any),
+      this.QuestionCollection.countDocuments(baseMatch as any),
+      this.QuestionCollection.find(baseMatch as any, {
+        projection: {
+          _id: 1, question: 1, status: 1, source: 1, priority: 1, createdAt: 1,
+          moderatorAssignedAt: 1, closedAt: 1, passedAt: 1,
+          'details.state': 1, 'details.crop': 1,
+        },
+      })
+        .sort({ moderatorAssignedAt: -1, createdAt: -1 } as any)
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .toArray(),
+    ]);
+
+    return {
+      assignedCount,
+      submittedCount,
+      questions: questions.map(q => ({
+        ...q,
+        _id: q._id?.toString(),
+        // Surface the computed completion time so the client can show a "done" marker.
+        moderatorCompletedAt: (q as any).closedAt ?? (q as any).passedAt ?? null,
+      })),
+      totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
+    };
+  }
+
+  /** Gate-keeper-style dashboard for a single PAE (the answering flow). PAE assignment
+   *  lives in the submission `queue`; "submitted" means the PAE authored an answer in
+   *  the submission `history`. Returns assigned + submitted counts and a paginated list
+   *  of the PAE's questions, each flagged `submitted` (true) or pending (false). */
+  async getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    feedbackAssigned: number;
+    feedbackPending: number;
+    feedbackCompleted: number;
+    feedbackCompletedQuestions: any[];
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }> {
+    await this.init();
+    if (!isValidObjectId(userId)) {
+      return {
+        assignedCount: 0,
+        submittedCount: 0,
+        feedbackAssigned: 0,
+        feedbackPending: 0,
+        feedbackCompleted: 0,
+        feedbackCompletedQuestions: [],
+        questions: [],
+        totalPages: 0,
+        totalCount: 0,
+      };
+    }
+    const paeOid = new ObjectId(userId);
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
+
+    // Base pipeline: submissions this PAE is involved in, joined to their question,
+    // with a `paeAnswered` flag (they authored a history entry carrying an answer).
+    const baseStages: any[] = [
+      { $match: { $or: [{ queue: paeOid }, { 'history.updatedBy': paeOid }] } },
+      {
+        $addFields: {
+          paeAnswered: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: { $ifNull: ['$history', []] },
+                    as: 'h',
+                    cond: {
+                      $and: [
+                        { $eq: ['$$h.updatedBy', paeOid] },
+                        { $ne: [{ $ifNull: ['$$h.answer', null] }, null] },
+                        { $ne: [{ $ifNull: ['$$h.answer', ''] }, ''] },
+                      ],
+                    },
+                  },
+                },
+              },
+              0,
+            ],
+          },
+          inQueue: { $in: [paeOid, { $ifNull: ['$queue', []] }] },
+        },
+      },
+      // Keep only questions the PAE answered OR is still assigned (in queue).
+      { $match: { $or: [{ paeAnswered: true }, { inQueue: true }] } },
+      { $lookup: { from: 'questions', localField: 'questionId', foreignField: '_id', as: 'q' } },
+      { $addFields: { q: { $arrayElemAt: ['$q', 0] } } },
+      { $match: { q: { $ne: null } } },
+    ];
+
+    if (startDate && endDate) {
+      baseStages.push({ $match: { 'q.createdAt': { $gte: startDate, $lte: endDate } } });
+    }
+
+    const searchStages: any[] =
+      search && search.trim()
+        ? [
+            {
+              $match: {
+                'q.question': {
+                  $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+                  $options: 'i',
+                },
+              },
+            },
+          ]
+        : [];
+
+    const facet = (
+      await this.QuestionSubmissionCollection.aggregate([
+        ...baseStages,
+        {
+          $facet: {
+            assignedCount: [...searchStages, { $count: 'n' }],
+            submittedCount: [{ $match: { paeAnswered: true } }, ...searchStages, { $count: 'n' }],
+            questions: [
+              ...searchStages,
+              { $sort: { 'q.createdAt': -1 } },
+              { $skip: (safePage - 1) * safeLimit },
+              { $limit: safeLimit },
+              {
+                $project: {
+                  _id: '$q._id',
+                  question: '$q.question',
+                  status: '$q.status',
+                  source: '$q.source',
+                  createdAt: '$q.createdAt',
+                  submitted: '$paeAnswered',
+                  'details.state': '$q.details.state',
+                  'details.crop': '$q.details.crop',
+                },
+              },
+            ],
+          },
+        },
+      ]).toArray()
+    )[0] ?? {};
+
+    const assignedCount = facet.assignedCount?.[0]?.n ?? 0;
+    const submittedCount = facet.submittedCount?.[0]?.n ?? 0;
+    const questions = (facet.questions ?? []).map((q: any) => ({
+      ...q,
+      _id: q._id?.toString(),
+    }));
+
+    // Feedback / validation counts.
+    // Pending = the questions currently in the PAE's paeValidationAssigned array — the
+    // same source the validation list uses (completed ones are pulled from it).
+    const userDoc = await this.UsersCollection.findOne(
+      { _id: paeOid },
+      { projection: { paeValidationAssigned: 1 } },
+    );
+    const feedbackPending = Array.isArray((userDoc as any)?.paeValidationAssigned)
+      ? (userDoc as any).paeValidationAssigned.length
+      : 0;
+
+    // Completed = questions whose submission validation was done by this PAE (submission
+    // paeValidation.paeId = this PAE) and whose question-level paeValidation is 'completed'
+    // (reliably set on approve/feedback). Returns both the count and the question list.
+    const fbFacet = (
+      await this.QuestionSubmissionCollection.aggregate([
+        { $match: { 'paeValidation.paeId': { $in: [paeOid, userId] } } },
+        { $lookup: { from: 'questions', localField: 'questionId', foreignField: '_id', as: 'q' } },
+        { $addFields: { q: { $arrayElemAt: ['$q', 0] } } },
+        { $match: { 'q.paeValidation': 'completed' } },
+        {
+          $facet: {
+            count: [{ $count: 'n' }],
+            list: [
+              { $sort: { 'q.updatedAt': -1 } },
+              { $limit: 50 },
+              {
+                $project: {
+                  _id: '$q._id',
+                  question: '$q.question',
+                  status: '$q.status',
+                  source: '$q.source',
+                  createdAt: '$q.createdAt',
+                  'details.state': '$q.details.state',
+                  'details.crop': '$q.details.crop',
+                },
+              },
+            ],
+          },
+        },
+      ]).toArray()
+    )[0] ?? {};
+    const feedbackCompleted = fbFacet.count?.[0]?.n ?? 0;
+    const feedbackCompletedQuestions = (fbFacet.list ?? []).map((q: any) => ({
+      ...q,
+      _id: q._id?.toString(),
+    }));
+    const feedbackAssigned = feedbackPending + feedbackCompleted;
+
+    return {
+      assignedCount,
+      submittedCount,
+      feedbackAssigned,
+      feedbackPending,
+      feedbackCompleted,
+      feedbackCompletedQuestions,
+      questions,
+      totalCount: assignedCount,
+      totalPages: Math.max(1, Math.ceil(assignedCount / safeLimit)),
     };
   }
 
@@ -8929,6 +9533,78 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     return { count, items };
+  }
+
+  /**
+   * Per-level counts for the "Questions Allocated" section. Reuses the same allocated
+   * filter as getQueueQuestionSection('allocated', ...) — open/delayed, auto-allocate,
+   * a non-empty queue, and a fresh (unacted) last history entry — then groups by the
+   * currently-allocated expert's level = max(1, history.length - 1). Totals therefore
+   * match the section's own count.
+   */
+  async getAllocatedLevelCounts(
+    sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{ level: number; count: number }[]> {
+    await this.init();
+
+    const paeScope = requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {};
+    const allocatedMatch = {
+      source: { $in: sources },
+      isAutoAllocate: { $eq: true },
+      status: { $in: ['open', 'delayed'] },
+      ...paeScope,
+    };
+
+    const rows = await this.QuestionCollection.aggregate<{ level: number; count: number }>([
+      { $match: allocatedMatch },
+      ...(!isAdmin
+        ? [
+            {
+              $match: isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } },
+            },
+          ]
+        : []),
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $addFields: { sub: { $arrayElemAt: ['$sub', 0] } } },
+      { $match: { 'sub.queue.0': { $exists: true } } },
+      { $addFields: { lastHistory: { $arrayElemAt: [{ $ifNull: ['$sub.history', []] }, -1] } } },
+      {
+        $match: {
+          'lastHistory.answer': { $in: [null] },
+          'lastHistory.approvedAnswer': { $in: [null] },
+          'lastHistory.modifiedAnswer': { $in: [null] },
+          'lastHistory.rejectedAnswer': { $in: [null] },
+        },
+      },
+      {
+        $addFields: {
+          // Author=0, Level 1=reviewer 1 … so the current expert's level is history.length-1.
+          level: {
+            $max: [
+              0,
+              { $subtract: [{ $size: { $ifNull: ['$sub.history', []] } }, 1] },
+            ],
+          },
+        },
+      },
+      { $group: { _id: '$level', count: { $sum: 1 } } },
+      { $project: { _id: 0, level: '$_id', count: 1 } },
+      { $sort: { level: 1 } },
+    ]).toArray();
+
+    return rows;
   }
 
   /** Per-status counts for the "Questions Received" section.
@@ -9618,5 +10294,23 @@ export class QuestionRepository implements IQuestionRepository {
         $lt: [{ $size: { $ifNull: ['$assignedValidationQuestions', []] } }, 3],
       },
     });
+  }
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  async updateNormalisedCrop(
+    questionId: string,
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
   }
 }

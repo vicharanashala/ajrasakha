@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -16,12 +17,14 @@ try:
     from .query_refinement import refine_query_to_core_farming_question
     from .golden_similar_question import find_similar_questions, SimilarQuestionRequest
     from .translate import translate_to_english
+    from .query_preprocessor import classify_query_combined
 except ImportError:
     from golden_search import gdb_search, gdb_search_v2
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
     from golden_similar_question import find_similar_questions, SimilarQuestionRequest
     from translate import translate_to_english
+    from query_preprocessor import classify_query_combined
 
 app = FastAPI(
     title="AjraSakha Golden API",
@@ -647,10 +650,97 @@ async def translate_to_english_endpoint(body: TranslateToEnglishRequest):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-if __name__ == "__main__":
-    import uvicorn
-    import os
+# =============================================================================
+# QUERY CLASSIFICATION API
+# Standalone endpoint for query classification using MiniMax 2.7
+# Returns classification results without additional processing
+# =============================================================================
+
+
+class QueryClassificationRequest(BaseModel):
+    """Request model for query classification."""
+    query: str = Field(
+        ...,
+        description=(
+            "The user query to classify. "
+            "Will be analyzed for: 1) vulgar/abusive content, 2) agriculture relevance."
+        ),
+        examples=["What is the best fertilizer for wheat?"],
+        min_length=1,
+    )
+
+
+class QueryClassificationResponse(BaseModel):
+    """Response model for query classification."""
+    query: str = Field(
+        ...,
+        description="Echo of the input query.",
+    )
+    is_safe: bool = Field(
+        ...,
+        description="True if query does not contain vulgar/abusive content, False otherwise.",
+    )
+    safety_reason: str = Field(
+        ...,
+        description="Explanation from LLM for safety classification.",
+    )
+    is_agriculture: bool = Field(
+        ...,
+        description="True if query is agriculture/farming related, False otherwise.",
+    )
+    agriculture_reason: str = Field(
+        ...,
+        description="Explanation from LLM for agriculture relevance classification.",
+    )
+
+
+@app.post(
+    "/v1/classify-query",
+    response_model=QueryClassificationResponse,
+    summary="Check query for vulgar/abusive content",
+    description=(
+        "**Purpose:** Check if a query contains vulgar or abusive content.\n\n"
+        "**Classification:**\n"
+        "- Uses MiniMax 2.7 to analyze the query\n"
+        "- Detects profanity, slurs, explicit sexual content\n"
+        "- Detects threats, personal attacks, hate speech\n\n"
+        "**Returns:**\n"
+        "- is_safe: True if query is safe, False if vulgar/abusive\n"
+        "- reason: Explanation for the classification\n"
+    ),
+)
+async def classify_query_endpoint(body: QueryClassificationRequest):
+    """
+    Classify a query for vulgar/abusive content and agriculture relevance.
     
-    port = int(os.getenv("GOLDEN_API_PORT", "8110"))
-    log.info("Starting Golden API on port %d", port)
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    Uses MiniMax 2.7 with a SINGLE LLM call for efficiency.
+    """
+    import time
+    
+    start_time = time.time()
+    
+    try:
+        # Single combined classification call
+        result = await classify_query_combined(body.query)
+        
+        processing_time_ms = round((time.time() - start_time) * 1000, 2)
+        
+        log.info(
+            "classify_query_endpoint: query='%s' safe=%s agriculture=%s time=%.2fms",
+            body.query[:50],
+            result["is_safe"],
+            result["is_agriculture"],
+            processing_time_ms
+        )
+        
+        return QueryClassificationResponse(
+            query=body.query,
+            is_safe=result["is_safe"],
+            safety_reason=result["safety_reason"],
+            is_agriculture=result["is_agriculture"],
+            agriculture_reason=result["agriculture_reason"],
+        )
+        
+    except Exception as exc:
+        log.error("classify_query_endpoint failed: %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

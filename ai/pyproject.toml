@@ -30,6 +30,8 @@ dependencies = [
     "motor>=3.7.1",
     "rapidfuzz>=3.0.0",
     "unicodedataplus>=16.0.0",
+    "google-cloud-storage>=2.0.0",
+    "yagmail>=0.15.0",
 ]
 
 [build-system]

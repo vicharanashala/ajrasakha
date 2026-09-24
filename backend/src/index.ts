@@ -6,6 +6,7 @@ await import('./instrument.js');
 
 import * as Sentry from '@sentry/node';
 import express from 'express';
+import bodyParser from 'body-parser';
 import { useExpressServer, RoutingControllersOptions } from 'routing-controllers';
 import { appConfig } from './config/app.js';
 import { loggingHandler } from './shared/middleware/loggingHandler.js';
@@ -151,6 +152,17 @@ if (faqPopConfig.popApiUrl) {
     on: { error: proxyOnError('pop') },
   }));
 }
+
+// Raise the request body size limit (default ~100kb → HTTP 413 "request entity too large"
+// on answer submissions with several source references). IMPORTANT: use the SAME body-parser
+// (1.20.3) that routing-controllers loads via require('body-parser') for its per-@Body()
+// parser — that parser skips re-parsing only when THIS one sets req._body identically.
+// Express 5's built-in express.json() is a DIFFERENT body-parser build, which can leave
+// req._body unset for it, so routing-controllers re-reads the already-consumed stream and the
+// POST request hangs (e.g. the /detailed question list never loads). Placed after the FAQ/POP
+// proxies so proxied requests stream through untouched.
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Start server
 useExpressServer(app, moduleOptions);
