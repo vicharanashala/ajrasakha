@@ -141,11 +141,17 @@ export interface ICreateTesterLogEntryResponse {
 }
 
 /** The question-type categories the Summary tab's targets are defined over.
- * Mirrors the backend's QuestionTypeKey - see TesterLogService.ts's
- * QUESTION_TYPE_DAILY_TARGETS for the actual numbers (this side has no
+ * Mirrors the backend's QuestionTypeKey - see the backend's
+ * services/adminSummaryTargets.ts for the actual numbers (this side has no
  * target table of its own; the API response carries the resolved
  * target/actual/achievement figures). */
 export type IQuestionTypeKey = 'unique' | 'gdb' | 'outreach' | 'weather' | 'scheme' | 'mandi';
+
+export interface IChannelCountSummary {
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
 
 export interface IQuestionTypeCountRow {
     key: IQuestionTypeKey | 'total';
@@ -153,12 +159,17 @@ export interface IQuestionTypeCountRow {
     target: number;
     actual: number;
     achievementPct: number;
+    /** This category's Web App / WhatsApp split; sums on the Total row. */
+    webApp: IChannelCountSummary;
+    whatsApp: IChannelCountSummary;
 }
 
-export interface IChannelCountSummary {
-    target: number;
-    actual: number;
-    achievementPct: number;
+/** One tester's daily targets from the Admin Summary target model. */
+export interface IAdminSummaryDailyTargets {
+    workingMinutes: number;
+    total: number;
+    webApp: number;
+    whatsApp: number;
 }
 
 export interface ITesterQuestionTypeRow {
@@ -179,10 +190,21 @@ export interface ITesterQuestionTypeSummary {
      * logged anything or not. See TesterQuestionTypeSummaryView's card
      * copy for the plain-language rule. */
     workingDays: number;
+    /** The window the targets cover - the requested range, with any
+     * missing end (All Time) filled from the whole team's first/last
+     * test date. Null when there is no data to derive it from. */
+    rangeStart: string | null;
+    rangeEnd: string | null;
+    /** Testers the targets are multiplied by (1 for a single tester). */
+    headcount: number;
+    dailyTargetsPerTester: IAdminSummaryDailyTargets;
     overall: { target: number; actual: number; achievementPct: number };
     webApp: IChannelCountSummary;
     whatsApp: IChannelCountSummary;
     byType: IQuestionTypeCountRow[];
+    /** Entries in range whose question type is none of the 6 categories
+     * (e.g. a historical bare "Dynamic") - not counted anywhere. */
+    uncategorizedCount: number;
     byTester?: ITesterQuestionTypeRow[];
 }
 

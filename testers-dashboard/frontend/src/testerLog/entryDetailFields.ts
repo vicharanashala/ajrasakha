@@ -1,3 +1,15 @@
+import {
+    Bell,
+    Bug,
+    CircleCheckBig,
+    Clock,
+    FileText,
+    Info,
+    MessageCircleQuestion,
+    ShieldCheck,
+    Users,
+    type LucideIcon,
+} from "lucide-react";
 import type { ITesterLogEntry } from "./types";
 
 export interface IEntryDetailField {
@@ -9,28 +21,32 @@ export interface IEntryDetailField {
 
 export interface IEntryDetailGroup {
     title: string;
+    /** Shown beside the section title in the Test Entry Details dialog. */
+    icon: LucideIcon;
     fields: IEntryDetailField[];
 }
 
-// Every field on ITesterLogEntry, grouped and labelled the same way
-// TesterLogForm.tsx presents them at submission time - so "View more" shows
+// Every field on ITesterLogEntry, grouped, ordered and labelled the same way
+// TesterLogForm.tsx presents them at submission time - so "View" shows
 // the same field names as the form, not a second vocabulary. The table
 // (TABLE_COLUMNS in TesterDataView.tsx) only shows a handful of columns at a
 // glance; this is the complete record behind that row.
 export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
     {
-        title: "Record Info",
+        title: "Record Information",
+        icon: FileText,
         fields: [
             { key: "_id", label: "Test ID" },
             { key: "testerName", label: "Tester Name" },
-            { key: "submittedByEmail", label: "Submitted By Email" },
+            { key: "submittedByEmail", label: "Submitted By (Email)" },
             { key: "submittedByUserId", label: "Submitted By (User ID)" },
             { key: "createdAt", label: "Submitted At", isDateTime: true },
             { key: "updatedAt", label: "Last Updated At", isDateTime: true },
         ],
     },
     {
-        title: "1. Basic Info",
+        title: "Basic Information",
+        icon: Info,
         fields: [
             { key: "testDate", label: "Test Date" },
             { key: "typeOfQuestion", label: "Type of Question" },
@@ -44,7 +60,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "2. Timing & SLA",
+        title: "Timing & SLA",
+        icon: Clock,
         fields: [
             { key: "timeQuestionAsked", label: "Time Question Asked", isDateTime: true },
             { key: "timeAnswerReceived", label: "Time Answer Received", isDateTime: true },
@@ -53,7 +70,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "3. Question Quality",
+        title: "Question Quality",
+        icon: MessageCircleQuestion,
         fields: [
             { key: "questionInReviewModel", label: "Question in Review Model?" },
             { key: "questionCorrectlyFramed", label: "Question Correctly Framed?" },
@@ -65,7 +83,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "4. Reviewer Workflow - Author",
+        title: "Reviewer Workflow — Author",
+        icon: Users,
         fields: [
             { key: "allocatedToReviewer", label: "Allocated to Reviewer?" },
             { key: "authorsName", label: "Author Name" },
@@ -75,7 +94,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "4. Reviewer Workflow - Reviewer 1",
+        title: "Reviewer Workflow — Reviewer 1",
+        icon: Users,
         fields: [
             { key: "reviewer1Name", label: "Reviewer 1 Name" },
             { key: "reviewer1AssignmentTime", label: "Reviewer 1 Assignment Time", isDateTime: true },
@@ -84,7 +104,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "4. Reviewer Workflow - Reviewer 2",
+        title: "Reviewer Workflow — Reviewer 2",
+        icon: Users,
         fields: [
             { key: "reviewer2Name", label: "Reviewer 2 Name" },
             { key: "reviewer2AssignmentTime", label: "Reviewer 2 Assignment Time", isDateTime: true },
@@ -93,7 +114,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "4. Reviewer Workflow - Reviewer 3",
+        title: "Reviewer Workflow — Reviewer 3",
+        icon: Users,
         fields: [
             { key: "reviewer3Name", label: "Reviewer 3 Name" },
             { key: "reviewer3AssignmentTime", label: "Reviewer 3 Assignment Time", isDateTime: true },
@@ -102,7 +124,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "4. Reviewer Workflow - Reviewer 4",
+        title: "Reviewer Workflow — Reviewer 4",
+        icon: Users,
         fields: [
             { key: "reviewer4Name", label: "Reviewer 4 Name" },
             { key: "reviewer4AssignmentTime", label: "Reviewer 4 Assignment Time", isDateTime: true },
@@ -111,7 +134,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "4. Reviewer Workflow - Reviewer 5",
+        title: "Reviewer Workflow — Reviewer 5",
+        icon: Users,
         fields: [
             { key: "reviewer5Name", label: "Reviewer 5 Name" },
             { key: "reviewer5AssignmentTime", label: "Reviewer 5 Assignment Time", isDateTime: true },
@@ -120,7 +144,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "4. Reviewer Workflow - Moderator",
+        title: "Reviewer Workflow — Moderator",
+        icon: Users,
         fields: [
             { key: "moderatorName", label: "Moderator Name" },
             { key: "moderatorAssignmentTime", label: "Moderator Assignment Time", isDateTime: true },
@@ -129,7 +154,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "5. Answer Quality",
+        title: "Answer Quality",
+        icon: CircleCheckBig,
         fields: [
             { key: "followUpQInReviewModel", label: "Follow-up Q in Review Model?" },
             { key: "answerScientificallyCorrect", label: "Answer Scientifically Correct?" },
@@ -139,7 +165,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "6. Notifications & Voice",
+        title: "Notifications & Voice",
+        icon: Bell,
         fields: [
             { key: "msg120MinShownToUser", label: "120-min Msg Shown to User?" },
             { key: "notificationReceived", label: "Notification Received?" },
@@ -153,7 +180,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "7. Domain Checks",
+        title: "Domain Checks",
+        icon: ShieldCheck,
         fields: [
             { key: "weatherQAnsweredCorrectly", label: "Weather Q Answered Correctly?" },
             { key: "mandiPriceQCorrect", label: "Mandi Price Q Correct?" },
@@ -165,7 +193,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
     {
-        title: "8. Defects & Remarks",
+        title: "Defects & Remarks",
+        icon: Bug,
         fields: [
             { key: "overallTestStatus", label: "Overall Test Status" },
             { key: "defectSeverity", label: "Defect Severity" },

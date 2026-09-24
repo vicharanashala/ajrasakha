@@ -3,25 +3,44 @@ import {
     JsonController,
     Get,
     Post,
+    Patch,
+    Delete,
     Body,
+    Param,
     Authorized,
     CurrentUser,
     QueryParams,
     HttpCode,
     BadRequestError,
+    ForbiddenError,
+    NotFoundError,
     Res,
 } from 'routing-controllers';
 import { inject, injectable } from 'inversify';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { DASHBOARD_TYPES } from '../types.js';
-import { ITesterLogService } from '../interfaces/ITesterLogService.js';
-import { CreateTesterLogDto, GetTesterLogQuery } from '../validators/TesterLogValidators.js';
+import { ITesterLogService, TesterLogActor } from '../interfaces/ITesterLogService.js';
+import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto } from '../validators/TesterLogValidators.js';
 
 interface AuthenticatedUser {
     _id?: { toString(): string } | string;
     email: string;
     firstName?: string;
     lastName?: string;
+    role?: string;
+}
+
+// The app's authorizationChecker only verifies the token - it ignores the
+// roles passed to @Authorized - so routes that change data check the role
+// themselves (same as AuditTrailsController/ChatbotController do).
+function requireAdmin(user: AuthenticatedUser): TesterLogActor {
+    if (user?.role !== 'admin') {
+        throw new ForbiddenError('Only admins can edit or delete tester entries');
+    }
+    const userId = user._id?.toString();
+    if (!userId) throw new BadRequestError('Could not resolve user ID');
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
+    return { userId, email: user.email, name };
 }
 
 @OpenAPI({
@@ -187,5 +206,41 @@ export class TesterLogController {
         response.setHeader('Content-Type', result.contentType);
         response.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
         return result.buffer;
+    }
+
+    @OpenAPI({
+        summary: 'Edit a tester submission (admin only)',
+        description: 'Updates the form fields sent in the body. Submitter details, Test ID and created time cannot be changed; the [Auto] duration fields are recomputed. The previous and new values are recorded in tester_test_cases_audit.',
+    })
+    @Authorized(['admin'])
+    @Patch('/:id')
+    async updateEntry(
+        @CurrentUser() currentUser: AuthenticatedUser,
+        @Param('id') id: string,
+        @Body() body: UpdateTesterLogDto,
+    ) {
+        const actor = requireAdmin(currentUser);
+        if (body.testDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(body.testDate)) {
+            throw new BadRequestError('testDate must be formatted as YYYY-MM-DD');
+        }
+        const result = await this.testerLogService.updateEntry(id, body, actor);
+        if (!result) throw new NotFoundError('Tester entry not found');
+        return result;
+    }
+
+    @OpenAPI({
+        summary: 'Delete a tester submission (admin only)',
+        description: 'Permanently removes the entry from tester_test_cases after saving a full copy of it to tester_test_cases_audit, so it can be restored.',
+    })
+    @Authorized(['admin'])
+    @Delete('/:id')
+    async deleteEntry(
+        @CurrentUser() currentUser: AuthenticatedUser,
+        @Param('id') id: string,
+    ) {
+        const actor = requireAdmin(currentUser);
+        const deleted = await this.testerLogService.deleteEntry(id, actor);
+        if (!deleted) throw new NotFoundError('Tester entry not found');
+        return { success: true };
     }
 }

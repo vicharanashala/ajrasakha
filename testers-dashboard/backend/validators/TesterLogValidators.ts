@@ -131,6 +131,12 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() status?: string;
 }
 
+// Admin edit - the same form fields as a submission, every one optional
+// (only the ones sent are changed). TesterLogController.updateEntry also
+// requires testDate, when sent, to be YYYY-MM-DD, since the date filters
+// compare it as a string.
+export class UpdateTesterLogDto extends CreateTesterLogDto {}
+
 export class GetTesterLogQuery {
     @IsNumberString()
     @IsOptional()
@@ -239,4 +245,4 @@ export class CreateZohoTicketDto {
     }[];
 }
 
-export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto];
+export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, UpdateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto];

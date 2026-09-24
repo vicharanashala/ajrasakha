@@ -409,24 +409,143 @@ describe('TesterLogService date filtering', () => {
             });
         });
 
-        it('falls back to the earliest/latest testDate among matched entries when no explicit date range is given (e.g. "All Time")', async () => {
-            // Span is 2026-09-01..2026-09-02: 2 calendar days -> round(2*6/7) = round(1.71) = 2 working days.
-            mockToArray.mockResolvedValueOnce(aliceEntries);
+        describe('All Time and open-ended ranges', () => {
+            // The team's whole testDate span, from the aggregate - wider
+            // than any single tester's own entries.
+            const teamSpan = { _id: null, first: '2026-09-01', last: '2026-09-07' };
 
-            const result = await service.getQuestionTypeSummary('user-1');
+            it('fills a missing range from the whole team\'s earliest/latest testDate, not the selected tester\'s own entries', async () => {
+                // Alice only logged on 09-01..09-02 (2 days), but the team
+                // spans 09-01..09-07: 7 calendar days -> 6 working days.
+                mockToArray.mockResolvedValueOnce(aliceEntries);
+                mockAggregateToArray.mockResolvedValueOnce([teamSpan]);
 
-            expect(result.workingDays).toBe(2);
-            expect(result.overall.target).toBe(108); // 54 * 2
+                const result = await service.getQuestionTypeSummary('user-1');
+
+                expect(result.rangeStart).toBe('2026-09-01');
+                expect(result.rangeEnd).toBe('2026-09-07');
+                expect(result.workingDays).toBe(6);
+                expect(result.overall.target).toBe(54 * 6);
+                // The span query is team-wide - never scoped to the tester.
+                const pipeline = mockAggregate.mock.calls[0][0];
+                expect(JSON.stringify(pipeline)).not.toContain('submittedByUserId');
+            });
+
+            it('gives a tester the same All Time target alone as in the All Testers table', async () => {
+                mockToArray.mockResolvedValueOnce(aliceEntries);
+                mockAggregateToArray.mockResolvedValueOnce([teamSpan]);
+                const single = await service.getQuestionTypeSummary('user-1');
+
+                mockToArray.mockResolvedValueOnce(entries);
+                mockAggregateToArray.mockResolvedValueOnce([teamSpan]);
+                mockUsersToArray.mockResolvedValueOnce([{ _id: 'user-1', firstName: 'Alice' }]);
+                const all = await service.getQuestionTypeSummary();
+                const aliceRow = all.byTester!.find((t) => t.testerId === 'user-1')!;
+
+                expect(all.workingDays).toBe(single.workingDays);
+                expect(aliceRow.target).toBe(single.overall.target);
+                expect(aliceRow.actual).toBe(single.overall.actual);
+                expect(aliceRow.achievementPct).toBe(single.overall.achievementPct);
+            });
+
+            it('keeps an explicit start and fills only the missing end', async () => {
+                mockToArray.mockResolvedValueOnce([]);
+                mockAggregateToArray.mockResolvedValueOnce([teamSpan]);
+
+                const result = await service.getQuestionTypeSummary('user-1', '2026-09-05');
+
+                expect(result.rangeStart).toBe('2026-09-05');
+                expect(result.rangeEnd).toBe('2026-09-07');
+                expect(result.workingDays).toBe(3); // 3 calendar days -> round(2.57) = 3
+            });
+
+            it('does not run the span query when both ends are given', async () => {
+                mockToArray.mockResolvedValueOnce([]);
+
+                await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-02');
+
+                expect(mockAggregate).not.toHaveBeenCalled();
+            });
+
+            it('zero entries and no date range produces a zero target, not a crash (nothing to derive a range from)', async () => {
+                mockToArray.mockResolvedValueOnce([]);
+
+                const result = await service.getQuestionTypeSummary();
+
+                expect(result.workingDays).toBe(0);
+                expect(result.rangeStart).toBeNull();
+                expect(result.rangeEnd).toBeNull();
+                expect(result.overall).toEqual({ target: 0, actual: 0, achievementPct: 0 });
+                expect(result.byTester).toEqual([]);
+            });
         });
 
-        it('zero entries and no date range produces a zero target, not a crash (nothing to derive a range from)', async () => {
+        it('gives a tester the same figures alone as in the All Testers table for the same explicit range', async () => {
+            mockToArray.mockResolvedValueOnce(aliceEntries);
+            const single = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-07');
+
+            mockToArray.mockResolvedValueOnce(entries);
+            mockUsersToArray.mockResolvedValueOnce([{ _id: 'user-1', firstName: 'Alice' }, { _id: 'user-2', firstName: 'Bob' }]);
+            const all = await service.getQuestionTypeSummary(undefined, '2026-09-01', '2026-09-07');
+            const aliceRow = all.byTester!.find((t) => t.testerId === 'user-1')!;
+
+            expect(single.headcount).toBe(1);
+            expect(all.headcount).toBe(2);
+            expect(aliceRow.target).toBe(single.overall.target);
+            expect(aliceRow.actual).toBe(single.overall.actual);
+            expect(aliceRow.achievementPct).toBe(single.overall.achievementPct);
+            for (const row of single.byType.filter((r) => r.key !== 'total')) {
+                expect(aliceRow.counts[row.key as keyof typeof aliceRow.counts]).toBe(row.actual);
+            }
+            // All Testers totals are headcount × the per-tester targets.
+            expect(all.overall.target).toBe(single.overall.target * 2);
+            expect(all.webApp.target).toBe(single.webApp.target * 2);
+        });
+
+        it('reports entries outside the 6 categories (e.g. historical bare "Dynamic") as uncategorized instead of dropping them silently', async () => {
+            mockToArray.mockResolvedValueOnce(aliceEntries);
+
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-02');
+
+            expect(result.uncategorizedCount).toBe(1);
+        });
+
+        it('returns the per-tester daily targets from the Admin Summary target model', async () => {
             mockToArray.mockResolvedValueOnce([]);
 
-            const result = await service.getQuestionTypeSummary();
+            const result = await service.getQuestionTypeSummary('user-1', '2026-09-01', '2026-09-01');
 
-            expect(result.workingDays).toBe(0);
-            expect(result.overall).toEqual({ target: 0, actual: 0, achievementPct: 0 });
-            expect(result.byTester).toEqual([]);
+            expect(result.dailyTargetsPerTester).toEqual({ workingMinutes: 450, total: 54, webApp: 27, whatsApp: 27 });
+        });
+
+        it('splits each category\'s target and actual by channel per the Excel, and the Total row / channel cards are their sums', async () => {
+            mockToArray.mockResolvedValueOnce(entries);
+            mockUsersToArray.mockResolvedValueOnce([{ _id: 'user-1', firstName: 'Alice' }, { _id: 'user-2', firstName: 'Bob' }]);
+
+            // 1 day, 2 testers.
+            const result = await service.getQuestionTypeSummary(undefined, '2026-09-01', '2026-09-01');
+            const row = (key: string) => result.byType.find((r) => r.key === key)!;
+
+            expect(row('outreach').webApp.target).toBe(6 * 2);
+            expect(row('outreach').whatsApp.target).toBe(5 * 2);
+            expect(row('weather').webApp.target).toBe(9 * 2);
+            expect(row('weather').whatsApp.target).toBe(10 * 2);
+            // Unique/WebApp, GDB/WhatsApp, Weather/Both, Outreach/WhatsApp.
+            expect(row('unique').webApp.actual).toBe(1);
+            expect(row('gdb').whatsApp.actual).toBe(1);
+            expect(row('weather').webApp.actual).toBe(1);
+            expect(row('weather').whatsApp.actual).toBe(1);
+            expect(row('outreach').whatsApp.actual).toBe(1);
+
+            const categories = result.byType.filter((r) => r.key !== 'total');
+            const sum = (pick: (r: typeof categories[number]) => number) => categories.reduce((s, r) => s + pick(r), 0);
+            expect(row('total').target).toBe(sum((r) => r.target));
+            expect(row('total').actual).toBe(sum((r) => r.actual));
+            expect(result.overall.actual).toBe(4);
+            expect(result.webApp).toEqual(row('total').webApp);
+            expect(result.whatsApp).toEqual(row('total').whatsApp);
+            expect(result.webApp).toEqual({ target: 54, actual: 2, achievementPct: (2 / 54) * 100 });
+            expect(result.whatsApp).toEqual({ target: 54, actual: 3, achievementPct: (3 / 54) * 100 });
         });
     });
 
@@ -620,3 +739,101 @@ describe('TesterLogService date filtering', () => {
     });
 });
 
+
+describe('TesterLogService admin edit/delete', () => {
+    const ID = '64b7f0c2a1b2c3d4e5f60718';
+    const actor = { userId: 'admin-1', email: 'admin@example.com', name: 'Admin One' };
+    const stored = {
+        _id: ID,
+        submittedByUserId: 'tester-1',
+        submittedByEmail: 'tester@example.com',
+        testerName: 'Tester One',
+        createdAt: new Date('2026-09-01T05:00:00.000Z'),
+        updatedAt: new Date('2026-09-01T05:00:00.000Z'),
+        testDate: '2026-09-01',
+        overallTestStatus: 'Pass',
+        timeQuestionAsked: '2026-09-01T10:00:00',
+        timeAnswerReceived: '2026-09-01T10:05:00',
+        responseTimeMins: '00:05:00',
+    };
+
+    let entries: any;
+    let audit: any;
+    let service: TesterLogService;
+
+    beforeEach(() => {
+        entries = {
+            findOne: vi.fn().mockResolvedValue({ ...stored }),
+            updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
+            deleteOne: vi.fn().mockResolvedValue({ deletedCount: 1 }),
+        };
+        audit = { insertOne: vi.fn().mockResolvedValue({}) };
+        const db = {
+            getCollection: vi.fn((name: string) =>
+                Promise.resolve(name === 'tester_test_cases_audit' ? audit : entries),
+            ),
+        };
+        service = new TesterLogService(db as any);
+    });
+
+    it('updates only editable fields, recomputes durations, and audits before/after', async () => {
+        const result = await service.updateEntry(
+            ID,
+            {
+                overallTestStatus: 'Fail',
+                timeAnswerReceived: '2026-09-01T10:20:00',
+                // Not editable - must be ignored.
+                submittedByUserId: 'someone-else',
+                testerName: 'Renamed',
+                responseTimeMins: '99:99:99',
+            } as any,
+            actor,
+        );
+
+        const [filter, update] = entries.updateOne.mock.calls[0];
+        expect(filter._id.toString()).toBe(ID);
+        expect(update.$set.overallTestStatus).toBe('Fail');
+        expect(update.$set.responseTimeMins).toBe('00:20:00');
+        expect(update.$set).not.toHaveProperty('submittedByUserId');
+        expect(update.$set).not.toHaveProperty('testerName');
+        expect(update.$set.updatedAt).toBeInstanceOf(Date);
+
+        expect(result?.entry.overallTestStatus).toBe('Fail');
+        expect(result?.entry.testerName).toBe('Tester One');
+
+        const record = audit.insertOne.mock.calls[0][0];
+        expect(record).toMatchObject({ entryId: ID, action: 'update', actor });
+        expect(record.before.overallTestStatus).toBe('Pass');
+        expect(record.after.overallTestStatus).toBe('Fail');
+    });
+
+    it('returns null for an unknown or malformed id without writing', async () => {
+        entries.findOne.mockResolvedValue(null);
+        expect(await service.updateEntry(ID, { overallTestStatus: 'Fail' }, actor)).toBeNull();
+        expect(await service.updateEntry('not-an-id', { overallTestStatus: 'Fail' }, actor)).toBeNull();
+        expect(entries.updateOne).not.toHaveBeenCalled();
+        expect(audit.insertOne).not.toHaveBeenCalled();
+    });
+
+    it('snapshots the full entry to the audit collection before deleting it', async () => {
+        const order: string[] = [];
+        audit.insertOne.mockImplementation(async () => { order.push('audit'); });
+        entries.deleteOne.mockImplementation(async () => { order.push('delete'); return { deletedCount: 1 }; });
+
+        expect(await service.deleteEntry(ID, actor)).toBe(true);
+        expect(order).toEqual(['audit', 'delete']);
+        expect(audit.insertOne.mock.calls[0][0]).toMatchObject({ entryId: ID, action: 'delete', actor, before: stored });
+    });
+
+    it('does not delete when the audit snapshot cannot be written', async () => {
+        audit.insertOne.mockRejectedValue(new Error('write failed'));
+        await expect(service.deleteEntry(ID, actor)).rejects.toThrow('write failed');
+        expect(entries.deleteOne).not.toHaveBeenCalled();
+    });
+
+    it('returns false when deleting an unknown id', async () => {
+        entries.findOne.mockResolvedValue(null);
+        expect(await service.deleteEntry(ID, actor)).toBe(false);
+        expect(entries.deleteOne).not.toHaveBeenCalled();
+    });
+});

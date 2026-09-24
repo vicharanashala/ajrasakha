@@ -65,3 +65,15 @@ export function releaseHealthDecisionDisplay(decision: string): { label: string;
 // linked Zoho ticket has no Team set (or its live Zoho data hasn't synced
 // yet), so it still shows up on the card instead of being dropped.
 export const UNASSIGNED_TEAM_LABEL = "Unassigned";
+
+// Page slots for a numbered pager (0-indexed pages) - used by the ticket card
+// and the Tester Data table. Beyond 7 pages it always yields exactly 7 slots -
+// first, last, the current page's neighbours and ellipses - so the pager
+// keeps a fixed width instead of shifting as the user pages through.
+export function getPageItems(page: number, pageCount: number): (number | "gap-start" | "gap-end")[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i);
+  const last = pageCount - 1;
+  if (page <= 2) return [0, 1, 2, 3, "gap-end", last];
+  if (page >= last - 2) return [0, "gap-start", last - 3, last - 2, last - 1, last];
+  return [0, "gap-start", page - 1, page, page + 1, "gap-end", last];
+}

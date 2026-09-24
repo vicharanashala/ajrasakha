@@ -43,6 +43,25 @@ export class TesterLogService {
         return response;
     }
 
+    // Admin only. Send just the fields that changed - the server ignores
+    // submitter/identity fields and recomputes the [Auto] durations.
+    async updateEntry(id: string, changes: Partial<ITesterLogEntry>): Promise<ICreateTesterLogEntryResponse> {
+        const response = await apiFetch<ICreateTesterLogEntryResponse>(`${this.baseUrl}/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: JSON.stringify(changes),
+        });
+        if (!response) throw new Error("Failed to update test case entry");
+        return response;
+    }
+
+    // Admin only. The server keeps a restorable copy in its audit log.
+    async deleteEntry(id: string): Promise<void> {
+        const response = await apiFetch<{ success: boolean }>(`${this.baseUrl}/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+        });
+        if (!response?.success) throw new Error("Failed to delete test case entry");
+    }
+
     async getMyHistory(
         page = 1,
         limit = 20,

@@ -123,6 +123,24 @@ export interface CreateTesterLogEntryResponse {
     entry: TesterLogEntry;
 }
 
+// The admin making an edit/delete, recorded on the audit log row.
+export interface TesterLogActor {
+    userId: string;
+    email: string;
+    name: string;
+}
+
+// One row of the tester_test_cases_audit collection. A delete keeps the full
+// document in `before`, so a deleted entry can be restored from here.
+export interface TesterLogAuditRecord {
+    entryId: string;
+    action: 'update' | 'delete';
+    actor: TesterLogActor;
+    before: TesterLogEntry;
+    after?: TesterLogEntry;
+    createdAt: Date;
+}
+
 // One dropdown option for the admin Tester filter - every distinct submittedByUserId
 // with at least one entry, labeled with that tester's most recently used testerName.
 export interface TesterOption {
@@ -151,9 +169,15 @@ export interface TesterLogExportResult {
 }
 
 // The 6 question-type categories the Summary tab's targets are defined over. Target numbers
-// come from the business's "End to End Testing Pipeline" sheet - see TesterLogService.ts's
-// QUESTION_TYPE_DAILY_TARGETS.
+// come from the business's "End to End Testing Pipeline" sheet - see
+// services/adminSummaryTargets.ts's QUESTION_TYPE_TARGETS.
 export type QuestionTypeKey = 'unique' | 'gdb' | 'outreach' | 'weather' | 'scheme' | 'mandi';
+
+export interface ChannelCountSummary {
+    target: number;
+    actual: number;
+    achievementPct: number;
+}
 
 export interface QuestionTypeCountRow {
     // 'total' appears once, as the summed row across all 6 categories.
@@ -162,12 +186,30 @@ export interface QuestionTypeCountRow {
     target: number;
     actual: number;
     achievementPct: number;
+    // This category's own Web App / WhatsApp split (the Excel's per-type
+    // channel targets); on the Total row, the sums across categories.
+    webApp: ChannelCountSummary;
+    whatsApp: ChannelCountSummary;
 }
 
-export interface ChannelCountSummary {
-    target: number;
-    actual: number;
-    achievementPct: number;
+// One tester's daily targets, straight from the Admin Summary target model.
+export interface AdminSummaryDailyTargets {
+    workingMinutes: number;
+    total: number;
+    webApp: number;
+    whatsApp: number;
+}
+
+// What adminSummaryTargets.summarizeEntries produces for a set of entries.
+export interface AdminSummaryCounts {
+    overall: ChannelCountSummary;
+    webApp: ChannelCountSummary;
+    whatsApp: ChannelCountSummary;
+    byType: QuestionTypeCountRow[];
+    counts: Record<QuestionTypeKey, number>;
+    // Entries in scope whose typeOfQuestion maps to none of the 6
+    // categories (e.g. a bare historical "Dynamic", or blank).
+    uncategorizedCount: number;
 }
 
 // One row of the Summary tab's per-tester table (All Testers view only).
@@ -188,8 +230,17 @@ export interface TesterQuestionTypeSummaryResult {
     // Working days in the filter range (calendar days × 6/7, rounded - testers work 6 days a
     // week with their own weekly day off). The SAME figure every tester's (and every
     // per-type/per-channel) target scales by, regardless of whether that tester logged
-    // anything. See TesterLogService.ts's workingDaysInRange/calendarDaysInRange.
+    // anything. See services/adminSummaryTargets.ts's workingDaysFor.
     workingDays: number;
+    // The date window the targets were computed over. Equals the requested range when both
+    // ends are given; a missing end is filled from the whole team's earliest/latest testDate
+    // (never the selected tester's own), so All Time scores a tester the same way whether
+    // they are viewed alone or in the All Testers table. Null when nothing can be derived.
+    rangeStart: string | null;
+    rangeEnd: string | null;
+    // Testers the targets are multiplied by: 1 for a single tester, else the byTester rows.
+    headcount: number;
+    dailyTargetsPerTester: AdminSummaryDailyTargets;
     overall: {
         target: number;
         actual: number;
@@ -199,6 +250,8 @@ export interface TesterQuestionTypeSummaryResult {
     whatsApp: ChannelCountSummary;
     // The 6 categories plus a trailing Total row (7 entries).
     byType: QuestionTypeCountRow[];
+    // Entries in scope not counted in any category - see AdminSummaryCounts.
+    uncategorizedCount: number;
     // Present only when no single tester is selected (All Testers).
     byTester?: TesterQuestionTypeRow[];
 }
@@ -276,6 +329,20 @@ export interface ITesterLogService {
         testerName: string,
         body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt' | 'testDate'> & { testDate?: string },
     ): Promise<CreateTesterLogEntryResponse>;
+
+    // Admin edit. Only the form's own input fields are applied - record
+    // bookkeeping (_id, submittedBy*, testerName, createdAt) is never
+    // touched, and the [Auto] duration fields are recomputed. Returns null
+    // when no entry has this id.
+    updateEntry(
+        id: string,
+        body: Partial<TesterLogEntry>,
+        actor: TesterLogActor,
+    ): Promise<CreateTesterLogEntryResponse | null>;
+
+    // Admin delete. Snapshots the entry to the audit collection before
+    // removing it. Returns false when no entry has this id.
+    deleteEntry(id: string, actor: TesterLogActor): Promise<boolean>;
 
     getMyEntries(
         userId: string,

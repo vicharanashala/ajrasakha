@@ -4,9 +4,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { ChevronDown, ShieldAlert, ListChecks } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert, ListChecks } from "lucide-react";
 import type { ITestersDashboardDiagnostics } from "../services/testersDashboardSummaryService";
 import { InfoPopover } from "./InfoPopover";
+import { getPageItems } from "../utils";
 
 const CRITICAL_DEFECTS_PAGE_SIZE = 6;
 
@@ -26,16 +27,75 @@ export type DefectsView = "critical" | "all";
 function severityBadgeClass(severity: string): string {
   switch (severity.trim().toLowerCase()) {
     case "critical":
-      return "bg-red-100 text-red-700";
+      return "bg-red-50 text-red-700 border-red-200";
     case "high":
-      return "bg-orange-100 text-orange-700";
+      return "bg-orange-50 text-orange-700 border-orange-200";
     case "medium":
-      return "bg-yellow-100 text-yellow-700";
+      return "bg-yellow-50 text-yellow-800 border-yellow-200";
     case "low":
-      return "bg-blue-100 text-blue-700";
+      return "bg-blue-50 text-blue-700 border-blue-200";
     default:
-      return "bg-muted text-muted-foreground";
+      return "bg-muted text-muted-foreground border-muted-foreground/20";
   }
+}
+
+function TicketPagination({
+  page,
+  pageCount,
+  setPage,
+}: {
+  page: number;
+  pageCount: number;
+  setPage: IDefectsTab["setPage"];
+}) {
+  const navButtonClass =
+    "inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent";
+  return (
+    <nav aria-label="Ticket pages" className="mt-3 flex items-center justify-center gap-0.5 text-[11px]">
+      <button
+        type="button"
+        aria-label="Previous page"
+        title="Previous page"
+        disabled={page === 0}
+        onClick={() => setPage((p) => Math.max(0, p - 1))}
+        className={navButtonClass}
+      >
+        <ChevronLeft className="h-3.5 w-3.5" />
+      </button>
+      {getPageItems(page, pageCount).map((item) =>
+        typeof item === "number" ? (
+          <button
+            key={item}
+            type="button"
+            aria-label={`Page ${item + 1}`}
+            aria-current={item === page ? "page" : undefined}
+            onClick={() => setPage(item)}
+            className={`h-6 min-w-6 px-1 rounded-md font-medium tabular-nums transition-colors ${
+              item === page
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {item + 1}
+          </button>
+        ) : (
+          <span key={item} className="w-4 text-center text-muted-foreground select-none" aria-hidden>
+            …
+          </span>
+        ),
+      )}
+      <button
+        type="button"
+        aria-label="Next page"
+        title="Next page"
+        disabled={page >= pageCount - 1}
+        onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+        className={navButtonClass}
+      >
+        <ChevronRight className="h-3.5 w-3.5" />
+      </button>
+    </nav>
+  );
 }
 
 export interface ITeamBreakdown {
@@ -82,6 +142,10 @@ export function DiagnosticsRow({
 }: DiagnosticsRowProps) {
   const stageStats = diagnostics.stageStats ?? [];
   const maxStageAvg = Math.max(...stageStats.map((s) => s.avg), 1);
+  // "No priority" is the label mapZohoPriorityToSeverity (backend) gives any
+  // ticket whose Zoho Priority is empty or unrecognised.
+  const noPriorityCount = diagnostics.allTickets.filter((t) => t.severity === "No priority").length;
+  const activeDefectsPageCount = Math.ceil(activeDefectsTabInfo.tickets.length / CRITICAL_DEFECTS_PAGE_SIZE);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -89,27 +153,47 @@ export function DiagnosticsRow({
         <CardHeader className="pb-2">
           <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Biggest Bottleneck</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="text-xl font-bold">{diagnostics.bottleneckName}</div>
-          <div className="text-sm text-muted-foreground mb-3">
-            {diagnostics.bottleneckTime > 0 ? `${diagnostics.bottleneckTime.toFixed(1)} mins avg` : "0 mins avg"}
-          </div>
-          <div className="space-y-2">
-            {stageStats.map((s) => (
-              <div key={s.name} className="space-y-0.5">
-                <div className="flex justify-between text-xs">
-                  <span>{s.name}</span>
-                  <span className="font-medium">{s.avg.toFixed(1)}m</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-primary"
-                    style={{ width: `${(s.avg / maxStageAvg) * 100}%` }}
-                  />
-                </div>
+        <CardContent className="pt-0 space-y-4">
+          <div className="flex items-end justify-between gap-3 rounded-lg bg-primary/5 px-3 py-2.5">
+            <div className="min-w-0">
+              <div className="text-[11px] text-muted-foreground">Slowest stage</div>
+              <div className="text-xl font-bold leading-tight truncate" title={diagnostics.bottleneckName}>
+                {diagnostics.bottleneckName}
               </div>
-            ))}
+            </div>
+            <div className="shrink-0 text-right leading-none">
+              <span className="text-2xl font-bold tabular-nums">
+                {diagnostics.bottleneckTime > 0 ? diagnostics.bottleneckTime.toFixed(1) : "0"}
+              </span>
+              <span className="ml-1 text-xs text-muted-foreground">mins avg</span>
+            </div>
           </div>
+          {stageStats.length > 0 && (
+            <ul className="space-y-2.5" aria-label="Average minutes per stage">
+              {stageStats.map((s) => {
+                const isBottleneck = s.name === diagnostics.bottleneckName;
+                return (
+                  <li key={s.name} className="grid grid-cols-[minmax(0,6.5rem)_1fr_auto] items-center gap-2.5 text-xs">
+                    <span
+                      className={`truncate ${isBottleneck ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                      title={s.name}
+                    >
+                      {s.name}
+                    </span>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${isBottleneck ? "bg-primary" : "bg-primary/40"}`}
+                        style={{ width: `${(s.avg / maxStageAvg) * 100}%` }}
+                      />
+                    </div>
+                    <span className={`w-12 text-right tabular-nums ${isBottleneck ? "font-semibold" : "font-medium"}`}>
+                      {s.avg.toFixed(1)}m
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
@@ -134,6 +218,7 @@ export function DiagnosticsRow({
                   Review &amp; Quality, Farmer Context, and ACE Platform &amp; Integrations are not scored — the
                   sheet does not record the needed data.
                 </p>
+                <p>Sub-metric figures show score and applicable test count.</p>
               </InfoPopover>
             </div>
             <ChevronDown
@@ -141,114 +226,128 @@ export function DiagnosticsRow({
             />
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 flex flex-1 flex-col">
           <div className="text-xl font-bold">{diagnostics.weakestModule}</div>
-          <div className="text-sm text-red-500 font-medium mb-2">
-            {diagnostics.weakestModuleScore !== null
-              ? `${diagnostics.weakestModuleScore}% Overall (${diagnostics.weakestModuleRowCount} tests)`
-              : "Awaiting data"}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Calculated from the average of all applicable sub-metrics for this module — sub-metrics with no data for
-            this module are excluded, not counted as a failure.
-          </p>
-          <div
-            className={`grid transition-all duration-300 ease-in-out ${
-              weakestModuleExpanded ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0"
-            }`}
-          >
-            <div className="overflow-hidden space-y-3 text-xs border-t pt-2 max-h-[168px] overflow-y-auto">
-              {(diagnostics.modulePerformance ?? []).map((m) => (
-                <div key={m.key} className="space-y-1">
-                  <div className="flex justify-between">
-                    <span className="font-medium">{m.label}</span>
-                    <span className="font-medium">
-                      {m.overallScore !== null ? `${m.overallScore}% (${m.applicableRowCount})` : `${m.applicableRowCount} tests`}
-                    </span>
-                  </div>
-                  <div className="pl-3 space-y-0.5">
-                    {(m.subMetrics ?? []).map((sm) => (
-                      <div key={sm.key} className="flex justify-between text-muted-foreground">
-                        <span>{sm.label}</span>
-                        <span>{sm.value !== null ? `${sm.value}% (${sm.applicable})` : "No data"}</span>
+          {diagnostics.weakestModuleScore !== null ? (
+            <div className="mt-0.5 flex items-baseline gap-1.5 text-sm">
+              <span className="font-semibold tabular-nums text-red-600">{diagnostics.weakestModuleScore}%</span>
+              <span className="text-muted-foreground">overall · {diagnostics.weakestModuleRowCount} tests</span>
+            </div>
+          ) : (
+            <div className="mt-0.5 text-sm text-muted-foreground">Awaiting data</div>
+          )}
+          {weakestModuleExpanded && (
+            // Fills whatever height the row gives this card (min 240px), and
+            // the list scrolls inside it. The absolute inner box keeps the
+            // list's own height from stretching the card or the row.
+            <div className="relative mt-3 min-h-[240px] flex-1 border-t text-xs animate-in fade-in-0 duration-300">
+              <div className="absolute inset-0 overflow-y-auto">
+              <ul className="divide-y divide-muted-foreground/10 pr-1">
+                {(diagnostics.modulePerformance ?? []).map((m) => {
+                  const isWeakest = m.label === diagnostics.weakestModule;
+                  return (
+                    <li key={m.key} className="py-2 space-y-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-medium">{m.label}</span>
+                        <span className="shrink-0 tabular-nums">
+                          {m.overallScore !== null && (
+                            <span className={`font-semibold ${isWeakest ? "text-red-600" : ""}`}>{m.overallScore}%</span>
+                          )}
+                          <span className="ml-1.5 text-muted-foreground">{m.applicableRowCount} tests</span>
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {(diagnostics.comingSoonModules ?? []).map((m) => (
-                <div key={m.key} className="space-y-1 opacity-50">
-                  <div className="flex justify-between">
+                      {(m.subMetrics ?? []).length > 0 && (
+                        <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 pl-2 text-[11px] text-muted-foreground">
+                          {(m.subMetrics ?? []).map((sm) => (
+                            <div key={sm.key} className="contents">
+                              <dt className="truncate" title={sm.label}>{sm.label}</dt>
+                              <dd className="text-right tabular-nums">
+                                {sm.value !== null ? `${sm.value}% · ${sm.applicable}` : "No data"}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </li>
+                  );
+                })}
+                {(diagnostics.comingSoonModules ?? []).map((m) => (
+                  <li key={m.key} className="flex justify-between gap-2 py-2 opacity-50">
                     <span className="font-medium">{m.label}</span>
                     <span className="italic">Coming soon</span>
-                  </div>
-                </div>
-              ))}
+                  </li>
+                ))}
+              </ul>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      <Card className="border-muted-foreground/10">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-1.5">
-              <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">
-                {defectsCardTitle}
-              </CardTitle>
-              <InfoPopover title="Ticket Data" align="start">
-                <p>
-                  Shows all tickets in Zoho Desk's <strong>Bugs Tracker</strong> layout, fetched directly from Zoho
-                  — not just tickets linked in the QA sheet. Not affected by the dashboard filters (Date Range,
-                  Type of Question, Channel, Tester, etc.) since most Zoho tickets have no sheet row for those
-                  filters to apply to.
-                </p>
-                <p>
-                  Grouped by each ticket's <strong>Team</strong> field in Zoho (not the sheet). Tickets with no team
-                  set, or awaiting their next Zoho sync, show as "Unassigned".
-                </p>
-                <p className="text-[10px] text-muted-foreground pt-1">
-                  Only teams with at least one of these tickets are listed.
-                </p>
-              </InfoPopover>
-            </div>
-            <div className="flex items-center bg-muted p-1 rounded-lg border gap-1">
-              <button
-                type="button"
-                onClick={() => onSwitchDefectsView("critical")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                  defectsView === "critical"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <ShieldAlert className="h-3.5 w-3.5 text-red-600" />
-                Critical Defect Tickets
-              </button>
-              <button
-                type="button"
-                onClick={() => onSwitchDefectsView("all")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                  defectsView === "all"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <ListChecks className="h-3.5 w-3.5 text-primary" />
-                All Tickets
-              </button>
-            </div>
+      <Card className="border-muted-foreground/10 gap-4">
+        <CardHeader className="gap-3">
+          <div className="flex items-center gap-1.5">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">
+              {defectsCardTitle}
+            </CardTitle>
+            <InfoPopover title={defectsCardTitle} align="start">
+              <p><strong>Source:</strong> fetched directly from Zoho Desk (Bugs Tracker).</p>
+              <p>
+                <strong>Shows:</strong>{" "}
+                {defectsView === "critical" ? "tickets with Critical or High priority." : "all Bugs Tracker tickets, any priority."}
+              </p>
+              <p>Priority comes from Zoho's own Priority field, not the test sheet's Defect Severity.</p>
+              <p><strong>Teams:</strong> grouped by the team assigned in Zoho.</p>
+              <p>Updated periodically from Zoho.</p>
+              <div className="pt-1 border-t space-y-0.5 tabular-nums">
+                <div className="flex justify-between"><span>Total</span><span className="font-medium">{defectsView === "critical" ? diagnostics.openTickets.length : diagnostics.allTickets.length}</span></div>
+                {defectsView === "all" && (
+                  <div className="flex justify-between"><span>No priority set</span><span className="font-medium">{noPriorityCount}</span></div>
+                )}
+              </div>
+            </InfoPopover>
           </div>
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap bg-muted p-1 rounded-lg border gap-1">
+            <button
+              type="button"
+              onClick={() => onSwitchDefectsView("critical")}
+              className={`flex flex-auto items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all ${
+                defectsView === "critical"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ShieldAlert className="h-3.5 w-3.5 text-red-600" />
+              Critical Defect Tickets{" "}
+              <span className="opacity-70 tabular-nums">({diagnostics.openTickets.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchDefectsView("all")}
+              className={`flex flex-auto items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md whitespace-nowrap transition-all ${
+                defectsView === "all"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ListChecks className="h-3.5 w-3.5 text-primary" />
+              All Tickets <span className="opacity-70 tabular-nums">({diagnostics.allTickets.length})</span>
+            </button>
+          </div>
+          {/* Underlined tabs rather than filled buttons, so the status tabs
+              read as a level below the view toggle above them. */}
+          <div role="tablist" className="flex border-b border-muted-foreground/15">
             {defectsTabs.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
+                role="tab"
+                aria-selected={activeDefectsTab === tab.key}
                 onClick={() => setActiveDefectsTab(tab.key)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                className={`-mb-px flex-1 whitespace-nowrap border-b-2 px-1.5 pb-1.5 text-xs font-medium transition-colors ${
                   activeDefectsTab === tab.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {tab.label}
@@ -256,32 +355,32 @@ export function DiagnosticsRow({
             ))}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {defectsPoolCount === 0 ? (
             <p className="text-sm text-muted-foreground">No tickets linked yet.</p>
           ) : (
-            <>
+            <div className="space-y-3">
               {teamBreakdown.length > 0 && (
-                <div className="mb-3">
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="rounded-md border border-muted-foreground/10 bg-muted/30 p-2">
+                  <div className="flex flex-wrap gap-1">
                     {teamBreakdown.map((t) => (
                       <button
                         key={t.key}
                         type="button"
                         onClick={() => onSelectTeam(t.key)}
-                        className={`px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors ${
+                        className={`px-2 py-0.5 text-[11px] font-medium rounded-full border transition-colors ${
                           selectedTeam === t.key
                             ? "bg-primary text-primary-foreground border-primary"
-                            : "text-foreground border-muted-foreground/20 hover:bg-muted"
+                            : "bg-background text-foreground border-muted-foreground/20 hover:bg-muted"
                         }`}
                       >
-                        {t.label} <span className="opacity-70">({t.total})</span>
+                        {t.label} <span className="opacity-70 tabular-nums">({t.total})</span>
                       </button>
                     ))}
                   </div>
                   {selectedTeam && (
-                    <div className="mt-2 overflow-x-auto">
-                      <table className="w-full text-[11px]">
+                    <div className="mt-2 border-t border-muted-foreground/10 pt-1.5 overflow-x-auto">
+                      <table className="w-full text-[11px] tabular-nums">
                         <thead>
                           <tr className="text-muted-foreground">
                             <th className="text-left font-medium pb-1">Team</th>
@@ -296,13 +395,13 @@ export function DiagnosticsRow({
                           {teamBreakdown
                             .filter((t) => t.key === selectedTeam)
                             .map((t) => (
-                              <tr key={t.key} className="border-t border-muted-foreground/10">
-                                <td className="py-1 pr-2">{t.label}</td>
-                                <td className="text-right py-1">{t.counts.open}</td>
-                                <td className="text-right py-1">{t.counts.closed}</td>
-                                <td className="text-right py-1">{t.counts.onHold}</td>
-                                <td className="text-right py-1">{t.counts.escalated}</td>
-                                <td className="text-right py-1 font-medium">{t.total}</td>
+                              <tr key={t.key}>
+                                <td className="pr-2">{t.label}</td>
+                                <td className="text-right">{t.counts.open}</td>
+                                <td className="text-right">{t.counts.closed}</td>
+                                <td className="text-right">{t.counts.onHold}</td>
+                                <td className="text-right">{t.counts.escalated}</td>
+                                <td className="text-right font-semibold">{t.total}</td>
                               </tr>
                             ))}
                         </tbody>
@@ -311,76 +410,65 @@ export function DiagnosticsRow({
                   )}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mb-2">
-                {activeDefectsTabInfo.tickets.length} {activeDefectsTabInfo.label.toLowerCase()}{" "}
-                {defectsView === "all" ? "ticket" : "critical/high defect"}
-                {activeDefectsTabInfo.tickets.length === 1 ? "" : "s"} total.
-              </p>
-              {activeDefectsTabInfo.tickets.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No {activeDefectsTabInfo.label.toLowerCase()}{" "}
-                  {defectsView === "all" ? "tickets" : "critical/high tickets"}.
-                </p>
-              ) : (
-                <>
-                  <ul className="space-y-2">
-                    {activeDefectsTabInfo.tickets
-                      .slice(
-                        activeDefectsTabInfo.page * CRITICAL_DEFECTS_PAGE_SIZE,
-                        (activeDefectsTabInfo.page + 1) * CRITICAL_DEFECTS_PAGE_SIZE,
-                      )
-                      .map((t) => (
-                        <li key={t.url} className="flex items-center justify-between text-sm">
-                          <a
-                            href={t.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary underline"
-                          >
-                            Ticket #{t.displayNumber}
-                          </a>
-                          <span
-                            className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${severityBadgeClass(t.severity)}`}
-                          >
-                            {t.severity}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
-                  {activeDefectsTabInfo.tickets.length > CRITICAL_DEFECTS_PAGE_SIZE && (
-                    <div className="mt-3 flex items-center justify-between text-xs">
-                      <button
-                        type="button"
-                        disabled={activeDefectsTabInfo.page === 0}
-                        onClick={() => activeDefectsTabInfo.setPage((p) => Math.max(0, p - 1))}
-                        className="px-2 py-1 rounded border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-muted-foreground">
-                        Page {activeDefectsTabInfo.page + 1} of{" "}
-                        {Math.ceil(activeDefectsTabInfo.tickets.length / CRITICAL_DEFECTS_PAGE_SIZE)}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={
-                          (activeDefectsTabInfo.page + 1) * CRITICAL_DEFECTS_PAGE_SIZE >=
-                          activeDefectsTabInfo.tickets.length
-                        }
-                        onClick={() =>
-                          activeDefectsTabInfo.setPage((p) =>
-                            (p + 1) * CRITICAL_DEFECTS_PAGE_SIZE < activeDefectsTabInfo.tickets.length ? p + 1 : p,
-                          )
-                        }
-                        className="px-2 py-1 rounded border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
-                      >
-                        Next
-                      </button>
-                    </div>
+              <div>
+                <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
+                  <p>
+                    {activeDefectsTabInfo.tickets.length} {activeDefectsTabInfo.label.toLowerCase()}{" "}
+                    {defectsView === "all" ? "ticket" : "critical/high defect"}
+                    {activeDefectsTabInfo.tickets.length === 1 ? "" : "s"} total.
+                  </p>
+                  {activeDefectsPageCount > 1 && (
+                    <span className="shrink-0 tabular-nums">
+                      Page {activeDefectsTabInfo.page + 1} of {activeDefectsPageCount}
+                    </span>
                   )}
-                </>
-              )}
-            </>
+                </div>
+                {activeDefectsTabInfo.tickets.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No {activeDefectsTabInfo.label.toLowerCase()}{" "}
+                    {defectsView === "all" ? "tickets" : "critical/high tickets"}.
+                  </p>
+                ) : (
+                  <>
+                    <ul className="divide-y divide-muted-foreground/10 rounded-md border border-muted-foreground/10">
+                      {activeDefectsTabInfo.tickets
+                        .slice(
+                          activeDefectsTabInfo.page * CRITICAL_DEFECTS_PAGE_SIZE,
+                          (activeDefectsTabInfo.page + 1) * CRITICAL_DEFECTS_PAGE_SIZE,
+                        )
+                        .map((t) => (
+                          <li
+                            key={t.url}
+                            className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-sm hover:bg-muted/40 transition-colors"
+                          >
+                            <a
+                              href={t.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 font-medium tabular-nums text-primary underline-offset-2 hover:underline"
+                            >
+                              Ticket #{t.displayNumber}
+                              <ExternalLink className="h-3 w-3 opacity-60" />
+                            </a>
+                            <span
+                              className={`inline-flex min-w-[60px] justify-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${severityBadgeClass(t.severity)}`}
+                            >
+                              {t.severity}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                    {activeDefectsPageCount > 1 && (
+                      <TicketPagination
+                        page={activeDefectsTabInfo.page}
+                        pageCount={activeDefectsPageCount}
+                        setPage={activeDefectsTabInfo.setPage}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -452,38 +452,42 @@ export function AdditionalMetrics({
               </InfoPopover>
             </div>
           </CardHeader>
-          <CardContent className="pt-0 flex-1 flex flex-col justify-center space-y-3 text-xs">
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span>Voice Input Quality</span>
-                <span className="font-medium">
-                  {kpis.voiceSuccess.inputAvg !== null ? `${kpis.voiceSuccess.inputAvg}/10` : "No data"}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-cyan-500"
-                  style={{ width: `${((kpis.voiceSuccess.inputAvg || 0) / 10) * 100}%` }}
-                />
-              </div>
+          <CardContent className="pt-0 flex-1 flex flex-col justify-between gap-4 text-xs">
+            <div className="space-y-3">
+              {[
+                { label: "Voice Input Quality", avg: kpis.voiceSuccess.inputAvg },
+                { label: "Voice Output Quality", avg: kpis.voiceSuccess.outputAvg },
+              ].map((row) => (
+                <div key={row.label} className="space-y-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-muted-foreground">{row.label}</span>
+                    {row.avg !== null ? (
+                      <span className="tabular-nums">
+                        <span className="text-base font-semibold text-foreground">{row.avg}</span>
+                        <span className="text-muted-foreground">/10</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">No data</span>
+                    )}
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-cyan-500" style={{ width: `${((row.avg || 0) / 10) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span>Voice Output Quality</span>
-                <span className="font-medium">
-                  {kpis.voiceSuccess.outputAvg !== null ? `${kpis.voiceSuccess.outputAvg}/10` : "No data"}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-cyan-500"
-                  style={{ width: `${((kpis.voiceSuccess.outputAvg || 0) / 10) * 100}%` }}
-                />
-              </div>
-            </div>
-            <p className="text-[10px] text-muted-foreground pt-1">
-              {kpis.voiceSuccess.inputCount} input readings, {kpis.voiceSuccess.outputCount} output readings scored ({kpis.voiceSuccess.sampleSize} total).
-            </p>
+            <dl className="grid grid-cols-3 divide-x rounded-md border text-center">
+              {[
+                { label: "Input Readings", value: kpis.voiceSuccess.inputCount },
+                { label: "Output Readings", value: kpis.voiceSuccess.outputCount },
+                { label: "Total Scored", value: kpis.voiceSuccess.sampleSize },
+              ].map((stat) => (
+                <div key={stat.label} className="min-w-0 px-1.5 py-1.5">
+                  <dt className="text-[10px] leading-tight text-muted-foreground">{stat.label}</dt>
+                  <dd className="mt-0.5 text-sm font-semibold tabular-nums">{stat.value.toLocaleString()}</dd>
+                </div>
+              ))}
+            </dl>
           </CardContent>
         </Card>
 
