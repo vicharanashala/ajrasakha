@@ -585,7 +585,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
       numbertomsg = from;
     }
     const textToSend =
-      sendTranslated && translatedText ? translatedText : messageText;
+      sendTranslated && translatedText !== null ? translatedText : messageText;
     if (!textToSend.trim()) return;
     if (textToSend.length > MAX_MESSAGE_LENGTH) {
       toast.error(`Message exceeds ${MAX_MESSAGE_LENGTH} character limit`);
@@ -1258,183 +1258,179 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                             <tr key={`message-${call.uuid}`}>
                               <td colSpan={6} className="px-4 py-4 bg-muted/10">
                                 <div className="flex flex-col gap-2 max-w-md">
-                                  <div className="flex items-center gap-2 justify-between">
-                                    <h4 className="text-sm font-semibold">
-                                      Send SMS to{" "}
-                                      {call.direction === "inbound"
-                                        ? call.from
-                                        : call.to}
-                                    </h4>
-                                    {translatedText && (
-                                      <div className="mt-2 flex items-center gap-2">
-                                        <Switch
-                                          id="show-translated"
-                                          checked={sendTranslated}
-                                          onCheckedChange={setSendTranslated}
-                                        />
-                                        <label
-                                          htmlFor="show-translated"
-                                          className="text-xs font-medium text-muted-foreground cursor-pointer"
-                                        >
-                                          Show translated text
-                                        </label>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <textarea
-                                    className="w-full p-2 border rounded-md text-sm bg-background"
-                                    rows={3}
-                                    placeholder="Type your SMS message here..."
-                                    value={
-                                      sendTranslated && translatedText
+                                  {(() => {
+                                    const isViewingTranslated = Boolean(
+                                      sendTranslated && translatedText !== null
+                                    );
+                                    const activeMessageValue =
+                                      isViewingTranslated && translatedText !== null
                                         ? translatedText
-                                        : messageText
-                                    }
-                                    onChange={(e) => {
-                                      if (
-                                        e.target.value.length <=
-                                        MAX_MESSAGE_LENGTH
-                                      ) {
-                                        setMessageText(e.target.value);
-                                      }
-                                    }}
-                                    maxLength={MAX_MESSAGE_LENGTH}
-                                    readOnly={
-                                      !!(sendTranslated && translatedText)
-                                    }
-                                  />
-                                  <div className="flex justify-between items-center mt-1">
-                                    <span
-                                      className={cn(
-                                        "text-xs",
-                                        (sendTranslated && translatedText
-                                          ? translatedText.length
-                                          : messageText.length) >=
-                                          MAX_MESSAGE_LENGTH
-                                          ? "text-red-500 font-semibold"
-                                          : "text-muted-foreground",
-                                      )}
-                                    >
-                                      {sendTranslated && translatedText
-                                        ? translatedText.length
-                                        : messageText.length}
-                                      /{MAX_MESSAGE_LENGTH} characters
-                                    </span>
-                                    <Button
-                                      type="button"
-                                      onClick={handleToggleSttRecording}
-                                      disabled={isSttTranscribing}
-                                      size="sm"
-                                      variant="outline"
-                                      className={cn(
-                                        "h-7 text-xs gap-1 transition-all",
-                                        isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse font-semibold"
-                                      )}
-                                      title={isSttRecording ? "Click to stop recording" : "Click to speak (Voice-to-Text)"}
-                                    >
-                                      {isSttTranscribing ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                                          <span>Transcribing...</span>
-                                        </>
-                                      ) : isSttRecording ? (
-                                        <>
-                                          <MicOff className="h-3 w-3 text-red-500 animate-bounce" />
-                                          <span>Stop Mic</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Mic className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
-                                          <span>Voice to Text</span>
-                                        </>
-                                      )}
-                                    </Button>
-                                  </div>
-                                  <div className="mt-2 space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                      <label className="text-xs font-medium text-muted-foreground">
-                                        Target Language:
-                                      </label>
-                                      {messageText.trim() && (
-                                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                          <span>Input:</span>
-                                          <span className="font-semibold text-foreground px-1.5 py-0.5 rounded bg-muted/60 border text-[10px]">
-                                            {getLanguageName(detectLanguageFromText(messageText, detectedLanguage))}
-                                          </span>
+                                        : messageText;
+                                    return (
+                                      <>
+                                        <div className="flex items-center gap-2 justify-between">
+                                          <h4 className="text-sm font-semibold">
+                                            Send SMS to{" "}
+                                            {call.direction === "inbound"
+                                              ? call.from
+                                              : call.to}
+                                          </h4>
+                                          {translatedText !== null && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                              <Switch
+                                                id="show-translated"
+                                                checked={sendTranslated}
+                                                onCheckedChange={setSendTranslated}
+                                              />
+                                              <label
+                                                htmlFor="show-translated"
+                                                className="text-xs font-medium text-muted-foreground cursor-pointer"
+                                              >
+                                                Show translated text
+                                              </label>
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
-                                    </div>
-                                    <select
-                                      value={selectedLanguage}
-                                      onChange={(e) => {
-                                        setSelectedLanguage(e.target.value);
-                                        languageManuallyChangedRef.current = true;
-                                      }}
-                                      className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
-                                    >
-                                      {SARVAM_LANGUAGES.map((lang) => (
-                                        <option
-                                          key={lang.code}
-                                          value={lang.code}
-                                        >
-                                          {lang.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div className="flex justify-end gap-2 mt-2">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setMessageRow(null);
-                                        setSendTranslated(false);
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleTranslate()}
-                                      disabled={
-                                        !(
-                                          sendTranslated && translatedText
-                                            ? translatedText
-                                            : messageText
-                                        ).trim() || translating
-                                      }
-                                      className="gap-2"
-                                    >
-                                      {translating && (
-                                        <RefreshCw className="h-3 w-3 animate-spin" />
-                                      )}
-                                      <Languages className="h-3 w-3" />
-                                      Translate
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleSendMessage(call)}
-                                      disabled={
-                                        !(
-                                          sendTranslated && translatedText
-                                            ? translatedText
-                                            : messageText
-                                        ).trim() ||
-                                        sendingMessage ||
-                                        (sendTranslated && translatedText
-                                          ? translatedText
-                                          : messageText
-                                        ).length > MAX_MESSAGE_LENGTH
-                                      }
-                                      className="gap-2"
-                                    >
-                                      {sendingMessage && (
-                                        <RefreshCw className="h-3 w-3 animate-spin" />
-                                      )}
-                                      Send SMS
-                                    </Button>
-                                  </div>
+                                        <textarea
+                                          className="w-full p-2 border rounded-md text-sm bg-background"
+                                          rows={3}
+                                          placeholder="Type your SMS message here..."
+                                          value={activeMessageValue}
+                                          onChange={(e) => {
+                                            if (
+                                              e.target.value.length <=
+                                              MAX_MESSAGE_LENGTH
+                                            ) {
+                                              if (isViewingTranslated) {
+                                                setTranslatedText(e.target.value);
+                                              } else {
+                                                setMessageText(e.target.value);
+                                              }
+                                            }
+                                          }}
+                                          maxLength={MAX_MESSAGE_LENGTH}
+                                          disabled={sendingMessage}
+                                        />
+                                        <div className="flex justify-between items-center mt-1">
+                                          <span
+                                            className={cn(
+                                              "text-xs",
+                                              activeMessageValue.length >=
+                                                MAX_MESSAGE_LENGTH
+                                                ? "text-red-500 font-semibold"
+                                                : "text-muted-foreground",
+                                            )}
+                                          >
+                                            {activeMessageValue.length}
+                                            /{MAX_MESSAGE_LENGTH} characters
+                                          </span>
+                                          <Button
+                                            type="button"
+                                            onClick={handleToggleSttRecording}
+                                            disabled={isSttTranscribing}
+                                            size="sm"
+                                            variant="outline"
+                                            className={cn(
+                                              "h-7 text-xs gap-1 transition-all",
+                                              isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse font-semibold"
+                                            )}
+                                            title={isSttRecording ? "Click to stop recording" : "Click to speak (Voice-to-Text)"}
+                                          >
+                                            {isSttTranscribing ? (
+                                              <>
+                                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                <span>Transcribing...</span>
+                                              </>
+                                            ) : isSttRecording ? (
+                                              <>
+                                                <MicOff className="h-3 w-3 text-red-500 animate-bounce" />
+                                                <span>Stop Mic</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Mic className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
+                                                <span>Voice to Text</span>
+                                              </>
+                                            )}
+                                          </Button>
+                                        </div>
+                                        <div className="mt-2 space-y-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <label className="text-xs font-medium text-muted-foreground">
+                                              Target Language:
+                                            </label>
+                                            {messageText.trim() && (
+                                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                                <span>Input:</span>
+                                                <span className="font-semibold text-foreground px-1.5 py-0.5 rounded bg-muted/60 border text-[10px]">
+                                                  {getLanguageName(detectLanguageFromText(messageText, detectedLanguage))}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <select
+                                            value={selectedLanguage}
+                                            onChange={(e) => {
+                                              setSelectedLanguage(e.target.value);
+                                              languageManuallyChangedRef.current = true;
+                                            }}
+                                            className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
+                                          >
+                                            {SARVAM_LANGUAGES.map((lang) => (
+                                              <option
+                                                key={lang.code}
+                                                value={lang.code}
+                                              >
+                                                {lang.name}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                        <div className="flex justify-end gap-2 mt-2">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                              setMessageRow(null);
+                                              setSendTranslated(false);
+                                            }}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleTranslate()}
+                                            disabled={
+                                              !activeMessageValue.trim() || translating
+                                            }
+                                            className="gap-2"
+                                          >
+                                            {translating && (
+                                              <RefreshCw className="h-3 w-3 animate-spin" />
+                                            )}
+                                            <Languages className="h-3 w-3" />
+                                            Translate
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleSendMessage(call)}
+                                            disabled={
+                                              !activeMessageValue.trim() ||
+                                              sendingMessage ||
+                                              activeMessageValue.length > MAX_MESSAGE_LENGTH
+                                            }
+                                            className="gap-2"
+                                          >
+                                            {sendingMessage && (
+                                              <RefreshCw className="h-3 w-3 animate-spin" />
+                                            )}
+                                            Send SMS
+                                          </Button>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </td>
                             </tr>

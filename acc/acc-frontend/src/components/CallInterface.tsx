@@ -524,6 +524,8 @@ export const CallInterface = () => {
   const callUuidRef = useRef<string | null>(null);
   const lastCallUuidRef = useRef<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const isAtBottomRef = useRef(true);
+  const isProgrammaticScrollRef = useRef(false);
   interface ExtGeneratedQuestion extends GeneratedQuestion {
     weather?: any;
     authorName?: string;
@@ -807,17 +809,38 @@ export const CallInterface = () => {
     toast.success("Message deleted from test transcript.");
   };
 
-  // Auto-scroll to bottom of chat bubbles
+  const handleChatScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+    if (distanceFromBottom <= 60) {
+      isAtBottomRef.current = true;
+      isProgrammaticScrollRef.current = false;
+    } else if (!isProgrammaticScrollRef.current) {
+      // User manually scrolled up away from the bottom
+      isAtBottomRef.current = false;
+    }
+  };
+
+  // Auto-scroll to bottom of chat bubbles only when user is at the bottom
   useEffect(() => {
-    if (chatContainerRef.current) {
+    if (chatContainerRef.current && isAtBottomRef.current) {
+      isProgrammaticScrollRef.current = true;
       chatContainerRef.current.scrollTo({
         top: chatContainerRef.current.scrollHeight,
         behavior: "smooth",
       });
+      const timeoutId = setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 500);
+      return () => clearTimeout(timeoutId);
     }
   }, [transcriptsList]);
 
   const handleResetConversation = () => {
+    isAtBottomRef.current = true;
+    isProgrammaticScrollRef.current = false;
     setCallUuid(null);
     setLastCallUuid(null);
     callUuidRef.current = null;
@@ -928,6 +951,8 @@ export const CallInterface = () => {
     ];
 
     setTranscriptsList(sampleTranscripts);
+    isAtBottomRef.current = true;
+    isProgrammaticScrollRef.current = false;
     setCallUuid(mockCallUuid);
     setLastCallUuid(mockCallUuid);
     callUuidRef.current = mockCallUuid;
@@ -1007,6 +1032,7 @@ export const CallInterface = () => {
     };
 
     setTranscriptsList((prev) => [...prev, newMsg]);
+    isAtBottomRef.current = true;
 
     // Ensure callUuid & mock state is initialized if not present
     let currentUuid = callUuidRef.current || callUuid;
@@ -1129,6 +1155,7 @@ export const CallInterface = () => {
           };
 
           setTranscriptsList((prev) => [...prev, newMsg]);
+          isAtBottomRef.current = true;
           setIsSimulatingMode(true);
 
           toast.dismiss(processingToastId);
@@ -1655,6 +1682,8 @@ export const CallInterface = () => {
           onCallStateChange={(isActive) => {
             setIsCallActive(isActive);
             if (isActive) {
+              isAtBottomRef.current = true;
+              isProgrammaticScrollRef.current = false;
               // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
               setExtractedFarmerProfile(null);
               setTranscriptsList([]);
@@ -1848,6 +1877,16 @@ export const CallInterface = () => {
               <CardContent className="p-3 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-2.5 h-[360px] flex flex-col">
                 <div
                   ref={chatContainerRef}
+                  onScroll={handleChatScroll}
+                  onWheel={(e) => {
+                    if (e.deltaY < 0) {
+                      isProgrammaticScrollRef.current = false;
+                      isAtBottomRef.current = false;
+                    }
+                  }}
+                  onTouchMove={() => {
+                    isProgrammaticScrollRef.current = false;
+                  }}
                   className="space-y-3 overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col flex-1 transition-all duration-300"
                 >
                   {transcriptsList.length > 0 ? (

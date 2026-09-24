@@ -346,7 +346,7 @@ export const IncomingCallBox = ({
 
   const handleSendMessage = async () => {
     const phoneNumber = activePhoneNumber || lastCallNumber;
-    const textToSend = sendTranslated && translatedText ? translatedText : messageText;
+    const textToSend = sendTranslated && translatedText !== null ? translatedText : messageText;
 
     if (!textToSend.trim() || !phoneNumber) {
       return;
@@ -702,7 +702,7 @@ export const IncomingCallBox = ({
                 <MessageSquare className="h-3.5 w-3.5 text-indigo-500" />
                 <span>Follow-up SMS {currentPhoneNumber ? `to ${currentPhoneNumber}` : ""}</span>
               </div>
-              {translatedText && (
+              {translatedText !== null && (
                 <div className="flex items-center gap-2">
                   <Switch
                     id="show-translated-active"
@@ -719,99 +719,113 @@ export const IncomingCallBox = ({
               )}
             </div>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={sendTranslated && translatedText ? translatedText : messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder="Type your SMS message..."
-                className="flex-1 px-3 py-1.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50 shadow-inner"
-                disabled={isSendingMessage || !!(sendTranslated && translatedText)}
-                readOnly={!!(sendTranslated && translatedText)}
-              />
-              <Button
-                type="button"
-                onClick={handleToggleSttRecording}
-                disabled={isSttTranscribing}
-                size="sm"
-                variant="outline"
-                className={cn(
-                  "px-2.5 h-8 rounded-lg border-zinc-300 dark:border-zinc-700 transition-all font-semibold text-xs gap-1",
-                  isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse"
-                )}
-                title={isSttRecording ? "Stop recording" : "Voice-to-Text"}
-              >
-                {isSttTranscribing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                ) : isSttRecording ? (
-                  <MicOff className="h-3.5 w-3.5 text-red-500 animate-bounce" />
-                ) : (
-                  <Mic className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400" />
-                )}
-              </Button>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage || !currentPhoneNumber}
-                size="sm"
-                className="px-3.5 h-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm font-bold text-xs rounded-lg shrink-0 gap-1 transition-all"
-              >
-                <Send className="h-3 w-3" />
-                <span>Send</span>
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                {messageText.trim() && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                      Input:
-                    </span>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-                      {getLanguageName(detectLanguageFromText(messageText, detectedLanguage))}
-                    </span>
+            {(() => {
+              const isViewingTranslated = Boolean(sendTranslated && translatedText !== null);
+              const activeMessageValue = isViewingTranslated && translatedText !== null ? translatedText : messageText;
+              return (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={activeMessageValue}
+                      onChange={(e) => {
+                        const newVal = e.target.value;
+                        if (isViewingTranslated) {
+                          setTranslatedText(newVal);
+                        } else {
+                          setMessageText(newVal);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type your SMS message..."
+                      className="flex-1 px-3 py-1.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50 shadow-inner"
+                      disabled={isSendingMessage}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleToggleSttRecording}
+                      disabled={isSttTranscribing}
+                      size="sm"
+                      variant="outline"
+                      className={cn(
+                        "px-2.5 h-8 rounded-lg border-zinc-300 dark:border-zinc-700 transition-all font-semibold text-xs gap-1",
+                        isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse"
+                      )}
+                      title={isSttRecording ? "Stop recording" : "Voice-to-Text"}
+                    >
+                      {isSttTranscribing ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                      ) : isSttRecording ? (
+                        <MicOff className="h-3.5 w-3.5 text-red-500 animate-bounce" />
+                      ) : (
+                        <Mic className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400" />
+                      )}
+                    </Button>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!activeMessageValue.trim() || isSendingMessage || !currentPhoneNumber}
+                      size="sm"
+                      className="px-3.5 h-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm font-bold text-xs rounded-lg shrink-0 gap-1 transition-all"
+                    >
+                      <Send className="h-3 w-3" />
+                      <span>Send</span>
+                    </Button>
                   </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                  <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                    Target Language:
-                  </label>
-                  <select
-                    value={selectedLanguage}
-                    onChange={(e) => {
-                      setSelectedLanguage(e.target.value);
-                      setLanguageManuallyChanged(true);
-                    }}
-                    className="px-2 py-0.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                  >
-                    {SARVAM_LANGUAGES.map((lang) => (
-                      <option key={lang.code} value={lang.code}>
-                        {lang.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleTranslate}
-                disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || translating}
-                className="gap-1 h-6.5 text-[11px] rounded-md px-2"
-              >
-                {translating && (
-                  <RefreshCw className="h-2.5 w-2.5 animate-spin" />
-                )}
-                <Languages className="h-2.5 w-2.5" />
-                <span>Translate</span>
-              </Button>
-            </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {messageText.trim() && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                            Input:
+                          </span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                            {getLanguageName(detectLanguageFromText(messageText, detectedLanguage))}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          Target Language:
+                        </label>
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => {
+                            setSelectedLanguage(e.target.value);
+                            setLanguageManuallyChanged(true);
+                          }}
+                          className="px-2 py-0.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        >
+                          {SARVAM_LANGUAGES.map((lang) => (
+                            <option key={lang.code} value={lang.code}>
+                              {lang.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleTranslate}
+                      disabled={!activeMessageValue.trim() || translating}
+                      className="gap-1 h-6.5 text-[11px] rounded-md px-2"
+                    >
+                      {translating && (
+                        <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+                      )}
+                      <Languages className="h-2.5 w-2.5" />
+                      <span>Translate</span>
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
