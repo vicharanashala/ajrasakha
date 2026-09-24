@@ -1616,6 +1616,7 @@ class DailyPriceInput(BaseModel):
     longitude: Optional[float] = None
     crop: str
     state: Optional[str] = None
+    district: Optional[str] = None
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1625,6 +1626,7 @@ async def daily_price(
     longitude: Optional[float],
     crop: str,
     state: Optional[str] = None,
+    district: Optional[str] = None,
     config: RunnableConfig = None,
 ) -> str:
     """
@@ -1638,10 +1640,12 @@ async def daily_price(
         if (lat is None or lon is None) and state:
             from ajrasakha.agents.location_context import forward_geocode
 
-            district_val = None
-            m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
-            if m_dist:
-                district_val = m_dist.group(1).strip()
+            # Use district from parameter (preferred) or extract from query as fallback
+            district_val = district
+            if not district_val:
+                m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
+                if m_dist:
+                    district_val = m_dist.group(1).strip()
 
             geocode_result = await forward_geocode(state=state, district=district_val)
             if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
