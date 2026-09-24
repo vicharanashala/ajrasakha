@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
-import { FarmerDetails } from "./FarmerDetails";
+import { FarmerDetails, type FarmerDetailsRef } from "./FarmerDetails";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { toast } from "sonner";
 import { Button } from "./atoms/button";
@@ -576,6 +576,7 @@ export const CallInterface = () => {
   const callPhoneNumberRef = useRef<string | null>(null);
   const lastCallPhoneNumberRef = useRef<string | null>(null);
   const activeProfileRef = useRef<any>(null);
+  const farmerDetailsRef = useRef<FarmerDetailsRef | null>(null);
 
   // HITL state
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -1208,7 +1209,7 @@ export const CallInterface = () => {
       setExtractedData(data);
 
       if (extractionType === 'query_details') {
-        const farmer = activeProfileRef.current || extractedFarmerProfile || {};
+        const farmer = farmerDetailsRef.current?.getProfile() || activeProfileRef.current || extractedFarmerProfile || {};
         const resolveLocation = (
           extractedVal?: string | null,
           farmerVal?: string | null,
@@ -1656,7 +1657,6 @@ export const CallInterface = () => {
             if (isActive) {
               // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
               setExtractedFarmerProfile(null);
-              activeProfileRef.current = null;
               setTranscriptsList([]);
               setQuestions([]);
               setTranslatedQuestions({});
@@ -1715,6 +1715,7 @@ export const CallInterface = () => {
         {/* Left Column: Farmer Information Form (25%) */}
         <div className="w-full flex flex-col space-y-4">
           <FarmerDetails
+            ref={farmerDetailsRef}
             phoneNo={callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || ""}
             extractedProfile={extractedFarmerProfile}
             disabled={!isCallActive && !isSimulatingMode && !(callUuid && callUuid.startsWith("testing_")) && !callPhoneNumber && !lastCallPhoneNumber}

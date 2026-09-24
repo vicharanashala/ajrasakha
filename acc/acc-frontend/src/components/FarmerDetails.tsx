@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Input } from "./atoms/input";
 import { Label } from "./atoms/label";
@@ -20,7 +20,9 @@ import { toast } from "sonner";
 import { SARVAM_LANGUAGES } from "@/utils/languageUtils";
 export { SARVAM_LANGUAGES };
 
-
+export interface FarmerDetailsRef {
+  getProfile: () => FarmerProfile | null;
+}
 
 interface FarmerDetailsProps {
   phoneNo: string;
@@ -31,14 +33,18 @@ interface FarmerDetailsProps {
   onProfileUpdated?: (profile: FarmerProfile) => void;
 }
 
-export const FarmerDetails = ({
+export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
   phoneNo,
   className,
   disabled = false,
   extractedProfile,
   onProfileUpdated,
-}: FarmerDetailsProps) => {
+}, ref) => {
   const [farmer, setFarmer] = useState<FarmerProfile | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    getProfile: () => farmer,
+  }), [farmer]);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const lastFetchedPhoneRef = useRef<string | null>(null);
@@ -551,6 +557,8 @@ export const FarmerDetails = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+FarmerDetails.displayName = "FarmerDetails";
 
 export default FarmerDetails;
