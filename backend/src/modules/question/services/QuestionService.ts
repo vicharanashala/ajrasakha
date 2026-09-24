@@ -15,6 +15,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import { inject, injectable } from 'inversify';
 import { ClientSession, ObjectId } from 'mongodb';
 import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
+import { startQuestionCollectionProcessing } from '#root/workers/questionCollection.workerManager.js'; 
 import {
   IQuestion,
   IUser,
@@ -61,6 +62,7 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import {
   IQuestionService,
   QueueSectionName,
+  PaeAnalyticsRow,
 } from '../interfaces/IQuestionService.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -381,6 +383,148 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async findUnknownQuestionGeo() {
     return this.maintenanceService.findUnknownQuestionGeo();
+  }
+
+  /**
+   * Bulk insert Question Collection questions with full validation.
+   * - Validates all questions before inserting any
+   * - Sets source to 'QUESTION_COLLECTION' (ignores any client-provided source)
+   * - Sets all auto-allocation flags to false
+   * - Creates QuestionSubmission records with empty queue (no allocation)
+   * - No duplicate checking, no expert allocation, no notifications
+   * - Triggers background processing for embeddings and crop normalization
+   */
+  async addQuestionCollection(
+    userId: string,
+    questions: any[],
+  ): Promise<{
+    success: boolean;
+    count: number;
+    questionIds: string[];
+  }> {
+    return this._addQuestionCollectionCore(userId, questions);
+  }
+
+  /**
+   * Core implementation - extracted to keep method small.
+   * Does not check auth or permissions (those are controller-layer concerns).
+   */
+  async _addQuestionCollectionCore(
+    userId: string,
+    questions: any[],
+  ): Promise<{
+    success: boolean;
+    count: number;
+    questionIds: string[];
+  }> {
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new BadRequestError('Question Collection must contain at least one question');
+    }
+
+    const validationErrors: Array<{index: number; field: string; message: string}> = [];
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.question || typeof q.question !== 'string' || !q.question.trim()) {
+        validationErrors.push({ index: i, field: 'question', message: 'Question text is required' });
+      }
+      if (!q.details || typeof q.details !== 'object') {
+        validationErrors.push({ index: i, field: 'details', message: 'Details object is required' });
+      } else {
+        const d = q.details;
+        if (!d.state || !d.state.trim()) validationErrors.push({ index: i, field: 'details.state', message: 'State is required' });
+        if (!d.district || !d.district.trim()) validationErrors.push({ index: i, field: 'details.district', message: 'District is required' });
+        if (!d.crop || !d.crop.trim()) validationErrors.push({ index: i, field: 'details.crop', message: 'Crop is required' });
+        if (!d.season || !d.season.trim()) validationErrors.push({ index: i, field: 'details.season', message: 'Season is required' });
+        if (!Array.isArray(d.domain) || d.domain.length === 0) {
+          validationErrors.push({ index: i, field: 'details.domain', message: 'Domain must be a non-empty array' });
+        }
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      throw new BadRequestError(JSON.stringify({ success: false, message: 'Validation failed', errors: validationErrors }));
+    }
+
+    // Format and insert
+    const cropCache = new Map<string, string>();
+    const formatted: IQuestion[] = [];
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const d = q.details;
+
+      const priorityRaw = ((q.priority as string) || 'medium').toLowerCase() as IQuestionPriority;
+      const validPriorities: IQuestionPriority[] = ['low', 'medium', 'high', 'critical'];
+      const priority = validPriorities.includes(priorityRaw) ? priorityRaw : 'medium';
+
+      const rawCropName = (d.crop || '').toString().trim();
+      let normalised_crop: string | undefined;
+      if (rawCropName) {
+        const key = rawCropName.toLowerCase();
+        if (cropCache.has(key)) {
+          normalised_crop = cropCache.get(key);
+        } else {
+          try {
+            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            if (existingCrop) {
+              normalised_crop = existingCrop.name;
+              cropCache.set(key, normalised_crop);
+            }
+          } catch (_) { /* ignore crop normalization failures */ }
+        }
+      }
+      const base: IQuestion = {
+        userId: userId?.trim() ? new ObjectId(userId) : null,
+        question: q.question.trim(),
+        priority,
+        source: 'QUESTION_COLLECTION',
+        status: 'open',
+        totalAnswersCount: 0,
+        contextId: null,
+        details: {
+          state: d.state.trim(),
+          district: d.district.trim(),
+          crop: rawCropName,
+          season: d.season.trim(),
+          domain: d.domain,
+          ...(normalised_crop !== undefined ? {normalised_crop} : {}),
+        },
+        isAutoAllocate: false,
+        autoAllocateModerator: false,
+        autoAllocateGateKeeper: false,
+        autoAllocateAuditor: false,
+        autoAllocatePaeValidationExpert: false,
+        autoAllocateFeedback: false,
+        embedding: [],
+        metrics: null,
+        text: `Question: ${q.question.trim()}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      formatted.push(base);
+    }
+    const insertedIds = await this._withTransaction(async (session: ClientSession) => {
+      const questionIds = await this.questionRepo.insertMany(formatted, session);
+      const submissions: IQuestionSubmission[] = questionIds.map((qId: string) => ({
+        questionId: new ObjectId(qId),
+        lastRespondedBy: null,
+        history: [],
+        queue: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+      await this.questionSubmissionRepo.addSubmissions(submissions, session);
+      return questionIds;
+    });
+
+    // Fire-and-forget background processing
+    startQuestionCollectionProcessing({ questionIds: insertedIds }).catch(err => {
+      console.error('[addQuestionCollection] Background processing error:', err);
+    });
+
+    return { success: true, count: insertedIds.length, questionIds: insertedIds };
   }
 
   async getAllocatedQuestions(
@@ -1065,6 +1209,23 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
   }
 
+  /**
+   * Event-driven PAE-validation queue allocation. Call after a PAE expert may have been
+   * freed (e.g. a question they held for validation was deleted) so a free PAE expert
+   * immediately picks up their next question. Fire-and-forget and best-effort:
+   * runPaeValidationQueueCron is idempotent and any failure is swallowed.
+   */
+  triggerPaeValidationQueueAllocation(context: string): void {
+    void this.paeValidationService
+      .runPaeValidationQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven PAE-validation queue allocation failed:`,
+          err?.message,
+        ),
+      );
+  }
+
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
@@ -1683,12 +1844,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
 
-      // Pull this question from any moderator's assignedQuestionIds so no orphan entry
-      // is left behind keeping them wrongly "busy" after the question is gone.
-      await this.userRepo.removeAssignedQuestionFromAllModerators(
-        questionId,
-        activeSession,
-      );
+      // Pull this question from every user's assignment arrays (moderator
+      // assignedQuestionIds, PAE paeValidationAssigned, feedback feedbacksAssigned) so no
+      // orphan reference is left behind after the question is gone.
+      await this.userRepo.removeQuestionFromAllUsers(questionId, activeSession);
 
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
@@ -1705,6 +1864,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Deleting a question frees any moderator that held it — run the moderator queue so
     // that freed moderator immediately picks up another in-review/pae_submitted question.
     this.triggerModeratorQueueAllocation('deleteQuestion');
+    // It may also have freed a PAE expert (if the question was assigned for PAE validation)
+    // — run the PAE-validation queue so the freed expert picks up their next question.
+    this.triggerPaeValidationQueueAllocation('deleteQuestion');
     return result;
   }
 
@@ -2520,6 +2682,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.maintenanceService.backfillEmptyEmbeddings(batchLimit);
   }
 
+  async backfillMissingEmbeddings(batchLimit?: number) {
+    return this.maintenanceService.backfillMissingEmbeddings(batchLimit);
+  }
+
+  async backfillAnswerEmbeddings(batchLimit?: number) {
+    return this.maintenanceService.backfillAnswerEmbeddings(batchLimit);
+  }
+
   // ─── Time-bound question tracking ───────────────────────────────────────────
 
   /** Called whenever an expert selects ANY question in the UI.
@@ -2807,6 +2977,49 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
+  /**
+   * PAE-answer dashboard analytics for EVERY PAE expert — the same per-PAE metrics the
+   * individual dashboard shows (assigned / submitted / pending answers + feedback
+   * assigned / pending / completed), one row per PAE. Reuses getPaeAnswerDashboard so the
+   * numbers match the dashboard exactly. Used for the "all PAEs" analytics export sheet.
+   */
+  async getAllPaeAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<PaeAnalyticsRow[]> {
+    const paes = await this.userRepo.findUsersByRoles(['pae_expert']);
+    const rows = await Promise.all(
+      paes.map(async u => {
+        const id = u._id!.toString();
+        const d = await this.questionRepo.getPaeAnswerDashboard(
+          id,
+          1,
+          1,
+          undefined,
+          startDate,
+          endDate,
+        );
+        const name =
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+          u.email ||
+          'Unknown';
+        return {
+          id,
+          name,
+          email: u.email ?? '',
+          assigned: d.assignedCount,
+          submitted: d.submittedCount,
+          pending: Math.max(0, d.assignedCount - d.submittedCount),
+          feedbackAssigned: d.feedbackAssigned,
+          feedbackPending: d.feedbackPending,
+          feedbackCompleted: d.feedbackCompleted,
+        };
+      }),
+    );
+    // Stable, human-friendly ordering.
+    return rows.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   async processPaeValidation(
     paeExpertId: string,
     questionId: string,
@@ -2829,5 +3042,17 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getPaeValidationQueueDetails(params?: { section?: 'waitingAuto' | 'waitingManual' | 'assigned'; page?: number; limit?: number }) {
     return this.paeValidationService.getPaeValidationQueueDetails(params);
+  }
+
+  async sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ) {
+    return this.paeValidationService.sendPaeMilestoneReport(
+      paeExpertId,
+      milestoneCount,
+      recipients,
+    );
   }
 }

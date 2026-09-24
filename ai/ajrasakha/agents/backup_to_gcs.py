@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""PostgreSQL Backup to GCP Storage"""
+
+import os
+import sys
+import json
+import subprocess
+import logging
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+# Check if backup mode is enabled
+IS_BACKUP = os.environ.get('IS_BACKUP', 'false').lower()
+IS_TEST = IS_BACKUP == 'test'
+IS_BACKUP = IS_BACKUP in ('true', 'test')
+
+if not IS_BACKUP:
+    logger.info("IS_BACKUP=false, skipping backup. Exiting.")
+    sys.exit(0)
+
+# GCP credentials from environment variable
+GCP_CREDS_JSON = os.environ.get('GCP_CREDS', '')
+if not GCP_CREDS_JSON:
+    raise ValueError("GCP_CREDS environment variable is required")
+
+# Configuration
+BACKUP_DIR = "/tmp/backups"
+GCS_BUCKET = "annam-langgraph-db"
+GCS_PATH = "postgres-backups"
+
+# Database configuration
+PG_HOST = os.environ.get('POSTGRES_HOST', 'postgres3')
+PG_PORT = os.environ.get('POSTGRES_PORT', '5432')
+PG_USER = os.environ.get('POSTGRES_USER', 'ai3')
+PG_PASSWORD = os.environ.get('POSTGRES_PASSWORD', 'ai_secret3')
+PG_DATABASE = os.environ.get('POSTGRES_DB', 'ai3')
+
+
+def run_pg_dump(backup_file):
+    """Create PostgreSQL dump using pg_dump"""
+    env = os.environ.copy()
+    env['PGPASSWORD'] = PG_PASSWORD
+
+    cmd = [
+        'pg_dump',
+        '-h', PG_HOST,
+        '-p', PG_PORT,
+        '-U', PG_USER,
+        '-d', PG_DATABASE,
+        '-F', 'c',
+        '-f', str(backup_file)
+    ]
+
+    logger.info(f"Running pg_dump to {backup_file}")
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        logger.error(f"pg_dump failed: {result.stderr}")
+        raise subprocess.CalledProcessError(result.returncode, cmd)
+
+    if not backup_file.exists() or backup_file.stat().st_size == 0:
+        raise RuntimeError("Backup file is empty!")
+
+    size = backup_file.stat().st_size / (1024 * 1024)
+    logger.info(f"Backup created: {backup_file} ({size:.2f} MB)")
+
+    return backup_file, size
+
+
+def upload_to_gcs(backup_file):
+    """Upload backup to Google Cloud Storage using Python SDK"""
+    from google.cloud import storage
+    from google.oauth2 import service_account
+
+    logger.info(f"Uploading to gs://{GCS_BUCKET}/{GCS_PATH}/")
+
+    # Parse credentials from env var
+    creds_dict = json.loads(GCP_CREDS_JSON)
+    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    client = storage.Client(credentials=credentials)
+    bucket = client.bucket(GCS_BUCKET)
+    blob = bucket.blob(f"{GCS_PATH}/{backup_file.name}")
+
+    blob.upload_from_filename(str(backup_file))
+
+    gcs_path = f"gs://{GCS_BUCKET}/{GCS_PATH}/{backup_file.name}"
+    logger.info(f"Uploaded to: {gcs_path}")
+
+    blob.reload()
+    size_mb = blob.size / (1024 * 1024)
+    logger.info(f"File size in GCS: {size_mb:.2f} MB")
+
+    return gcs_path, size_mb
+
+
+def cleanup_local_backups():
+    """Remove local backups older than 7 days"""
+    if not Path(BACKUP_DIR).exists():
+        return
+
+    import time
+    max_age = 7 * 24 * 60 * 60
+
+    for backup in Path(BACKUP_DIR).glob("*.sql.gz"):
+        age = time.time() - backup.stat().st_mtime
+        if age > max_age:
+            backup.unlink()
+            logger.info(f"Removed old backup: {backup}")
+
+
+def send_backup_email(backup_size_mb, gcs_path, backup_time, error=None):
+    """Send email notification about backup result."""
+    from ajrasakha.agents.email_service import send_backup_notification
+    return send_backup_notification(
+        backup_size_mb=backup_size_mb,
+        gcs_path=gcs_path,
+        backup_time=backup_time,
+        error=error
+    )
+
+
+def main():
+    backup_time = datetime.now(IST)
+
+    try:
+        logger.info("=" * 50)
+        logger.info("Starting PostgreSQL backup to GCP")
+        logger.info("=" * 50)
+
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+
+        timestamp = backup_time.strftime("%Y-%m-%d_%H-%M-%S")
+        prefix = "test_" if IS_TEST else ""
+        backup_file = Path(BACKUP_DIR) / f"{prefix}{timestamp}.sql.gz"
+
+        backup_file, local_size = run_pg_dump(backup_file)
+        gcs_path, gcs_size = upload_to_gcs(backup_file)
+        cleanup_local_backups()
+        backup_file.unlink()
+        logger.info(f"Removed local file: {backup_file}")
+
+        logger.info("=" * 50)
+        logger.info(f"SUCCESS! Location: {gcs_path}, Size: {gcs_size:.2f} MB")
+        logger.info("=" * 50)
+
+        send_backup_email(backup_size_mb=gcs_size, gcs_path=gcs_path, backup_time=backup_time)
+
+        return 0
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"FAILED: {error_msg}")
+
+        send_backup_email(backup_size_mb=0, gcs_path="", backup_time=backup_time, error=error_msg)
+
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

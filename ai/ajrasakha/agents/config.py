@@ -139,7 +139,7 @@ GOLDEN_API_URL = f"http://{REMOTE_IP}:8110"
 
 MCP_URLS = {
     "gdb":        f"http://{REMOTE_IP}:8110/v1/gdb/search",
-    # "weather":    f"http://100.100.108.41:9017/mcp",
+    # "weather":    f"http://127.0.0.1:8007/mcp",
     "weather":    f"http://{REMOTE_IP}:8113/mcp",
     "soil":       f"http://{REMOTE_IP}:9008/mcp",
     "enam":       f"http://{REMOTE_IP}:9002/mcp",
@@ -149,6 +149,7 @@ MCP_URLS = {
     "schemes":    f"http://{REMOTE_IP}:9009/mcp",
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
-    "daily_price": f"http://{REMOTE_IP}:8111/mcp",
+    # "daily_price": f"http://{REMOTE_IP}:8111/mcp",
+    "daily_price":f"http://127.0.0.1:8111/mcp",
 
 }

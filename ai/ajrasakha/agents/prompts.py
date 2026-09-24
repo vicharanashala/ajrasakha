@@ -681,7 +681,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
    - Set `original_query_en` to the original query unchanged.
    - Set `rephrased_query` to the same text with **only** spelling/grammar fixes — do not rename diseases, pests, or crops.
 7. When unsure between two English agricultural terms, **keep the wording from `original_query_en`** in `rephrased_query`.
-8. The server supplies a canonical query assembled from the previous question and any missing location/crop clarification. Use that assembled query for `original_query_en` and `rephrased_query`; never replace it with the short clarification reply alone.
+8. The server supplies a canonical query assembled from the previous question and any missing location/crop clarification. When the latest message answers that clarification, use that assembled query for `original_query_en` and `rephrased_query`; never replace it with the short clarification reply alone. When the latest message is instead a new, different question (in any language or script), set `is_new_question=true`, ignore the assembled query, and translate/rephrase only the latest message.
 9. **REPHRASING CONTEXT**: When generating `original_query_en` and `rephrased_query`, use the server-assembled clarification query when present, together with the "LAST 5 QUERIES FOR REPHRASING" section and PRIOR TURN CONTEXT. Do NOT use the "Recent farmer messages in thread" section for rephrasing — that section is for domain/routing only.
 
 **Vocal Language (REQUIRED — you decide):**
@@ -699,7 +699,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 - [STRICT] For 'crop': 
   1. Try to translate the regional crop name into its standard English equivalent (e.g., "Kapas" -> "Cotton", "Lehsun" -> "Garlic", "Dhan" -> "Paddy", "Chana" -> "Bengal Gram(Gram)").
   2. If you are not completely sure about the translation, extract the EXACT local/regional crop name written in English letters.
-  3. Use exactly `"all"` for an explicit non-specific or multiple-crop request, including replies such as `"any general crop"` or `"any crop is fine"`. Never output `"multiple"`, `"multiple crop"`, `"multiple crops"`, or `"general"` as the crop value.
+  3. Use exactly `"all"` for an explicit non-specific or multiple-crop request, including replies such as `"any general crop"` or `"any crop is fine"`. Never output `"multiple"`, `"multiple crop"`, `"multiple crops"`, or `"general"` as the crop value. When the farmer names two or more specific crops (e.g. "wheat and mustard"), use `"all"` and set `is_multiple_crops=true`; crop categories such as "vegetables", "rabi crops", or "all crops" do not count.
   4. For a question asking which crop/plant to grow, do not invent an answer crop in `entities.crop` (for example, do not turn a season such as kharif into `"Kharif crops"` or `"Sorghum"`); leave it empty and let the server set `crop="all"`.
   5. If no specific crop name is present, use exactly `"all"`; never output `null`, `none`, or `not specified` for the crop. Use the specific crop name whenever one is clearly mentioned. `"all"` is also used when the farmer explicitly requests a non-specific crop scope or the server has determined that the selected domain does not require a crop.
 
@@ -905,9 +905,7 @@ Return ONLY a valid JSON object (no markdown, no explanation).
 
 Output JSON keys (use null for unused fields):
 - tool: exactly one tool name from the list below
-- query_type:
-  - for weather tools: "today" | "forecast" | "previous" | null
-  - for get_sowing_weather_guide only: "sowing_time" | "weather_for_sowing" | "nursery_prep" | "season_calendar" | null
+- query_type: "today" | "forecast" | "previous" | null
 - data_type: "current" | "forecast" | "monsoon_status" | "historical" | null (rainfall/monsoon tool only)
 - target_date: "YYYY-MM-DD" or null (single specific day)
 - from_date: "YYYY-MM-DD" or null (range start)
@@ -917,7 +915,6 @@ Output JSON keys (use null for unused fields):
 - hours_ahead: integer 1-3 or null (nowcast only)
 - include_nearby_stations: boolean or null
 - radius_km: number or null
-- crop_name: string or null (sowing tool only; crop mentioned by the farmer)
 
 Available tools and functionalities:
 - get_current_and_forecast_info
@@ -945,20 +942,13 @@ Available tools and functionalities:
 - get_weather_alerts
   - Official IMD warnings and severe weather alerts
   - Red / Orange / Yellow alerts, cyclone, storm warnings (Day 1-5)
-- get_sowing_weather_guide
-  - Weather-aware sowing / planting timing advice
-  - Weather suitability for sowing a crop
-  - Nursery preparation guidance based on weather
-  - Season / sowing calendar guidance tied to weather
-  - Requires crop_name when the farmer names a crop
 
 Tool selection rules (pick the best single tool):
 - get_weather_alerts — warnings, alerts, red/orange/yellow alert, cyclone, severe weather threat
 - get_weather_nowcast — next 1-3 hours short-term forecast / nowcast radar warnings ONLY (e.g. "next 1 hr", "in 2 hours", "nowcast")
 - get_location_weather — block/tehsil/village/panchayat OR nearby stations within radius
-- get_rainfall_and_monsoon_info — rainfall amount, rain condition, monsoon progress/status, precipitation stats
+- get_rainfall_and_monsoon_info — rainfall amount, rain forecasts / rain chances (today, tomorrow, next 2 days, next week, specific date, morning/evening), rain condition, monsoon progress/status, precipitation stats, past 24 hours recorded rainfall
 - get_temperature_info — temperature, humidity, feels-like, heat/cold
-- get_sowing_weather_guide — sowing time, planting window, weather for sowing, nursery prep, season calendar for a crop
 - get_current_and_forecast_info — general weather, current weather, today conditions, multi-day 3/5/7 day forecast (default)
 
 Date / range rules (Today is provided below):
@@ -968,30 +958,26 @@ Date / range rules (Today is provided below):
 - "past 24 hours rain" is current/recent rainfall, NOT a multi-day previous range (past_days=null).
 - "next N days" / "N-day forecast" → forecast_days=N, query_type="forecast".
 - Single named day → target_date; date range → from_date + to_date.
-- For get_sowing_weather_guide: set crop_name from the query; set query_type to sowing_time / weather_for_sowing / nursery_prep / season_calendar.
 - Omit unused fields as null. Never invent tools outside the list.
 
 Examples:
 Query: Are there any heavy rain warnings for Ernakulam?
-{"tool":"get_weather_alerts","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
+{"tool":"get_weather_alerts","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
 
 Query: Will it rain in the next 2 hours in Kottayam?
-{"tool":"get_weather_nowcast","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":2,"include_nearby_stations":false,"radius_km":null,"crop_name":null}
+{"tool":"get_weather_nowcast","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":2,"include_nearby_stations":false,"radius_km":null}
 
 Query: How much rain fell in the past 3 days?
-{"tool":"get_rainfall_and_monsoon_info","query_type":"previous","data_type":"historical","target_date":null,"from_date":null,"to_date":null,"past_days":3,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
+{"tool":"get_rainfall_and_monsoon_info","query_type":"previous","data_type":"historical","target_date":null,"from_date":null,"to_date":null,"past_days":3,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
 
 Query: What is the 5 day weather forecast for Ernakulam?
-{"tool":"get_current_and_forecast_info","query_type":"forecast","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":5,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
+{"tool":"get_current_and_forecast_info","query_type":"forecast","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":5,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
 
 Query: Show nearby weather stations within 50km for Piravom block
-{"tool":"get_location_weather","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":true,"radius_km":50,"crop_name":null}
+{"tool":"get_location_weather","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":true,"radius_km":50}
 
 Query: Current temperature and humidity
-{"tool":"get_temperature_info","query_type":"today","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
-
-Query: Is weather good for sowing mustard now?
-{"tool":"get_sowing_weather_guide","query_type":"weather_for_sowing","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":"mustard"}
+{"tool":"get_temperature_info","query_type":"today","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
 """
 
 NEW_WEATHER_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with weather information.
@@ -1007,11 +993,28 @@ STRICT DATA RULES (never break these):
 FORMAT & FOCUS RULES:
 - DIRECT ANSWER FIRST: Begin with a direct, unambiguous statement answering the farmer's specific question:
   * Today's rain forecast / rain chance queries ("will it rain today", "chances of rain today", "is rain expected today"):
-    "Yes, there is a chance of rain today ([Date]) in [Place]" OR "No rain is expected today ([Date]) in [Place]". Always include the date in brackets next to today (e.g. "today (2026-09-08)").
+    "Yes, there is a chance of rain today ([Date]) in [Place]" OR "No significant rain is expected today ([Date]) in [Place]". Always include the date in brackets next to today (e.g. "today (2026-09-12)"). If subdivisional rainfall forecast is present, include the coverage/distribution (e.g. "Scattered (26-50% stations)").
+  * Future or specific-date rain forecast queries ("will it rain tomorrow", "any chance of rain tomorrow/day after tomorrow/next week", "next 2 days rain", "morning/evening rain"):
+    "Yes, there is a chance of rain on [Date] in [Place]" OR "No significant rain expected on [Date] in [Place]". Always include the date in brackets. Include the Subdivisional Rainfall Forecast (e.g. "Isolated (1-25% stations)" or "Scattered (26-50% stations)") and expected condition.
+  * Thunderstorm / thundershower / lightning queries ("is a thunderstorm possible today/tomorrow", "thunderstorm chances", "lightning/squall possibility"):
+    - Check the expected condition / forecast text (e.g. "Partly cloudy sky with one or two spells of rain or thundershowers") or weather warnings in the input.
+    - If the condition mentions "rain", "showers", "thundershowers", or "thunderstorm" (or if active warnings mention thunderstorm/lightning):
+      "Yes, a thunderstorm / thundershowers are possible [today (Date) / on Date] in [Place]." Follow with the forecast condition and details.
+    - If the condition is clear, sunny, or dry with no storm mentioned and no active warnings:
+      "No thunderstorm is expected [today (Date) / on Date] in [Place]."
+    - CRITICAL: NEVER answer "No significant rain is expected" or "No thunderstorm" based solely on 0.0 mm past 24-hour recorded rainfall! Recorded rainfall is past observation, while thunderstorm possibility is determined by the upcoming forecast condition.
   * Past 24 hours / recorded rainfall queries ("how much rainfall was recorded in the last 24 hours", "past 24h rain", "did it rain yesterday/last 24h"):
     "The recorded rainfall in [Place] over the past 24 hours was [Amount] mm." (or "No rainfall was recorded in [Place] over the past 24 hours (0.0 mm).").
     CRITICAL: NEVER say "Yes, there is a chance of rain today..." or provide a future forecast when the farmer asked about past 24 hours recorded rainfall!
+  * If the farmer asked for historical daily rainfall for past dates where IMD station archives are not available, clearly state that historical archives are not maintained by IMD, and state the available past 24 hours recorded rainfall.
   * Temperature queries: "The current temperature in [Place] is [Temp]°C (Feels like: [Feels]°C)."
+  * Highest / lowest temperature queries ("highest temperature in this week", "which day has highest temperature", "hottest day", "lowest temperature"):
+    - Give the peak maximum temperature in °C and the date range (e.g., "The highest temperature in [Place] this week is expected to reach [Max]°C from [Start Date] to [End Date].").
+    - If temperatures remain the same or similar across multiple days or the whole week, state the range from start date to end date: "Throughout this week (from [Start Date] to [End Date]), temperatures range between [Min]°C and [Max]°C, with the highest temperature reaching [Max]°C."
+    - If the query specifically asks for "greatest temperature range" or "temperature variation":
+      * Use a date range: "The greatest temperature range is from [Start Date] to [End Date] with a variation of [Range]°C (Min [Min]°C to Max [Max]°C)."
+      * If all days show the same range across the entire forecast, state: "For this entire period (from [Start Date] to [End Date]), the daily temperature range remains consistent between [Min]°C and [Max]°C."
+    - STRICT DATE RANGE RULE: NEVER list multiple dates individually with commas (e.g. NEVER write "2026-09-15, 2026-09-16, 2026-09-17, 2026-09-18..."). Always condense into a clean date range: "from [Start Date] to [End Date]" or "between [Start Date] and [End Date]".
   * Nowcast queries: "Nowcast (Next 0–3 hours) for [Place]: [Condition]."
   * Alerts / Warnings:
     - If ALL 5 days have NO warnings (all Green):
@@ -1039,8 +1042,14 @@ FORMAT & FOCUS RULES:
     - NEVER output conflicting rainfall amounts (never show both "Past 24h Rain: X" and "Rain 24h / actual: Y"). Use the single recorded rainfall amount.
     - NEVER output raw cryptic parameters like "Departure: 273%" or raw codes. If the farmer asked how much rain fell, give the rainfall amount.
     - NEVER include future rain predictions for today when asked about past 24 hours.
-  * If the farmer asked about rain forecast / chances of rain: include the rain chance, expected condition, and date in brackets. Never output "Departure: N/A" or "Actual Recorded Rainfall: N/A mm".
-  * If the farmer asked about nowcast/thunderstorm, focus on the immediate 0–3 hour window.
+  * If the farmer asked about rain forecast / chances of rain (today, tomorrow, next 2 days, next week, specific date, morning/evening):
+    - Direct answer first with date.
+    - Include the official Subdivisional Rainfall Forecast (distribution and station coverage percentage).
+    - Include the expected condition (e.g. Generally cloudy with light rain / thunderstorm).
+    - If multi-day (e.g. next 2 days, next week), list each day with date, condition, and subdivisional rainfall coverage.
+    - Mention past 24 hours recorded rainfall if available.
+  * If the farmer asked about nowcast (next 1–3 hours), focus on the immediate 0–3 hour window.
+  * If the farmer asked about thunderstorm / thundershowers for today or a specific date, focus on the forecast condition for that day and any active warnings.
 - HISTORICAL WEATHER QUERIES (past/last N days):
   * Do NOT provide an "Overall Historical Range" or duplicate summary block.
   * List each date with its details:
@@ -1112,6 +1121,7 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - action: one action string OR a JSON array of 1-3 action strings from:
   "get_today_price", "get_price_with_nearby", "get_price_history", "get_price_summary", "get_highest_price", "get_lowest_price",
   "get_today_arrival", "get_arrival_history", "get_extreme_arrival", "search_markets"
+- commodity_name: string OR array of strings. If the farmer asks about one crop (e.g. "Wheat"), return a string "Wheat". If the farmer asks about two or more crops (e.g. "wheat and potato", "compare onion and tomato"), return a JSON array: ["Wheat", "Potato"].
 - nearest_market: boolean (true = several nearby markets; false = single nearest)
 - radius_km: number or null
 - lookback_days: integer or null (past N days; preferred for past durations like 'last 7 days')

@@ -37,6 +37,9 @@ export interface UserDetail {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
   activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt?: string;
@@ -51,6 +54,9 @@ export interface PaginatedUserDetailsResponse {
   activeUsers: number;
   inactiveUsers: number;
   totalQuestions: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
 }
 
 export function useUserDetails(

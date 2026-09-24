@@ -628,11 +628,38 @@ def _normalize_action_list(raw_action: Any, fallback: str) -> list[str]:
     return out or [_map_action(fallback)]
 
 
+def _clean_crop_tokens(val: Any) -> list[str]:
+    if not val:
+        return []
+    items = val if isinstance(val, list) else [val]
+    res: list[str] = []
+    for item in items:
+        if item is None:
+            continue
+        s = str(item).strip()
+        if not s or s.lower() in {"all", "any", "general", "none", "null"}:
+            continue
+        parts = re.split(r",|\s+and\s+|\s*&\s*|\s+vs\s+", s, flags=re.I)
+        for p in parts:
+            clean = p.strip()
+            if clean and clean.lower() not in {"all", "any", "general", "none", "null"}:
+                res.append(clean)
+    seen: set[str] = set()
+    unique_res: list[str] = []
+    for r in res:
+        k = r.lower()
+        if k not in seen:
+            seen.add(k)
+            unique_res.append(r)
+    return unique_res
+
+
 def _normalize_intent(
     raw: dict[str, Any] | None,
     query: str,
     *,
     llm_succeeded: bool = False,
+    crop: str | None = None,
 ) -> dict[str, Any]:
     base = _heuristic_intent(query)
     raw_dict = raw if isinstance(raw, dict) else {}
@@ -650,9 +677,23 @@ def _normalize_intent(
         action = "get_price_history"
         actions = ["get_price_history"] + [a for a in actions if a != "get_price_history"]
 
+    # Commodity name extraction: MiniMax 1st priority, Heuristics fallback
+    raw_commodity = raw_dict.get("commodity_name")
+    crops_from_llm = _clean_crop_tokens(raw_commodity)
+    if crops_from_llm:
+        commodity_val: Union[str, list[str], None] = (
+            crops_from_llm[0] if len(crops_from_llm) == 1 else crops_from_llm
+        )
+    else:
+        crops_heuristic = _clean_crop_tokens(crop)
+        commodity_val = (
+            crops_heuristic[0] if len(crops_heuristic) == 1 else crops_heuristic
+        ) if crops_heuristic else None
+
     out = {
         "action": action,
         "actions": actions,
+        "commodity_name": commodity_val,
         "nearest_market": bool(raw_dict.get("nearest_market", base.get("nearest_market", True))),
         "radius_km": raw_dict.get("radius_km", base.get("radius_km")),
         "lookback_days": raw_dict.get("lookback_days", base.get("lookback_days")),
@@ -905,7 +946,7 @@ async def extract_daily_price_intent(
     )
     parsed = _extract_json_object(raw_text or "")
     llm_succeeded = parsed is not None
-    intent = _normalize_intent(parsed, query, llm_succeeded=llm_succeeded)
+    intent = _normalize_intent(parsed, query, llm_succeeded=llm_succeeded, crop=crop)
     if not llm_succeeded:
         trace_llm_response(
             "daily_price_intent",
@@ -1003,9 +1044,13 @@ def _build_tool_args(
         args["state"] = str(tool_state).strip()
 
     if any(a in _COMMODITY_ACTIONS for a in actions):
-        crop_clean = (crop or "").strip()
-        if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
-            args["commodity_name"] = [crop_clean]
+        cn = intent.get("commodity_name")
+        if cn:
+            args["commodity_name"] = [cn] if isinstance(cn, str) else list(cn)
+        else:
+            crop_clean = (crop or "").strip()
+            if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
+                args["commodity_name"] = [crop_clean]
 
     if any(a in _GEO_ACTIONS for a in actions):
         if lat is not None and lon is not None:
@@ -1616,6 +1661,7 @@ class DailyPriceInput(BaseModel):
     longitude: Optional[float] = None
     crop: str
     state: Optional[str] = None
+    district: Optional[str] = None
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1625,6 +1671,7 @@ async def daily_price(
     longitude: Optional[float],
     crop: str,
     state: Optional[str] = None,
+    district: Optional[str] = None,
     config: RunnableConfig = None,
 ) -> str:
     """
@@ -1638,10 +1685,12 @@ async def daily_price(
         if (lat is None or lon is None) and state:
             from ajrasakha.agents.location_context import forward_geocode
 
-            district_val = None
-            m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
-            if m_dist:
-                district_val = m_dist.group(1).strip()
+            # Use district from parameter (preferred) or extract from query as fallback
+            district_val = district
+            if not district_val:
+                m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
+                if m_dist:
+                    district_val = m_dist.group(1).strip()
 
             geocode_result = await forward_geocode(state=state, district=district_val)
             if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
@@ -1693,11 +1742,15 @@ async def daily_price(
             json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000],
         )
 
-        # Always ask MiniMax — including error/empty payloads — so farmers get a clear "not available".
+        effective_crop = (
+            ", ".join(tool_args["commodity_name"])
+            if isinstance(tool_args.get("commodity_name"), list)
+            else (tool_args.get("commodity_name") or crop)
+        )
         answer = await synthesize_daily_price_answer(
             query,
             tool_result,
-            crop=crop,
+            crop=effective_crop,
             state=tool_args.get("state") or state,
             market_name=tool_args.get("market_name"),
             config=config,

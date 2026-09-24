@@ -70,6 +70,8 @@ jobs:
             NODE_ENV=production
             APP_PORT=${{ secrets.APP_PORT }}
             DB_NAME=${{ secrets.DB_NAME }}
+            POP_DB_URL=${{ secrets.POP_DB_URL }}
+            POP_DB_NAME=${{ secrets.POP_DB_NAME }}
             VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
             VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
             VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
@@ -90,4 +92,7 @@ jobs:
             STAGING_DB_NAME=${{ secrets.STAGING_DB_NAME }}
             DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
             REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
+            PAE_MILESTONE_REPORT_EMAILS=${{ secrets.PAE_MILESTONE_REPORT_EMAILS }}
+            PAE_MILESTONE_REPORT_CC=${{ secrets.PAE_MILESTONE_REPORT_CC }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
           flags: --allow-unauthenticated

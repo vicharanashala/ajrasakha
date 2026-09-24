@@ -13,7 +13,12 @@ import {
   getDashboardUniqueDocument,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
+  getTranslationDownloadUrl,
+  getReviewDownloadUrl,
 } from "../../api";
+import { subscribeDashboardEvents } from "../../dashboardEvents";
+import { useAuthStore } from "@/stores/auth-store";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import FileActionIcons from "./FileActionIcons";
 import StatusBadge from "./StatusBadge";
 
@@ -64,16 +69,18 @@ export default function TranslateReviewCell({
 }) {
   const cfg = KIND_CONFIG[kind];
   const [busy, setBusy] = useState(false);
-  const pollRef = useRef(null);
   const fileInputRef = useRef(null);
-
-  function stopPolling() {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }
-  useEffect(() => () => stopPolling(), []);
+  // /api/pop has no auth, so the backend just stores whatever name it's sent, unverified
+  // (docs/first_render_frontend.md, "Who translated / reviewed, and when") — per the user's
+  // decision, this is the signed-in user's display name (useAuthStore), same as uploaded_by.
+  const currentUserName = useAuthStore((s) => s.user?.name);
+  // Translate + manual translation-upload are admin-only inside POP-Management (2026-09-18 batch,
+  // item 7) — review upload stays open to moderator/expert, per the user's explicit decision.
+  // Role isn't on the Firebase-derived AuthUser (useAuthStore) — only name/email/uid/avatar — so
+  // this goes through the same react-query-cached ["user"] fetch play-ground.tsx already uses for
+  // the rest of the app's role gating, not a second/duplicate request.
+  const { data: currentUser } = useGetCurrentUser({});
+  const canTranslate = currentUser?.role === "admin";
 
   // In a placement context, re-fetch the placement row (translation_status lives there too, since
   // it's joined onto every row of the document); in a document context, re-fetch the document.
@@ -81,27 +88,33 @@ export default function TranslateReviewCell({
     return scope === "placement" ? getDashboardDocument(id) : getDashboardUniqueDocument(id);
   }
 
-  function startPolling(id) {
-    stopPolling();
-    pollRef.current = setInterval(async () => {
-      try {
-        const fresh = await refetchOne(id);
-        onChanged?.(fresh);
-        if (fresh[cfg.statusKey] !== "in_progress") stopPolling();
-      } catch {
-        // ignore transient errors
-      }
-    }, 3000);
-  }
+  // GET /dashboard/events' "document" event fires whenever this document's translation/review
+  // files or status change — replaces the old 3s poll. Only wired for scope="document" (the only
+  // scope actually rendered today — see the file header comment); the event carries
+  // unique_document_id, which a placement id can't be matched against without an extra lookup.
+  useEffect(() => {
+    if (scope !== "document") return undefined;
+    const unsubscribe = subscribeDashboardEvents({
+      document: (data) => {
+        if (data?.unique_document_id !== doc.id) return;
+        refetchOne(doc.id)
+          .then((fresh) => onChanged?.(fresh))
+          .catch(() => {
+            // ignore transient errors — the next matching event will retry
+          });
+      },
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, doc.id]);
 
   async function handleTranslate() {
     setBusy(true);
     try {
-      if (scope === "placement") await translateDashboardDocument(doc.id);
-      else await translateUniqueDocument(doc.id);
+      if (scope === "placement") await translateDashboardDocument(doc.id, currentUserName);
+      else await translateUniqueDocument(doc.id, currentUserName);
       toast.success("Translation queued");
       onChanged?.({ ...doc, [cfg.statusKey]: "in_progress" });
-      startPolling(doc.id);
       // Translations also show up in the separate Translation Queue panel (backed by
       // translation-jobs) — nudge it to refetch immediately rather than waiting on its own poll.
       onTranslationStarted?.();
@@ -131,8 +144,8 @@ export default function TranslateReviewCell({
     if (!file) return;
     setBusy(true);
     try {
-      if (scope === "placement") await uploadDashboardTranslation(doc.id, file);
-      else await uploadUniqueDocumentTranslation(doc.id, file);
+      if (scope === "placement") await uploadDashboardTranslation(doc.id, file, currentUserName);
+      else await uploadUniqueDocumentTranslation(doc.id, file, currentUserName);
       toast.success("Translation uploaded");
       const fresh = await refetchOne(doc.id);
       onChanged?.(fresh);
@@ -184,7 +197,7 @@ export default function TranslateReviewCell({
     setBusy(true);
     try {
       const targetId = reviewUploadId || (scope === "placement" ? doc.id : await resolvePlacementId());
-      await uploadDashboardReview(targetId, file);
+      await uploadDashboardReview(targetId, file, currentUserName);
       toast.success("Review uploaded");
       const fresh = await refetchOne(doc.id);
       onChanged?.(fresh);
@@ -229,7 +242,7 @@ export default function TranslateReviewCell({
   // the one they picked, instead of (or after) running the auto-translate job. Available whether
   // or not a job has already produced a translation (it doubles as "Replace"), and even while a
   // job is running — that attempt is what surfaces the 409/cancel-job flow in handleTranslationFile.
-  const translationUploadControl = kind === "translation" && (
+  const translationUploadControl = kind === "translation" && canTranslate && (
     <>
       <input
         ref={fileInputRef}
@@ -263,10 +276,25 @@ export default function TranslateReviewCell({
       kind === "translation" && (scope === "placement" || resolvePlacementId)
         ? handleDeleteTranslation
         : undefined;
+    // Named-after-the-document download (see api.ts) — only meaningful in document scope, where
+    // doc.id IS the unique document id; scope="placement" (unused today) keeps the generic
+    // fileId-based proxy instead.
+    const downloadUrl =
+      scope === "document"
+        ? kind === "translation"
+          ? getTranslationDownloadUrl(doc.id)
+          : getReviewDownloadUrl(doc.id)
+        : undefined;
     return (
       <div className="flex items-center gap-1.5">
         <StatusBadge status={status} />
-        <FileActionIcons shareableLink={link} fileId={fileId} onDelete={onDelete} deleting={busy} />
+        <FileActionIcons
+          shareableLink={link}
+          fileId={fileId}
+          downloadUrl={downloadUrl}
+          onDelete={onDelete}
+          deleting={busy}
+        />
         {reviewUploadControl}
         {translationUploadControl}
       </div>
@@ -288,8 +316,14 @@ export default function TranslateReviewCell({
         <button
           className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           onClick={handleTranslate}
-          disabled={busy || !translationAvailable}
-          title={!translationAvailable ? "Translation is currently out of order" : undefined}
+          disabled={busy || !translationAvailable || !canTranslate}
+          title={
+            !canTranslate
+              ? "Only admins can start a translation"
+              : !translationAvailable
+                ? "Translation is currently out of order"
+                : undefined
+          }
         >
           Translate
         </button>

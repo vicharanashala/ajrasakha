@@ -6,6 +6,7 @@ import { QAInterface } from "../features/qa-interface-page/QA-interface";
 // import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
+import { ClosedAnswersPage } from "./ClosedAnswersPage";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 // import { RequestsPage } from "./request-page";
 import { initializeNotifications } from "@/services/pushService";
@@ -380,6 +381,21 @@ export const PlaygroundPage = () => {
                   />
                 </TabsContent>
               )}
+              {user && user.role !== "call_agent" && (
+                <TabsContent
+                  value="closed_answers"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ClosedAnswersPage />
+                </TabsContent>
+              )}
               {user && canManageUsers(user.role) && (
                 <TabsContent
                   value="user_management"
@@ -478,7 +494,8 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user && user.role === "admin" && (
+              {user &&
+                (user.role === "admin" || user.role === "moderator" || user.role === "expert") && (
                 <TabsContent
                   value="data_processing"
                   className={cn(
@@ -490,7 +507,7 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard />
+                  <DataProcessingDashboard userRole={user.role} />
                 </TabsContent>
               )}
 

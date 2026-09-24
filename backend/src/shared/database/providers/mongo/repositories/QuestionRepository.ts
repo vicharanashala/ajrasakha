@@ -575,6 +575,56 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  async getByMessageId(
+    messageId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!messageId) {
+        throw new BadRequestError('Invalid or missing messageId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { messageId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by messageId: ${error}`);
+    }
+  }
+
+  async getByThreadId(
+    threadId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      if (!threadId) {
+        throw new BadRequestError('Invalid or missing threadId');
+      }
+      const question = await this.QuestionCollection.findOne(
+        { threadId },
+        { session },
+      );
+      if (!question) return null;
+      return {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        contextId: question.contextId?.toString(),
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question by threadId: ${error}`);
+    }
+  }
+
   async findByIds(ids: ObjectId[]): Promise<IQuestion[]> {
     try {
       await this.init();
@@ -3206,11 +3256,14 @@ export class QuestionRepository implements IQuestionRepository {
     return Math.floor(index / limit) + 1;
   }
 
-  async insertMany(questions: IQuestion[]): Promise<string[]> {
+  async insertMany(
+    questions: IQuestion[],
+    session?: ClientSession,
+  ): Promise<string[]> {
     await this.init();
     if (!Array.isArray(questions) || questions.length === 0) return [];
     try {
-      const result = await this.QuestionCollection.insertMany(questions);
+      const result = await this.QuestionCollection.insertMany(questions, { session });
       if (!result.acknowledged) {
         throw new InternalServerError('Failed to insert questions');
       }
@@ -7357,15 +7410,77 @@ export class QuestionRepository implements IQuestionRepository {
     ).toArray() as Promise<{ _id: ObjectId; question: string; text?: string }[]>;
   }
 
+  async getQuestionsMissingEmbedding(
+    limit = 50,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  > {
+    await this.init();
+
+    return this.QuestionCollection.find(
+      {
+        $or: [
+          { embedding: { $exists: false } },
+          { embedding: null },
+          { embedding: { $size: 0 } },
+        ],
+      },
+      {
+        projection: { _id: 1, question: 1, text: 1, status: 1 },
+        limit,
+      },
+    ).toArray() as Promise<
+      { _id: ObjectId; question: string; text?: string; status?: string }[]
+    >;
+  }
+
   async updateQuestionEmbedding(
     questionId: string,
     embedding: number[],
-  ): Promise<void> {
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
     await this.init();
-    await this.QuestionCollection.updateOne(
+    const res = await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { embedding, updatedAt: new Date() } },
     );
+    return { matchedCount: res.matchedCount, modifiedCount: res.modifiedCount };
+  }
+
+  async bulkUpdateEmbeddings(
+    updates: Array<{
+      questionId: string;
+      embedding: number[];
+      normalisedCrop?: string;
+    }>,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return { modifiedCount: 0 };
+    }
+
+    const bulkOps = updates.map(update => {
+      const setObj: any = {
+        updatedAt: new Date(),
+      };
+
+      // Always include embedding
+      setObj.embedding = update.embedding;
+
+      // Only add normalised_crop if provided
+      if (update.normalisedCrop !== undefined) {
+        setObj['details.normalised_crop'] = update.normalisedCrop;
+      }
+
+      return {
+        updateOne: {
+          filter: { _id: new ObjectId(update.questionId) },
+          update: { $set: setObj },
+        },
+      };
+    });
+
+    const result = await this.QuestionCollection.bulkWrite(bulkOps);
+    return { modifiedCount: result.modifiedCount };
   }
 
   async getShiftBasedMetrics(

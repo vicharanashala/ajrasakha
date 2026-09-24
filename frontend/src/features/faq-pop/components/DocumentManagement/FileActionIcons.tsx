@@ -10,17 +10,21 @@ import { getFileDownloadUrl } from "../../api";
 // browser just navigates there instead of saving the file. Download instead fetches a blob and
 // saves it from a same-origin blob: URL, which actually triggers a save with no navigation.
 //
-// When `fileId` is given, the fetch targets the backend's own download proxy
-// (GET /dashboard/files/{fileId}/download — sends Allow-Origin: *, Content-Length, and supports
-// Range requests for large files) instead of the raw Zoho link — no CORS dependency on Zoho, and
-// no login-wall since `shareableLink`/`*_shareable_link` open Zoho's own viewer and demand a Zoho
-// login. Every downloadable file (original via `representative_file_id`, translation via
-// `translation_file_id`, review via `review_file_id`) now has a fileId. Without one, it falls
-// back to fetching `shareableLink` directly, which only works if Zoho's own CORS policy allows
-// it; either way, a failed fetch falls back to opening the link in a new tab with a toast
+// Download source, in priority order:
+// 1. `downloadUrl` — the translation/review named-download endpoints
+//    (GET /dashboard/unique-documents/{id}/translation|review/download, see
+//    getTranslationDownloadUrl/getReviewDownloadUrl in api.ts). The filename comes from this
+//    response's Content-Disposition header (RFC 5987 filename*, exposed cross-origin by the
+//    backend) — e.g. "Paddy_KA_2021_translation.docx" — not the `filename` prop.
+// 2. `fileId` — the backend's generic download proxy (GET /dashboard/files/{fileId}/download —
+//    sends Allow-Origin: *, Content-Length, and supports Range requests for large files), used
+//    for the original file (`representative_file_id`). Falls back to the `filename` prop for its
+//    save name, since that endpoint doesn't set a document-aware Content-Disposition.
+// 3. `shareableLink` directly — only works if Zoho's own CORS policy allows it.
+// Either way, a failed fetch falls back to opening shareableLink in a new tab with a toast
 // explaining why. Renders nothing if there's no link — the "not yet done" button state covers
 // that, this component is only for the "done" state.
-export default function FileActionIcons({ shareableLink, fileId, filename, onDelete, deleting }) {
+export default function FileActionIcons({ shareableLink, fileId, downloadUrl, filename, onDelete, deleting }) {
   const [downloading, setDownloading] = useState(false);
   if (!shareableLink) return null;
 
@@ -33,16 +37,36 @@ export default function FileActionIcons({ shareableLink, fileId, filename, onDel
     }
   }
 
+  function filenameFromContentDisposition(header) {
+    if (!header) return null;
+    const starMatch = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+    if (starMatch) {
+      const raw = starMatch[1].trim().replace(/^"|"$/g, "");
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
+    const plainMatch = /filename="?([^";]+)"?/i.exec(header);
+    return plainMatch ? plainMatch[1].trim() : null;
+  }
+
   async function handleDownload() {
     setDownloading(true);
     try {
-      const res = await fetch(fileId ? getFileDownloadUrl(fileId) : shareableLink);
+      const url = downloadUrl || (fileId ? getFileDownloadUrl(fileId) : shareableLink);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
-      a.download = filename || shareableLink.split("/").pop() || "download";
+      a.download =
+        filenameFromContentDisposition(res.headers.get("Content-Disposition")) ||
+        filename ||
+        shareableLink.split("/").pop() ||
+        "download";
       document.body.appendChild(a);
       a.click();
       a.remove();

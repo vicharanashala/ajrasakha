@@ -9,6 +9,7 @@ import {
   IReroute,
   IReviewerHeatmapResponse,
   LevelReportStat,
+  PAEAction,
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -42,6 +43,33 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+  }
+
+  async addSubmissions(
+    submissions: IQuestionSubmission[],
+    session?: ClientSession,
+  ): Promise<string[]> {
+    try {
+      await this.init();
+      if (!Array.isArray(submissions) || submissions.length === 0) {
+        return [];
+      }
+
+      const result = await this.QuestionSubmissionCollection.insertMany(
+        submissions,
+        { session },
+      );
+
+      if (!result.acknowledged) {
+        throw new InternalServerError('Failed to insert question submissions');
+      }
+
+      return Object.values(result.insertedIds).map((id: any) => id.toString());
+    } catch (error: any) {
+      throw new InternalServerError(
+        error?.message || 'Failed to bulk insert question submissions',
+      );
+    }
   }
 
   async getByQuestionId(
@@ -4267,13 +4295,14 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   /**
    * Update the PAE validation status in the question submission's paeValidation array.
-   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * Finds the entry matching the given paeId and updates its paeStatus, paeFinishedAt, and optional paeAction.
    */
   async updatePaeValidationStatus(
     questionId: string,
     paeId: string,
     paeStatus: 'in-progress' | 'completed',
     paeFinishedAt: Date | null,
+    paeAction?: PAEAction | 'approve' | 'suggestion',
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }> {
     await this.init();
@@ -4292,6 +4321,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // Only set paeFinishedAt when completing
     if (paeFinishedAt !== null) {
       updateFields['paeValidation.$.paeFinishedAt'] = paeFinishedAt;
+    }
+
+    if (paeAction !== undefined) {
+      updateFields['paeValidation.$.paeAction'] = paeAction;
     }
     
     const result = await this.QuestionSubmissionCollection.updateOne(
@@ -5160,5 +5193,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       reviewerId: r.reviewerId?.toString(),
       assignedAt: r.assignedAt,
     }));
+  }
+
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   */
+  async getCompletedPaeValidationCount(paeExpertId: string): Promise<number> {
+    await this.init();
+    const paeOid = ObjectId.isValid(paeExpertId) ? new ObjectId(paeExpertId) : null;
+    const paeIds = paeOid ? [paeOid, paeExpertId] : [paeExpertId];
+
+    return await this.QuestionSubmissionCollection.countDocuments({
+      paeValidation: {
+        $elemMatch: {
+          paeId: { $in: paeIds },
+          paeStatus: 'completed',
+        },
+      },
+    });
   }
 }
