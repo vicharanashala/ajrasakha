@@ -599,6 +599,10 @@ class TranslateToEnglishResponse(BaseModel):
     source_language: Optional[str] = Field(None, description="The detected or provided source language")
     original_length: int = Field(..., description="Character count of original text")
     translated_length: int = Field(..., description="Character count of translated text")
+    local_names_resolved: list[list[str]] = Field(
+        default_factory=list,
+        description="List of [original_name, canonical_name] pairs resolved via MCP local aliases tool"
+    )
 
 
 @app.post(
@@ -611,22 +615,41 @@ class TranslateToEnglishResponse(BaseModel):
         "**Features:**\n"
         "- Preserves agricultural terminology and crop names\n"
         "- Maintains technical farming terms in original form if no English equivalent\n"
-        "- Auto-detects source language if not provided\n\n"
+        "- Auto-detects source language if not provided\n"
+        "- Resolves local/regional crop names to canonical names via MCP local aliases tool\n\n"
+        "**MCP Integration:**\n"
+        "- Calls lookup_local_name() on MCP server at http://100.100.108.44:9103/\n"
+        "- Resolves regional names like 'vazhuthana' to canonical 'Brinjal'\n"
+        "- Returns local_names_resolved in response\n\n"
         "**Use cases:**\n"
         "- Preprocess non-English queries before Golden DB search\n"
         "- Translate farmer questions to English for downstream processing"
     ),
 )
 async def translate_to_english_endpoint(body: TranslateToEnglishRequest):
-    """Translate input text to English using Claude Sonnet model."""
+    """Translate input text to English using Claude Sonnet model with MCP local aliases integration."""
     from anthropic import APITimeoutError, APIConnectionError, APIStatusError
+    from mcp_client import resolve_local_names_in_text
     
     try:
         log.info("translate_to_english_endpoint: text_len=%d source_language=%s", len(body.text), body.source_language)
         
-        translated = await translate_to_english(text=body.text, source_language=body.source_language)
+        # Step 1: Resolve local/regional names via MCP first
+        resolved_text, resolved_pairs = await resolve_local_names_in_text(body.text)
         
-        log.info("translate_to_english_endpoint: success original_len=%d translated_len=%d", len(body.text), len(translated))
+        # Step 2: Translate to English
+        translated = await translate_to_english(
+            text=resolved_text, 
+            source_language=body.source_language,
+            resolve_local_names=False,  # Already resolved above
+        )
+        
+        log.info(
+            "translate_to_english_endpoint: success original_len=%d translated_len=%d local_names_resolved=%d",
+            len(body.text), 
+            len(translated),
+            len(resolved_pairs),
+        )
         
         return TranslateToEnglishResponse(
             original_text=body.text,
@@ -634,6 +657,7 @@ async def translate_to_english_endpoint(body: TranslateToEnglishRequest):
             source_language=body.source_language,
             original_length=len(body.text),
             translated_length=len(translated),
+            local_names_resolved=[list(pair) for pair in resolved_pairs],
         )
         
     except APITimeoutError as exc:

@@ -44,6 +44,10 @@ DB_NAME = os.getenv("DB_NAME", "agriai")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "crop_master")
 RELOAD_INTERVAL = int(os.getenv("LOCAL_ALIASES_RELOAD_INTERVAL", 3600))
 
+# Fuzzy match settings
+FUZZY_CUTOFF = float(os.getenv("LOCAL_ALIASES_FUZZY_CUTOFF", "0.85"))  # Increased from 0.6 to 0.85
+MIN_WORD_LENGTH_FOR_FUZZY = int(os.getenv("LOCAL_ALIASES_MIN_FUZZY_LENGTH", "5"))  # Only fuzzy match words 5+ chars
+
 # Just the search mapping - no need for full cache
 _SEARCH_INDEX: Dict[str, str] = {}
 _INDEX_LOCK = threading.Lock()
@@ -113,21 +117,38 @@ def _poll_background():
 
 
 def _get_canonical(search_term: str) -> str:
-    """Get canonical name from search index."""
+    """
+    Get canonical name from search index.
+    
+    Strategy:
+    1. Direct match (exact, case-insensitive)
+    2. Only for longer words (5+ chars): fuzzy match with HIGH cutoff (0.85)
+    3. Return original if nothing found
+    """
     term = search_term.strip().lower()
     
     with _INDEX_LOCK:
-        # Direct lookup
+        # 1. Direct lookup first (always)
         if term in _SEARCH_INDEX:
+            log.debug("_get_canonical: direct match for '%s' -> '%s'", term, _SEARCH_INDEX[term])
             return _SEARCH_INDEX[term]
         
-        # Fuzzy match
-        if _SEARCH_INDEX:
-            similar = difflib.get_close_matches(term, _SEARCH_INDEX.keys(), n=1, cutoff=0.6)
+        # 2. Only do fuzzy match for longer words to avoid false positives
+        if len(term) >= MIN_WORD_LENGTH_FOR_FUZZY and _SEARCH_INDEX:
+            similar = difflib.get_close_matches(
+                term, 
+                _SEARCH_INDEX.keys(), 
+                n=1, 
+                cutoff=FUZZY_CUTOFF  # Increased from 0.6 to 0.85
+            )
             if similar:
+                log.debug("_get_canonical: fuzzy match for '%s' -> '%s' (score needed: %.2f)", 
+                         term, _SEARCH_INDEX[similar[0]], FUZZY_CUTOFF)
                 return _SEARCH_INDEX[similar[0]]
         
-        return search_term  # Not found, return original
+        # 3. Not found - return original
+        log.debug("_get_canonical: no match for '%s', returning original", term)
+        return search_term
 
 
 # =============================================================================
@@ -158,4 +179,6 @@ threading.Thread(target=_poll_background, daemon=True).start()
 
 if __name__ == "__main__":
     log.info("🚀 Local Aliases MCP Server started")
+    log.info(f"   Fuzzy cutoff: {FUZZY_CUTOFF}")
+    log.info(f"   Min word length for fuzzy: {MIN_WORD_LENGTH_FOR_FUZZY}")
     mcp.run()
