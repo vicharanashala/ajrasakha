@@ -84,18 +84,39 @@ class QueryPreprocessResult:
 # Prompts
 # =============================================================================
 
-VULGAR_CONTENT_PROMPT = """You are a content safety classifier for an Indian agriculture Q&A bot.
+VULGAR_CONTENT_PROMPT = """You are a strict content safety classifier for an Indian agriculture Q&A bot.
 
-Analyze the following user query and determine if it contains:
-1. Vulgar/obscene language (profanity, slurs, explicit sexual content)
-2. Abusive/harassing language (threats, personal attacks, hate speech)
-3. Spam or promotional content
+RULES - ANY of the following makes the query UNSAFE:
+1. ANY profanity or vulgar words (including 'fuck', 'shit', 'ass', 'hell', 'bastard', etc.)
+2. ANY abusive or harassing language toward anyone
+3. ANY slurs, hate speech, or discriminatory language
+4. ANY threats or violent language
+5. ANY explicit sexual content
+6. ANY spam or promotional content
 
 User Query:
 {query}
 
 Respond with ONLY valid JSON (no markdown):
-{{"is_safe": true or false, "category": "safe" or "vulgar" or "abusive", "reason": "<brief explanation>"}}
+{{"is_safe": true or false, "category": "safe" or "vulgar" or "abusive", "reason": "brief reason for classification"}}
+"""
+
+COMBINED_CLASSIFICATION_PROMPT = """You are a classifier for an Indian agriculture Q&A bot. Analyze the query for TWO things:
+
+1. SAFETY: Check if query contains vulgar/abusive content
+   - ANY profanity makes it unsafe (fuck, shit, ass, hell, bastard, etc.)
+   - Any abusive language, slurs, threats, hate speech, or spam also makes it unsafe
+
+2. AGRICULTURE: Check if query is STRICTLY about crop farming only
+   - Related: crop cultivation (rice, wheat, cotton, vegetables, fruits, etc.), pest/disease management for crops, fertilizers for crops, soil management, irrigation for crops, weather impact on farming
+   - NOT Related: animal husbandry, livestock, poultry, dairy farming, fisheries, aquaculture, veterinary questions
+   - If query is about animals, fish, or non-crop farming activities, mark as NOT agriculture
+
+User Query:
+{query}
+
+Respond with ONLY valid JSON (no markdown):
+{{"is_safe": true or false, "safety_reason": "brief explanation", "is_agriculture": true or false, "agriculture_reason": "brief explanation"}}
 """
 
 
@@ -301,6 +322,61 @@ async def check_agriculture_relevance(query: str) -> dict:
             "is_related": True,
             "category": "related",
             "reason": f"Relevance check error - allowed: {type(exc).__name__}"
+        }
+
+
+async def classify_query_combined(query: str) -> dict:
+    """
+    Combined classification using a single MiniMax LLM call.
+    
+    Classifies query for:
+    1. Safety (vulgar/abusive content)
+    2. Agriculture relevance
+    
+    Uses ONE prompt and ONE LLM call for efficiency.
+    
+    Args:
+        query: User input to classify
+        
+    Returns:
+        Dict with is_safe, safety_reason, is_agriculture, agriculture_reason
+    """
+    try:
+        prompt = COMBINED_CLASSIFICATION_PROMPT.format(query=query.strip())
+        content = await _call_minimax(prompt)
+        result = _parse_json_response(content)
+        
+        is_safe = result.get("is_safe", True)
+        safety_reason = result.get("safety_reason", "No reason provided")
+        is_agriculture = result.get("is_agriculture", True)
+        agriculture_reason = result.get("agriculture_reason", "No reason provided")
+        
+        log.info(
+            "combined classification: query='%s' safe=%s agriculture=%s",
+            query[:50],
+            is_safe,
+            is_agriculture
+        )
+        
+        return {
+            "is_safe": bool(is_safe),
+            "safety_reason": safety_reason,
+            "is_agriculture": bool(is_agriculture),
+            "agriculture_reason": agriculture_reason,
+        }
+        
+    except Exception as exc:
+        log.warning(
+            "combined classification failed: %s: %s — defaulting to safe and related",
+            type(exc).__name__,
+            exc
+        )
+        # Fail open - don't block legitimate queries
+        return {
+            "is_safe": True,
+            "safety_reason": f"Classification error - allowed: {type(exc).__name__}",
+            "is_agriculture": True,
+            "agriculture_reason": f"Classification error - allowed: {type(exc).__name__}",
         }
 
 
