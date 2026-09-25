@@ -251,6 +251,7 @@ Instructions:
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${aiConfig.minimaxApiKey}`,
         },
         body: JSON.stringify({
           model: "Qwen/Qwen3-30B-A3B",
@@ -261,7 +262,7 @@ Instructions:
           tool_choice: "auto",
         }),
       });
-
+      console.log("res[pmse ",response)
       if (!response.ok) {
         const errorText = await response.text();
         throw new InternalServerError(

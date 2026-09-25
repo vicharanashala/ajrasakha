@@ -42,6 +42,11 @@ export type QueueQuestionItem = {
   openedAt?: string | null;
   minutesSinceOpened?: number;
   workType?: "stuck" | "unallocated" | "needsReviewer";
+  /** Waiting review level (completed history steps + 1) — present for needs-reviewer items. */
+  reviewLevel?: number;
+  /** Names of experts who completed a step, in turn order — present for needs-reviewer items. */
+  completedExpertNames?: string[];
+  queueExpertNames?: string[];
 };
 
 export type QueueExpertItem = {
@@ -137,6 +142,32 @@ export type PaeValidationAssignedQuestionsResponse = {
   currentPage: number;
 };
 
+/** One row of the PAE answering-flow (gate-keeper style) dashboard. */
+export type PaeAnswerDashboardQuestion = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  createdAt?: string;
+  /** true = the PAE has submitted an answer; false = still pending. */
+  submitted: boolean;
+  details?: { state?: string; crop?: string };
+};
+
+export type PaeAnswerDashboardResponse = {
+  assignedCount: number;
+  submittedCount: number;
+  /** Feedback / validation bucket counts (shown as their own cards). */
+  feedbackAssigned: number;
+  feedbackPending: number;
+  feedbackCompleted: number;
+  /** The PAE's completed validation questions (up to 50, newest first). */
+  feedbackCompletedQuestions: PaeAnswerDashboardQuestion[];
+  questions: PaeAnswerDashboardQuestion[];
+  totalPages: number;
+  totalCount: number;
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   /** Per-status counts for the received section — accurate DB totals for tab badges. */
@@ -151,6 +182,14 @@ export type QueueDetailsResponse = {
   freeExperts: { count: number; items: QueueExpertItem[] };
   stuck: { count: number; items: QueueQuestionItem[] };
   needsReviewer: { count: number; items: QueueQuestionItem[] };
+  /** Per-level counts for the needsReviewer section (level = history steps + 1). */
+  needsReviewerLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the stuck section. */
+  stuckLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the opened-idle section. */
+  openedIdleLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the allocated section. */
+  allocatedLevelCounts: { level: number; count: number }[];
   totalWork: { count: number; items: QueueQuestionItem[] };
   openedIdle: { count: number; items: QueueQuestionItem[] };
   moderatorWaiting: { count: number; items: QueueQuestionItem[] };
@@ -185,6 +224,14 @@ export type QueueDetailsResponse = {
   freeExpertsManual: { count: number; items: QueueExpertItem[] };
   stuckManual: { count: number; items: QueueQuestionItem[] };
   needsReviewerManual: { count: number; items: QueueQuestionItem[] };
+  /** Per-level counts for the manual needsReviewer section. */
+  needsReviewerLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual stuck section. */
+  stuckLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual opened-idle section. */
+  openedIdleLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual allocated section. */
+  allocatedLevelCountsManual: { level: number; count: number }[];
   openedIdleManual: { count: number; items: QueueQuestionItem[] };
 };
 
@@ -199,6 +246,9 @@ export interface RoleDashboardQuestion {
   gateKeeperFinishedAt?: string | null;
   auditorAssignedAt?: string | null;
   auditorFinishedAt?: string | null;
+  moderatorAssignedAt?: string | null;
+  /** Computed completion time for a moderator = closedAt || passedAt. */
+  moderatorCompletedAt?: string | null;
   details?: { state?: string; crop?: string };
 }
 export interface RoleDashboardResponse {
@@ -252,6 +302,7 @@ export interface PaeValidationReviewRound {
   paeAssignedAt: Date;
   paeFinishedAt: Date | null;
   paeStatus: string;
+  paeAction?: 'approve' | 'suggestion';
 }
 
 export interface FeedbackTimeline {
@@ -1045,6 +1096,7 @@ export class QuestionService {
     startDate?: string;
     endDate?: string;
     allUsers?: string;
+    totalCount?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.startDate) {
@@ -1082,6 +1134,9 @@ export class QuestionService {
     }
     if (filters.allUsers && filters.allUsers !== "all") {
       params.append("allUsers", filters.allUsers);
+    }
+    if (filters.totalCount) {
+      params.append("totalCount", filters.totalCount);
     }
 
     // Get the current Firebase user and token
@@ -1144,7 +1199,7 @@ export class QuestionService {
     limit: number,
     search: string,
     userId?: string,
-    role?: "gate_keeper" | "auditor",
+    role?: "gate_keeper" | "auditor" | "moderator",
     startDate?: string,
     endDate?: string,
     dateFilterType?: "assigned" | "completed" | "both",
@@ -1533,13 +1588,34 @@ export class QuestionService {
    * Fetch paginated questions assigned to the current PAE expert for validation.
    * Returns questions with their final answers and sources included.
    */
+  /** Gate-keeper-style dashboard for a PAE's answering flow. */
+  async getPaeAnswerDashboard(
+    page: number,
+    limit: number,
+    options?: { search?: string; userId?: string; startDate?: string; endDate?: string }
+  ): Promise<PaeAnswerDashboardResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    if (options?.search) params.append("search", options.search);
+    if (options?.userId) params.append("userId", options.userId);
+    if (options?.startDate) params.append("startDate", options.startDate);
+    if (options?.endDate) params.append("endDate", options.endDate);
+    return apiFetch<PaeAnswerDashboardResponse>(
+      `${this._baseUrl}/pae/answer-dashboard?${params.toString()}`
+    );
+  }
+
   async getPaeValidationAssignedQuestions(
     page: number,
-    limit: number
+    limit: number,
+    userId?: string
   ): Promise<PaeValidationAssignedQuestionsResponse | null> {
     const params = new URLSearchParams();
     params.append("page", String(page));
     params.append("limit", String(limit));
+    // Managers viewing another PAE's dashboard pass that PAE's id.
+    if (userId) params.append("userId", userId);
 
     const res = await apiFetch<
       | {
@@ -1579,5 +1655,32 @@ async processPaeValidation(
     return res;
   }
 
+  /**
+   * Fetches the background worker status of a question bulk upload job.
+   */
+  async getBulkJobStatus(jobId: string): Promise<IQuestionBulkJobStatus | null> {
+    const res = await apiFetch<IQuestionBulkJobStatus>(
+      `${this._baseUrl}/background/jobs/${jobId}`,
+      { method: "GET" }
+    );
+    return res;
+  }
+
 }
+
+export interface IQuestionBulkJobStatus {
+  id: string;
+  total: number;
+  processed: number;
+  created: number;
+  duplicates: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+  startedAt: string | Date;
+  finishedAt?: string | Date;
+  logs: string[];
+  errors?: any[];
+  successIds?: string[];
+}
+
   

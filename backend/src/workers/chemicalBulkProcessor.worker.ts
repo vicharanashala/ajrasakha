@@ -85,6 +85,8 @@ for (const row of rows) {
       region: '',
       english_representation: aliasName.toLowerCase(),
       native_representation: '',
+      source_link: undefined,
+      page_number: undefined,
     };
     // Deduplicate aliases within the group
     const isDup = group.aliases.some(

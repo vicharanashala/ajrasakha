@@ -1,0 +1,396 @@
+{
+  "domains": [
+    {
+      "s_no": 1,
+      "name": "Soil Health and Nutrient Management",
+      "code": "SHNM",
+      "mapped_fragmented_domains": [
+        "Fertilizer Use and Availability",
+        "Nutrient Management",
+        "Soil Testing",
+        "Dosage",
+        "Soil Health Card",
+        "Nutrient Deficiency/Excessiveness Management",
+        "Problem Of Soil",
+        "Fertiizer and Nutrient",
+        "Fertilizer Management",
+        "Fertilizer alternatives",
+        "Fertilizer and Nutrient",
+        "Fertilizer and nutrient management",
+        "Foliar Spray",
+        "Micronutrient management",
+        "Micronutrient deficiency management",
+        "Nitrogen fertilizer management",
+        "Nutrient",
+        "Nutrition Management",
+        "Soil & Nutrient Management",
+        "Soil Health and Fertilizer",
+        "Soil Management",
+        "Soil and Fertilizer Management",
+        "Soil and Fertilizers",
+        "Soil and Nutrient Management",
+        "fertilizers and soil health",
+        "soil health",
+        "Biofertilizer application"
+      ],
+      "description": "Covers the condition, fertility and health of the soil and the complete management of plant nutrition. Includes physical, chemical and biological soil health; soil sampling, soil testing and interpretation of test reports; the Soil Health Card scheme; and the choice, source, quality, availability, dose, timing, placement and method of application of all nutrient inputs — straight and complex chemical fertilisers, organic manures (FYM, compost, vermicompost, green manure), biofertilisers used as nutrient sources, micronutrient and secondary-nutrient formulations, and soil amendments (lime, gypsum, sulphur, organic carbon builders). Also covers problem soils — acidic, saline, sodic/alkaline, eroded, compacted, poorly drained, low-organic-carbon soils — and their reclamation.",
+      "crop_name_needed": "MAJORITY",
+      "approx_share_needing_crop": "~85%"
+    },
+    {
+      "s_no": 2,
+      "name": "Irrigation and Water Management",
+      "code": "IWM",
+      "mapped_fragmented_domains": [
+        "Water Management",
+        "Water Management Micro Irrigation",
+        "Micro Irrigation",
+        "Irrigation Management",
+        "Irrigation",
+        "Fertigation",
+        "Fertigation and Irrigation Management"
+      ],
+      "description": "Covers the planning, scheduling, delivery and efficient use of irrigation water for crops. Includes water sources (canal, tank, pond, open well, borewell, lift and recycled water), conveyance and distribution (channels, underground pipelines, pumps and their capacity for water delivery), all irrigation methods (flood, border, basin, furrow, drip, sprinkler, mini and micro sprinkler, rain gun, sub-surface drip), irrigation scheduling by crop stage and critical growth stages, water requirement and depth of application, water-use efficiency and moisture conservation (mulching, deficit irrigation, alternate wetting and drying), fertigation hardware and practice, irrigation water quality, drainage and waterlogging, and micro-irrigation support under PMKSY – Per Drop More Crop and the National Mission on Micro Irrigation.",
+      "crop_name_needed": "MAJORITY",
+      "approx_share_needing_crop": "~75%"
+    },
+    {
+      "s_no": 3,
+      "name": "Insect - Pest Management",
+      "code": "INPM",
+      "mapped_fragmented_domains": [
+        "Insect Management",
+        "Biological Pest Management",
+        "Insect Pest Management",
+        "Insect–Pest Management",
+        "Pest",
+        "Pest Management",
+        "Pesticides",
+        "Plant Protection"
+      ],
+      "description": "Covers the identification, monitoring and management of all insect and mite pests attacking crops in the field and in the nursery, following Integrated Pest Management (IPM) principles promoted by ICAR and the Central Integrated Pest Management Centres. Code note: the code for this domain is INPM (Insect - Pest Management); the abbreviation IPM is deliberately not used as a domain code because in agriculture IPM is the established term for Integrated Pest Management, which is a control philosophy applied across the insect, disease and weed domains, not a domain in itself.",
+      "crop_name_needed": "ALWAYS",
+      "approx_share_needing_crop": "~98%"
+    },
+    {
+      "s_no": 4,
+      "name": "Disease Management",
+      "code": "PDM",
+      "mapped_fragmented_domains": [
+        "Disease Management",
+        "Disease",
+        "Disease Reporting",
+        "Pathogenic Disease Management",
+        "Disease (Viral)",
+        "Disease (Bacterial)",
+        "Crop Health and Disease Management",
+        "Fungicide",
+        "crop disease management",
+        "ਬਿਮਾਰੀ ਪ੍ਰਬੰਧਨ",
+        "Disease management - red rot"
+      ],
+      "description": "Covers the identification and management of plant diseases and disorders caused by pathogens — fungi, bacteria, viruses and viroids, phytoplasmas, nematodes and parasitic plants — in the nursery, field and orchard, using integrated disease management approaches aligned with national plant-protection guidelines. Code note: the code for this domain is PDM (Plant Disease Management); the shorter DM is avoided because in crop protection DM is commonly read as Downy Mildew, a specific disease.",
+      "crop_name_needed": "ALWAYS",
+      "approx_share_needing_crop": "~98%"
+    },
+    {
+      "s_no": 5,
+      "name": "Seed and Variety Selection",
+      "code": "SVS",
+      "mapped_fragmented_domains": [
+        "Varieties",
+        "Varities",
+        "Vegetative Propagation and Tissue Culture",
+        "Seed Sowing And Treatment",
+        "Varietal Selection",
+        "Crop Varieties",
+        "Crop Variety",
+        "Crop Variety Selection",
+        "Seed",
+        "Seed Availability",
+        "Seed Management",
+        "Seed Suppliers",
+        "Seed Treatment",
+        "Seeds",
+        "Seeds and Planting Material",
+        "Seeds and Varieties",
+        "Variety",
+        "Variety Information",
+        "Variety Selection",
+        "Seed Quality and Complaints",
+        "Seed Availability and Planting Time"
+      ],
+      "description": "Covers the choice of crop, variety, hybrid and planting material, and everything relating to seed quality and seed handling up to sowing/planting. Includes selection of varieties suited to the district, season, soil type, duration, market demand and stress tolerance; identification of released, notified and locally recommended varieties; sources of quality seed and planting material (certified/foundation/truthfully labelled seed, seed villages, state seed corporations, KVKs, ICAR institutes, registered nurseries) and their price and availability; seed rate and seed quality parameters.",
+      "crop_name_needed": "ALWAYS",
+      "approx_share_needing_crop": "~98%"
+    },
+    {
+      "s_no": 6,
+      "name": "Cultural and Crop Management Practices",
+      "code": "CCMP",
+      "mapped_fragmented_domains": [
+        "Cultural Practices",
+        "Cultivation Conditions",
+        "Field Preparation",
+        "Management",
+        "Integrated Farming System",
+        "Hormonic Imbalance",
+        "Hormone Imbalance Management",
+        "Nursery Management",
+        "Agronomy",
+        "Agronomy and Crop Management",
+        "Agronomy and Planting",
+        "Crop Cultivation",
+        "Crop Growth Stages",
+        "Crop Health",
+        "Crop Improvement",
+        "Crop Management",
+        "Crop Planning",
+        "Crop Practices",
+        "Crop Production",
+        "Crop Selection",
+        "Crop Suitability",
+        "Intercropping",
+        "Nursery Raising",
+        "Plant growth",
+        "Plant growth regulators",
+        "Planting methods",
+        "Pruning and detrashing practices",
+        "Ratoon management and gap filling",
+        "Tillering phase management",
+        "crop rotation",
+        "cultivation",
+        "cultivation practices",
+        "Crop Residue Management"
+      ],
+      "description": "Covers all non-input agronomic and management practices that determine crop establishment, growth, quality and yield. Includes land and field preparation (ploughing, harrowing, levelling, puddling, bed/ridge/furrow formation, bunding), sowing and planting operations, nursery raising and nursery management, cultivation conditions and crop suitability, intercultural operations, cropping systems, plant growth regulators, and Integrated Farming System design.",
+      "crop_name_needed": "ALWAYS",
+      "approx_share_needing_crop": "~95%"
+    },
+    {
+      "s_no": 7,
+      "name": "Organic and Natural Farming",
+      "code": "ONF",
+      "mapped_fragmented_domains": [
+        "Organic Farming",
+        "Bio-Pesticides and Bio-Fertilizers",
+        "Organic Fertilizer",
+        "Organic Inputs",
+        "Organic fertilizer application",
+        "Organic weed management"
+      ],
+      "description": "Covers organic, natural, biological and chemical-free farming systems as a whole, including the schemes that promote them — Paramparagat Krishi Vikas Yojana (PKVY), the National Mission on Natural Farming, Mission Organic Value Chain Development for the North Eastern Region and state organic missions.",
+      "crop_name_needed": "MAJORITY",
+      "approx_share_needing_crop": "~70%"
+    },
+    {
+      "s_no": 8,
+      "name": "Weed Management",
+      "code": "WDM",
+      "mapped_fragmented_domains": [
+        "Weed Management",
+        "Weed",
+        "Weed Control",
+        "Weedicide",
+        "Herbicide"
+      ],
+      "description": "Covers the identification and management of all unwanted plants competing with crops, using Integrated Weed Management. Code note: the code for this domain is WDM (Weed Management); the shorter WM is avoided because 'Water Management' is a fragmented domain mapped under Irrigation and Water Management (IWM).",
+      "crop_name_needed": "ALWAYS",
+      "approx_share_needing_crop": "~95%"
+    },
+    {
+      "s_no": 9,
+      "name": "Climate, Weather & Stress Management",
+      "code": "CWSM",
+      "mapped_fragmented_domains": [
+        "Weather",
+        "Sowing Time and Weather",
+        "Abiotic Stress Management",
+        "Climate Weather and Stress Management",
+        "Disaster Management and Crop Recovery"
+      ],
+      "description": "Covers the use of weather and climate information in farm decision-making and the management of all abiotic (non-living) stresses affecting crops and farm operations. Includes short-range and medium-range weather forecasts, rainfall, temperature, humidity and wind information, monsoon onset and withdrawal, and agro-met advisories.",
+      "crop_name_needed": "MINORITY",
+      "approx_share_needing_crop": "~35%"
+    },
+    {
+      "s_no": 10,
+      "name": "Farm Tools & Mechanisation",
+      "code": "FTM",
+      "mapped_fragmented_domains": [
+        "Agriculture Mechanization",
+        "Plasticulture",
+        "Farm Machinery",
+        "Farm Machinery and Equipment",
+        "Farm Inputs and Supplies"
+      ],
+      "description": "Covers the selection, availability, operation, maintenance, safety and economics of farm tools, implements, machinery and plasticulture materials for all farm operations. Includes hand tools, tractors, implements, sprayers, harvesters, and plasticulture.",
+      "crop_name_needed": "MINORITY",
+      "approx_share_needing_crop": "~30%"
+    },
+    {
+      "s_no": 11,
+      "name": "Post-Harvest Management & Storage",
+      "code": "PHMS",
+      "mapped_fragmented_domains": [
+        "Storage",
+        "Post Harvest Preservation",
+        "Post Harvest Management Cleaning Grading Packaging Food Processing Cool Chain etc",
+        "Cold Storage",
+        "Post Harvest Management (Cleaning, Grading, Packaging, Food Processing, Cool Chain etc.)",
+        "Harvesting Management",
+        "Post Harvest Management - Abiotic",
+        "Post Harvest Management - Biotic",
+        "Post Harvest Management",
+        "Post-Harvest & Value Addition",
+        "Post-harvest Management",
+        "Storage Pest Management",
+        "Crop Harvesting"
+      ],
+      "description": "Covers everything that happens from maturity of the crop onwards — harvesting, handling, preservation, storage and value addition of agricultural produce. Includes judging correct maturity, harvesting losses, threshing, drying, storage structures, cold storage, biotic/abiotic storage problem management, and secondary processing.",
+      "crop_name_needed": "MAJORITY",
+      "approx_share_needing_crop": "~85%"
+    },
+    {
+      "s_no": 12,
+      "name": "Market Prices, MSP & Marketing",
+      "code": "MPM",
+      "mapped_fragmented_domains": [
+        "Market Information",
+        "Economics",
+        "Market & Schemes",
+        "Market Price",
+        "Market Prices",
+        "Market and Pricing",
+        "market advisory",
+        "Economics and Marketing"
+      ],
+      "description": "Covers all market-related information and decisions for agricultural and allied produce. Includes current and expected mandi prices, arrivals, price trends, Minimum Support Price (MSP), procurement norms, and marketing channels (APMC mandis, e-NAM, FPOs, private buyers).",
+      "crop_name_needed": "ALWAYS",
+      "approx_share_needing_crop": "~95%"
+    },
+    {
+      "s_no": 13,
+      "name": "Agricultural Schemes & Subsidies",
+      "code": "AGSS",
+      "mapped_fragmented_domains": [
+        "Government Schemes"
+      ],
+      "description": "Covers Central and State Government schemes, missions, programmes, subsidies, grants and direct benefit transfers in agriculture and allied sectors, other than routine bank credit and crop insurance which belong to Credit, Loan & Insurance.",
+      "crop_name_needed": "MINORITY",
+      "approx_share_needing_crop": "~30%"
+    },
+    {
+      "s_no": 14,
+      "name": "Credit, Loan & Insurance",
+      "code": "CLI",
+      "mapped_fragmented_domains": [
+        "Credit",
+        "Loans",
+        "Crop Insurance",
+        "Insurance",
+        "Financial & Institutional Services"
+      ],
+      "description": "Covers institutional agricultural finance and risk-transfer products for farmers and allied-sector enterprises. Includes crop loans, Kisan Credit Card (KCC), term and investment loans, and all agricultural insurance (PMFBY, RWBCIS, livestock and fisheries insurance).",
+      "crop_name_needed": "MINORITY",
+      "approx_share_needing_crop": "~40%"
+    },
+    {
+      "s_no": 15,
+      "name": "Capacity Building, Extension and Communication",
+      "code": "CEE",
+      "mapped_fragmented_domains": [
+        "Training",
+        "Training and Exposure Visits",
+        "Capacity Building & Extension",
+        "Extension & Capacity Building",
+        "Extension Services",
+        "Farmer Services"
+      ],
+      "description": "Covers the delivery of knowledge, skills and advisory services to farmers and the institutions and channels that provide them. Includes training programmes, KVKs, ATMA, demonstrations, farmer field schools, FPOs, and helpline channels like Kisan Call Centre.",
+      "crop_name_needed": "RARELY",
+      "approx_share_needing_crop": "~15%"
+    },
+    {
+      "s_no": 16,
+      "name": "Rural Infrastructure",
+      "code": "RI",
+      "mapped_fragmented_domains": [
+        "Power Roads etc",
+        "Power, Roads etc.",
+        "Infrastructure & Utilities"
+      ],
+      "description": "Covers the basic public and village-level physical infrastructure that supports agriculture and allied activities, as distinct from a farmer's own equipment. Includes rural roads, electricity supply for agriculture, transformers, and common infrastructure.",
+      "crop_name_needed": "NOT NEEDED",
+      "approx_share_needing_crop": "~5%"
+    },
+    {
+      "s_no": 17,
+      "name": "Animal Husbandry & Livestock",
+      "code": "AHL",
+      "mapped_fragmented_domains": [
+        "Dairy Production",
+        "Animal Husbandry",
+        "Poultry",
+        "Feed",
+        "Animal Production Piggery Goatery Sheep Farming etc",
+        "Livestock Products Processing and Packaging",
+        "Animal Nutrition",
+        "Animal Breeding",
+        "Cattle shed Planning and Management",
+        "Artificial Insemination",
+        "Animal Production (Piggery, Goatery, Sheep Farming etc.)",
+        "Vaccine - Viral",
+        "Breeding -Inbreeding",
+        "Disease - External Parasitic",
+        "Animal Health",
+        "Fodder Cultivation",
+        "Livestock & Animal Husbandry",
+        "Veterinary & Animal Health"
+      ],
+      "description": "Covers the rearing, health, breeding, feeding, housing and productivity of all livestock and poultry — cattle, buffalo, sheep, goat, pig, poultry, equines, camel and other species — and the processing of livestock products.",
+      "crop_name_needed": "NOT NEEDED (species instead)",
+      "approx_share_needing_crop": "~5%"
+    },
+    {
+      "s_no": 18,
+      "name": "Fisheries & Aquaculture",
+      "code": "FA",
+      "mapped_fragmented_domains": [
+        "Coastal Aquaculture",
+        "Tank Pond and Reservoir Management",
+        "Fish Marketing",
+        "Breeding of freshwater prawn",
+        "Freshwater Pearl Farming",
+        "Fishery Nutrition",
+        "Fish Fingerling Production",
+        "Fishery Mechanization",
+        "Magur Breeding and Culture",
+        "Breeding and culture of ornamental fish",
+        "Freshwater pearl culture",
+        "Water Testing for Fish Production",
+        "Seaweed Cultivation",
+        "Fish Dressing Drying",
+        "Deep Sea Fishing and Processing",
+        "Fishing Harbours and Landing Centre",
+        "Tank, Pond and Reservoir Management",
+        "Fisheries"
+      ],
+      "description": "Covers all inland, brackish-water and marine fisheries and aquaculture activities supported by the Department of Fisheries, NFDB and PMMSY. Includes culture systems, pond management, seed and stocking, induced breeding, fish nutrition, and health.",
+      "crop_name_needed": "NOT NEEDED (species instead)",
+      "approx_share_needing_crop": "~2%"
+    },
+    {
+      "s_no": 19,
+      "name": "Allied Agricultural Activities",
+      "code": "AAA",
+      "mapped_fragmented_domains": [
+        "Beekeeping",
+        "Mushroom Production"
+      ],
+      "description": "Covers allied and secondary income-generating enterprises taken up alongside crop farming, principally beekeeping and mushroom cultivation, and other similar small farm-based enterprises promoted through the National Beekeeping and Honey Mission, MIDH, and PMFME.",
+      "crop_name_needed": "MINORITY",
+      "approx_share_needing_crop": "~30%"
+    }
+  ]
+}

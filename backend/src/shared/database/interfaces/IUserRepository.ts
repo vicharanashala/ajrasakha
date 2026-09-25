@@ -122,12 +122,16 @@ export interface IUserRepository {
    * @param ids - Array of user IDs to find.
    * @returns A promise that resolves to an array of users.
    */
-  getUsersByIds(ids: string[], session?: ClientSession): Promise<IUser[]>;
+  getUsersByIds(
+    ids: string[],
+    session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
+  ): Promise<IUser[]>;
   /**
    * Finds all users.
    * @returns A promise that resolves to an array of users.
    */
-  findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
+  findAll(session?: ClientSession, isTrainingUser?: boolean, canViewAllUsers?: boolean): Promise<IUser[]>;
 
   /**
    * Finds all users.
@@ -371,6 +375,9 @@ export interface IUserRepository {
   addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<boolean>;
   removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
+  /** Remove a deleted question from every user's assignment arrays: assignedQuestionIds,
+   *  paeValidationAssigned and feedbacksAssigned. */
+  removeQuestionFromAllUsers(questionId: string, session?: ClientSession): Promise<void>;
   
   /** Find available PAE experts who can take questions for validation.
    *  - role must be 'pae_expert'

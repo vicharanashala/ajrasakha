@@ -222,7 +222,7 @@ def resolve_planner_language_pair(
     return vocal, script
 
 
-def _llm_detect_language(text: str, script_context: str = "Latin") -> str:
+def _llm_detect_language(text: str, script_context: str = "Latin", *, llm=None) -> str:
     """Analyze the text and return the underlying spoken language name (e.g. Hindi, English, Punjabi).
     
     Args:
@@ -259,8 +259,9 @@ def _llm_detect_language(text: str, script_context: str = "Latin") -> str:
         script_hint = ""
     
     try:
-        from ajrasakha.agents.config import get_minimax_chat_model
-        llm = get_minimax_chat_model()
+        if llm is None:
+            from ajrasakha.agents.config import get_minimax_chat_model
+            llm = get_minimax_chat_model()
 
         prompt = (
             "Analyze the following text from an Indian farmer and identify the underlying spoken language.\n\n"
@@ -274,10 +275,19 @@ def _llm_detect_language(text: str, script_context: str = "Latin") -> str:
             "- Hindi pronouns: mera, aap, hum, unka\n"
             "- Hindi question words: kya, kahan, kab, kaise\n"
             "- Hindi articles: ek\n\n"
-            "CRITICAL RULE:\n"
-            "- If the text uses standard English words, English prepositions (in, for, to, with, over, next), "
-            "English verb forms (is, are, can, should, will, watch), and English grammar → classify as ENGLISH\n"
-            "- If the text contains ANY of the Hindi markers above → classify as the underlying Indian language\n"
+            "VERB-BASED PRIORITY RULE (MOST IMPORTANT):\n"
+            "- English verbs have HIGHER priority than vocabulary. If the sentence uses English verbs/phrases\n"
+            "  (how, can, we, is, are, should, will, prevent, control, cause, damage, major, causing, etc.)\n"
+            "  AND has English grammar structure, classify as ENGLISH even if there are some Indian words.\n"
+            "- Only classify as an Indian language if the VERBS and sentence STRUCTURE are in that language.\n"
+            "  Examples of Indian language structure:\n"
+            "  - Hindi: 'kaise', 'kya', 'karna', 'hai', 'sakta hai', 'ho sakta hai'\n"
+            "  - Punjabi: 'kive', 'ki', 'karna', 'hunda', 'ho'\n"
+            "  - Tamil: 'eppadi', 'enna', 'pannu', 'mudiyum'\n"
+            "- A sentence like 'How can we prevent gobh di sundi from causing damage?' is ENGLISH\n"
+            "  because it uses English verbs (how, can, prevent, causing) and English sentence structure.\n"
+            "- A sentence like 'Gobh di sundi nu kive control karein?' is PUNJABI\n"
+            "  because it uses Punjabi verbs (nu, kive, karein).\n"
             "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu, Odisha), "
             "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n"
             "- NEVER classify as the language of the state mentioned (e.g. don't say Odia just because Odisha is mentioned)\n\n"
@@ -359,10 +369,19 @@ async def _allm_detect_language(text: str, script_context: str = "Latin") -> str
             "- Hindi pronouns: mera, aap, hum, unka\n"
             "- Hindi question words: kya, kahan, kab, kaise\n"
             "- Hindi articles: ek\n\n"
-            "CRITICAL RULE:\n"
-            "- If the text uses standard English words, English prepositions (in, for, to, with, over, next), "
-            "English verb forms (is, are, can, should, will, watch), and English grammar → classify as ENGLISH\n"
-            "- If the text contains ANY of the Hindi markers above → classify as the underlying Indian language\n"
+            "VERB-BASED PRIORITY RULE (MOST IMPORTANT):\n"
+            "- English verbs have HIGHER priority than vocabulary. If the sentence uses English verbs/phrases\n"
+            "  (how, can, we, is, are, should, will, prevent, control, cause, damage, major, causing, etc.)\n"
+            "  AND has English grammar structure, classify as ENGLISH even if there are some Indian words.\n"
+            "- Only classify as an Indian language if the VERBS and sentence STRUCTURE are in that language.\n"
+            "  Examples of Indian language structure:\n"
+            "  - Hindi: 'kaise', 'kya', 'karna', 'hai', 'sakta hai', 'ho sakta hai'\n"
+            "  - Punjabi: 'kive', 'ki', 'karna', 'hunda', 'ho'\n"
+            "  - Tamil: 'eppadi', 'enna', 'pannu', 'mudiyum'\n"
+            "- A sentence like 'How can we prevent gobh di sundi from causing damage?' is ENGLISH\n"
+            "  because it uses English verbs (how, can, prevent, causing) and English sentence structure.\n"
+            "- A sentence like 'Gobh di sundi nu kive control karein?' is PUNJABI\n"
+            "  because it uses Punjabi verbs (nu, kive, karein).\n"
             "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu, Odisha), "
             "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n"
             "- NEVER classify as the language of the state mentioned (e.g. don't say Odia just because Odisha is mentioned)\n\n"

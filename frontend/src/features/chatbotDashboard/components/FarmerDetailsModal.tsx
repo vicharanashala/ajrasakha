@@ -22,6 +22,7 @@ import {
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { type UserDetail } from "../hooks/useUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
+import { LogoutUserButton } from "./LogoutUserButton";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -179,6 +180,7 @@ export function FarmerDetailsModal({
   // stale/undefined user object does not silently hide the verify action.
   const isUserVerified = user?.isVerified ?? false;
   const activeSessionCount = user?.activeSessionCount ?? 0;
+  console.log("activeSessionCount outside effect", activeSessionCount)
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -187,9 +189,15 @@ export function FarmerDetailsModal({
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>(
     {},
   );
+  const [session, setSession] = useState(activeSessionCount);
   const [confirmPasswordChangeOpen, setConfirmPasswordChangeOpen] =
     useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
+
+useEffect(() => {
+  setSession(activeSessionCount);
+  console.log("session state updated to", activeSessionCount);
+}, [activeSessionCount]);
 
   useEffect(() => {
     if (!open) {
@@ -265,6 +273,7 @@ export function FarmerDetailsModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="!max-w-4xl w-[95vw] max-h-[90vh] p-0 gap-0 overflow-hidden">
         <motion.div
@@ -290,25 +299,25 @@ export function FarmerDetailsModal({
                   {!isUserVerified && (
                     <ShieldX className="h-4 w-4 shrink-0 text-orange-500" />
                   )}
-                  {activeSessionCount > 0 && (
+                  {session > 0 && (
                     <span
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-emerald-700 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300"
                       title={
-                        activeSessionCount === 1
+                        session === 1
                           ? "Currently logged in"
-                          : `${activeSessionCount} active sessions`
+                          : `${session} active sessions`
                       }
                       aria-label={
-                        activeSessionCount === 1
+                        session === 1
                           ? "Currently logged in"
-                          : `${activeSessionCount} active sessions`
+                          : `${session} active sessions`
                       }
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <span>Logged in</span>
-                      {activeSessionCount > 1 && (
+                      {session > 1 && (
                         <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-                          {activeSessionCount}
+                          {session}
                         </span>
                       )}
                     </span>
@@ -330,6 +339,14 @@ export function FarmerDetailsModal({
 
               {isAdmin && (
                 <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  {session > 0 && (
+                    <LogoutUserButton
+                      userId={user.userId}
+                      name={user.name}
+                      email={user.email}
+                      onLoggedOut={() => setSession(0)}
+                    />
+                  )}
                   {onVerificationChange && (
                     <Button
                       size="sm"
@@ -685,6 +702,7 @@ export function FarmerDetailsModal({
         </motion.div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 

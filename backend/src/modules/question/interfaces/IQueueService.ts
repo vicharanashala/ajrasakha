@@ -7,5 +7,5 @@ import type {QueueService} from '../services/QueueService.js';
  */
 export type IQueueService = Pick<
   QueueService,
-  'getQueueSection' | 'getQueueDetails'
+  'getQueueSection' | 'getQueueDetails' | 'getPendingByLevel'
 >;

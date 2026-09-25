@@ -87,6 +87,48 @@ def extract_state_from_text(text: str) -> Optional[str]:
     return None
 
 
+def extract_location_from_query(query: str) -> tuple[str | None, str | None]:
+    """Extract (place_name, state_name) from query string.
+    Returns (specific_place, detected_state).
+    If query mentions only a state (e.g. 'in Bihar'), returns (None, 'Bihar').
+    If query mentions a specific place (e.g. 'in kakkanad'), returns ('kakkanad', detected_state).
+    """
+    q = (query or "").strip()
+    if not q:
+        return None, None
+
+    detected_state = extract_state_from_text(q)
+
+    WEATHER_WORDS = {
+        "rain", "rainfall", "thunderstorm", "thunderstorms", "storm", "storms",
+        "fog", "snow", "haze", "mist", "cloud", "clouds", "cloudy", "sun", "sunny",
+        "wind", "winds", "temperature", "temp", "weather", "climate", "humidity",
+        "heat", "heatwave", "showers", "shower", "chance", "chances", "possibility",
+        "expected", "forecast", "warning", "warnings", "advisory", "advisories",
+        "precipitation", "lightning", "cold", "cyclone", "flood", "floods"
+    }
+
+    pattern = r"\b(?:in|at|near|around)\s+([A-Za-z][A-Za-z\s]{1,40}?)(?=\s+\b(?:in|at|near|around|on|for|from|to|of|by|with|during|today|tomorrow|yesterday|this|next|last|past|coming|morning|evening|afternoon|night|now|days?|hours?)\b|[.,?!]|$)"
+
+    candidates: list[str] = []
+    for m in re.finditer(pattern, q, re.I):
+        cand = m.group(1).strip()
+        cand_clean = re.sub(r"\b(?:the|a|an|district|state|city|town|village|mandal)\b", "", cand, flags=re.I).strip()
+        words = [w.lower() for w in cand_clean.split()]
+        if not words or len(words) > 3:
+            continue
+        if any(w in WEATHER_WORDS for w in words):
+            continue
+        candidates.append(cand_clean)
+
+    detected_place = candidates[-1] if candidates else None
+
+    from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
+    if detected_place and detected_place.lower() in _INDIAN_STATES_LOWER:
+        return None, detected_place.title()
+    return detected_place, detected_state
+
+
 def normalize_state_name(state: str | None) -> Optional[str]:
     """Map a state string to the canonical Indian state name, if recognized."""
     if not state:
@@ -204,6 +246,18 @@ def merge_location_dict(
     if left is None:
         return {k: v for k, v in right.items() if v is not None}
     out = dict(left)
+
+    # If right introduces a new state different from left's state, reset stale location fields
+    new_state = right.get("state")
+    old_state = left.get("state")
+    if (
+        new_state is not None
+        and old_state is not None
+        and str(new_state).strip().lower() != str(old_state).strip().lower()
+    ):
+        for field in ("district", "city", "latitude", "longitude", "address"):
+            out.pop(field, None)
+
     for k, v in right.items():
         if v is not None:
             out[k] = v
@@ -387,6 +441,9 @@ def main_agent_location_context_message(location: Optional[dict[str, Any]]) -> O
 
 
 _LOCATION_ALIASES: dict[str, tuple[str, str | None]] = {
+    "chintapally": ("Chintapalle", "Andhra Pradesh"),
+    "chinthapally": ("Chintapalle", "Andhra Pradesh"),
+    "chinthapalle": ("Chintapalle", "Andhra Pradesh"),
     "moovatupuzha": ("Muvattupuzha", "Ernakulam"),
     "moovattupuzha": ("Muvattupuzha", "Ernakulam"),
     "muvattupuzha": ("Muvattupuzha", "Ernakulam"),
@@ -402,6 +459,54 @@ _LOCATION_ALIASES: dict[str, tuple[str, str | None]] = {
 }
 
 
+def _parse_nominatim_item(
+    item: dict[str, Any],
+    requested_state: Optional[str],
+    requested_district: Optional[str],
+) -> dict[str, Any]:
+    from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
+    lat = float(item["lat"])
+    lon = float(item["lon"])
+    display_name = item.get("display_name")
+    addr = item.get("address") or {}
+    resolved_state = addr.get("state") or requested_state
+
+    # Extract official district from state_district / county / district
+    raw_dist = (
+        addr.get("state_district")
+        or addr.get("county")
+        or addr.get("district")
+    )
+    if raw_dist and raw_dist.lower().strip() in _INDIAN_STATES_LOWER:
+        raw_dist = None
+
+    # Extract local town / place name
+    local_place = (
+        addr.get("town")
+        or addr.get("village")
+        or addr.get("suburb")
+        or addr.get("city")
+        or addr.get("municipality")
+        or requested_district
+        or item.get("name")
+    )
+
+    # If this was a state-level query without a specific district input, set district to None
+    if not requested_district or (requested_state and requested_district.strip().lower() == requested_state.strip().lower()):
+        resolved_district = None
+    else:
+        resolved_district = raw_dist or requested_district
+
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "state": resolved_state,
+        "district": resolved_district,
+        "city": local_place,
+        "address": display_name,
+    }
+
+
 async def forward_geocode(state: Optional[str], district: Optional[str] = None) -> Optional[dict[str, Any]]:
     """Forward geocode state and district to latitude/longitude using OpenStreetMap Nominatim."""
     import logging
@@ -412,6 +517,8 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
     if not state and not district:
         return None
 
+    from ajrasakha.tools.weather.weather_tools2 import STATE_CENTER_COORDINATES, _INDIAN_STATES_LOWER
+
     # Normalize district/location aliases (e.g. moovatupuzha -> Muvattupuzha, Ernakulam)
     inferred_district_state = None
     if district and district.lower().strip() in _LOCATION_ALIASES:
@@ -420,6 +527,44 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
         if canonical_district and not state:
             inferred_district_state = canonical_district
 
+    # If district is a placeholder or repeats state name, treat as pure state query
+    if district:
+        d_clean = district.lower().strip()
+        st_clean = (state or inferred_district_state or "").lower().strip()
+        if d_clean in {"all", "not specified", "unknown", "none", "null", ""}:
+            district = None
+        elif d_clean == st_clean:
+            district = None
+        elif d_clean in _INDIAN_STATES_LOWER:
+            if not state:
+                state = district.title()
+            district = None
+
+    # For pure state-level queries without district, use the designated state center coordinates directly
+    st_check = (state or inferred_district_state or "").lower().strip()
+    if not district and st_check in STATE_CENTER_COORDINATES:
+        flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[st_check]
+        result = {
+            "latitude": flat_c,
+            "longitude": flon_c,
+            "state": state or st_check.title(),
+            "district": None,
+            "city": st_check.title(),
+            "address": name_c
+        }
+        trace_resolution(
+            "forward_geocode_result",
+            state=result["state"],
+            state_source="state_center",
+            district=result["district"],
+            district_source="state_center",
+            latitude=flat_c,
+            longitude=flon_c,
+            lat_long_source="state_center",
+            address=name_c,
+        )
+        return result
+
     trace_resolution(
         "forward_geocode_request",
         state=state or inferred_district_state,
@@ -427,105 +572,141 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
         district=district,
         district_source="caller_input",
     )
-        
+
     url = "https://nominatim.openstreetmap.org/search"
-    # Try structured query first since it is more reliable
-    params = {
-        "country": "India",
-        "format": "json",
-        "limit": 1,
-        "addressdetails": 1
-    }
-    if state or inferred_district_state:
-        params["state"] = state or inferred_district_state
-    if district:
-        params["county"] = district
-        
     headers = {
-        "User-Agent": "AjraSakha-Agent/1.0"
+        "User-Agent": "AjraSakha-Agent/1.0 (agri-weather)"
     }
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params, headers=headers, timeout=10.0)
-            response.raise_for_status()
-            data = response.json()
-            if data and isinstance(data, list) and len(data) > 0:
-                item = data[0]
-                lat = float(item["lat"])
-                lon = float(item["lon"])
-                display_name = item.get("display_name")
-                resolved_state = item.get("address", {}).get("state") or state
-                result = {
-                    "latitude": lat,
-                    "longitude": lon,
-                    "state": resolved_state,
-                    "city": district or item.get("name"),
-                    "address": display_name
-                }
-                trace_resolution(
-                    "forward_geocode_result",
-                    state=resolved_state,
-                    state_source="nominatim_structured",
-                    district=result["city"],
-                    district_source="nominatim_structured",
-                    latitude=lat,
-                    longitude=lon,
-                    lat_long_source="nominatim_structured",
-                    address=display_name,
-                )
-                return result
-    except Exception as e:
-        logger.error("Structured forward geocoding failed: %s", e)
-        
-    # Fallback to general query string if structured query failed (e.g. for spelling variants)
+
+    # Free-form search with q allows Nominatim to match all administrative levels (counties, mandals, towns)
+    # and sort by OSM importance score.
     query_parts = []
     if district:
         query_parts.append(district)
-    if state:
-        query_parts.append(state)
+    eff_state = state or inferred_district_state
+    if eff_state:
+        query_parts.append(eff_state)
     query_parts.append("India")
     q = ", ".join(query_parts)
-    
-    params = {
+
+    params_q = {
         "q": q,
         "format": "json",
         "limit": 1,
         "addressdetails": 1
     }
-    
+
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params, headers=headers, timeout=10.0)
+            response = await client.get(url, params=params_q, headers=headers, timeout=10.0)
             response.raise_for_status()
             data = response.json()
             if data and isinstance(data, list) and len(data) > 0:
-                item = data[0]
-                lat = float(item["lat"])
-                lon = float(item["lon"])
-                display_name = item.get("display_name")
-                resolved_state = item.get("address", {}).get("state") or state
-                result = {
-                    "latitude": lat,
-                    "longitude": lon,
-                    "state": resolved_state,
-                    "city": district or item.get("name"),
-                    "address": display_name
-                }
+                result = _parse_nominatim_item(data[0], state, district)
                 trace_resolution(
                     "forward_geocode_result",
-                    state=resolved_state,
-                    state_source="nominatim_fallback_query",
-                    district=result["city"],
-                    district_source="nominatim_fallback_query",
-                    latitude=lat,
-                    longitude=lon,
-                    lat_long_source="nominatim_fallback_query",
-                    address=display_name,
+                    state=result["state"],
+                    state_source="nominatim_freeform_query",
+                    district=result["district"] or result["city"],
+                    district_source="nominatim_freeform_query",
+                    latitude=result["latitude"],
+                    longitude=result["longitude"],
+                    lat_long_source="nominatim_freeform_query",
+                    address=result["address"],
                 )
                 return result
     except Exception as e:
-        logger.error("Fallback forward geocoding failed: %s", e)
+        logger.error("Free-form forward geocoding failed: %s", e)
+
+    # Fallback to structured search if free-form search returned no results
+    params_struct = {
+        "country": "India",
+        "format": "json",
+        "limit": 1,
+        "addressdetails": 1
+    }
+    if eff_state:
+        params_struct["state"] = eff_state
+    if district:
+        params_struct["city"] = district
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params_struct, headers=headers, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            if data and isinstance(data, list) and len(data) > 0:
+                result = _parse_nominatim_item(data[0], state, district)
+                trace_resolution(
+                    "forward_geocode_result",
+                    state=result["state"],
+                    state_source="nominatim_structured",
+                    district=result["district"] or result["city"],
+                    district_source="nominatim_structured",
+                    latitude=result["latitude"],
+                    longitude=result["longitude"],
+                    lat_long_source="nominatim_structured",
+                    address=result["address"],
+                )
+                return result
+    except Exception as e:
+        logger.error("Structured forward geocoding fallback failed: %s", e)
+
+    # If search with the given state returned no results, search India nationwide
+    # in case the locality belongs to another state (e.g. user asked about Kodungoor in Kerala, but session memory had Jharkhand)
+    if district and eff_state:
+        try:
+            params_india = {
+                "q": f"{district}, India",
+                "format": "json",
+                "limit": 1,
+                "addressdetails": 1,
+            }
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params_india, headers=headers, timeout=10.0)
+                response.raise_for_status()
+                data = response.json()
+                if data and isinstance(data, list) and len(data) > 0:
+                    result = _parse_nominatim_item(data[0], None, district)
+                    trace_resolution(
+                        "forward_geocode_result",
+                        state=result["state"],
+                        state_source="nominatim_nationwide_fallback",
+                        district=result["district"] or result["city"],
+                        district_source="nominatim_nationwide_fallback",
+                        latitude=result["latitude"],
+                        longitude=result["longitude"],
+                        lat_long_source="nominatim_nationwide_fallback",
+                        address=result["address"],
+                    )
+                    return result
+        except Exception as e:
+            logger.error("Nationwide forward geocoding fallback failed: %s", e)
+
+    # State Center fallback if Nominatim was throttled or returned empty
+    st_check = (state or inferred_district_state or "").lower().strip()
+    if st_check in STATE_CENTER_COORDINATES:
+        flat_c, flon_c, name_c = STATE_CENTER_COORDINATES[st_check]
+        result = {
+            "latitude": flat_c,
+            "longitude": flon_c,
+            "state": state or st_check.title(),
+            "district": None,
+            "city": district or st_check.title(),
+            "address": name_c
+        }
+        trace_resolution(
+            "forward_geocode_result",
+            state=result["state"],
+            state_source="state_center_fallback",
+            district=result["district"] or result["city"],
+            district_source="state_center_fallback",
+            latitude=flat_c,
+            longitude=flon_c,
+            lat_long_source="state_center_fallback",
+            address=name_c,
+        )
+        return result
 
     trace_resolution(
         "forward_geocode_result",

@@ -45,7 +45,7 @@ def test_merge_entities_ignores_gps_location():
 def test_merge_entities_crop_from_rephrased_on_new_query():
     plan = {
         "rephrased_query": "Onion mandi price in Punjab",
-        "entities": {"crop": "wheat"},
+        "entities": {"crop": "Onion"},
     }
     messages = [
         HumanMessage(content="Wheat disease in Karnataka"),

@@ -21,11 +21,15 @@ normalize_extraction_type = extraction_module.normalize_extraction_type
 
 
 SAMPLE_EXTRACTION = {
-    "query": "Irrigation techniques for wheat",
-    "crop": "Wheat",
+    "queries": [
+        {
+            "query": "Irrigation techniques for wheat",
+            "crop": "Wheat",
+            "standardized_domains": ["Irrigation and Water Management"],
+        }
+    ],
     "state": "Punjab",
     "district": "Rupnagar",
-    "standardized_domains": ["Irrigation and Water Management"],
     "name": "Ramesh Kumar",
     "phone": "9876543210",
     "age": 42,
@@ -66,23 +70,24 @@ class AccAgentExtractionTests(unittest.TestCase):
         self.assertEqual(result["extracted_years_of_experience"], 18)
         self.assertEqual(result["extracted_highest_education"], "Class 12")
         self.assertEqual(result["extracted_smartphones_at_home"], 2)
-        self.assertNotIn("extracted_query", result)
-        self.assertNotIn("extracted_crop", result)
-        self.assertNotIn("standardized_domains", result)
+        self.assertNotIn("extracted_queries", result)
 
     def test_query_details_contains_only_query_and_location_fields(self):
         result = build_extraction_update(SAMPLE_EXTRACTION, "query_details")
 
         self.assertEqual(result["extraction_type"], "query_details")
-        self.assertEqual(
-            result["extracted_query"],
-            "Irrigation techniques for wheat",
-        )
-        self.assertEqual(result["extracted_crop"], "Wheat")
         self.assertEqual(result["extracted_state"], "Punjab")
         self.assertEqual(
-            result["standardized_domains"],
-            ["Irrigation and Water Management"],
+            result["extracted_queries"],
+            [
+                {
+                    "query": "Irrigation techniques for wheat",
+                    "crop": "Wheat",
+                    "standardized_domains": [
+                        "Irrigation and Water Management"
+                    ],
+                }
+            ],
         )
         self.assertNotIn("extracted_name", result)
         self.assertNotIn("extracted_phone", result)
@@ -92,15 +97,14 @@ class AccAgentExtractionTests(unittest.TestCase):
         self.assertNotIn("extracted_years_of_experience", result)
         self.assertNotIn("extracted_highest_education", result)
         self.assertNotIn("extracted_smartphones_at_home", result)
+        self.assertNotIn("extracted_query", result)
+        self.assertNotIn("extracted_crop", result)
+        self.assertNotIn("standardized_domains", result)
 
     def test_all_contains_query_and_farmer_fields(self):
         result = build_extraction_update(SAMPLE_EXTRACTION, "all")
 
         self.assertEqual(result["extraction_type"], "all")
-        self.assertEqual(
-            result["extracted_query"],
-            "Irrigation techniques for wheat",
-        )
         self.assertEqual(result["extracted_name"], "Ramesh Kumar")
         self.assertEqual(result["extracted_primary_crop"], "Wheat")
         self.assertEqual(
@@ -111,6 +115,73 @@ class AccAgentExtractionTests(unittest.TestCase):
         self.assertEqual(result["extracted_years_of_experience"], 18)
         self.assertEqual(result["extracted_highest_education"], "Class 12")
         self.assertEqual(result["extracted_smartphones_at_home"], 2)
+        self.assertEqual(len(result["extracted_queries"]), 1)
+        self.assertNotIn("extracted_query", result)
+        self.assertNotIn("extracted_crop", result)
+        self.assertNotIn("standardized_domains", result)
+
+    def test_multiple_queries_are_preserved_in_order(self):
+        result = build_extraction_update(
+            {
+                "state": "Karnataka",
+                "district": "Raichur",
+                "queries": [
+                    {
+                        "query": "How can I control yellow rust in wheat?",
+                        "crop": "Wheat",
+                        "standardized_domains": ["Disease Management"],
+                    },
+                    {
+                        "query": "Will it rain today?",
+                        "crop": None,
+                        "standardized_domains": [
+                            "Climate, Weather & Stress Management"
+                        ],
+                    },
+                ],
+            },
+            "query_details",
+        )
+
+        self.assertEqual(
+            result["extracted_queries"],
+            [
+                {
+                    "query": "How can I control yellow rust in wheat?",
+                    "crop": "Wheat",
+                    "standardized_domains": ["Disease Management"],
+                },
+                {
+                    "query": "Will it rain today?",
+                    "crop": None,
+                    "standardized_domains": [
+                        "Climate, Weather & Stress Management"
+                    ],
+                },
+            ],
+        )
+        self.assertNotIn("extracted_query", result)
+        self.assertNotIn("extracted_crop", result)
+        self.assertNotIn("standardized_domains", result)
+
+    def test_query_without_crop_uses_null_in_the_multi_query_contract(self):
+        result = build_extraction_update(
+            {
+                "queries": [
+                    {
+                        "query": "Will it rain today?",
+                        "crop": "All",
+                        "standardized_domains": [
+                            "Climate, Weather & Stress Management"
+                        ],
+                    }
+                ]
+            },
+            "query_details",
+        )
+
+        self.assertIsNone(result["extracted_queries"][0]["crop"])
+        self.assertNotIn("extracted_crop", result)
 
     def test_secondary_crops_are_cleaned_and_exclude_the_primary_crop(self):
         result = build_extraction_update(

@@ -3,7 +3,7 @@ import {Collection, ObjectId} from 'mongodb';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
-import {ICrop, ICropAlias, CropType} from '#root/shared/interfaces/models.js';
+import {ICrop, ICropAlias, CropType, ALLOWED_CROP_TYPES} from '#root/shared/interfaces/models.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
 
 @injectable()
@@ -65,6 +65,7 @@ export class CropRepository implements ICropRepository {
     type?: CropType,
     status?: string,
     crops?: string[],
+    scientificName?: string | null,
   ): Promise<ICrop> {
     try {
       if (!this.CropCollection) await this.init();
@@ -117,11 +118,19 @@ export class CropRepository implements ICropRepository {
           region: norm(a.region),
           english_representation: norm(a.english_representation),
           native_representation: (a.native_representation ?? '').trim(),
+          source_link: a.source_link?.trim() || undefined,
+          page_number: a.page_number?.trim() || undefined,
         })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
         updatedAt: now,
       };
+
+      // Scientific name is stored as entered (binomial nomenclature has its own
+      // casing rules, e.g. "Oryza sativa") — trim only, never title-case.
+      if (scientificName && scientificName.trim()) {
+        payload.scientificName = scientificName.trim();
+      }
 
       // Store status only for chemicals
       if (resolvedType === 'chemical') {
@@ -140,6 +149,23 @@ export class CropRepository implements ICropRepository {
       if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to create entry: ${error.message}`);
     }
+  }
+
+  /** Distinct crop-side types present in the collection — every value of `type`
+   *  except 'crop' and 'chemical' (which have their own dedicated tabs). Used to
+   *  surface each custom "Other" type as its own tab in the UI. */
+  async getCropSideTypes(): Promise<string[]> {
+    if (!this.CropCollection) await this.init();
+    const raw = await this.CropCollection.distinct('type', {
+      type: { $nin: ['crop', 'chemical'], $exists: true, $ne: null },
+    });
+    // 'crop'/'chemical'/'other' are reserved (their own / the catch-all tab), so a
+    // custom type using one of those names must not create a duplicate tab.
+    const reserved = new Set(['crop', 'chemical', 'other']);
+    return (raw as unknown[])
+      .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+      .map(t => t.trim())
+      .filter(t => !reserved.has(t.toLowerCase()));
   }
 
   // ─── READ (ALL) ────────────────────────────────────────────────────────────
@@ -175,8 +201,8 @@ export class CropRepository implements ICropRepository {
             {
               $and: [
                 { type: { $exists: true } },
-                { type: { $ne: 'crop' } },
-                { type: { $ne: 'chemical' } },
+                // Exclude every known/first-class type so "Other" holds only custom types.
+                { type: { $nin: [...ALLOWED_CROP_TYPES] } },
               ],
             },
           ];
@@ -254,6 +280,8 @@ export class CropRepository implements ICropRepository {
       status?: string;
       type?: CropType;
       crops?: string[];
+      scientificName?: string | null;
+      imageUrl?: string | null;
     },
     updatedBy: string,
   ): Promise<ICrop | null> {
@@ -270,12 +298,24 @@ export class CropRepository implements ICropRepository {
         $set.type = updates.type;
       }
 
+      // Scientific name: an empty/blank value clears it (stored as null); otherwise
+      // store the trimmed value as entered (never title-cased).
+      if (updates.scientificName !== undefined) {
+        const trimmed = (updates.scientificName ?? '').trim();
+        $set.scientificName = trimmed.length ? trimmed : null;
+      }
+
       if (updates.status !== undefined) {
         $set.status = updates.status;
       }
 
       if (updates.crops !== undefined) {
         $set.crops = updates.crops;
+      }
+
+      // Image URL: a null/empty value clears it; otherwise store the public URL.
+      if (updates.imageUrl !== undefined) {
+        $set.imageUrl = updates.imageUrl ? updates.imageUrl : null;
       }
 
       // ── Alias conflict check ──────────────────────────────────────────────
@@ -299,6 +339,8 @@ export class CropRepository implements ICropRepository {
             region: norm(a.region),
             english_representation: norm(a.english_representation),
             native_representation: (a.native_representation ?? '').trim(),
+            source_link: a.source_link?.trim() || undefined,
+            page_number: a.page_number?.trim() || undefined,
           };
         });
 

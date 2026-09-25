@@ -284,6 +284,7 @@ def build_mandi_unavailable_content(
     reason: str,
     crop_name: str,
     mandi_name: str,
+    is_district: bool = False,
 ) -> str:
     """Return a localized mandi-unavailable reply and testing disclaimer.
 
@@ -291,12 +292,26 @@ def build_mandi_unavailable_content(
     supplies the resolved crop and mandi/locality, so this path never asks an
     LLM to translate or classify a failed dynamic-price response.
     """
+    clean_name = str(mandi_name).strip()
     if reason == "crop_price_unavailable":
         body = get_crop_price_unavailable_reply(script_language, vocal_language)
-        body = body.replace("[Crop Name]", crop_name).replace("[Mandi Name]", mandi_name)
+        body = body.replace("[Crop Name]", crop_name)
+        if is_district or clean_name.lower().endswith("district"):
+            dist_label = clean_name if clean_name.lower().endswith("district") else f"{clean_name} district"
+            body = body.replace("[Mandi Name] mandi", dist_label).replace("[Mandi Name]", dist_label)
+        elif clean_name.lower().endswith("mandi"):
+            body = body.replace("[Mandi Name] mandi", clean_name).replace("[Mandi Name]", clean_name)
+        else:
+            body = body.replace("[Mandi Name]", clean_name)
     elif reason == "mandi_unavailable":
         body = get_mandi_unavailable_reply(script_language, vocal_language)
-        body = body.replace("[Mandi Name]", mandi_name)
+        if is_district or clean_name.lower().endswith("district"):
+            dist_label = clean_name if clean_name.lower().endswith("district") else f"{clean_name} district"
+            body = body.replace("[Mandi Name] mandi", dist_label).replace("[Mandi Name]", dist_label)
+        elif clean_name.lower().endswith("mandi"):
+            body = body.replace("[Mandi Name] mandi", clean_name).replace("[Mandi Name]", clean_name)
+        else:
+            body = body.replace("[Mandi Name]", clean_name)
     else:
         raise ValueError(f"Unsupported mandi unavailable reason: {reason}")
 

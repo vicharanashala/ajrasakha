@@ -45,9 +45,11 @@ const qs = new QuestionService();
 export const FeedbackReviewTimeline = ({
   questionId,
   canManage = false,
+  initialOpen = false,
 }: {
   questionId: string;
   canManage?: boolean;
+  initialOpen?: boolean;
 }) => {
   const queryClient = useQueryClient();
 
@@ -62,7 +64,7 @@ export const FeedbackReviewTimeline = ({
   const autoOn = timeline?.autoAllocateFeedback === true;
   const hasOpenRound = !!timeline?.reviews.some((r) => !r.finishedAt);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");

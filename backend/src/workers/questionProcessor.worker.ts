@@ -180,6 +180,15 @@ const {checkDuplicateQuestionHelper} =
       const questionText = (low.question || '').toString().trim();
       if (!questionText) {
         console.warn('⚠️ Skipping question with empty text');
+        processed++;
+        errors.push({
+          message: 'Row skipped: empty question text',
+          row: qRaw,
+        });
+        parentPort?.postMessage({
+          processed: 1,
+          error: { message: 'Row skipped: empty question text' },
+        });
         continue;
       }
 
@@ -187,7 +196,7 @@ const {checkDuplicateQuestionHelper} =
 
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
       let textEmbedding = [];
-      let aiInitialAnswer = qRaw.aiInitialAnswer || '';
+      let aiInitialAnswer = (low.aiinitialanswer || qRaw.aiInitialAnswer || '').toString().trim();
 
       if (ENABLE_AI_SERVER) {
         const {embedding} = await aiService.getEmbedding(questionText);

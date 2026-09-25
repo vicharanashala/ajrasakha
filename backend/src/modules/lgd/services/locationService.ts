@@ -9,6 +9,7 @@ import type {
   ILocationBlock,
   ILocationVillage,
   IKvk,
+  IKvkDirectoryEntry,
   IKvkSyncResult,
   IAuditActor,
   ILocationAudit,

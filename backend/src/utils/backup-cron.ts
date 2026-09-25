@@ -34,8 +34,11 @@ const getAllDatabases = async (mongoUri: string) => {
     const result = await admin.listDatabases();
 
     await client.close();
+    // Return the REAL database names — these are used as the mongodump/mongoexport
+    // `--db` target, so they must match what actually exists in the cluster. The
+    // display rename (agriai → ajrasakha) is applied only to the output zip filename.
     return result.databases
-      .map(db => db.name === 'agriai' ? 'ajrasakha' : db.name)
+      .map(db => db.name)
       .filter(name => !['admin', 'local', 'config'].includes(name));
   } finally {
     await client.close();
@@ -66,6 +69,23 @@ const doesBackupExist = async (
 
 export const createClusterBackup = async (mongoUri: string) => {
   try {
+    // Fail fast with a clear message when the connection string is missing. Without this,
+    // `new MongoClient(null)` throws the cryptic "Cannot read properties of null (reading
+    // 'startsWith')" from the driver's URI parser — which is what a missing DB_URL env var
+    // on the backup Cloud Run Job produces.
+    if (!mongoUri || typeof mongoUri !== 'string') {
+      throw new Error(
+        'DB_URL is not set for the backup job — the MongoDB connection string is missing. ' +
+          'Set DB_URL on the backup-db Cloud Run Job environment.',
+      );
+    }
+    if (!appConfig.GCP_BACKUP_BUCKET) {
+      throw new Error(
+        'GCP_BACKUP_BUCKET is not set for the backup job — cannot upload backups. ' +
+          'Set GCP_BACKUP_BUCKET on the backup-db Cloud Run Job environment.',
+      );
+    }
+
     const timestamp = getTimestamp();
 
     // No args: GCS client uses Application Default Credentials.
@@ -86,7 +106,10 @@ export const createClusterBackup = async (mongoUri: string) => {
       try {
         console.log(`\n➡️ Processing DB: ${dbName}`);
 
-        const zipFileName = `${dbName}__${timestamp}.zip`;
+        // Real DB name (dbName) is used everywhere for dump/export; only the output
+        // filename uses the display name (agriai → ajrasakha).
+        const displayName = dbName === 'agriai' ? 'ajrasakha' : dbName;
+        const zipFileName = `${displayName}__${timestamp}.zip`;
 
         // Skip if already exists
         if (await doesBackupExist(bucket, zipFileName)) {
@@ -207,7 +230,8 @@ export const createClusterBackup = async (mongoUri: string) => {
     console.log('\n📊 Backup Summary:', results);
     results.forEach(r => {
       if (r.status === 'Already exists') {
-        r.publicUrl = `https://console.cloud.google.com/storage/browser/_details/${bucketName}/${r.db}__${timestamp}.zip`;
+        const displayName = r.db === 'agriai' ? 'ajrasakha' : r.db;
+        r.publicUrl = `https://console.cloud.google.com/storage/browser/_details/${bucketName}/${displayName}__${timestamp}.zip`;
       }
     });
     const hour = new Date().getHours();

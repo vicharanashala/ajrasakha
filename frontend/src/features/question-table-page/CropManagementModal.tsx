@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -30,14 +30,32 @@ import { ConfirmationModal } from "@/components/confirmation-modal";
 import { SampleCsvButton } from "./SampleCsvButton";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
+import { useGetCropEntryTypes } from "@/hooks/api/crop/useGetCropEntryTypes";
 import { CropService } from "@/hooks/services/cropService";
-import type { ICropAlias, ICropResponse, IBulkJobResult } from "@/hooks/services/cropService";
+import type { ICropAlias, ICropResponse, IBulkJobResult, CropUploadType } from "@/hooks/services/cropService";
 import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
+import { OrganizationBulkUploadModal } from "./OrganizationBulkUploadModal";
 
 const cropServiceForStatus = new CropService();
+import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
+import { useGetOrganizations } from "@/hooks/api/organization/useGetOrganizations";
+import { useCreateOrganization } from "@/hooks/api/organization/useCreateOrganization";
+import { useUpdateOrganization } from "@/hooks/api/organization/useUpdateOrganization";
+import { useDeleteOrganization } from "@/hooks/api/organization/useDeleteOrganization";
+import { Building2 } from "lucide-react";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 
-type EntryType = "crop" | "chemical" | "other";
+/** Static fallback for the crop-side categories under the "Other" tab, used until the
+ *  backend list (/crops/entry-types) loads. The live list drives the UI, so adding a
+ *  new category is a one-line backend change with no edit here. */
+const OTHER_TYPE_OPTIONS = ["weed", "pest", "disease"] as const;
+
+/** Display label for a category — Title-cased, works for any future type. */
+const labelOf = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : "");
+
+/** Reserved type names — each has its own dedicated/catch-all tab, so a custom
+ *  "Other" type may not reuse one (it would collide with those tabs). */
+const RESERVED_TYPES = ["crop", "chemical", "other"];
 
 type ICropAliasObject = ICropAlias;
 
@@ -74,6 +92,8 @@ const emptyAliasEntry = (): ICropAliasObject => ({
   region: "",
   english_representation: "",
   native_representation: "",
+  source_link: "",
+  page_number: "",
 });
 
 type CropManagementModalProps = {
@@ -256,6 +276,33 @@ const AliasEntryForm = ({
         </div>
       </div>
 
+      {/* Source Link and Page Number */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="space-y-1">
+          <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+            Source Link
+          </span>
+          <input
+            placeholder="e.g. https://agritech.tnau.ac.in/..."
+            value={entry.source_link}
+            onChange={(e) => setEntry((f) => ({ ...f, source_link: e.target.value }))}
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+            Page Number
+          </span>
+          <input
+            placeholder="e.g. 45"
+            value={entry.page_number}
+            onChange={(e) => setEntry((f) => ({ ...f, page_number: e.target.value }))}
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+          />
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2">
         {isEditing && (
           <Button
@@ -371,8 +418,8 @@ const StructuredAliasesTable = ({
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Language", "Region", "English", "Native", ""].map((h, i) => (
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Language", "Region", "English", "Native", "Source Link", "Page #", ""].map((h, i) => (
           <div
             key={i}
             className="px-3 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
@@ -386,7 +433,7 @@ const StructuredAliasesTable = ({
       {aliases.map((alias, i) => (
         <div
           key={i}
-          className={`grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
+          className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
             ${
               i < aliases.length - 1
                 ? "border-b border-gray-100 dark:border-gray-800/60"
@@ -426,6 +473,22 @@ const StructuredAliasesTable = ({
               value={alias.native_representation}
               className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
             />
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block" title={alias.source_link}>
+              {alias.source_link || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block">
+              {alias.page_number || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
           </div>
 
           <div className="flex items-center justify-center gap-0.5 pr-1">
@@ -477,6 +540,27 @@ const AliasManagerModal = ({
   );
   const [chemicalStatus, setChemicalStatus] = useState(crop.status ?? "");
   const [chemicalCrops, setChemicalCrops] = useState<string[]>(crop.crops ?? []);
+  const [scientificName, setScientificName] = useState(crop.scientificName ?? "");
+
+  // Image upload (crop entries only for now). `imageFile` = a newly picked file,
+  // `removeImage` = clear the existing one. Preview shows the pick, else the stored image.
+  const isCropType = (crop.type ?? "crop") === "crop";
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+
+  const handlePickImage = (file: File | null) => {
+    if (!file) return;
+    setImageFile(file);
+    setRemoveImage(false);
+    setImagePreview(URL.createObjectURL(file));
+  };
+  const handleClearImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setRemoveImage(true);
+  };
+  const shownImage = imagePreview ?? (removeImage ? null : crop.imageUrl ?? null);
 
   const { mutateAsync: updateCrop, isPending: isUpdating } = useUpdateCrop();
 
@@ -512,14 +596,22 @@ const AliasManagerModal = ({
   const handleSave = async () => {
     if (!crop._id) return;
     try {
-      const payload: { aliases: (ICropAliasObject | string)[]; status?: string; crops?: string[] } = {
+      const payload: { aliases: (ICropAliasObject | string)[]; status?: string; crops?: string[]; scientificName?: string } = {
         aliases: [...legacyAliases, ...structuredAliases],
       };
       if (isChemicalEntry) {
         payload.status = chemicalStatus;
         payload.crops = chemicalCrops;
+      } else {
+        // Send the trimmed value; an empty string clears the scientific name.
+        payload.scientificName = scientificName.trim();
       }
-      const res = await updateCrop({ cropId: crop._id, payload });
+      const res = await updateCrop({
+        cropId: crop._id,
+        payload,
+        image: isCropType ? imageFile : null,
+        removeImage: isCropType && removeImage,
+      });
       if (res?.success) {
         toast.success(`"${crop.name}" updated successfully!`);
         onClose();
@@ -572,6 +664,73 @@ const AliasManagerModal = ({
 
         {/* ── Body ───────────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+          {/* ── Scientific name — biological entries only (not chemicals) ── */}
+          {!isChemicalEntry && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Scientific Name
+                <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                  — optional
+                </span>
+              </p>
+              <Input
+                placeholder="e.g. Oryza sativa"
+                value={scientificName}
+                onChange={(e) => setScientificName(e.target.value)}
+                className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 italic"
+              />
+            </div>
+          )}
+
+          {/* ── Image — crop entries only ─────────────────────────────── */}
+          {isCropType && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Image
+                <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                  — optional
+                </span>
+              </p>
+              {shownImage ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={shownImage}
+                    alt={crop.name}
+                    className="h-16 w-16 rounded-md object-cover border border-gray-200 dark:border-gray-700"
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-primary cursor-pointer hover:underline">
+                      Replace
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleClearImage}
+                      className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline text-left"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex h-16 items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+                  />
+                  Click to upload an image
+                </label>
+              )}
+            </div>
+          )}
 
           {/* ── Chemical Status ───────────────────────────────────────── */}
           {isChemicalEntry && (
@@ -792,7 +951,10 @@ const AliasSection = ({
 };
 
 // -- Main Modal ----------------------------------------------------------------
-type ActiveTab = "crop" | "chemical" | "other";
+// A tab is "crop", "chemical", "organization", one of the backend categories
+// (weed/pest/disease/…), or "other" (custom types). Every non-chemical,
+// non-organization tab renders like crops.
+type ActiveTab = string;
 
 export const CropManagementModal = ({
   open,
@@ -800,98 +962,106 @@ export const CropManagementModal = ({
 }: CropManagementModalProps) => {
   // ── Add-form state ──────────────────────────────────────────────────────────
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
-  const [entryType, setEntryType] = useState<EntryType>("crop");
   const [newCropName, setNewCropName] = useState("");
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
   const [chemicalStatus, setChemicalStatus] = useState("");
   const [newChemicalCrops, setNewChemicalCrops] = useState<string[]>([]);
-  const [otherType, setOtherType] = useState("");
+  const [newScientificName, setNewScientificName] = useState("");
+  // Optional image for a new crop entry (crop tab only). Uploaded right after the crop is
+  // created, via the same update endpoint the edit form uses.
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
+  // Free-text type used on the "Other" tab (a custom category the user names).
+  const [customType, setCustomType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
   // ── Tab state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>("crop");
+  const isChemical = activeTab === "chemical";
+  const isOther = activeTab === "other";
+  // The type the add form / bulk upload targets: the tab itself, or the custom type on "Other".
+  const activeType = isOther ? customType.trim() : activeTab;
 
-  // ── Per-tab search / pagination ─────────────────────────────────────────────
-  const [cropSearchInput, setCropSearchInput] = useState("");
-  const [cropSearchQuery, setCropSearchQuery] = useState("");
-  const [cropPage, setCropPage] = useState(1);
-
-  const [chemSearchInput, setChemSearchInput] = useState("");
-  const [chemSearchQuery, setChemSearchQuery] = useState("");
-  const [chemPage, setChemPage] = useState(1);
-
-  const [otherSearchInput, setOtherSearchInput] = useState("");
-  const [otherSearchQuery, setOtherSearchQuery] = useState("");
-  const [otherPage, setOtherPage] = useState(1);
-
-  const cropDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const chemDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const otherDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Search / pagination for the active tab (only one tab shows at a time) ──────
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(12);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [cropLimit, setCropLimit] = useState(12);
-  const [chemLimit, setChemLimit] = useState(12);
-  const [otherLimit, setOtherLimit] = useState(12);
+  const [orgSearchInput, setOrgSearchInput] = useState("");
+  const [orgSearchQuery, setOrgSearchQuery] = useState("");
+  const [orgPage, setOrgPage] = useState(1);
+  const [orgLimit, setOrgLimit] = useState(12);
+  const orgDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleCropSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const [isOrgImportOpen, setIsOrgImportOpen] = useState(false);
+  const [isKvkImportOpen, setIsKvkImportOpen] = useState(false);
+  const { data: orgData, isLoading: isOrgLoading } = useGetOrganizations(orgSearchQuery, orgPage, orgLimit);
+  const { mutateAsync: createOrg } = useCreateOrganization();
+  const { mutateAsync: updateOrg } = useUpdateOrganization();
+  const { mutateAsync: deleteOrg } = useDeleteOrganization();
+
+  const handleOrgSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setCropSearchInput(value);
-    if (cropDebounce.current) clearTimeout(cropDebounce.current);
-    cropDebounce.current = setTimeout(() => { setCropSearchQuery(value); setCropPage(1); }, 350);
+    setOrgSearchInput(value);
+    if (orgDebounce.current) clearTimeout(orgDebounce.current);
+    orgDebounce.current = setTimeout(() => { setOrgSearchQuery(value); setOrgPage(1); }, 350);
   }, []);
 
-  const handleChemSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setChemSearchInput(value);
-    if (chemDebounce.current) clearTimeout(chemDebounce.current);
-    chemDebounce.current = setTimeout(() => { setChemSearchQuery(value); setChemPage(1); }, 350);
-  }, []);
+  const [orgState, setOrgState] = useState("");
+  const [orgDistrict, setOrgDistrict] = useState("");
+  const [orgAddress, setOrgAddress] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [orgType, setOrgType] = useState<"central" | "state" | "district" | "">("");
+  const { data: statesList } = useGetStates();
+  const selectedStateCode = statesList?.find(s => s.stateNameEnglish === orgState)?.stateCode;
+  const { data: districtsList } = useGetDistricts(selectedStateCode);
+  const [orgToDelete, setOrgToDelete] = useState<any | null>(null);
+  const [orgEditId, setOrgEditId] = useState<string | null>(null);
 
-  const handleOtherSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setOtherSearchInput(value);
-    if (otherDebounce.current) clearTimeout(otherDebounce.current);
-    otherDebounce.current = setTimeout(() => { setOtherSearchQuery(value); setOtherPage(1); }, 350);
+    setSearchInput(value);
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => { setSearchQuery(value); setPage(1); }, 350);
   }, []);
 
   // ── API calls ───────────────────────────────────────────────────────────────
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
+  const { mutateAsync: updateCrop, isPending: isUpdatingImage } = useUpdateCrop();
   const { mutateAsync: bulkUploadCrops, isPending: isBulkUploading } = useBulkUploadCrops();
 
-  const { data: cropTabData, isLoading: isCropTabLoading, isFetching: isCropTabFetching } = useGetAllCrops({
-    search: cropSearchQuery,
-    page: cropPage,
-    limit: cropLimit,
-    type: "crop",
+  // Backend categories drive the first-class tabs (falls back to the static list).
+  const { data: fetchedCategories } = useGetCropEntryTypes();
+  const rawCategories = fetchedCategories && fetchedCategories.length ? fetchedCategories : [...OTHER_TYPE_OPTIONS];
+  // Drop reserved names (crop/chemical/other have their own tabs) and dedupe
+  // case-insensitively, so "Other" never appears twice.
+  const categories = Array.from(
+    new Map(
+      rawCategories
+        .filter((c) => !RESERVED_TYPES.includes(c.trim().toLowerCase()))
+        .map((c) => [c.trim().toLowerCase(), c.trim()]),
+    ).values(),
+  );
+  // Tab order: Crop, Chemical, every category, then the custom "Other" bucket.
+  const tabs: string[] = ["crop", "chemical", ...categories, "other"];
+
+  // Data for whichever tab is active (crop / chemical / a category / other=custom types).
+  const { data: tabData, isLoading: isTabLoading, isFetching: isTabFetching } = useGetAllCrops({
+    search: searchQuery,
+    page,
+    limit,
+    type: activeTab,
   });
 
-  const { data: chemTabData, isLoading: isChemTabLoading, isFetching: isChemTabFetching } = useGetAllCrops({
-    search: chemSearchQuery,
-    page: chemPage,
-    limit: chemLimit,
-    type: "chemical",
-  });
+  // Crop options for the chemical "associated crops" multiselect.
+  const { data: allCropOptionsData } = useGetAllCrops({ type: "crop", page: 1, limit: 500 });
 
-  const { data: allCropOptionsData } = useGetAllCrops({
-    type: "crop",
-    page: 1,
-    limit: 500,
-  });
-
-  const { data: otherTabData, isLoading: isOtherTabLoading, isFetching: isOtherTabFetching } = useGetAllCrops({
-    search: otherSearchQuery,
-    page: otherPage,
-    limit: otherLimit,
-    type: "other",
-  });
-
-  const cropItems: ICropResponse[] = cropTabData?.crops || [];
-  const cropTotalPages = cropTabData?.totalPages ?? 1;
-  const chemItems: ICropResponse[] = chemTabData?.crops || [];
-  const chemTotalPages = chemTabData?.totalPages ?? 1;
-  const otherItems: ICropResponse[] = otherTabData?.crops || [];
-  const otherTotalPages = otherTabData?.totalPages ?? 1;
-  const allCropOptions: ICropResponse[] = allCropOptionsData?.crops || cropItems;
+  const items: ICropResponse[] = tabData?.crops || [];
+  const totalPages = tabData?.totalPages ?? 1;
+  const allCropOptions: ICropResponse[] = allCropOptionsData?.crops || items;
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const resetAddForm = () => {
@@ -899,44 +1069,76 @@ export const CropManagementModal = ({
     setNewAliases([]);
     setChemicalStatus("");
     setNewChemicalCrops([]);
-    setOtherType("");
-    setEntryType(activeTab);
+    setNewScientificName("");
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(null);
+    setNewImagePreview(null);
+    setCustomType("");
     setIsAddFormOpen(false);
+  };
+
+  const handlePickNewImage = (file: File | null) => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(file);
+    setNewImagePreview(file ? URL.createObjectURL(file) : null);
   };
 
   const resetAll = () => {
     resetAddForm();
     setActiveTab("crop");
-    setCropSearchInput(""); setCropSearchQuery(""); setCropPage(1); setCropLimit(12);
-    setChemSearchInput(""); setChemSearchQuery(""); setChemPage(1); setChemLimit(12);
-    setOtherSearchInput(""); setOtherSearchQuery(""); setOtherPage(1); setOtherLimit(12);
+    setSearchInput(""); setSearchQuery(""); setPage(1); setLimit(12);
   };
 
   const handleTabSwitch = (tab: ActiveTab) => {
     setActiveTab(tab);
-    setEntryType(tab === "other" ? "other" : tab);
     setIsAddFormOpen(false);
     setNewCropName("");
     setNewAliases([]);
     setChemicalStatus("");
     setNewChemicalCrops([]);
-    setOtherType("");
+    setNewScientificName("");
+    setCustomType("");
+    setSearchInput(""); setSearchQuery(""); setPage(1);
   };
 
-  const isSaving = isCreating;
+  const isSaving = isCreating || isUpdatingImage;
   const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
 
   const handleSave = async () => {
     const name = newCropName.trim();
     if (!name) return;
+    if (isOther) {
+      if (!customType.trim()) {
+        toast.error("Please enter a type name");
+        return;
+      }
+      if (RESERVED_TYPES.includes(customType.trim().toLowerCase())) {
+        toast.error(`"${customType.trim()}" is a reserved type name`);
+        return;
+      }
+    }
     try {
       const res = await createCrop({
         name,
-        type: entryType === "other" && otherType.trim() ? otherType.trim() : entryType,
-        ...(entryType === "chemical" ? { status: chemicalStatus, crops: newChemicalCrops } : {}),
+        type: activeType,
+        ...(isChemical ? { status: chemicalStatus, crops: newChemicalCrops } : {}),
+        // Scientific name applies to biological entries (crop/weed/pest/disease/custom), not chemicals.
+        ...(!isChemical && newScientificName.trim()
+          ? { scientificName: newScientificName.trim() }
+          : {}),
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
+        // Crops can carry an image: it's uploaded to GCS via the update endpoint right after
+        // the crop exists (create is JSON-only). A failed image upload doesn't fail the create.
+        const newId = res.data?._id;
+        if (activeTab === "crop" && newImageFile && newId) {
+          try {
+            await updateCrop({ cropId: newId, payload: {}, image: newImageFile });
+          } catch {
+            toast.error("Crop added, but the image upload failed. You can add it via edit.");
+          }
+        }
         toast.success(`"${name}" added successfully!`);
         resetAddForm();
       }
@@ -950,11 +1152,14 @@ export const CropManagementModal = ({
   // ── Bulk-upload results (shown once, downloadable, not stored) ──────────────
   const [bulkResults, setBulkResults] = useState<IBulkJobResult[]>([]);
   const [bulkResultsOpen, setBulkResultsOpen] = useState(false);
-  const [bulkResultsType, setBulkResultsType] = useState<"crop" | "chemical">("crop");
+  const [bulkResultsType, setBulkResultsType] = useState<CropUploadType>("crop");
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+  // Pending CSV awaiting the "are these <type>?" confirmation before it uploads.
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
 
   // Poll the job until it finishes, then surface the per-entry results modal.
-  const pollBulkJob = (jobId: string, type: "crop" | "chemical") => {
+  const pollBulkJob = (jobId: string, type: CropUploadType) => {
     const startedAt = Date.now();
     setIsProcessingBulk(true);
     const tick = async () => {
@@ -984,7 +1189,14 @@ export const CropManagementModal = ({
     tick();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Clear the pending file + reset the picker (used on cancel / after upload).
+  const resetPendingUpload = () => {
+    setPendingUploadFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Selecting a file validates it, then asks for confirmation of the type before uploading.
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -992,12 +1204,29 @@ export const CropManagementModal = ({
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    if (entryType !== "crop" && entryType !== "chemical") {
-      toast.error("Bulk upload is only supported for crop and chemical types");
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
+    // The upload carries the active tab's type; the "Other" tab needs a valid custom type first.
+    if (isOther) {
+      if (!customType.trim()) {
+        toast.error("Enter a type name before uploading");
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+      if (RESERVED_TYPES.includes(customType.trim().toLowerCase())) {
+        toast.error(`"${customType.trim()}" is a reserved type name`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
     }
-    const type = entryType as "crop" | "chemical";
+    // Hold the file and confirm the type before actually uploading.
+    setPendingUploadFile(file);
+    setConfirmUploadOpen(true);
+  };
+
+  // Runs the actual bulk upload for the confirmed pending file.
+  const runBulkUpload = async () => {
+    const file = pendingUploadFile;
+    if (!file) return;
+    const type = activeType as CropUploadType;
     try {
       const res = await bulkUploadCrops({ file, type });
       if (res?.success) {
@@ -1007,16 +1236,17 @@ export const CropManagementModal = ({
     } catch (err: any) {
       toast.error(err?.message || "Failed to upload CSV");
     } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setConfirmUploadOpen(false);
+      resetPendingUpload();
     }
   };
 
   // ── Table renderer for crops ────────────────────────────────────────────────
-  const renderCropTable = (items: ICropResponse[]) => (
+  const renderCropTable = (items: ICropResponse[], nameLabel = "Crop Name") => (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
       <div className="grid grid-cols-[48px_1fr_88px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", "Crop Name", "Aliases", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
+        {["Sl No", nameLabel, "Aliases", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
           <div
             key={i}
             className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 2 || i === 7 ? "text-center" : ""}`}
@@ -1048,6 +1278,14 @@ export const CropManagementModal = ({
               >
                 {item.name}
               </span>
+              {item.scientificName ? (
+                <span
+                  title={item.scientificName}
+                  className="text-[11px] italic text-gray-400 dark:text-gray-500 truncate block"
+                >
+                  {item.scientificName}
+                </span>
+              ) : null}
             </div>
             {/* Aliases Count */}
             <div className="px-3 py-2.5 text-center">
@@ -1222,110 +1460,6 @@ export const CropManagementModal = ({
     </div>
   );
 
-  // ── Table renderer for other entries ───────────────────────────────────────
-  const renderOtherTable = (items: ICropResponse[]) => (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-[48px_1fr_92px_88px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", "Name", "Sub-Type", "Aliases", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
-          <div
-            key={i}
-            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 3 || i === 8 ? "text-center" : ""}`}
-          >
-            {h}
-          </div>
-        ))}
-      </div>
-      {/* Rows */}
-      {items.map((item, index) => {
-        const id = item._id || item.name;
-        const aliasCount = (item.aliases || []).length;
-        const subType = item.type && item.type !== "other" ? item.type : "Other";
-        return (
-          <div
-            key={id}
-            className={`grid grid-cols-[48px_1fr_92px_88px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
-              index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
-            }`}
-          >
-            {/* Sl No */}
-            <div className="px-3 py-2.5 text-xs text-gray-400 dark:text-gray-500 font-medium">
-              {index + 1}
-            </div>
-            {/* Name */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.name}
-                className="text-sm font-semibold text-gray-900 dark:text-white truncate block"
-              >
-                {item.name}
-              </span>
-            </div>
-            {/* Sub-Type */}
-            <div className="px-3 py-2.5">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border leading-tight bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20 capitalize">
-                {subType}
-              </span>
-            </div>
-            {/* Aliases Count */}
-            <div className="px-3 py-2.5 text-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {aliasCount}
-              </span>
-            </div>
-            {/* Created At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.createdAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.createdAt)}
-              </span>
-            </div>
-            {/* Created By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.createdByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.createdByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Updated At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.updatedAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.updatedAt)}
-              </span>
-            </div>
-            {/* Updated By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.updatedByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.updatedByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Manage Aliases */}
-            <div className="px-3 py-2.5 flex items-center justify-center gap-0.5">
-              <CropAuditTrailModal crop={item} />
-              <button
-                className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all"
-                onClick={() => setAliasManagerCrop(item)}
-                title="Manage Aliases"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
@@ -1357,18 +1491,16 @@ export const CropManagementModal = ({
 
             <div className="flex items-center gap-2">
               <Button
+                type="button"
                 size="sm"
                 className={`h-8 text-xs gap-1.5 shadow-sm text-white transition-colors ${
-                  activeTab === "chemical"
+                  isChemical
                     ? "bg-purple-600 hover:bg-purple-700"
-                    : activeTab === "other"
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : "bg-amber-600 hover:bg-amber-700"
+                    : activeTab === "crop"
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : "bg-blue-600 hover:bg-blue-700"
                 }`}
-                onClick={() => {
-                  setEntryType(activeTab === "other" ? "other" : activeTab);
-                  setIsAddFormOpen(!isAddFormOpen);
-                }}
+                onClick={() => setIsAddFormOpen(!isAddFormOpen)}
               >
                 <Plus
                   className={`h-3.5 w-3.5 transition-transform duration-200 ${
@@ -1387,48 +1519,53 @@ export const CropManagementModal = ({
             </div>
           </div>
 
-          {/* Tab Bar */}
-          <div className="flex items-end gap-0 px-5 pt-3 pb-0 flex-shrink-0">
-            {/* Crops tab */}
-            <button
-              id="agritech-tab-crop"
-              onClick={() => handleTabSwitch("crop")}
-              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
-                activeTab === "crop"
+          {/* Tab Bar — Crop, Chemical, backend categories (weed/pest/disease/…), then Other */}
+          <div className="flex items-end gap-0 px-5 pt-3 pb-0 flex-shrink-0 overflow-x-auto">
+            {tabs.map((tab) => {
+              const active = activeTab === tab;
+              const isChem = tab === "chemical";
+              const isCropTab = tab === "crop";
+              const Icon = isChem ? FlaskConical : isCropTab ? Wheat : LayoutGrid;
+              const label = isChem ? "Chemicals" : isCropTab ? "Crops" : tab === "other" ? "Other" : labelOf(tab);
+              const activeCls = isChem
+                ? "border-b-purple-500 text-purple-700 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-500/5"
+                : isCropTab
                   ? "border-b-amber-500 text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-500/5"
-                  : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-              }`}
-            >
-              <Wheat className={`h-3.5 w-3.5 ${activeTab === "crop" ? "text-amber-600 dark:text-amber-400" : ""}`} />
-              Crops
-            </button>
+                  : "border-b-blue-500 text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-500/5";
+              const iconActiveColor = isChem
+                ? "text-purple-600 dark:text-purple-400"
+                : isCropTab
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-blue-600 dark:text-blue-400";
+              return (
+                <button
+                  key={tab}
+                  id={`agritech-tab-${tab}`}
+                  onClick={() => handleTabSwitch(tab)}
+                  className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none whitespace-nowrap ${
+                    active
+                      ? activeCls
+                      : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                  }`}
+                >
+                  <Icon className={`h-3.5 w-3.5 ${active ? iconActiveColor : ""}`} />
+                  {label}
+                </button>
+              );
+            })}
 
-            {/* Chemicals tab */}
+            {/* Organization tab */}
             <button
-              id="agritech-tab-chemical"
-              onClick={() => handleTabSwitch("chemical")}
-              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
-                activeTab === "chemical"
-                  ? "border-b-purple-500 text-purple-700 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-500/5"
+              id="agritech-tab-organization"
+              onClick={() => handleTabSwitch("organization" as any)}
+              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none whitespace-nowrap ${
+                activeTab === "organization"
+                  ? "border-b-emerald-500 text-emerald-700 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
                   : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
               }`}
             >
-              <FlaskConical className={`h-3.5 w-3.5 ${activeTab === "chemical" ? "text-purple-600 dark:text-purple-400" : ""}`} />
-              Chemicals
-            </button>
-
-            {/* Other tab */}
-            <button
-              id="agritech-tab-other"
-              onClick={() => handleTabSwitch("other")}
-              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
-                activeTab === "other"
-                  ? "border-b-blue-500 text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-500/5"
-                  : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-              }`}
-            >
-              <LayoutGrid className={`h-3.5 w-3.5 ${activeTab === "other" ? "text-blue-600 dark:text-blue-400" : ""}`} />
-              Other
+              <Building2 className={`h-3.5 w-3.5 ${activeTab === "organization" ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
+              Organization
             </button>
 
             {/* Rail fills remaining width */}
@@ -1439,77 +1576,46 @@ export const CropManagementModal = ({
           <div className="flex-1 overflow-y-auto min-h-0">
 
             {/* ── Add Form ────────────────────────────────────────────────── */}
-            {isAddFormOpen && (
+            {isAddFormOpen && activeTab !== "organization" && (
               <div className={`mx-5 mt-4 mb-3 p-4 rounded-xl border-l-[3px] space-y-3 ${
-                activeTab === "chemical"
+                isChemical
                   ? "border-l-purple-500 border border-purple-200/60 dark:border-purple-500/15 bg-purple-50/30 dark:bg-purple-500/[0.03]"
-                  : activeTab === "other"
-                  ? "border-l-blue-500 border border-blue-200/60 dark:border-blue-500/15 bg-blue-50/30 dark:bg-blue-500/[0.03]"
-                  : "border-l-amber-500 border border-amber-200/60 dark:border-amber-500/15 bg-amber-50/30 dark:bg-amber-500/[0.03]"
+                  : activeTab === "crop"
+                  ? "border-l-amber-500 border border-amber-200/60 dark:border-amber-500/15 bg-amber-50/30 dark:bg-amber-500/[0.03]"
+                  : "border-l-blue-500 border border-blue-200/60 dark:border-blue-500/15 bg-blue-50/30 dark:bg-blue-500/[0.03]"
               }`}>
 
-                {/* Type selector */}
-                <div>
-                  <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                    Type
-                  </label>
-                  <div className="flex gap-2">
-                    {(["crop", "chemical", "other"] as EntryType[]).map((t) => {
-                      const icons = {
-                        crop: <Wheat className="h-3.5 w-3.5" />,
-                        chemical: <FlaskConical className="h-3.5 w-3.5" />,
-                        other: <LayoutGrid className="h-3.5 w-3.5" />,
-                      };
-                      const labels = { crop: "Crop", chemical: "Chemical", other: "Other" };
-                      const isActive = entryType === t;
-                      const activeClass =
-                        t === "chemical" ? "bg-purple-600 text-white border-purple-600" :
-                        t === "crop" ? "bg-amber-600 text-white border-amber-600" :
-                        "bg-blue-600 text-white border-blue-600";
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus(""); setOtherType(""); }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            isActive
-                              ? activeClass
-                              : "bg-white dark:bg-[#141414] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-600/40"
-                          }`}
-                        >
-                          {icons[t]}
-                          {labels[t]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Other-only: specify type */}
-                {entryType === "other" && (
+                {/* Other-only: name the custom type */}
+                {isOther && (
                   <div>
                     <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                      Other Type
+                      Type Name
                       <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
-                        — e.g. Equipment, Fertilizer, Pest…
+                        — e.g. Fertilizer, Equipment
                       </span>
                     </label>
                     <Input
-                      placeholder="Specify what type of item this is"
-                      value={otherType}
-                      onChange={(e) => setOtherType(e.target.value)}
+                      placeholder="Enter a custom type"
+                      value={customType}
+                      onChange={(e) => setCustomType(e.target.value)}
                       className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
                     />
                   </div>
                 )}
 
-                {/* Name field — label changes by type */}
+                {/* Name field — label reflects the active tab */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                    {entryType === "crop" ? "Crop Name" : entryType === "chemical" ? "Chemical Name" : "Name"}
+                    {activeTab === "crop"
+                      ? "Crop Name"
+                      : isChemical
+                        ? "Chemical Name"
+                        : isOther
+                          ? `${labelOf(customType) || "Entry"} Name`
+                          : `${labelOf(activeTab)} Name`}
                   </label>
                   <Input
-                    placeholder={entryType === "crop" ? "Paddy" : entryType === "chemical" ? "Alachlor" : "Seed Drill"}
+                    placeholder={activeTab === "crop" ? "Paddy" : isChemical ? "Alachlor" : "Name"}
                     value={newCropName}
                     onChange={(e) => setNewCropName(e.target.value)}
                     className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
@@ -1517,8 +1623,75 @@ export const CropManagementModal = ({
                   />
                 </div>
 
+                {/* Scientific name — optional, for biological entries (not chemicals) */}
+                {!isChemical && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Scientific Name
+                      <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                        — optional, e.g. Oryza sativa
+                      </span>
+                    </label>
+                    <Input
+                      placeholder="e.g. Oryza sativa"
+                      value={newScientificName}
+                      onChange={(e) => setNewScientificName(e.target.value)}
+                      className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700 italic"
+                    />
+                  </div>
+                )}
+
+                {/* Image — optional, crop tab only (uploaded after the crop is created) */}
+                {activeTab === "crop" && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Image
+                      <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                        — optional
+                      </span>
+                    </label>
+                    {newImagePreview ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={newImagePreview}
+                          alt={newCropName || "New crop"}
+                          className="h-16 w-16 rounded-md object-cover border border-gray-200 dark:border-gray-700"
+                        />
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-xs font-medium text-primary cursor-pointer hover:underline">
+                            Replace
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handlePickNewImage(e.target.files?.[0] ?? null)}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handlePickNewImage(null)}
+                            className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline text-left"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex h-16 items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handlePickNewImage(e.target.files?.[0] ?? null)}
+                        />
+                        Add crop image
+                      </label>
+                    )}
+                  </div>
+                )}
+
                 {/* Chemical-only: status, crops */}
-                {entryType === "chemical" && (
+                {isChemical && (
                   <div className="space-y-3">
                     <div>
                       <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
@@ -1548,7 +1721,7 @@ export const CropManagementModal = ({
                 {/* Aliases — shown for all types */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                    {entryType === "chemical" ? "Trade Names" : "Aliases"}
+                    {isChemical ? "Trade Names" : "Aliases"}
                     <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
                       — optional, can add later
                     </span>
@@ -1556,10 +1729,18 @@ export const CropManagementModal = ({
                   <AliasSection
                     aliases={newAliases}
                     onAliasesChange={setNewAliases}
-                    isChemical={entryType === "chemical"}
-                    isOther={entryType === "other"}
+                    isChemical={isChemical}
+                    isOther={!isChemical && activeTab !== "crop"}
                   />
                 </div>
+
+                {/* Hint: on the Other tab, a type name is required before adding/uploading */}
+                {isOther && !customType.trim() && (
+                  <p className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    <Info className="h-3.5 w-3.5 flex-shrink-0" />
+                    Enter a type name above to enable adding and bulk upload.
+                  </p>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between pt-1">
@@ -1567,11 +1748,14 @@ export const CropManagementModal = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={(entryType !== "crop" && entryType !== "chemical") || isBulkUploading || isProcessingBulk}
+                      disabled={isBulkUploading || isProcessingBulk || (isOther && !customType.trim())}
+                      title={isOther && !customType.trim() ? "Enter a type name first" : undefined}
                       className={`h-8 text-xs gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        entryType === "chemical"
+                        isChemical
                           ? "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
-                          : "border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                          : activeTab === "crop"
+                            ? "border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                            : "border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"
                       }`}
                       onClick={handleBulkUploadClick}
                     >
@@ -1584,11 +1768,13 @@ export const CropManagementModal = ({
                         ? "Uploading..."
                         : isProcessingBulk
                           ? "Processing..."
-                          : entryType === "chemical"
+                          : isChemical
                             ? "Bulk Upload Chemicals"
-                            : "Bulk Upload Crops"}
+                            : activeTab === "crop"
+                              ? "Bulk Upload Crops"
+                              : `Bulk Upload ${isOther ? labelOf(customType) || "Entries" : labelOf(activeTab)}`}
                     </Button>
-                    <SampleCsvButton entryType={entryType} />
+                    <SampleCsvButton entryType={isChemical ? "chemical" : activeTab === "crop" ? "crop" : "other"} />
                   </div>
                   <input
                     ref={fileInputRef}
@@ -1600,11 +1786,13 @@ export const CropManagementModal = ({
                   <Button
                     size="sm"
                     onClick={() => setConfirmCreateOpen(true)}
-                    disabled={!newCropName.trim() || isSaving}
+                    disabled={!newCropName.trim() || isSaving || (isOther && !customType.trim())}
                     className={`h-8 text-xs text-white rounded-lg ${
-                      entryType === "chemical"
+                      isChemical
                         ? "bg-purple-600 hover:bg-purple-700"
-                        : "bg-amber-600 hover:bg-amber-700"
+                        : activeTab === "crop"
+                          ? "bg-amber-600 hover:bg-amber-700"
+                          : "bg-blue-600 hover:bg-blue-700"
                     }`}
                   >
                     {isSaving ? (
@@ -1613,146 +1801,246 @@ export const CropManagementModal = ({
                         Saving...
                       </>
                     ) : (
-                      `Save ${entryType === "crop" ? "Crop" : entryType === "chemical" ? "Chemical" : "Entry"}`
+                      `Save ${activeTab === "crop" ? "Crop" : isChemical ? "Chemical" : isOther ? labelOf(customType) || "Entry" : labelOf(activeTab)}`
                     )}
                   </Button>
                   <ConfirmationModal
                     open={confirmCreateOpen}
                     onOpenChange={setConfirmCreateOpen}
                     title={`Create "${newCropName.trim()}"?`}
-                    description={`Add this new ${entryType === "crop" ? "crop" : entryType === "chemical" ? "chemical" : "entry"} to Agri Tech Management.`}
+                    description={`Add this new ${activeTab === "crop" ? "crop" : isChemical ? "chemical" : (activeType || "entry")} to Agri Tech Management.`}
                     confirmText="Create"
                     isLoading={isSaving}
                     onConfirm={handleSave}
+                  />
+                  {/* Confirm the entry type before a bulk CSV upload runs. */}
+                  <ConfirmationModal
+                    open={confirmUploadOpen}
+                    onOpenChange={(v) => {
+                      setConfirmUploadOpen(v);
+                      if (!v) resetPendingUpload();
+                    }}
+                    title={`Are you sure these are ${
+                      isChemical ? "Chemicals" : activeTab === "crop" ? "Crops" : labelOf(activeType || activeTab)
+                    }?`}
+                    description={`This CSV will be uploaded as "${
+                      isChemical ? "Chemicals" : activeTab === "crop" ? "Crops" : labelOf(activeType || activeTab)
+                    }". Please make sure you upload the respective type only.`}
+                    confirmText="Yes, Upload"
+                    isLoading={isBulkUploading || isProcessingBulk}
+                    onConfirm={runBulkUpload}
                   />
                 </div>
               </div>
             )}
 
-            {/* ── CROPS TAB ──────────────────────────────────────────────────── */}
-            {activeTab === "crop" && (
+            {/* ── Active-tab content ─────────────────────────────────────────── */}
+            {activeTab !== "organization" && (isOther ? (
+              /* "Other" is where a NEW custom type is created; each type then gets its own tab. */
+              <div className="px-5 py-12 text-center">
+                <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Add a new type here
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-sm mx-auto">
+                  Use “AgriTech Item” to name a new type and add or bulk-upload its data.
+                  Each type you add appears as its own tab beside Crops.
+                </p>
+              </div>
+            ) : (
               <>
                 <div className="px-5 pt-3 pb-1">
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                     <Input
-                      id="agritech-crop-search"
-                      placeholder="Search crops..."
-                      value={cropSearchInput}
-                      onChange={handleCropSearchChange}
+                      id="agritech-search"
+                      placeholder={isChemical ? "Search chemicals..." : activeTab === "crop" ? "Search crops..." : `Search ${labelOf(activeTab).toLowerCase()}...`}
+                      value={searchInput}
+                      onChange={handleSearchChange}
                       className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
                     />
-                    {isCropTabFetching && !isCropTabLoading && (
-                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
-                    )}
-                  </div>
-                </div>
-
-            {/* ── Crop List ──────────────────────────────────────────────── */}
-                <div className="px-5 py-3">
-                  {isCropTabLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-5 w-5 animate-spin text-amber-400" />
-                    </div>
-                  ) : cropItems.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                      <p className="text-sm text-gray-400 dark:text-gray-500">
-                        {cropSearchQuery ? `No crops matching "${cropSearchQuery}"` : "No crops added yet"}
-                      </p>
-                    </div>
-                  ) : (
-                    renderCropTable(cropItems)
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ── CHEMICALS TAB ──────────────────────────────────────────────── */}
-            {activeTab === "chemical" && (
-              <>
-                <div className="px-5 pt-3 pb-1">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                    <Input
-                      id="agritech-chemical-search"
-                      placeholder="Search chemicals..."
-                      value={chemSearchInput}
-                      onChange={handleChemSearchChange}
-                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
-                    />
-                    {isChemTabFetching && !isChemTabLoading && (
+                    {isTabFetching && !isTabLoading && (
                       <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
                     )}
                   </div>
                 </div>
 
                 <div className="px-5 py-3">
-                  {isChemTabLoading ? (
+                  {isTabLoading ? (
                     <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
+                      <Loader2 className={`h-5 w-5 animate-spin ${isChemical ? "text-purple-400" : activeTab === "crop" ? "text-amber-400" : "text-blue-400"}`} />
                     </div>
-                  ) : chemItems.length === 0 ? (
+                  ) : items.length === 0 ? (
                     <div className="text-center py-12">
-                      <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      {isChemical ? (
+                        <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      ) : activeTab === "crop" ? (
+                        <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      ) : (
+                        <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      )}
                       <p className="text-sm text-gray-400 dark:text-gray-500">
-                        {chemSearchQuery ? `No chemicals matching "${chemSearchQuery}"` : "No chemicals added yet"}
+                        {searchQuery
+                          ? `No entries matching "${searchQuery}"`
+                          : `No ${isChemical ? "chemicals" : activeTab === "crop" ? "crops" : labelOf(activeTab).toLowerCase()} added yet`}
                       </p>
                     </div>
+                  ) : isChemical ? (
+                    renderChemicalTable(items)
                   ) : (
-                    renderChemicalTable(chemItems)
+                    renderCropTable(items, activeTab === "crop" ? "Crop Name" : `${labelOf(activeTab)} Name`)
                   )}
                 </div>
               </>
-            )}
-
-            {/* ── OTHER TAB ──────────────────────────────────────────────────── */}
-            {activeTab === "other" && (
+            ))}
+            {/* 🏢 ORGANIZATIONS TAB */}
+            {activeTab === "organization" && (
               <>
                 <div className="px-5 pt-3 pb-1">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                    <Input
-                      id="agritech-other-search"
-                      placeholder="Search other entries..."
-                      value={otherSearchInput}
-                      onChange={handleOtherSearchChange}
-                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
-                    />
-                    {isOtherTabFetching && !isOtherTabLoading && (
-                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      <Input
+                        placeholder="Search organizations..."
+                        value={orgSearchInput}
+                        onChange={handleOrgSearchChange}
+                        className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
+                      />
+                      {isOrgLoading && (
+                        <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsOrgImportOpen(true)}
+                      className="h-8 text-xs shrink-0"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Import
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsKvkImportOpen(true)}
+                      className="h-8 text-xs shrink-0"
+                    >
+                      <Building2 className="h-3.5 w-3.5" />
+                      Fetch KVKs
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 font-semibold text-xs text-gray-500">
+                    <div>Organization Name</div>
+                    <div>Type</div>
+                    <div>State</div>
+                    <div>District</div>
+                    <div>Address</div>
+                    <div className="text-right">Actions</div>
+                  </div>
+                  
+                  {isAddFormOpen && (
+                    <div className="mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-emerald-500 border border-emerald-200/60 dark:border-emerald-500/15 bg-emerald-50/30 dark:bg-emerald-500/[0.03]">
+                      <div className="flex flex-col gap-3">
+                        <div className="grid grid-cols-[2fr_1fr] gap-3">
+                          <Input placeholder="Organization Name *" value={orgName} onChange={(e) => setOrgName(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                          <Select value={orgType || undefined} onValueChange={(v: any) => setOrgType(v)}>
+                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-[#1a1a1a]">
+                              <SelectValue placeholder="Type *" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="central" className="text-xs">Central</SelectItem>
+                              <SelectItem value="state" className="text-xs">State</SelectItem>
+                              <SelectItem value="district" className="text-xs">District</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Select value={orgState || undefined} onValueChange={(v) => { setOrgState(v); setOrgDistrict(""); }}>
+                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-[#1a1a1a]">
+                              <SelectValue placeholder="State" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              {statesList?.map((s) => (
+                                <SelectItem key={s.stateCode} value={s.stateNameEnglish} className="text-xs">{s.stateNameEnglish}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select value={orgDistrict || undefined} onValueChange={(v) => setOrgDistrict(v)} disabled={!selectedStateCode}>
+                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-[#1a1a1a]">
+                              <SelectValue placeholder="District" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              {districtsList?.map((d) => (
+                                <SelectItem key={d.districtCode} value={d.districtNameEnglish} className="text-xs">{d.districtNameEnglish}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Input placeholder="Address" value={orgAddress} onChange={(e) => setOrgAddress(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                        
+                        <div className="flex justify-end gap-2 mt-2">
+                          <Button variant="outline" size="sm" onClick={() => { setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress(""); }} className="h-8 text-xs">Cancel</Button>
+                          <Button size="sm" onClick={async () => {
+                            if (!orgName || !orgState || !orgType) return toast.error("Name, Type and State are required");
+                            const payload = { org_name: orgName, type: orgType, state: orgState, district: orgDistrict, address: orgAddress };
+                            try {
+                                if (orgEditId) {
+                                  await updateOrg({ id: orgEditId, data: payload });
+                                } else {
+                                  await createOrg(payload);
+                                }
+                                setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress("");
+                            } catch (error) {}
+                          }} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">{orgEditId ? "Update" : "Add"}</Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-0 border rounded-xl overflow-hidden mt-3 dark:border-gray-800">
+                    {orgData?.organizations?.map((org: any, i: number) => (
+                      <div key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className={`grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 items-center p-3 text-xs transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""}`}>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{org.org_name}</div>
+                        <div className="text-gray-600 dark:text-gray-400 capitalize">{org.type || "-"}</div>
+                        <div className="text-gray-600 dark:text-gray-400">{org.state}</div>
+                        <div className="text-gray-600 dark:text-gray-400">{org.district || "-"}</div>
+                        <div className="text-gray-600 dark:text-gray-400 truncate" title={org.address}>{org.address || "-"}</div>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10" onClick={() => {
+                            setOrgEditId(typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id));
+                            setOrgName(org.org_name);
+                            setOrgType(org.type || "");
+                            setOrgState(org.state);
+                            setOrgDistrict(org.district || "");
+                            setOrgAddress(org.address || "");
+                            setIsAddFormOpen(true);
+                          }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10" onClick={() => setOrgToDelete(org)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {!isOrgLoading && orgData?.organizations?.length === 0 && (
+                      <div className="text-center py-8 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">No organizations found.</div>
                     )}
                   </div>
                 </div>
-
-                <div className="px-5 py-3">
-                  {isOtherTabLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
-                    </div>
-                  ) : otherItems.length === 0 ? (
-                    <div className="text-center py-12">
-                      <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                      <p className="text-sm text-gray-400 dark:text-gray-500">
-                        {otherSearchQuery ? `No entries matching "${otherSearchQuery}"` : "No other entries added yet"}
-                      </p>
-                    </div>
-                  ) : (
-                    renderOtherTable(otherItems)
-                  )}
-                </div>
               </>
             )}
+
           </div>
 
           {/* ── Pagination Footer (fixed inside modal) ──────────────────────── */}
-          {activeTab === "crop" && cropTotalPages > 1 && (
+          {!isOther && totalPages > 1 && (
             <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] px-4 py-2 flex items-center justify-end gap-2 flex-wrap">
               {/* Items per page */}
               <div className="relative">
                 <Select
-                  value={cropLimit.toString()}
-                  onValueChange={(v) => { setCropLimit(Number(v)); setCropPage(1); }}
+                  value={limit.toString()}
+                  onValueChange={(v) => { setLimit(Number(v)); setPage(1); }}
                 >
                   <SelectTrigger className="h-6 w-[62px] text-[11px] px-2 border-gray-200 dark:border-gray-700" size="sm">
                     <SelectValue />
@@ -1766,8 +2054,8 @@ export const CropManagementModal = ({
               </div>
               {/* Prev */}
               <button
-                onClick={() => setCropPage((p) => Math.max(1, p - 1))}
-                disabled={cropPage === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
                 className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
@@ -1775,8 +2063,8 @@ export const CropManagementModal = ({
               {/* Page numbers */}
               {(() => {
                 const MAX = 5;
-                let start = cropPage > MAX ? cropPage : 1;
-                let end = Math.min(start + MAX - 1, cropTotalPages);
+                let start = page > MAX ? page : 1;
+                let end = Math.min(start + MAX - 1, totalPages);
                 const pages = [];
                 for (let i = start; i <= end; i++) pages.push(i);
                 return (
@@ -1784,9 +2072,9 @@ export const CropManagementModal = ({
                     {pages.map((p) => (
                       <button
                         key={p}
-                        onClick={() => setCropPage(p)}
+                        onClick={() => setPage(p)}
                         className={`h-6 w-6 text-[11px] rounded border transition-colors ${
-                          p === cropPage
+                          p === page
                             ? "bg-emerald-500 border-emerald-500 text-white font-semibold"
                             : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
                         }`}
@@ -1794,9 +2082,9 @@ export const CropManagementModal = ({
                         {p}
                       </button>
                     ))}
-                    {end < cropTotalPages && (
+                    {end < totalPages && (
                       <button
-                        onClick={() => setCropPage(end + 1)}
+                        onClick={() => setPage(end + 1)}
                         className="h-6 w-6 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                       >
                         ...
@@ -1807,21 +2095,39 @@ export const CropManagementModal = ({
               })()}
               {/* Next */}
               <button
-                onClick={() => setCropPage((p) => Math.min(cropTotalPages, p + 1))}
-                disabled={cropPage === cropTotalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
                 className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Next
               </button>
             </div>
           )}
-          {activeTab === "chemical" && chemTotalPages > 1 && (
+          
+          <ConfirmationModal
+            open={!!orgToDelete}
+            onOpenChange={(isOpen) => !isOpen && setOrgToDelete(null)}
+            title={`Delete "${orgToDelete?.org_name}"?`}
+            description="Are you sure you want to delete this organization? This action cannot be undone."
+            confirmText="Delete"
+            type="delete"
+            onConfirm={async () => {
+              if (orgToDelete) {
+                try {
+                  const id = typeof orgToDelete._id === 'object' ? orgToDelete._id?.$oid : (orgToDelete._id || orgToDelete.id);
+                  await deleteOrg(id);
+                  setOrgToDelete(null);
+                } catch (e) {}
+              }
+            }}
+          />
+          {activeTab === "organization" && orgData?.totalPages > 1 && (
             <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] px-4 py-2 flex items-center justify-end gap-2 flex-wrap">
               {/* Items per page */}
               <div className="relative">
                 <Select
-                  value={chemLimit.toString()}
-                  onValueChange={(v) => { setChemLimit(Number(v)); setChemPage(1); }}
+                  value={orgLimit.toString()}
+                  onValueChange={(v) => { setOrgLimit(Number(v)); setOrgPage(1); }}
                 >
                   <SelectTrigger className="h-6 w-[62px] text-[11px] px-2 border-gray-200 dark:border-gray-700" size="sm">
                     <SelectValue />
@@ -1835,8 +2141,8 @@ export const CropManagementModal = ({
               </div>
               {/* Prev */}
               <button
-                onClick={() => setChemPage((p) => Math.max(1, p - 1))}
-                disabled={chemPage === 1}
+                onClick={() => setOrgPage((p) => Math.max(1, p - 1))}
+                disabled={orgPage === 1}
                 className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
@@ -1844,8 +2150,8 @@ export const CropManagementModal = ({
               {/* Page numbers */}
               {(() => {
                 const MAX = 5;
-                let start = chemPage > MAX ? chemPage : 1;
-                let end = Math.min(start + MAX - 1, chemTotalPages);
+                let start = orgPage > MAX ? orgPage : 1;
+                let end = Math.min(start + MAX - 1, orgData.totalPages);
                 const pages = [];
                 for (let i = start; i <= end; i++) pages.push(i);
                 return (
@@ -1853,9 +2159,9 @@ export const CropManagementModal = ({
                     {pages.map((p) => (
                       <button
                         key={p}
-                        onClick={() => setChemPage(p)}
+                        onClick={() => setOrgPage(p)}
                         className={`h-6 w-6 text-[11px] rounded border transition-colors ${
-                          p === chemPage
+                          p === orgPage
                             ? "bg-emerald-500 border-emerald-500 text-white font-semibold"
                             : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
                         }`}
@@ -1863,9 +2169,9 @@ export const CropManagementModal = ({
                         {p}
                       </button>
                     ))}
-                    {end < chemTotalPages && (
+                    {end < orgData.totalPages && (
                       <button
-                        onClick={() => setChemPage(end + 1)}
+                        onClick={() => setOrgPage(end + 1)}
                         className="h-6 w-6 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                       >
                         ...
@@ -1876,77 +2182,8 @@ export const CropManagementModal = ({
               })()}
               {/* Next */}
               <button
-                onClick={() => setChemPage((p) => Math.min(chemTotalPages, p + 1))}
-                disabled={chemPage === chemTotalPages}
-                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
-            </div>
-          )}
-          {activeTab === "other" && otherTotalPages > 1 && (
-            <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] px-4 py-2 flex items-center justify-end gap-2 flex-wrap">
-              {/* Items per page */}
-              <div className="relative">
-                <Select
-                  value={otherLimit.toString()}
-                  onValueChange={(v) => { setOtherLimit(Number(v)); setOtherPage(1); }}
-                >
-                  <SelectTrigger className="h-6 w-[62px] text-[11px] px-2 border-gray-200 dark:border-gray-700" size="sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[12, 25, 50, 100].map((v) => (
-                      <SelectItem key={v} value={v.toString()} className="text-xs">{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Prev */}
-              <button
-                onClick={() => setOtherPage((p) => Math.max(1, p - 1))}
-                disabled={otherPage === 1}
-                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              {/* Page numbers */}
-              {(() => {
-                const MAX = 5;
-                let start = otherPage > MAX ? otherPage : 1;
-                let end = Math.min(start + MAX - 1, otherTotalPages);
-                const pages = [];
-                for (let i = start; i <= end; i++) pages.push(i);
-                return (
-                  <>
-                    {pages.map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setOtherPage(p)}
-                        className={`h-6 w-6 text-[11px] rounded border transition-colors ${
-                          p === otherPage
-                            ? "bg-emerald-500 border-emerald-500 text-white font-semibold"
-                            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                    {end < otherTotalPages && (
-                      <button
-                        onClick={() => setOtherPage(end + 1)}
-                        className="h-6 w-6 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                      >
-                        ...
-                      </button>
-                    )}
-                  </>
-                );
-              })()}
-              {/* Next */}
-              <button
-                onClick={() => setOtherPage((p) => Math.min(otherTotalPages, p + 1))}
-                disabled={otherPage === otherTotalPages}
+                onClick={() => setOrgPage((p) => Math.min(orgData.totalPages, p + 1))}
+                disabled={orgPage === orgData.totalPages}
                 className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Next
@@ -1964,6 +2201,17 @@ export const CropManagementModal = ({
           onClose={() => setAliasManagerCrop(null)}
         />
       )}
+
+      <OrganizationBulkUploadModal
+        open={isOrgImportOpen}
+        onClose={() => setIsOrgImportOpen(false)}
+      />
+
+      <OrganizationBulkUploadModal
+        open={isKvkImportOpen}
+        onClose={() => setIsKvkImportOpen(false)}
+        source="kvk"
+      />
 
       <BulkResultsModal
         open={bulkResultsOpen}

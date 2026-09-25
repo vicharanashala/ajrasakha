@@ -10,6 +10,7 @@ import {
   IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import type { PaeAnalyticsRow } from '#root/modules/question/interfaces/IQuestionService.js';
 import {
   BadRequestError,
   ForbiddenError,
@@ -462,6 +463,8 @@ export class UserService extends BaseService {
     isVerified?: boolean;
     isSTF?: boolean;
     isTMU?: boolean;
+    /** When provided, a second "PAE Analytics" sheet is appended (one row per PAE). */
+    paeAnalytics?: PaeAnalyticsRow[];
   }): Promise<ArrayBuffer> {
     // Fetch every matching user (no pagination) via the same query the list uses.
     // 1_000_000 is an effective "no limit" cap — far above the total user count.
@@ -525,6 +528,27 @@ export class UserService extends BaseService {
       { header: 'Updated At', value: u => asIST(u.updatedAt) },
     ];
 
+    // When PAE analytics are provided (PAE role + "Get Analytics"), merge the per-PAE
+    // metrics onto the SAME sheet as extra columns, matched to each user by id — no separate
+    // sheet. Users without a match (shouldn't happen when filtered to PAE) get blanks.
+    if (opts.paeAnalytics && opts.paeAnalytics.length > 0) {
+      const analyticsById = new Map<string, PaeAnalyticsRow>(
+        opts.paeAnalytics.map(r => [r.id, r]),
+      );
+      const metric = (u: any, pick: (r: PaeAnalyticsRow) => number): number | '' => {
+        const r = analyticsById.get(u._id?.toString());
+        return r ? pick(r) : '';
+      };
+      columns.push(
+        { header: 'Assigned', value: u => metric(u, r => r.assigned) },
+        { header: 'Submitted', value: u => metric(u, r => r.submitted) },
+        { header: 'Pending', value: u => metric(u, r => r.pending) },
+        { header: 'Feedback Assigned', value: u => metric(u, r => r.feedbackAssigned) },
+        { header: 'Feedback Pending', value: u => metric(u, r => r.feedbackPending) },
+        { header: 'Feedback Completed', value: u => metric(u, r => r.feedbackCompleted) },
+      );
+    }
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Users');
     sheet.columns = columns.map(c => ({ header: c.header, key: c.header, width: 22 }));
@@ -578,12 +602,12 @@ export class UserService extends BaseService {
     filter: string,
     includeSelf = false,
     isTrainingUser?: boolean,
-    isAdmin?: boolean
+    canViewAllUsers?: boolean
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session,isTrainingUser,isAdmin);
+        const users = await this.userRepo.findAll(session,isTrainingUser,canViewAllUsers);
         // The caller is excluded by default: most manual-select flows are handing work
         // to someone else (re-routing an answer, reallocating a question). Gate keepers /
         // auditors assigning a question to themselves pass includeSelf.

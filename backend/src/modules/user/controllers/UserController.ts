@@ -60,6 +60,7 @@ import {
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotService } from '#root/modules/chatbot/interfaces/IChatbotService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { IQuestionService } from '#root/modules/question/interfaces/IQuestionService.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -77,6 +78,9 @@ export class UserController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: IQuestionService,
   ) { }
 
   @OpenAPI({
@@ -367,6 +371,11 @@ export class UserController {
       isVerified?: string;
       isSTF?: string;
       isTMU?: string;
+      /** When 'true' AND role is pae_expert, append a "PAE Analytics" sheet. */
+      getAnalytics?: string;
+      /** Optional IST date range (YYYY-MM-DD) for the PAE analytics. */
+      analyticsStartDate?: string;
+      analyticsEndDate?: string;
     },
     @Res() response: any,
   ) {
@@ -374,6 +383,20 @@ export class UserController {
     const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
     const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
     const isTMU = query.isTMU === 'true' ? true : query.isTMU === 'false' ? false : undefined;
+
+    // PAE analytics is only meaningful when the PAE role is selected. Build the per-PAE
+    // analytics rows only then; otherwise the export is the plain users sheet.
+    let paeAnalytics;
+    if (query.getAnalytics === 'true' && query.role === 'pae_expert') {
+      const toDate = (v?: string, endOfDay = false) =>
+        v
+          ? new Date(`${v}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+05:30`)
+          : undefined;
+      paeAnalytics = await this.questionService.getAllPaeAnalytics(
+        toDate(query.analyticsStartDate),
+        toDate(query.analyticsEndDate, true),
+      );
+    }
 
     const data = await this.userService.exportUsersToXlsx({
       search: query.search || '',
@@ -384,6 +407,7 @@ export class UserController {
       isVerified,
       isSTF,
       isTMU,
+      paeAnalytics,
     });
 
     response.setHeader(
@@ -430,6 +454,9 @@ export class UserController {
     } = query;
     const userId = user._id.toString();
     const isAdmin = user.role === 'admin';
+    const isGatekeeperOrAuditor = user.role === 'gate_keeper' || user.role === 'auditor';
+    // Admin, gate_keeper, and auditor can see all users (including training users)
+    const canViewAllUsers = isAdmin || isGatekeeperOrAuditor;
     const isTrainingUser = user.isTrainingUser === true;
     return await this.userService.getAllUsersforManualSelect(
       userId,
@@ -440,7 +467,7 @@ export class UserController {
       filter,
       includeSelf === true || includeSelf === 'true',
       isTrainingUser,
-      isAdmin
+      canViewAllUsers
     );
   }
 
@@ -492,10 +519,10 @@ export class UserController {
     // If isTrainingUser field doesn't exist in the collection, treat it as false (not true)
     const isTrainingUser = currentUser.isTrainingUser === true;
     const isAdmin = currentUser.role === 'admin';
-    
-   
+    const isGatekeeperOrAuditor = currentUser.role === 'gate_keeper' || currentUser.role === 'auditor';
+
     return users.filter(u => {
-      if (isAdmin) {
+      if (isAdmin || isGatekeeperOrAuditor) {
         return true;
       }
       return (u.isTrainingUser === true) === isTrainingUser;
