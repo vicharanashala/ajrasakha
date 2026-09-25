@@ -107,13 +107,19 @@ def _extract_primary_station(data: dict[str, Any], fallback_location: str = "Loc
     tw = data.get("weather_data", {}).get("today_weather") if isinstance(data.get("weather_data"), dict) else data.get("today_weather")
     if isinstance(tw, dict) and _is_annam_source(tw.get("data_source") or data.get("data_source")):
         st_name = tw.get("station") or fallback_location
+        dev_id = tw.get("station_code") or tw.get("DeviceId") or tw.get("Annam_ID")
+        if dev_id and "Annam AWS" not in str(st_name):
+            st_name = f"Annam AWS #{dev_id} - {st_name}"
         dist = tw.get("distance_to_station_km")
         return st_name, dist
 
     aws = data.get("nearest_live_aws_station")
     if isinstance(aws, dict) and aws.get("success") and _is_annam_source(aws.get("data_source")):
         aws_st = aws.get("station") if isinstance(aws.get("station"), dict) else {}
-        st_name = aws_st.get("name") or aws.get("name")
+        st_name = aws_st.get("name") or aws.get("name") or fallback_location
+        dev_id = aws_st.get("station_id") or aws_st.get("DeviceId") or aws.get("station_id") or aws.get("Annam_ID")
+        if dev_id and "Annam AWS" not in str(st_name):
+            st_name = f"Annam AWS #{dev_id} - {st_name}"
         dist = aws.get("distance_km")
         if st_name and (dist is None or float(dist) <= 10.0):
             return st_name, dist
@@ -304,9 +310,11 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         st_name, dist = _extract_primary_station(data, fallback_location=location)
 
         lines.append(f"Weather warnings & alerts — {location}")
-        if st_name and (st_name.lower() != location.lower() or dist is not None):
+        if st_name:
             dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
             lines.append(f"Observation station: {st_name}{dist_str}")
+        else:
+            lines.append(f"Notice: No active IMD weather station found within 50.0 km radius search range of {location}.")
         lines.append("")
 
         if "district_5day_warnings" in data:
@@ -431,9 +439,11 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         st_name, dist = _extract_primary_station(data, fallback_location=location)
 
         lines.append(f"Rainfall — {location}")
-        if st_name and (st_name.lower() != location.lower() or dist is not None):
+        if st_name:
             dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
             lines.append(f"Observation station: {st_name}{dist_str}")
+        else:
+            lines.append(f"Notice: No active IMD weather station found within 50.0 km radius search range of {location}.")
         lines.append("")
 
         # Direct rain chance indicator (only when an explicit forecast string is present)
@@ -519,13 +529,11 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         else:
             title = f"Today's weather — {location}"
 
-        if st_name and (st_name.lower() != location.lower() or dist is not None):
+        if st_name:
             dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
             st_header = f"Observation station: {st_name}{dist_str}"
-        elif not st_name:
-            st_header = f"Notice: No active IMD weather station found within 50.0 km radius search range of {location}."
         else:
-            st_header = None
+            st_header = f"Notice: No active IMD weather station found within 50.0 km radius search range of {location}."
 
         fc_list = None
         if is_today_current:
@@ -638,10 +646,10 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         st_name, dist = _extract_primary_station(data, fallback_location=location)
 
         lines.append(f"Temperature — {location}")
-        if st_name and (st_name.lower() != location.lower() or dist is not None):
+        if st_name:
             dist_str = f" (~{float(dist):.1f} km away)" if dist is not None else ""
             lines.append(f"Observation station: {st_name}{dist_str}")
-        elif not st_name:
+        else:
             lines.append(f"Notice: No active IMD weather station found within 50.0 km radius search range of {location}.")
 
         if st_tf and st_tf != "today":

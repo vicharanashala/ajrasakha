@@ -21,6 +21,9 @@ export class AiService {
   private _gdbServerUrl =
     'http://' + aiConfig.gdbServerIP + ':' + aiConfig.gdbServerPort;
 
+  private _minimaxServerUrl = 
+    'http://' + aiConfig.minimaxServerIP + ':' + aiConfig.minimaxServerPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -151,8 +154,9 @@ export class AiService {
     questionDoc: IQuestion
   ): Promise<{ question: string; answer: string }> {
     try {
-      const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
-
+      // const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
+      const fullUrl = `${this._minimaxServerUrl}/v1/chat/completions`
+      console.log("full url ",fullUrl)
       const systemPrompt = `
         You are an expert agricultural advisor helping farmers.
 
@@ -196,9 +200,11 @@ export class AiService {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${aiConfig.minimaxApiKey}`,
         },
         body: JSON.stringify({
-          model: "Qwen/Qwen3-30B-A3B",
+          // model: "Qwen/Qwen3-30B-A3B",
+          model: "MiniMaxAI/MiniMax-M2.7",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -207,7 +213,7 @@ export class AiService {
           max_tokens: 700,
         }),
       });
-
+      console.log("res[pmse ",response)
       if (!response.ok) {
         const errorText = await response.text();
         throw new InternalServerError(

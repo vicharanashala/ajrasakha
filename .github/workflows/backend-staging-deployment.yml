@@ -149,6 +149,9 @@ jobs:
             POP_DB_URL=${{ secrets.POP_DB_URL }}
             POP_DB_NAME=${{ secrets.POP_DB_NAME }}
             VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
+            MINIMAX_API=${{ secrets.MINIMAX_API }}
+            MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
+            MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────

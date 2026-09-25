@@ -687,6 +687,13 @@ export interface IQuestionRepository {
 
   findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findModeratorAssignedQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>
   findQuestionsWithOpenFeedbacks(
     requireAutoAllocate?: boolean,
   ): Promise<IQuestion[]>;
@@ -702,6 +709,13 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
   ): Promise<IQuestion[]>;
+  findUnassignedQuestionsForRolePaged(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>;
   findQuestionsForTatReport(
     from: Date,
     to: Date,
@@ -712,6 +726,12 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     statuses: QuestionStatus[],
   ): Promise<IQuestion[]>;
+  findQuestionsAssignedToRolePaged(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>;
   findLeakedRoleAssignments(
     assigneeField: 'gateKeeperId' | 'auditorId',
     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
