@@ -49,6 +49,7 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         icon: Info,
         fields: [
             { key: "testDate", label: "Test Date" },
+            { key: "testId", label: "Test ID (TL-005)" },
             { key: "typeOfQuestion", label: "Type of Question" },
             { key: "buildVersion", label: "Build / Version" },
             { key: "sprintCycle", label: "Sprint / Cycle" },

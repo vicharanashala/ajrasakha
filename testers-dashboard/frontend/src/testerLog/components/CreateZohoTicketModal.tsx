@@ -23,6 +23,7 @@ interface CreateZohoTicketModalProps {
         channelTested?: string;
         languageTested?: string;
         threadId?: string;
+        waThreadId?: string;
         buildVersion?: string;
         defectSeverity?: string;
         testerRemarks?: string;
@@ -215,7 +216,10 @@ export function CreateZohoTicketModal({
 
             // Auto-detect App Name from channel tested
             const ch = (initialData.channelTested || "").toLowerCase();
-            if (ch.includes("web")) {
+            const isCross = ch.includes("both") || ch.includes("cross");
+            if (isCross) {
+                setAppName("Cross-Platform Sync");
+            } else if (ch.includes("web")) {
                 setAppName("Web App");
             } else if (ch.includes("reviewer")) {
                 setAppName("Reviewer System");
@@ -227,13 +231,21 @@ export function CreateZohoTicketModal({
             setIssueReoccurredBefore(false);
             setDueDate("");
             const cat = initialData.questionCategory ? ` [${initialData.questionCategory}]` : "";
+            const prefix = isCross ? "[Cross-Platform" : "[QA Defect";
             const querySnippet = initialData.queryText
                 ? initialData.queryText.length > 60
                     ? initialData.queryText.slice(0, 60).trim() + "..."
                     : initialData.queryText.trim()
                 : "Defect observed during testing";
-            setSubject(`[QA Defect${cat}] ${querySnippet}`);
+            setSubject(`${prefix}${cat}] ${querySnippet}`);
 
+            // Build comprehensive structured description
+            const threadLines = isCross
+                ? [
+                    `• Web App Thread ID: ${initialData.threadId || "N/A"}`,
+                    `• WhatsApp Thread ID: ${initialData.waThreadId || "N/A"}`
+                ]
+                : [`• Thread ID: ${initialData.threadId || "N/A"}`];
             const descParts = [
                 "QA Defect Report",
                 "----------------",
@@ -245,7 +257,7 @@ export function CreateZohoTicketModal({
                 `• Channel: ${initialData.channelTested || "N/A"}`,
                 `• Language: ${initialData.languageTested || "N/A"}`,
                 `• Category: ${initialData.questionCategory || "N/A"}`,
-                `• Thread ID: ${initialData.threadId || "N/A"}`,
+                ...threadLines,
                 `• Build Version: ${initialData.buildVersion || "N/A"}`,
                 `• Defect Severity: ${initialData.defectSeverity || "N/A"}`,
                 `• Overall Test Status: ${initialData.overallTestStatus || "N/A"}`,

@@ -12,6 +12,7 @@ export interface TesterLogEntry {
 
     // Section 1: Basic Info
     testDate: string;
+    testId?: string;
     typeOfQuestion?: string;
     buildVersion?: string;
     sprintCycle?: string;
@@ -107,6 +108,23 @@ export interface TesterLogEntry {
     reviewerRemarks?: string;
     testerRemarks?: string;
     status?: string;
+
+    // Cross-Platform Dual-Channel Fields (Used when channelTested === 'Both')
+    webThreadId?: string;
+    waThreadId?: string;
+    waTimeQuestionAsked?: string;
+    waTimeAnswerReceived?: string;
+    waResponseTimeMins?: string;
+    waSlaStatus?: string;
+    waVoiceInputWorking?: string;
+    waVoiceOutputWorking?: string;
+    waVoiceInputQuality?: string;
+    waVoiceOutputQuality?: string;
+    waVoiceIssueDescription?: string;
+    waNotificationReceived?: string;
+    webOverallTestStatus?: string;
+    waOverallTestStatus?: string;
+    crossPlatformDiscrepancyNotes?: string;
 }
 
 export interface PaginatedTesterLogEntries {
@@ -301,6 +319,11 @@ export interface TesterLogSummaryResponse {
         inputWorking: number;
         inputIssues: number;
         outputWorking: number;
+    };
+    crossPlatformStats?: {
+        totalCrossPlatform: number;
+        matchedAnswers: number;
+        parityRate: number;
     };
     targetVsAchieved: TargetVsAchievedSummary;
 }

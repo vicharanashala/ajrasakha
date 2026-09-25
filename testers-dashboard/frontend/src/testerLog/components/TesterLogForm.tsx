@@ -3,13 +3,14 @@ import { useForm } from "react-hook-form";
 import { FormSection } from "./FormSection";
 import { TimeInput } from "./TimeInput";
 import { useTesterLogSubmit } from "../hooks/useTesterLogSubmit";
-import { Plus, ExternalLink } from "lucide-react";
+import { Plus, ExternalLink, Laptop, Smartphone } from "lucide-react";
 import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
 import type { ITesterLogEntry } from "../types";
 import {
     TYPE_OF_QUESTION_OPTIONS,
     isDynamicQuestionType,
+    isCrossPlatform,
     CHANNEL_OPTIONS,
     QUESTION_CATEGORY_OPTIONS,
     SLA_STATUS_OPTIONS,
@@ -333,7 +334,9 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const [
         testDate,
         typeOfQuestion,
+        channelTested,
         timeQuestionAsked, timeAnswerReceived,
+        waTimeQuestionAsked, waTimeAnswerReceived,
         authorAssignmentTime, authorCompletionTime,
         reviewer1AssignmentTime, reviewer1CompletionTime,
         reviewer2AssignmentTime, reviewer2CompletionTime,
@@ -341,10 +344,13 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         reviewer4AssignmentTime, reviewer4CompletionTime,
         reviewer5AssignmentTime, reviewer5CompletionTime,
         moderatorAssignmentTime, moderatorCompletionTime,
+        webOverallTestStatus, waOverallTestStatus,
     ] = watch([
         "testDate",
         "typeOfQuestion",
+        "channelTested",
         "timeQuestionAsked", "timeAnswerReceived",
+        "waTimeQuestionAsked", "waTimeAnswerReceived",
         "authorAssignmentTime", "authorCompletionTime",
         "reviewer1AssignmentTime", "reviewer1CompletionTime",
         "reviewer2AssignmentTime", "reviewer2CompletionTime",
@@ -352,11 +358,19 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         "reviewer4AssignmentTime", "reviewer4CompletionTime",
         "reviewer5AssignmentTime", "reviewer5CompletionTime",
         "moderatorAssignmentTime", "moderatorCompletionTime",
+        "webOverallTestStatus", "waOverallTestStatus",
     ]);
 
     const isDynamic = isDynamicQuestionType(typeOfQuestion);
+    const isCross = isCrossPlatform(channelTested);
 
     useEffect(() => { setValue("responseTimeMins", hmsDiff(timeQuestionAsked, timeAnswerReceived, testDate)); }, [timeQuestionAsked, timeAnswerReceived, testDate]);
+    useEffect(() => {
+        if (isCross) {
+            setValue("waResponseTimeMins", hmsDiff(waTimeQuestionAsked, waTimeAnswerReceived, testDate));
+        }
+    }, [waTimeQuestionAsked, waTimeAnswerReceived, testDate, isCross]);
+
     useEffect(() => { setValue("authorTatMins", hmsDiff(authorAssignmentTime, authorCompletionTime, testDate)); }, [authorAssignmentTime, authorCompletionTime, testDate]);
     useEffect(() => { setValue("review1TatMins", hmsDiff(reviewer1AssignmentTime, reviewer1CompletionTime, testDate)); }, [reviewer1AssignmentTime, reviewer1CompletionTime, testDate]);
     useEffect(() => { setValue("review2TatMins", hmsDiff(reviewer2AssignmentTime, reviewer2CompletionTime, testDate)); }, [reviewer2AssignmentTime, reviewer2CompletionTime, testDate]);
@@ -365,7 +379,25 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     useEffect(() => { setValue("review5TatMins", hmsDiff(reviewer5AssignmentTime, reviewer5CompletionTime, testDate)); }, [reviewer5AssignmentTime, reviewer5CompletionTime, testDate]);
     useEffect(() => { setValue("moderatorTatMins", hmsDiff(moderatorAssignmentTime, moderatorCompletionTime, testDate)); }, [moderatorAssignmentTime, moderatorCompletionTime, testDate]);
 
+    // Auto-synthesize Overall Test Status for Cross-Platform if both individual statuses are selected
+    useEffect(() => {
+        if (isCross && webOverallTestStatus && waOverallTestStatus) {
+            const w1 = webOverallTestStatus.toLowerCase();
+            const w2 = waOverallTestStatus.toLowerCase();
+            if (w1 === "pass" && w2 === "pass") {
+                setValue("overallTestStatus", "Pass");
+            } else if (w1 === "fail" && w2 === "fail") {
+                setValue("overallTestStatus", "Fail");
+            } else if (w1 === "na" && w2 === "na") {
+                setValue("overallTestStatus", "NA");
+            } else {
+                setValue("overallTestStatus", "Partial");
+            }
+        }
+    }, [webOverallTestStatus, waOverallTestStatus, isCross]);
+
     const responseTimeMins = watch("responseTimeMins");
+    const waResponseTimeMins = watch("waResponseTimeMins");
     const authorTatMins = watch("authorTatMins");
     const review1TatMins = watch("review1TatMins");
     const review2TatMins = watch("review2TatMins");
@@ -440,6 +472,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 <Field label="Tester Name">
                     <input type="text" className={inputClass + " bg-muted text-muted-foreground cursor-default"} value={testerName} readOnly />
                 </Field>
+                <TextInput label="Test ID (TL-005)" placeholder="e.g. TL-005-001" {...register("testId")} />
                 <SelectInput label="Type of Question" options={TYPE_OF_QUESTION_OPTIONS} {...register("typeOfQuestion")} />
                 <TextInput label="Build / Version" placeholder="e.g. 2.1.0" {...register("buildVersion")} />
                 <SelectInput label="Channel Tested" options={CHANNEL_OPTIONS} {...register("channelTested")} />
@@ -448,18 +481,59 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     value={languageTested}
                     onChange={val => setValue("languageTested", val)}
                 />
-                <TextInput label="Thread ID" placeholder="Thread ID" {...register("threadId")} />
+                {isCross ? (
+                    <>
+                        <TextInput label="Web App Thread / Session ID" placeholder="Web thread or session ID" {...register("threadId")} />
+                        <TextInput label="WhatsApp Thread / Phone Number" placeholder="WA thread ID or Phone Number" {...register("waThreadId")} />
+                    </>
+                ) : (
+                    <TextInput label="Thread ID" placeholder="Thread ID" {...register("threadId")} />
+                )}
                 <SelectInput label="Question Category" options={QUESTION_CATEGORY_OPTIONS} {...register("questionCategory")} />
                 <TextareaInput label="Query Text (Original)" placeholder="Enter the original query text..." {...register("queryText")} />
             </FormSection>
 
             {/* Section 2 */}
-            <FormSection title="2. Timing & SLA">
-                <TimeInput label="Time Question Asked" {...register("timeQuestionAsked")} />
-                <TimeInput label="Time Answer Received" {...register("timeAnswerReceived")} />
-                <TimeInput label="Response Time [Auto]" readOnly value={responseTimeMins ?? ""} onChange={() => {}} />
-                <SelectInput label="SLA Status" options={SLA_STATUS_OPTIONS} {...register("slaStatus")} />
-            </FormSection>
+            {isCross ? (
+                <FormSection title="2. Timing & SLA (Cross-Platform Execution)">
+                    <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Web App Block */}
+                        <div className="p-3.5 rounded-lg border border-blue-500/30 bg-blue-500/5 space-y-3">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+                                <Laptop className="h-4 w-4" />
+                                <span>Web App Timing</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <TimeInput label="Time Question Asked (Web)" {...register("timeQuestionAsked")} />
+                                <TimeInput label="Time Answer Received (Web)" {...register("timeAnswerReceived")} />
+                                <TimeInput label="Web Response Time [Auto]" readOnly value={responseTimeMins ?? ""} onChange={() => {}} />
+                                <SelectInput label="Web SLA Status" options={SLA_STATUS_OPTIONS} {...register("slaStatus")} />
+                            </div>
+                        </div>
+
+                        {/* WhatsApp Block */}
+                        <div className="p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-3">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                                <Smartphone className="h-4 w-4" />
+                                <span>WhatsApp Timing</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <TimeInput label="Time Question Asked (WA)" {...register("waTimeQuestionAsked")} />
+                                <TimeInput label="Time Answer Received (WA)" {...register("waTimeAnswerReceived")} />
+                                <TimeInput label="WhatsApp Response Time [Auto]" readOnly value={waResponseTimeMins ?? ""} onChange={() => {}} />
+                                <SelectInput label="WhatsApp SLA Status" options={SLA_STATUS_OPTIONS} {...register("waSlaStatus")} />
+                            </div>
+                        </div>
+                    </div>
+                </FormSection>
+            ) : (
+                <FormSection title="2. Timing & SLA">
+                    <TimeInput label="Time Question Asked" {...register("timeQuestionAsked")} />
+                    <TimeInput label="Time Answer Received" {...register("timeAnswerReceived")} />
+                    <TimeInput label="Response Time [Auto]" readOnly value={responseTimeMins ?? ""} onChange={() => {}} />
+                    <SelectInput label="SLA Status" options={SLA_STATUS_OPTIONS} {...register("slaStatus")} />
+                </FormSection>
+            )}
 
             {/* Section 3 */}
             <FormSection title="3. Question Quality">
@@ -531,30 +605,80 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             {/* Section 6 (or 5 if dynamic) */}
             <FormSection title={`${isDynamic ? 5 : 6}. Notifications & Voice`} defaultOpen={false}>
                 <SelectInput label="120-min Msg Shown to User?" options={MSG_120_OPTIONS} {...register("msg120MinShownToUser")} />
-                <SelectInput label="Notification Received?" options={NOTIFICATION_OPTIONS} {...register("notificationReceived")} />
+                {isCross ? (
+                    <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-3.5 rounded-lg border border-border bg-card space-y-3">
+                            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
+                                <Laptop className="h-3.5 w-3.5" /> Web App Channel
+                            </p>
+                            <SelectInput label="Web Notification Received?" options={NOTIFICATION_OPTIONS} {...register("notificationReceived")} />
+                            <SelectInput label="Web Voice Input Working?" options={NOTIFICATION_OPTIONS} {...register("voiceInputWorking")} />
+                            <SelectInput label="Web Voice Output Working?" options={NOTIFICATION_OPTIONS} {...register("voiceOutputWorking")} />
+                        </div>
+                        <div className="p-3.5 rounded-lg border border-border bg-card space-y-3">
+                            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
+                                <Smartphone className="h-3.5 w-3.5" /> WhatsApp Channel
+                            </p>
+                            <SelectInput label="WhatsApp Notification Received?" options={NOTIFICATION_OPTIONS} {...register("waNotificationReceived")} />
+                            <SelectInput label="WhatsApp Voice Input Working?" options={NOTIFICATION_OPTIONS} {...register("waVoiceInputWorking")} />
+                            <SelectInput label="WhatsApp Voice Output Working?" options={NOTIFICATION_OPTIONS} {...register("waVoiceOutputWorking")} />
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <SelectInput label="Notification Received?" options={NOTIFICATION_OPTIONS} {...register("notificationReceived")} />
+                        <SelectInput label="Voice Input Working?" options={NOTIFICATION_OPTIONS} {...register("voiceInputWorking")} />
+                        <SelectInput label="Voice Output Working?" options={NOTIFICATION_OPTIONS} {...register("voiceOutputWorking")} />
+                    </>
+                )}
                 <SelectInput label="Notification on Same Thread?" options={NOTIFICATION_OPTIONS} {...register("notificationOnSameThread")} />
                 <SelectInput label="Notification Linked Correct Q-ID?" options={NOTIFICATION_OPTIONS} {...register("notificationLinkedCorrectQId")} />
-                <SelectInput label="Voice Input Working?" options={NOTIFICATION_OPTIONS} {...register("voiceInputWorking")} />
-                <SelectInput label="Voice Output Working?" options={NOTIFICATION_OPTIONS} {...register("voiceOutputWorking")} />
                 <SelectInput label="Voice Input Quality" options={VOICE_QUALITY_OPTIONS} {...register("voiceInputQuality")} />
                 <SelectInput label="Voice Output Quality" options={VOICE_QUALITY_OPTIONS} {...register("voiceOutputQuality")} />
                 <TextInput label="Voice Issue Description" placeholder="Describe any voice issue..." {...register("voiceIssueDescription")} />
             </FormSection>
 
             {/* Section 7 (or 6 if dynamic) */}
-            <FormSection title={`${isDynamic ? 6 : 7}. Domain Checks`} defaultOpen={false}>
+            <FormSection title={`${isDynamic ? 6 : 7}. Domain Checks & Parity`} defaultOpen={false}>
+                {isCross && (
+                    <div className="sm:col-span-2 lg:col-span-3 p-3.5 rounded-lg border border-purple-500/30 bg-purple-500/5 mb-1 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                                Cross-Platform Parity & Consistency
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">Compare Web App vs. WhatsApp</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <SelectInput label="WhatsApp vs Web Answer Match?" options={YES_NO_PARTIAL_NA_OPTIONS} {...register("whatsappVsWebAnswerMatch")} />
+                            <SelectInput label="Q-ID Consistent Across Systems?" options={QID_CONSISTENT_OPTIONS} {...register("qIdConsistentAcrossSystems")} />
+                        </div>
+                        <TextInput label="Discrepancy Notes (if answers differ)" placeholder="e.g. WebApp provided detailed tables, WhatsApp returned summary text" {...register("crossPlatformDiscrepancyNotes")} />
+                    </div>
+                )}
                 <SelectInput label="Weather Q Answered Correctly?" options={YES_NO_PARTIAL_NA_OPTIONS} {...register("weatherQAnsweredCorrectly")} />
                 <SelectInput label="Mandi Price Q Correct?" options={YES_NO_PARTIAL_NA_OPTIONS} {...register("mandiPriceQCorrect")} />
                 <SelectInput label="Scheme Q Correct?" options={YES_NO_PARTIAL_NA_OPTIONS} {...register("schemeQCorrect")} />
                 <SelectInput label="Question Saved in DB?" options={DB_SAVE_OPTIONS} {...register("questionSavedInDb")} />
                 <SelectInput label="Answer Saved in DB?" options={DB_SAVE_OPTIONS} {...register("answerSavedInDb")} />
-                <SelectInput label="Q-ID Consistent Across Systems?" options={QID_CONSISTENT_OPTIONS} {...register("qIdConsistentAcrossSystems")} />
-                <SelectInput label="WhatsApp vs Web Answer Match?" options={YES_NO_PARTIAL_NA_OPTIONS} {...register("whatsappVsWebAnswerMatch")} />
+                {!isCross && (
+                    <>
+                        <SelectInput label="Q-ID Consistent Across Systems?" options={QID_CONSISTENT_OPTIONS} {...register("qIdConsistentAcrossSystems")} />
+                        <SelectInput label="WhatsApp vs Web Answer Match?" options={YES_NO_PARTIAL_NA_OPTIONS} {...register("whatsappVsWebAnswerMatch")} />
+                    </>
+                )}
             </FormSection>
 
             {/* Section 8 (or 7 if dynamic) */}
             <FormSection title={`${isDynamic ? 7 : 8}. Defects & Remarks`} defaultOpen={false}>
-                <SelectInput label="Overall Test Status" options={OVERALL_STATUS_OPTIONS} {...register("overallTestStatus")} />
+                {isCross ? (
+                    <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                        <SelectInput label="Web App Status" options={OVERALL_STATUS_OPTIONS} {...register("webOverallTestStatus")} />
+                        <SelectInput label="WhatsApp Status" options={OVERALL_STATUS_OPTIONS} {...register("waOverallTestStatus")} />
+                        <SelectInput label="Overall Synthesized Status" options={OVERALL_STATUS_OPTIONS} {...register("overallTestStatus")} />
+                    </div>
+                ) : (
+                    <SelectInput label="Overall Test Status" options={OVERALL_STATUS_OPTIONS} {...register("overallTestStatus")} />
+                )}
                 <SelectInput label="Defect Severity" options={DEFECT_SEVERITY_OPTIONS} {...register("defectSeverity")} />
                 <DefectIdBugRefInput
                     value={defectIdBugRef}
@@ -598,6 +722,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 channelTested: watch("channelTested"),
                 languageTested: watch("languageTested"),
                 threadId: watch("threadId"),
+                waThreadId: watch("waThreadId"),
                 buildVersion: watch("buildVersion"),
                 defectSeverity: watch("defectSeverity"),
                 testerRemarks: watch("testerRemarks"),

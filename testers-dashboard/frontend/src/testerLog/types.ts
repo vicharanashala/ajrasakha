@@ -8,6 +8,7 @@ export interface ITesterLogEntry {
     updatedAt?: string;
 
     testDate: string;
+    testId?: string;
     typeOfQuestion?: string;
     buildVersion?: string;
     sprintCycle?: string;
@@ -96,6 +97,23 @@ export interface ITesterLogEntry {
     reviewerRemarks?: string;
     testerRemarks?: string;
     status?: string;
+
+    // Cross-Platform Dual-Channel Fields (Used when channelTested === 'Both')
+    webThreadId?: string;
+    waThreadId?: string;
+    waTimeQuestionAsked?: string;
+    waTimeAnswerReceived?: string;
+    waResponseTimeMins?: string;
+    waSlaStatus?: string;
+    waVoiceInputWorking?: string;
+    waVoiceOutputWorking?: string;
+    waVoiceInputQuality?: string;
+    waVoiceOutputQuality?: string;
+    waVoiceIssueDescription?: string;
+    waNotificationReceived?: string;
+    webOverallTestStatus?: string;
+    waOverallTestStatus?: string;
+    crossPlatformDiscrepancyNotes?: string;
 }
 
 export interface IPaginatedTesterLogEntries {
@@ -262,6 +280,11 @@ export interface ITesterLogSummaryResponse {
         inputIssues: number;
         outputWorking: number;
     };
+    crossPlatformStats?: {
+        totalCrossPlatform: number;
+        matchedAnswers: number;
+        parityRate: number;
+    };
     targetVsAchieved?: ITargetVsAchievedSummary;
 }
 
@@ -284,7 +307,7 @@ export interface ITargetVsAchievedSummary {
 
 /** Dropdown option definitions reused by the form */
 export const TYPE_OF_QUESTION_OPTIONS = [
-    'Unique', 'GDB', 'Dynamic', 'Outreach',
+    'Unique', 'GDB', 'Outreach',
     'Weather Dynamic', 'Scheme Dynamic', 'Mandi Dynamic',
 ];
 
@@ -302,6 +325,12 @@ export function isDynamicQuestionType(type?: string): boolean {
         lower.includes('mandi') ||
         lower.includes('market')
     );
+}
+
+export function isCrossPlatform(channel?: string): boolean {
+    if (!channel) return false;
+    const lower = channel.trim().toLowerCase();
+    return lower === 'both' || lower.includes('cross');
 }
 
 export const CHANNEL_OPTIONS = ['WhatsApp', 'WebApp', 'Both'];

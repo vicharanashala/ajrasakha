@@ -66,6 +66,7 @@ interface TesterUserRecord {
 const EXPORT_COLUMNS: { key: keyof TesterLogEntry; header: string }[] = [
     { key: '_id', header: 'Test ID' },
     { key: 'testDate', header: 'Test Date' },
+    { key: 'testId', header: 'Test ID (TL-005)' },
     { key: 'testerName', header: 'Tester Name' },
     { key: 'typeOfQuestion', header: 'Type of Question' },
     { key: 'buildVersion', header: 'Build / Version' },
@@ -196,11 +197,17 @@ function computeHmsDiff(start?: string, end?: string, defaultDate?: string): str
     return `${hh}:${mm}:${ss}`;
 }
 
-// The [Auto] duration fields - always computed here from their start/end
-// pair, never taken from a request body (create or admin edit).
+// The [Auto] duration fields - computed here from their start/end pair
+// (create and admin edit). The TAT fields are never taken from a request body.
+//
+// The two response times keep an already-supplied value when their
+// timestamps can't produce one (e.g. an entry saved without both times), so
+// a submission's value - or, on an admin edit, the stored one - isn't wiped.
+// waResponseTimeMins is the WhatsApp half of a cross-platform ("Both") test.
 function computeDurations(e: Partial<TesterLogEntry>, testDate: string): Partial<TesterLogEntry> {
     return {
-        responseTimeMins: computeHmsDiff(e.timeQuestionAsked, e.timeAnswerReceived, testDate),
+        responseTimeMins: computeHmsDiff(e.timeQuestionAsked, e.timeAnswerReceived, testDate) || e.responseTimeMins || '',
+        waResponseTimeMins: computeHmsDiff(e.waTimeQuestionAsked, e.waTimeAnswerReceived, testDate) || e.waResponseTimeMins || '',
         authorTatMins: computeHmsDiff(e.authorAssignmentTime, e.authorCompletionTime, testDate),
         review1TatMins: computeHmsDiff(e.reviewer1AssignmentTime, e.reviewer1CompletionTime, testDate),
         review2TatMins: computeHmsDiff(e.reviewer2AssignmentTime, e.reviewer2CompletionTime, testDate),
@@ -711,6 +718,9 @@ export class TesterLogService implements ITesterLogService {
         let voiceInputIssues = 0;
         let voiceOutputWorking = 0;
 
+        let totalCrossPlatform = 0;
+        let matchedAnswers = 0;
+
         for (const entry of entries) {
             const overall = (entry.overallTestStatus || '').trim().toLowerCase();
             if (overall === 'pass') {
@@ -818,6 +828,15 @@ export class TesterLogService implements ITesterLogService {
 
             const vOut = (entry.voiceOutputWorking || '').trim().toLowerCase();
             if (vOut === 'yes') voiceOutputWorking++;
+
+            const ch = (entry.channelTested || '').trim().toLowerCase();
+            if (ch.includes('both') || ch.includes('cross')) {
+                totalCrossPlatform++;
+                const match = (entry.whatsappVsWebAnswerMatch || '').trim().toLowerCase();
+                if (match === 'yes' || match === 'match' || match === 'true') {
+                    matchedAnswers++;
+                }
+            }
         }
 
         const totalTests = entries.length;
@@ -887,12 +906,12 @@ export class TesterLogService implements ITesterLogService {
             }
 
             const ch = (entry.channelTested || '').trim().toLowerCase();
-            const isBoth = ch.includes('both');
+            const isBoth = ch.includes('both') || ch.includes('cross');
             const isWebApp = isBoth || ch.includes('web');
             const isWhatsApp = isBoth || ch.includes('whatsapp') || ch.includes('wa');
 
             if (targetType && categoryCounts[targetType]) {
-                categoryCounts[targetType].total++;
+                categoryCounts[targetType].total += isBoth ? 2 : 1;
                 if (isWebApp) categoryCounts[targetType].webApp++;
                 if (isWhatsApp) categoryCounts[targetType].whatsApp++;
             }
@@ -983,6 +1002,11 @@ export class TesterLogService implements ITesterLogService {
                 inputWorking: voiceInputWorking,
                 inputIssues: voiceInputIssues,
                 outputWorking: voiceOutputWorking,
+            },
+            crossPlatformStats: {
+                totalCrossPlatform,
+                matchedAnswers,
+                parityRate: totalCrossPlatform > 0 ? Math.round((matchedAnswers / totalCrossPlatform) * 1000) / 10 : 0,
             },
             targetVsAchieved,
         };
