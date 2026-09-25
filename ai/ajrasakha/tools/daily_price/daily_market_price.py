@@ -39,6 +39,8 @@ MAX_ACTIONS = int(os.getenv("MARKET_MAX_ACTIONS", "3"))
 # Safety timeout for Mongo reads (ms) — prevent MCP session hangs
 MONGO_MAX_TIME_MS = int(os.getenv("MARKET_MONGO_MAX_TIME_MS", 10000))
 
+ARRIVAL_AGMARKNET_NOTICE = "Data.gov.in does not provide arrival quantity for agmarknet"
+
 # Standardized / alternate state keys across collections (exact match only).
 # markets_commodities often uses "nct of delhi"; available_mandi uses "delhi".
 _STATE_SYNONYMS: dict[str, tuple[str, ...]] = {
@@ -1655,7 +1657,7 @@ def mandi_price_tool(
             for r in records
         ]
         stats = result.get("stats", {})
-        return {
+        resp = {
             "action":            "get_today_arrival",
             "arrival_records":   arrival_records,
             "total_arrival_qty": stats.get("overall", {}).get("total_arrival_qty"),
@@ -1663,6 +1665,10 @@ def mandi_price_tool(
             "resolution":        result.get("resolution"),
             "total_records_returned": len(arrival_records),
         }
+        if not arrival_records or any(r.get("arrival_quantity") is None for r in arrival_records):
+            resp["message"] = ARRIVAL_AGMARKNET_NOTICE
+            resp.setdefault("resolution", {})["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+        return resp
 
     # ======================================================================
     # ACTION 6: get_arrival_history
@@ -1696,7 +1702,7 @@ def mandi_price_tool(
             for r in records
         ]
         stats = result.get("stats", {})
-        return {
+        resp = {
             "action":            "get_arrival_history",
             "arrival_records":   arrival_records,
             "total_arrival_qty": stats.get("overall", {}).get("total_arrival_qty"),
@@ -1704,6 +1710,10 @@ def mandi_price_tool(
             "resolution":        result.get("resolution"),
             "total_records_returned": result.get("total_records_returned"),
         }
+        if not arrival_records or any(r.get("arrival_quantity") is None for r in arrival_records):
+            resp["message"] = ARRIVAL_AGMARKNET_NOTICE
+            resp.setdefault("resolution", {})["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+        return resp
 
     # ======================================================================
     # ACTION 7: get_extreme_arrival
@@ -1761,13 +1771,17 @@ def mandi_price_tool(
             reverse=descending,
         )
         label = "highest" if descending else "lowest"
-        return {
+        resp = {
             "action":              "get_extreme_arrival",
             "sort_order":          label,
             f"{label}_arrivals":   sorted_records[:5],
             "resolution":          result.get("resolution"),
             "total_records_analysed": len(sorted_records),
         }
+        if not sorted_records or any(r.get("arrival_quantity") is None for r in sorted_records[:5]):
+            resp["message"] = ARRIVAL_AGMARKNET_NOTICE
+            resp.setdefault("resolution", {})["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+        return resp
 
     # ======================================================================
     # ACTION 8: search_markets
@@ -2078,8 +2092,20 @@ def mandi_price_tool(
             merged_extreme = []
             for crop, res in results_by_crop.items():
                 if not res.get("error"):
-                    merged_extreme.extend(res.get("extreme_records") or [])
+                    recs = (
+                        res.get("highest_arrivals")
+                        or res.get("lowest_arrivals")
+                        or res.get("extreme_records")
+                        or []
+                    )
+                    merged_extreme.extend(recs)
+            order = next((res.get("sort_order") for res in results_by_crop.values() if res.get("sort_order")), "highest")
+            combined["sort_order"] = order
+            combined[f"{order}_arrivals"] = merged_extreme
             combined["extreme_records"] = merged_extreme
+            combined["total_records_analysed"] = sum(
+                res.get("total_records_analysed", 0) for res in results_by_crop.values() if not res.get("error")
+            )
 
         # 7. get_price_with_nearby
         elif action_name == "get_price_with_nearby":
@@ -2087,8 +2113,27 @@ def mandi_price_tool(
             nearby_recs = []
             for crop, res in results_by_crop.items():
                 if not res.get("error"):
-                    named_recs.extend(res.get("named_market_records") or [])
-                    nearby_recs.extend(res.get("nearby_market_records") or [])
+                    named_m = res.get("named_market") or {}
+                    if isinstance(named_m, dict):
+                        named_recs.extend(named_m.get("price_records") or [])
+                    nearby_m = res.get("nearby_markets") or {}
+                    if isinstance(nearby_m, dict):
+                        nearby_recs.extend(nearby_m.get("price_records") or [])
+
+            combined["named_market"] = {
+                "action": "get_today_price",
+                "price_records": named_recs,
+                "total_records_returned": len(named_recs),
+            }
+            if nearby_recs:
+                combined["nearby_markets"] = {
+                    "action": "nearby_markets_price",
+                    "price_records": nearby_recs,
+                    "total_records_returned": len(nearby_recs),
+                }
+            else:
+                combined["nearby_markets"] = None
+
             combined["named_market_records"] = named_recs
             combined["nearby_market_records"] = nearby_recs
 
@@ -2098,7 +2143,7 @@ def mandi_price_tool(
         for crop, res in results_by_crop.items():
             if res.get("error"):
                 warnings.append(f"{crop.title()}: {res.get('error')}")
-            notice = res.get("resolution", {}).get("latest_price_notice")
+            notice = res.get("resolution", {}).get("latest_price_notice") or (res.get("named_market") or {}).get("resolution", {}).get("latest_price_notice")
             if notice:
                 notices.append(f"[{crop.title()}]: {notice}")
 
@@ -2107,6 +2152,25 @@ def mandi_price_tool(
             combined_res_meta["latest_price_notices"] = notices
         if warnings:
             combined_res_meta["unavailable_commodities"] = warnings
+
+        # Arrival notice propagation for multi-crop
+        if action_name in ("get_today_arrival", "get_arrival_history", "get_extreme_arrival"):
+            arrival_recs = (
+                combined.get("arrival_records")
+                or combined.get("highest_arrivals")
+                or combined.get("lowest_arrivals")
+                or combined.get("extreme_records")
+                or []
+            )
+            has_arrival_msg = any(
+                res.get("message") == ARRIVAL_AGMARKNET_NOTICE
+                or (res.get("resolution") or {}).get("arrival_notice") == ARRIVAL_AGMARKNET_NOTICE
+                for res in results_by_crop.values()
+            )
+            if has_arrival_msg or not arrival_recs or any(r.get("arrival_quantity") is None for r in arrival_recs):
+                combined["message"] = ARRIVAL_AGMARKNET_NOTICE
+                combined_res_meta["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+
         if combined_res_meta:
             combined["resolution"] = combined_res_meta
 

@@ -1356,6 +1356,10 @@ Rules:
 - If the farmer named a specific mandi/APMC in the query or resolution.requested_market_name is set,
   answer ONLY for that mandi. Do NOT substitute other markets from the same state.
 - If the tool JSON has an "error" field, repeat that error message clearly (it already names crop and mandi when relevant).
+- If arrival quantity is requested and arrival quantity is not available (null/None in records), or if the tool JSON has message / arrival_notice stating "Data.gov.in does not provide arrival quantity for agmarknet":
+  Clearly state that Data.gov.in does not provide arrival quantity for agmarknet and arrival quantity is not available.
+  Do NOT output an opening header line like "[Commodity] arrival quantity in ...:".
+  Do NOT output a closing source line ("This information is fetched from...").
 - If records are limited, say so briefly.
 
 ACTION-SPECIFIC OUTPUT FORMATS:
@@ -1424,9 +1428,14 @@ ACTION-SPECIFIC OUTPUT FORMATS:
      Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z
 
 7. For get_today_arrival / get_arrival_history / get_extreme_arrival:
-- get_today_arrival: "[Commodity] arrival at [Market] on [Date]: Arrival: X tonnes"
-- get_arrival_history: "Here is the [Commodity] arrival history for [Market]:" followed by each date's arrival quantity.
-- get_extreme_arrival: "Here is the highest/lowest [Commodity] arrival recorded at [Market] on [Date]: Arrival: X tonnes"
+- If arrival quantity data IS available:
+  - get_today_arrival: "[Commodity] arrival at [Market] on [Date]: Arrival: X tonnes"
+  - get_arrival_history: "Here is the [Commodity] arrival history for [Market]:" followed by each date's arrival quantity.
+  - get_extreme_arrival: "Here is the highest/lowest [Commodity] arrival recorded at [Market] on [Date]: Arrival: X tonnes"
+- If arrival quantity data is NOT available or message is "Data.gov.in does not provide arrival quantity for agmarknet":
+  - State directly: "Data.gov.in does not provide arrival quantity for agmarknet. Therefore, the arrival quantity for [Commodity] in [Market/State] is not available."
+  - CRITICAL: Do NOT output any header line (e.g. do NOT output "[Commodity] arrival quantity in [State] on [Date]:").
+  - CRITICAL: Do NOT output the source attribution line ("This information is fetched from...").
 
 8. Composite response (get_price_with_nearby):
 - FIRST, show the named mandi's price from "named_market".
@@ -1437,6 +1446,7 @@ ACTION-SPECIFIC OUTPUT FORMATS:
 Closing line:
 - Put sources at the END only (never inline with prices):
   "This information is fetched from the following source: <source_system>." (or "sources: <source1>, <source2>.")
+- EXCEPTION: If arrival quantity was asked and arrival data is not available (Data.gov.in does not provide arrival quantity for agmarknet), do NOT include the source attribution line.
 - If tool JSON has an "error" field or no usable data, clearly tell the farmer that data is not available.
 - No markdown (** ##), no emojis, no disclaimers, no extra footnotes beyond the final source line.
 - Return ONLY the answer body.

@@ -1092,6 +1092,95 @@ def _build_tool_args(
     return args
 
 
+def _is_arrival_quantity_unavailable(payload: Any) -> bool:
+    """Return True if the query was for arrival data and arrival quantity is unavailable."""
+    if not isinstance(payload, dict):
+        return False
+
+    if "results" in payload and isinstance(payload["results"], dict):
+        actions = [v.get("action") for v in payload["results"].values() if isinstance(v, dict)]
+        if actions and all(a in ("get_today_arrival", "get_arrival_history", "get_extreme_arrival") for a in actions):
+            return all(_is_arrival_quantity_unavailable(v) for v in payload["results"].values() if isinstance(v, dict))
+
+    action = payload.get("action")
+    if action not in ("get_today_arrival", "get_arrival_history", "get_extreme_arrival"):
+        return False
+
+    msg = payload.get("message") or ""
+    res = payload.get("resolution") or {}
+    res_notice = res.get("arrival_notice") if isinstance(res, dict) else ""
+    if "does not provide arrival quantity" in str(msg).lower() or "does not provide arrival quantity" in str(res_notice).lower():
+        return True
+
+    records = (
+        payload.get("arrival_records")
+        or payload.get("highest_arrivals")
+        or payload.get("lowest_arrivals")
+        or payload.get("extreme_records")
+        or payload.get("price_records")
+        or []
+    )
+    if not records:
+        return True
+    return all(r.get("arrival_quantity") is None for r in records if isinstance(r, dict))
+
+
+def _clean_arrival_unavailable_answer(answer: str, payload: Any, *, crop: str | None = None) -> str:
+    """Strip leading header line and trailing source line when arrival quantity is unavailable."""
+    ans = (answer or "").strip()
+    if not ans or not _is_arrival_quantity_unavailable(payload):
+        return ans
+
+    # 1. Remove trailing source line
+    ans = re.sub(
+        r"\n*This information is fetched from the following source[^\n]*\.?",
+        "",
+        ans,
+        flags=re.IGNORECASE,
+    ).strip()
+    ans = re.sub(
+        r"\n*Source:\s*[^\n]+",
+        "",
+        ans,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    # 2. Strip leading header line (e.g. "[Commodity] arrival quantity in ...:")
+    def _is_header_line(line: str) -> bool:
+        line_clean = line.strip()
+        lower = line_clean.lower()
+        if lower.startswith("data.gov.in") or lower.startswith("the data.gov.in") or lower.startswith("note:"):
+            return False
+        if line_clean.endswith(":") and ("arrival" in lower or "arrivals" in lower):
+            return True
+        if not line_clean.endswith((".", "!", "?")) and ("arrival" in lower or "arrivals" in lower) and len(line_clean.split()) < 15:
+            return True
+        return False
+
+    lines = [ln.strip() for ln in ans.split("\n")]
+    if lines and _is_header_line(lines[0]):
+        lines = lines[1:]
+        while lines and not lines[0]:
+            lines = lines[1:]
+        ans = "\n".join(lines).strip()
+
+    # Ensure clear notice if not already present
+    if "data.gov.in" not in ans.lower() and "does not provide arrival quantity" not in ans.lower():
+        crops = payload.get("requested_commodities") if isinstance(payload, dict) else None
+        if crops and isinstance(crops, list):
+            commodity = " and ".join(c.title() for c in crops)
+        else:
+            commodity = (crop or (payload.get("commodity") if isinstance(payload, dict) else "") or "").title()
+        market = ((payload.get("market") if isinstance(payload, dict) else "") or "").title()
+        state = ((payload.get("state") if isinstance(payload, dict) else "") or "").title()
+        loc = market or state or ""
+        loc_str = f" in {loc}" if loc else ""
+        c_str = f" for {commodity}" if commodity else ""
+        ans = f"Data.gov.in does not provide arrival quantity for agmarknet. Therefore, arrival quantity{c_str}{loc_str} is not available."
+
+    return ans
+
+
 def _fallback_unavailable_answer(
     payload: Any,
     *,
@@ -1102,6 +1191,19 @@ def _fallback_unavailable_answer(
     """Deterministic English reply when LLM cannot phrase an unavailable result."""
     if isinstance(payload, dict) and payload.get("error"):
         return str(payload["error"]).strip()
+
+    if _is_arrival_quantity_unavailable(payload):
+        crops = payload.get("requested_commodities") if isinstance(payload, dict) else None
+        if crops and isinstance(crops, list):
+            crop_clean = " and ".join(c.title() for c in crops)
+        else:
+            crop_clean = (crop or (payload.get("commodity") if isinstance(payload, dict) else "") or "").strip().title()
+        market_clean = (market_name or (payload.get("market") if isinstance(payload, dict) else "") or "").strip().title()
+        state_clean = (state or (payload.get("state") if isinstance(payload, dict) else "") or "").strip().title()
+        loc = market_clean or state_clean
+        loc_str = f" in {loc}" if loc else ""
+        c_str = f" for {crop_clean}" if crop_clean else ""
+        return f"Data.gov.in does not provide arrival quantity for agmarknet. Therefore, arrival quantity{c_str}{loc_str} is not available."
 
     parts = ["Mandi price data is not available"]
     crop_clean = (crop or "").strip()
@@ -1145,7 +1247,7 @@ def _extract_source_systems_from_payload(payload: Any) -> list[str]:
 def _ensure_source_line(answer: str, payload: Any) -> str:
     """Ensure the answer ends with source attribution when data is available."""
     ans = (answer or "").strip()
-    if not ans or _tool_result_is_empty(payload):
+    if not ans or _tool_result_is_empty(payload) or _is_arrival_quantity_unavailable(payload):
         return ans
 
     sources = _extract_source_systems_from_payload(payload)
@@ -1285,6 +1387,19 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
     """Deterministic price answer from tool JSON when LLM is unavailable."""
     if not isinstance(payload, dict):
         return ""
+
+    if _is_arrival_quantity_unavailable(payload):
+        crops = payload.get("requested_commodities")
+        if crops and isinstance(crops, list):
+            commodity = " and ".join(c.title() for c in crops)
+        else:
+            commodity = (crop or payload.get("commodity") or "").title()
+        market = (payload.get("market") or "").title()
+        state = (payload.get("state") or "").title()
+        loc = market or state or ""
+        loc_str = f" in {loc}" if loc else ""
+        c_str = f" for {commodity}" if commodity else ""
+        return f"Data.gov.in does not provide arrival quantity for agmarknet. Therefore, arrival quantity{c_str}{loc_str} is not available."
 
     # Handle get_price_with_nearby composite response
     named = payload.get("named_market")
@@ -1550,6 +1665,23 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
         lines.append(f"Here is the {order} {commodity} arrival recorded at {mkt} on {r_date}:")
         lines.append(f"Arrival: {aq} tonnes" if aq is not None else "No arrival data")
 
+    # 5b) Today Arrival
+    elif action == "get_today_arrival":
+        if len(records) == 1:
+            r = records[0]
+            mkt = (r.get("market_name") or "").title()
+            date_val = r.get("date") or ""
+            aq = r.get("arrival_quantity")
+            lines.append(f"{commodity} arrival at {mkt} on {date_val}:")
+            lines.append(f"Arrival: {aq} tonnes" if aq is not None else "Arrival: No arrival data")
+        else:
+            date_val = records[0].get("date") or "" if records else ""
+            lines.append(f"{commodity} arrivals on {date_val}:")
+            for i, r in enumerate(records[:5], 1):
+                mkt = (r.get("market_name") or f"Market {i}").title()
+                aq = r.get("arrival_quantity")
+                lines.append(f"{i}) {mkt}: Arrival: {aq} tonnes" if aq is not None else f"{i}) {mkt}: No arrival data")
+
     # 6) Today / Single Record / Default
     elif len(records) == 1:
         r = records[0]
@@ -1595,6 +1727,10 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
             lines.append(f"{i}) {label}")
             lines.append(f"   {price_str}")
 
+    arrival_msg = payload.get("message") or (resolution.get("arrival_notice") if isinstance(resolution, dict) else None)
+    if arrival_msg and action in ("get_today_arrival", "get_arrival_history", "get_extreme_arrival"):
+        lines.append(f"\nNote: {arrival_msg}.")
+
     if sources:
         src_str = ", ".join(sources)
         lines.append(f"\nThis information is fetched from the following source: {src_str}.")
@@ -1632,9 +1768,18 @@ async def synthesize_daily_price_answer(
         query=query,
         config=config,
     )
+    arrival_msg = payload.get("message") if isinstance(payload, dict) else None
+    if not arrival_msg and isinstance(payload, dict) and isinstance(payload.get("resolution"), dict):
+        arrival_msg = payload["resolution"].get("arrival_notice")
+
     if answer and answer.strip():
+        if _is_arrival_quantity_unavailable(payload):
+            return _clean_arrival_unavailable_answer(answer.strip(), payload, crop=crop)
         ans_with_source = _ensure_source_line(answer.strip(), payload)
-        return _ensure_latest_notice(ans_with_source, payload)
+        ans_with_notice = _ensure_latest_notice(ans_with_source, payload)
+        if arrival_msg and "data.gov.in" not in ans_with_notice.lower():
+            ans_with_notice = f"{ans_with_notice.strip()}\n\nNote: {arrival_msg}."
+        return ans_with_notice
     if _tool_result_is_empty(payload):
         return _fallback_unavailable_answer(
             payload,
@@ -1649,7 +1794,12 @@ async def synthesize_daily_price_answer(
     )
     fallback = _format_price_fallback(payload, crop=crop)
     if fallback:
-        return _ensure_latest_notice(fallback, payload)
+        if _is_arrival_quantity_unavailable(payload):
+            return fallback
+        ans = _ensure_latest_notice(fallback, payload)
+        if arrival_msg and "data.gov.in" not in ans.lower():
+            ans = f"{ans.strip()}\n\nNote: {arrival_msg}."
+        return ans
     return ""
 
 
