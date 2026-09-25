@@ -1,0 +1,62 @@
+name: Reviewer System Load & SLA Test Suite (Project 7)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target Backend URL for Load Test'
+        required: true
+        default: 'https://staging-api.vicharanashala.ai'
+      run_time:
+        description: 'Load Test Duration (e.g. 1m, 2m)'
+        required: true
+        default: '1m'
+
+jobs:
+  load-test:
+    name: Run Locust 50-Expert Load & SLA Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'load_tests/requirements.txt'
+
+      - name: Install Load Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r load_tests/requirements.txt
+
+      - name: Run Headless Locust Load Test (50 Experts, 10 Moderators)
+        env:
+          TARGET_URL: ${{ github.event.inputs.target_url }}
+        run: |
+          mkdir -p load_tests/reports
+          locust -f load_tests/locustfile.py \
+            --headless \
+            -u 50 \
+            -r 10 \
+            --run-time ${{ github.event.inputs.run_time }} \
+            --host ${{ github.event.inputs.target_url }} \
+            --csv=load_tests/reports/report \
+            --html=load_tests/reports/report.html
+
+      - name: Verify SLA Compliance Metrics
+        run: |
+          python load_tests/sla_checker.py load_tests/reports/report_stats.csv
+
+      - name: Upload Locust HTML & CSV Reports as Workflow Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: locust-sla-performance-report
+          path: |
+            load_tests/reports/report.html
+            load_tests/reports/report_stats.csv
+            load_tests/reports/report_failures.csv
