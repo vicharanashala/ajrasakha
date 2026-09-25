@@ -99,6 +99,7 @@ class PlannerPlan(TypedDict, total=False):
     follow_up_type: Optional[str]  # "language_change" | "format_change" | "detail_request" | "simplify" | "tone_change" | "rephrase"
     main_question: Optional[str]  # The underlying question the previous AI answer was about
     is_multiple_crops: Optional[bool]  # Farmer named 2+ crops: GDB searches "all", reviewer gets "Multiple Crops"
+    location_check: Optional[str]  # "invalid" | "ambiguous" when LGD rejected the place named in the query
 
 
 TRANSLATE_PATH_EMPTY_GDB = "empty_gdb"

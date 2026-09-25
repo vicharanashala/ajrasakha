@@ -14,6 +14,12 @@ from ajrasakha.agents.domains import (
     normalize_crop_value,
     normalize_domain,
 )
+from ajrasakha.agents.lgd_location import (
+    AMBIGUOUS as LGD_AMBIGUOUS,
+    INVALID as LGD_INVALID,
+    RESOLVED as LGD_RESOLVED,
+    lookup_location,
+)
 from ajrasakha.agents.location_context import (
     extract_state_from_text,
     latest_human_text,
@@ -23,6 +29,7 @@ from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
 from ajrasakha.agents.translation_catalog import (
     get_catalog,
     get_crop_follow_up,
+    get_invalid_location_follow_up,
     get_state_follow_up,
     language_pair_from_plan,
 )
@@ -603,6 +610,32 @@ def merge_entities_from_rephrased_query(
     state_source: str | None = None
     district_source: str | None = None
 
+    # A place named in the query is checked against LGD before anything uses it.
+    # The check runs twice per turn (planner_node, then the completeness rules),
+    # so a rejection recorded by the first pass is honoured by the second instead
+    # of quietly falling through to the farmer's profile location.
+    rejected = plan.get("location_check")
+    if rejected:
+        extracted_state = None
+        extracted_district = None
+    elif extracted_state or extracted_district:
+        lookup = lookup_location(extracted_state, extracted_district)
+        if lookup.status == LGD_RESOLVED:
+            extracted_state = lookup.state
+            extracted_district = lookup.district
+        elif lookup.status in (LGD_INVALID, LGD_AMBIGUOUS):
+            rejected = lookup.status
+            plan["location_check"] = rejected
+            extracted_state = None
+            extracted_district = None
+        trace_resolution(
+            "planner_lgd_check",
+            state=extracted_state,
+            state_source=f"lgd:{lookup.status}",
+            district=extracted_district,
+            district_source=lookup.reason,
+        )
+
     if extracted_state and extracted_district:
         merged["state"] = extracted_state
         merged["district"] = extracted_district
@@ -618,6 +651,13 @@ def merge_entities_from_rephrased_query(
         merged["district"] = "all"
         state_source = "rephrased_query_text" if state_from_text else "plan.entities.state (llm)"
         district_source = "default_all_when_state_only"
+    elif rejected:
+        # The farmer named a place LGD does not have. Clear it and let the
+        # completeness rules ask again rather than answering for somewhere else.
+        merged.pop("state", None)
+        merged.pop("district", None)
+        state_source = f"cleared ({rejected}_location)"
+        district_source = state_source
     elif stored_location and stored_location.get("state"):
         merged["state"] = stored_location["state"]
         merged["district"] = stored_location.get("district") or "all"
@@ -737,6 +777,13 @@ def _location_status(
     return has_state, has_district, has_gps
 
 
+def location_follow_up_for_plan(plan: PlannerPlan, script: str, vocal: str) -> str:
+    """The location question to ask: "does not exist" wording after an LGD rejection."""
+    if plan.get("location_check") == LGD_INVALID:
+        return get_invalid_location_follow_up(script, vocal)
+    return get_state_follow_up(script, vocal)
+
+
 def _is_bad_follow_up(question: Optional[str]) -> bool:
     if not question:
         return False
@@ -771,7 +818,7 @@ def _finalize_location_and_crop_completeness(
     if not has_state:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
-        out["follow_up_question"] = get_state_follow_up(script, vocal)
+        out["follow_up_question"] = location_follow_up_for_plan(out, script, vocal)
     elif needs_crop:
         out["is_complete"] = False
         out["missing_info"] = ["crop"]
@@ -855,7 +902,7 @@ def apply_planner_completeness_rules(
             if "crop" in missing:
                 out["follow_up_question"] = get_crop_follow_up(script, vocal)
             elif "location" in missing:
-                out["follow_up_question"] = get_state_follow_up(script, vocal)
+                out["follow_up_question"] = location_follow_up_for_plan(out, script, vocal)
 
     out = _finalize_location_and_crop_completeness(
         out,
