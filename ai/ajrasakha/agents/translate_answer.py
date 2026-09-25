@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize_synthesis_answer
+from ajrasakha.agents.answer_provenance import build_answer_provenance
 from ajrasakha.agents.config import TRANSLATE_MODEL, resolve_question_source
 from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation, get_two_hour_disclaimer
@@ -128,10 +129,13 @@ def _reply_message(
     content: str,
     final_msg: AIMessage | None,
     state: AjraSakhaState,
+    *,
+    provenance: Optional[dict] = None,
 ) -> dict:
     msg_id = final_msg.id if final_msg is not None else None
+    additional_kwargs = {"provenance": provenance} if provenance is not None else {}
     return {
-        "messages": [AIMessage(content=content, id=msg_id)],
+        "messages": [AIMessage(content=content, id=msg_id, additional_kwargs=additional_kwargs)],
         "location": state.get("location"),
     }
 
@@ -142,9 +146,10 @@ def _finish_turn_reply(
     state: AjraSakhaState,
     *,
     outcome: str = "answer",
+    provenance: Optional[dict] = None,
 ) -> dict:
     end_conversation_turn(content, outcome=outcome)
-    return _reply_message(content, final_msg, state)
+    return _reply_message(content, final_msg, state, provenance=provenance)
 
 
 async def translate_answer_node(
@@ -158,6 +163,7 @@ async def translate_answer_node(
     final_msg = _last_farmer_facing_ai(messages)
     gdb_data = _extract_gdb_from_messages(messages)
     question_source = resolve_question_source(config)
+    provenance = build_answer_provenance(gdb_data, plan)
 
     # Path A: empty_gdb_reply only — catalog 2-hour + testing (no translate LLM)
     if plan.get("translate_path") == TRANSLATE_PATH_EMPTY_GDB:
@@ -167,7 +173,9 @@ async def translate_answer_node(
             vocal,
         )
         content = build_expert_queue_content(script, vocal)
-        return _finish_turn_reply(content, final_msg, state, outcome="expert_queue")
+        return _finish_turn_reply(
+            content, final_msg, state, outcome="expert_queue", provenance=provenance
+        )
 
     # Path B: synthesize — translate body + GDB sources + testing only
     if final_msg is None:
@@ -242,7 +250,9 @@ async def translate_answer_node(
             content_len=len(content),
         )
         logger.info("translate_answer: path=synthesis — final len=%d", len(content))
-        return _finish_turn_reply(content, final_msg, state, outcome="answer")
+        return _finish_turn_reply(
+            content, final_msg, state, outcome="answer", provenance=provenance
+        )
     except (APITimeoutError, APIConnectionError) as exc:
         logger.warning("translate_answer failed (%s) — untranslated body + synthesis footers", exc)
         content = finalize_synthesis_answer(
@@ -257,7 +267,9 @@ async def translate_answer_node(
         if plan.get("needs_relevance_disclaimer", False):
             two_hour_disclaimer = get_two_hour_disclaimer(script, vocal)
             content = f"{content.rstrip()}\n\n{two_hour_disclaimer}"
-        return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")
+        return _finish_turn_reply(
+            content, final_msg, state, outcome="answer_fallback", provenance=provenance
+        )
     except APIStatusError as exc:
         logger.warning(
             "translate_answer API error (%s) — untranslated body + synthesis footers",
@@ -275,4 +287,6 @@ async def translate_answer_node(
         if plan.get("needs_relevance_disclaimer", False):
             two_hour_disclaimer = get_two_hour_disclaimer(script, vocal)
             content = f"{content.rstrip()}\n\n{two_hour_disclaimer}"
-        return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")
+        return _finish_turn_reply(
+            content, final_msg, state, outcome="answer_fallback", provenance=provenance
+        )
