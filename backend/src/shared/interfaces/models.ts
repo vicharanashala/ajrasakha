@@ -916,6 +916,55 @@ export interface IChemical {
   updatedAt?: Date;
   chemical_audit_history?: IChemicalAuditHistory[];
 }
+
+// ============================================================
+// Marketplace: Direct Farmer-to-Buyer
+// ============================================================
+
+export type ListingStatus = 'active' | 'sold' | 'inactive';
+export type ListingUnit = 'kg' | 'quintal' | 'ton';
+
+export interface IListing {
+  _id?: ObjectId | string;
+  farmerId: ObjectId | string; // references IUser._id
+  crop: string; // crop name, free text
+  quantity: number;
+  unit: ListingUnit;
+  pricePerUnit: number; // INR
+  location: {
+    state: string;
+    district: string;
+    village?: string;
+  };
+  description?: string;
+  images?: string[];
+  status: ListingStatus;
+  createdBy?: ObjectId | string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export type DealStatus = 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled';
+
+export interface IDeal {
+  _id?: ObjectId | string;
+  listingId: ObjectId | string;
+  farmerId: ObjectId | string;
+  buyerId: ObjectId | string;
+  offeredPrice: number;
+  quantity: number;
+  status: DealStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface IMessage {
+  _id?: ObjectId | string;
+  dealId: ObjectId | string;
+  senderId: ObjectId | string;
+  text: string;
+  createdAt?: Date;
+}
 export interface ISource {
   source: string; // URL or document reference
   page?: string | number; // optional (some sources may not have page)
