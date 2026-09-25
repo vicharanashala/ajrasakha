@@ -45,6 +45,7 @@ _SCHEMA_VERSION = 1
 _TEXT_FIELDS = (
     "two_hour_disclaimer",
     "state_follow_up",
+    "invalid_location_follow_up",
     "crop_follow_up",
     "testing_disclaimer",
     "late_night_disclaimer",
@@ -61,6 +62,7 @@ _STRIPPED_TEXT_FIELDS = frozenset(
     {
         "two_hour_disclaimer",
         "state_follow_up",
+        "invalid_location_follow_up",
         "crop_follow_up",
         "testing_disclaimer",
         "late_night_disclaimer",
@@ -75,6 +77,7 @@ class CatalogRow:
     vocal_language: str
     two_hour_disclaimer: str
     state_follow_up: str
+    invalid_location_follow_up: str
     crop_follow_up: str
     testing_disclaimer: str
     late_night_disclaimer: str
@@ -176,6 +179,7 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
             vocal_language=vocal,
             two_hour_disclaimer=text("two_hour_disclaimer"),
             state_follow_up=text("state_follow_up"),
+            invalid_location_follow_up=text("invalid_location_follow_up"),
             crop_follow_up=text("crop_follow_up"),
             testing_disclaimer=text("testing_disclaimer"),
             late_night_disclaimer=text("late_night_disclaimer"),
@@ -237,6 +241,11 @@ def get_testing_disclaimer(script_language: str, vocal_language: str) -> str:
 
 def get_two_hour_disclaimer(script_language: str, vocal_language: str) -> str:
     return get_catalog_row(script_language, vocal_language).two_hour_disclaimer
+
+
+def get_invalid_location_follow_up(script_language: str, vocal_language: str) -> str:
+    """Asked again when the farmer named a state/district that LGD does not have."""
+    return get_catalog_row(script_language, vocal_language).invalid_location_follow_up
 
 
 def get_state_follow_up(script_language: str, vocal_language: str) -> str:

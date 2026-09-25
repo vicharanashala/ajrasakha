@@ -43,7 +43,6 @@ from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
     get_catalog,
     get_crop_follow_up,
-    get_state_follow_up,
     language_pair_from_plan,
 )
 from ajrasakha.agents.location_context import (
@@ -64,6 +63,7 @@ from ajrasakha.agents.planner_rules import (
     format_last_queries_for_rephrasing,
     is_crop_clarify_turn,
     is_standalone_clarification_reply,
+    location_follow_up_for_plan,
     merge_clarification_reply_into_query,
     format_prev_plan_context,
     is_explicit_all_crop_request,
@@ -71,6 +71,7 @@ from ajrasakha.agents.planner_rules import (
     normalize_crop_value,
     is_crop_output_question,
 )
+from ajrasakha.agents.lgd_location import prefetch_lgd_directory
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
 from ajrasakha.agents.user_location import (
@@ -379,10 +380,13 @@ def _planner_invoke_config(config: RunnableConfig) -> RunnableConfig:
 def _resolve_state_deterministic(
     messages: list[BaseMessage],
     location: Optional[dict],
-    prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state from latest text or previous turn (do NOT fallback to GPS here)."""
-    # Priority 0: State from latest message text (explicit mention in current query)
+    """State named in the latest message only — never an earlier turn, never GPS.
+
+    A state carried over from a previous turn used to be offered to the LLM as a
+    hint, which is how a thread's first location kept answering later questions
+    that named no place. Those now fall through to the farmer's profile.
+    """
     latest_text = latest_human_text(messages)
     state_from_latest = extract_state_from_text(latest_text)
     if state_from_latest:
@@ -393,19 +397,10 @@ def _resolve_state_deterministic(
             text_preview=latest_text[:120] if latest_text else None,
         )
         return state_from_latest
-    # Priority 1: State from previous turn (thread carry-over - always check this)
-    if prev_entities and prev_entities.get("state"):
-        state = prev_entities.get("state")
-        trace_resolution(
-            "planner_state_hint",
-            state=state,
-            state_source="prev_entities (thread_carryover)",
-        )
-        return state
     trace_resolution(
         "planner_state_hint",
         state=None,
-        state_source="unresolved (no_current_text_no_prev_entities; GPS not used here)",
+        state_source="unresolved (no state in the latest message; GPS and prior turns not used)",
     )
     return None
 
@@ -610,7 +605,7 @@ def _check_question_completeness(
     has_state = bool(state_resolved)
     if not has_state:
         missing.append("location")
-        follow_up = get_state_follow_up(script, vocal)
+        follow_up = location_follow_up_for_plan(plan, script, vocal)
         trace_resolution(
             "planner_completeness",
             state=None,
@@ -724,7 +719,7 @@ async def planner_node(
         prev_plan_complete=prev_plan.get("is_complete"),
     )
 
-    state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
+    state_resolved = _resolve_state_deterministic(messages, location)
     clarification_query = merge_clarification_reply_into_query(prev_plan, user_text)
     previous_vocal_language = (prev_plan.get("vocal_language") or "").strip()
     previous_script_language = (prev_plan.get("script_language") or "").strip()
@@ -964,6 +959,9 @@ async def planner_node(
         configurable = config.get("configurable") or {}
         user_id = resolve_user_id(config) or configurable.get("phone_number")
         stored_location = load_user_location(user_id) if user_id else None
+        # Warm the LGD directory so the entity merge below can validate a place
+        # name without any I/O of its own (cached for the life of the process).
+        await prefetch_lgd_directory()
         location_sources: dict[str, str | None] = {}
         trace_event(
             "planner_user_location_lookup",
@@ -1134,12 +1132,10 @@ def clarify_node(state: AjraSakhaState) -> dict:
     missing = plan.get("missing_info") or []
     script, vocal = language_pair_from_plan(plan)
     if not question:
-        if "location" in missing:
-            question = get_state_follow_up(script, vocal)
-        elif "crop" in missing:
+        if "crop" in missing:
             question = get_crop_follow_up(script, vocal)
         else:
-            question = get_state_follow_up(script, vocal)
+            question = location_follow_up_for_plan(plan, script, vocal)
     end_conversation_turn(question, outcome="clarify")
     return {"messages": [AIMessage(content=question)]}
 

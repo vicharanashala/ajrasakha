@@ -85,19 +85,20 @@ def sanitize_stored_location(
 
 
 def load_user_location(user_id: str | None) -> dict[str, str] | None:
+    """The farmer's own profile location first; the location we learned from past
+    conversations only when the profile has none."""
     if not user_id:
         return None
-    stored = sanitize_stored_location(get_user_location(user_id))
-    if stored:
-        return stored
     from ajrasakha.agents.user_location_mongo import get_farmer_profile_location
 
     try:
-        profile = get_farmer_profile_location(user_id)
+        profile = sanitize_stored_location(get_farmer_profile_location(user_id))
     except Exception:
         logger.exception("Failed to load farmerProfile location for user_id=%s", user_id)
         profile = None
-    return sanitize_stored_location(profile)
+    if profile:
+        return profile
+    return sanitize_stored_location(get_user_location(user_id))
 
 
 def is_explicit_location_source(state_source: str | None, district_source: str | None) -> bool:
