@@ -95,4 +95,7 @@ jobs:
             PAE_MILESTONE_REPORT_EMAILS=${{ secrets.PAE_MILESTONE_REPORT_EMAILS }}
             PAE_MILESTONE_REPORT_CC=${{ secrets.PAE_MILESTONE_REPORT_CC }}
             VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
+            MINIMAX_API=${{ secrets.MINIMAX_API }}
+            MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
+            MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
           flags: --allow-unauthenticated
