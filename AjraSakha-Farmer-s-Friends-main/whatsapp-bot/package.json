@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp bot for farmer feedback collection",
+  "main": "app.py",
+  "scripts": {
+    "start": "python app.py",
+    "dev": "python app.py"
+  },
+  "dependencies": {
+    "fastapi": "^0.109.0",
+    "uvicorn": "^0.27.0",
+    "twilio": "^8.10.0",
+    "pydantic": "^2.5.0",
+    "python-dotenv": "^1.0.0",
+    "httpx": "^0.26.0",
+    "asyncio-mqtt": "^0.16.0"
+  }
+}

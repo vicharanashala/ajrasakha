@@ -1,0 +1,20 @@
+{
+  "name": "farmer-feedback-backend",
+  "version": "1.0.0",
+  "description": "Backend API for farmer feedback system",
+  "main": "main.py",
+  "scripts": {
+    "start": "uvicorn main:app --host 0.0.0.0 --port 8000",
+    "dev": "uvicorn main:app --reload",
+    "cron": "python -m cron.auto_flag_cron"
+  },
+  "dependencies": {
+    "fastapi": "^0.109.0",
+    "uvicorn": "^0.27.0",
+    "pydantic": "^2.5.0",
+    "python-dotenv": "^1.0.0",
+    "httpx": "^0.26.0",
+    "apscheduler": "^3.10.4",
+    "pymongo": "^4.6.0"
+  }
+}
