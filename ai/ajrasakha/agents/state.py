@@ -101,6 +101,9 @@ class PlannerPlan(TypedDict, total=False):
     main_question: Optional[str]  # The underlying question the previous AI answer was about
     is_multiple_crops: Optional[bool]  # Farmer named 2+ crops: GDB searches "all", reviewer gets "Multiple Crops"
     location_check: Optional[str]  # "invalid" | "ambiguous" when LGD rejected the place named in the query
+    places: list[str]  # every place the current message names (planner LLM)
+    sub_places: list[str]  # weather/mandi: named places LGD did not verify, or beyond the one state/district
+    profile_coordinates: Optional[dict[str, float]]  # farmerProfile lat/long when the location came from the profile
 
 
 TRANSLATE_PATH_EMPTY_GDB = "empty_gdb"

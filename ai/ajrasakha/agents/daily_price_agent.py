@@ -1617,6 +1617,7 @@ class DailyPriceInput(BaseModel):
     crop: str
     state: Optional[str] = None
     district: Optional[str] = None
+    sub_places: list[str] = []  # places the farmer named that are not the verified state/district
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1627,6 +1628,7 @@ async def daily_price(
     crop: str,
     state: Optional[str] = None,
     district: Optional[str] = None,
+    sub_places: Optional[list[str]] = None,
     config: RunnableConfig = None,
 ) -> str:
     """

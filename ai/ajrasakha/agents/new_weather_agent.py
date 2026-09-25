@@ -730,6 +730,7 @@ class NewWeatherInput(BaseModel):
     district: Optional[str] = Field(None, description="District name (e.g. Ernakulam, Karnal).")
     state: Optional[str] = Field(None, description="State name (e.g. Kerala, Haryana).")
     location: Optional[str] = Field(None, description="Block, village, or specific sub-location name.")
+    sub_places: list[str] = Field(default_factory=list, description="Places the farmer named that are not the verified state/district (towns, villages, blocks, or other districts).")
     latitude: Optional[float] = Field(None, description="Optional latitude float.")
     longitude: Optional[float] = Field(None, description="Optional longitude float.")
     address: Optional[str] = Field(None, description="Optional full location address string.")
@@ -902,6 +903,7 @@ async def new_weather(
     district: Optional[str] = None,
     state: Optional[str] = None,
     location: Optional[str] = None,
+    sub_places: Optional[list[str]] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
     address: Optional[str] = None,
