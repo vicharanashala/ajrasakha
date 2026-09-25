@@ -57,6 +57,7 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
+    is_weather_or_mandi_plan,
     classify_follow_up_heuristic,
     crop_slot_satisfied,
     format_conversation_for_planner,
@@ -94,6 +95,13 @@ class PlannerEntitiesOutput(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     chemicals: list[str] = Field(default_factory=list)
+    places: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Every place name the current message mentions (state, district, city, town, "
+            "block, or village), exactly as named. Empty when it names none."
+        ),
+    )
 
 
 class PlannerOutput(BaseModel):
@@ -317,6 +325,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "follow_up_type": output.follow_up_type,
         "main_question": output.main_question,
         "is_multiple_crops": bool(output.is_multiple_crops),
+        "places": [p.strip() for p in output.entities.places if p and p.strip()],
     }
 
 
@@ -602,7 +611,8 @@ def _check_question_completeness(
     script, vocal = language_pair_from_plan(plan)
     missing: list[str] = []
     follow_up: Optional[str] = None
-    has_state = bool(state_resolved)
+    # Weather/mandi never ask for location: the agents get whatever places were named.
+    has_state = bool(state_resolved) or is_weather_or_mandi_plan(plan)
     if not has_state:
         missing.append("location")
         follow_up = location_follow_up_for_plan(plan, script, vocal)
@@ -980,6 +990,15 @@ async def planner_node(
         )
         plan["entities"] = entities
         trace_event("planner_entities_merged", entities=entities)
+        # Read before the completeness rules re-run the merge, which sees the
+        # profile's place already in plan.entities and no longer credits the profile.
+        # Compared on district: that re-run may correct the profile's state through
+        # LGD (e.g. "other" -> "Kerala" for Kottayam).
+        profile_district = (
+            str(entities.get("district") or "").strip().lower()
+            if location_sources.get("state_source") == "stored_user_location"
+            else None
+        )
 
         if not plan.get("is_agriculture_related", True):
             plan = apply_non_agriculture_gate(plan)
@@ -1026,6 +1045,23 @@ async def planner_node(
             prev_plan=prev_plan,
             stored_location=stored_location,
             sources_out=location_sources,
+        )
+        final_entities = plan.get("entities") or {}
+        plan["profile_coordinates"] = (
+            {"latitude": stored_location["latitude"], "longitude": stored_location["longitude"]}
+            if stored_location
+            # Weather/mandi always get the profile coordinates, even for another
+            # named place; the weather and mandi agents decide which to use.
+            and (
+                is_weather_or_mandi_plan(plan)
+                or (
+                    profile_district
+                    and profile_district == str(final_entities.get("district") or "").strip().lower()
+                )
+            )
+            and stored_location.get("latitude") is not None
+            and stored_location.get("longitude") is not None
+            else None
         )
 
         if plan.get("is_complete"):

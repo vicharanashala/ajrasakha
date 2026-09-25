@@ -719,7 +719,8 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
    - [STRICT] Never take state or district from earlier turns of the conversation. Only the
      current message counts; an empty location is the correct answer when it names no place.
    - [STRICT] If the user mentions a specific district/city in the LATEST message (e.g. "Varanasi"), you MUST put that location in your `entities` JSON output.
-   - [STRICT] If the user asks for weather, market prices, or farming info "in [Word]" or "for [Word]", you MUST extract [Word] as the district, even if you do not recognize the name as a valid Indian district.
+   - [STRICT] If the user asks about something "in [Place]" or "for [Place]", you MUST extract [Place] as the district, even if you do not recognize the name as a valid Indian district.
+   - [STRICT] List every place name the current message mentions (state, district, city, town, block, or village) in `entities.places`, exactly as named, e.g. "rain in Kharar and Mohali" → `["Kharar", "Mohali"]`. Include places you do not recognize; the server checks each one. Crops and pests are not places.
    - [STRICT] If state was found in the current message but district was NOT mentioned → district = "all".
    - [STRICT] District mention → always derive and use its correct state.
 

@@ -1812,7 +1812,11 @@ class DailyPriceInput(BaseModel):
     crop: str
     state: Optional[str] = None
     district: Optional[str] = None
+<<<<<<< HEAD
     sub_places: Optional[list[str]] = None
+=======
+    sub_places: list[str] = []  # places the farmer named that are not the verified state/district
+>>>>>>> df25f9449 (added the source extraction and pass to weather and mandi tool)
 
 
 @tool(args_schema=DailyPriceInput)

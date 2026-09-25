@@ -2,6 +2,7 @@
 
 import pytest
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents import lgd_location
 from ajrasakha.agents.lgd_location import (
@@ -14,9 +15,14 @@ from ajrasakha.agents.lgd_location import (
     reset_directory_cache,
     seed_directory_cache,
 )
+from ajrasakha.agents.plan_executor import (
+    build_specialist_tool_calls_from_plan,
+    ensure_location_node,
+)
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
     merge_entities_from_rephrased_query,
+    resolve_weather_mandi_places,
 )
 from ajrasakha.agents.translation_catalog import (
     get_invalid_location_follow_up,
@@ -249,3 +255,147 @@ def test_lgd_outage_keeps_the_farmer_moving():
     )
     assert out["is_complete"] is True
     assert out["entities"]["state"] == "Punjab"
+
+
+# --- tool location -----------------------------------------------------------
+
+
+def _tool_plan(**overrides):
+    plan = _plan(
+        state="Andhra Pradesh",
+        district="Visakhapatnam",
+        weather=True,
+        mandi=True,
+        knowledge_base=False,
+        rephrased_query="How do I control fruit borer in brinjal?",
+    )
+    plan["entities"]["crop"] = "Brinjal"
+    plan.update(overrides)
+    return plan
+
+
+def _args(calls, name):
+    return next(c["args"] for c in calls if c["name"] == name)
+
+
+@pytest.mark.asyncio
+async def test_weather_and_mandi_get_the_planner_location_and_profile_coordinates():
+    plan = _tool_plan(profile_coordinates={"latitude": 17.7, "longitude": 83.3})
+    calls, _ = await build_specialist_tool_calls_from_plan(plan, "How do I control fruit borer in brinjal?", {})
+    weather, mandi = _args(calls, "new_weather"), _args(calls, "daily_price")
+    # "in brinjal" is a crop, not a place: nothing from the query text overrides the planner.
+    assert (weather["state"], weather["district"], weather["location"]) == ("Andhra Pradesh", "Visakhapatnam", None)
+    assert (weather["latitude"], weather["longitude"]) == (17.7, 83.3)
+    assert (mandi["state"], mandi["district"]) == ("Andhra Pradesh", "Visakhapatnam")
+    assert (mandi["latitude"], mandi["longitude"]) == (17.7, 83.3)
+
+
+@pytest.mark.asyncio
+async def test_place_from_the_query_leaves_coordinates_to_the_tools():
+    plan = _tool_plan(profile_coordinates=None)
+    plan["entities"].update(state="Punjab", district="Ludhiana")
+    calls, _ = await build_specialist_tool_calls_from_plan(plan, "Weather in Ludhiana, Punjab?", {"latitude": 10.0, "longitude": 76.4})
+    weather = _args(calls, "new_weather")
+    assert (weather["state"], weather["district"]) == ("Punjab", "Ludhiana")
+    # Neither thread GPS nor a geocode of the query: the weather tool resolves the district itself.
+    assert (weather["latitude"], weather["longitude"]) == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_ensure_location_never_rewrites_the_plan_location():
+    state = {"messages": [HumanMessage(content="How do I control fruit borer in brinjal?")], "plan": _tool_plan()}
+    assert await ensure_location_node(state, RunnableConfig()) == {}
+
+
+# --- weather / mandi places ----------------------------------------------------
+
+
+def _weather_plan(state=None, district=None, places=()):
+    return _plan(
+        state=state,
+        district=district,
+        domain="Weather",
+        domains=["Weather"],
+        weather=True,
+        crop_required=False,
+        places=list(places),
+        rephrased_query="Will it rain tomorrow?",
+    )
+
+
+def test_first_verified_place_is_the_location_and_the_rest_are_sub_places():
+    assert resolve_weather_mandi_places(None, None, ["Kharar", "Mohali"]) == (
+        "Punjab",
+        "S.A.S Nagar",
+        ["Kharar"],
+    )
+    assert resolve_weather_mandi_places(None, None, ["Ludhiana", "Allahabad"]) == (
+        "Punjab",
+        "Ludhiana",
+        ["Allahabad"],
+    )
+
+
+def test_town_inside_a_state_keeps_the_state_and_becomes_a_sub_place():
+    assert resolve_weather_mandi_places("Punjab", "Kharar", ["Kharar", "Punjab"]) == ("Punjab", "all", ["Kharar"])
+
+
+def test_weather_never_asks_for_an_unverified_place_and_keeps_the_profile():
+    out = apply_planner_completeness_rules(
+        _weather_plan(district="Xyzabad", places=["Xyzabad"]),
+        _messages(),
+        None,
+        None,
+        stored_location={"state": "Uttar Pradesh", "district": "Prayagraj"},
+    )
+    assert out["is_complete"] is True
+    assert out["follow_up_question"] is None
+    assert (out["entities"]["state"], out["entities"]["district"]) == ("Uttar Pradesh", "Prayagraj")
+    assert out["sub_places"] == ["Xyzabad"]
+
+
+def test_ambiguous_district_on_weather_is_a_sub_place_not_a_question():
+    out = apply_planner_completeness_rules(
+        _weather_plan(district="Aurangabad", places=["Aurangabad"]), _messages(), None, None
+    )
+    assert out["is_complete"] is True
+    assert out["sub_places"] == ["Aurangabad"]
+
+
+def test_weather_without_any_location_still_runs():
+    out = apply_planner_completeness_rules(_weather_plan(), _messages(), None, None)
+    assert out["is_complete"] is True
+    assert out["missing_info"] == []
+
+
+def test_verified_place_overrides_the_profile_on_weather():
+    out = apply_planner_completeness_rules(
+        _weather_plan(district="Mohali", places=["Mohali", "Kharar"]),
+        _messages(),
+        None,
+        None,
+        stored_location={"state": "Uttar Pradesh", "district": "Prayagraj"},
+    )
+    assert (out["entities"]["state"], out["entities"]["district"]) == ("Punjab", "S.A.S Nagar")
+    assert out["sub_places"] == ["Kharar"]
+
+
+@pytest.mark.asyncio
+async def test_sub_places_reach_the_weather_and_mandi_tools():
+    plan = _tool_plan(sub_places=["Kharar", "Mohali"], profile_coordinates={"latitude": 17.7, "longitude": 83.3})
+    calls, _ = await build_specialist_tool_calls_from_plan(plan, "Rain and tomato price in Kharar and Mohali?", {})
+    weather, mandi = _args(calls, "new_weather"), _args(calls, "daily_price")
+    assert weather["sub_places"] == ["Kharar", "Mohali"]
+    assert weather["location"] == "Kharar"
+    assert mandi["sub_places"] == ["Kharar", "Mohali"]
+    assert (weather["latitude"], mandi["latitude"]) == (17.7, 17.7)
+
+
+@pytest.mark.asyncio
+async def test_state_only_location_never_borrows_the_profile_district():
+    plan = _tool_plan(sub_places=["Kharar"])
+    plan["entities"].update(state="Punjab", district="all")
+    thread_location = {"state": "Andhra Pradesh", "district": "Visakhapatnam"}
+    calls, resolved = await build_specialist_tool_calls_from_plan(plan, "Will it rain in Kharar?", thread_location)
+    assert (resolved.state, resolved.district) == ("Punjab", "all")
+    assert _args(calls, "new_weather")["district"] is None

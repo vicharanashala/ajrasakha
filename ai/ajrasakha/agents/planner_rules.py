@@ -8,6 +8,7 @@ from typing import Optional
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from ajrasakha.agents.domains import (
+    apply_tool_flags_from_domains,
     crop_counts_as_resolved,
     domain_requires_crop,
     is_crop_placeholder,
@@ -18,6 +19,8 @@ from ajrasakha.agents.lgd_location import (
     AMBIGUOUS as LGD_AMBIGUOUS,
     INVALID as LGD_INVALID,
     RESOLVED as LGD_RESOLVED,
+    UNAVAILABLE as LGD_UNAVAILABLE,
+    is_unspecified_place,
     lookup_location,
 )
 from ajrasakha.agents.location_context import (
@@ -529,6 +532,80 @@ def entity_text_from_plan(plan: PlannerPlan, messages: list[BaseMessage]) -> str
     return text or latest_human_text(messages)
 
 
+def is_weather_or_mandi_plan(plan: PlannerPlan) -> bool:
+    """Weather or mandi turn. Read from the domains too, since the planner merges
+    entities once before the server derives the tool flags from them."""
+    if plan.get("weather") or plan.get("mandi"):
+        return True
+    domains = [normalize_domain(d) for d in (plan.get("domains") or [plan.get("domain") or "General"])]
+    flags = apply_tool_flags_from_domains(domains)
+    return bool(flags.get("weather") or flags.get("mandi"))
+
+
+def resolve_weather_mandi_places(
+    state: Optional[str],
+    district: Optional[str],
+    places: Optional[list[str]],
+) -> tuple[Optional[str], Optional[str], list[str]]:
+    """Split the places a weather/mandi query names into (state, district, sub_places).
+
+    The first place LGD verifies becomes the state/district. Every other place —
+    one LGD does not know (a town, village, or block) or a second verified
+    district — is passed on as a sub-place; the weather and mandi agents resolve
+    those themselves, so a weather/mandi turn never asks the farmer to clarify.
+    """
+    chosen_state: Optional[str] = None
+    chosen_district: Optional[str] = None
+    sub_places: list[str] = []
+
+    def add_sub_place(name: Optional[str]) -> None:
+        name = (name or "").strip()
+        if name and not is_unspecified_place(name, "district") and name.lower() not in {p.lower() for p in sub_places}:
+            sub_places.append(name)
+
+    def take(found_state: str, found_district: str, raw: Optional[str]) -> None:
+        nonlocal chosen_state, chosen_district
+        if chosen_state is None:
+            chosen_state, chosen_district = found_state, found_district
+        elif found_state != chosen_state:
+            add_sub_place(raw)
+        elif chosen_district == "all" and found_district != "all":
+            chosen_district = found_district
+        elif found_district not in ("all", chosen_district):
+            add_sub_place(raw)
+
+    if state or district:
+        lookup = lookup_location(state, district)
+        if lookup.status == LGD_RESOLVED:
+            take(lookup.state, lookup.district, district or state)
+            # A real state with a place LGD does not list as a district (a town).
+            if district and lookup.district == "all" and not is_unspecified_place(district, "district"):
+                add_sub_place(district)
+        elif lookup.status == LGD_UNAVAILABLE:
+            chosen_state = lookup.state
+            chosen_district = lookup.district
+        else:
+            # Checked one at a time: a pair can fail only because one half is off
+            # (e.g. a state name in the district field).
+            places = [district, state, *(places or [])]
+
+    for place in places or []:
+        place = (place or "").strip()
+        if not place or is_unspecified_place(place, "district"):
+            continue
+        lookup = lookup_location(None, place)
+        if lookup.status != LGD_RESOLVED:
+            state_lookup = lookup_location(place, None)
+            if state_lookup.status == LGD_RESOLVED:
+                lookup = state_lookup
+        if lookup.status == LGD_RESOLVED:
+            take(lookup.state, lookup.district, place)
+        else:
+            add_sub_place(place)
+
+    return chosen_state, chosen_district, sub_places
+
+
 def merge_entities_from_rephrased_query(
     plan: PlannerPlan,
     messages: list[BaseMessage],
@@ -615,7 +692,21 @@ def merge_entities_from_rephrased_query(
     # so a rejection recorded by the first pass is honoured by the second instead
     # of quietly falling through to the farmer's profile location.
     rejected = plan.get("location_check")
-    if rejected:
+    if is_weather_or_mandi_plan(plan):
+        rejected = None
+        plan.pop("location_check", None)
+        extracted_state, extracted_district, sub_places = resolve_weather_mandi_places(
+            extracted_state, extracted_district, plan.get("places")
+        )
+        plan["sub_places"] = sub_places
+        trace_resolution(
+            "planner_weather_mandi_places",
+            state=extracted_state,
+            state_source="lgd (weather/mandi)",
+            district=extracted_district,
+            district_source=f"sub_places={sub_places}",
+        )
+    elif rejected:
         extracted_state = None
         extracted_district = None
     elif extracted_state or extracted_district:
@@ -815,7 +906,7 @@ def _finalize_location_and_crop_completeness(
         crop_required = any(domain_requires_crop(d) for d in canonical_domains)
     needs_crop = bool(crop_required) and not crop_slot_satisfied(crop)
 
-    if not has_state:
+    if not has_state and not is_weather_or_mandi_plan(out):
         out["is_complete"] = False
         out["missing_info"] = ["location"]
         out["follow_up_question"] = location_follow_up_for_plan(out, script, vocal)
