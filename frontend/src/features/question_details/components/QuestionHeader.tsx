@@ -715,7 +715,11 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   <span className="text-muted-foreground font-medium">
                     Domain:{" "}
                   </span>
-                  <span>{question.referenceQuestionData.details?.domain}</span>
+                  <span>
+                    {Array.isArray(question.referenceQuestionData.details?.domain)
+                      ? question.referenceQuestionData.details.domain.join(", ")
+                      : question.referenceQuestionData.details?.domain || "-"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground font-medium">
