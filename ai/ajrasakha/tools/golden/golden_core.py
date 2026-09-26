@@ -785,8 +785,13 @@ async def _pending_vector_search_questions(
     pipeline: list[dict[str, Any]] = [
         {
             "$vectorSearch": {
+                # index and path must be a pair. MONGODB_VECTOR_INDEX covers only
+                # "embedding"; asking it for "question_embedding" made Atlas raise
+                # "question_embedding is not indexed as vector", the except below
+                # swallowed it, and every pending-duplicate check returned no candidates.
+                # "embedding" is also the only one of the two populated on all pending docs.
                 "index": MONGODB_VECTOR_INDEX,
-                "path": "question_embedding",
+                "path": "embedding",
                 "queryVector": query_vector,
                 "numCandidates": max(100, fetch_limit * 10),
                 "limit": fetch_limit,
@@ -999,7 +1004,10 @@ async def pending_vector_search(
             post_match=post_match,
         )
     except Exception as exc:
-        log.warning("pending vector search failed: %s: %s", type(exc).__name__, exc)
+        # loud: a failure here silently turns every duplicate check into "not a duplicate"
+        log.error(
+            "pending vector search failed: %s: %s", type(exc).__name__, exc, exc_info=True
+        )
         return []
 
     log.info("pending vector search mongo returned %d doc(s)", len(docs))
