@@ -1387,7 +1387,7 @@ ACTION-SPECIFIC OUTPUT FORMATS:
   This information is fetched from the following source: Agmarknet.
 
 2. For get_highest_price:
-- The farmer asked for the highest/best/peak price.
+- The farmer asked for the highest/best/peak/maximum price.
 - Start with: "Here is the highest [Commodity] price at [Market] on [Date]:" (or "Here is the highest [Commodity] price on [Date]:")
 - Report ONLY the single record from highest_records — its modal price, min/max, market name, and date.
 - Example:
@@ -1397,7 +1397,7 @@ ACTION-SPECIFIC OUTPUT FORMATS:
   This information is fetched from the following source: agriculture.ap.gov.in.
 
 3. For get_lowest_price:
-- The farmer asked for the lowest/cheapest price.
+- The farmer asked for the lowest/cheapest/minimum price.
 - Start with: "Here is the lowest [Commodity] price at [Market] on [Date]:" (or "Here is the lowest [Commodity] price on [Date]:")
 - Report ONLY the single record from lowest_records — its modal price, min/max, market name, and date.
 - Example:
