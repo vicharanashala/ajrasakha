@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from ajrasakha.evaluation.questions import TEST_CASES
 from ajrasakha.evaluation.executors import run_mock_case, run_live_case
@@ -36,13 +37,20 @@ def run_case(case: dict, mode: str) -> dict:
     trace_result = build_langsmith_trace_url(result)
     disclaimer_language_result = evaluate_disclaimer_language(result, case)
 
+    # NOTE: previously this called evaluate_response_quality(result, enabled=...)
+    # without `case`, so the function had no access to expected_answer /
+    # expected_crop / expected_treatment / expected_region and could never
+    # do more than a stub. Domain is also carried through here so it lands
+    # in the CSV/Postgres for per-domain dashboard breakdowns.
     quality_result = evaluate_response_quality(
         result,
+        case,
         enabled=(mode == "live"),
     )
 
     combined = {
         **result,
+        "domain": case.get("domain", ""),
         **technical_result,
         **routing_result,
         **tool_result,
@@ -85,6 +93,14 @@ def main():
         help="Run only stable test cases.",
     )
 
+    parser.add_argument(
+        "--store-postgres",
+        action="store_true",
+        default=None,
+        help="Persist results to Postgres. Defaults to on when "
+        "EVAL_POSTGRES_URL is set and mode=live.",
+    )
+
     args = parser.parse_args()
 
     selected_cases = TEST_CASES
@@ -105,6 +121,20 @@ def main():
     write_csv_report(results, output_file=output_file)
     summary = build_summary(results)
     print("Summary:", summary)
+
+    should_store = args.store_postgres
+    if should_store is None:
+        should_store = args.mode == "live" and bool(os.getenv("EVAL_POSTGRES_URL"))
+
+    if should_store:
+        try:
+            from ajrasakha.evaluation.storage import save_results_to_postgres
+
+            run_id = save_results_to_postgres(results, mode=args.mode)
+            print(f"Stored evaluation scores in Postgres (run_id={run_id})")
+        except Exception as exc:
+            # Never fail the stable suite because the dashboard DB is down.
+            print(f"Warning: could not store scores in Postgres: {exc}")
 
 
 if __name__ == "__main__":
