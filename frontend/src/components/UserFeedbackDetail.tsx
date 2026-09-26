@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
 import { useGetQuestionFeedback } from "@/hooks/api/question/useGetQuestionFeedback";
 import { useFeedbackAction } from "@/hooks/api/question/useFeedbackAction";
 import { formatDistanceToNow } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   Dialog,
   DialogContent,

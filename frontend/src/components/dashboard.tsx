@@ -31,7 +31,7 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
 import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";

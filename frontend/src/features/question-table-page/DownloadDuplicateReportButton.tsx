@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
   Dialog,
@@ -38,9 +38,10 @@ export const DownloadDuplicateReportButton = ({ onOpenDialog }: { onOpenDialog?:
       return;
     }
 
+    let toastId;
     try {
       setIsDownloading(true);
-      toast.info("Preparing download...");
+      toastId = toast.loading("Preparing download...");
 
       const startDate = formatDateLocal(downloadDateRange.from);
       const endDate = formatDateLocal(downloadDateRange.to);
@@ -61,9 +62,11 @@ export const DownloadDuplicateReportButton = ({ onOpenDialog }: { onOpenDialog?:
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
+      if (toastId) toast.dismiss(toastId);
       toast.success("Similar Questions report downloaded successfully!");
       setIsDateDialogOpen(false);
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       console.error("Download error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download similar questions report";
       toast.error(errorMessage);

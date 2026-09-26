@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
-import { toast } from 'sonner';
+import { toast } from '@/shared/components/toast';
 
 export function useNotifyUser() {
   return useMutation({

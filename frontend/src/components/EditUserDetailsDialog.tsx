@@ -25,7 +25,7 @@ import { CROPS, pae_domains as DOMAINS } from "@/components/MetaData";
 import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
 import { useAdminEditUser } from "@/hooks/api/Admin/useAdminEditUser";
 import type { IUser, IUserAdminEdit, IKVKCoveredItem } from "@/types";
-import { toast } from "sonner";
+
 import {
   User,
   Mail,
@@ -42,6 +42,7 @@ import {
   ShieldAlert,
   Info,
 } from "lucide-react";
+import { toast } from "@/shared/components/toast";
 
 interface EditUserDetailsDialogProps {
   open: boolean;

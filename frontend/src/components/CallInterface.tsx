@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { Button } from "./atoms/button";
 import {
   RotateCcw,

@@ -59,7 +59,7 @@ import {
   X,
   
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { renderModificationDiff } from "../question_details/components/renderModificationDiff";
 import {
   Dialog,

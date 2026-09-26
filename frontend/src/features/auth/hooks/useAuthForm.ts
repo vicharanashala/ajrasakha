@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuthStore } from "@/stores/auth-store";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useNavigate } from "@tanstack/react-router";
 import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";

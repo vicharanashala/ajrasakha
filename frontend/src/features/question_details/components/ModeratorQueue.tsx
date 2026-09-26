@@ -16,7 +16,7 @@ import { Switch } from "@/components/atoms/switch";
 import { useChangeModerator } from "@/hooks/api/question/useChangeModerator";
 import { useRemoveModerator } from "@/hooks/api/question/useRemoveModerator";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useGetStfModerators } from "@/hooks/api/user/useGetStfModerators";
 import { BLOCKING_ASSIGNED_STATUSES } from "@/hooks/services/userService";
 import { ConfirmationModal } from "@/components/confirmation-modal";
