@@ -835,3 +835,67 @@ def test_extract_market_name_ignores_district_clause():
     assert _extract_market_name_from_query("In Alappuzha district, what is the market price of cabbage?") is None
     assert _extract_market_name_from_query("cabbage price in Alappuzha district") is None
     assert _extract_market_name_from_query("rice price in Aluva market") == "Aluva market"
+
+
+@pytest.mark.asyncio
+async def test_arrival_unavailable_strips_header_and_source():
+    from ajrasakha.agents.daily_price_agent import (
+        _clean_arrival_unavailable_answer,
+        _ensure_source_line,
+        _format_price_fallback,
+        _is_arrival_quantity_unavailable,
+        synthesize_daily_price_answer,
+    )
+
+    payload = {
+        "action": "get_today_arrival",
+        "date": "2026-09-25",
+        "commodity": "onion",
+        "state": "Assam",
+        "market": None,
+        "total_records_returned": 2,
+        "arrival_records": [
+            {"market_name": "Tinsukia Market", "arrival_quantity": None, "source_system": "Agmarknet"},
+            {"market_name": "Pamohi(Garchuk) APMC", "arrival_quantity": None, "source_system": "Agmarknet"},
+        ],
+        "message": "Data.gov.in does not provide arrival quantity for agmarknet",
+        "resolution": {"arrival_notice": "Data.gov.in does not provide arrival quantity for agmarknet"},
+    }
+
+    assert _is_arrival_quantity_unavailable(payload) is True
+
+    # 1. _ensure_source_line does NOT append source line
+    raw_text = "The Data.gov.in source does not provide arrival quantity for agmarknet."
+    ans = _ensure_source_line(raw_text, payload)
+    assert "This information is fetched from" not in ans
+    assert ans == raw_text
+
+    # 2. _clean_arrival_unavailable_answer strips opening header and closing source line
+    llm_output = (
+        "Onion arrival quantity in Assam on 2026-09-25:\n"
+        "The Data.gov.in source does not provide arrival quantity for agmarknet. Therefore, the arrival quantity for onion in Assam markets (Tinsukia Market, Pamohi(Garchuk) APMC) is not available.\n\n"
+        "This information is fetched from the following source: Agmarknet."
+    )
+    cleaned = _clean_arrival_unavailable_answer(llm_output, payload, crop="onion")
+    assert "Onion arrival quantity in Assam on 2026-09-25:" not in cleaned
+    assert "This information is fetched from the following source" not in cleaned
+    assert "The Data.gov.in source does not provide arrival quantity for agmarknet." in cleaned
+
+    # 3. _format_price_fallback produces concise message without header or source
+    fallback = _format_price_fallback(payload, crop="onion")
+    assert "Data.gov.in does not provide arrival quantity for agmarknet." in fallback
+    assert "This information is fetched from" not in fallback
+    assert ":" not in fallback.split("\n")[0]
+
+    # 4. synthesize_daily_price_answer strips header and source
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=AsyncMock(return_value=llm_output)):
+        synth = await synthesize_daily_price_answer(
+            query="what is the arrival quantity of onion in assam today",
+            tool_result=payload,
+            crop="onion",
+            state="Assam",
+        )
+        assert "Onion arrival quantity in Assam on 2026-09-25:" not in synth
+        assert "This information is fetched from the following source" not in synth
+        assert "The Data.gov.in source does not provide arrival quantity for agmarknet." in synth
+
