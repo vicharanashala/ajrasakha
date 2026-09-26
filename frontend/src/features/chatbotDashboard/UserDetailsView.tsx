@@ -21,6 +21,7 @@ import {
   Shield,
   Briefcase,
   UsersRound,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
@@ -35,6 +36,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { Separator } from "@/components/atoms/separator";
 import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
 // import { useDashboardData } from "./hooks/useDashboardData";
 // import { BarGraph } from "./components/shared/BarGrapgh";
@@ -56,6 +58,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Input } from "@/components/atoms/input";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useDeleteUser } from "./hooks/useDeleteUser";
@@ -82,7 +93,9 @@ import { AddFarmerModal } from "./components/AddFarmerModal";
 import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { FarmerNameLink } from "./components/FarmerNameLink";
 import { useAddUser } from "./hooks/useAddUser";
+import { useExportUserDetails } from "./hooks/useExportUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
+import CountUp from "react-countup";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
@@ -115,6 +128,43 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   loginStatus: "all",
 };
 
+
+const yesNo = (value?: boolean) => (value == null ? "" : value ? "Yes" : "No");
+const cropList = (value?: string[]) => (value?.length ? value.join("; ") : "");
+
+const DOWNLOAD_PREVIEW_COLUMNS: {
+  key: string;
+  label: string;
+  getValue: (user: UserDetail) => React.ReactNode;
+}[] = [
+  { key: "name", label: "Name", getValue: (u) => u.name || "" },
+  { key: "email", label: "Email", getValue: (u) => u.email || "" },
+  { key: "userRole", label: "User Role", getValue: (u) => u.userRole || u.role || "" },
+  { key: "isVerified", label: "Verified", getValue: (u) => yesNo(u.isVerified) },
+  { key: "questions", label: "Questions", getValue: (u) => u.totalQuestionsCount ?? 0 },
+  { key: "messages", label: "Messages", getValue: (u) => u.totalMessagesCount ?? u.totalQuestions ?? 0 },
+  { key: "farmerName", label: "Farmer Name", getValue: (u) => u.farmerProfile?.farmerName || "" },
+  { key: "age", label: "Age", getValue: (u) => u.farmerProfile?.age ?? "" },
+  { key: "gender", label: "Gender", getValue: (u) => u.farmerProfile?.gender || "" },
+  { key: "phone", label: "Phone", getValue: (u) => u.farmerProfile?.phoneNo || "" },
+  { key: "language", label: "Language", getValue: (u) => u.farmerProfile?.languagePreference || "" },
+  { key: "experience", label: "Years Of Experience", getValue: (u) => u.farmerProfile?.yearsOfExperience ?? "" },
+  { key: "village", label: "Village", getValue: (u) => u.farmerProfile?.villageName || "" },
+  { key: "block", label: "Block", getValue: (u) => u.farmerProfile?.blockName || "" },
+  { key: "district", label: "District", getValue: (u) => u.farmerProfile?.district || "" },
+  { key: "state", label: "State", getValue: (u) => u.farmerProfile?.state || "" },
+  { key: "crops", label: "Crops Cultivated", getValue: (u) => cropList(u.farmerProfile?.cropsCultivated) },
+  { key: "primaryCrop", label: "Primary Crop", getValue: (u) => u.farmerProfile?.primaryCrop || "" },
+  { key: "secondaryCrop", label: "Secondary Crop", getValue: (u) => u.farmerProfile?.secondaryCrop || "" },
+  { key: "landhold", label: "Landhold (acres)", getValue: (u) => u.farmerProfile?.landhold ?? "" },
+  { key: "kcc", label: "Aware Of KCC", getValue: (u) => yesNo(u.farmerProfile?.awarenessOfKCC) },
+  { key: "agriApps", label: "Uses Agri Apps", getValue: (u) => yesNo(u.farmerProfile?.usesAgriApps) },
+  { key: "education", label: "Highest Educated Person", getValue: (u) => u.farmerProfile?.highestEducatedPerson || "" },
+  { key: "smartphones", label: "Number Of Smartphones", getValue: (u) => u.farmerProfile?.numberOfSmartphones ?? "" },
+  { key: "kvk", label: "Nearest KVK", getValue: (u) => u.farmerProfile?.nearestKVK || "" },
+  { key: "platform", label: "Platform", getValue: (u) => u.farmerProfile?.platform || "" },
+];
+
 const rolesForUserType = (value: "all" | "external" | "internal"): string[] => {
   if (value === "external") {
     return [
@@ -141,14 +191,13 @@ export function UserDetailsView({
 }: UserDetailsViewProps) {
   const { data: currentUser } = useGetCurrentUser({});
   const verifyUserMutation = useVerifyUserAnalytics();
-  const verifyingUserId = verifyUserMutation.isPending
-    ? verifyUserMutation.variables?.userId
-    : null;
+  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
   const changeUserPasswordMutation = useChangeUserPassword();
   const addUserMutation = useAddUser();
+  const exportUserDetailsMutation = useExportUserDetails();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
@@ -176,9 +225,15 @@ export function UserDetailsView({
     email: string;
     isVerified: boolean;
   } | null>(null);
+  const [pendingVerification, setPendingVerification] = useState<{
+    user: UserDetail;
+    nextStatus: boolean;
+  } | null>(null);
+
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [userToView, setUserToView] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
+  const [downloadConfirmOpen, setDownloadConfirmOpen] = useState(false);
   // const [hovered, setHovered] = useState<string | null>(null);
   // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -364,6 +419,21 @@ export function UserDetailsView({
     setCurrentPage(1);
   };
 
+  const handleDownload = () => {
+    exportUserDetailsMutation.mutate({
+      filters,
+      source,
+      userType,
+      sortBy,
+      sortOrder,
+    });
+  };
+
+  const handleConfirmDownload = () => {
+    setDownloadConfirmOpen(false);
+    handleDownload();
+  };
+
   const handleSort = (
     newSortBy: "totalQuestions" | "name" | "farmerName" | "email",
   ) => {
@@ -481,6 +551,8 @@ export function UserDetailsView({
     source: string,
     isVerified: boolean,
   ) => {
+    setVerifyingUserId(userId);
+
     try {
       const response = await verifyUserMutation.mutateAsync({
         userId,
@@ -494,15 +566,20 @@ export function UserDetailsView({
             ? "User verified successfully"
             : "User marked unverified successfully"),
       );
-      setUserToView((current) =>
-        current?.userId === userId ? { ...current, isVerified } : current,
-      );
     } catch (error: any) {
       toast.error(error?.message || "Failed to update verification status");
+    } finally {
+      setVerifyingUserId(null);
     }
   };
 
   const requestVerificationChange = (user: UserDetail, nextStatus: boolean) => {
+    console.log(
+      "Requesting verification change for user:",
+      user,
+      "Next status:",
+      nextStatus,
+    );
     setVerificationToConfirm({
       userId: user.userId,
       source,
@@ -512,14 +589,28 @@ export function UserDetailsView({
     });
   };
 
+  // const handleConfirmVerificationChange = async () => {
+  //   if (!verificationToConfirm) return;
+  //   await handleUpdateVerification(
+  //     verificationToConfirm.userId,
+  //     verificationToConfirm.source,
+  //     verificationToConfirm.isVerified,
+  //   );
+  //   setVerificationToConfirm(null);
+  // };
+
   const handleConfirmVerificationChange = async () => {
     if (!verificationToConfirm) return;
-    await handleUpdateVerification(
-      verificationToConfirm.userId,
-      verificationToConfirm.source,
-      verificationToConfirm.isVerified,
-    );
-    setVerificationToConfirm(null);
+
+    try {
+      await handleUpdateVerification(
+        verificationToConfirm.userId,
+        verificationToConfirm.source,
+        verificationToConfirm.isVerified,
+      );
+    } finally {
+      setVerificationToConfirm(null);
+    }
   };
 
   const handleDeleteUser = (user: UserDetail) => {
@@ -540,426 +631,37 @@ export function UserDetailsView({
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    if (!userToView && pendingVerification) {
+      setVerificationToConfirm({
+        userId: pendingVerification.user.userId,
+        source,
+        name:
+          pendingVerification.user.name ||
+          pendingVerification.user.farmerProfile?.farmerName ||
+          EMPTY_VALUE,
+        email: pendingVerification.user.email,
+        isVerified: pendingVerification.nextStatus,
+      });
+
+      setPendingVerification(null);
+    }
+  }, [userToView, pendingVerification, source]);
+
   return (
-    //     <div className="flex-1 overflow-y-auto pb-5 min-w-0 bg-gradient-to-b from-background to-muted/30">
-    //       {/* Users table */}
-    //       <div ref={tableRef}>
-    //         <Card
-    //           className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300
-    //  dark:border-[#2a2a2a]"
-    //         >
-    //           <CardHeader className="pb-4 border-b border-border/60 ">
-    //             <motion.div
-    //               initial={{ opacity: 0, y: -8 }}
-    //               animate={{ opacity: 1, y: 0 }}
-    //               transition={{ duration: 0.35, ease: "easeOut" }}
-    //               className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-    //             >
-    //               {/* Title */}
-    //               <div className="min-w-0 flex items-start gap-3">
-    //                 <motion.div
-    //                   whileHover={{ rotate: -6, scale: 1.05 }}
-    //                   transition={{ type: "spring", stiffness: 300, damping: 18 }}
-    //                   className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0"
-    //                 >
-    //                   <Users className="h-4 w-4 text-primary" />
-    //                 </motion.div>
-    //                 <div className="min-w-0">
-    //                   <CardTitle className="text-base font-semibold tracking-tight truncate">
-    //                     All Farmers
-    //                   </CardTitle>
-    //                   <p className="text-sm text-muted-foreground mt-0.5">
-    //                     View and manage farmer details, activity, and preferences.
-    //                   </p>
-    //                 </div>
-    //               </div>
-
-    //               {/* Search */}
-    //               <div className="relative w-full lg:max-w-xs lg:flex-1">
-    //                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-    //                 <Input
-    //                   type="text"
-    //                   placeholder="Search by name or email..."
-    //                   value={filters.search}
-    //                   onChange={(e) =>
-    //                     setFilters((d) => ({ ...d, search: e.target.value }))
-    //                   }
-    //                   className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
-    //                 />
-    //                 {filters.search && (
-    //                   <motion.button
-    //                     initial={{ opacity: 0, scale: 0.8 }}
-    //                     animate={{ opacity: 1, scale: 1 }}
-    //                     onClick={() => setFilters((d) => ({ ...d, search: "" }))}
-    //                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-    //                     aria-label="Clear search"
-    //                   >
-    //                     <X className="h-3.5 w-3.5" />
-    //                   </motion.button>
-    //                 )}
-    //               </div>
-
-    //               {/* Actions */}
-    //               <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
-    //                 {isFiltered && (
-    //                   <motion.div
-    //                     initial={{ opacity: 0, x: 8 }}
-    //                     animate={{ opacity: 1, x: 0 }}
-    //                     exit={{ opacity: 0, x: 8 }}
-    //                   >
-    //                     <Button
-    //                       variant="ghost"
-    //                       size="sm"
-    //                       className="h-9 px-3 text-muted-foreground hover:text-foreground"
-    //                       onClick={handleResetFilters}
-    //                     >
-    //                       <X className="h-4 w-4 mr-1.5" />
-    //                       Clear Filters
-    //                     </Button>
-    //                   </motion.div>
-    //                 )}
-
-    //                 <UserDetailsPreferenceFilter
-    //                   filters={filters}
-    //                   onApply={handleApplyFilters}
-    //                   hideFields={["userType"]}
-    //                 />
-
-    //                 {isAdmin &&
-    //                   (source === "annam" || source === "vicharanashala") && (
-    //                     <motion.div
-    //                       whileHover={{ y: -1 }}
-    //                       whileTap={{ scale: 0.97 }}
-    //                     >
-    //                       <Button
-    //                         size="sm"
-    //                         className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
-    //                         onClick={() => setIsAddModalOpen(true)}
-    //                       >
-    //                         <UserPlus className="h-4 w-4" />
-    //                         Add Farmer
-    //                       </Button>
-    //                     </motion.div>
-    //                   )}
-    //               </div>
-    //             </motion.div>
-    //           </CardHeader>
-    //           <CardContent className="p-0">
-    //             {isLoading && (
-    //               <div className="space-y-3 p-4">
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //               </div>
-    //             )}
-
-    //             {error && (
-    //               <div className="px-4 py-8 text-center text-red-500 text-sm">
-    //                 Failed to load user details. Please try again.
-    //               </div>
-    //             )}
-
-    //             {!isLoading && !error && (
-    //               <div className="rounded-lg border bg-card overflow-x-auto">
-    //                 <Table className="min-w-[980px]">
-    //                   <TableHeader className="bg-card sticky top-0 z-10">
-    //                     <TableRow>
-    //                       <TableHead className="text-center w-12">S.No</TableHead>
-    //                       <TableHead
-    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-    //                         onClick={() =>
-    //                           userType === "external" && handleSort("name")
-    //                         }
-    //                       >
-    //                         Name
-    //                       </TableHead>
-    //                       <TableHead className="text-center">Farmer Name</TableHead>
-    //                       <TableHead className="text-center">Email</TableHead>
-    //                       <TableHead className="text-center">User Role</TableHead>
-    //                       <TableHead
-    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-    //                         onClick={() =>
-    //                           userType === "external" &&
-    //                           handleSort("totalQuestions")
-    //                         }
-    //                       >
-    //                         <div className="flex items-center justify-center gap-1">
-    //                           Query Asked
-    //                           {sortBy === "totalQuestions" ? (
-    //                             <span className="text-blue-600 dark:text-blue-400">
-    //                               {sortOrder === "desc" ? "↓" : "↑"}
-    //                             </span>
-    //                           ) : (
-    //                             <span className="text-gray-400 dark:text-gray-500">
-    //                               ↕
-    //                             </span>
-    //                           )}
-    //                         </div>
-    //                       </TableHead>
-    //                       <TableHead className="text-center">View More</TableHead>
-    //                       {isAdmin && (
-    //                         <TableHead className="text-center">Actions</TableHead>
-    //                       )}
-    //                     </TableRow>
-    //                   </TableHeader>
-    //                   <TableBody>
-    //                     {users.length === 0 ? (
-    //                       <TableRow>
-    //                         <TableCell
-    //                           colSpan={isAdmin ? 8 : 7}
-    //                           className="text-center py-10 text-muted-foreground"
-    //                         >
-    //                           {isFiltered
-    //                             ? "No users match your filters."
-    //                             : "No users found."}
-    //                         </TableCell>
-    //                       </TableRow>
-    //                     ) : (
-    //                       users.map((user, idx) => {
-    //                         return (
-    //                           <ContextMenu key={user.userId} modal={false}>
-    //                             <ContextMenuTrigger asChild>
-    //                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
-    //                                 {/* S.No */}
-    //                                 <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
-    //                                   {(currentPage - 1) * pageSize + idx + 1}
-    //                                 </TableCell>
-
-    //                                 {/* Name */}
-    //                                 <TableCell className="align-middle font-medium whitespace-nowrap">
-    //                                   {user.name || <EmptyValue />}
-    //                                 </TableCell>
-
-    //                                 {/* Farmer Name */}
-    //                                 <TableCell className="align-middle whitespace-nowrap">
-    //                                   {user.farmerProfile?.farmerName || (
-    //                                     <EmptyValue />
-    //                                   )}
-    //                                 </TableCell>
-
-    //                                 {/* Email */}
-    //                                 <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
-    //                                   {user.email || <EmptyValue />}
-    //                                 </TableCell>
-
-    //                                 {/* User Role */}
-    //                                 <TableCell className="align-middle whitespace-nowrap">
-    //                                   {user.userRole || <EmptyValue />}
-    //                                 </TableCell>
-
-    //                                 {/* Queries asked */}
-    //                                 <TableCell className="align-middle">
-    //                                   <Button
-    //                                     variant="ghost"
-    //                                     size="sm"
-    //                                     onClick={() => {
-    //                                       setSelectedUser(user);
-    //                                       setQuestionModalOpen(true);
-    //                                     }}
-    //                                     className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
-    //                                       user.totalQuestions > 0
-    //                                         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
-    //                                         : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
-    //                                     }`}
-    //                                     title={"View queries"}
-    //                                   >
-    //                                     {user.totalQuestions.toLocaleString()}
-    //                                   </Button>
-    //                                 </TableCell>
-
-    //                                 {/* View more */}
-    //                                 <TableCell className="align-middle">
-    //                                   <Button
-    //                                     variant="outline"
-    //                                     size="sm"
-    //                                     onClick={() => setUserToView(user)}
-    //                                     className="h-8"
-    //                                   >
-    //                                     <Eye className="h-4 w-4" />
-    //                                     View More
-    //                                   </Button>
-    //                                 </TableCell>
-
-    //                                 {isAdmin && (
-    //                                   <TableCell className="align-middle">
-    //                                     <div className="flex items-center justify-center gap-2">
-    //                                       <Button
-    //                                         variant="ghost"
-    //                                         size="icon"
-    //                                         className="h-8 w-8"
-    //                                         onClick={() => handleEditUser(user)}
-    //                                         title="Edit farmer"
-    //                                       >
-    //                                         <Pencil className="h-4 w-4" />
-    //                                       </Button>
-    //                                       <Button
-    //                                         variant="ghost"
-    //                                         size="icon"
-    //                                         className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
-    //                                         onClick={() => handleDeleteUser(user)}
-    //                                         title="Delete farmer"
-    //                                       >
-    //                                         <Trash2 className="h-4 w-4" />
-    //                                       </Button>
-    //                                     </div>
-    //                                   </TableCell>
-    //                                 )}
-    //                               </TableRow>
-    //                             </ContextMenuTrigger>
-
-    //                             {isAdmin && (
-    //                               <ContextMenuContent>
-    //                                 <ContextMenuItem
-    //                                   className="cursor-pointer flex items-center gap-2"
-    //                                   onSelect={() => {
-    //                                     setUserToEdit(user);
-    //                                   }}
-    //                                 >
-    //                                   <Pencil className="h-4 w-4" />
-    //                                   Edit
-    //                                 </ContextMenuItem>
-    //                                 <ContextMenuItem
-    //                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-    //                                   onSelect={() => {
-    //                                     setConfirmEmail("");
-    //                                     setUserToDelete({
-    //                                       userId: user.userId,
-    //                                       source,
-    //                                       email: user.email,
-    //                                     });
-    //                                   }}
-    //                                 >
-    //                                   <Trash2 className="h-4 w-4 text-red-600" />
-    //                                   Delete
-    //                                 </ContextMenuItem>
-    //                               </ContextMenuContent>
-    //                             )}
-    //                           </ContextMenu>
-    //                         );
-    //                       })
-    //                     )}
-    //                   </TableBody>
-    //                 </Table>
-    //                 {/* Pagination footer */}
-    //                 {totalPages > 0 && (
-    //                   <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
-    //                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-    //                       <span className="text-xs text-(--muted-foreground)">
-    //                         Showing{" "}
-    //                         {users.length > 0
-    //                           ? (currentPage - 1) * pageSize + 1
-    //                           : 0}
-    //                         –{(currentPage - 1) * pageSize + users.length} of{" "}
-    //                         {totalUsers} users
-    //                       </span>
-    //                       <Pagination
-    //                         currentPage={currentPage}
-    //                         totalPages={totalPages}
-    //                         onPageChange={(page) => setCurrentPage(page)}
-    //                         limit={pageSize}
-    //                         onLimitChange={setPageSize}
-    //                       />
-    //                     </div>
-    //                   </div>
-    //                 )}
-    //               </div>
-    //             )}
-    //             <UserQuestionsModal
-    //               open={questionModalOpen}
-    //               onOpenChange={setQuestionModalOpen}
-    //               user={selectedUser}
-    //               source={source}
-    //               userType={userType}
-    //             />
-    //             <FarmerDetailsModal
-    //               open={!!userToView}
-    //               onOpenChange={(open) => {
-    //                 if (!open) setUserToView(null);
-    //               }}
-    //               user={userToView}
-    //               isAdmin={isAdmin}
-    //               onEdit={handleEditUser}
-    //               onDelete={handleDeleteUser}
-    //             />
-    //           </CardContent>
-    //         </Card>
-    //       </div>
-
-    //       <AddFarmerModal
-    //         open={isAddModalOpen}
-    //         onOpenChange={setIsAddModalOpen}
-    //         isSaving={addUserMutation.isPending}
-    //         onSave={handleAddUser}
-    //       />
-
-    //       <EditFarmerModal
-    //         open={!!userToEdit}
-    //         onOpenChange={(open) => {
-    //           if (!open) setUserToEdit(null);
-    //         }}
-    //         user={userToEdit}
-    //         isSaving={updateUserMutation.isPending}
-    //         onSave={handleSaveEditedUser}
-    //       />
-
-    //       <AlertDialog
-    //         open={!!userToDelete}
-    //         onOpenChange={(open) => {
-    //           if (!open) {
-    //             setUserToDelete(null);
-    //             setConfirmEmail("");
-    //           }
-    //         }}
-    //       >
-    //         <AlertDialogContent>
-    //           <AlertDialogHeader>
-    //             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-    //             <AlertDialogDescription>
-    //               This action cannot be undone. This will permanently delete the
-    //               farmer and remove their data. To confirm this action, enter the
-    //               email address <strong>{userToDelete?.email}</strong> in the box
-    //               below.
-    //             </AlertDialogDescription>
-    //             <Input
-    //               value={confirmEmail}
-    //               onChange={(e) => setConfirmEmail(e.target.value)}
-    //               placeholder="Enter email to confirm"
-    //             />
-    //           </AlertDialogHeader>
-    //           <AlertDialogFooter>
-    //             <AlertDialogCancel>Cancel</AlertDialogCancel>
-    //             <AlertDialogAction
-    //               className="bg-red-600 hover:bg-red-700 text-white"
-    //               disabled={confirmEmail !== userToDelete?.email}
-    //               onClick={() => {
-    //                 if (userToDelete) {
-    //                   deleteUserMutation.mutate(userToDelete);
-    //                   setUserToDelete(null);
-    //                   setConfirmEmail("");
-    //                 }
-    //               }}
-    //             >
-    //               Continue
-    //             </AlertDialogAction>
-    //           </AlertDialogFooter>
-    //         </AlertDialogContent>
-    //       </AlertDialog>
-    //     </div>
     <div className="flex-1 overflow-y-auto  min-w-0 bg-gradient-to-b from-background to-muted/30">
       <div ref={tableRef}>
-        <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <Card className="gap-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
           {/* ─────────── Header ─────────── */}
           <CardHeader className="pb-4 border-b border-border/60">
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
-              className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+              className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4"
             >
-              {/* Title */}
-              <div className="min-w-0 flex items-start gap-3">
+              {/* Title + summary stat */}
+              <div className="flex min-w-0 items-start gap-3">
                 <motion.div
                   whileHover={{ rotate: -6, scale: 1.05 }}
                   transition={{ type: "spring", stiffness: 300, damping: 18 }}
@@ -968,105 +670,201 @@ export function UserDetailsView({
                   <Users className="h-4 w-4 text-primary" />
                 </motion.div>
                 <div className="min-w-0">
-                  <CardTitle className="text-base font-semibold tracking-tight truncate">
-                    All Farmers
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-base font-semibold tracking-tight">
+                      All Farmers
+                    </CardTitle>
+                    {data?.totalQueries !== undefined && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            tabIndex={0}
+                            aria-label={`Total queries asked: ${data.totalQueries.toLocaleString()}`}
+                            className="flex h-6 items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 text-xs cursor-help hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Queries
+                            </span>
+                            <span className="font-semibold tabular-nums text-primary">
+                              <CountUp
+                                end={data.totalQueries}
+                                duration={1.2}
+                                separator=","
+                                preserveValue
+                              />
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="p-3">
+                          <div className="space-y-1.5 min-w-[160px]">
+                            <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">
+                              Total queries asked
+                            </p>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Messages:</span>
+                              <span className="font-medium">
+                                {data.totalMessagesCount ?? 0}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Questions:</span>
+                              <span className="font-medium">
+                                {data.totalQuestionsCount ?? 0}
+                              </span>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5 truncate">
                     View and manage farmer details, activity, and preferences.
                   </p>
                 </div>
               </div>
 
-              {/* Search */}
-              <div className="relative w-full lg:max-w-xs lg:flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="text"
-                  name="farmer-table-search"
-                  autoComplete="off"
-                  placeholder="Search by name or email..."
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters((d) => ({ ...d, search: e.target.value }))
-                  }
-                  className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
-                />
-                <AnimatePresence>
-                  {filters.search && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      onClick={() => setFilters((d) => ({ ...d, search: "" }))}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
-                <AnimatePresence>
-                  {isFiltered && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 px-3 text-muted-foreground hover:text-foreground"
-                        onClick={handleResetFilters}
-                      >
-                        <X className="h-4 w-4 mr-1.5" />
-                        Clear Filters
-                      </Button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <button
-                  onClick={handleRefresh}
-                  className="rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-                  title="Refresh"
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 bg-background ${
-                      refreshing ? "animate-spin" : ""
-                    }`}
+              {/* Search + actions */}
+              <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
+                {/* Search */}
+                <div className="relative w-full min-w-0 sm:flex-1 lg:w-72 lg:flex-none lg:shrink-0 xl:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="text"
+                    name="farmer-table-search"
+                    autoComplete="off"
+                    placeholder="Search name, email, farmer..."
+                    aria-label="Search by name, email or farmer name"
+                    value={filters.search}
+                    onChange={(e) =>
+                      setFilters((d) => ({ ...d, search: e.target.value }))
+                    }
+                    className="h-9 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
                   />
-                </button>
+                  <AnimatePresence>
+                    {filters.search && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        onClick={() => setFilters((d) => ({ ...d, search: "" }))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </div>
 
-                <UserDetailsPreferenceFilter
-                  filters={filters}
-                  onApply={handleApplyFilters}
-                  hideFields={["userType"]}
-                />
+                {/* Action toolbar */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <AnimatePresence>
+                    {isFiltered && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Clear filters"
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={handleResetFilters}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            Clear filters
+                          </TooltipContent>
+                        </Tooltip>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {isAdmin &&
-                  (source === "annam" || source === "vicharanashala") && (
-                    <motion.div
-                      whileHover={{ y: -1 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
+                  <UserDetailsPreferenceFilter
+                    filters={filters}
+                    onApply={handleApplyFilters}
+                    hideFields={["userType"]}
+                    iconOnly
+                  />
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
                       <Button
                         type="button"
-                        size="sm"
-                        className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
-                        onClick={() => {
-                          setFilters((prev) => ({ ...prev, search: "" }));
-                          setIsAddModalOpen(true);
-                        }}
+                        variant="outline"
+                        size="icon"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        aria-label="Refresh"
+                        className="border-border/60"
                       >
-                        <UserPlus className="h-4 w-4" />
-                        Add User
+                        <RefreshCw
+                          className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                        />
                       </Button>
-                    </motion.div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Refresh</TooltipContent>
+                  </Tooltip>
+
+                  {isAdmin && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label={`Download ${totalUsers} farmer details`}
+                          className="border-border/60"
+                          disabled={
+                            exportUserDetailsMutation.isPending ||
+                            totalUsers === 0
+                          }
+                          onClick={() => setDownloadConfirmOpen(true)}
+                        >
+                          {exportUserDetailsMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        Download ({totalUsers})
+                      </TooltipContent>
+                    </Tooltip>
                   )}
+
+                  {isAdmin &&
+                    (source === "annam" || source === "vicharanashala") && (
+                      <>
+                        <Separator orientation="vertical" className="!h-6" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              aria-label="Add user"
+                              className="shadow-sm shadow-primary/20"
+                              onClick={() => {
+                                setFilters((prev) => ({ ...prev, search: "" }));
+                                setIsAddModalOpen(true);
+                              }}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Add user</TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
+                </div>
               </div>
             </motion.div>
           </CardHeader>
@@ -1105,9 +903,9 @@ export function UserDetailsView({
             {!refreshing && !isLoading && !error && (
               <div className="overflow-x-auto">
                 <Table className="min-w-[980px]">
-                  <TableHeader className="bg-muted/40 sticky top-0 z-10 backdrop-blur">
-                    <TableRow className="hover:bg-transparent border-border/60">
-                      <TableHead className="text-center w-12 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
+                    <TableRow className="hover:bg-transparent border-b border-border">
+                      <TableHead className="text-center w-14 h-11 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         S.No
                       </TableHead>
 
@@ -1133,7 +931,7 @@ export function UserDetailsView({
                         order={sortOrder}
                         onSort={handleSort}
                       />
-                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      <TableHead className="text-center h-11 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         User Role
                       </TableHead>
 
@@ -1145,7 +943,7 @@ export function UserDetailsView({
                         onSort={handleSort}
                       />
 
-                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      <TableHead className="text-center h-11 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         Actions
                       </TableHead>
                     </TableRow>
@@ -1176,7 +974,12 @@ export function UserDetailsView({
                       users.map((user, idx) => {
                         const isVerifyingThisUser =
                           verifyingUserId === user.userId;
-                        const isUserVerified = user.isVerified ?? true;
+                        // Default to `false` (not verified) when the field is
+                        // missing so a stale/undefined cache entry does not
+                        // silently hide the verify button. The backend always
+                        // returns a boolean, so this fallback only kicks in for
+                        // legacy records that lack the field.
+                        const isUserVerified = user.isVerified ?? false;
                         return (
                           <ContextMenu key={user.userId} modal={false}>
                             <ContextMenuTrigger asChild>
@@ -1230,21 +1033,37 @@ export function UserDetailsView({
                                 </TableCell>
 
                                 <TableCell className="align-middle">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
                                   <button
                                     onClick={() => {
                                       setSelectedUser(user);
                                       setQuestionModalOpen(true);
                                     }}
-                                    disabled={user.totalQuestions === 0}
-                                    title="View queries"
+                                    disabled={(user.totalQueries ?? user.totalQuestions) === 0}
                                     className={`inline-flex items-center justify-center min-w-[36px] h-6 px-2.5 rounded-full text-xs font-semibold transition-all ${
-                                      user.totalQuestions > 0
+                                          (user.totalQueries ?? user.totalQuestions) > 0
                                         ? "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 cursor-pointer"
                                         : "bg-muted text-muted-foreground cursor-default"
                                     }`}
                                   >
-                                    {user.totalQuestions.toLocaleString()}
+                                    {(user.totalQueries ?? user.totalQuestions).toLocaleString()}
                                   </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="p-3">
+                                      <div className="space-y-1.5 min-w-[140px]">
+                                        <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Queries Breakdown</p>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Messages:</span>
+                                          <span className="font-medium">{user.totalMessagesCount ?? user.totalQuestions ?? 0}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Questions:</span>
+                                          <span className="font-medium">{user.totalQuestionsCount ?? 0}</span>
+                                        </div>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </TableCell>
 
                                 <TableCell className="align-middle">
@@ -1253,7 +1072,7 @@ export function UserDetailsView({
                                       <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                                         {!isUserVerified ? (
                                           <Button
-                                            disabled={isVerifyingThisUser}
+                                            // disabled={isVerifyingThisUser}
                                             className="h-8 px-3 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
                                             onClick={() =>
                                               requestVerificationChange(
@@ -1395,10 +1214,16 @@ export function UserDetailsView({
               onDelete={handleDeleteUser}
               isChangingPassword={changeUserPasswordMutation.isPending}
               onChangePassword={handleChangeViewedUserPassword}
-              isUpdatingVerification={verifyUserMutation.isPending}
+              isUpdatingVerification={!!verifyingUserId}
               onVerificationChange={(nextStatus) => {
                 if (userToView) {
-                  requestVerificationChange(userToView, nextStatus);
+                  setPendingVerification({
+                    user: userToView,
+                    nextStatus,
+                  });
+
+                  // Close FarmerDetailsModal first
+                  setUserToView(null);
                 }
               }}
             />
@@ -1470,64 +1295,152 @@ export function UserDetailsView({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={!!verificationToConfirm}
-        onOpenChange={(open) => {
-          if (!open && !verifyUserMutation.isPending) {
-            setVerificationToConfirm(null);
-          }
-        }}
+      {/* Download confirmation / preview */}
+      <Dialog
+        open={downloadConfirmOpen}
+        onOpenChange={(open) => setDownloadConfirmOpen(open)}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="mx-auto mb-2 p-3 rounded-full bg-primary/10 w-fit">
-              {verificationToConfirm?.isVerified ? (
-                <UserCheck2 className="h-5 w-5 text-primary" />
-              ) : (
-                <ShieldX className="h-5 w-5 text-destructive" />
-              )}
-            </div>
-            <AlertDialogTitle className="text-center">
-              {verificationToConfirm?.isVerified
-                ? "Set user as verified?"
-                : "Set user as unverified?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
-              This will update verification status for{" "}
+        <DialogContent className="sm:max-w-6xl w-[95vw]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-4.5 w-4.5 text-primary" />
+              Download farmer data
+            </DialogTitle>
+            <DialogDescription>
+              A CSV with{" "}
               <strong className="text-foreground">
-                {verificationToConfirm?.name}
+                {totalUsers.toLocaleString()} farmer
+                {totalUsers === 1 ? "" : "s"}
               </strong>
-              {verificationToConfirm?.email ? (
-                <> ({verificationToConfirm.email})</>
-              ) : null}
-              .
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={verifyUserMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={verifyUserMutation.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleConfirmVerificationChange();
-              }}
+              {isFiltered ? " matching the current filters" : ""} will be
+              downloaded. Preview of the columns and first rows below.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="rounded-md border border-border/60 h-[50vh] w-full">
+            <Table className="min-w-[1400px]">
+              <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
+                <TableRow className="hover:bg-transparent">
+                  {DOWNLOAD_PREVIEW_COLUMNS.map((col) => (
+                    <TableHead
+                      key={col.key}
+                      className="h-9 whitespace-nowrap text-[11px] font-semibold text-muted-foreground uppercase tracking-wider"
+                    >
+                      {col.label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.slice(0, 5).map((user) => (
+                  <TableRow key={user.userId} className="hover:bg-transparent">
+                    {DOWNLOAD_PREVIEW_COLUMNS.map((col) => (
+                      <TableCell
+                        key={col.key}
+                        className="whitespace-nowrap text-xs"
+                      >
+                        {col.getValue(user)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+
+          <p className="text-xs text-muted-foreground">
+            Showing {Math.min(5, users.length)} of {totalUsers.toLocaleString()}{" "}
+            row{totalUsers === 1 ? "" : "s"} that will be included in the
+            download.
+          </p>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDownloadConfirmOpen(false)}
             >
-              {verifyUserMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : verificationToConfirm?.isVerified ? (
-                "Set Verified"
-              ) : (
-                "Set Unverified"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleConfirmDownload}>
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {verificationToConfirm && (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+    {/* Backdrop */}
+    <div
+      className="absolute inset-0 bg-black/50"
+      onClick={() => {
+        if (!verifyingUserId) {
+          setVerificationToConfirm(null);
+        }
+      }}
+    />
+
+    {/* Confirmation */}
+    <div className="relative z-10 w-[90vw] max-w-md rounded-lg border bg-background p-6 shadow-xl">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-3 rounded-full bg-primary/10 p-3">
+          {verificationToConfirm.isVerified ? (
+            <UserCheck2 className="h-5 w-5 text-primary" />
+          ) : (
+            <ShieldX className="h-5 w-5 text-destructive" />
+          )}
+        </div>
+
+        <h2 className="text-lg font-semibold">
+          {verificationToConfirm.isVerified
+            ? "Set user as verified?"
+            : "Set user as unverified?"}
+        </h2>
+
+        <p className="mt-2 text-sm text-muted-foreground">
+          This will update verification status for{" "}
+          <strong className="text-foreground">
+            {verificationToConfirm.name}
+          </strong>
+          {verificationToConfirm.email ? (
+            <> ({verificationToConfirm.email})</>
+          ) : null}
+          .
+        </p>
+      </div>
+
+      <div className="mt-6 flex justify-end gap-2">
+        <Button
+          variant="outline"
+          disabled={!!verifyingUserId}
+          onClick={() => setVerificationToConfirm(null)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          disabled={!!verifyingUserId}
+          onClick={() => {
+            void handleConfirmVerificationChange();
+          }}
+        >
+          {verifyingUserId ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
+          ) : verificationToConfirm.isVerified ? (
+            "Set Verified"
+          ) : (
+            "Set Unverified"
+          )}
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
@@ -1548,21 +1461,32 @@ function SortableHead({
   onSort?: (f: "totalQuestions" | "name" | "farmerName" | "email") => void;
 }) {
   const Icon = !active ? ArrowUpDown : order === "desc" ? ArrowDown : ArrowUp;
+  const ariaSort = active ? (order === "asc" ? "ascending" : "descending") : "none";
   return (
     <TableHead
-      onClick={() => !disabled && onSort?.(field)}
-      className={`text-center text-xs font-medium uppercase tracking-wide transition-colors ${
-        disabled
-          ? "cursor-not-allowed opacity-50 text-muted-foreground"
-          : "cursor-pointer hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-      }`}
+      aria-sort={ariaSort}
+      className="h-11 p-0 text-center text-[11px] font-semibold uppercase tracking-wider"
     >
-      <div className="inline-flex items-center justify-center gap-1.5">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onSort?.(field)}
+        className={`group inline-flex h-full w-full items-center justify-center gap-1.5 px-3 uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+          active
+            ? "text-foreground"
+            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        }`}
+      >
         {label}
         <Icon
-          className={`h-3 w-3 ${active ? "text-primary" : "text-muted-foreground/60"}`}
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 shrink-0 transition-opacity ${
+            active
+              ? "text-primary"
+              : "opacity-40 group-hover:opacity-100 group-focus-visible:opacity-100"
+          }`}
         />
-      </div>
+      </button>
     </TableHead>
   );
 }
@@ -1571,33 +1495,42 @@ function SortableHead({
 function RoleBadge({ role }: { role?: string }) {
   if (!role) return <EmptyValue />;
 
-  const roleConfig: Record<string, { icon: React.ReactNode; className: string }> = {
+  const roleConfig: Record<
+    string,
+    { icon: React.ReactNode; className: string }
+  > = {
     farmer: {
       icon: <User className="h-3 w-3" />,
-      className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
+      className:
+        "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
     },
     district_coordinator: {
       icon: <UsersRound className="h-3 w-3" />,
-      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+      className:
+        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },
     block_coordinator: {
       icon: <UsersRound className="h-3 w-3" />,
-      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+      className:
+        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },
     village_volunteer: {
       icon: <UsersRound className="h-3 w-3" />,
-      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+      className:
+        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },
     internal: {
       icon: <Briefcase className="h-3 w-3" />,
-      className: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
+      className:
+        "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
     },
   };
 
   const normalizedRole = role.toLowerCase();
   const config = roleConfig[normalizedRole] || {
     icon: <User className="h-3 w-3" />,
-    className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700",
+    className:
+      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700",
   };
 
   return (

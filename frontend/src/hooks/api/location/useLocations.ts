@@ -52,3 +52,16 @@ export const useGetVillages = (blockCode?: number | null) => {
     staleTime: 1000 * 60 * 60 * 24,
   });
 };
+
+export const useGetKvks = (districtCode?: number | null) => {
+  return useQuery({
+    queryKey: ["kvks", districtCode],
+    queryFn: async () => {
+      if (!districtCode) return [];
+      const data = await locationService.getKvks(districtCode);
+      return data ?? [];
+    },
+    enabled: !!districtCode,
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+};

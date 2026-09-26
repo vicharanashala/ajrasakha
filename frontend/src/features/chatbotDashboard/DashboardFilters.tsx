@@ -14,6 +14,7 @@ export interface DashboardFilterValues {
   startTime?: Date;
   endTime?: Date;
   userType: 'all' | 'external' | 'internal';
+  coordinatorId?: string;
 }
 
 interface DashboardFiltersProps {

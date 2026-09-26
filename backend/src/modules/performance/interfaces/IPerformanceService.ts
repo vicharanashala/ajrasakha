@@ -19,7 +19,9 @@ export interface IPerformanceService {
    * Reviewer heatmap data
    */
   getHeatMapresults(
-    query: GetHeatMapQuery
+    query: GetHeatMapQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null>;
 
   /**
@@ -36,45 +38,48 @@ export interface IPerformanceService {
    */
   getDashboardData(
     currentUserId: string,
-    query: GetDashboardQuery
+    query: GetDashboardQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{
     data: DashboardResponse;
   }>;
 
-  getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string }): Promise<{
+  getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string; userType?: 'all' | 'tmu' | 'normal' }, isTrainingUser?: boolean, isAdmin?: boolean): Promise<{
     userRoleOverview: UserRoleOverview[];
     stfExpertCount: number;
     stfModeratorCount: number;
     moderatorApprovalRate: ModeratorApprovalRate;
   }>;
 
-  getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset>;
+  getGoldenDataset(query: GetGoldenDatasetQuery,isTrainingUser?: boolean, isAdmin?: boolean): Promise<GoldenDataset>;
 
-  getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]>;
+  getContributionTrend(timeRange: string,isTrainingUser?:boolean,isAdmin?:boolean): Promise<QuestionContributionTrend[]>;
 
-  getStatusOverview(): Promise<StatusOverview>;
+  getStatusOverview(isTrainingUser?:boolean,isAdmin?:boolean): Promise<StatusOverview>;
 
-  getExpertPerformance(): Promise<ExpertPerformance[]>;
+  getExpertPerformance(isTrainingUser?:boolean,isAdmin?:boolean): Promise<ExpertPerformance[]>;
 
-  getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics>;
+  getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery, isTrainingUser?:boolean,isAdmin?:boolean): Promise<Analytics>;
 
   updateCheckInTime(userId: string, time: Date): Promise<void>;
 
   sendCronSnapshotEmail(
-    currentUserId: string
+    currentUserId: string,
+    range?: { startDate?: string; endDate?: string },
   ): Promise<void>;
 
-  getLevelWiseReport(startDate:string, endDate:string): Promise<ArrayBuffer | null>;
+  getLevelWiseReport(startDate:string, endDate:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<ArrayBuffer | null>;
 
-  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 }

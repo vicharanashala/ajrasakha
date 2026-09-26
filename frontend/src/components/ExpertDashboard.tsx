@@ -49,6 +49,12 @@ import { QuestionDetails } from "./question-details";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
+import { ReviewerLifecycle } from "./ReviewerTimeline";
+import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
+import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
+
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -56,6 +62,10 @@ interface ExpertDashboardProps {
   expertDetailsList?: any;
   currentUserRole?: string;
   selectedUserRole?: string;
+  /** Noun shown in the title/subtitle (e.g. "Expert", "PAE Expert"). Defaults to "Expert". */
+  roleLabel?: string;
+  /** Hide the summary cards + Reviewer Lifecycle (used for the PAE's own dashboard). */
+  hideOverview?: boolean;
 }
 interface DateRange {
   startTime?: Date;
@@ -69,6 +79,8 @@ export const ExpertDashboard = ({
   expertDetailsList,
   currentUserRole,
   selectedUserRole,
+  roleLabel = "Expert",
+  hideOverview = false,
 }: ExpertDashboardProps) => {
   localStorage.removeItem("animationsEnabled");
 
@@ -110,6 +122,44 @@ export const ExpertDashboard = ({
     weekStart.toISOString(),
     weekEnd.toISOString(),
   );
+
+  const startDate = useMemo(() => {
+const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return date;
+  }, []);
+
+  const endDate = useMemo(() => {
+    const date = new Date();
+    date.setHours(23, 59, 59, 999);
+    return date;
+  }, []);
+
+const [dateRange, setDateRange] = useState<
+  import("react-day-picker").DateRange | undefined
+>(() => {
+  const to = new Date();
+  const from = new Date();
+
+  from.setMonth(from.getMonth() - 1);
+
+  return {
+    from,
+    to,
+  };
+});
+
+  const userTimelineRange = useMemo(
+    () => getISOStringsForDateRange(dateRange),
+    [dateRange],
+  );
+
+  const { data: reviewerLifecycleData, isLoading: isReviewerLifecycle } = useReviewerLifecycle(
+    userId ?? "" ,
+    userTimelineRange.startTime ?? "",
+    userTimelineRange.endTime ?? "",
+  );
+
+  // console.log("reviewerLifecycleData----", reviewerLifecycleData);
 
   const weeklyWorkingHours = weeklyWorkingHoursData?.workingHours ?? 0;
 
@@ -356,7 +406,7 @@ export const ExpertDashboard = ({
       [key]: value,
     }));
   };
-  console.log("questtions ", paginatedQuestions)
+  // console.log("questtions ", paginatedQuestions)
 
   // When a question is opened from the Questions tab, show its full details
   // (same view used across the app) instead of the dashboard.
@@ -437,10 +487,10 @@ export const ExpertDashboard = ({
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Expert {expertId ? "Performance" : "Dashboard"}
+              {roleLabel} {expertId ? "Performance" : "Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Monitor {expertId ? "expert" : "your"} performance:{" "}
+              Monitor {expertId ? roleLabel.toLowerCase() : "your"} performance:{" "}
               {userDetails?.[0]?.firstName}
             </p>
           </div>
@@ -509,6 +559,7 @@ export const ExpertDashboard = ({
           </div>
         </div>
         {/* Summary Cards */}
+        {!hideOverview && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
@@ -624,6 +675,17 @@ export const ExpertDashboard = ({
             </CardContent>
           </Card>
         </div>
+        )}
+
+        {!hideOverview && (
+        <ReviewerLifecycle
+          data={reviewerLifecycleData}
+          isLoading={isReviewerLifecycle}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+        />
+        )}
+
         {isViewerAdminOrModerator && userId && (
           <div className="mb-6 mt-8 p-6 rounded-xl border border-border bg-card/30 shadow-sm">
             <div className="flex items-center gap-2 mb-6">
@@ -633,6 +695,8 @@ export const ExpertDashboard = ({
             <UserHistoryView userId={userId} isEmbedded />
           </div>
         )}
+
+        {isViewerAdminOrModerator && userId && <WorkingHoursTrendChart userId={userId}/>}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">
           <TabsList>
             <TabsTrigger value="review_level">Review Level</TabsTrigger>
@@ -822,6 +886,7 @@ export const ExpertDashboard = ({
           </TabsContent>
         </Tabs>
       </div>
+      <ScrollToTopButton />
     </main>
   );
 };

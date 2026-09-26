@@ -25,6 +25,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { ClientSession } from 'mongodb';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
@@ -71,6 +72,44 @@ export interface QueryAnalyticsResponse {
   totalPages: number;
 }
 
+/** Dataset application (external data release service) — question list item */
+export interface DatasetQuestionListItem {
+  questionId: string;
+  question: string;
+  createdAt: string;
+}
+
+/** Dataset application (external data release service) — feedback list item */
+export interface DatasetFeedbackListItem {
+  email: string;
+  questionId: string;
+  tag: string;
+  type: string;
+  predefinedOption: string;
+  comment: string;
+  reviewNote: string;
+  status: string;
+  createdAt: string;
+}
+
+/** Dataset application (external data release service) — user list item */
+export interface DatasetUserListItem {
+  name: string;
+  email: string;
+  phone: string;
+  age: number | null;
+  createdAt: string;
+}
+
+/** Generic paginated response shape for dataset application list endpoints */
+export interface DatasetListResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface IChatbotService {
   getFeedbackUsers(
     source?: string,
@@ -90,6 +129,8 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    month?: string,
+    coordinatorId?: string,
   ): Promise<DashboardResponse>;
   getKpiSummary(source?: string, userType?: string): Promise<KpiSummary>;
   getDailyActiveUsers(
@@ -103,6 +144,7 @@ export interface IChatbotService {
   getQueryCategories(
     source?: string,
     userType?: string,
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]>;
   getQueryCategoryQuestions(
     category: string,
@@ -112,6 +154,7 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
   getQuestionFromDistrict(
     district: string,
@@ -125,9 +168,10 @@ export interface IChatbotService {
     startDate?: Date,
     endDate?: Date,
     knownDistricts?: string[],
+    coordinatorId?: string,
   ): Promise<any>;
-  getTopCrops(source?: string, userType?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
-  getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any>
+  getTopCrops(source?: string, userType?: string, coordinatorId?: string,): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string, coordinatorId?: string): Promise<any>
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;
   getTodayQueryCount(source?: string, userType?: string): Promise<number>;
@@ -149,7 +193,8 @@ export interface IChatbotService {
     },
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, fromMap?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
+  exportUserDetailsCsv(startDate?: string, endDate?: string, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?: string, sortOrder?: string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, fromMap?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<string>;
   getUsersByDemographic(
     category: string,
     value: string,
@@ -197,9 +242,10 @@ export interface IChatbotService {
     range: number,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<GrowthResponse>;
-  getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
-  getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
+  getDuplicateQuestions(source?: string, coordinatorId?: string): Promise<DuplicateQuestionEntry[]>;
+  getDomainSpikes(days?: number, coordinatorId?: string): Promise<DomainSpikeEntry[]>;
   getDailyQuestionTrends(
     days?: number,
     source?: string,
@@ -213,6 +259,7 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>>;
   getDistrictAnalyticsByState(
     state: string,
@@ -221,6 +268,7 @@ export interface IChatbotService {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(
     filters?: WeatherConcernAnalyticsFilters,
@@ -307,6 +355,8 @@ export interface IChatbotService {
     userType?: string,
     page?: number,
     limit?: number,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any>;
   getUserMessageMetricDetails(
     userId: string,
@@ -345,6 +395,7 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any>;
   getTopQuestionInstances(
     questionId: string,
@@ -354,12 +405,14 @@ export interface IChatbotService {
     endTime?: string,
     page?: number,
     limit?: number,
+    coordinatorId?: string,
   ): Promise<any>;
   getRepeatQueryCount(
     source?: string,
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any>;
   getAllUnverifiedUsers(
     page?: number,
@@ -379,7 +432,26 @@ export interface IChatbotService {
     endTime?: string,
   ): Promise<ResponseAdherenceTable>;
 
-  getQuestionsByStatus(        
+  sendResponseAdherenceReportEmail(
+    emails: string[],
+    reportContent: string,
+    fileName: string,
+    context?: {
+      source?: string;
+      userType?: string;
+      startDate?: string;
+      endDate?: string;
+      timeWindow?: string;
+    },
+    reportHtml?: string,
+  ): Promise<{success: boolean; message: string}>;
+
+  sendDailyResponseAdherenceReportEmail(): Promise<{
+    success: boolean;
+    message: string;
+  }>;
+
+  getQuestionsByStatus(
     status?: string,
     page?: number,
     limit?: number,
@@ -437,10 +509,10 @@ export interface IChatbotService {
       userType: string,
       startDate?: Date,
       endDate?: Date
-    ): Promise<any>
-  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>
-  assignUsers(userId: string, targetIds: string[]): Promise<any>
-  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+    ): Promise<any>;
+  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>;
+  assignUsers(userId: string, targetIds: string[]): Promise<any>;
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>;
 
     getVillageUserCounts(
     state: string,
@@ -547,4 +619,59 @@ export interface IChatbotService {
       limit: number,
       search?: string,
     )
+
+    getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any>
+
+  /**
+   * Total number of questions in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalQuestionsFromDataset(): Promise<number>;
+
+  /**
+   * Total number of feedbacks in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalFeedbacksFromDataset(): Promise<number>;
+
+  /**
+   * Total number of users in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalUsersFromDataset(): Promise<number>;
+
+  /**
+   * Paginated list of questions in the dataset application, fetched from
+   * the external data release service (DATA_RELEASE_URL) — NOT the
+   * internal review-system database.
+   */
+  listQuestionsFromDataset(
+    page?: number,
+    pageSize?: number,
+  ): Promise<DatasetListResponse<DatasetQuestionListItem>>;
+
+  /**
+   * Paginated list of feedbacks in the dataset application, fetched from
+   * the external data release service (DATA_RELEASE_URL) — NOT the
+   * internal review-system database.
+   */
+  listFeedbacksFromDataset(
+    page?: number,
+    pageSize?: number,
+  ): Promise<DatasetListResponse<DatasetFeedbackListItem>>;
+
+  /**
+   * Paginated list of users in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  listUsersFromDataset(
+    page?: number,
+    pageSize?: number,
+  ): Promise<DatasetListResponse<DatasetUserListItem>>;
+
+  logoutUser (userId: string): Promise<{value: boolean, message: string}>
 }

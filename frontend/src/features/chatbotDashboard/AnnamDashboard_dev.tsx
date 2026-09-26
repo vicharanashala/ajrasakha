@@ -1,7 +1,7 @@
 // ─── Annam Dashboard Main Component ─────────────────────────────────────────
 import React, {
   useState,
-  // useRef,
+  useRef,
   useCallback,
   useMemo,
   useEffect,
@@ -14,6 +14,7 @@ import {
   useResponseAdherenceTable,
   useTopFaqs,
   useUserMertices,
+  useDatasetTotals,
 } from "./hooks/useDashboardData";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -74,6 +75,8 @@ import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+import { DatasetQuestionsFeedbackCard } from "./DatasetQuestionsFeedbackCard";
+import { StatsCarousel } from "./components/StatsCarousel";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import {
@@ -90,6 +93,7 @@ import { SourceTabsHeader } from "./components/SourceTabs";
 import { QueryInsightsSection } from "./components/QueryInsightsSection";
 import { useDashboardHandlers } from "./hooks/useDashboardHandlers";
 import { ACCAnalyticsDashboard } from "@/components/ACCAnalyticsDashboard";
+import { ScrollToTopButton } from "./components/ScrollToTopButton";
 
 // ─── Lazy Loaded Components ──────────────────────────────────────────────────
 const LazyUserGrowthChart = React.lazy(
@@ -139,6 +143,7 @@ export function AnnamDashboard_dev({
   onUserTypeChange?: (userType: DashboardFilterValues["userType"]) => void;
 }) {
   const queryClient = useQueryClient();
+  const mainScrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ─── Core State ────────────────────────────────────────────────────────────
   const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(
@@ -236,15 +241,9 @@ export function AnnamDashboard_dev({
     () => getISOStringsForDateRange(customerNotificationsDateRange),
     [customerNotificationsDateRange],
   );
-  const [closed2hSource, setClosed2hSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
-  const [questionStatusSource, setQuestionStatusSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
-  const [notificationsSource, setNotificationsSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
+  const [closed2hSource, setClosed2hSource] = useState<string>("whatsapp,annam");
+  const [questionStatusSource, setQuestionStatusSource] = useState<string>("whatsapp,annam");
+  const [notificationsSource, setNotificationsSource] = useState<string>("whatsapp,annam");
   // Data queries with date ranges
   const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } =
     useClosedAndNotifedData(
@@ -433,6 +432,17 @@ export function AnnamDashboard_dev({
     true,
   );
 
+  // Dataset totals (total questions / feedbacks / users) for the "Dataset
+  // Questions and Feedback Metrics" card — fetched from the dataset
+  // application (external data release service) via useDatasetTotals,
+  // which calls the ChatbotController /analytics/dataset/total-* routes.
+  // NOT from the internal review system's user-details/user-metrices
+  // endpoints.
+  const {
+    data: datasetTotalsData,
+    isLoading: isDatasetTotalsLoading,
+  } = useDatasetTotals();
+
   // ─── Stats Cards Refresh Handler ────────────────────────────────────────────
   // Refresh all related stats cards in the row (Closed in 2h, Question Status, Notifications)
   const handleRefreshStatsCards = useCallback(async () => {
@@ -579,9 +589,12 @@ export function AnnamDashboard_dev({
               />
             )}
 
-            <div className="flex-1 overflow-y-auto px-5 pb-5">
+            <div
+              ref={mainScrollContainerRef}
+              className="flex-1 overflow-y-auto px-5 pb-5"
+            >
               {!mapView && source !== "acc" && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
+                <StatsCarousel className="mb-6">
                   <ClosedQuestionsCard
                     closedQuestions={
                       questionStatusData?.closedVsTotalQuestions?.closed?.count
@@ -679,7 +692,14 @@ export function AnnamDashboard_dev({
                     onRefresh={handleRefreshStatsCards}
                     onSourceChange={setNotificationsSource}
                   />
-                </div>
+
+                  <DatasetQuestionsFeedbackCard
+                    totalQuestions={datasetTotalsData?.totalQuestions}
+                    totalFeedbacks={datasetTotalsData?.totalFeedbacks}
+                    totalUsers={datasetTotalsData?.totalUsers}
+                    isLoading={isDatasetTotalsLoading}
+                  />
+                </StatsCarousel>
               )}
               {/* Source Selection Tabs & Refresh */}
               <SourceTabsHeader
@@ -1189,6 +1209,10 @@ export function AnnamDashboard_dev({
           </div>
         </>
       )}
+      <ScrollToTopButton
+        containerRef={mainScrollContainerRef}
+        onScrollTop={() => setActiveView("overview")}
+      />
     </div>
   );
 }

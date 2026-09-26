@@ -7,11 +7,10 @@ import logging
 import re
 from typing import Any, Optional
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.config import SANITIZER_MODEL
+from ajrasakha.agents.config import SANITIZER_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 from ajrasakha.agents.prompts import RETRIEVAL_SANITIZER_SYSTEM_PROMPT
 from ajrasakha.agents.state import (
@@ -446,7 +445,7 @@ async def retrieval_sanitizer_node(
             messages=llm_messages,
             pairs_evaluated=len(pairs),
         )
-        llm = ChatAnthropic(model=SANITIZER_MODEL)
+        llm = get_minimax_chat_model()
         response = await llm.ainvoke(llm_messages, config=config)
         raw_text = _message_to_text(response)
         scores, reasons = _parse_batch_results(raw_text)

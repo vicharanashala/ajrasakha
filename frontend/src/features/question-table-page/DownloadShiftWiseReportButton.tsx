@@ -54,6 +54,7 @@ import {
 } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
 
+type Source = 'annam' | 'whatsapp' | 'agri_expert';
 
 //shift based time range
 const shiftBasedTimeRange = {
@@ -69,15 +70,19 @@ const formatTime = (timeStr: string) => {
   const ampm = hour >= 12 ? 'PM' : 'AM';
   return `${hour % 12 || 12}:${m} ${ampm}`;
 };
+
 const DownloadShiftWiseReportButton = ({
   closeSideBar,
   userRole,
+  isTrainingUser
 }: {
   closeSideBar: () => void;
   userRole: any;
+  isTrainingUser: boolean;
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
-  const [source, setSource] = useState<"annam" | "whatsapp" | 'agri_expert'>('annam');
+  
+  const [source, setSource] = useState<Source>(isTrainingUser ? 'agri_expert' : 'annam');
 
   const defaultStartDate = new Date(Date.now());
   // const defaultEndDate = new Date(Date.now());
@@ -420,7 +425,6 @@ const DownloadShiftWiseReportButton = ({
           disabled={isDownloading}
           onClick={() => closeSideBar()}
         >
-          <TopRightBadge label="new" left={0} />
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
               {isDownloading ? (
@@ -485,9 +489,15 @@ const DownloadShiftWiseReportButton = ({
                           px-3
                           text-sm
                         "
-                >
-                  <option value="annam">Annam</option>
-                  <option value="whatsapp">WhatsApp</option>
+                > 
+                {
+                  isTrainingUser === false && (
+                    <>
+                    <option value="annam">Annam</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    </>
+                  )
+                }
                   <option value="agri_expert">AgriExpert</option>
                 </select>
               </div>

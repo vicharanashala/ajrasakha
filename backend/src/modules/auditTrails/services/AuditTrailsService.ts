@@ -221,6 +221,8 @@ export class AuditTrailsService
     shift: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<any> {
     // Implement the logic to get shift based audit action counts
     return this.auditTrailsRepository.getShiftBasedAuditActionCounts(
@@ -228,7 +230,9 @@ export class AuditTrailsService
       // endDate,
       shift,
       from,
-      to
+      to,
+      isTrainingUser,
+      isAdmin
     );
   }
 
@@ -241,6 +245,26 @@ export class AuditTrailsService
   ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
     const result = await this.auditTrailsRepository.getAuditTrailsByQuestionId(
       questionId,
+      page,
+      limit,
+      action,
+      order
+    );
+    return {
+      data: result.data.map(audit => this.normalizeAudit(audit)),
+      totalDocuments: result.totalDocuments,
+    };
+  }
+
+  async getAuditTrailsByCropId(
+    cropId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc"
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
+    const result = await this.auditTrailsRepository.getAuditTrailsByCropId(
+      cropId,
       page,
       limit,
       action,

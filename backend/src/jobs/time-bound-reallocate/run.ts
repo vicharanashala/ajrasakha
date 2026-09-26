@@ -17,9 +17,17 @@ async function main(): Promise<void> {
   const questionService = container.get<QuestionService>(
     CORE_TYPES.QuestionService,
   );
-  const result = await questionService.reallocateTimeBoundQuestions();
+  // Time-bound (AJRASAKHA/WHATSAPP) queue.
+  const timeBound = await questionService.reallocateTimeBoundQuestions();
   console.log(
-    `[time-bound-reallocate-job] done: reallocated=${result.reallocated}, skipped=${result.skipped}`,
+    `[time-bound-reallocate-job] time-bound done: reallocated=${timeBound.reallocated}, skipped=${timeBound.skipped}`,
+  );
+
+  // Manual (AGRI_EXPERT/OUTREACH) single-allocation queue — same engine, different source
+  // group. Without this call the manual queue never gets reviewers/reallocations assigned.
+  const manual = await questionService.reallocateManualQuestions();
+  console.log(
+    `[time-bound-reallocate-job] manual done: reallocated=${manual.reallocated}, skipped=${manual.skipped}`,
   );
 }
 

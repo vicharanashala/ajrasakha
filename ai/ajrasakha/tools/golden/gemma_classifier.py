@@ -24,7 +24,6 @@ GOLDEN_TIE_BREAK_MIN = int(os.getenv("GOLDEN_TIE_BREAK_MIN", "2"))
 ANSWER_ELIGIBLE_CLASSES = frozenset({"SAME_INTENT", "COVERED_BY_CONTEXT"})
 
 
-
 IntentClass = Literal[
     "SAME_INTENT",
     "COVERED_BY_CONTEXT",
@@ -464,6 +463,76 @@ async def filter_relevance_batch(
             }
             for _ in range(n)
         ]
+
+
+# =============================================================================
+# Functions for Question Similarity Detection
+# =============================================================================
+
+def _format_questions_for_filter(questions: list) -> str:
+    """Format questions for the similarity filter prompt."""
+    lines = []
+    for i, q in enumerate(questions, 1):
+        qid = getattr(q, "question_id", f"q{i}")
+        qtext = getattr(q, "question_text", str(q))
+        lines.append(f"{i}. [ID: {qid}] {qtext}")
+    return "\n\n".join(lines)
+
+
+def _parse_question_similarity_filter_response(
+    content: str,
+    num_candidates: int,
+) -> list[dict]:
+    """
+    Parse Gemma response for question similarity filter.
+    Returns one result dict per candidate (1..num_candidates).
+    Missing or unparseable entries default to KEEP (lenient).
+    """
+    defaults = [
+        {
+            "relevance_decision": "KEEP",
+            "relevance_reason": "No filter entry — kept by default (lenient)",
+            "llm_parse_ok": False,
+        }
+        for _ in range(num_candidates)
+    ]
+    text = _strip_json_fence(content)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        log.warning("gemma question similarity filter: JSON parse failed — keeping all")
+        return defaults
+
+    items = data if isinstance(data, list) else data.get("results") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        log.warning("gemma question similarity filter: no results array — keeping all")
+        return defaults
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            idx = int(item.get("index", 0))
+        except (TypeError, ValueError):
+            continue
+        if not (1 <= idx <= num_candidates):
+            continue
+        decision = str(item.get("decision", "KEEP")).strip().upper()
+        if decision not in ("SAME", "KEEP", "REJECT"):
+            decision = "KEEP"
+        reason = str(item.get("reason", "")).strip()
+        if decision == "SAME":
+            default_reason = "Same or paraphrased question"
+        elif decision == "REJECT":
+            default_reason = "Rejected"
+        else:
+            default_reason = "Kept"
+        defaults[idx - 1] = {
+            "relevance_decision": decision,
+            "relevance_reason": reason or default_reason,
+            "llm_parse_ok": True,
+        }
+    return defaults
 
 
 async def filter_pending_duplicate_batch(

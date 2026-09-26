@@ -26,17 +26,21 @@ import { RerouteTimeline } from "@/features/question_details/components/RerouteT
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
 import { ModeratorQueue } from "@/features/question_details/components/ModeratorQueue";
 import { RoleAssigneeQueue } from "@/features/question_details/components/RoleAssigneeQueue";
+import { QueuesSection } from "@/features/question_details/components/QueuesSection";
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
 import UserFeedbackDetail from "./UserFeedbackDetail";
+import OpenFeedback from "./OpenFeedback";
+import { FeedbackReviewTimeline } from "./FeedbackReviewTimeline";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubmissionHistoryModal } from "./submission-history-model";
+import PaeValidationReviewTimeline from "./PaeValidationReviewTimeline";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -194,6 +198,8 @@ export const QuestionDetails = ({
     console.log("Open is set to", open);
   }, [open]);
 
+  const closedStatus = ['closed', 'dynamic_closed', 'duplicate_closed'].includes(question?.status)
+
   return (
     <div className="relative w-full">
       {/* Navigation Arrows */}
@@ -233,7 +239,7 @@ export const QuestionDetails = ({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="mx-auto p-6 pt-0 grid gap-6"
+          className="mx-auto p-3 sm:p-6 pt-0 grid gap-4 sm:gap-6 w-full max-w-full overflow-x-hidden"
         >
           <QuestionHeader
             question={question}
@@ -307,47 +313,24 @@ export const QuestionDetails = ({
                   }
                   navigateToQuestionPage={navigateToQuestionPage}
                 />
-                <UserFeedbackDetail questionId={question._id || null} />
+                <UserFeedbackDetail questionId={question._id || null} currentUser={currentUser} />
               </>
             )}
 
-          {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
-
-          {/* 1. Gate keeper / auditor role queues — always shown (read-only unless the
-                viewer is a moderator/admin who can manage). */}
-          <RoleAssigneeQueue
-            title="Gate Keeper Queue"
-            noun="gate keeper"
-            role="gate_keeper"
-            question={question}
-            currentUser={currentUser}
-          />
-          <RoleAssigneeQueue
-            title="Auditor Queue"
-            noun="auditor"
-            role="auditor"
-            question={question}
-            currentUser={currentUser}
-          />
-
-          {/* 2. Expert allocation queue */}
-          <AllocationTimeline
-            history={question.submission.history}
-            queue={question.submission.queue}
-            currentUser={currentUser}
-            question={question}
-          />
-
-          {/* 3. Moderator queue */}
-          <ModeratorQueue question={question} currentUser={currentUser} />
-
-          {/* 4. Re-route queue */}
-          {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
-            <RerouteTimeline
-              currentUser={currentUser}
-              rerouteData={reroutequestionDetails}
-            />
+          {/* Feedback-review panel — applies to questions of ANY source (feedback
+              can be raised on AGRI_EXPERT/OUTREACH etc. too). The component gates
+              itself via canViewFeedback (admin or assigned reviewer), so render it
+              independently of the chatbot-only MessageDetail block above. */}
+          {question && currentUser && currentUser.role != "expert" && (
+            <OpenFeedback questionId={question._id || null} currentUser={currentUser} />
           )}
+
+          {/* Horizontal Queues Bar Section (includes Gate Keeper, Auditor, Allocation, Moderator, Re-route, Feedback Queue & PAE Validation) */}
+          <QueuesSection
+            question={question}
+            currentUser={currentUser}
+            reroutequestionDetails={reroutequestionDetails}
+          />
 
           {/* )} */}
           <div className="md:flex items-center justify-between md:mt-12 hidden ">

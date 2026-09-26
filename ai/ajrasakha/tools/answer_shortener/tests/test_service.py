@@ -4,15 +4,11 @@ import json
 
 import pytest
 
-from ajrasakha.tools.answer_shortener.extraction import (
-    ExtractiveRangeNotFeasibleError,
-    split_source_into_segments,
-)
+from ajrasakha.tools.answer_shortener.extraction import split_source_into_segments
 from ajrasakha.tools.answer_shortener.service import (
     AnswerBodyMissingError,
     AnswerShorteningService,
     ModelSelectionError,
-    ProtectedContentTooLargeError,
     split_reviewer_footer,
     TargetRequiresExpansionError,
 )
@@ -303,21 +299,25 @@ async def test_all_invalid_model_rankings_fail_without_returning_model_text():
 
 
 @pytest.mark.asyncio
-async def test_no_feasible_whole_segment_combination_returns_error_before_model_call():
+async def test_no_feasible_whole_segment_combination_reuses_one_ranking_for_compression():
     source = sized_sentence("Only very long source segment", length=400)
-    gateway = FakeGateway([])
+    compressed = sized_sentence("Compressed source guidance", length=300)
+    gateway = FakeGateway([ranking_response(source), compressed])
 
-    with pytest.raises(ExtractiveRangeNotFeasibleError) as exc_info:
-        await make_service(gateway).shorten(
-            original_query="query",
-            answer=source,
-            expected_character_count=300,
-        )
+    result = await make_service(gateway).shorten(
+        original_query="query",
+        answer=source,
+        expected_character_count=300,
+    )
 
-    assert gateway.calls == []
-    assert exc_info.value.lower_bound == 250
-    assert exc_info.value.upper_bound == 350
-    assert exc_info.value.closest_achievable_lengths == (0, 400)
+    assert result.short_answer == compressed
+    assert result.within_tolerance is True
+    assert result.rewrite_attempts == 2
+    assert len(gateway.calls) == 2
+    assert "source-segment relevance ranker" in gateway.calls[0]["system_prompt"]
+    assert "constrained\nanswer compressor" in gateway.calls[1]["system_prompt"]
+    assert "ranked_source_segments" in gateway.calls[1]["user_prompt"]
+    assert source in gateway.calls[1]["user_prompt"]
 
 
 @pytest.mark.asyncio
@@ -338,19 +338,43 @@ async def test_mandatory_safety_source_segment_is_forced_even_when_ranked_last()
 
 
 @pytest.mark.asyncio
-async def test_rejects_target_smaller_than_mandatory_safety_source_segment():
+async def test_compresses_when_mandatory_safety_source_segment_is_too_large():
     safety = sized_sentence("Do not spray before harvest", length=180)
     source = safety + "\n" + sized_sentence("Background", length=180)
-    gateway = FakeGateway([])
+    compressed = sized_sentence("Do not spray before harvest", length=120)
+    gateway = FakeGateway([ranking_response(source), compressed])
 
-    with pytest.raises(ProtectedContentTooLargeError):
-        await make_service(gateway).shorten(
-            original_query="Can I spray now?",
-            answer=source,
-            expected_character_count=100,
-        )
+    result = await make_service(gateway).shorten(
+        original_query="Can I spray now?",
+        answer=source,
+        expected_character_count=100,
+    )
 
-    assert gateway.calls == []
+    assert result.short_answer == compressed
+    assert result.within_tolerance is True
+    assert len(gateway.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_compression_retries_invalid_output_without_ranking_again():
+    source = sized_sentence("Only very long source segment", length=400)
+    too_long = sized_sentence("Too long compressed answer", length=200)
+    valid = sized_sentence("Valid compressed answer", length=100)
+    gateway = FakeGateway([ranking_response(source), too_long, valid])
+
+    result = await make_service(gateway).shorten(
+        original_query="query",
+        answer=source,
+        expected_character_count=100,
+    )
+
+    assert result.short_answer == valid
+    assert result.rewrite_attempts == 3
+    assert len(gateway.calls) == 3
+    assert "source-segment relevance ranker" in gateway.calls[0]["system_prompt"]
+    assert "constrained\nanswer compressor" in gateway.calls[1]["system_prompt"]
+    assert "constrained\nanswer compressor" in gateway.calls[2]["system_prompt"]
+    assert "previous_invalid_response" in gateway.calls[2]["user_prompt"]
 
 
 @pytest.mark.asyncio

@@ -21,6 +21,8 @@ interface BasicUser {
   university?: string;
   /** Questions this user currently holds — used to show availability in select modals. */
   assignedQuestionIds?: AssignedQuestion[] | null;
+  /** Indicates if this user is a training model user */
+  isTrainingUser?: boolean;
 }
 export interface IUsersNameResponse {
   myPreference: IMyPreference;

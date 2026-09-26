@@ -18,4 +18,12 @@ export interface IAuditTrailsService {
     action?: string | null,
     order?: "asc" | "desc"
   ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }>;
+
+  getAuditTrailsByCropId(
+    cropId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc"
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }>;
 }

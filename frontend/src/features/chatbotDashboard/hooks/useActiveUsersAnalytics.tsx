@@ -79,14 +79,15 @@ export const useRetentionMetrics = (
   });
 };
 
-export const useQueryCategories = (source: string, userType: string, enabled: boolean = true) => {
+export const useQueryCategories = (source: string, userType: string, enabled: boolean = true, coordinatorId?: string) => {
   return useQuery({
     queryKey: ["query-categories",
       source,
       userType,
+      coordinatorId,
     ],
     queryFn: () => {
-      return chatbotService.getQueryCategories(source, userType);
+      return chatbotService.getQueryCategories(source, userType, coordinatorId);
     },
     enabled,
   });
@@ -148,6 +149,7 @@ export const useQuestionFilter = ({
   userId,
   manualSource,
   effectiveDate,
+  coordinatorId,
 }: {
   category?: string;
   district?: string;
@@ -172,6 +174,7 @@ export const useQuestionFilter = ({
   userId?: string;
   manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
   effectiveDate?: string;
+  coordinatorId?: string;
 }) => {
   
   return useQuery<QueryCategoryQuestionsResponse>({
@@ -199,6 +202,7 @@ export const useQuestionFilter = ({
     userId,
     manualSource,
     effectiveDate,
+    coordinatorId,
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -224,6 +228,7 @@ export const useQuestionFilter = ({
         userId,
         manualSource,
         effectiveDate,
+        coordinatorId,
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
@@ -484,6 +489,7 @@ export const useTopQuestionInstances = ({
   page,
   limit,
   enabled = true,
+  coordinatorId,
 }: {
   questionId?: string;
   source?: string;
@@ -493,6 +499,7 @@ export const useTopQuestionInstances = ({
   page?: number;
   limit?: number;
   enabled?: boolean;
+  coordinatorId?: string;
 }) => {
   const stringStartDate = startDate?.toISOString();
   const stringEndDate = endDate?.toISOString();
@@ -507,6 +514,7 @@ export const useTopQuestionInstances = ({
       stringEndDate,
       page,
       limit,
+      coordinatorId,
     ],
     queryFn: () =>
       chatbotService.getTopQuestionInstances(questionId!, {
@@ -516,6 +524,7 @@ export const useTopQuestionInstances = ({
         endTime: stringEndDate,
         page,
         limit,
+        coordinatorId,
       }),
     enabled: enabled && Boolean(questionId),
   });

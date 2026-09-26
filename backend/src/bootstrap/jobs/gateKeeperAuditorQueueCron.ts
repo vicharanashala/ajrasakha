@@ -10,7 +10,7 @@ import { appConfig } from '#root/config/app.js';
 // To re-enable for local dev, flip `ENABLE_INPROCESS_CRON` to true.
 const ENABLE_INPROCESS_CRON = false;
 
-if (!appConfig.isDevelopment) {
+if (ENABLE_INPROCESS_CRON) {
   cron.schedule(
     '0 */1 * * * *',
     async () => {

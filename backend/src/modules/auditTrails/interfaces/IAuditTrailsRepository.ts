@@ -43,11 +43,22 @@ export interface IAuditTrailsRepository {
     shift: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
   getAuditTrailsByQuestionId(
     questionId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc",
+    session?: ClientSession,
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }>;
+
+  getAuditTrailsByCropId(
+    cropId: string,
     page?: number,
     limit?: number,
     action?: string | null,

@@ -41,12 +41,14 @@ import {
 import { cn } from "@/lib/utils";
 import {motion} from "framer-motion";
 import {
-  BLOCKS,
   CROPS,
-  DISTRICTS,
-  STATES,
-  VILLAGES,
 } from "../utils/metaData";
+import {
+  useGetStates,
+  useGetDistricts,
+  useGetBlocks,
+  useGetVillages,
+} from "@/hooks/api/location/useLocations";
 
 export interface UserDetailsFilters {
   search: string;
@@ -71,6 +73,8 @@ export interface UserDetailsFilters {
 interface UserDetailsPreferenceFilterProps {
   filters: UserDetailsFilters;
   onApply: (filters: UserDetailsFilters) => void;
+  /** Renders a compact icon button with a tooltip instead of a labelled button */
+  iconOnly?: boolean;
   /** Fields to hide from the filter dialog */
   hideFields?: Array<
     | "crop"
@@ -163,6 +167,7 @@ export function UserDetailsPreferenceFilter({
   filters,
   onApply,
   hideFields = [],
+  iconOnly = false,
 }: UserDetailsPreferenceFilterProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<UserDetailsFilters>(filters);
@@ -171,11 +176,28 @@ export function UserDetailsPreferenceFilter({
     ? getInactiveDateError(draft.startTime, draft.endTime)
     : "";
   const cropOptions = CROPS;
-  const districtOptions = draft.state ? DISTRICTS[draft.state] ?? [] : [];
-  const blockOptions = draft.district ? BLOCKS[draft.district] ?? [] : [];
-  const villageOptions = draft.district
-    ? (VILLAGES as Record<string, string[]>)[draft.district] ?? []
-    : [];
+
+  const { data: states = [] } = useGetStates();
+  const selectedStateCode = states.find(
+    (s) => s.stateNameEnglish === draft.state,
+  )?.stateCode;
+
+  const { data: districts = [] } = useGetDistricts(selectedStateCode);
+  const selectedDistrictCode = districts.find(
+    (d) => d.districtNameEnglish === draft.district,
+  )?.districtCode;
+
+  const { data: blocks = [] } = useGetBlocks(selectedDistrictCode);
+  const selectedBlockCode = blocks.find(
+    (b) => b.blockNameEnglish === draft.block,
+  )?.blockCode;
+
+  const { data: villages = [] } = useGetVillages(selectedBlockCode);
+
+  const districtOptions = districts.map((d) => d.districtNameEnglish);
+  const blockOptions = blocks.map((b) => b.blockNameEnglish);
+  const villageOptions = villages.map((v) => v.villageNameEnglish);
+
   const farmerRoleSelected = draft.roles.some(
     (role) => role.toUpperCase() === "FARMER",
   );
@@ -239,21 +261,48 @@ export function UserDetailsPreferenceFilter({
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 flex items-center gap-2 border-border/60 hover:border-primary hover:text-primary transition-colors"
-        >
-          <Filter className="h-4 w-4" />
-          Preferences
-          {activeCount > 0 && (
-            <Badge className="ml-0.5 h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-primary hover:bg-primary text-primary-foreground">
-              {activeCount}
-            </Badge>
-          )}
-        </Button>
-      </DialogTrigger>
+      {iconOnly ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={
+                  activeCount > 0
+                    ? `Preferences, ${activeCount} active`
+                    : "Preferences"
+                }
+                className="relative border-border/60 hover:border-primary hover:text-primary transition-colors"
+              >
+                <Filter className="h-4 w-4" />
+                {activeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 rounded-full px-1 flex items-center justify-center text-[10px] font-semibold bg-primary text-primary-foreground">
+                    {activeCount}
+                  </span>
+                )}
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Preferences</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 flex items-center gap-2 border-border/60 hover:border-primary hover:text-primary transition-colors"
+          >
+            <Filter className="h-4 w-4" />
+            Preferences
+            {activeCount > 0 && (
+              <Badge className="ml-0.5 h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-primary hover:bg-primary text-primary-foreground">
+                {activeCount}
+              </Badge>
+            )}
+          </Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent
         className="sm:max-w-3xl w-full p-0 gap-0 overflow-hidden z-[10001] bg-card border-border shadow-2xl"
@@ -441,9 +490,9 @@ export function UserDetailsPreferenceFilter({
                       </SelectTrigger>
                       <SelectContent className="z-[10002]">
                         <SelectItem value="all">All States</SelectItem>
-                        {STATES.map((state) => (
-                          <SelectItem key={state} value={state}>
-                            {state}
+                        {states.map((state) => (
+                          <SelectItem key={state.stateCode} value={state.stateNameEnglish}>
+                            {state.stateNameEnglish}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -765,8 +814,7 @@ function SearchableSingleSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const filteredOptions = options
-    .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 10);
+    .filter((option) => option.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div className="relative min-w-0">
@@ -787,7 +835,7 @@ function SearchableSingleSelect({
         className={cn(inputClass, disabled && "cursor-not-allowed opacity-60")}
       />
       {open && !disabled && (
-        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option) => (
               <button
@@ -833,8 +881,7 @@ function SearchableMultiSelect({
   const [query, setQuery] = useState("");
   const selectedSet = new Set(selected);
   const filteredOptions = options
-    .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 10);
+    .filter((option) => option.toLowerCase().includes(query.toLowerCase()));
   const selectedSummary = selected.join(", ");
 
   const remove = (option: string) => {
@@ -896,7 +943,7 @@ function SearchableMultiSelect({
           />
         </button>
         {open && (
-          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => {
                 const isSelected = selectedSet.has(option);

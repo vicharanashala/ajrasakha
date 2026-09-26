@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { useDebounce } from "@/hooks/ui/useDebounce";
-import { canManageUsers } from "@/lib/roles";
+import { canManageUsers, hasFullUserManagement } from "@/lib/roles";
 import {
   Filter,
   MapPin,
@@ -10,6 +10,8 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { toast } from "sonner";
+import { AdminUserService } from "@/hooks/services/adminService";
 import { Input } from "./atoms/input";
 import { Badge } from "./atoms/badge";
 import { UsersTable } from "./user-table";
@@ -27,6 +29,8 @@ import {
 } from "./atoms/select";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
+import { ModeratorDashboard } from "./ModeratorDashboard";
+import { PaeDashboard } from "./PaeDashboard";
 import { Dashboard } from "./dashboard";
 import { Button } from "./atoms/button";
 import { UserFiltersDialog } from "./UserFiltersDialog";
@@ -43,10 +47,58 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("ALL");
   const [stfFilter, setStfFilter] = useState<string>("ALL");
+  const [tmuFilter, setTmuFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [showSensitive, setShowSensitive] = useState(false);
-  const isAdmin = currentUser?.role === "admin";
+  const [isExporting, setIsExporting] = useState(false);
+  // Include a per-PAE analytics sheet in the export (only offered when the PAE role is selected).
+  const [getAnalytics, setGetAnalytics] = useState(false);
+  // Gate keepers get the same full "User Management" view as admins (all users +
+  // admin actions), not the limited "Expert Management" view.
+  const isAdmin = hasFullUserManagement(currentUser?.role);
+
+  const handleExportUsers = async (overrides?: {
+    filter?: string;
+    role?: string;
+    isBlocked?: string;
+    isVerified?: string;
+    isSTF?: string;
+    isTMU?: string;
+    getAnalytics?: boolean;
+  }) => {
+    try {
+      setIsExporting(true);
+      toast.info("Preparing users export...");
+      const role = overrides?.role ?? roleFilter;
+      const blob = await new AdminUserService().exportUsers({
+        search,
+        sort,
+        filter: overrides?.filter ?? filter,
+        role,
+        isBlocked: overrides?.isBlocked ?? statusFilter,
+        isVerified: overrides?.isVerified ?? verifiedFilter,
+        isSTF: overrides?.isSTF ?? stfFilter,
+        isTMU: overrides?.isTMU ?? tmuFilter,
+        getAnalytics: (overrides?.getAnalytics ?? getAnalytics) && role === "pae_expert",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `users-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Users exported successfully");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to export users",
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
   // Every non-admin role with management access (moderator, tester, gate keeper, auditor)
   // gets the same Expert Management view, so this can't drift from the tab's allowlist.
   const isModerator = !isAdmin && canManageUsers(currentUser?.role);
@@ -61,6 +113,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   statusFilter,
   verifiedFilter,
   stfFilter,
+  tmuFilter,
   { enabled: isAdmin }
 );
   const toggleSort = (key: string) => {
@@ -121,15 +174,18 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   if (statusFilter !== "ALL") activeFiltersCount++;
   if (verifiedFilter !== "ALL") activeFiltersCount++;
   if (stfFilter !== "ALL") activeFiltersCount++;
+  if (tmuFilter !== "ALL") activeFiltersCount++;
 
 
-  console.log("Admin users ->", adminUsers?.users);
-  console.log("Expert details ->", expertDetails?.experts);
-  console.log("Table items ->", tableItems);
+  // console.log("Admin users ->", adminUsers?.users);
+  // console.log("Expert details ->", expertDetails?.experts);
+  // console.log("Table items ->", tableItems);
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
-  const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
+  const totalPages = isAdmin
+    ? adminUsers?.totalPages || 1
+    : expertDetails?.totalPages || 0;
 
 
 
@@ -142,7 +198,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           );
           const selectedRole = selectedUser?.role;
           // Admin / moderator → the admin/moderator overview dashboard.
-          if (selectedRole === "admin" || selectedRole === "moderator") {
+          if (selectedRole === "admin") {
             return (
               <div className="space-y-2">
                 <div className="flex justify-end">
@@ -187,6 +243,30 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
               />
             );
           }
+          // Moderators get their own moderator-scoped dashboard.
+          if (selectedRole === "moderator") {
+            return (
+              <ModeratorDashboard
+                userId={selectExpertId}
+                userName={
+                  `${selectedUser?.firstName ?? selectedUser?.userName ?? ""} ${selectedUser?.lastName ?? ""}`.trim()
+                }
+                goBack={goBack}
+              />
+            );
+          }
+          // PAE experts get their own dashboard (normal + feedback/validation buckets).
+          if (selectedRole === "pae_expert") {
+            return (
+              <PaeDashboard
+                userId={selectExpertId}
+                userName={
+                  `${selectedUser?.firstName ?? selectedUser?.userName ?? ""} ${selectedUser?.lastName ?? ""}`.trim()
+                }
+                goBack={goBack}
+              />
+            );
+          }
           return (
             <ExpertDashboard
               expertId={selectExpertId}
@@ -201,9 +281,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
-            {/* LEFT — Search */}
-            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[500px] order-1">
-              <div className="relative w-full">
+            {/* LEFT — Search & Buttons */}
+            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[750px] order-1">
+              <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 
                 <Input
@@ -240,6 +320,36 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   {showSensitive ? "Hide Info" : "Show Info"}
                 </button>
               )}
+
+              {/* Internal Button */}
+              <button
+                onClick={() => {
+                  setRoleFilter((prev) => (prev === "INTERNAL" ? "ALL" : "INTERNAL"));
+                  setPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                  roleFilter === "INTERNAL"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-input hover:text-foreground"
+                }`}
+              >
+                Internal
+              </button>
+
+              {/* External Button */}
+              <button
+                onClick={() => {
+                  setRoleFilter((prev) => (prev === "pae_expert" ? "ALL" : "pae_expert"));
+                  setPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                  roleFilter === "pae_expert"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-input hover:text-foreground"
+                }`}
+              >
+                External
+              </button>
             </div>
 
             {/* RIGHT — Sort + Filter Group */}
@@ -259,7 +369,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                 </button>
               )}
 
-              {/* Filter */}
+              {/* Filter — the Download + "Get Analytics" controls live inside this dialog */}
               <UserFiltersDialog
                 isAdmin={isAdmin}
                 filter={filter}
@@ -272,8 +382,14 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                 setVerifiedFilter={setVerifiedFilter}
                 stfFilter={stfFilter}
                 setStfFilter={setStfFilter}
+                tmuFilter={tmuFilter}
+                setTmuFilter={setTmuFilter}
                 setPage={setPage}
                 activeFiltersCount={activeFiltersCount}
+                isExporting={isExporting}
+                onExport={handleExportUsers}
+                getAnalytics={getAnalytics}
+                setGetAnalytics={setGetAnalytics}
               />
             </div>
           </div>

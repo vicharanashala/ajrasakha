@@ -22,6 +22,106 @@ import { ObjectId } from 'mongodb';
 import { IQuestionPriority, ICropRef, QuestionStatus, QuestionSource } from '#shared/interfaces/models.js';
 import { Type, Transform } from 'class-transformer';
 
+// ─── Question Collection DTOs (must be declared before AddQuestionBody / AddQuestionBodyDto) ───
+
+/**
+ * DTO for Question Collection details.
+ */
+export class QuestionCollectionDetailsDto {
+  @JSONSchema({
+    description: 'State name',
+    example: 'Kerala',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  state!: string;
+
+  @JSONSchema({
+    description: 'District name',
+    example: 'Kannur',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  district!: string;
+
+  @JSONSchema({
+    description: 'Crop name',
+    example: 'Rice',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  crop!: string;
+
+  @JSONSchema({
+    description: 'Season name',
+    example: 'Kharif',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  season!: string;
+
+  @JSONSchema({
+    description: 'Domain/topic list',
+    example: ['Fertilizer Management'],
+    type: 'array',
+    items: { type: 'string' },
+  })
+  @IsArray()
+  @IsString({ each: true })
+  domain!: string[];
+}
+
+/**
+ * DTO for a single Question Collection item.
+ * Used in bulk Question Collection ingestion.
+ */
+export class QuestionCollectionItemDto {
+  @JSONSchema({
+    description: 'The question text',
+    example: 'What is the best fertilizer for rice?',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  question!: string;
+
+  @JSONSchema({
+    description: 'Priority level: low, medium, high, or critical',
+    example: 'medium',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @JSONSchema({
+    description: 'Question details including location and crop info',
+    type: 'object',
+  })
+  @ValidateNested()
+  @Type(() => QuestionCollectionDetailsDto)
+  details!: QuestionCollectionDetailsDto;
+}
+
+/**
+ * Wrapper DTO for bulk Question Collection submission.
+ */
+export class AddQuestionCollectionBodyDto {
+  @JSONSchema({
+    description: 'Array of Question Collection items',
+    type: 'array',
+    items: { $ref: '#/components/schemas/QuestionCollectionItemDto' },
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionCollectionItemDto)
+  question_collection_questions!: QuestionCollectionItemDto[];
+}
+
 class AddQuestionBody {
   @JSONSchema({
     description: 'ID of the user asking the question',
@@ -408,7 +508,7 @@ class AddQuestionBodyDto {
   priority!: 'low' | 'medium' | 'high' | 'critical';
 
   @IsOptional()
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH'])
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH', 'QUESTION_COLLECTION'])
   source!: QuestionSource;
 
   @IsOptional()
@@ -476,6 +576,25 @@ class AddQuestionBodyDto {
   @IsArray()
   @IsString({ each: true })
   tools_used?: string[];
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  isTrainingQuestion?: boolean;
+
+  /**
+   * Question Collection bulk ingestion field.
+   * When present, the request is routed to the Question Collection handler.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionCollectionItemDto)
+  question_collection_questions?: QuestionCollectionItemDto[];
 }
 
 class GenerateQuestionsBody {
@@ -510,6 +629,58 @@ class BulkPaeAllocateRequest {
   @IsNotEmpty()
   @IsMongoId()
   paeExpertId!: string;
+}
+
+/**
+ * DTO for processing PAE validation decisions (approve/feedback)
+ */
+class ProcessPaeValidationRequest {
+  @JSONSchema({
+    description: 'MongoDB ObjectId of the question to validate',
+    example: '650e9c0f5f1b2c00sdf2f4d9e',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsMongoId()
+  questionId!: string;
+
+  @JSONSchema({
+    description: 'Validation decision: "approve" or "feedback"',
+    example: 'approve',
+    type: 'string',
+    enum: ['approve', 'feedback'],
+  })
+  @IsNotEmpty()
+  @IsString()
+  @IsIn(['approve', 'feedback'])
+  status!: 'approve' | 'feedback';
+
+  @JSONSchema({
+    description: 'Comment explaining the feedback (required when status is "feedback")',
+    example: 'The answer needs more specific information about dosage',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  suggestionComment?: string;
+
+  @JSONSchema({
+    description: 'Link to reference material (optional)',
+    example: 'https://soilhealth.dac.gov.in/fertilizer-dosage',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  suggestionLink?: string;
+
+  @JSONSchema({
+    description: 'Name of the source for the suggestion link (optional)',
+    example: 'ICAR Fertilizer Guidelines',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  suggestionSourceName?: string;
 }
 class RemoveAllocateBody {
   @IsNumber()
@@ -609,7 +780,7 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH"])
+  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH", "QUESTION_COLLECTION"])
   source?: string;
 
   @JSONSchema({
@@ -674,6 +845,15 @@ class GetDetailedQuestionsQuery {
   @IsOptional()
   @IsString()
   user?: string;
+
+  @JSONSchema({
+    description: 'Filter based on assigned userId',
+    example: '1234567890',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  assignedUser?: string;
 
   @JSONSchema({
     description: 'Minimum number of answers',
@@ -811,6 +991,14 @@ class GetDetailedQuestionsQuery {
   autoAllocateModeratorFilter?: string;
 
   @JSONSchema({
+    description: 'to filter questions based on feedback status (all, open, closed)',
+    example: 'open',
+    type: 'string',
+  })
+  @IsOptional()
+  feedbackFilter?: string;
+
+  @JSONSchema({
     description: 'Filter for questions closed within the last 2 hours',
     example: 'true',
     type: 'boolean',
@@ -892,6 +1080,13 @@ class GetDetailedQuestionsQuery {
   @IsOptional()
   moderatorId?: string;
 
+  @JSONSchema({
+    description: 'filter questions with isTrainingQuestion=true (Training tab)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  isTrainingQuestion?: string | boolean;
   @IsOptional()
   gateKeeperId?: string;
 
@@ -932,6 +1127,8 @@ export class AllocatedQuestionsBodyDto {
   crops?: string[];
 }
 
+
+
 export class DetailedQuestionsBodyDto {
   @IsOptional()
   @IsArray()
@@ -965,6 +1162,7 @@ export const QUESTION_VALIDATORS = [
   AddQuestionBodyDto,
   AllocateExpertsRequest,
   BulkPaeAllocateRequest,
+  ProcessPaeValidationRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -977,6 +1175,9 @@ export const QUESTION_VALIDATORS = [
   DetailedQuestionsBodyDto,
   ApproveInitialAnswerBody,
   ReallocateExpertsSelectedQuestionsRequest,
+  QuestionCollectionItemDto,
+  QuestionCollectionDetailsDto,
+  AddQuestionCollectionBodyDto,
 ];
 
 export {
@@ -989,6 +1190,7 @@ export {
   AddQuestionBodyDto,
   AllocateExpertsRequest,
   BulkPaeAllocateRequest,
+  ProcessPaeValidationRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -997,4 +1199,6 @@ export {
   BulkDeleteQuestionDto,
   DateRangeRequest,
   ReallocateExpertsSelectedQuestionsRequest,
+  // QuestionCollectionItemDto, QuestionCollectionDetailsDto, and AddQuestionCollectionBodyDto
+  // are exported directly via 'export class', not through this block.
 };

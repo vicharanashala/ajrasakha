@@ -182,12 +182,16 @@ class AuditTrailsController {
     @QueryParam('from') from?: string,
     @QueryParam('to') to?: string,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false
     const actionCounts = await this.auditTrailsService.getShiftBasedAuditActionCounts(
       startDate,
       // endDate,
       shift,
       from ?? '00:00',
-      to ?? '23:59'
+      to ?? '23:59',
+      isTrainingUser,
+      isAdmin
     );
 
     return {
@@ -212,6 +216,32 @@ class AuditTrailsController {
   ) {
     const result = await this.auditTrailsService.getAuditTrailsByQuestionId(
       questionId,
+      page,
+      limit,
+      action,
+      order
+    );
+
+    return {
+      message: 'Audit trails retrieved successfully',
+      data: result.data,
+      totalDocuments: result.totalDocuments,
+      totalPages: Math.ceil(result.totalDocuments / limit),
+      currentPage: page,
+    };
+  }
+
+  @Get('/crop/:cropId')
+  @HttpCode(200)
+  async getAuditTrailsByCropId(
+    @Param('cropId') cropId: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @QueryParam('action') action?: string | null,
+    @QueryParam('order') order: "asc" | "desc" = "desc",
+  ) {
+    const result = await this.auditTrailsService.getAuditTrailsByCropId(
+      cropId,
       page,
       limit,
       action,

@@ -9,14 +9,52 @@ CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 # Fast model for simple tasks (routing, classification, translation)
 CLAUDE_FAST = os.getenv("CLAUDE_FAST", "claude-haiku-4-5-20251001")
 
-# Task-specific model assignments
-SYNTHESIZE_MODEL = CLAUDE_FAST        # Fast for rephrasing/simple synthesis
-PLANNER_MODEL = CLAUDE_MODEL          # Routing/classification - Haiku sufficient
-SANITIZER_MODEL = CLAUDE_FAST        # Relevance scoring - Haiku sufficient
-TRANSLATE_MODEL = CLAUDE_MODEL       # Keep Sonnet - translation quality important
-CROP_CLASSIFY_MODEL = CLAUDE_FAST    # Binary classification - Haiku sufficient
+# MiniMax (self-hosted, OpenAI-compatible) — used by every non-planner agent.
+# All three values must be provided via environment (.env) — no defaults for the secret.
+MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "http://100.100.108.41:8001/v1/")
+MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
+MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
 
-REMOTE_IP = os.getenv("REMOTE_IP", "100.100.108.44")
+# Task-specific model assignments
+# Planner, translation, and follow-up use Claude Sonnet where faithful farmer-facing
+# interpretation matters. Other specialized agents route to MiniMax.
+SYNTHESIZE_MODEL = MINIMAX_MODEL      # Fast rephrasing/simple synthesis
+PLANNER_MODEL = CLAUDE_MODEL          # Planner routing/classification/rephrasing
+SANITIZER_MODEL = MINIMAX_MODEL       # Relevance scoring
+TRANSLATE_MODEL = CLAUDE_MODEL        # Translation uses Claude Sonnet (avoid crop substitution)
+FOLLOW_UP_MODEL = CLAUDE_MODEL        # Translation/transformation - Sonnet for quality
+CROP_CLASSIFY_MODEL = MINIMAX_MODEL   # Binary classification
+DAILY_PRICE_MODEL = os.getenv("DAILY_PRICE_MODEL", MINIMAX_MODEL)  # Intent & synthesis use MiniMax
+
+
+
+MINIMAX_MAX_TOKENS = int(os.getenv("MINIMAX_MAX_TOKENS", "4096"))
+MINIMAX_TIMEOUT = float(os.getenv("MINIMAX_TIMEOUT", "60.0"))
+
+
+
+def get_minimax_chat_model(**overrides):
+    """Return a ChatOpenAI instance wired to the self-hosted MiniMax endpoint.
+
+    Centralises the base_url/api_key wiring so non-planner agents only need to
+    pass model-specific overrides (max_tokens, temperature, etc.).
+    """
+    from langchain_openai import ChatOpenAI
+
+    defaults: dict[str, Any] = {
+        "max_tokens": MINIMAX_MAX_TOKENS,
+        "timeout": MINIMAX_TIMEOUT,
+    }
+    defaults.update(overrides)
+
+    return ChatOpenAI(
+        model=MINIMAX_MODEL,
+        base_url=MINIMAX_BASE_URL,
+        api_key=MINIMAX_API_KEY,
+        **defaults,
+    )
+
+REMOTE_IP =   os.getenv("REMOTE_IP", "100.100.108.44")
 
 # Reviewer upload channel when LangGraph configurable.question_source is unset
 QUESTION_SOURCE = os.getenv("QUESTION_SOURCE", "AJRASAKHA").strip()
@@ -101,7 +139,8 @@ GOLDEN_API_URL = f"http://{REMOTE_IP}:8110"
 
 MCP_URLS = {
     "gdb":        f"http://{REMOTE_IP}:8110/v1/gdb/search",
-    "weather":    f"http://100.100.108.41:9017/mcp",
+    # "weather":    f"http://127.0.0.1:8007/mcp",
+    "weather":    f"http://{REMOTE_IP}:8113/mcp",
     "soil":       f"http://{REMOTE_IP}:9008/mcp",
     "enam":       f"http://{REMOTE_IP}:9002/mcp",
     "agmarknet":  f"http://{REMOTE_IP}:9006/mcp",
@@ -110,5 +149,6 @@ MCP_URLS = {
     "schemes":    f"http://{REMOTE_IP}:9009/mcp",
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
-    "daily_price": os.getenv("DAILY_PRICE_MCP_URL", f"http://{REMOTE_IP}:8111/mcp"),
+    "daily_price": f"http://{REMOTE_IP}:8111/mcp",
+
 }

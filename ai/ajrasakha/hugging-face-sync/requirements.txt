@@ -1,0 +1,8 @@
+python-dotenv>=1.0.0
+pymongo>=4.10.0
+datasets>=2.14.0
+huggingface-hub>=0.20.0
+yagmail>=0.15.293
+lxml>=4.9.0
+premailer>=3.10.0
+cssselect>=1.2.0

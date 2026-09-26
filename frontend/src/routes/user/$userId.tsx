@@ -57,14 +57,18 @@ import {
 } from "@/features/chatbotDashboard/components/CoordinatorDashboardSections";
 import {
   FarmerDashboardAnalytics,
+  UserQuestionMetricsCards,
   type FarmerDashboardData,
 } from "@/features/chatbotDashboard/components/FarmerDashboardAnalytics";
+import { CoordinatorKpiCards } from "@/features/chatbotDashboard/components/CoordinatorKpiCards";
+import { CoordinatorGrowthAndAlerts } from "@/features/chatbotDashboard/components/CoordinatorGrowthAndAlerts";
 import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import {
   CoordinatorNotificationDialog,
   UserNotificationHistorySheet,
 } from "@/features/chatbotDashboard/components/CoordinatorNotificationComponents";
 import { CoordinatorDuplicateQuestionHeatMap } from "@/features/chatbotDashboard/components/CoordinatorDuplicateQuestionHeatMap";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
@@ -87,6 +91,18 @@ function RouteComponent() {
   const { data: currentUser } = useGetCurrentUser({
     enabled: !!user,
   });
+  const handleBack = () => {
+    if (currentUser?.role === "admin") {
+      navigate({ to: "/chatbot" });
+    } else if (currentUser?.role && isCoordinatorRole(currentUser.role)) {
+      navigate({
+        to: "/user/$userId",
+        params: { userId: currentUser?._id || "" },
+      });
+    } else {
+      navigate({ to: "/home" });
+    }
+  };
   const { userId } = Route.useParams();
   const canFetchProfile = isLikelyObjectId(userId);
   const [engagementDateRange, setEngagementDateRange] =
@@ -443,7 +459,7 @@ function RouteComponent() {
       <DashboardMessage
         title="Invalid farmer ID"
         description="Please open this dashboard from a farmer name in the listing."
-        onBack={() => navigate({ to: "/home" })}
+        onBack={handleBack}
       />
     );
   }
@@ -453,7 +469,7 @@ function RouteComponent() {
       <DashboardMessage
         title="Farmer not found"
         description="This farmer profile could not be loaded. The user may have been removed or the ID is incorrect."
-        onBack={() => navigate({ to: "/home" })}
+        onBack={handleBack}
       />
     );
   }
@@ -494,7 +510,7 @@ function RouteComponent() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate({ to: "/home" })}
+          onClick={handleBack}
             className="h-11 gap-2 rounded-md px-4 text-base"
         >
           {currentUser?.role === "admin" || !currentUserOwnsViewedProfile ? (
@@ -540,12 +556,20 @@ function RouteComponent() {
       </header>
       <main className="space-y-8">
         {showCoordinatorSummary ? (
-          <CoordinatorDashboardSummary
-            user={userProfile}
-            assignedCount={assignedUsers.length}
-            availableCount={availableUsers.length}
-            isReadOnly={isCoordinatorReadOnlyView}
-          />
+          <>
+            <CoordinatorDashboardSummary
+              user={userProfile}
+              assignedCount={assignedUsers.length}
+              availableCount={availableUsers.length}
+              isReadOnly={isCoordinatorReadOnlyView}
+            />
+            <UserQuestionMetricsCards userId={userId} />
+            <CoordinatorKpiCards userId={userId} />
+            <CoordinatorGrowthAndAlerts
+              userId={userId}
+              isDistrictCoordinator={userProfile?.userRole === "district_coordinator"}
+            />
+          </>
         ) : (
         <FarmerDetailsContent
           user={userProfile}
@@ -571,6 +595,16 @@ function RouteComponent() {
             parentCoordinator={parentCoordinator}
           />
         )}
+        {currentUser?.role === "admin" && viewedProfileIsCoordinator && (
+          <>
+          <UserQuestionMetricsCards userId={userId} />
+          <CoordinatorKpiCards userId={userId} />
+            <CoordinatorGrowthAndAlerts
+              userId={userId}
+              isDistrictCoordinator={userProfile?.userRole === "district_coordinator"}
+            />
+          </>
+        )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
           userId={String(userProfile?.userId || userId)}
@@ -583,6 +617,7 @@ function RouteComponent() {
               />
             ) : undefined
           }
+          hideQuestionMetrics={viewedProfileIsCoordinator || showCoordinatorSummary}
         />
         {canManageAssignments && (
             <>
@@ -784,6 +819,7 @@ function RouteComponent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ScrollToTopButton />
     </div>
   );
 }

@@ -5,6 +5,7 @@ export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-r
 export type Tags = 'dynamic' | 'static_dynamic'
 export interface IPreference {
   state: string;
+  district?: string;
   crop: string;
   domain: string | string[];
 }
@@ -21,6 +22,17 @@ export interface IAssignedQuestion {
   status: QuestionStatus;
   source?: QuestionSource;
 }
+export interface IKVKCovered {
+  number?: number;
+  name?: string[];
+}
+/** One KVK-covered entry: state, district and KVK name (all Title-Cased). */
+export interface IKVKCoveredItem {
+  state?: string;
+  district?: string;
+  name?: string;
+}
+
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -44,6 +56,9 @@ export interface IUser {
   avatar?: string;
   mobile?: string;
   university?: string;
+  /** KVKs this user covers — one { state, district, name } entry each.
+   *  (Legacy records may hold string[] or { number, name[] }.) */
+  kvkCovered?: IKVKCoveredItem[] | null;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: Date;
@@ -59,6 +74,23 @@ export interface IUser {
    *  at least one entry in a blocking status (in-review / duplicate); entries that are
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
+  isTrainingUser?: boolean;
+  /** Questions assigned to this user for PAE validation (pae_expert only).
+   *  Contains question IDs currently assigned for final validation. */
+  paeValidationAssigned?: (string | ObjectId)[] | null;
+  /** Questions assigned to this user for feedback (auditor/moderator only).
+   *  Contains question IDs that need feedback review. */
+  feedbacksAssigned?: (string | ObjectId)[] | null;
+}
+
+export interface IUserAdminEdit {
+  firstName: string;
+  lastName?: string;
+  avatar?: string;
+  preference?: IPreference | null;
+  mobile?: string;
+  university?: string;
+  kvkCovered?: IKVKCoveredItem[] | null;
 }
 
 export interface IUserRoleHistory {
@@ -72,6 +104,7 @@ export interface IUserRoleHistory {
   isBlocked?: boolean;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean;
+  isTrainingUser?: boolean;
 }
 
 export interface IUserHistory {
@@ -85,6 +118,7 @@ export interface IUserHistory {
     status?: UserStatus;
     isBlocked?: boolean;
     special_task_force?: boolean;
+    isTrainingUser?: boolean,
   };
 }
 
@@ -101,13 +135,14 @@ export type QuestionSource =
   | 'AJRASAKHA'
   | 'AGRI_EXPERT'
   | 'WHATSAPP'
-  | 'OUTREACH';
+  | 'OUTREACH'
+  | 'QUESTION_COLLECTION';
 
 /** Time-bound questions (SLA-driven, handled by the time-bound reallocation cron). */
 export const TIME_BOUND_SOURCES: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'];
 
 /** Manual / non-time-bound questions (added by moderators or via outreach). */
-export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH'];
+export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH', 'QUESTION_COLLECTION'];
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -199,6 +234,7 @@ export interface IQuestion {
   auditorAssignedAt?: Date | null;
   /** Timestamp when the auditor finished (acted on) the question. */
   auditorFinishedAt?: Date | null;
+  autoAllocatePaeValidationExpert?: boolean;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;
@@ -208,12 +244,30 @@ export interface IQuestion {
   isDuplicateChecked?: boolean;
   toolsUsed?: string[];
   passedBy?: ObjectId | string | null;
+  isTrainingQuestion?: boolean;
+  feedbacks?: {
+    source?: string;
+    status?: string;
+  }[] | null;
+  /** When the most recent feedback was (re)opened on this question. Stamped whenever
+   *  a feedback status flips to 'open'. The moderator queue orders feedback questions
+   *  by this (rather than the question's original createdAt). */
+  recentFeedback?: Date | null;
   /** Set when a moderator cancels a duplicate flag and reopens the question. The
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
+  isDelayed?: boolean;
+  /** Flag to indicate this question is from the user's feedbacksAssigned array (feedback tab) */
+  isFeedbackQuestion?: boolean;
+  /** PAE validation status for questions ready for final validation.
+   *  - 'pending': question is ready for PAE expert validation
+   *  - 'in-progress': PAE expert has been assigned and is working on it
+   *  - 'completed': PAE expert has completed the validation */
+  paeValidation?: 'pending' | 'in-progress' | 'completed';
+  autoAllocateFeedback?: boolean;
 }
 
-export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
+export type SourceType = 'hyper_local' | 'state' | 'central' | 'district' | 'other';
 
 export interface SourceItem {
   sourceType?: SourceType;
@@ -221,12 +275,215 @@ export interface SourceItem {
   source: string;
   page?: string | number;
 }
+
+/** An entry in the `organization` collection, used to populate the searchable
+ *  Organization dropdown on the Edit Source modal (Closed Answers page). */
+export interface IOrganization {
+  _id?: string | ObjectId;
+  org_name: string;
+  type: 'central' | 'state' | 'district';
+  state: string;
+  district?: string;
+  address?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/** A single row of an organization bulk import. `type` is applied to the whole
+ *  sheet by the uploader, so it is not part of the row. */
+export interface IOrganizationBulkRow {
+  org_name: string;
+  state: string;
+  district?: string;
+  address?: string;
+}
+
+/** Outcome of one row of an organization bulk import, reported back per row so
+ *  the uploader can see exactly what was written and why a row was not. */
+export interface IOrganizationBulkResult {
+  name: string;
+  status: 'created' | 'skipped' | 'failed';
+  reason: string;
+}
+
+/** A duplicate file recorded against a `pop_unique_documents` document. When a source
+ *  matches one of these instead of the document's own `shareable_link`, the ORIGINAL
+ *  document's own shareable_link/shareable_name should be surfaced, not this duplicate's. */
+export interface IPopDuplicateLink {
+  zoho_file_id?: string;
+  shareable_link: string;
+  shareable_name?: string;
+  state?: string;
+  crop?: string;
+  row_id?: number;
+}
+
+/** An entry in the `pop_unique_documents` collection (a separate database, see
+ *  POP_DB_URL/POP_DB_NAME), looked up by `shareable_link` to resolve the Source
+ *  Reference button on the Edit Source modal (Closed Answers page). */
+export interface IPop {
+  _id?: string | ObjectId;
+  shareable_name: string;
+  shareable_link: string;
+  year_of_release?: string | number | null;
+  live_source_link?: string | null;
+  duplicate_links?: IPopDuplicateLink[];
+}
+
+export type PopRequiredField = 'year_of_release' | 'live_source_link' | 'shareable_name';
+
+/** A source entry as saved on a `updated_sources` record (Closed Answers Edit Source
+ *  modal). organization/source are references — the Organization document's and the
+ *  matched pop_unique_documents document's own _ids — not copies of their data;
+ *  everything else about them is looked up from those documents when a record needs to
+ *  be displayed (see NewSourceService.getByAnswerId), never persisted here. page is
+ *  entered by the reviewer, since it isn't part of either referenced document.
+ *  sourceIndex is that source's position in the *answer's own* `sources` array (in the
+ *  `answers` collection), so a reviewer can map this entry back to it - it is not an
+ *  index into this document's own `sources` array, which may not be saved in the same
+ *  order or with the same length. */
+export interface INewSourceItem {
+  /** The Organization document's own _id. */
+  organization?: string;
+  /** The matched pop_unique_documents document's own _id. */
+  source?: string;
+  page?: number[];
+  sourceReferenceStatus: PopMatchStatus | null;
+  sourceIndex: number;
+  /** Which of year_of_release/live_source_link/shareable_name were identified as
+   *  missing on the matched pop_unique_documents document when this source was fetched
+   *  (see PopService.lookupBySource/updateMissingFields) - empty when nothing was
+   *  missing. Persisted here as a record of what the reviewer had to fill in. */
+  missedFields?: PopRequiredField[];
+  // The fields below are populated for display only (NewSourceService.getByAnswerId,
+  // used by the moderator Before/After view) by looking up `organization`/`source` -
+  // they are never persisted and are stripped before a save (see
+  // NewSourceService.completeNewSource).
+  organizationName?: string;
+  organizationType?: SourceType;
+  sourceName?: string;
+  /** The matched document's live_source_link. */
+  originalLink?: string | null;
+  /** The matched document's own shareable_link (the Annam.AI archive). */
+  archivedLink?: string | null;
+  yearOfRelease?: string | number | null;
+}
+
+
+/** Lifecycle of a `updated_sources` record: 'in-progress' from the moment the Edit Source
+ *  modal is opened, 'review-completed' once the user saves. 'pending', 'flagged', and 'merged' are not produced by the Edit
+ *  Source flow itself — they're reserved for a review workflow. */
+export type NewSourceStatus =
+  | 'pending'
+  | 'review-completed'
+  | 'in-progress'
+  | 'moderator-in-review'
+  | 'flagged'
+  | 'merged';
+
+/** Where a saved source's link was found in the `pop_unique_documents` collection,
+ *  checked automatically against it when the edit is saved. */
+export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
+
+/** One user opening the Edit Source modal for a `updated_sources` record. Logged the instant
+ *  the record is created ('inProgress') — a permanent audit entry, not removed if the
+ *  user goes on to complete the edit. Cross-check against the record's own `status` to
+ *  see whether this user's edit is still incomplete. closedAt is set separately, whenever
+ *  the modal closes (Cancel, Escape, outside click, or after a successful save) — null
+ *  means the modal is still open (or was never explicitly closed, e.g. a page refresh).
+ *  isActionTaken flips to true once this stint actually changed something - an expert
+ *  saving their edit, or a moderator acting on the record - so false plus a set closedAt
+ *  means they opened it and left without doing anything. A record can carry more
+ *  than one entry when different experts pick it up over time (e.g. after a release back
+ *  to 'pending') — how long each reviewer spent is read from that entry's own
+ *  startedAt/closedAt rather than being stored. */
+export interface INewSourceReviewEntry {
+  userId: string;
+  name: string;
+  /** Which side of the workflow this entry belongs to. Absent on entries written before
+   *  moderator review existed, which were all experts. */
+  role?: 'expert' | 'moderator';
+  startedAt: Date;
+  closedAt: Date | null;
+  isActionTaken: boolean;
+  /** The pop_unique_documents documents this stint found incomplete, each with what was
+   *  blank and what the reviewer filled in. Absent when nothing was missing. */
+  missingPopDocuments?: IMissingPopDocument[];
+}
+
+/** One incomplete pop_unique_documents document a reviewer hit during a stint: which of
+ *  the required fields were blank on it (before) and what they saved onto it (after).
+ *  updatedFields stays empty when the reviewer closed the modal without filling it in. */
+export interface IMissingPopDocument {
+  /** The pop_unique_documents document's own _id. */
+  popId: string;
+  missingFields: PopRequiredField[];
+  updatedFields?: Partial<Record<PopRequiredField, string>>;
+}
+
+/** What a moderator/admin did to a `updated_sources` record. 'pending' hands it back to
+ *  the experts, 'approve' merges the reviewed sources onto the answer, 'flag'/'unflag'
+ *  raise and clear a flag, and 'release' gives up a hold so another moderator can pick
+ *  the record up. */
+export type ModeratorActionType =
+  | 'pending'
+  | 'approve'
+  | 'flag'
+  | 'unflag'
+  | 'release';
+
+/** One moderator/admin action on a `updated_sources` record - a permanent audit entry,
+ *  appended to on every action rather than overwritten. reason is what they typed in the
+ *  confirmation modal; it is empty for a release, which asks for none. */
+export interface IModeratorAction {
+  action: ModeratorActionType;
+  /** The status the record was left in by this action. */
+  status: NewSourceStatus;
+  reason: string;
+  changedBy: string;
+  changedByName: string;
+  changedAt: Date;
+}
+
+/** A document written to the `updated_sources` collection whenever a user edits a Closed
+ *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
+ *  `answers` collection — edits are logged here instead. Created (status:
+ *  'inProgress') when the modal opens, then updated (status: 'review-completed')
+ *  when the user saves. sourceReferenceStatus lives on each entry in `sources`, not
+ *  here, since every source on the answer is saved together and each is checked
+ *  against pop_unique_documents independently. */
+export interface INewSource {
+  _id?: string | ObjectId;
+  answerId: string | ObjectId;
+  questionId: string | ObjectId;
+  sources: INewSourceItem[];
+  status: NewSourceStatus;
+  reviewArray: INewSourceReviewEntry[];
+  /** Every moderator/admin action taken on this record - see IModeratorAction. Absent
+   *  until the first one. */
+  moderatorActions?: IModeratorAction[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;
   oldAnswer: string;
   newAnswer: string;
   modifiedAt?: Date;
 }
+/** A source entry as written to the answer's own `source_details` (see
+ *  NewSourceService.changeStatus) - the same organization/source/page/sourceIndex shape
+ *  as a `updated_sources` INewSourceItem, stripped of its sourceReferenceStatus/
+ *  missedFields/display-only fields since those don't belong on the answer itself.
+ *  organization/source are stored as real ObjectIds here (unlike INewSourceItem, which
+ *  keeps them as strings) since this is the shape actually persisted to MongoDB. */
+export interface IAnswerSourceDetail {
+  organization?: ObjectId;
+  source?: ObjectId;
+  page?: number[];
+  sourceIndex: number;
+}
+
 export interface IAnswer {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -241,6 +498,10 @@ export interface IAnswer {
   reRouted?: boolean;
   modifications?: PreviousAnswersItem[];
   sources: SourceItem[];
+  /** Written once the answer's updated_sources review is merged (see
+   *  NewSourceService.changeStatus) - the finalized organization/source/page/sourceIndex
+   *  for each source, copied from that record's `sources` array. */
+  source_details?: IAnswerSourceDetail[];
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -317,6 +578,20 @@ export interface ISubmissionHistory {
   updatedAt: Date;
 }
 
+/** One feedback-review round on a question — assigned to a reviewer, later finished. */
+export interface IFeedbackReview {
+  reviewerId: string | ObjectId;
+  assignedAt: Date;
+  /** Null/absent while the round is still open (in progress). */
+  finishedAt?: Date | null;
+  closedFeedbacks?: { feedbackId: string; closedAt: Date }[];
+}
+
+export enum PAEAction {
+  APPROVE = 'approve',
+  SUGGESTION = 'suggestion',
+}
+
 export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -332,6 +607,28 @@ export interface IQuestionSubmission {
    *  Set on initial allocation and reset on every reallocation.
    *  Used to compute the 45-minute reallocation window for time-bound questions. */
   currentExpertAllocatedAt?: Date | null;
+  /**
+   * Feedback-review rounds for this question. A question can receive feedback
+   * multiple times; each round is one entry with its reviewer and timestamps. A
+   * round is "open" while `finishedAt` is null/absent — the allocator assigns a
+   * new round only when none is open.
+   */
+  feedbackReviews?: IFeedbackReview[] | null;
+  /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewAssignedAt?: Date | null;
+  // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewFinishedAt?: Date | null;
+  // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewerId?: string | ObjectId | null;
+  /** PAE validation records for this question - tracks PAE expert assignment and completion.
+   *  Each entry contains the PAE assignment details with timestamps and status. */
+  paeValidation?: {
+    paeAssignedAt: Date;
+    paeId: ObjectId | string;
+    paeStatus: 'in-progress' | 'completed';
+    paeFinishedAt?: Date | null;
+    paeAction?: PAEAction;
+  }[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -344,6 +641,36 @@ export interface IComment {
   userName?: string;
   text: string;
   createdAt: Date;
+}
+
+/** Feedback submitted by a PAE expert during validation */
+export interface IFeedback {
+  _id?: string | ObjectId;
+  /** The question this feedback is for */
+  questionId: string | ObjectId;
+  /** Information about the user who submitted the feedback */
+  userId: {
+    name: string;
+    email: string;
+  };
+  /** The answer this feedback is associated with (optional) */
+  answerId?: string | ObjectId;
+  /** Type of feedback (e.g., 'PAE_VALIDATION') */
+  type: string;
+  /** The feedback comment */
+  comment: string;
+  /** Optional link with name and source URL */
+  link?: {
+    name: string;
+    source: string;
+  };
+  /** Status of the feedback: open (pending review), approved, or rejected */
+  status: 'open' | 'accept' | 'reject';
+  createdAt?: Date;
+  /** Timestamp when the feedback was approved (if applicable) */
+  approvedAt?: Date | null;
+  /** Optional review note from moderator */
+  reviewNote?: string | null;
 }
 
 export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
@@ -374,6 +701,9 @@ export type IRequest = RequestDetails & {
   requestedUser?: IUser | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  /** Flag indicating if the request is for a training question. 
+   * Included in response for admin role to enable UI changes. */
+  isTrainingQuestion?: boolean;
 };
 
 export type INotificationType =
@@ -523,21 +853,46 @@ export interface ICropAlias {
   region: string; // e.g. "Andhra and Telangana"
   english_representation: string; // romanised / English representation e.g. "vari"
   native_representation: string; // native script e.g. "వరి"
+  source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
+  page_number?: string; // page number reference e.g. "45"
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});
 
+/** Crop-side entry types that share the crop structure (title-casing, alias merge,
+ *  uniqueness). 'chemical' is handled separately and is intentionally not listed here.
+ *
+ *  ── To add a new category (e.g. 'insect') just append it here. It automatically
+ *     flows to type validation, the /crops/entry-types endpoint, and the whole UI
+ *     (add-form category dropdown, the "Other" tab filter, bulk upload). ── */
+export const CROP_ENTRY_TYPES = ['crop', 'weed', 'pest', 'disease'] as const;
+export type CropEntryType = (typeof CROP_ENTRY_TYPES)[number];
+
+/** The extensible categories shown under the "Other" grouping in the UI — every
+ *  crop-side type except the primary 'crop'. Served by /crops/entry-types. */
+export const CROP_OTHER_TYPES: string[] = CROP_ENTRY_TYPES.filter(t => t !== 'crop');
+
+/** Every type accepted by the crop create/update endpoints (crop-side + chemical). */
+export const ALLOWED_CROP_TYPES = [...CROP_ENTRY_TYPES, 'chemical'] as const;
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  type?: CropType; // 'crop' (default) | 'chemical' | any custom string
+  type?: CropType; // 'crop' (default) | 'weed' | 'pest' | 'disease' | 'chemical'
+  /** Optional scientific (binomial) name, e.g. "Oryza sativa". Stored as entered. */
+  scientificName?: string | null;
   status?: string; // only relevant when type === 'chemical', any custom string
+  /** Public URL of the entry's image (uploaded to GCS / storage emulator). null/absent = none. */
+  imageUrl?: string | null;
   aliases: (ICropAlias | string)[]; // string = legacy format; ICropAlias = new format
   crops?: string[]; // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;
+  /** Resolved "firstName lastName" for createdBy / updatedBy (populated on read). */
+  createdByName?: string;
+  updatedByName?: string;
 }
 
 export type ChemicalStatus = 'Restricted' | 'Banned';

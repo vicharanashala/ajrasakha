@@ -9,7 +9,16 @@ import { NotificationController } from '../notification/controllers/Notification
 import { NOTIFICATION_VALIDATORS } from '../notification/validators/NotificationValidators.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
 import { ANSWER_VALIDATORS } from '../answer/classes/validators/AnswerValidator.js';
-import { QuestionController } from '../question/controllers/QuestionController.js';
+import {
+  QuestionController,
+  QuestionIngestionController,
+  QuestionAllocationController,
+  QuestionFeedbackController,
+  QuestionPaeValidationController,
+  QuestionReportController,
+  QuestionAiController,
+  QuestionMaintenanceController,
+} from '../question/controllers/index.js';
 import { QUESTION_VALIDATORS } from '../question/classes/validators/QuestionVaidators.js';
 import { ContextController } from '../../modules/context/controllers/ContextController.js';
 import { CONTEXT_VALIDATORS } from '../context/classes/validators/ContextValidator.js';
@@ -24,9 +33,19 @@ import { TesterLogController } from '../../../../testers-dashboard/backend/build
 import { TESTER_LOG_VALIDATORS } from '../../../../testers-dashboard/backend/build/validators/TesterLogValidators.js';
 import { RequestController } from '../request/controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
+import { OrganizationController } from '../organization/controllers/OrganizationController.js';
+import { PopController } from '../pop/controllers/PopController.js';
+import { NewSourceController } from '../newSource/controllers/NewSourceController.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
+  QuestionReportController,
+  QuestionAllocationController,
+  QuestionFeedbackController,
+  QuestionPaeValidationController,
+  QuestionAiController,
+  QuestionIngestionController,
+  QuestionMaintenanceController,
   QuestionController,
   ContextController,
   AnswerController,
@@ -35,7 +54,10 @@ export const coreModuleControllers: Function[] = [
   PerformanceController,
   TestersDashboardController,
   ZohoTicketStatusController,
-  TesterLogController
+  TesterLogController,
+  OrganizationController,
+  PopController,
+  NewSourceController,
 ];
 
 // Export container modules for loadAppModules
@@ -62,7 +84,7 @@ export const coreModuleValidators: Function[] = [
 ];
 
 // Export all the main components for external use
-export * from '../../modules/question/controllers/QuestionController.js';
+export * from '../../modules/question/controllers/index.js';
 export * from '../../modules/answer/controllers/AnswerController.js'
 export * from '../../modules/context/controllers/ContextController.js';
 export * from '../../modules/comment/controllers/CommentController.js';

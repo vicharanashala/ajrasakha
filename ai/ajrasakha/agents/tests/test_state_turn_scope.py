@@ -1,5 +1,7 @@
 """Regression: state/district must not leak from unrelated old thread messages."""
 
+from unittest.mock import Mock, patch
+
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -12,6 +14,31 @@ from ajrasakha.agents.planner import _resolve_state_deterministic
 from ajrasakha.agents.planner_rules import apply_planner_completeness_rules
 
 from ajrasakha.agents.state import AjraSakhaState
+
+
+class _StaticPlannerModel:
+    """Small structured-output stand-in for planner-node regression tests."""
+
+    def __init__(self, output):
+        self.output = output
+
+    def with_structured_output(self, _schema):
+        return self
+
+    async def ainvoke(self, _messages, config=None):
+        return self.output
+
+
+class _UnavailablePlannerModel:
+    """Structured-output stand-in that exercises the planner fallback path."""
+
+    def with_structured_output(self, _schema):
+        return self
+
+    async def ainvoke(self, _messages, config=None):
+        raise TimeoutError("planner unavailable")
+
+
 def test_state_not_leaked_from_old_karnataka_message():
     messages = [
         HumanMessage(content="Wheat disease control in Karnataka"),
@@ -123,7 +150,11 @@ async def test_state_does_not_leak_on_new_question_with_gps():
         },
     }
 
-    res = await planner_node(state, RunnableConfig())
+    with patch(
+        "ajrasakha.agents.planner.ChatAnthropic",
+        return_value=_UnavailablePlannerModel(),
+    ):
+        res = await planner_node(state, RunnableConfig())
     new_plan = res["plan"]
     assert new_plan["entities"].get("state") is None
     assert new_plan["entities"].get("district") is None
@@ -131,7 +162,7 @@ async def test_state_does_not_leak_on_new_question_with_gps():
 
 @pytest.mark.asyncio
 async def test_state_carries_forward_during_clarify_loop():
-    from ajrasakha.agents.planner import planner_node
+    from ajrasakha.agents.planner import PlannerEntitiesOutput, PlannerOutput, planner_node
     from langchain_core.runnables import RunnableConfig
 
     state: AjraSakhaState = {
@@ -153,8 +184,128 @@ async def test_state_carries_forward_during_clarify_loop():
         },
     }
 
-    res = await planner_node(state, RunnableConfig())
+    model = _StaticPlannerModel(
+        PlannerOutput(
+            domains=["Market Prices"],
+            entities=PlannerEntitiesOutput(crop="Onion"),
+            original_query_en="Onion",
+            rephrased_query="Onion",
+        )
+    )
+    with (
+        patch("ajrasakha.agents.planner.ChatAnthropic", return_value=model),
+        patch("ajrasakha.agents.planner._llm_detect_language", return_value="English"),
+        patch("ajrasakha.agents.planner.maybe_persist_rephrased_query"),
+        patch("ajrasakha.agents.planner.maybe_persist_resolved_location"),
+    ):
+        res = await planner_node(state, RunnableConfig())
     new_plan = res["plan"]
     assert new_plan["entities"].get("state") == "Karnataka"
     assert new_plan["entities"].get("crop") == "Onion"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("script_language", "vocal_language", "should_preserve"),
+    [
+        ("Gurmukhi", "Punjabi", True),
+        ("English", "Punjabi", True),
+        ("Devanagari", "Hindi", True),
+        ("Unknown", "Punjabi", False),
+    ],
+)
+async def test_location_clarification_preserves_catalog_language_pair(
+    script_language, vocal_language, should_preserve
+):
+    """Preserve supported pairs; safely re-detect invalid legacy pairs."""
+    from ajrasakha.agents.planner import PlannerOutput, planner_node
+    from langchain_core.runnables import RunnableConfig
+
+    state: AjraSakhaState = {
+        "messages": [
+            HumanMessage(content="ਗੰਨੇ ਵਿੱਚ ਗੋਭ ਦੀ ਸੁੰਡੀ ਦਾ ਇਲਾਜ ਕੀ ਹੈ?"),
+            AIMessage(content="ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਜ਼ਿਲ੍ਹਾ ਦੱਸੋ।"),
+            HumanMessage(content="rupnagar"),
+        ],
+        "location": None,
+        "plan": {
+            "domain": "Weather",
+            "domains": ["Weather"],
+            "is_complete": False,
+            "missing_info": ["location"],
+            "entities": {"crop": "all"},
+            "rephrased_query": "How can I control early shoot borer in sugarcane?",
+            "original_query_en": "How can I control early shoot borer in sugarcane?",
+            "vocal_language": vocal_language,
+            "script_language": script_language,
+        },
+    }
+    detected_language = Mock(return_value="English")
+    model = _StaticPlannerModel(
+        PlannerOutput(
+            domains=["Weather"],
+            rephrased_query="Rupnagar",
+            original_query_en="Rupnagar",
+            vocal_language="English",
+            script_language="English",
+        )
+    )
+
+    with (
+        patch("ajrasakha.agents.planner.ChatAnthropic", return_value=model),
+        patch("ajrasakha.agents.planner._llm_detect_language", detected_language),
+    ):
+        result = await planner_node(state, RunnableConfig())
+
+    if should_preserve:
+        assert result["plan"]["vocal_language"] == vocal_language
+        assert result["plan"]["script_language"] == script_language
+        detected_language.assert_not_called()
+    else:
+        assert result["plan"]["vocal_language"] == "English"
+        assert result["plan"]["script_language"] == "English"
+        detected_language.assert_called_once_with(
+            "rupnagar",
+            script_context="English",
+            llm=model,
+        )
+
+
+@pytest.mark.asyncio
+async def test_new_question_still_detects_language():
+    """Language detection remains enabled when the message is not a clarification reply."""
+    from ajrasakha.agents.config import PLANNER_MODEL
+    from ajrasakha.agents.planner import PlannerOutput, planner_node
+    from langchain_core.runnables import RunnableConfig
+
+    state: AjraSakhaState = {
+        "messages": [HumanMessage(content="Mera fasal kaise bachayein?")],
+        "location": None,
+        "plan": {},
+    }
+    detected_language = Mock(return_value="Hindi")
+    model = _StaticPlannerModel(
+        PlannerOutput(
+            domains=["Weather"],
+            rephrased_query="How can I protect my crop?",
+            original_query_en="How can I protect my crop?",
+            vocal_language="English",
+            script_language="English",
+        )
+    )
+
+    with (
+        patch("ajrasakha.agents.planner.ChatAnthropic", return_value=model) as chat_anthropic,
+        patch("ajrasakha.agents.planner._llm_detect_language", detected_language),
+    ):
+        result = await planner_node(state, RunnableConfig())
+
+    assert result["plan"]["vocal_language"] == "Hindi"
+    assert result["plan"]["script_language"] == "English"
+    detected_language.assert_called_once_with(
+        "Mera fasal kaise bachayein?",
+        script_context="English",
+        llm=model,
+    )
+    chat_anthropic.assert_called_once_with(model=PLANNER_MODEL)
 

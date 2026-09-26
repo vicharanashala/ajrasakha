@@ -102,3 +102,108 @@ def test_stale_expert_queue_flag_uses_synthesis_path():
     assert synthesis_body in text
     assert FOOTER_SEPARATOR in text
     assert EXPERT_QUEUE_REPLY_MARKER not in text
+
+
+# -------- Follow-up path: skip translation --------
+
+def test_follow_up_path_does_not_translate_body(monkeypatch):
+    """When plan.is_follow_up=True, the LLM-produced body must NOT be re-translated.
+
+    Regression for: farmer typed "Muje telgu mai batao yaar" (Hindi input) but
+    asked for Telugu output. The follow-up LLM produced a Telugu body; the
+    pre-fix code would call _translate_body() against the (Hindi, English) plan
+    pair and clobber the Telugu body back into Hindi.
+    """
+    from ajrasakha.agents import translate_answer as ta_module
+
+    telugu_body = "తెలుగులో జవాబు"  # "Telugu answer"
+    calls: list[dict] = []
+
+    async def fake_translate_body(body, vocal, script, config):
+        calls.append({"body": body, "vocal": vocal, "script": script})
+        return f"TRANSLATED_TO_{vocal}:{body}"
+
+    monkeypatch.setattr(ta_module, "_translate_body", fake_translate_body)
+
+    state = {
+        "messages": [
+            HumanMessage(content="How to grow barley?"),
+            AIMessage(content="Use quality seed and proper irrigation."),
+            HumanMessage(content="Muje telgu mai batao yaar"),
+            AIMessage(content=telugu_body),
+        ],
+        "plan": {
+            "is_follow_up": True,
+            "follow_up_type": "language_change",
+            "vocal_language": "Hindi",          # input language (Hinglish)
+            "script_language": "English",       # input script (Latin)
+        },
+    }
+    import asyncio
+
+    result = asyncio.run(translate_answer_node(state, {}))
+    text = result["messages"][0].content
+    # The Telugu body must reach the farmer unchanged.
+    assert telugu_body in text
+    # _translate_body must NOT have been called.
+    assert calls == []
+
+
+def test_follow_up_path_still_appends_testing_disclaimer():
+    """Follow-up path skips translation but still appends the testing disclaimer."""
+    body = "Short answer in target language."
+    state = {
+        "messages": [
+            HumanMessage(content="Q1"),
+            AIMessage(content="A1"),
+            HumanMessage(content="in short"),
+            AIMessage(content=body),
+        ],
+        "plan": {
+            "is_follow_up": True,
+            "follow_up_type": "format_change",
+            "vocal_language": "English",
+            "script_language": "English",
+        },
+    }
+    import asyncio
+
+    result = asyncio.run(translate_answer_node(state, {}))
+    text = result["messages"][0].content
+    assert body in text
+    assert FOOTER_SEPARATOR in text
+    assert get_testing_disclaimer("English", "English") in text
+
+
+def test_non_follow_up_path_still_translates(monkeypatch):
+    """Regression: non-follow-up turn still translates when needed."""
+    from ajrasakha.agents import translate_answer as ta_module
+
+    calls: list[dict] = []
+
+    async def fake_translate_body(body, vocal, script, config):
+        calls.append({"body": body, "vocal": vocal, "script": script})
+        return f"TRANSLATED_TO_{vocal}:{body}"
+
+    def fake_needs_translation(script, vocal):
+        return True
+
+    monkeypatch.setattr(ta_module, "_translate_body", fake_translate_body)
+    monkeypatch.setattr(ta_module, "needs_translation", fake_needs_translation)
+
+    state = {
+        "messages": [
+            HumanMessage(content="How to grow barley?"),
+            AIMessage(content="Use quality seed."),
+        ],
+        "plan": {
+            "translate_path": None,
+            "vocal_language": "Hindi",
+            "script_language": "Devanagari",
+        },
+    }
+    import asyncio
+
+    result = asyncio.run(translate_answer_node(state, {}))
+    assert len(calls) == 1
+    assert calls[0]["vocal"] == "Hindi"

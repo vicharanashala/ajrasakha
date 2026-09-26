@@ -1,7 +1,8 @@
-import { type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
+  AlertCircle,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -54,6 +55,9 @@ export interface QuestionActivityItem {
   isDuplicate?: boolean;
   repeatedCount?: number;
   repeatedAt?: string[];
+  mcpToolCalls?: any[];
+  toolCalls?: any[];
+  content?: any[];
 }
 
 export interface QuestionDetailItem {
@@ -83,6 +87,7 @@ export interface QuestionDuplicateGroup {
 interface QuestionActivityUser {
   name?: string;
   email?: string;
+  createdAt?: string;
 }
 
 interface QuestionActivityModalProps {
@@ -101,6 +106,7 @@ interface QuestionActivityModalProps {
   duplicateGroups?: QuestionDuplicateGroup[];
   tableContent?: ReactNode;
   footerContent?: ReactNode;
+  paginationActions?: ReactNode;
   showCloseButton?: boolean;
   isLoading?: boolean;
   totalCount?: number | string;
@@ -167,6 +173,76 @@ function LoadingState() {
   );
 }
 
+function MessageContentModal({
+  open,
+  onOpenChange,
+  content,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  content: any[];
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Process Details</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-4">
+          {content.map((item, index) => {
+            if (item.type === "error") {
+              return (
+                <div key={index} className="rounded-md border border-destructive/50 bg-destructive/10 p-4 w-full overflow-hidden">
+                  <div className="font-semibold text-destructive mb-2">Type: Error</div>
+                  <div className="text-sm" style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    {item.error || JSON.stringify(item)}
+                  </div>
+                </div>
+              );
+            }
+            if (item.type === "text") {
+              const textContent = typeof item.text === "string" ? item.text.trim() : item.text;
+              const hasExtraKeys = Object.keys(item).some(k => k !== 'type' && k !== 'text');
+              if (!textContent && !hasExtraKeys) return null;
+
+              return (
+                <div key={index} className="rounded-md border bg-muted/20 p-4 w-full overflow-hidden">
+                  <div className="font-semibold text-primary mb-2">Type: Response</div>
+                  <div className="text-sm" style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    {item.text || JSON.stringify(item)}
+                  </div>
+                </div>
+              );
+            }
+            if (item.type === "think") {
+              const thinkContent = typeof item.think === "string" ? item.think.trim() : item.think;
+              const hasExtraKeys = Object.keys(item).some(k => k !== 'type' && k !== 'think');
+              if (!thinkContent && !hasExtraKeys) return null;
+
+              return (
+                <div key={index} className="rounded-md border bg-muted/40 p-4 w-full overflow-hidden">
+                  <div className="font-semibold text-muted-foreground mb-2">Type: Think</div>
+                  <div className="text-sm italic text-muted-foreground" style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    {item.think || JSON.stringify(item)}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div key={index} className="rounded-md border bg-muted p-4 w-full overflow-hidden">
+                <div className="font-semibold mb-2">Type: {item.type || "unknown"}</div>
+                <pre className="text-xs" style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  {JSON.stringify(item, null, 2)}
+                </pre>
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ActivityCard({
   item,
   viewType,
@@ -184,6 +260,7 @@ function ActivityCard({
       : "Message content not available");
   const repeatCount = (item.repeatedCount ?? 0) - 1;
   const navigate = useNavigate();
+  const [showContentModal, setShowContentModal] = useState(false);
 
   const handleCardClick = () => {
     if (viewType === "questions" && item._id) {
@@ -194,34 +271,57 @@ function ActivityCard({
     }
   };
 
-  return (
-    <div
-      className={`group rounded-xl border bg-background px-4 py-3.5 transition-all duration-150 hover:border-border/80 hover:bg-muted/20 ${
-        viewType === "questions" && item._id ? "cursor-pointer" : ""
-      }`}
-      onClick={handleCardClick}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <TranslatableText
-            text={displayText}
-            showTooltip
-            textClassName={`text-xs line-clamp-2 ${
-              viewType === "questions" && item._id
-                ? "group-hover:underline cursor-pointer"
-                : ""
-            }`}
-          />
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3 shrink-0" aria-hidden />
-            {item.createdAt ? new Date(item.createdAt).toLocaleString() : "-"}
-          </p>
-        </div>
+  const hasContent = Array.isArray(item.content) && item.content.length > 0;
+  const hasError = hasContent && item.content!.some((c: any) => c.type === "error");
 
-        <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-          {viewType === "questions" && item.status && (
-            <StatusBadge status={item.status} />
-          )}
+  return (
+    <>
+      <div
+        className={`group rounded-xl border bg-background px-4 py-3.5 transition-all duration-150 hover:border-border/80 hover:bg-muted/20 ${
+          viewType === "questions" && item._id ? "cursor-pointer" : ""
+        }`}
+        onClick={handleCardClick}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2">
+              {viewType === "messages" && hasError && (
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" aria-hidden />
+              )}
+              <TranslatableText
+                text={displayText}
+                showTooltip
+                textClassName={`text-xs line-clamp-2 ${
+                  viewType === "questions" && item._id
+                    ? "group-hover:underline cursor-pointer"
+                    : ""
+                }`}
+              />
+            </div>
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0" aria-hidden />
+              {item.createdAt ? new Date(item.createdAt).toLocaleString() : "-"}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+            {viewType === "questions" && item.status && (
+              <StatusBadge status={item.status} />
+            )}
+            
+            {viewType === "messages" && hasContent && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-full px-2.5 text-[11px] font-medium tracking-wide"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowContentModal(true);
+                }}
+              >
+                Tool Calls
+              </Button>
+            )}
 
           {item.isDuplicate && repeatCount > 0 && (
             <TooltipProvider>
@@ -249,6 +349,14 @@ function ActivityCard({
         </div>
       </div>
     </div>
+    {viewType === "messages" && hasContent && (
+      <MessageContentModal
+        open={showContentModal}
+        onOpenChange={setShowContentModal}
+        content={item.content!}
+      />
+    )}
+  </>
   );
 }
 
@@ -449,6 +557,7 @@ export function QuestionActivityModal({
   duplicateGroups = [],
   tableContent,
   footerContent,
+  paginationActions,
   showCloseButton = false,
   isLoading = false,
   totalCount = 0,
@@ -460,13 +569,14 @@ export function QuestionActivityModal({
   emptyMessage,
   duplicateEmptyMessage = "No duplicate question details for this selection.",
 }: QuestionActivityModalProps) {
+  const dialogContentRef = useRef<HTMLDivElement>(null);
   const showToggle = mode === "activity" && onViewTypeChange;
   const defaultEmptyMessage =
     mode === "activity" ? `No ${viewType} found.` : "No question details for this selection.";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-6xl flex h-[90vh] max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
+      <DialogContent  ref={dialogContentRef} className="!max-w-6xl flex h-[90vh] max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
         <div className="flex shrink-0 items-center justify-between border-b px-6 pb-4 pt-5">
           <div className="flex items-center justify-start gap-3">
             <DialogHeader className="p-0">
@@ -552,10 +662,15 @@ export function QuestionActivityModal({
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pb-3">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       { label: "Name", value: user.name, icon: User },
                       { label: "Email", value: user.email, icon: Mail },
+                      {
+                        label: "Account Created",
+                        value: user.createdAt ? new Date(user.createdAt).toLocaleString() : "N/A",
+                        icon: Clock,
+                      },
                       {
                         label:
                           totalLabel ??
@@ -656,16 +771,19 @@ export function QuestionActivityModal({
               Page {currentPage} of {totalPages}
             </span>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 rounded-lg"
-              disabled={currentPage === totalPages}
-              onClick={() => onPageChange(currentPage + 1)}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {paginationActions}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg"
+                disabled={currentPage === totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>

@@ -17,7 +17,8 @@ import {
   SelectItem,
 } from "@/components/atoms/select";
 import { Badge } from "@/components/atoms/badge";
-import { Filter, MapPin } from "lucide-react";
+import { Checkbox } from "@/components/atoms/checkbox";
+import { Filter, MapPin, Download, Loader2 } from "lucide-react";
 import { useGetStates } from "@/hooks/api/location/useLocations";
 
 interface UserFiltersDialogProps {
@@ -32,8 +33,23 @@ interface UserFiltersDialogProps {
   setVerifiedFilter: (val: string) => void;
   stfFilter: string;
   setStfFilter: (val: string) => void;
+  tmuFilter: string;
+  setTmuFilter: (val: string) => void;
   setPage: (val: number) => void;
   activeFiltersCount: number;
+  /** Export controls (moved into this dialog). */
+  isExporting?: boolean;
+  onExport?: (overrides?: {
+    filter?: string;
+    role?: string;
+    isBlocked?: string;
+    isVerified?: string;
+    isSTF?: string;
+    isTMU?: string;
+    getAnalytics?: boolean;
+  }) => void;
+  getAnalytics?: boolean;
+  setGetAnalytics?: (val: boolean) => void;
 }
 
 export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
@@ -48,8 +64,14 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
   setVerifiedFilter,
   stfFilter,
   setStfFilter,
+  tmuFilter,
+  setTmuFilter,
   setPage,
   activeFiltersCount,
+  isExporting,
+  onExport,
+  getAnalytics,
+  setGetAnalytics,
 }) => {
   const [open, setOpen] = useState(false);
   const { data: statesResponse = [] } = useGetStates();
@@ -61,6 +83,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
   const [draftStatus, setDraftStatus] = useState(statusFilter);
   const [draftVerified, setDraftVerified] = useState(verifiedFilter);
   const [draftStf, setDraftStf] = useState(stfFilter);
+  const [draftTmu, setDraftTmu] = useState(tmuFilter);
 
   useEffect(() => {
     if (open) {
@@ -69,8 +92,9 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
       setDraftStatus(statusFilter);
       setDraftVerified(verifiedFilter);
       setDraftStf(stfFilter);
+      setDraftTmu(tmuFilter);
     }
-  }, [open, filter, roleFilter, statusFilter, verifiedFilter, stfFilter]);
+  }, [open, filter, roleFilter, statusFilter, verifiedFilter, stfFilter, tmuFilter]);
 
   const handleApply = () => {
     setFilter(draftFilter === "ALL" ? "" : draftFilter);
@@ -78,6 +102,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
     setStatusFilter(draftStatus);
     setVerifiedFilter(draftVerified);
     setStfFilter(draftStf);
+    setTmuFilter(draftTmu);
     setPage(1);
     setOpen(false);
   };
@@ -88,6 +113,22 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
     setDraftStatus("ALL");
     setDraftVerified("ALL");
     setDraftStf("ALL");
+    setDraftTmu("ALL");
+  };
+
+  // Download uses the CURRENT draft filters (so it matches what's shown in the dialog),
+  // and also applies them so the table stays in sync. Explicit values avoid stale state.
+  const handleDownload = () => {
+    handleApply();
+    onExport?.({
+      filter: draftFilter === "ALL" ? "" : draftFilter,
+      role: draftRole,
+      isBlocked: draftStatus,
+      isVerified: draftVerified,
+      isSTF: draftStf,
+      isTMU: draftTmu,
+      getAnalytics: !!getAnalytics && draftRole === "pae_expert",
+    });
   };
 
   return (
@@ -211,14 +252,60 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2 relative">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  Training Users
+                  <Badge className="h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 text-white">
+                    New
+                  </Badge>
+                </Label>
+                <Select value={draftTmu} onValueChange={setDraftTmu}>
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue placeholder="Training Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Users</SelectItem>
+                    <SelectItem value="true">Training Users</SelectItem>
+                    <SelectItem value="false">Not Training</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* PAE analytics — only relevant when the PAE role is selected. When checked,
+                  Download adds a "PAE Analytics" sheet with every PAE's metrics. */}
+              {draftRole === "pae_expert" && (
+                <label className="flex items-center gap-2 pt-1 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={!!getAnalytics}
+                    onCheckedChange={(v) => setGetAnalytics?.(v === true)}
+                  />
+                  <span className="font-semibold">Include PAE Analytics sheet</span>
+                </label>
+              )}
             </>
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
           <Button variant="outline" onClick={handleReset}>
             Reset
           </Button>
+          {isAdmin && onExport && (
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              disabled={isExporting}
+              className="gap-1.5"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isExporting ? "Exporting..." : "Download"}
+            </Button>
+          )}
           <Button onClick={handleApply}>Apply Filters</Button>
         </DialogFooter>
       </DialogContent>

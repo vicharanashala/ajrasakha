@@ -65,18 +65,19 @@ type SourceType = "annam" | "whatsapp";
 interface UserGrowthChartProps {
   source: SourceType;
   userType: string;
+  coordinatorId?: string;
 }
 
-const UserGrowthChart = ({ source , userType}: UserGrowthChartProps) => {
+const UserGrowthChart = ({ source, userType,coordinatorId,}: UserGrowthChartProps) => {
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange,);
   const [activeMetrics, setActiveMetrics] = useState(
-    metricsConfig.map((m) => m.key)
+    metricsConfig.map((m) => m.key),
   );
   const [hovered, setHovered] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [tablePage, setTablePage] = useState(1);
-  const { data, isLoading, isError } = useUserGrowth(source, userType, dateRange?.from, dateRange?.to);
+  const { data, isLoading, isError } = useUserGrowth(source, userType, dateRange?.from, dateRange?.to,true, coordinatorId,);
 // console.log(dateRange,"data", data)
   if (isLoading) {
     return (

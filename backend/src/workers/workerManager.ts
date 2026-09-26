@@ -9,18 +9,31 @@ import { sendPaeAssignmentEmail } from '#root/utils/buildPaeAssignmentEmail.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-interface JobStatus {
+export interface QuestionJobStatus {
   id: string;
   total: number;
   processed: number;
+  created: number;
+  duplicates: number;
+  failed: number;
   status: 'running' | 'completed' | 'failed';
   startedAt: Date;
   finishedAt?: Date;
   logs: string[];
+  errors: any[];
+  successIds: string[];
 }
 
-const jobs: Record<string, JobStatus> = {};
+const jobs: Record<string, QuestionJobStatus> = {};
 
+function cleanupOldJobs() {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours
+  for (const [id, job] of Object.entries(jobs)) {
+    if (job.startedAt && job.startedAt.getTime() < cutoff) {
+      delete jobs[id];
+    }
+  }
+}
 
 function chunkArray<T>(arr: T[], chunkSize: number): T[][] {
   const chunks: T[][] = [];
@@ -32,29 +45,36 @@ function chunkArray<T>(arr: T[], chunkSize: number): T[][] {
   return chunks;
 }
 
-
 export const startBackgroundProcessing = (
   actor: any,
   auditService: IAuditTrailsService,
   isRequiredAiInitialAnswer: boolean,
   isOutreachQuestion: boolean = false,
+  isTrainingQuestion: boolean = false,
   payload: any[],
   allocationMode: string = 'expert',
   paeExpertId?: string,
-) => {  if (!payload?.length) return;
+): string => {
+  cleanupOldJobs();
 
   const jobId = Date.now().toString();
-  const total = payload.length;
-  const job: JobStatus = {
+  const total = payload?.length || 0;
+  if (!total) return jobId;
+
+  const job: QuestionJobStatus = {
     id: jobId,
     total,
     processed: 0,
+    created: 0,
+    duplicates: 0,
+    failed: 0,
     status: 'running',
     startedAt: new Date(),
     logs: [`🚀 Job ${jobId} started with ${total} questions`],
+    errors: [],
+    successIds: [],
   };
   jobs[jobId] = job;
-
 
   const aggregateResults = {
     successIds: [] as string[],
@@ -77,7 +97,7 @@ export const startBackgroundProcessing = (
   const workerFile = path.join(__dirname, 'questionProcessor.worker.js');
 
   job.logs.push(
-    `🧠 Using ${MAX_WORKERS} workers (chunk size ~${CHUNK_SIZE})`
+    `🧠 Using ${chunks.length} workers (chunk size ~${CHUNK_SIZE})`
   );
 
   let finishedWorkers = 0;
@@ -93,6 +113,7 @@ export const startBackgroundProcessing = (
         dbName: process.env.DB_NAME!,
         isRequiredAiInitialAnswer,
         isOutreachQuestion,
+        isTrainingQuestion,
         allocationMode,
         paeExpertId,
       },
@@ -106,14 +127,19 @@ export const startBackgroundProcessing = (
       if (msg?.processed !== undefined) {
         job.processed += msg.processed;
       }
-      if (msg?.successIds) {
+      if (msg?.successIds?.length) {
         aggregateResults.successIds.push(...msg.successIds);
+        job.created = aggregateResults.successIds.length;
+        job.successIds = aggregateResults.successIds;
       }
       if (msg?.duplicateCount) {
         aggregateResults.duplicateCount += msg.duplicateCount;
+        job.duplicates = aggregateResults.duplicateCount;
       }
       if (msg?.error) {
         aggregateResults.errors.push(msg.error);
+        job.failed = aggregateResults.errors.length;
+        job.errors = aggregateResults.errors;
       }
       if (msg?.paeAssignedQuestionTexts?.length) {
         paeAggregate.questionTexts.push(...msg.paeAssignedQuestionTexts);
@@ -126,10 +152,16 @@ export const startBackgroundProcessing = (
     worker.on('error', err => {
       failedWorkers++;
       job.logs.push(`❌ Worker ${index + 1} error: ${err.message}`);
+      aggregateResults.errors.push({
+        workerIndex: index + 1,
+        message: err.message,
+      });
+      job.failed = aggregateResults.errors.length;
+      job.errors = aggregateResults.errors;
     });
 
     worker.on('exit', code => {
-      finishedWorkers++
+      finishedWorkers++;
       if (code !== 0) {
         failedWorkers++;
         job.logs.push(`⚠️ Worker ${index + 1} exited with code ${code}`);
@@ -141,9 +173,17 @@ export const startBackgroundProcessing = (
       if (finishedWorkers === chunks.length && !isJobFinalized) {
         isJobFinalized = true; 
         job.finishedAt = new Date();
-        job.status = failedWorkers === 0 ? 'completed' : 'failed';
+        job.status = failedWorkers === chunks.length && aggregateResults.successIds.length === 0
+          ? 'failed'
+          : 'completed';
+        job.created = aggregateResults.successIds.length;
+        job.duplicates = aggregateResults.duplicateCount;
+        job.failed = aggregateResults.errors.length;
+        job.errors = aggregateResults.errors;
+        job.successIds = aggregateResults.successIds;
+
         job.logs.push(
-          `🏁 Job finished. Processed ${job.processed}/${job.total}. Failed workers: ${failedWorkers}`
+          `🏁 Job finished. Processed: ${job.processed}/${job.total}, Created: ${job.created}, Duplicates: ${job.duplicates}, Errors: ${job.failed}, Failed workers: ${failedWorkers}`
         );
         
         // Create Final Audit Trail
@@ -160,9 +200,11 @@ export const startBackgroundProcessing = (
           },
           outcome: {
             status:
-              failedWorkers === 0
+              failedWorkers === 0 && aggregateResults.errors.length === 0
                 ? OutComeStatus.SUCCESS
-                : OutComeStatus.PARTIAL,
+                : aggregateResults.successIds.length > 0
+                  ? OutComeStatus.PARTIAL
+                  : OutComeStatus.FAILED,
           },
           createdAt: new Date(),
         };
@@ -195,3 +237,4 @@ export const getBackgroundJobs = () => {
 
 // ---- Utility: Fetch single job ----
 export const getJobById = (jobId: string) => jobs[jobId];
+

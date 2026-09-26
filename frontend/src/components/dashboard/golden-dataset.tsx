@@ -19,7 +19,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Database, CheckCircle2, Users} from "lucide-react";
+import { TrendingUp, Database, CheckCircle2, Users, Clock, Search} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,6 +41,15 @@ import { Spinner } from "@/components/atoms/spinner";
 import { TimePicker } from "./time-picker";
 import { TopRightBadge } from "../NewBadge";
 
+// Helper function to safely convert decimal hours to formatted "Xh Ym"
+// We convert entirely to minutes first to avoid floating point issues (e.g., "0h 60m")
+const formatTime = (decimalHours = 0) => {
+  const totalMinutes = Math.round(decimalHours * 60);
+  const hrs = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const formattedHrs = new Intl.NumberFormat('en-IN').format(hrs);
+  return `${formattedHrs}h ${mins}m`;
+};
 
 const monthNames = [
   "January",
@@ -63,7 +72,7 @@ export interface GoldenDataset {
   totalVerifiedByType: number;
   verifiedEntries: number;
   todayApproved?: number;
-  moderatorBreakdown?: { moderatorName: string; count: number }[];
+  moderatorBreakdown?: { moderatorName: string; count: number, closedCount?: number, dynamicClosedCount?: number, duplicateClosedCount?: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
   averageResponseTime?: { whatsapp: number; ajrasakha: number };
@@ -118,6 +127,7 @@ export const GoldenDatasetOverview = ({
   setCustomEndDateTime,
 }: GoldenDatasetOverviewProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modSearch, setModSearch] = useState("");
 
   const {ref,key} = useRestartOnView()
 
@@ -188,6 +198,18 @@ export const GoldenDatasetOverview = ({
     (sum, mod) => sum + mod.count,
     0
   );
+  // Push to GDB = questions closed as plain 'closed' (Notify User closes are
+  // dynamic_closed / duplicate_closed, which are excluded here).
+  const totalPushToGdb = moderatorBreakdown.reduce(
+    (sum, mod) => sum + (mod.closedCount ?? 0),
+    0
+  );
+  // Filter the breakdown list by moderator name (case-insensitive).
+  const filteredModerators = modSearch.trim()
+    ? moderatorBreakdown.filter((m) =>
+        m.moderatorName.toLowerCase().includes(modSearch.trim().toLowerCase()),
+      )
+    : moderatorBreakdown;
 
   return (
     <div ref={ref} className="space-y-6">
@@ -252,51 +274,119 @@ export const GoldenDatasetOverview = ({
               </span>
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-md overflow-hidden">
+          <DialogContent className="w-[70vw] sm:max-w-[70vw] overflow-hidden">
             <DialogHeader>
               <DialogTitle className="text-primary">
-                Moderator Approvals
+                Moderator / Auditor Approvals
               </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Total of {totalApprovals} approvals by{" "}
                 {moderatorBreakdown.length} moderators
               </p>
+              <p className="text-sm font-medium text-primary mt-0.5">
+                Push to GDB (closed only): {totalPushToGdb}
+              </p>
             </DialogHeader>
-            
-            <div className="mt-4 max-h-[320px] overflow-y-auto scrollbar-hiding space-y-2">
-              {moderatorBreakdown.map((mod, idx) => {
-                
-                const percentage = totalApprovals ? (mod.count / totalApprovals) * 100 : 0;
-                return (
-                  <div
-                    key={idx}
-                    className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
-                          <span className="text-xs font-semibold text-primary">
-                            {mod.moderatorName.charAt(0).toUpperCase()}
+
+              <div className="relative mt-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={modSearch}
+                  onChange={(e) => setModSearch(e.target.value)}
+                  placeholder="Search by name..."
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent pl-9 pr-3 py-2 text-sm outline-none focus:border-primary/50"
+                />
+              </div>
+
+              <div className="mt-4 max-h-[420px] overflow-y-auto scrollbar-hiding space-y-3">
+                {filteredModerators.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No moderators match "{modSearch}".
+                  </p>
+                ) : filteredModerators.map((mod, idx) => {
+                  // Extract the distinct hours, defaulting to 0 if undefined/null
+                  const modHours = mod.moderatorHours ?? 0;
+                  const audHours = mod.auditorHours ?? 0;
+                  const gkHours = mod.gateKeeperHours ?? 0;
+
+                  // Calculate the total sum
+                  const totalHours = modHours + audHours + gkHours;
+
+                  // Format all values using the helper function
+                  const modDisplay = formatTime(modHours);
+                  const audDisplay = formatTime(audHours);
+                  const gkDisplay = formatTime(gkHours);
+                  const totalDisplay = formatTime(totalHours);
+
+                  const percentage = totalApprovals ? (mod.count / totalApprovals) * 100 : 0;
+                  const closedCount = mod.closedCount ?? 0;
+                  const dynamicClosedCount = mod.dynamicClosedCount ?? 0;
+                  const duplicateClosedCount = mod.duplicateClosedCount ?? 0;
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 border rounded-lg transition-colors"
+                    >
+                      {/* Top Section: User Info, Total Hours, and Count */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-semibold text-green-700">
+                              {mod.moderatorName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium dark:text-white text-gray-900 text-sm">
+                              {mod.moderatorName}
+                            </p>
+                            <p className="text-xs font-medium text-primary mt-0.5 flex items-center gap-1">
+                              <Clock size={12} className="text-primary" />
+                              {totalDisplay}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold dark:text-white text-primary">
+                            {mod.count}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Per-status counts */}
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 dark:bg-gray-500/15 dark:text-gray-300 font-medium">
+                          Closed: <strong>{closedCount}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300 font-medium">
+                          Dynamic Closed: <strong>{dynamicClosedCount}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300 font-medium">
+                          Duplicate Closed: <strong>{duplicateClosedCount}</strong>
+                        </span>
+                      </div>
+
+                      {/* Bottom Section: Breakdown of hours and Percentage */}
+                      <div className="mt-3 pt-2 border-t flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                          <span title="Moderator Hours">
+                            Mod: <strong className=" dark:text-white text-gray-700 font-medium">{modDisplay}</strong>
+                          </span>
+                          <span title="Auditor Hours">
+                            Aud: <strong className=" dark:text-white text-gray-700 font-medium">{audDisplay}</strong>
+                          </span>
+                          <span title="Gatekeeper Hours">
+                            GK: <strong className=" dark:text-white text-gray-700 font-medium">{gkDisplay}</strong>
                           </span>
                         </div>
-                        <p className="font-medium text-foreground text-sm">
-                          {mod.moderatorName}
+                        <p className="text-[11px] font-medium dark:text-white text-gray-500">
+                          {percentage.toFixed(1)}% <span className="hidden sm:inline">of total approvals</span>
                         </p>
                       </div>
-                      <p className="text-lg font-bold text-primary">
-                        {mod.count}
-                      </p>
                     </div>
-
-                                {/* Progress Bar */}
-                   <p className="text-xs text-muted-foreground mt-2">
-  {percentage.toFixed(1)}% of total approvals
-</p>
-
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
           </DialogContent>
         </Dialog>
       )}

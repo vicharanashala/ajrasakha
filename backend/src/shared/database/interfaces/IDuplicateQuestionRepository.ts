@@ -35,6 +35,8 @@ export interface IDuplicateQuestionRepository {
   findDuplicatesByDateRange(
     startDate: Date,
     endDate: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     // source: 'AJRASAKHA' | 'AGRI_EXPERT',
     session?: ClientSession,
   ): Promise<ISimilarQuestion[]>;

@@ -4,7 +4,7 @@ Flow:
   1. Take input query
   2. LLM picks domain from domains.py ALLOWED_DOMAINS (latest message)
   3. Derive tool flags from domain; resolve state (latest + GPS)
-  4. CROP_ALL_DOMAINS -> crop=all; CROP_REQUIRED -> extract + LLM classifier
+  4. JSON-backed domain crop policy -> deterministic or conditional crop decision
   5. Completeness check -> clarify or execute
 """
 
@@ -26,21 +26,22 @@ from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
 )
-from ajrasakha.agents.crop_chemical_resolver import format_planner_crop_hints
 from ajrasakha.agents.thread_trace import trace_event
-from ajrasakha.agents.crop_requirement import is_crop_specific_question
+from ajrasakha.agents.crop_requirement import (
+    CropRequirementDecision,
+    is_crop_specific_question,
+)
 from ajrasakha.agents.domains import (
-    CROP_ALL_DOMAINS,
-    CROP_REQUIRED_DOMAINS,
-    domain_requires_crop,
+    domain_crop_requirement_mode,
     apply_tool_flags_from_domains,
-    crop_counts_as_resolved,
-    is_crop_placeholder,
+    get_domain_crop_policy,
+    legacy_domain_requires_crop,
     normalize_domain,
 )
 from ajrasakha.agents.language import _llm_detect_language, detect_script_language, resolve_planner_language_pair
 from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
+    get_catalog,
     get_crop_follow_up,
     get_state_follow_up,
     language_pair_from_plan,
@@ -57,13 +58,18 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
+    classify_follow_up_heuristic,
     crop_slot_satisfied,
     format_conversation_for_planner,
     format_last_queries_for_rephrasing,
+    is_crop_clarify_turn,
+    is_standalone_clarification_reply,
+    merge_clarification_reply_into_query,
     format_prev_plan_context,
+    is_explicit_all_crop_request,
     merge_entities_from_rephrased_query,
-    resolve_crop_for_turn,
-    was_crop_clarify_asked,
+    normalize_crop_value,
+    is_crop_output_question,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
@@ -123,6 +129,54 @@ class PlannerOutput(BaseModel):
     follow_up_question: Optional[str] = None
     reasoning: Optional[str] = None
     entities: PlannerEntitiesOutput = Field(default_factory=PlannerEntitiesOutput)
+    is_follow_up: bool = Field(
+        default=False,
+        description=(
+            "True when the farmer's latest message is a transformation request on the previous AI answer "
+            "(language change, format change, detail request, simplification, tone change, rephrase). "
+            "The answer can be generated from the previous AI message alone — no new tool calls. "
+            "False for any new substantive question or when new data is required."
+        ),
+    )
+    follow_up_type: Optional[str] = Field(
+        default=None,
+        description=(
+            "When is_follow_up is true, classify the request: "
+            "'language_change' (translate/repeat in another language), "
+            "'format_change' (bullets, short, paragraph, table), "
+            "'detail_request' (explain more, elaborate, details), "
+            "'simplify' (simpler words, easier explanation), "
+            "'tone_change' (for beginner, for expert, polite), "
+            "'rephrase' (reword, rewrite, same meaning)."
+        ),
+    )
+    main_question: Optional[str] = Field(
+        default=None,
+        description=(
+            "When is_follow_up is true, copy verbatim the previous turn's rephrased_query "
+            "so the follow-up node sees the underlying question that was answered before. "
+            "If unclear, leave null."
+        ),
+    )
+    is_new_question: bool = Field(
+        default=False,
+        description=(
+            "Only relevant when the server asked the farmer for a missing location or crop. "
+            "True when the latest message does NOT answer that request but asks a new, different "
+            "question (e.g. we asked for the state and the farmer asked about another crop or "
+            "problem), in any language or script. False when the message supplies the location "
+            "or crop, says it does not know, or says any crop is fine. False on all other turns."
+        ),
+    )
+    is_multiple_crops: bool = Field(
+        default=False,
+        description=(
+            "True when the farmer names two or more specific crops for the question "
+            "(e.g. 'wheat and mustard'), in any language or script. False for a single crop "
+            "and for crop categories or non-specific scopes such as 'vegetables', "
+            "'rabi crops', 'all crops', or 'any crop'."
+        ),
+    )
     original_query_en: Optional[str] = Field(
         None,
         description=(
@@ -258,6 +312,10 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "translate_path": None,
         "expert_queue": False,
         "tools_used": _compute_tools_used_from_output(output),
+        "is_follow_up": bool(output.is_follow_up),
+        "follow_up_type": output.follow_up_type,
+        "main_question": output.main_question,
+        "is_multiple_crops": bool(output.is_multiple_crops),
     }
 
 
@@ -286,6 +344,9 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "translate_path": None,
         "expert_queue": False,
         "tools_used": ["knowledge_base"],
+        "is_follow_up": False,
+        "follow_up_type": None,
+        "main_question": None,
     }
 
 
@@ -355,6 +416,7 @@ async def _apply_domain_and_crop_async(
     *,
     crop_prefilled: Optional[str],
     config: RunnableConfig,
+    prev_plan: Optional[PlannerPlan] = None,
 ) -> tuple[PlannerPlan, str, bool]:
     """Normalize domains, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
     domains_raw = plan.get("domains") or [plan.get("domain") or "General"]
@@ -381,46 +443,148 @@ async def _apply_domain_and_crop_async(
         plan["chemical_checker"] = False
 
     entities: PlannerEntities = dict(plan.get("entities") or {})
+    if entities.get("crop"):
+        entities["crop"] = normalize_crop_value(entities["crop"])
     user_text = latest_human_text(messages)
     question = plan.get("rephrased_query") or user_text
     original = plan.get("original_query_en") or user_text
+    deterministic_crop_output = is_crop_output_question(question) or is_crop_output_question(user_text)
+    deterministic_all_crop = is_explicit_all_crop_request(question) or is_explicit_all_crop_request(user_text)
 
-    entities = apply_crop_one_shot_fallback(messages, entities, domains)
+    entities = apply_crop_one_shot_fallback(
+        messages,
+        entities,
+        domains,
+        prev_plan=prev_plan,
+    )
 
-    crop_required = False
-    crop_required_any = any(domain_requires_crop(d) for d in domains)
-
-    # Crop-required domains: ask once, then fall back to crop=all if still unresolved.
-    if crop_required_any:
-        crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
-        if crop_slot_satisfied(crop):
-            if crop and str(crop).strip().lower() == "all":
-                entities["crop"] = "all"
-            elif crop and not is_crop_placeholder(crop):
-                entities["crop"] = crop[0].upper() + crop[1:].lower()
-            crop_required = False
-        elif not was_crop_clarify_asked(messages):
-            crop_required = True
+    # The planner LLM is the only source of the crop name: it translates local
+    # names and scripts (e.g. "గోధుమ" -> "Wheat") that no English regex can.
+    crop = normalize_crop_value(crop_prefilled or entities.get("crop"))
+    if deterministic_crop_output:
+        # A crop-output question asks the system to recommend the crop. Any
+        # crop entity inferred by the LLM (for example, "Kharif crops" or
+        # "Sorghum") is not a farmer-provided input crop.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "deterministic_crop_output_requested"
+    elif deterministic_all_crop:
+        # An explicit clarification such as "any general crop" is a resolved
+        # user decision to use the canonical all-crops scope.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "deterministic_all_crop_requested"
+    elif plan.get("is_multiple_crops"):
+        # Two or more named crops satisfy the crop requirement, so the farmer
+        # is not asked again. Retrieval searches all crops; the reviewer
+        # upload labels the question "Multiple Crops".
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "multiple_crops"
+    elif (
+        is_crop_clarify_turn(messages, prev_plan=prev_plan)
+        and latest_human_text(messages).strip()
+        and not crop_slot_satisfied(crop)
+    ):
+        # A non-empty answer to an already-asked crop clarification that does
+        # not name a specific crop uses MongoDB's canonical all-crops value, so
+        # the farmer is not asked twice. Initial missing-crop turns still go
+        # through domain policy.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "crop_clarification_default_all"
+    elif crop_slot_satisfied(crop):
+        # Preserve the pre-existing crop-present behavior. The new JSON/LLM
+        # decision path is intentionally only for turns without a crop name.
+        if any(legacy_domain_requires_crop(domain) for domain in domains):
+            entities["crop"] = crop[0].upper() + crop[1:].lower()
+            crop_requirement_source = "existing_crop"
         else:
             entities["crop"] = "all"
-            crop_required = False
-    elif domains[0] in CROP_ALL_DOMAINS:
-        entities["crop"] = "all"
+            crop_requirement_source = "legacy_domain_crop_all"
         crop_required = False
     else:
-        entities["crop"] = "all"
-        crop_required = False
+        always_domains = [
+            domain
+            for domain in domains
+            if domain_crop_requirement_mode(domain) == "always_required"
+        ]
+        conditional_domains = [
+            domain
+            for domain in domains
+            if domain_crop_requirement_mode(domain) == "conditional"
+        ]
+
+        async def classify_domain(domain: str) -> CropRequirementDecision:
+            policy = get_domain_crop_policy(domain)
+            additional = policy.get("additional_remarks") or {}
+            additional_text = "; ".join(
+                f"{key}: {value}" for key, value in additional.items()
+            )
+            return await is_crop_specific_question(
+                question,
+                original,
+                domain,
+                config=config,
+                domain_description=policy.get("description", ""),
+                domain_remarks=policy.get("remarks", ""),
+                additional_remarks=additional_text,
+                default_crop_required=bool(policy.get("default_crop_required")),
+                llm=ChatAnthropic(
+                    model=PLANNER_MODEL,
+                    max_tokens=16,
+                    temperature=0,
+                ),
+                model_name=PLANNER_MODEL,
+            )
+
+        # Always-required domains retain their existing behavior unless the
+        # classifier explicitly recognizes that the farmer is asking which
+        # crop to grow. This prevents an always-required domain from turning
+        # a crop recommendation into an unnecessary input-crop question.
+        crop_required = bool(always_domains)
+        crop_requirement_source = "always_required" if always_domains else "never_required"
+        if always_domains:
+            output_decision = await classify_domain(always_domains[0])
+            if output_decision == "crop_output_requested":
+                crop_required = False
+                crop_requirement_source = "always_domain_crop_output_requested"
+        elif conditional_domains:
+            # Conditional domains are classified concurrently only when no
+            # crop is available.
+            conditional_results: list[CropRequirementDecision] = await asyncio.gather(
+                *(classify_domain(domain) for domain in conditional_domains)
+            )
+            input_crop_required = any(
+                decision == "input_crop_required"
+                for decision in conditional_results
+            )
+            crop_output_requested = any(
+                decision == "crop_output_requested"
+                for decision in conditional_results
+            )
+            crop_required = input_crop_required
+            crop_requirement_source = (
+                "conditional_llm_required"
+                if input_crop_required
+                else "conditional_llm_crop_output_requested"
+                if crop_output_requested
+                else "conditional_llm_not_required"
+            )
+
+        if crop_required:
+            # A required crop must be specific; the placeholder "all" is not
+            # a crop name and must not silently satisfy the policy.
+            entities.pop("crop", None)
+        else:
+            entities["crop"] = "all"
 
     plan["entities"] = entities
-    crop_source = "domain_crop_all" if domains[0] in CROP_ALL_DOMAINS else (
-        "crop_required_resolved" if not crop_required else "crop_required_pending"
-    )
-    if entities.get("crop") == "all" and crop_required is False:
-        crop_source = (
-            "domain_crop_all"
-            if domains[0] in CROP_ALL_DOMAINS
-            else "one_shot_fallback_or_default_all"
-        )
+    plan["crop_required"] = crop_required
+    plan["crop_requirement_source"] = crop_requirement_source
+    crop_source = "crop_required_resolved" if not crop_required else "crop_required_pending"
+    if entities.get("crop") == "all" and not crop_required:
+        crop_source = "domain_crop_policy_not_required"
     trace_resolution(
         "planner_domain_crop",
         domain=domains[0],
@@ -561,28 +725,66 @@ async def planner_node(
     )
 
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
-    crop_resolved = resolve_crop_for_turn(messages)
+    clarification_query = merge_clarification_reply_into_query(prev_plan, user_text)
+    previous_vocal_language = (prev_plan.get("vocal_language") or "").strip()
+    previous_script_language = (prev_plan.get("script_language") or "").strip()
+    preserve_clarification_language = bool(
+        clarification_query
+        and (previous_script_language, previous_vocal_language) in get_catalog()
+    )
 
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     conv_block = format_conversation_for_planner(messages) or user_text
     rephrasing_context = format_last_queries_for_rephrasing(messages)
+    if clarification_query:
+        rephrasing_context = (
+            f"{rephrasing_context}\n"
+            "SERVER-ASSEMBLED CLARIFICATION QUERY (canonical rephrasing input "
+            "unless is_new_question=true):\n"
+            f"{clarification_query}"
+        )
 
-    crop_hints = format_planner_crop_hints(user_text)
     prev_plan_context = format_prev_plan_context(prev_plan)
+
+    # Heuristic follow-up pre-check (only meaningful when there is a previous AI turn).
+    heuristic_follow_up_type = classify_follow_up_heuristic(user_text)
+    has_prev_ai_answer = any(isinstance(m, AIMessage) and not getattr(m, "tool_calls", None) for m in messages)
+    heuristic_follow_up_active = bool(heuristic_follow_up_type) and has_prev_ai_answer
     trace_event(
-        "crop_fuzzy_hints",
-        user_text=user_text,
-        hints=crop_hints or "(no fuzzy crop alias matches above 80%)",
+        "planner_follow_up_heuristic",
+        heuristic_type=heuristic_follow_up_type,
+        heuristic_active=heuristic_follow_up_active,
+        has_prev_ai_answer=has_prev_ai_answer,
+        user_text=user_text[:160],
     )
+
     deterministic_context = (
         f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
         f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
-        f"- crop hint: {crop_resolved or 'NOT RESOLVED'}\n"
     )
     if prev_plan_context:
         deterministic_context = f"{deterministic_context}\n{prev_plan_context}"
-    if crop_hints:
-        deterministic_context = f"{deterministic_context}\n{crop_hints}\n"
+    if clarification_query:
+        deterministic_context = (
+            f"{deterministic_context}\n"
+            "The server asked the farmer for a missing location/crop and assembled "
+            "the following query from the previous question and the latest message. "
+            "If the latest message answers that request, preserve the assembled "
+            "query's intent and all facts when generating original_query_en and "
+            "rephrased_query. If the latest message is instead a new, different "
+            "question, set is_new_question=true, ignore the assembled query and the "
+            "previous question, and translate/rephrase only the latest message:\n"
+            f"{clarification_query}\n"
+        )
+    if heuristic_follow_up_active:
+        deterministic_context = (
+            f"{deterministic_context}\n"
+            f"FOLLOW-UP HEURISTIC: server-side regex flagged this latest message "
+            f"as follow_up_type='{heuristic_follow_up_type}' on the previous AI answer. "
+            f"Treat is_follow_up=true with that follow_up_type unless the message "
+            f"clearly introduces a new substantive question or new entities."
+        )
+    prev_rephrased = (prev_plan.get("rephrased_query") or "").strip() if prev_plan else ""
     human_content = (
         f"{deterministic_context}\n"
         f"Current farmer message (route using this):\n{user_text}\n\n"
@@ -590,9 +792,14 @@ async def planner_node(
         f"--- LAST 5 QUERIES FOR REPHRASING (use ONLY for original_query_en and rephrased_query) ---\n"
         f"{rephrasing_context}\n"
         f"--- END REPHRASING CONTEXT ---\n\n"
-        f"Pick `domain` from the allowed list using the current farmer message only.\n"
+        + (f"Previous turn's rephrased_query (use verbatim for main_question when is_follow_up=true):\n{prev_rephrased}\n\n"
+           if prev_rephrased else "")
+        + "Pick `domain` from the allowed list using the current farmer message only.\n"
         "Set `vocal_language` and `script_language` from the official language list.\n"
         "Leave `follow_up_question` empty when location/crop is missing — server uses the catalog.\n"
+        "Set `is_follow_up=true` ONLY when the latest message is answerable from the previous AI answer alone\n"
+        "(language change, format change, detail request, simplification, tone change, rephrase).\n"
+        "When `is_follow_up=true`, copy the previous turn's rephrased_query into `main_question` verbatim.\n"
         "Return the routing plan only."
     )
     llm_messages.append(HumanMessage(content=human_content))
@@ -601,12 +808,12 @@ async def planner_node(
         model=PLANNER_MODEL,
         messages=llm_messages,
         state_hint=state_resolved,
-        crop_hint=crop_resolved,
         prev_plan_context=prev_plan_context or None,
     )
 
     try:
-        llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
+        planner_llm = ChatAnthropic(model=PLANNER_MODEL)
+        llm = planner_llm.with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
         trace_llm_response(
             "planner",
@@ -620,29 +827,139 @@ async def planner_node(
             vocal_language=output.vocal_language,
             script_language=output.script_language,
         )
+
         plan = planner_output_to_plan(output)
 
-        # Use Unicode-based script detection first (before LLM detection)
-        detected_script = detect_script_language(user_text)
-        
-        # Use LLM-based language detection for vocal_language with script context
-        # to avoid incorrect inference from state/crop names
-        detected_vocal = _llm_detect_language(user_text, script_context=detected_script)
-        vocal = _coerce_official_language(detected_vocal) or "English"
-        
-        if vocal != plan.get("vocal_language"):
-            logger.info(
-                "Planner vocal_language corrected via LLM detection: prev_vocal=%s -> detected_vocal=%s",
-                plan.get("vocal_language"),
-                vocal,
+        if clarification_query and output.is_new_question:
+            # The farmer ignored our location/crop request and asked a new
+            # question. Merging it would corrupt both queries, so plan this
+            # turn as a fresh conversation: no previous query, routing,
+            # language, entities, or clarification history.
+            trace_event(
+                "planner_clarification_skipped_new_question",
+                previous_query=prev_plan.get("rephrased_query"),
+                missing_info=prev_plan.get("missing_info"),
+                new_question=user_text,
             )
-        plan["vocal_language"] = vocal
-        plan["script_language"] = detected_script
+            clarification_query = None
+            preserve_clarification_language = False
+            prev_plan = {}
+            prev_entities = {}
+            messages = [human]
+
+        # The clarification query was supplied to the LLM before rephrasing.
+        # Preserve it as the original input and fall back to it if the LLM
+        # still returns only the short location/crop reply.
+        if clarification_query:
+            plan["original_query_en"] = clarification_query
+            if is_standalone_clarification_reply(
+                plan.get("rephrased_query"),
+                user_text,
+            ):
+                plan["rephrased_query"] = clarification_query
+            plan["is_follow_up"] = False
+            plan["follow_up_type"] = None
+            # A clarification reply is not a new intent. Preserve the previous
+            # turn's routing context while completeness is recalculated below.
+            for key in (
+                "domain",
+                "domains",
+                "is_agriculture_related",
+                "weather",
+                "mandi",
+                "soil",
+                "schemes",
+                "chemical_checker",
+                "knowledge_base",
+                "vocal_language",
+                "script_language",
+            ):
+                if key in prev_plan:
+                    plan[key] = prev_plan[key]
+            if preserve_clarification_language:
+                plan["vocal_language"] = previous_vocal_language
+                plan["script_language"] = previous_script_language
+            trace_event(
+                "planner_clarification_query_assembled",
+                previous_query=(
+                    prev_plan.get("rephrased_query")
+                    or prev_plan.get("original_query_en")
+                ),
+                clarification_reply=user_text,
+                missing_info=prev_plan.get("missing_info"),
+                assembled_query=clarification_query,
+                llm_rephrased_query=plan.get("rephrased_query"),
+            )
+
+        if preserve_clarification_language:
+            # A short answer to our location/crop question is data, not a new
+            # language preference. The preceding block restores the prior pair;
+            # do not immediately replace it by detecting the short reply alone.
+            trace_event(
+                "planner_clarification_language_preserved",
+                vocal_language=plan.get("vocal_language"),
+                script_language=plan.get("script_language"),
+                clarification_reply=user_text,
+            )
+        else:
+            # Use Unicode-based script detection first (before LLM detection).
+            detected_script = detect_script_language(user_text)
+
+            # Use LLM-based language detection for vocal_language with script context
+            # to avoid incorrect inference from state/crop names.
+            detected_vocal = _llm_detect_language(
+                user_text,
+                script_context=detected_script,
+                llm=planner_llm,
+            )
+            vocal = _coerce_official_language(detected_vocal) or "English"
+
+            if vocal != plan.get("vocal_language"):
+                logger.info(
+                    "Planner vocal_language corrected via LLM detection: prev_vocal=%s -> detected_vocal=%s",
+                    plan.get("vocal_language"),
+                    vocal,
+                )
+            plan["vocal_language"] = vocal
+            plan["script_language"] = detected_script
 
         if not plan.get("rephrased_query"):
             plan["rephrased_query"] = user_text
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
+
+        # Follow-up short-circuit: if the LLM (or the heuristic) flagged the latest
+        # message as a transformation on the previous AI answer, route through the
+        # follow-up node and skip entity re-resolution, completeness, and domain/crop.
+        if plan.get("is_follow_up"):
+            if not plan.get("follow_up_type") and heuristic_follow_up_type:
+                plan["follow_up_type"] = heuristic_follow_up_type
+            if not plan.get("main_question") and prev_plan.get("rephrased_query"):
+                plan["main_question"] = prev_plan.get("rephrased_query")
+            plan["entities"] = dict(prev_entities or {})
+            plan["is_complete"] = True
+            plan["missing_info"] = []
+            plan["follow_up_question"] = None
+            for flag in ("weather", "mandi", "soil", "schemes", "chemical_checker", "knowledge_base"):
+                plan[flag] = False
+            plan["domain"] = "General"
+            plan["domains"] = ["General"]
+            plan["is_agriculture_related"] = True
+            plan["tools_used"] = []
+            plan["reasoning"] = (plan.get("reasoning") or "") + f"; follow_up={plan.get('follow_up_type') or heuristic_follow_up_type}"
+            trace_event(
+                "planner_follow_up_finalized",
+                follow_up_type=plan.get("follow_up_type"),
+                follow_up_type_source="llm" if (output.follow_up_type or not heuristic_follow_up_type) else "heuristic",
+                main_question=plan.get("main_question"),
+            )
+            logger.info(
+                "Planner: follow-up detected type=%s main_question=%r rephrased=%r",
+                plan.get("follow_up_type"),
+                plan.get("main_question"),
+                plan.get("rephrased_query"),
+            )
+            return {"plan": plan}
 
         configurable = config.get("configurable") or {}
         user_id = resolve_user_id(config) or configurable.get("phone_number")
@@ -659,6 +976,7 @@ async def planner_node(
             messages,
             location,
             prev_entities,
+            prev_plan=prev_plan,
             stored_location=stored_location,
             sources_out=location_sources,
         )
@@ -679,6 +997,7 @@ async def planner_node(
             plan,
             messages,
             crop_prefilled=entities.get("crop"),
+            prev_plan=prev_plan,
             config=config,
         )
 
@@ -706,16 +1025,21 @@ async def planner_node(
             messages,
             location,
             prev_entities,
+            prev_plan=prev_plan,
             stored_location=stored_location,
             sources_out=location_sources,
         )
 
         if plan.get("is_complete"):
             final_entities = plan.get("entities") or {}
+            loc_lat = location.get("latitude") if location else None
+            loc_lon = location.get("longitude") if location else None
             maybe_persist_resolved_location(
                 user_id,
                 final_entities.get("state"),
                 final_entities.get("district"),
+                latitude=loc_lat,
+                longitude=loc_lon,
                 thread_id=resolve_thread_id(config),
                 state_source=location_sources.get("state_source"),
                 district_source=location_sources.get("district_source"),
@@ -749,6 +1073,8 @@ async def planner_node(
                     "schemes",
                     "chemical_checker",
                     "knowledge_base",
+                    "crop_required",
+                    "crop_requirement_source",
                     "vocal_language",
                     "script_language",
                 )
@@ -788,7 +1114,10 @@ async def planner_node(
             plan.get("rephrased_query"),
             plan.get("missing_info"),
         )
-        return {"plan": plan}
+        res: dict[str, Any] = {"plan": plan}
+        if stored_location and (not location or (location.get("latitude") is None and stored_location.get("latitude") is not None)):
+            res["location"] = stored_location
+        return res
     except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
         logger.warning("Planner failed (%s: %s) — using default knowledge_base plan", type(exc).__name__, exc)
         return {"plan": _default_plan_for_agriculture(user_text)}
@@ -817,6 +1146,8 @@ def clarify_node(state: AjraSakhaState) -> dict:
 
 def route_after_planner(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
+    if plan.get("is_follow_up"):
+        return "follow_up"
     if not plan.get("is_complete", True):
         return "clarify"
     return "ensure_location"

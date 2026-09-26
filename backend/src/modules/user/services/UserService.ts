@@ -1,13 +1,16 @@
 import { inject, injectable } from 'inversify';
+import ExcelJS from 'exceljs';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserAdminEdit,
   INotificationType,
   NotificationRetentionType,
   UserRole,
   IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import type { PaeAnalyticsRow } from '#root/modules/question/interfaces/IQuestionService.js';
 import {
   BadRequestError,
   ForbiddenError,
@@ -27,7 +30,11 @@ import {getFromContainer} from 'class-validator';
 import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
+import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
+import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -49,6 +56,12 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.NotificationService)
     private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
+
+    @inject(GLOBAL_TYPES.ModeratorQueueService)
+    private readonly moderatorQueueService: IModeratorQueueService,
   ) {
     super(mongoDatabase);
   }
@@ -63,6 +76,17 @@ export class UserService extends BaseService {
         email: m.email ?? '',
       }))
       .filter(m => m._id);
+  }
+
+  async getPaeValidationExperts(): Promise<
+    { _id: string; name: string; email: string }[]
+  > {
+    const experts = await this.userRepo.findAvailablePaeExperts();
+    return experts.map((expert) => ({
+      _id: expert._id?.toString() ?? '',
+      name: `${expert.firstName ?? ''} ${expert.lastName ?? ''}`.trim() || expert.email || 'Unknown',
+      email: expert.email ?? '',
+    }));
   }
 
   async getUserById(userId: string): Promise<IUser> {
@@ -89,18 +113,18 @@ export class UserService extends BaseService {
       );
     }
   }
-  async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
+  async getUserReviewLevel(query: ExpertReviewLevelDto, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     try {
       //if (!query.userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
         if (query.role == 'moderator') {
           const moderatorResult =
-            await this.questionSubmissionRepo.getModeratorReviewLevel(query);
+            await this.questionSubmissionRepo.getModeratorReviewLevel(query,isTrainingUser,isAdmin);
           return moderatorResult;
         }
         const result =
-          await this.questionSubmissionRepo.getUserReviewLevel(query);
+          await this.questionSubmissionRepo.getUserReviewLevel(query,isTrainingUser,isAdmin);
 
         return result;
       });
@@ -120,6 +144,7 @@ export class UserService extends BaseService {
         'lastName',
         'mobile',
         'university',
+        'kvkCovered',
         'preference',
         'avatar',
       ] as const;
@@ -148,6 +173,48 @@ export class UserService extends BaseService {
         throw new BadRequestError(
           'University name cannot be empty or blank space',
         );
+      // Title-case a value so entries persist consistently ("kl university" → "Kl University").
+      const toTitleCase = (v: unknown) =>
+        typeof v === 'string'
+          ? v.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          : '';
+      // Same, but keep the "all" sentinel lowercase so domain/district "all" checks keep working.
+      const titleCaseOrAll = (v: unknown) => {
+        const s = typeof v === 'string' ? v.trim() : '';
+        return s.toLowerCase() === 'all' ? 'all' : toTitleCase(s);
+      };
+
+      if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : [];
+        sanitizedData.kvkCovered = raw
+          .map((item: any) => {
+            // New shape: { state, district, name }. Legacy: a plain KVK-name string.
+            if (item && typeof item === 'object') {
+              return {
+                state: toTitleCase(item.state),
+                district: toTitleCase(item.district),
+                name: toTitleCase(item.name),
+              };
+            }
+            return { state: '', district: '', name: toTitleCase(item) };
+          })
+          .filter((item: {name: string}) => item.name);
+      }
+
+      // Store preference district and domain in Title Case (preserving the "all" sentinel).
+      if (sanitizedData.preference) {
+        const pref: any = sanitizedData.preference;
+        if (typeof pref.district === 'string') {
+          pref.district = titleCaseOrAll(pref.district);
+        }
+        if (Array.isArray(pref.domain)) {
+          pref.domain = pref.domain.map((d: unknown) => titleCaseOrAll(d)).filter(Boolean);
+        } else if (typeof pref.domain === 'string') {
+          pref.domain = titleCaseOrAll(pref.domain);
+        }
+      }
       const authService = getFromContainer(FirebaseAuthService);
 
       return this._withTransaction(async (session: ClientSession) => {
@@ -169,44 +236,200 @@ export class UserService extends BaseService {
     }
   }
 
-  async updateUserRole(
+  async adminEditUser(
     currentUser: IUser,
     userId: string,
-    changeRoleTo: UserRole,
+    data: IUserAdminEdit,
   ): Promise<IUser> {
     try {
       if (!currentUser || currentUser.role !== 'admin') {
-        throw new ForbiddenError('Only admin can switch user roles');
+        throw new ForbiddenError('Only admin can edit user details');
       }
 
       if (!userId) {
         throw new BadRequestError('User ID is required');
       }
 
-      return this._withTransaction(async (session: ClientSession) => {
-        const user = await this.userRepo.findById(userId, session);
+      const targetUser = await this.userRepo.findById(userId);
+      if (!targetUser) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
 
-        if (!user) {
+      if (targetUser.role === 'admin') {
+        throw new ForbiddenError('Admin cannot edit details of another admin');
+      }
+
+      const editableFields = [
+        'firstName',
+        'lastName',
+        'avatar',
+        'preference',
+        'mobile',
+        'university',
+        'kvkCovered',
+      ] as const;
+
+      const sanitizedData: Partial<IUser> = {};
+
+      for (const field of editableFields) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          (sanitizedData as any)[field] = (data as any)[field];
+        }
+      }
+
+      if (sanitizedData.firstName !== undefined && !sanitizedData.firstName.trim()) {
+        throw new BadRequestError('First name cannot be empty or blank space');
+      }
+
+      if (sanitizedData.mobile !== undefined && sanitizedData.mobile !== null) {
+        sanitizedData.mobile = sanitizedData.mobile.trim();
+      }
+
+      if (sanitizedData.university !== undefined && sanitizedData.university !== null) {
+        sanitizedData.university = sanitizedData.university.trim();
+      }
+
+      // Title-case a value so entries persist consistently ("kl university" → "Kl University").
+      const toTitleCase = (v: unknown) =>
+        typeof v === 'string'
+          ? v.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          : '';
+      // Same, but keep the "all" sentinel lowercase so domain/district "all" checks keep working.
+      const titleCaseOrAll = (v: unknown) => {
+        const s = typeof v === 'string' ? v.trim() : '';
+        return s.toLowerCase() === 'all' ? 'all' : toTitleCase(s);
+      };
+
+      if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : [];
+        sanitizedData.kvkCovered = raw
+          .map((item: any) => {
+            if (item && typeof item === 'object') {
+              return {
+                state: toTitleCase(item.state),
+                district: toTitleCase(item.district),
+                name: toTitleCase(item.name),
+              };
+            }
+            return { state: '', district: '', name: toTitleCase(item) };
+          })
+          .filter((item: { name: string }) => item.name);
+      }
+
+      if (sanitizedData.preference) {
+        const pref: any = sanitizedData.preference;
+        if (typeof pref.district === 'string') {
+          pref.district = titleCaseOrAll(pref.district);
+        }
+        if (Array.isArray(pref.domain)) {
+          pref.domain = pref.domain.map((d: unknown) => titleCaseOrAll(d)).filter(Boolean);
+        } else if (typeof pref.domain === 'string') {
+          pref.domain = titleCaseOrAll(pref.domain);
+        }
+      }
+
+      const authService = getFromContainer(FirebaseAuthService);
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, sanitizedData, session);
+        if (!updatedUser) {
           throw new NotFoundError(`User with ID ${userId} not found`);
         }
-
-        // Prevent unnecessary update
-        if (user.role === changeRoleTo) {
-          throw new BadRequestError(`User already has role ${changeRoleTo}`);
+        if (sanitizedData.firstName || sanitizedData.lastName) {
+          await authService.updateFirebaseUser(updatedUser.firebaseUID, {
+            firstName: sanitizedData.firstName ?? updatedUser.firstName,
+            lastName: sanitizedData.lastName ?? updatedUser.lastName,
+          });
         }
-
-        const updatedUser = await this.userRepo.edit(
-          userId,
-          { role: changeRoleTo },
-          session,
-        );
-
-        if (!updatedUser) {
-          throw new InternalServerError('Failed to update user role');
-        }
-
         return updatedUser;
       });
+    } catch (error) {
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError ||
+        error instanceof ForbiddenError
+      ) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to edit user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+
+  async updateUserRole(
+    currentUser: IUser,
+    userId: string,
+    changeRoleTo: UserRole,
+  ): Promise<IUser> {
+    try {
+      if (
+        !currentUser ||
+        (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+      ) {
+        throw new ForbiddenError('Only admin or gate keeper can switch user roles');
+      }
+
+      if (!userId) {
+        throw new BadRequestError('User ID is required');
+      }
+
+      const result = await this._withTransaction(
+        async (session: ClientSession) => {
+          const user = await this.userRepo.findById(userId, session);
+
+          if (!user) {
+            throw new NotFoundError(`User with ID ${userId} not found`);
+          }
+
+          // Prevent unnecessary update
+          if (user.role === changeRoleTo) {
+            throw new BadRequestError(`User already has role ${changeRoleTo}`);
+          }
+
+          const updatedUser = await this.userRepo.edit(
+            userId,
+            { role: changeRoleTo },
+            session,
+          );
+
+          if (!updatedUser) {
+            throw new InternalServerError('Failed to update user role');
+          }
+
+          return updatedUser;
+        },
+      );
+
+      // Switching a user INTO the gate keeper / auditor role adds a new available
+      // assignee — fill the role queues now so they can immediately receive a question.
+      // Fire-and-forget and idempotent, so it can't affect the role update.
+      if (changeRoleTo === 'gate_keeper' || changeRoleTo === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+      // Switching a user INTO the moderator role adds a new available moderator — fill the
+      // moderator queue now so they immediately receive an in-review question.
+      if (changeRoleTo === 'moderator') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven moderator-queue allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+
+      return result;
     } catch (error) {
       // Preserve known errors
       if (
@@ -223,6 +446,123 @@ export class UserService extends BaseService {
     }
   }
 
+  /**
+   * Build an .xlsx of all users matching the SAME filters the admin user-management
+   * list uses (search / sort / state filter / role / blocked / verified / STF), with
+   * one row per user. Only human/personal details are included — preference is split
+   * into its own columns (state / district / crop / domain) — and work/system fields
+   * (assigned questions, reputation, penalty, incentive, etc.), the password and the
+   * firebase id are excluded. Returns the workbook as a Buffer.
+   */
+  async exportUsersToXlsx(opts: {
+    search?: string;
+    sort?: string;
+    filter?: string;
+    role?: string;
+    isBlocked?: boolean;
+    isVerified?: boolean;
+    isSTF?: boolean;
+    isTMU?: boolean;
+    /** When provided, a second "PAE Analytics" sheet is appended (one row per PAE). */
+    paeAnalytics?: PaeAnalyticsRow[];
+  }): Promise<ArrayBuffer> {
+    // Fetch every matching user (no pagination) via the same query the list uses.
+    // 1_000_000 is an effective "no limit" cap — far above the total user count.
+    const { users } = await this.userRepo.findAllUsers(
+      1,
+      1_000_000,
+      opts.search || '',
+      opts.sort || '',
+      opts.filter || '',
+      opts.role || 'ALL',
+      opts.isBlocked,
+      opts.isVerified,
+      opts.isSTF,
+      opts.isTMU,
+    );
+
+    const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+    const asIST = (v: any): string => {
+      if (!v) return '';
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return '';
+      return new Date(d.getTime() + IST_OFFSET_MS)
+        .toISOString()
+        .replace('T', ' ')
+        .slice(0, 16);
+    };
+    const yesNo = (v: any): string => (v === true ? 'Yes' : v === false ? 'No' : '');
+    const joinArr = (v: any): string =>
+      Array.isArray(v) ? v.filter(Boolean).join(', ') : (v ?? '');
+    // KVKs → "State / District — Name; …" (each entry may be partial).
+    const fmtKvk = (v: any): string =>
+      Array.isArray(v)
+        ? v
+            .map((k: any) =>
+              [k?.state, k?.district].filter(Boolean).join(' / ') +
+              (k?.name ? ` — ${k.name}` : ''),
+            )
+            .filter(s => s.trim())
+            .join('; ')
+        : '';
+
+    // Curated, human-readable columns only.
+    const columns: { header: string; value: (u: any) => any }[] = [
+      { header: 'ID', value: u => u._id?.toString() ?? '' },
+      { header: 'First Name', value: u => u.firstName ?? '' },
+      { header: 'Last Name', value: u => u.lastName ?? '' },
+      { header: 'Email', value: u => u.email ?? '' },
+      { header: 'Mobile', value: u => u.mobile ?? '' },
+      { header: 'Role', value: u => u.role ?? '' },
+      { header: 'Status', value: u => u.status ?? '' },
+      { header: 'Blocked', value: u => yesNo(u.isBlocked) },
+      { header: 'Verified', value: u => yesNo(u.isVerified) },
+      { header: 'University', value: u => u.university ?? '' },
+      { header: 'Preferred State', value: u => u.preference?.state ?? '' },
+      { header: 'Preferred District', value: u => u.preference?.district ?? '' },
+      { header: 'Preferred Crop', value: u => u.preference?.crop ?? '' },
+      { header: 'Preferred Domain', value: u => joinArr(u.preference?.domain) },
+      { header: 'KVK Covered', value: u => fmtKvk(u.kvkCovered) },
+      { header: 'Last Check-In', value: u => asIST(u.lastCheckInAt) },
+      { header: 'Created At', value: u => asIST(u.createdAt) },
+      { header: 'Updated At', value: u => asIST(u.updatedAt) },
+    ];
+
+    // When PAE analytics are provided (PAE role + "Get Analytics"), merge the per-PAE
+    // metrics onto the SAME sheet as extra columns, matched to each user by id — no separate
+    // sheet. Users without a match (shouldn't happen when filtered to PAE) get blanks.
+    if (opts.paeAnalytics && opts.paeAnalytics.length > 0) {
+      const analyticsById = new Map<string, PaeAnalyticsRow>(
+        opts.paeAnalytics.map(r => [r.id, r]),
+      );
+      const metric = (u: any, pick: (r: PaeAnalyticsRow) => number): number | '' => {
+        const r = analyticsById.get(u._id?.toString());
+        return r ? pick(r) : '';
+      };
+      columns.push(
+        { header: 'Assigned', value: u => metric(u, r => r.assigned) },
+        { header: 'Submitted', value: u => metric(u, r => r.submitted) },
+        { header: 'Pending', value: u => metric(u, r => r.pending) },
+        { header: 'Feedback Assigned', value: u => metric(u, r => r.feedbackAssigned) },
+        { header: 'Feedback Pending', value: u => metric(u, r => r.feedbackPending) },
+        { header: 'Feedback Completed', value: u => metric(u, r => r.feedbackCompleted) },
+      );
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Users');
+    sheet.columns = columns.map(c => ({ header: c.header, key: c.header, width: 22 }));
+    sheet.getRow(1).font = { bold: true };
+
+    for (const u of users as any[]) {
+      const row: Record<string, any> = {};
+      for (const c of columns) row[c.header] = c.value(u);
+      sheet.addRow(row);
+    }
+
+    return (await workbook.xlsx.writeBuffer()) as unknown as ArrayBuffer;
+  }
+
   async getAllUsers(
     page: number,
     limit: number,
@@ -233,6 +573,7 @@ export class UserService extends BaseService {
     isBlocked?: boolean,
     isVerified?: boolean,
     isSTF?: boolean,
+    isTMU?: boolean,
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
     return await this._withTransaction(async () => {
       const { users, totalUsers, totalPages } =
@@ -246,6 +587,7 @@ export class UserService extends BaseService {
           isBlocked,
           isVerified,
           isSTF,
+          isTMU,
         );
       return { users, totalUsers, totalPages };
     });
@@ -259,11 +601,13 @@ export class UserService extends BaseService {
     sort: string,
     filter: string,
     includeSelf = false,
+    isTrainingUser?: boolean,
+    canViewAllUsers?: boolean
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session);
+        const users = await this.userRepo.findAll(session,isTrainingUser,canViewAllUsers);
         // The caller is excluded by default: most manual-select flows are handing work
         // to someone else (re-routing an answer, reallocating a question). Gate keepers /
         // auditors assigning a question to themselves pass includeSelf.
@@ -297,12 +641,14 @@ export class UserService extends BaseService {
             special_task_force_moderator: u.special_task_force_moderator,
             mobile: u.mobile ?? '',
             university: u.university ?? '',
+            kvkCovered: u.kvkCovered ?? null,
             state: u.preference?.state ?? null,
             domain: u.preference?.domain ?? null,
             assignedQuestionIds: (u.assignedQuestionIds ?? []).map(a => ({
               questionId: a.questionId?.toString(),
               status: a.status,
             })),
+            isTrainingUser: u.isTrainingUser ?? false,
           })),
           totalUsers: users.length,
           totalPages: 5,
@@ -341,6 +687,7 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    currentUser?: IUser,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findAllExperts(
@@ -349,13 +696,16 @@ export class UserService extends BaseService {
         search,
         sort,
         filter,
+        currentUser?.role === 'moderator'
+          ? currentUser.isTrainingUser === true
+          : undefined,
         session,
       );
     });
   }
 
   async blockUnblockExperts(userId: string, action: string) {
-    return await this._withTransaction(async (session: ClientSession) => {
+    const result = await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
         // The minimum-experts guard protects the EXPERT pool only. Blocking a
         // moderator (e.g. moderator check-out, which toggles isBlocked) must not
@@ -374,6 +724,40 @@ export class UserService extends BaseService {
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
     });
+
+    // Unblocking a gate keeper / auditor makes them available again
+    // (findAvailableUsersByRole excludes isBlocked users) — fill the role queues now so
+    // they can immediately receive a question. Only relevant for those two roles.
+    // Fire-and-forget and idempotent, so it can't affect the unblock result.
+    if (action !== 'block') {
+      const unblocked = await this.userRepo.findById(userId);
+      const role = unblocked?.role;
+      if (role === 'gate_keeper' || role === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+      // A moderator (or auditor) unblocked becomes available for the moderator queue
+      // (findAvailableStfModeratorsForSources excludes isBlocked) — fill it now so they
+      // immediately receive an in-review question instead of waiting for the cron.
+      if (role === 'moderator' || role === 'auditor') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven moderator-queue allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+    }
+
+    return result;
   }
 
   async updateSTFStatus(userId: string, action: string): Promise<void> {
@@ -408,9 +792,15 @@ export class UserService extends BaseService {
       if (!userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
+        // When verifying a user, also unblock them and set status to active
+        // so they can access the platform after approval
         const updatedUser = await this.userRepo.edit(
           userId,
-          { isVerified },
+          { 
+            isVerified,
+            isBlocked: false,
+            status: 'active' as const,
+          },
           session,
         );
         if (!updatedUser)
@@ -434,8 +824,13 @@ export class UserService extends BaseService {
     workloadAfter: number;
     questionIds: string[];
   }> {
-    if (!currentUser || currentUser.role !== 'admin') {
-      throw new ForbiddenError('Only admins can remove expert allocations');
+    if (
+      !currentUser ||
+      (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+    ) {
+      throw new ForbiddenError(
+        'Only admin or gate keeper can remove expert allocations',
+      );
     }
 
     return this._withTransaction(async (session: ClientSession) => {
@@ -606,114 +1001,158 @@ export class UserService extends BaseService {
             //     <p>Please review their request in the admin dashboard.</p>
             //   </div>
             // `;
+            const requestDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+            const currentYear = new Date().getFullYear();
+            const frontendUrl = appConfig.frontendUrl;
             const htmlMessage = `
             <!DOCTYPE html>
-            <html>
+            <html lang="en">
             <head>
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+              <meta name="color-scheme" content="light" />
+              <meta name="supported-color-schemes" content="light" />
+              <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+              <title>New Registration Request</title>
             </head>
-            <body style="margin: 0; padding: 0; background-color: #f2f2f0; font-family: 'Outfit', sans-serif;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f2f2f0; padding: 40px 20px;">
+            <body style="margin: 0; padding: 0; background-color: #eef1ef; font-family: 'Outfit', Arial, sans-serif;">
+              <!-- Preheader (hidden preview text) -->
+              <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
+                ${identifier} has requested registration approval on Ajrasakha Reviewer System.
+              </div>
+
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #eef1ef; padding: 40px 16px;">
                 <tr>
                   <td align="center">
-                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #fdfdfb; border-radius: 8px; overflow: hidden; border: 1px solid #e8e8e4;">
+                    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 600px; max-width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e3e6e2; box-shadow: 0 1px 3px rgba(20, 40, 30, 0.06);">
+
+                      <!-- Logo bar -->
+                      <tr>
+                        <td style="background-color: #ffffff; padding: 20px 40px; text-align: center; border-bottom: 1px solid #e3e6e2;">
+                          <img src="${frontendUrl}/annam-logo.png" alt="Annam.ai" width="130" height="auto" style="display: block; margin: 0 auto; max-width: 130px; border: 0;" />
+                        </td>
+                      </tr>
 
                       <!-- Header -->
                       <tr>
-                        <td style="background-color: #c5eedb; padding: 32px 40px; text-align: center; border-bottom: 1px solid #b0e4ca;">
-                          <h1 style="margin: 0; color: #2d6650; font-size: 22px; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
+                        <td style="background-color: #1f5f45; padding: 24px 40px; text-align: center;">
+                          <p style="margin: 0; color: #ffffff; font-size: 17px; font-weight: 700; font-family: 'Outfit', Arial, sans-serif; letter-spacing: 0.02em;">
                             Ajrasakha Reviewer System
-                          </h1>
-                          <p style="margin: 6px 0 0; color: #4a8c72; font-size: 13px; font-family: 'Outfit', sans-serif;">
-                            desk.vicharanashala.ai
+                          </p>
+                          <p style="margin: 4px 0 0; font-size: 12.5px; font-family: 'Outfit', Arial, sans-serif;">
+                            <a href="${frontendUrl}" style="color: #bfe0cf; text-decoration: none; font-family: 'Outfit', Arial, sans-serif;">ajrasakha-desk.annam.ai</a>
                           </p>
                         </td>
                       </tr>
 
+                      <!-- Accent stripe -->
+                      <tr>
+                        <td style="height: 4px; background-color: #2f8f66; line-height: 4px; font-size: 0;">&nbsp;</td>
+                      </tr>
+
                       <!-- Body -->
                       <tr>
-                        <td style="padding: 36px 40px 24px;">
+                        <td style="padding: 40px 40px 24px;">
 
-                          <p style="margin: 0 0 4px; font-size: 12px; color: #8a8a85; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                            Action Required
-                          </p>
-                          <h2 style="margin: 0 0 20px; font-size: 20px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
-                            New Verification Request
-                          </h2>
-
-                          <p style="margin: 0 0 16px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            Hello Admin,
-                          </p>
-                          <p style="margin: 0 0 28px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            A user has submitted a verification request on the Ajrasakha Reviewer System and is awaiting your approval. Please review the details below and take the appropriate action.
-                          </p>
-
-                          <!-- User Info Card -->
-                          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f2; border: 1px solid #e8e8e4; border-radius: 8px; margin-bottom: 28px;">
+                          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 20px;">
                             <tr>
-                              <td style="padding: 20px 24px;">
-
-                                <p style="margin: 0 0 3px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">
-                                  Requesting User
-                                </p>
-                                <p style="margin: 0 0 18px; font-size: 18px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                                  ${identifier}
-                                </p>
-
-                                <table cellpadding="0" cellspacing="0">
-                                  <tr>
-                                    <td style="padding-right: 32px;">
-                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Request Date</p>
-                                      <p style="margin: 0; font-size: 14px; color: #3a3a35; font-family: 'Outfit', sans-serif;">
-                                        ${new Date().toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})}
-                                      </p>
-                                    </td>
-                                    <td>
-                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Status</p>
-                                      <p style="margin: 0; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                                        <span style="display: inline-block; background-color: #fef9ec; color: #a0721a; border: 1px solid #f5dfa0; border-radius: 4px; padding: 2px 10px; font-size: 13px;">
-                                          Pending Review
-                                        </span>
-                                      </p>
-                                    </td>
-                                  </tr>
-                                </table>
-
+                              <td style="background-color: #fef3d9; border-radius: 4px; padding: 4px 10px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #96650f; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                  Action Required
+                                </span>
                               </td>
                             </tr>
                           </table>
 
-                          <!-- Dashboard Link -->
-                          <p style="margin: 0 0 6px; font-size: 14px; color: #6b6b66; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            Or review all pending requests in the admin dashboard:
-                          </p>
-                          <a href="https://desk.vicharanashala.ai"
-                            style="font-size: 14px; color: #4a8c72; text-decoration: underline; font-family: 'Outfit', sans-serif;">
-                            Open Admin Dashboard →
-                          </a>
+                          <h1 style="margin: 0 0 16px; font-size: 21px; line-height: 1.3; color: #1a1e1b; font-weight: 700; font-family: 'Outfit', Arial, sans-serif;">
+                            New Registration Request
+                          </h1>
 
+                          <p style="margin: 0 0 14px; font-size: 15px; color: #454a46; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            Hello Admin,
+                          </p>
+                          <p style="margin: 0 0 28px; font-size: 15px; color: #454a46; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            A new user has submitted a registration request on the Ajrasakha Web Application and is awaiting your approval. Please review the details below and take the appropriate action.
+                          </p>
+
+                          <!-- Role reminder callout -->
+                          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 28px;">
+                            <tr>
+                              <td style="background-color: #f0f7f4; border-left: 3px solid #1f5f45; border-radius: 0 6px 6px 0; padding: 14px 18px;">
+                                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #1f5f45; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Outfit', Arial, sans-serif;">Before Approving</p>
+                                <p style="margin: 0; font-size: 13.5px; color: #383d39; line-height: 1.65; font-family: 'Outfit', Arial, sans-serif;">
+                                  Please ensure the user's <strong>role is correctly set</strong> before granting access. If this is a test or internal account, set the role to <strong style="color: #1f5f45;">INTERNAL</strong> before approving.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- User Info Card -->
+                          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f6f8f6; border: 1px solid #e3e6e2; border-radius: 10px; margin-bottom: 28px;">
+                            <tr>
+                              <td style="padding: 22px 24px;">
+                                <p style="margin: 0 0 4px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                  Requesting User
+                                </p>
+                                <p style="margin: 0 0 20px; font-size: 18px; color: #1a1e1b; font-weight: 600; font-family: 'Outfit', Arial, sans-serif;">
+                                  ${identifier}
+                                </p>
+
+                                <table cellpadding="0" cellspacing="0" role="presentation">
+                                  <tr>
+                                    <td style="padding-right: 40px;">
+                                      <p style="margin: 0 0 3px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                        Request Date
+                                      </p>
+                                      <p style="margin: 0; font-size: 14px; color: #383d39; font-family: 'Outfit', Arial, sans-serif;">
+                                        ${requestDate}
+                                      </p>
+                                    </td>
+                                    <td>
+                                      <p style="margin: 0 0 3px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                        Status
+                                      </p>
+                                      <span style="display: inline-block; background-color: #fef3d9; color: #96650f; border: 1px solid #f3dda2; border-radius: 4px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; font-family: 'Outfit', Arial, sans-serif;">
+                                        Pending Review
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- CTA Button -->
+                          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 8px;">
+                            <tr>
+                              <td style="border-radius: 8px; background-color: #1f5f45;">
+                                <a href="${frontendUrl}/chatbot?source=web-application&view=dashboard&user=all"
+                                  style="display: inline-block; padding: 13px 28px; font-size: 14.5px; font-weight: 600; color: #ffffff; text-decoration: none; font-family: 'Outfit', Arial, sans-serif; border-radius: 8px;">
+                                  Review Request
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
 
                       <!-- Divider -->
                       <tr>
                         <td style="padding: 0 40px;">
-                          <hr style="border: none; border-top: 1px solid #e8e8e4; margin: 0;" />
+                          <hr style="border: none; border-top: 1px solid #e3e6e2; margin: 0;" />
                         </td>
                       </tr>
 
                       <!-- Footer -->
                       <tr>
                         <td style="padding: 24px 40px 32px;">
-                          <p style="margin: 0; font-size: 12px; color: #9a9a95; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            This is an automated notification from the <strong style="color: #6b6b66;">Ajrasakha Web Application</strong>.
+                          <p style="margin: 0; font-size: 12px; color: #9a9fa0; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            This is an automated notification from the <strong style="color: #6b706c;">Ajrasakha</strong>.
                             Please do not reply to this email. If you believe this was sent in error, you can safely ignore it
                             or contact your system administrator.
                           </p>
-                          <p style="margin: 10px 0 0; font-size: 12px; color: #b8b8b3; font-family: 'Outfit', sans-serif;">
-                            © ${new Date().getFullYear()} Annam.Ai · desk.vicharanashala.ai
+                          <p style="margin: 10px 0 0; font-size: 12px; color: #b8bcb8; font-family: 'Outfit', Arial, sans-serif;">
+                            &copy; ${currentYear} Annam.Ai 
                           </p>
                         </td>
                       </tr>
@@ -1029,7 +1468,13 @@ export class UserService extends BaseService {
     }
   }
 
-  async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
+   async updateTrainingUserStatus(userId: string, action: string): Promise<void> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updateTrainingUserStatus(userId, action, session);
+    });
+   }
+
+   async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
     try {
       const { userId, startDateTime, endDateTime } = query;
       if (!userId) throw new NotFoundError('User ID is required');
@@ -1070,4 +1515,67 @@ export class UserService extends BaseService {
       throw new InternalServerError(`Failed to calculate working hours: ${error}`);
     }
   }
+
+  async getWorkingHoursTrend(
+  query: {
+    userId: string;
+    startDateTime: string;
+    endDateTime: string;
+    granularity: TrendGranularity;
+  },
+): Promise<any> {
+  try {
+    const { userId } = query;
+
+    if (!userId) {
+      throw new NotFoundError('User ID is required');
+    }
+
+    return this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      return await this.userRepo.getWorkingHoursTrend(
+        query,
+        session,
+      );
+    });
+  } catch (error) {
+    if (
+      error instanceof NotFoundError ||
+      error instanceof BadRequestError
+    ) {
+      throw error;
+    }
+
+    throw new InternalServerError(
+      'Failed to fetch working hours trend',
+    );
+  }
+}
+
+  async getUsersByRole(
+    roles: UserRole[],
+  ): Promise<{ _id: string; name: string; email: string }[]> {
+    if (!roles?.length) {
+      throw new BadRequestError('At least one role must be provided');
+    }
+
+    const users = await this.userRepo.getUsersByRole(roles);
+
+    return users
+      .map((user) => ({
+        _id: user._id?.toString() ?? '',
+        name:
+          `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+          user.email ||
+          'Unknown',
+        email: user.email ?? '',
+      }))
+      .filter((user) => user._id);
+  }
+
 }

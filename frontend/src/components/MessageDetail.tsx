@@ -27,6 +27,32 @@ import { ScrollArea } from "./atoms/scroll-area";
 import { toast,useToast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
+// The standard clarification / "please share more details" reply — e.g.
+//   "We're sorry, we couldn't fully understand your question. Could you please share more
+//    details. ..."
+// is a request for more information and legitimately has no sources, so the mandatory-
+// source check is skipped for it. We detect it by a signature phrase (not an exact match)
+// so light paraphrases also count, e.g. "we are sorry we could not fully understand ...".
+
+// Normalise so contractions and punctuation don't matter: unify curly quotes, expand
+// common contractions (we're -> we are, couldn't -> could not), strip punctuation,
+// collapse whitespace, lowercase.
+const normalizeReply = (s: string) =>
+    (s ?? "")
+        .replace(/[‘’]/g, "'")
+        .replace(/[“”]/g, '"')
+        .toLowerCase()
+        .replace(/won't/g, "will not")
+        .replace(/can't/g, "can not")
+        .replace(/n't/g, " not") // couldn't -> could not, don't -> do not
+        .replace(/'re/g, " are") // we're -> we are
+        .replace(/[^a-z0-9\s]/g, " ") // strip punctuation
+        .replace(/\s+/g, " ")
+        .trim();
+
+const isClarificationMessage = (s: string) =>
+    normalizeReply(s).includes("could not fully understand");
+
 interface MessageDetailCardProps {
     question: IQuestionFullData;
     isQuestionAllocatedToExpert: boolean;
@@ -589,7 +615,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [translatedText, setTranslatedText] = useState<string>("");
     const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb" | "push-to-auditor"; remark?: string }>({ open: false, type: "pass" });
     const [passRemarkError, setPassRemarkError] = useState("");
-    const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | null>(null);
+    const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | "notify" | null>(null);
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -684,7 +710,19 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         setIsEditModalOpen(true);
     };
 
-    const doApprove = async (flowType?: "accept" | "push-to-gdb") => {
+    // Auditor "Notify User" — closes the question as dynamic_closed / duplicate_closed
+    // (by review type) rather than plain closed (that's Push to GDB).
+    const handleNotifyUser = () => {
+        if (!question?._id) { toast.error("Question data is missing."); return; }
+        if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") {
+            toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return;
+        }
+        setPendingApprovalAction("notify");
+        setEditModalKey(k => k + 1);
+        setIsEditModalOpen(true);
+    };
+
+    const doApprove = async (flowType?: "accept" | "push-to-gdb" | "notify") => {
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
@@ -697,12 +735,19 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 }
             }
 
-            if (sources.length === 0) {
+            const action = flowType ?? confirmDialog.type;
+            const isAcceptFlow = action === "accept";
+
+            // Sources are mandatory in general, but the standard "please share more details"
+            // clarification reply legitimately has none — so when the auditor's answer is
+            // exactly that message, skip the mandatory source check.
+            if (sources.length === 0 && !isClarificationMessage(editedAnswerBody)) {
                 toast.error("At least one source is required to proceed.");
                 return;
             }
-
-            const isAcceptFlow = (flowType ?? confirmDialog.type) === "accept";
+            // "Push to GDB" → close as 'closed'; "Notify User" → dynamic/duplicate_closed.
+            const closeIntent: "gdb" | "notify" | undefined =
+                action === "notify" ? "notify" : action === "push-to-gdb" ? "gdb" : undefined;
 
             await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
@@ -711,6 +756,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 questionId: question._id,
                 source: question.source,
                 isModeratorApproval: isAcceptFlow,
+                closeIntent,
             }),{
                 loading:"approving answer...",
                 success:isAcceptFlow
@@ -729,9 +775,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         : "Answer pushed to GDB successfully"
             );
             navigateToQuestionPage();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to approve answer:", error);
-            toast.error("Failed to approve the answer. Please try again.");
+            const errorMessage = error?.message || "Failed to approve the answer. Please try again.";
+            toast.error(errorMessage);
         }
     };
 
@@ -747,14 +794,16 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         const hasAnySource =
             editedSpecialists.some(s => s.sourceLink?.trim()) ||
             editedPdfSources.some(s => s.link?.trim());
-        if (!hasAnySource) {
+        // The standard "please share more details" clarification reply has no sources — skip
+        // the mandatory source check when the answer is that message.
+        if (!hasAnySource && !isClarificationMessage(editedAnswerBody)) {
             toast.error("At least one source is required to proceed.");
             return;
         }
         const action = pendingApprovalAction;
         setIsEditModalOpen(false);
         setPendingApprovalAction(null);
-        if (action === "accept" || action === "push-to-gdb") {
+        if (action === "accept" || action === "push-to-gdb" || action === "notify") {
             doApprove(action);
         }
     };
@@ -990,10 +1039,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
-                                ? "As Auditor you can notify the user, allocate experts, or close this dynamic question."
-                                : "As Auditor you can push this duplicate question to the GDB, allocate experts, or notify the user."}
+                                ? "As Auditor you can pass this question, notify the user, allocate experts, or close this dynamic question."
+                                : "As Auditor you can pass this question, push it to the GDB, allocate experts, or notify the user."}
                         </p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
+                                {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}
+                                {updatingQuestion ? "Passing..." : "Pass"}
+                            </Button>
                             {isDuplicateQuestion && (
                                 <Button type="button" variant="destructive" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
@@ -1005,13 +1058,13 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 {isUpdating ? "Allocating..." : "Allocate Experts"}
                             </Button>
                             {isDuplicateQuestion && (
-                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handleNotifyUser} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                                     {isUpdating ? "Notifying..." : "Notify User"}
                                 </Button>
                             )}
                             {isDynamicQuestion && (
-                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handleNotifyUser} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                                     {isUpdating ? "Notifying..." : "Notify User"}
                                 </Button>

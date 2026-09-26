@@ -1,7 +1,10 @@
 import {getContainer} from '#root/bootstrap/loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
+import {QuestionService} from '#root/modules/question/services/QuestionService.js';
+import type {PendingByLevel} from '#root/modules/question/interfaces/IQuestionService.js';
 
 export interface IReviewWiseStats {
   authorLevel: number;
@@ -23,6 +26,10 @@ export interface DailyStats {
   moderatorApprovalRate: number;
 
   reviewWiseCount: IReviewWiseStats;
+
+  /** Pending questions by level (Author = never allocated; levels from needs-reviewer),
+   *  split into time-bound vs manual source groups. */
+  pendingByLevel?: PendingByLevel;
 
   // Today Stats
   todayAdded: number;
@@ -50,6 +57,37 @@ export interface DailyStats {
   agriExpertCount?: number;
   outReachCount?: number;
   newModeratorApprovalRate?: number;
+  // GDB (golden dataset) entries added in the period — all closure types
+  // (closed / dynamic_closed / duplicate_closed) by closedAt — plus the split by the
+  // role of whoever pushed each one to the GDB.
+  gdbTotal?: number;
+  gdbByModerator?: number;
+  gdbByAuditor?: number;
+  // Daily approval % = (questions pushed to GDB in the period / questions pushed to the
+  // reviewer system, i.e. created, in the period) × 100.
+  dailyApprovalRate?: number;
+  // Non-golden entries in the period (today) — pass + dynamic_closed + duplicate_closed.
+  todayPass?: number;
+  todayDynamicClosed?: number;
+  todayDuplicateClosed?: number;
+  // Questions entered into the system today (by createdAt), broken down by source.
+  todayAddedWebAppCount?: number;
+  todayAddedWhatSappCount?: number;
+  todayAddedOutReachCount?: number;
+  todayAddedAgriExpertCount?: number;
+  // Questions entered today (by createdAt), per source AND per type. Within each
+  // source the four type counts are mutually exclusive and sum to that source's total.
+  todayAddedTypeBySource?: {
+    webApp: TodayAddedTypeCounts;
+    whatSapp: TodayAddedTypeCounts;
+  };
+}
+
+export interface TodayAddedTypeCounts {
+  dynamic: number;
+  staticDynamic: number;
+  unique: number;
+  duplicate: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -115,7 +153,9 @@ export interface DailyStats {
 //   };
 // };
 
-export const getDailyStats = async (): Promise<DailyStats> => {
+export const getDailyStats = async (
+  range?: { startDate?: string; endDate?: string },
+): Promise<DailyStats> => {
   const container = getContainer();
 
   const questionRepository = container.get<QuestionRepository>(
@@ -127,8 +167,22 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       CORE_TYPES.QuestionSubmissionRepository,
     );
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const questionService = container.get<QuestionService>(
+    CORE_TYPES.QuestionService,
+  );
+
+  // Date window (IST) for the "today"/period counts. With no range it is today
+  // onward (getISTStartOfToday) — the original behaviour. When the dashboard
+  // passes startDate/endDate (YYYY-MM-DD), it reports that IST day range instead,
+  // e.g. yesterday: [start 00:00 IST, end 23:59:59.999 IST].
+  const dateRange: { $gte: Date; $lte?: Date } = range?.startDate
+    ? {
+        $gte: new Date(`${range.startDate}T00:00:00.000+05:30`),
+        $lte: new Date(
+          `${range.endDate || range.startDate}T23:59:59.999+05:30`,
+        ),
+      }
+    : { $gte: getISTStartOfToday() };
 
   /* -------------------------------------------------------
      PARALLEL LIGHTWEIGHT QUERIES
@@ -150,45 +204,151 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     whatSappCount,
     manualCount,
     agriExpertCount,
-    outReachCount
+    outReachCount,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount,
+    gdbTotal,
+    gdbByModerator,
+    gdbByAuditor,
+    todayPass,
+    todayDynamicClosed,
+    todayDuplicateClosed
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
     questionRepository.getCountByStatus(),
     questionRepository.count({
       isTesting: { $ne: true },
-      createdAt: { $gte: todayStart },
+      createdAt: dateRange,
     }),
     questionRepository.count({
       isTesting: { $ne: true },
-      closedAt: { $gte: todayStart } ,
+      status: 'closed',
+      closedAt: dateRange ,
     }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'AJRASAKHA',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'WHATSAPP',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'MANUAL',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'AGRI_EXPERT',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'OUTREACH',
+      closedAt: dateRange
+    }),
+    // ── Questions entered into the system today (by createdAt), per source ──
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'AJRASAKHA',
-      closedAt: { $gte: todayStart }
+      createdAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'WHATSAPP',
-      closedAt: { $gte: todayStart }
-    }),
-    questionRepository.count({
-      isTesting: { $ne: true },
-      source: 'MANUAL',
-      closedAt: { $gte: todayStart }
-    }),
-    questionRepository.count({
-      isTesting: { $ne: true },
-      source: 'AGRI_EXPERT',
-      closedAt: { $gte: todayStart }
+      createdAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'OUTREACH',
-      closedAt: { $gte: todayStart }
-    })
+      createdAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'AGRI_EXPERT',
+      createdAt: dateRange
+    }),
+    // GDB entries in the period = ALL closure types (closed / dynamic_closed /
+    // duplicate_closed) by closedAt — the numerator of the daily approval %.
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['closed'] },
+      closedAt: dateRange,
+    }),
+    // GDB contribution split straight off the question: a closed question that still
+    // carries a moderatorId was closed by a moderator; a closed question with no
+    // moderatorId was closed by an auditor. These two are mutually exclusive and
+    // together add up to gdbTotal.
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['closed'] },
+      closedAt: dateRange,
+      moderatorId: { $ne: null },
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['closed'] },
+      closedAt: dateRange,
+      moderatorId: null,
+    }),
+    // ── Non-golden entries in the period (Pass by passedAt; the auditor-close
+    //    variants by closedAt) — the "today" counterpart of the all-time
+    //    "Total Non-Golden Dataset Questions" (pass + dynamic_closed + duplicate_closed).
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'pass',
+      passedAt: dateRange,
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'dynamic_closed',
+      closedAt: dateRange,
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'duplicate_closed',
+      closedAt: dateRange,
+    }),
   ]);
+
+  // ── Questions entered today (by createdAt) split by SOURCE and, within each
+  //    source, by TYPE. The four types are mutually exclusive and exhaustive so
+  //    they add up to that source's total:
+  //      Duplicate      → has a referenceQuestionId
+  //      Dynamic        → tagged 'dynamic' and NOT a duplicate
+  //      Static Dynamic → tagged 'static_dynamic' and NOT a duplicate
+  //      Unique         → neither tagged nor a duplicate
+  const countTypesForSource = async (source: string) => {
+    const base = { isTesting: { $ne: true }, createdAt: dateRange, source };
+    const [dynamic, staticDynamic, unique, duplicate] = await Promise.all([
+      questionRepository.count({ ...base, referenceQuestionId: null, tag: 'dynamic' }),
+      questionRepository.count({ ...base, referenceQuestionId: null, tag: 'static_dynamic' }),
+      questionRepository.count({ ...base, referenceQuestionId: null, tag: null }),
+      questionRepository.count({ ...base, referenceQuestionId: { $ne: null } }),
+    ]);
+    return { dynamic, staticDynamic, unique, duplicate };
+  };
+  // Only WebApp (AJRASAKHA) and WhatsApp entries are broken down by type; Outreach
+  // and Agri Expert show the total count only.
+  const [webAppTypes, whatSappTypes] = await Promise.all([
+    countTypesForSource('AJRASAKHA'),
+    countTypesForSource('WHATSAPP'),
+  ]);
+  const todayAddedTypeBySource = {
+    webApp: webAppTypes,
+    whatSapp: whatSappTypes,
+  };
 
   const nonAgriCount = statusCount.find(s => s._id === 'non_agri')?.count ?? 0;
   const agriCount = totalQuestions - nonAgriCount;
@@ -207,8 +367,21 @@ export const getDailyStats = async (): Promise<DailyStats> => {
   const pass = statusCount.find(s => s._id === 'pass')?.count ?? 0;
   const duplicateClosed = statusCount.find(s => s._id === 'duplicate_closed')?.count ?? 0;
   const newModeratorApprovalRate = agriCount == 0 ? 0 : (closed / agriCount) * 100;
+  // Daily approval % = questions pushed to GDB in the period ÷ questions pushed to the
+  // reviewer system (created) in the period.
+  const dailyApprovalRate =
+    todayAdded === 0 ? 0 : (gdbTotal / todayAdded) * 100;
   const totalQuestionsUnderExpertReview =
     totalQuestions - (totalClosedQuestions + totalInReviewQuestions);
+
+  // Pending questions by level (Author = never allocated; levels from needs-reviewer),
+  // split time-bound vs manual. isAdmin=true → all questions, no training-user filter.
+  const pendingByLevel = await questionService
+    .getPendingByLevel(undefined, true)
+    .catch(err => {
+      console.error('[getDailyStats] getPendingByLevel failed:', err?.message);
+      return undefined;
+    });
 
   return {
     totalQuestions,
@@ -218,6 +391,7 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     moderatorApprovalRate,
 
     reviewWiseCount,
+    pendingByLevel,
 
     todayAdded,
     todayGolden,
@@ -243,6 +417,18 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     duplicateClosed,
     agriExpertCount,
     outReachCount,
-    newModeratorApprovalRate
+    newModeratorApprovalRate,
+    gdbTotal,
+    gdbByModerator,
+    gdbByAuditor,
+    dailyApprovalRate,
+    todayPass,
+    todayDynamicClosed,
+    todayDuplicateClosed,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount,
+    todayAddedTypeBySource
   };
 };

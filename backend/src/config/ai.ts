@@ -3,7 +3,12 @@ import { env } from '#root/utils/env.js';
 export const aiConfig = {
   serverIP: env('AI_SERVER_IP') || 'localhost',
   serverPort: Number(env('AI_SERVER_PORT')?.trim()) || 9017,
+  // Tailscale's userspace proxy (see scripts/start.sh). SOCKS5 for node http agents
+  // (axios), HTTP CONNECT for undici (fetch) — tailscaled serves both on the same port.
   proxyAddress: env('AI_PROXY_ADDRESS') || 'socks5h://localhost:1055',
+  httpProxyAddress: env('AI_HTTP_PROXY_ADDRESS') || 'http://localhost:1055',
+  /** Turn the tailnet proxy off (e.g. local dev with a direct route). */
+  useTailnetProxy: env('USE_TAILNET_PROXY') !== 'false',
   agentServerIP: env('AGENT_SERVER_IP'),
   agerntServerPort: Number(env('AGENT_SERVER_PORT')?.trim()) || 9017,
   openAIServerIP: env('OPENAI_SERVER_IP'),
@@ -22,4 +27,7 @@ export const aiConfig = {
   accAgentBaseUrl: env('ACC_AGENT_BASE_URL'),
   accAgentAssistantId: env('ACC_AGENT_ASSISTANT_ID'),
   accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
+  minimaxServerIP: env('MINIMAX_API') || 'localhost',
+  minimaxServerPort: Number(env('MINIMAX_PORT')?.trim()) || 8001,
+  minimaxApiKey: env('MINIMAX_API_KEY')
 };

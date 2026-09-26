@@ -1,8 +1,10 @@
 import {
   ObjectIdToString,
   StringToObjectId,
+  ObjectIdArrayToStringArray,
+  StringArrayToObjectIdArray,
 } from '#shared/constants/transformerConstants.js';
-import {IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
+import {IKVKCoveredItem, IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -58,6 +60,9 @@ class User implements IUser {
   university?: string;
 
   @Expose()
+  kvkCovered?: IKVKCoveredItem[] | null;
+
+  @Expose()
   isVerified: boolean;
 
   @Expose()
@@ -78,6 +83,22 @@ class User implements IUser {
   @Expose()
   currentCallUuid?: string | null;
 
+  @Expose()
+  isTrainingUser?: boolean;
+
+  // Without these transforms instanceToPlain leaves the ObjectId elements
+  // un-serialised, so the feedback-review tab (which maps them to ObjectIds and
+  // calls findByIds) can't match any question and shows nothing.
+  @Transform(ObjectIdArrayToStringArray.transformer, {toPlainOnly: true})
+  @Transform(StringArrayToObjectIdArray.transformer, {toClassOnly: true})
+  @Expose()
+  feedbacksAssigned?: (string | ObjectId)[] | null;
+
+  @Transform(ObjectIdArrayToStringArray.transformer, {toPlainOnly: true})
+  @Transform(StringArrayToObjectIdArray.transformer, {toClassOnly: true})
+  @Expose()
+  paeValidationAssigned?: (string | ObjectId)[] | null;
+
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
     this.firebaseUID = data?.firebaseUID;
@@ -85,16 +106,16 @@ class User implements IUser {
     this.firstName = data?.firstName;
     this.lastName = data?.lastName;
     this.role = data?.role || 'expert';
-    // Preserve the real persisted values; only fall back to defaults when the
-    // field is genuinely absent (e.g. brand-new user). Hardcoding these caused
-    // /me to always report status='active' and isBlocked=false.
-    this.status = data?.status ?? 'active';
-    this.isBlocked = data?.isBlocked ?? false;
+    // New users are created with isBlocked=true and status='in-active' by default.
+    // They need to be verified/approved by an admin before they can access the platform.
+    this.status = data?.status ?? 'in-active';
+    this.isBlocked = data?.isBlocked ?? true;
     this.lastCheckInAt = data?.lastCheckInAt;
     this.isVerified = data?.isVerified ?? false;
     this.preference = {
       crop: data?.preference?.crop || 'all',
       state: data?.preference?.state || 'all',
+      district: data?.preference?.district ?? '',
       domain: data?.preference?.domain || 'all',
     };
     this.reputation_score = data?.reputation_score || 0;
@@ -103,12 +124,16 @@ class User implements IUser {
     this.updatedAt = data?.updatedAt || new Date();
     this.mobile = data?.mobile || '';
     this.university = data?.university || '';
+    this.kvkCovered = data?.kvkCovered ?? null;
     this.isCallAgentActive = data?.isCallAgentActive;
     this.lastAgentActiveAt = data?.lastAgentActiveAt;
     this.Call_centre_manager = data?.Call_centre_manager;
     this.agent = data?.agent || 'not_available';
     this.isBusy = data?.isBusy || false;
     this.currentCallUuid = data?.currentCallUuid || null;
+    this.isTrainingUser = data?.isTrainingUser || false;
+    this.feedbacksAssigned = data?.feedbacksAssigned || null;
+    this.paeValidationAssigned = data?.paeValidationAssigned || null;
   }
 }
 

@@ -37,6 +37,10 @@ export interface IQuestionRepository {
     limit: number,
     startTime?: Date,
     endTime?: Date,
+    sources?: string[],
+    requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}>;
 
   /** Per-status counts for the "Questions Received" section — used so tab badges
@@ -44,7 +48,17 @@ export interface IQuestionRepository {
   getReceivedStatusCounts(
     startTime?: Date,
     endTime?: Date,
+    sources?: string[],
   ): Promise<{status: string; count: number}[]>;
+
+  /** Per-level counts for the "Questions Allocated" section — the level of the currently
+   *  allocated expert (history.length - 1). Mirrors the allocated filter so totals match. */
+  getAllocatedLevelCounts(
+    sources?: string[],
+    requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<{level: number; count: number}[]>;
 
   /**
    * Adds multiple questions for a specific context and user.
@@ -87,6 +101,13 @@ export interface IQuestionRepository {
   ): Promise<IQuestion>;
 
   /**
+   * Retrieves questions by their IDs.
+   * @param ids - Array of question ObjectIds to fetch.
+   * @returns A promise that resolves to an array of questions.
+   */
+  findByIds(ids: ObjectId[]): Promise<IQuestion[]>;
+
+  /**
    * Retrieves all questions for a specific context.
    * @param contextId - The ID of the context.
    * @param session - Optional MongoDB client session for transactions.
@@ -97,6 +118,37 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]>;
 
+  normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+    session?: ClientSession,
+  ): Promise<{ matched: number; modified: number }>;
+
+  normalizeQuestionDistricts(
+    mappings: { existingName: string; standardiseTo: string }[],
+  ): Promise<{
+    results: {
+      existingName: string;
+      standardiseTo: string;
+      matchedInDistricts: boolean;
+      matched: number;
+      modified: number;
+    }[];
+    notMatching: { existingName: string; standardiseTo: string }[];
+  }>;
+
+  findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    matchedDistricts: {
+      name: string;
+      foundIn: 'block' | 'village';
+      districtCode: number | null;
+      stateCode: number | null;
+      districtNameEnglish: string | null;
+    }[];
+    notMatchingDistricts: string[];
+  }>;
+
   /**
    * Retrieves all questions for a specific context.
    * @param questionId - The ID of the question.
@@ -104,6 +156,22 @@ export interface IQuestionRepository {
    * @returns A promise that resolves to an array of questions.
    */
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
+
+  /**
+   * Retrieves a question by its messageId.
+   * @param messageId - The message ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByMessageId(messageId: string, session?: ClientSession): Promise<IQuestion | null>;
+
+  /**
+   * Retrieves a question by its threadId.
+   * @param threadId - The thread ID of the question.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to a question or null if not found.
+   */
+  getByThreadId(threadId: string, session?: ClientSession): Promise<IQuestion | null>;
 
   /** Find questions referencing the given question (referenceQuestionId), optionally
    *  by status. Used to propagate a close to queue-duplicate children. */
@@ -170,6 +238,13 @@ export interface IQuestionRepository {
    * @param addText - To add text field without filtering it.
    * @returns A promise that resolves to an object containing the number of modified documents.
    */
+  findClosedQuestionsWithoutModerator(limit: number): Promise<string[]>;
+  bulkSetModeratorId(
+    pairs: { questionId: string; moderatorId: string }[],
+  ): Promise<number>;
+  bulkSetNormalizedDomain(
+    pairs: { questionId: string; normalizedDomain: string }[],
+  ): Promise<{ total: number; matched: number; modified: number; notMatched: number; invalid: number }>;
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
@@ -224,7 +299,7 @@ export interface IQuestionRepository {
    */
   updateExpiredAfterFourHours(): Promise<void>;
 
-  insertMany(questions: IQuestion[]): Promise<string[]>;
+  insertMany(questions: IQuestion[], session?: ClientSession): Promise<string[]>;
 
   updateQuestionStatus(
     id: string,
@@ -252,6 +327,8 @@ export interface IQuestionRepository {
   ): Promise<IQuestion[]>;
 
   getClosedQuestionsCount(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<number>;
   /**
@@ -266,8 +343,10 @@ export interface IQuestionRepository {
     goldenDataSelectedYear: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
- ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+ ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
 
   /**
@@ -275,7 +354,8 @@ export interface IQuestionRepository {
   * @param session -MongoDB client session for transactions.
   * @returns A promise that resolves to question document
   */
-  getTodayApproved(session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number}[]}>;
+  getTodayApproved(isTrainingUser?: boolean, isAdmin?: boolean, session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[]}>;
+  getClosedAnswerMismatch(startDate: Date, endDate: Date): Promise<{ window: { start: Date; end: Date }; totalClosed: number; matched: number; mismatched: number; items: any[] }>;
 
   /**
    * get monthly analytics.
@@ -291,8 +371,10 @@ export interface IQuestionRepository {
     goldenDataSelectedMonth: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
 
   /**
@@ -311,8 +393,10 @@ export interface IQuestionRepository {
     goldenDataSelectedWeek: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
 
   /**
@@ -331,12 +415,14 @@ export interface IQuestionRepository {
     goldenDataSelectedDay: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: { moderatorName: string, count: number }[];
+    moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
@@ -356,12 +442,14 @@ export interface IQuestionRepository {
   getCustomRangeAnalytics(
     customStartDateTime: string,
     customEndDateTime: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     customData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: { moderatorName: string, count: number }[];
+    moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
@@ -375,6 +463,8 @@ export interface IQuestionRepository {
    */
   getCountBySource(
     timeRange: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<DashboardResponse['questionContributionTrend']>;
 
@@ -383,6 +473,8 @@ export interface IQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    */
   getQuestionOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<QuestionStatusOverview[]>;
 
@@ -399,6 +491,8 @@ export interface IQuestionRepository {
     state?: string[],
     source?: string[],
     crop?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{analytics: Analytics}>;
 
   /**
@@ -409,6 +503,8 @@ export interface IQuestionRepository {
   getModeratorApprovalRate(
     currentUserId: string,
     session?: ClientSession,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ModeratorApprovalRate>;
   getAll(session?: ClientSession): Promise<IQuestion[]>;
 
@@ -430,6 +526,8 @@ export interface IQuestionRepository {
   getMonthlyQuestionStats(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<Array<{
     year: number;
@@ -502,7 +600,19 @@ export interface IQuestionRepository {
     limit?: number,
   ): Promise<{ _id: ObjectId; question: string; text?: string }[]>;
 
-  updateQuestionEmbedding(questionId: string, embedding: number[]): Promise<void>;
+  /** Same as {@link getQuestionsWithEmptyEmbeddings} but also returns `status`, so a
+   *  backfill can rebuild a closed question's embedding from its Q+A text (matching the
+   *  approval flow) rather than the raw question text. */
+  getQuestionsMissingEmbedding(
+    limit?: number,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  >;
+
+  updateQuestionEmbedding(
+    questionId: string,
+    embedding: number[],
+  ): Promise<{ matchedCount: number; modifiedCount: number }>;
   getShiftBasedMetrics(
     startDate:string,
     // endDate:string,
@@ -510,6 +620,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
@@ -520,6 +632,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
@@ -530,6 +644,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<any>;
 
@@ -540,6 +656,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>
 
@@ -550,6 +668,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any> 
 
@@ -560,11 +680,27 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>
 
-  findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
-  findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
+  findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findModeratorAssignedQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>
+  findQuestionsWithOpenFeedbacks(
+    requireAutoAllocate?: boolean,
+  ): Promise<IQuestion[]>;
+  closeFeedbackSourceAndCheckAll(
+    questionId: string,
+    source: string,
+  ): Promise<boolean>;
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */
@@ -573,8 +709,32 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
   ): Promise<IQuestion[]>;
+  findUnassignedQuestionsForRolePaged(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>;
+  findQuestionsForTatReport(
+    from: Date,
+    to: Date,
+    sources?: string[],
+    statuses?: string[],
+  ): Promise<IQuestion[]>;
   findQuestionsAssignedToRole(
     assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]>;
+  findQuestionsAssignedToRolePaged(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }>;
+  findLeakedRoleAssignments(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
     statuses: QuestionStatus[],
   ): Promise<IQuestion[]>;
   getRoleAssigneeDashboard(
@@ -595,6 +755,39 @@ export interface IQuestionRepository {
     totalPages: number;
     totalCount: number;
   }>;
+  getModeratorDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
+  getPaeAnswerDashboard(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    feedbackAssigned: number;
+    feedbackPending: number;
+    feedbackCompleted: number;
+    feedbackCompletedQuestions: any[];
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
   setRoleAssignee(
     questionId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',
@@ -606,5 +799,152 @@ export interface IQuestionRepository {
     questionId: string,
     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
     finishedAt: Date,
+    session?: ClientSession,
   ): Promise<void>;
+
+  addOrUpdateFeedbackStatus(
+    questionId: string,
+    source: "DATASET" | "WEB_APPLICATION" | "PAE_Validation",
+  ): Promise<number>;
+
+  /** Find all questions with paeValidation status of 'pending' that are ready for
+   *  PAE expert validation. Questions are sorted by createdAt in ascending order
+   *  (oldest first).
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to array of questions pending PAE validation */
+  findQuestionsPendingPaeValidation(session?: ClientSession): Promise<IQuestion[]>;
+
+  /** Update the paeValidation status on a question.
+   *  @param questionId The question ID to update
+   *  @param paeValidation The new paeValidation status ('pending' | 'in-progress' | 'completed')
+   *  @param session Optional MongoDB client session for transactions */
+  updatePaeValidationStatus(
+    questionId: string,
+    paeValidation: 'pending' | 'in-progress' | 'completed',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
+
+  /** Update the paeValidation array in the question's submission document.
+   *  @param questionId The question ID to update
+   *  @param paeValidationEntry The new PAE validation entry to push
+   *  @param session Optional MongoDB client session for transactions */
+  addPaeValidationEntry(
+    questionId: string,
+    paeValidationEntry: {
+      paeAssignedAt: Date;
+      paeId: string | ObjectId;
+      paeStatus: 'in-progress' | 'completed';
+      paeFinishedAt?: Date | null;
+    },
+    session?: ClientSession,
+  ): Promise<void>;
+
+  /** Find questions by their IDs with pagination and join final answers in a single aggregation.
+   *  Uses $lookup to join with the answers collection and get final answers with sources.
+   *  @param ids - Array of question ObjectIds to fetch
+   *  @param page - Page number (1-indexed)
+   *  @param limit - Number of items per page
+   *  @param session - Optional MongoDB client session for transactions
+   *  @returns Promise resolving to paginated questions with answers joined
+   */
+  findByIdsWithAnswers(
+    ids: ObjectId[],
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<{
+    questions: Array<{
+      _id: ObjectId;
+      question: string;
+      status: QuestionStatus;
+      source: QuestionSource;
+      priority?: string;
+      totalAnswersCount?: number;
+      createdAt: Date;
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+      normalised_crop?: string;
+      answer?: {
+        _id: ObjectId;
+        answer: string;
+        sources: Array<{
+          source: string;
+          sourceType?: string;
+          sourceName?: string;
+          page?: string | number;
+        }>;
+        authorId: ObjectId;
+        isFinalAnswer: boolean;
+      };
+    }>;
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }>;
+
+  /**
+   * Adds a feedback entry to the question's feedbacks array.
+   * @param questionId The question ID to update
+   * @param feedbackEntry The feedback entry to add
+   * @param session Optional MongoDB client session for transactions
+   */
+  addFeedback(
+    questionId: string,
+    feedbackEntry: {
+      source: string;
+      status: string;
+      recentFeedback?: Date;
+    },
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
+
+  findQuestionsWithOpenPaeValidation(
+    requireAutoAllocate?: boolean,
+  ): Promise<IQuestion[]>;
+
+  /**
+   * Get paginated PAE validation queue data using MongoDB aggregation.
+   * This is the MOST EFFICIENT approach - single query with $facet to get:
+   * - Count per section (waitingAuto, waitingManual, assigned)
+   * - Paginated items per section
+   * 
+   * @param page - Page number (1-indexed)
+   * @param limit - Items per page
+   * @param section - Optional: filter to specific section
+   */
+  getPaeValidationQueuePaginated(params: {
+    page?: number;
+    limit?: number;
+    section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+  }): Promise<{
+    waitingAuto: { count: number; totalPages: number; items: IQuestion[] };
+    waitingManual: { count: number; totalPages: number; items: IQuestion[] };
+    assigned: { count: number; totalPages: number; items: IQuestion[] };
+  }>;
+
+  /**
+   * Get available PAE experts count (lightweight query)
+   */
+  getAvailablePaeExpertsCount(): Promise<number>;
+
+  /**
+   * Update only the normalised_crop field of a question using MongoDB dot notation.
+   * This avoids replacing the entire details object.
+   */
+  updateNormalisedCrop(questionId: string, normalisedCrop: string): Promise<{ modifiedCount: number }>;
+
+  /**
+   * Bulk update embeddings for multiple questions using bulkWrite.
+   * @param updates Array of { questionId, embedding, normalisedCrop? }
+   */
+  bulkUpdateEmbeddings(
+    updates: Array<{
+      questionId: string;
+      embedding: number[];
+      normalisedCrop?: string;
+    }>,
+  ): Promise<{ modifiedCount: number }>;
 }

@@ -49,6 +49,8 @@ type ConfirmationModalProps = {
   selectedRole?: string;
   onRoleChange?: (role: string) => void;
   confirmAction?: string;
+  /** When true, the "Admin" option is offered in the switch-role dropdown (admins only). */
+  canAssignAdmin?: boolean;
 };
 
 export const ConfirmationModal = ({
@@ -72,6 +74,7 @@ export const ConfirmationModal = ({
   selectedRole,
   onRoleChange,
   confirmAction,
+  canAssignAdmin = false,
 }: ConfirmationModalProps) => {
   useEffect(() => {
     if (!open) {
@@ -109,6 +112,9 @@ export const ConfirmationModal = ({
     { value: "tester", label: "Tester" },
     { value: "gate_keeper", label: "Gate Keeper" },
     { value: "auditor", label: "Auditor" },
+    { value: "call_agent", label: "Call Agent" },
+    // Only admins may promote a user to admin.
+    ...(canAssignAdmin ? [{ value: "admin", label: "Admin" }] : []),
   ];
 
   return (

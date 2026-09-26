@@ -21,6 +21,7 @@ interface QueryCategoriesProps {
     source?: "vicharanashala" | "annam" | "whatsapp";
     userType?: string;
     isLoading?: boolean;
+    coordinatorId?: string;
 }
 
 // ─── PREMIUM HARMONIOUS 15-COLOR PALETTE ─────────────────────────────────────
@@ -105,10 +106,11 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
-    categories = DEFAULT_CATEGORIES,
-    source = "annam",
+    categories,
+    source,
     userType = "all",
     isLoading = false,
+    coordinatorId,
 }) => {
     const [selectedCategory, setSelectedCategory] = React.useState<QueryCategory | null>(null);
     // Determine maximum total count among all categories to scale progress bars proportionally
@@ -189,6 +191,7 @@ const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
                     userType={userType}
                     isQueryCategory={true}
                     onClose={() => setSelectedCategory(null)}
+                    coordinatorId={coordinatorId}
                 />
             )}
         </div>

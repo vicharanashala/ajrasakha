@@ -17,12 +17,12 @@ import {
 import{  CROPS,
   INDIAN_LANGUAGES,
 } from "../utils/metaData";
-import { KVK } from "../utils/KVKS";
 import { 
   useGetStates, 
   useGetDistricts, 
   useGetBlocks, 
-  useGetVillages 
+  useGetVillages,
+  useGetKvks
 } from "@/hooks/api/location/useLocations";
 import {
   Select,
@@ -487,6 +487,7 @@ const DemographicDetails = ({
   const selectedBlockCode = blocks.find((b) => b.blockNameEnglish === form.blockName)?.blockCode;
 
   const { data: villages = [] } = useGetVillages(selectedBlockCode);
+  const { data: kvks = [] } = useGetKvks(selectedDistrictCode);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
@@ -710,9 +711,10 @@ const DemographicDetails = ({
             <SelectValue placeholder="Select KVK" />
           </SelectTrigger>
           <SelectContent>
-            {(KVK[form.district] || []).map((kvk) => (
-              <SelectItem key={kvk} value={kvk}>
-                {kvk}
+            {kvks.map((kvk) => (
+              <SelectItem key={kvk.kvkId} value={kvk.kvkName}>
+                {kvk.kvkName}
+                {kvk.kvkAddress ? ` - ${kvk.kvkAddress}` : ""}
               </SelectItem>
             ))}
           </SelectContent>

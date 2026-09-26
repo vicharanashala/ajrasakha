@@ -101,14 +101,23 @@ export const ApproveAnswerDialog = ({
       return;
     }
 
-    const draft = getApproveAnswerDrafts()[questionId];
-    if (draft) {
+    const drafts = getApproveAnswerDrafts();
+    const draft = drafts[questionId];
+    
+    // Only restore draft if it matches the current answer.
+    // If the draft doesn't match, it means the answer was modified (e.g., by re-routing)
+    // and the draft is stale - we should use the new answer instead.
+    if (draft && draft.answer === editableAnswer) {
       setEditableAnswer(draft.answer);
       setSources(draft.sources);
+    } else if (draft && draft.answer !== editableAnswer) {
+      // Draft is stale - clear it and use the current answer
+      const { [questionId]: _, ...rest } = drafts;
+      localStorage.setItem(APPROVE_ANSWER_DRAFTS_KEY, JSON.stringify(rest));
     }
 
     setHasHydratedDraft(true);
-  }, [editOpen, questionId, setEditableAnswer, setSources]);
+  }, [editOpen, questionId, setEditableAnswer, setSources, editableAnswer]);
 
   useEffect(() => {
     if (!editOpen || !questionId || !hasHydratedDraft) return;

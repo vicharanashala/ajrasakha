@@ -11,16 +11,17 @@ from ajrasakha.agents.domains import (
     crop_counts_as_resolved,
     domain_requires_crop,
     is_crop_placeholder,
+    normalize_crop_value,
     normalize_domain,
 )
 from ajrasakha.agents.location_context import (
     extract_state_from_text,
     latest_human_text,
-    recent_human_text,
 )
 from ajrasakha.agents.resolution_trace import trace_resolution
 from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
 from ajrasakha.agents.translation_catalog import (
+    get_catalog,
     get_crop_follow_up,
     get_state_follow_up,
     language_pair_from_plan,
@@ -32,6 +33,103 @@ _SCHEMES_RE = re.compile(
     r"government\s+scheme|myscheme)\b",
     re.I,
 )
+
+# --- Follow-up detection (heuristic pre-check) ---
+# A follow-up is a transformation request on the previous AI answer that does NOT
+# need new tool data: language change, format change, detail request, simplification,
+# tone change, or rephrase.
+
+_FOLLOW_UP_LANGUAGE_RE = re.compile(
+    r"\b("
+    r"in\s+(english|hindi|tamil|telugu|kannada|malayalam|marathi|gujarati|bengali|punjabi|odia|urdu|assamese|sanskrit|nepali|konkani|maithili|kashmiri|sindhi|dogri|bodo|manipuri|santali|meitei|meiteilon)"
+    r"|(english|hindi|tamil|telugu|kannada|malayalam|marathi|gujarati|bengali|punjabi|odia|urdu)\s*(me|mein|lo|la|il|ki|ke|nu|no|na|nalli|nalli|il|le|te|di|ma|madi|madhyam|madhyama|through|via|using)"
+    r"|translate\s*(to|into|mein|me|lo|la)?"
+    r"|anuvaad|anuvad|anubhash|bhashantar"
+    r"|change\s+(the\s+)?language|another\s+language|other\s+language"
+    r"|same\s+(answer|reply|response|info|information)\s+in"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_FORMAT_RE = re.compile(
+    r"\b("
+    r"in\s+(short|brief|shortly|briefly|short\s+form|long\s+form|detail|details|long|short|paragraph|table|bullets?|bullet\s*points?|points?)"
+    r"|give\s+(me\s+)?(short|brief|short\s+answer|brief\s+answer|short\s+reply|brief\s+reply|bullets?|bullet\s*points?|points?|summary|details?|long\s+answer|detailed\s+answer)"
+    r"|(short|brief|shortly)\s+(me|form|answer|reply|version)"
+    r"|(shorten|shorten\s+it|condense|compress|reduce)\s*(it|this|the\s+answer|the\s+reply)?"
+    r"|summarize|summarise|summary\s+of\s+(this|that|the\s+answer)"
+    r"|convert\s+(to|into)\s+(bullets?|points?|paragraph|table)"
+    r"|make\s+(it|this)\s+(a\s+)?(shorter|longer|bullet|paragraph|table)"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_DETAIL_RE = re.compile(
+    r"\b("
+    r"explain\s+(more|in\s+detail|in\s+more\s+detail|further|again|properly)"
+    r"|(more|elaborate|elaborated?)\s+(detail|details|information|info|explanation|points?|about)?"
+    r"|\belaborate\b"
+    r"|in\s+(more|greater)\s+detail"
+    r"|tell\s+me\s+more|more\s+about\s+(it|this|that)"
+    r"|what\s+else|anything\s+else"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_SIMPLIFY_RE = re.compile(
+    r"\b("
+    r"(simplify|simple|simpler)\s*(it|this|the\s+answer|the\s+reply|words|please)?"
+    r"|in\s+simple\s+(words|language|way|terms)"
+    r"|easy\s+(words|language|way|terms|explanation)"
+    r"|like\s+(a\s+)?(beginner|new\s*farmer|child|kid|student)"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_TONE_RE = re.compile(
+    r"\b("
+    r"(explain\s+)?(like\s+a\s+)?(expert|professional|scientist|professor|teacher|doctor|technical|advanced)"
+    r"|in\s+(technical|advanced|expert|simple)\s+(terms|language|way)"
+    r"|for\s+(a\s+)?(beginner|new\s*farmer|expert|child|kid|student)"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_REPHRASE_RE = re.compile(
+    r"\b("
+    r"rephrase|reword|rewrite|reframe|say\s+it\s+(again|differently|in\s+another\s+way|simply)"
+    r"|(say|tell)\s+(it|this|that)\s+(again|once\s+more|one\s+more\s+time)"
+    r"|same\s+(thing|info|information|answer)\s+(but|in)\s+(different|other|simpler)"
+    r")",
+    re.I,
+)
+
+
+def classify_follow_up_heuristic(text: str) -> Optional[str]:
+    """Return follow_up_type if the latest farmer message looks like a transformation
+    request on the previous AI answer; None otherwise.
+
+    Order of precedence (most specific first):
+      language_change > format_change > detail_request > simplify > tone_change > rephrase
+    """
+    raw = (text or "").strip()
+    if not raw or len(raw) > 200:
+        return None
+    if _FOLLOW_UP_LANGUAGE_RE.search(raw):
+        return "language_change"
+    if _FOLLOW_UP_FORMAT_RE.search(raw):
+        return "format_change"
+    if _FOLLOW_UP_DETAIL_RE.search(raw):
+        return "detail_request"
+    if _FOLLOW_UP_SIMPLIFY_RE.search(raw):
+        return "simplify"
+    if _FOLLOW_UP_TONE_RE.search(raw):
+        return "tone_change"
+    if _FOLLOW_UP_REPHRASE_RE.search(raw):
+        return "rephrase"
+    return None
+
+
 _CROP_INSURANCE_RE = re.compile(
     r"\b(crop\s+insurance|fasal\s+bima|pmfby|insurance\s+for\s+(?:my\s+)?crop)\b",
     re.I,
@@ -42,29 +140,44 @@ _META_CLARIFY_RE = re.compile(
     r"which type of|cultivation practices, pest|checking eligibility for\?",
     re.I,
 )
-_CROP_CLARIFY_RE = re.compile(
-    r"which crop|what crop|कौन सी फसल|कौनसी फसल",
+_EXPLICIT_ALL_CROP_RE = re.compile(
+    r"\b(?:all|any|multiple|several|various|different)\s+(?:general\s+)?crops?\b|"
+    r"\b(?:a|some|general)\s+(?:general\s+)?crops?\b|"
+    r"\bcrops?\s+(?:do not|don't|does not|doesn't)\s+matter\b",
     re.I,
 )
-
-_CROP_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("cotton", re.compile(r"\bcotton\b", re.I)),
-    ("paddy", re.compile(r"\b(paddy|rice)\b", re.I)),
-    ("wheat", re.compile(r"\bwheat\b", re.I)),
-    ("maize", re.compile(r"\b(maize|corn)\b", re.I)),
-    ("tomato", re.compile(r"\btomato\b", re.I)),
-    ("onion", re.compile(r"\bonion\b", re.I)),
-    ("chilli", re.compile(r"\b(chilli|chili|mirch)\b", re.I)),
-    ("potato", re.compile(r"\bpotato\b", re.I)),
-    ("sugarcane", re.compile(r"\bsugarcane\b", re.I)),
-    ("soybean", re.compile(r"\bsoybean\b", re.I)),
-    ("groundnut", re.compile(r"\b(groundnut|peanut)\b", re.I)),
-    ("mustard", re.compile(r"\bmustard\b", re.I)),
-    ("sunflower", re.compile(r"\bsunflower\b", re.I)),
-    ("banana", re.compile(r"\bbanana\b", re.I)),
-    ("mango", re.compile(r"\bmango\b", re.I)),
-]
-
+_ALL_CROP_CLARIFICATION_RE = re.compile(
+    r"^\s*(?:all|any|multiple|multiple\s+crops?|general)\s*[.!?]*\s*$",
+    re.I,
+)
+_CROP_OUTPUT_RE = re.compile(
+    # Direct recommendation questions in active voice.
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:should|can|could|would|to)\b.*\b(?:grow|plant|cultivate|sow)\b)|"
+    # The same intent in passive voice, which is a common translation form:
+    # "Which crop can be grown with less water?"
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:can|could|may|would|should)\s+be\s+"
+    r"(?:grown|cultivated|planted|sown|raised)\b)|"
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:suitable|best|good|recommended|ideal)\b)|"
+    # Resource/condition questions where the crop itself is the requested
+    # recommendation, including "which crop needs less water?"
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:needs?|requires?|uses?)\b.*\b(?:less|little|low|minimal)\s+"
+    r"(?:water|irrigation)\b)|"
+    # Crop-listing questions ask for crops as the answer, rather than asking
+    # the farmer to provide a crop input. Include common market wording and
+    # the frequent "avaible" misspelling seen in user messages.
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants|commodities)\b.*\b"
+    r"(?:avail\w*|avaibles?|present|sold|offered|listed)\b)|"
+    # Explicit recommendation requests.
+    r"(?:\b(?:can|could|would|should)\s+you\s+"
+    r"(?:recommend|suggest)\b.*\b(?:crop|crops|plant|plants)\b)|"
+    r"(?:\bwhat\s+to\s+(?:grow|plant|cultivate|sow)\b)|"
+    r"(?:\bwhat\s+should\s+i\s+(?:grow|plant|cultivate|sow)\b)",
+    re.I,
+)
 
 def _message_to_text(message: BaseMessage) -> str:
     content = message.content
@@ -104,7 +217,7 @@ def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
         return ""
 
     lines = [
-        "PRIOR TURN CONTEXT (incomplete — merge with current farmer reply in rephrased_query):",
+        "PRIOR TURN CONTEXT (incomplete — the server deterministically assembles location/crop clarification replies):",
     ]
     rephrased = (prev_plan.get("rephrased_query") or "").strip()
     if rephrased:
@@ -136,6 +249,63 @@ def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
         lines.append(f"- still_missing: {', '.join(missing)}")
 
     return "\n".join(lines) + "\n"
+
+
+def merge_clarification_reply_into_query(
+    prev_plan: Optional[PlannerPlan],
+    clarification_reply: str,
+) -> Optional[str]:
+    """Assemble the previous query with a location/crop clarification reply.
+
+    A short location or crop reply is not a standalone question. When the
+    prior plan is incomplete because one of those fields is missing, use the
+    previous accumulated query as the stable base and attach the reply before
+    the planner LLM generates its rephrasing.
+    """
+    if not prev_plan or prev_plan.get("is_complete", True):
+        return None
+
+    missing_info = prev_plan.get("missing_info") or []
+    clarification_field = next(
+        (field for field in ("location", "crop") if field in missing_info),
+        None,
+    )
+    if clarification_field is None:
+        return None
+
+    base = (
+        prev_plan.get("rephrased_query")
+        or prev_plan.get("original_query_en")
+        or ""
+    ).strip()
+    if not base:
+        return None
+
+    reply = (clarification_reply or "").strip()
+    if not reply:
+        return base
+
+    # Avoid duplicating the clarification if a client retries the same answer.
+    if reply.casefold() in base.casefold():
+        return base
+
+    separator = "" if base.endswith((".", "!", "?")) else "."
+    label = "Location" if clarification_field == "location" else "Crop"
+    return f"{base}{separator} {label}: {reply}"
+
+
+def is_standalone_clarification_reply(
+    candidate_query: Optional[str],
+    clarification_reply: str,
+) -> bool:
+    """Return True when an LLM rephrase contains only the short clarification."""
+    candidate = " ".join((candidate_query or "").strip().split()).casefold().strip(".!?")
+    reply = " ".join((clarification_reply or "").strip().split()).casefold().strip(".!?")
+    if not candidate:
+        return True
+    if not reply:
+        return False
+    return candidate == reply or len(candidate.split()) <= len(reply.split()) + 1
 
 
 def format_conversation_for_planner(
@@ -177,27 +347,88 @@ def format_last_queries_for_rephrasing(
     return "\n".join(lines) if lines else latest_human_text(messages)
 
 
-def is_crop_clarify_turn(messages: list[BaseMessage]) -> bool:
-    """True when the farmer's latest reply follows an AI crop clarify question."""
+def _normalize_catalog_prompt(text: str) -> str:
+    """Normalize display-only differences before comparing catalog messages."""
+    return " ".join((text or "").split()).casefold().strip(" .!?…।")
+
+
+def _is_catalog_crop_follow_up(
+    text: str,
+    prev_plan: Optional[PlannerPlan] = None,
+) -> bool:
+    """Whether text is one of the localized crop questions we send to farmers."""
+    prompt = _normalize_catalog_prompt(text)
+    if not prompt:
+        return False
+
+    if prev_plan:
+        script, vocal = language_pair_from_plan(prev_plan)
+        if prompt == _normalize_catalog_prompt(get_crop_follow_up(script, vocal)):
+            return True
+
+    return any(
+        prompt == _normalize_catalog_prompt(row.crop_follow_up)
+        for row in get_catalog().values()
+    )
+
+
+def _previous_ai_before_latest_human(
+    messages: list[BaseMessage],
+) -> Optional[AIMessage]:
     last_human_idx: int | None = None
     for i in range(len(messages) - 1, -1, -1):
         if isinstance(messages[i], HumanMessage):
             last_human_idx = i
             break
     if last_human_idx is None or last_human_idx == 0:
-        return False
+        return None
     prev = messages[last_human_idx - 1]
-    if isinstance(prev, AIMessage):
-        return bool(_CROP_CLARIFY_RE.search(_message_to_text(prev)))
-    return False
+    return prev if isinstance(prev, AIMessage) else None
 
 
-def was_crop_clarify_asked(messages: list[BaseMessage]) -> bool:
+def _previous_plan_awaits_crop(prev_plan: Optional[PlannerPlan]) -> bool:
+    return bool(
+        prev_plan
+        and not prev_plan.get("is_complete", True)
+        and "crop" in (prev_plan.get("missing_info") or [])
+    )
+
+
+def is_crop_clarify_turn(
+    messages: list[BaseMessage],
+    *,
+    prev_plan: Optional[PlannerPlan] = None,
+) -> bool:
+    """True when the latest farmer message answers our crop clarification.
+
+    The previous plan's structured ``missing_info`` is the primary signal. The
+    localized catalog confirms the preceding bot question and remains the
+    fallback for threads that do not have a persisted previous plan.
+    """
+    previous_ai = _previous_ai_before_latest_human(messages)
+    if previous_ai is None:
+        return False
+
+    previous_text = _message_to_text(previous_ai)
+    if _is_catalog_crop_follow_up(previous_text, prev_plan):
+        return True
+
+    # State is authoritative when the exact UI message was reformatted or a
+    # client retried the turn; it must not depend on English/Hindi wording.
+    return _previous_plan_awaits_crop(prev_plan)
+
+
+def was_crop_clarify_asked(
+    messages: list[BaseMessage],
+    *,
+    prev_plan: Optional[PlannerPlan] = None,
+) -> bool:
     """True if the thread already contains a crop clarification question from the bot."""
-    for msg in messages:
-        if isinstance(msg, AIMessage) and _CROP_CLARIFY_RE.search(_message_to_text(msg)):
-            return True
-    return False
+    return _previous_plan_awaits_crop(prev_plan) or any(
+        isinstance(msg, AIMessage)
+        and _is_catalog_crop_follow_up(_message_to_text(msg), prev_plan)
+        for msg in messages
+    )
 
 
 def has_specific_crop(crop: str | None) -> bool:
@@ -206,8 +437,8 @@ def has_specific_crop(crop: str | None) -> bool:
 
 
 def crop_slot_satisfied(crop: str | None) -> bool:
-    """True when the crop slot is filled for completeness (includes all/general)."""
-    return crop_counts_as_resolved(crop)
+    """True when a specific crop name is available for a crop-required query."""
+    return has_specific_crop(crop)
 
 
 def should_inherit_crop(
@@ -246,6 +477,8 @@ def apply_crop_one_shot_fallback(
     messages: list[BaseMessage],
     entities: PlannerEntities,
     domains: list[str],
+    *,
+    prev_plan: Optional[PlannerPlan] = None,
 ) -> PlannerEntities:
     """After one crop clarify, default missing crop to all instead of asking again.
     
@@ -259,7 +492,7 @@ def apply_crop_one_shot_fallback(
     crop = entities.get("crop")
     if has_specific_crop(crop):
         return entities
-    if was_crop_clarify_asked(messages) and not has_specific_crop(crop):
+    if was_crop_clarify_asked(messages, prev_plan=prev_plan) and not has_specific_crop(crop):
         out = dict(entities)
         out["crop"] = "all"
         trace_resolution(
@@ -272,33 +505,15 @@ def apply_crop_one_shot_fallback(
     return entities
 
 
-def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
-    """Crop from latest message, or last few human lines only during crop clarify."""
-    if is_crop_clarify_turn(messages):
-        text = recent_human_text(messages, max_turns=3)
-    else:
-        text = latest_human_text(messages)
-    crop = extract_crop_from_text(text)
-    if crop:
-        resolved = crop[0].upper() + crop[1:].lower()
-        source = "recent_human_text" if is_crop_clarify_turn(messages) else "latest_human_text"
-        trace_resolution(
-            "crop_from_text",
-            crop=resolved,
-            crop_source=source,
-            text_preview=text[:120] if text else None,
-        )
-        return resolved
-    return None
+def is_explicit_all_crop_request(text: str | None) -> bool:
+    """True when the farmer explicitly asks for non-specific/all-crop handling."""
+    raw = (text or "").strip()
+    return bool(_EXPLICIT_ALL_CROP_RE.search(raw) or _ALL_CROP_CLARIFICATION_RE.match(raw))
 
 
-def extract_crop_from_text(text: str) -> Optional[str]:
-    if not text:
-        return None
-    for name, pattern in _CROP_PATTERNS:
-        if pattern.search(text):
-            return name
-    return None
+def is_crop_output_question(text: str | None) -> bool:
+    """True when the farmer asks which crop/plant to grow, not for crop input."""
+    return bool(_CROP_OUTPUT_RE.search((text or "").strip()))
 
 
 def entity_text_from_plan(plan: PlannerPlan, messages: list[BaseMessage]) -> str:
@@ -313,6 +528,7 @@ def merge_entities_from_rephrased_query(
     location: Optional[Location],
     prev_entities: Optional[PlannerEntities] = None,
     *,
+    prev_plan: Optional[PlannerPlan] = None,
     stored_location: Optional[dict[str, str]] = None,
     sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerEntities:
@@ -323,31 +539,41 @@ def merge_entities_from_rephrased_query(
     """
     # Start with previous entities, override with new plan entities
     merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
+    if merged.get("crop"):
+        merged["crop"] = normalize_crop_value(merged["crop"])
     text = entity_text_from_plan(plan, messages)
 
     # --- Crop Resolution ---
     crop_source: str | None = None
     domains = list(plan.get("domains") or [normalize_domain(plan.get("domain") or "General")])
     current_crop_mentioned = False
+    raw_latest_text = latest_human_text(messages)
+    crop_output_requested = is_crop_output_question(text) or is_crop_output_question(raw_latest_text)
+    explicit_all_requested = is_explicit_all_crop_request(text) or is_explicit_all_crop_request(raw_latest_text)
 
-    if is_crop_clarify_turn(messages):
-        turn_crop = extract_crop_from_text(text)
-        if turn_crop:
-            crop_source = "rephrased_query_text (crop_clarify_turn)"
-            current_crop_mentioned = True
-        else:
-            turn_crop = resolve_crop_for_turn(messages)
-            if turn_crop:
-                crop_source = "recent_human_text (crop_clarify_turn)"
-                current_crop_mentioned = True
-    else:
-        turn_crop = extract_crop_from_text(text)
-        if turn_crop:
-            crop_source = "rephrased_query_text"
-            current_crop_mentioned = True
+    # The planner LLM is the only source of the crop name (it translates local
+    # names/scripts); only the non-specific "all" scope is detected here.
+    llm_crop = (plan.get("entities") or {}).get("crop")
+    clarify_suffix = (
+        " (crop_clarify_turn)" if is_crop_clarify_turn(messages, prev_plan=prev_plan) else ""
+    )
+    turn_crop: Optional[str] = None
+    if crop_output_requested or explicit_all_requested:
+        turn_crop = "all"
+        crop_source = f"deterministic_non_specific_crop_request{clarify_suffix}"
+        current_crop_mentioned = True
+    elif has_specific_crop(llm_crop):
+        turn_crop = llm_crop
+        crop_source = f"plan.entities.crop (llm){clarify_suffix}"
+        current_crop_mentioned = True
 
     if turn_crop:
-        merged["crop"] = turn_crop[0].upper() + turn_crop[1:].lower()
+        normalized_turn_crop = normalize_crop_value(turn_crop)
+        merged["crop"] = (
+            "all"
+            if normalized_turn_crop == "all"
+            else turn_crop[0].upper() + turn_crop[1:].lower()
+        )
     elif merged.get("crop"):
         prev_crop = merged.get("crop")
         # Check if we should inherit crop from previous turn
@@ -376,6 +602,16 @@ def merge_entities_from_rephrased_query(
     extracted_district = llm_district
     state_source: str | None = None
     district_source: str | None = None
+
+    from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
+
+    if extracted_district and extracted_district.lower().strip() in _INDIAN_STATES_LOWER:
+        if not extracted_state:
+            extracted_state = extracted_district.strip().title()
+        extracted_district = None
+
+    if extracted_district and extracted_state and extracted_district.lower().strip() == extracted_state.lower().strip():
+        extracted_district = None
 
     if extracted_state and extracted_district:
         merged["state"] = extracted_state
@@ -412,12 +648,6 @@ def merge_entities_from_rephrased_query(
         state_source = "unresolved (no_text_no_llm_no_prev)"
         district_source = "unresolved (no_text_no_llm_no_prev)"
 
-    chems = merged.get("chemicals")
-    if chems:
-        merged["chemicals"] = canonicalize_chemical_names(list(chems))
-    elif prev_entities and prev_entities.get("chemicals"):
-        merged["chemicals"] = canonicalize_chemical_names(list(prev_entities["chemicals"]))
-
     trace_resolution(
         "planner_entities_merge",
         state=merged.get("state"),
@@ -434,32 +664,6 @@ def merge_entities_from_rephrased_query(
         sources_out["district_source"] = district_source
 
     return merged
-
-
-def canonicalize_chemical_names(names: list[str]) -> list[str]:
-    """Map farmer/alias chemical tokens to crop_master canonical names when possible."""
-    from ajrasakha.agents.crop_chemical_resolver import (
-        ensure_crop_master_loaded,
-        find_crop_fuzzy_matches,
-    )
-
-    ensure_crop_master_loaded()
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in names:
-        token = (raw or "").strip()
-        if not token:
-            continue
-        hits = find_crop_fuzzy_matches(token, limit=1)
-        if hits and hits[0].entry.type == "chemical":
-            canonical = hits[0].entry.name
-        else:
-            canonical = token
-        key = canonical.casefold()
-        if key not in seen:
-            seen.add(key)
-            out.append(canonical)
-    return out
 
 
 def _extract_state_from_history(
@@ -514,6 +718,7 @@ def _merge_entities(
     location: Optional[Location],
     prev_entities: Optional[PlannerEntities] = None,
     *,
+    prev_plan: Optional[PlannerPlan] = None,
     stored_location: Optional[dict[str, str]] = None,
     sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerEntities:
@@ -522,6 +727,7 @@ def _merge_entities(
         messages,
         location,
         prev_entities,
+        prev_plan=prev_plan,
         stored_location=stored_location,
         sources_out=sources_out,
     )
@@ -565,10 +771,12 @@ def _finalize_location_and_crop_completeness(
     script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
     canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
-    needs_crop = (
-        any(domain_requires_crop(d) for d in canonical_domains)
-        and not crop_slot_satisfied(crop)
-    )
+    crop_required = out.get("crop_required")
+    if crop_required is None:
+        # Compatibility for callers/tests that construct partial plans without
+        # the planner's new crop decision metadata.
+        crop_required = any(domain_requires_crop(d) for d in canonical_domains)
+    needs_crop = bool(crop_required) and not crop_slot_satisfied(crop)
 
     if not has_state:
         out["is_complete"] = False
@@ -591,6 +799,7 @@ def apply_planner_completeness_rules(
     location: Optional[Location],
     prev_entities: Optional[PlannerEntities] = None,
     *,
+    prev_plan: Optional[PlannerPlan] = None,
     stored_location: Optional[dict[str, str]] = None,
     sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerPlan:
@@ -612,11 +821,24 @@ def apply_planner_completeness_rules(
         messages,
         location,
         prev_entities,
+        prev_plan=prev_plan,
         stored_location=stored_location,
         sources_out=sources_out,
     )
     domains_for_crop = list(out.get("domains") or [normalize_domain(out.get("domain") or "General")])
-    entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
+    entities = apply_crop_one_shot_fallback(
+        messages,
+        entities,
+        domains_for_crop,
+        prev_plan=prev_plan,
+    )
+    if (
+        out.get("crop_required") is False
+        and out.get("crop_requirement_source") != "existing_crop"
+    ):
+        # Preserve the explicit all-crops placeholder for downstream tools
+        # after entity merging clears an inherited placeholder.
+        entities["crop"] = "all"
     out["entities"] = entities
 
     has_state, _, _has_gps = _location_status(entities, location)
