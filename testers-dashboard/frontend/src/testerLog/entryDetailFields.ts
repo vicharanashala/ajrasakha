@@ -36,7 +36,6 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "Record Information",
         icon: FileText,
         fields: [
-            { key: "_id", label: "Test ID" },
             { key: "testerName", label: "Tester Name" },
             { key: "submittedByEmail", label: "Submitted By (Email)" },
             { key: "submittedByUserId", label: "Submitted By (User ID)" },
@@ -49,10 +48,9 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         icon: Info,
         fields: [
             { key: "testDate", label: "Test Date" },
-            { key: "testId", label: "Test ID (TL-005)" },
+            { key: "testId", label: "Test ID" },
             { key: "typeOfQuestion", label: "Type of Question" },
             { key: "buildVersion", label: "Build / Version" },
-            { key: "sprintCycle", label: "Sprint / Cycle" },
             { key: "channelTested", label: "Channel Tested" },
             { key: "languageTested", label: "Language Tested" },
             { key: "threadId", label: "Thread ID" },
@@ -206,3 +204,82 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         ],
     },
 ];
+
+export interface ICrossPlatformFieldPair {
+    webKey: keyof ITesterLogEntry;
+    webLabel: string;
+    waKey: keyof ITesterLogEntry;
+    waLabel: string;
+    isDateTime?: boolean;
+}
+
+// A cross-platform ("Both") entry stores its Web App half in the common
+// fields - the same ones a single-channel entry uses - and its WhatsApp half
+// in the wa* fields (see TesterLogForm.tsx). Each pair is one field of the
+// Cross-Platform Comparison's WebApp and WhatsApp tabs, in the View and Edit
+// dialogs. The WhatsApp labels name the platform, and so does the Web
+// status, which would otherwise read like the entry's own Overall Test Status.
+export const CROSS_PLATFORM_FIELD_PAIRS: ICrossPlatformFieldPair[] = [
+    { webKey: "threadId", webLabel: "Thread ID", waKey: "waThreadId", waLabel: "WhatsApp Thread ID" },
+    {
+        webKey: "timeQuestionAsked", webLabel: "Time Question Asked",
+        waKey: "waTimeQuestionAsked", waLabel: "WhatsApp Time Question Asked",
+        isDateTime: true,
+    },
+    {
+        webKey: "timeAnswerReceived", webLabel: "Time Answer Received",
+        waKey: "waTimeAnswerReceived", waLabel: "WhatsApp Time Answer Received",
+        isDateTime: true,
+    },
+    {
+        webKey: "responseTimeMins", webLabel: "Response Time [Auto]",
+        waKey: "waResponseTimeMins", waLabel: "WhatsApp Response Time [Auto]",
+    },
+    { webKey: "slaStatus", webLabel: "SLA Status", waKey: "waSlaStatus", waLabel: "WhatsApp SLA Status" },
+    {
+        webKey: "notificationReceived", webLabel: "Notification Received?",
+        waKey: "waNotificationReceived", waLabel: "WhatsApp Notification Received?",
+    },
+    {
+        webKey: "voiceInputWorking", webLabel: "Voice Input Working?",
+        waKey: "waVoiceInputWorking", waLabel: "WhatsApp Voice Input Working?",
+    },
+    {
+        webKey: "voiceOutputWorking", webLabel: "Voice Output Working?",
+        waKey: "waVoiceOutputWorking", waLabel: "WhatsApp Voice Output Working?",
+    },
+    {
+        webKey: "webOverallTestStatus", webLabel: "Web Overall Test Status",
+        waKey: "waOverallTestStatus", waLabel: "WhatsApp Overall Test Status",
+    },
+];
+
+export const CROSS_PLATFORM_NOTES_FIELD: IEntryDetailField = {
+    key: "crossPlatformDiscrepancyNotes",
+    label: "WebApp vs WhatsApp Discrepancy Notes",
+};
+
+// Fields that only mean something on a Both entry. A single-channel entry
+// never shows them, even if it still holds values from before its channel
+// was changed.
+export const CROSS_PLATFORM_ONLY_KEYS: (keyof ITesterLogEntry)[] = [
+    ...CROSS_PLATFORM_FIELD_PAIRS.map((p) => p.waKey),
+    "webOverallTestStatus",
+    CROSS_PLATFORM_NOTES_FIELD.key,
+];
+
+// The Cross-Platform Comparison is placed right after this group.
+export const CROSS_PLATFORM_AFTER_GROUP = "Basic Information";
+
+const CROSS_PLATFORM_WEB_KEYS = new Set(CROSS_PLATFORM_FIELD_PAIRS.map((p) => p.webKey));
+
+/** The general groups for an entry. On a cross-platform entry, the fields
+ * shown in the comparison's WebApp column are taken out of their usual
+ * group (and a group left empty by that is dropped), so nothing is listed
+ * twice. */
+export function entryDetailGroupsFor(isCross: boolean): IEntryDetailGroup[] {
+    if (!isCross) return ENTRY_DETAIL_GROUPS;
+    return ENTRY_DETAIL_GROUPS
+        .map((group) => ({ ...group, fields: group.fields.filter((f) => !CROSS_PLATFORM_WEB_KEYS.has(f.key)) }))
+        .filter((group) => group.fields.length > 0);
+}

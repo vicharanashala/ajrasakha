@@ -552,6 +552,8 @@ describe('TesterLogService date filtering', () => {
     describe('exportEntries', () => {
         const sampleEntry = {
             _id: { toString: () => 'abc123' },
+            testId: 'T-100',
+            sprintCycle: 'Sprint 7',
             testDate: '2026-09-10',
             testerName: 'Alice',
             typeOfQuestion: 'GDB',
@@ -574,7 +576,11 @@ describe('TesterLogService date filtering', () => {
             const sheet = wb.Sheets[wb.SheetNames[0]];
             const rows: any[] = XLSX.utils.sheet_to_json(sheet);
             expect(rows).toHaveLength(1);
-            expect(rows[0]['Test ID']).toBe('abc123');
+            // "Test ID" is the tester-entered ID; the database _id is not exported.
+            expect(rows[0]['Test ID']).toBe('T-100');
+            expect(Object.values(rows[0])).not.toContain('abc123');
+            // Sprint Cycle stays in the database but is not exported.
+            expect(Object.values(rows[0])).not.toContain('Sprint 7');
             expect(rows[0]['Tester Name']).toBe('Alice');
             // Spot-check the actual header row for columns that aren't part
             // of the 10-column review table but must still be in the full
@@ -591,8 +597,10 @@ describe('TesterLogService date filtering', () => {
         // backend/data/testers-dashboard/updated.csv), in the Sheet's exact
         // order, including its 2 verbatim quirks and the embedded line
         // break on the Defect ID / Bug Ref header - that's the whole point
-        // of this export, not an approximation of the Sheet layout.
-        it('header row is an exact 78-column, Sheet-order match, including its quirky headers', async () => {
+        // of this export, not an approximation of the Sheet layout. The one
+        // deliberate exception: the Sheet's "Sprint / Cycle" column is left
+        // out (see EXPORT_COLUMNS), leaving 77.
+        it('header row is an exact 77-column, Sheet-order match (minus Sprint / Cycle), including its quirky headers', async () => {
             mockToArray.mockResolvedValueOnce([]);
 
             const result = await service.exportEntries();
@@ -602,7 +610,7 @@ describe('TesterLogService date filtering', () => {
 
             expect(headerRow).toEqual([
                 'Test ID', 'Test Date', 'Tester Name', 'Type of Question', 'Build / Version',
-                'Sprint / Cycle', 'Channel Tested', 'Language Tested', 'Question ID',
+                'Channel Tested', 'Language Tested', 'Question ID',
                 'Query Text (Original)', 'Question Category', 'Time Question Asked (HH:MM:SS)',
                 'Time Answer Received (HH:MM:SS)', 'Response Time (mins) [Auto] (HH:MM:SS)', 'SLA Status',
                 'Question in Review Model?', 'Question Correctly Framed?', 'Original Language',
@@ -625,7 +633,8 @@ describe('TesterLogService date filtering', () => {
                 'Defect Severity', 'Defect ID / Bug Ref\nZoho Desk Ticketing', 'Reviewer Remarks',
                 'Tester Remarks', 'Status',
             ]);
-            expect(headerRow).toHaveLength(78);
+            expect(headerRow).toHaveLength(77);
+            expect(headerRow).not.toContain('Sprint / Cycle');
             // The 4 DB-only metadata fields with no Sheet equivalent must NOT
             // appear, so the layout stays an exact match.
             expect(headerRow).not.toContain('Submitted By Email');
@@ -889,6 +898,64 @@ describe('TesterLogService admin edit/delete', () => {
         const [, update] = entries.updateOne.mock.calls[0];
         expect(update.$set.waResponseTimeMins).toBe('00:03:00');
         expect(update.$set.responseTimeMins).toBe('00:07:00');
+    });
+
+    it('applies cross-platform (WhatsApp) field edits, which are not export columns', async () => {
+        entries.findOne.mockResolvedValue({ ...stored, channelTested: 'Both' });
+
+        await service.updateEntry(
+            ID,
+            {
+                waThreadId: 'wa-thread-9',
+                waTimeQuestionAsked: '2026-09-01T11:00:00',
+                waTimeAnswerReceived: '2026-09-01T11:02:30',
+                waSlaStatus: 'Within SLA',
+                waNotificationReceived: 'Received Late',
+                waVoiceInputWorking: 'Yes',
+                waVoiceOutputWorking: 'No',
+                webOverallTestStatus: 'Pass',
+                waOverallTestStatus: 'Fail',
+                crossPlatformDiscrepancyNotes: 'WA answer truncated',
+                // Derived - must be recomputed, not taken from the body.
+                waResponseTimeMins: '99:99:99',
+            },
+            actor,
+        );
+
+        const [, update] = entries.updateOne.mock.calls[0];
+        expect(update.$set).toMatchObject({
+            waThreadId: 'wa-thread-9',
+            waSlaStatus: 'Within SLA',
+            waNotificationReceived: 'Received Late',
+            waVoiceInputWorking: 'Yes',
+            waVoiceOutputWorking: 'No',
+            webOverallTestStatus: 'Pass',
+            waOverallTestStatus: 'Fail',
+            crossPlatformDiscrepancyNotes: 'WA answer truncated',
+            waResponseTimeMins: '00:02:30',
+        });
+        // Web-side edits to a Both entry still go through the common fields.
+        expect(update.$set.responseTimeMins).toBe('00:05:00');
+    });
+
+    it('edits an old entry that has no WhatsApp fields without inventing any', async () => {
+        await service.updateEntry(ID, { overallTestStatus: 'Fail' }, actor);
+
+        const [, update] = entries.updateOne.mock.calls[0];
+        expect(update.$set).not.toHaveProperty('waThreadId');
+        expect(update.$set).not.toHaveProperty('waOverallTestStatus');
+        expect(update.$set.waResponseTimeMins).toBe('');
+    });
+
+    it('leaves a stored Sprint Cycle untouched - no longer admin-editable, but not deleted', async () => {
+        entries.findOne.mockResolvedValue({ ...stored, sprintCycle: 'Sprint 7' });
+
+        const result = await service.updateEntry(ID, { sprintCycle: 'Sprint 8', overallTestStatus: 'Fail' }, actor);
+
+        const [, update] = entries.updateOne.mock.calls[0];
+        expect(update.$set).not.toHaveProperty('sprintCycle');
+        expect(update.$unset).toBeUndefined();
+        expect(result?.entry.sprintCycle).toBe('Sprint 7');
     });
 
     it('returns null for an unknown or malformed id without writing', async () => {

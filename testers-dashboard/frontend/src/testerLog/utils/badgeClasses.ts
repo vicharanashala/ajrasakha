@@ -29,6 +29,10 @@ export function severityBadgeClass(value?: string): string {
     }
 }
 
+// Marks a cross-platform ("Both") entry - purple, like the form's
+// Cross-Platform Parity block, and distinct from every outcome colour.
+export const CROSS_PLATFORM_BADGE_CLASS = "bg-purple-100 text-purple-700";
+
 export type OutcomeTone = "good" | "problem" | "partial" | "notApplicable";
 
 // Tone of the form's check-style answers (see the *_OPTIONS lists in

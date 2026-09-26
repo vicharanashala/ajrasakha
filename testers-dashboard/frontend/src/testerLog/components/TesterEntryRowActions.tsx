@@ -75,7 +75,7 @@ export function TesterEntryRowActions({ entry }: { entry: ITesterLogEntry }) {
                                 </p>
                                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border bg-muted/40 px-3 py-2 text-xs">
                                     <dt className="text-muted-foreground">Test ID</dt>
-                                    <dd className="font-mono text-foreground [overflow-wrap:anywhere]">{entry._id}</dd>
+                                    <dd className="font-mono text-foreground [overflow-wrap:anywhere]">{entry.testId || "—"}</dd>
                                     <dt className="text-muted-foreground">Tester</dt>
                                     <dd className="text-foreground">{entry.testerName || "Unknown tester"}</dd>
                                     <dt className="text-muted-foreground">Test Date</dt>

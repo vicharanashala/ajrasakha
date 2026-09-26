@@ -210,7 +210,7 @@ export class TesterLogController {
 
     @OpenAPI({
         summary: 'Edit a tester submission (admin only)',
-        description: 'Updates the form fields sent in the body. Submitter details, Test ID and created time cannot be changed; the [Auto] duration fields are recomputed. The previous and new values are recorded in tester_test_cases_audit.',
+        description: 'Updates the form fields sent in the body. Submitter details, the record id and created time cannot be changed; the [Auto] duration fields are recomputed. The previous and new values are recorded in tester_test_cases_audit.',
     })
     @Authorized(['admin'])
     @Patch('/:id')

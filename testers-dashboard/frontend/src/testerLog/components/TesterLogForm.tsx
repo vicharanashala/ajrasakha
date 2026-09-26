@@ -11,6 +11,7 @@ import {
     TYPE_OF_QUESTION_OPTIONS,
     isDynamicQuestionType,
     isCrossPlatform,
+    synthesizeOverallTestStatus,
     CHANNEL_OPTIONS,
     QUESTION_CATEGORY_OPTIONS,
     SLA_STATUS_OPTIONS,
@@ -381,19 +382,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
 
     // Auto-synthesize Overall Test Status for Cross-Platform if both individual statuses are selected
     useEffect(() => {
-        if (isCross && webOverallTestStatus && waOverallTestStatus) {
-            const w1 = webOverallTestStatus.toLowerCase();
-            const w2 = waOverallTestStatus.toLowerCase();
-            if (w1 === "pass" && w2 === "pass") {
-                setValue("overallTestStatus", "Pass");
-            } else if (w1 === "fail" && w2 === "fail") {
-                setValue("overallTestStatus", "Fail");
-            } else if (w1 === "na" && w2 === "na") {
-                setValue("overallTestStatus", "NA");
-            } else {
-                setValue("overallTestStatus", "Partial");
-            }
-        }
+        const synthesized = isCross ? synthesizeOverallTestStatus(webOverallTestStatus, waOverallTestStatus) : undefined;
+        if (synthesized) setValue("overallTestStatus", synthesized);
     }, [webOverallTestStatus, waOverallTestStatus, isCross]);
 
     const responseTimeMins = watch("responseTimeMins");
@@ -472,7 +462,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 <Field label="Tester Name">
                     <input type="text" className={inputClass + " bg-muted text-muted-foreground cursor-default"} value={testerName} readOnly />
                 </Field>
-                <TextInput label="Test ID (TL-005)" placeholder="e.g. TL-005-001" {...register("testId")} />
+                <TextInput label="Test ID" placeholder="Enter Test ID" {...register("testId")} />
                 <SelectInput label="Type of Question" options={TYPE_OF_QUESTION_OPTIONS} {...register("typeOfQuestion")} />
                 <TextInput label="Build / Version" placeholder="e.g. 2.1.0" {...register("buildVersion")} />
                 <SelectInput label="Channel Tested" options={CHANNEL_OPTIONS} {...register("channelTested")} />

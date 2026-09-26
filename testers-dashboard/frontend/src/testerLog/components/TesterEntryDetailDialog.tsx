@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { CalendarDays, Eye, Hash, User } from "lucide-react";
+import { Fragment, type ReactNode } from "react";
+import { CalendarDays, Eye, Hash, MonitorSmartphone, StickyNote, User } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -8,15 +8,22 @@ import {
     DialogTrigger,
 } from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import type { ITesterLogEntry } from "../types";
-import { ENTRY_DETAIL_GROUPS } from "../entryDetailFields";
+import { isCrossPlatform, type ITesterLogEntry } from "../types";
+import {
+    CROSS_PLATFORM_AFTER_GROUP,
+    CROSS_PLATFORM_NOTES_FIELD,
+    entryDetailGroupsFor,
+    type IEntryDetailField,
+} from "../entryDetailFields";
 import { formatDateTimeIST } from "../utils/formatIST";
 import {
+    CROSS_PLATFORM_BADGE_CLASS,
     OUTCOME_BADGE_CLASS,
     outcomeTone,
     severityBadgeClass,
     statusBadgeClass,
 } from "../utils/badgeClasses";
+import { CrossPlatformComparison, EntryDetailSection } from "./CrossPlatformComparison";
 
 interface TesterEntryDetailDialogProps {
     entry: ITesterLogEntry;
@@ -34,6 +41,7 @@ type EntryKey = keyof ITesterLogEntry;
 //   normal), so any single colour would mislead.
 const OUTCOME_KEYS = new Set<EntryKey>([
     "slaStatus",
+    "waSlaStatus",
     "questionInReviewModel",
     "questionCorrectlyFramed",
     "translationQuality",
@@ -47,6 +55,9 @@ const OUTCOME_KEYS = new Set<EntryKey>([
     "notificationLinkedCorrectQId",
     "voiceInputWorking",
     "voiceOutputWorking",
+    "waNotificationReceived",
+    "waVoiceInputWorking",
+    "waVoiceOutputWorking",
     "voiceInputQuality",
     "voiceOutputQuality",
     "weatherQAnsweredCorrectly",
@@ -59,12 +70,21 @@ const OUTCOME_KEYS = new Set<EntryKey>([
     "status",
 ]);
 
+// Pass/Fail/Partial/NA - badged like the table's Overall Test Status column.
+const TEST_STATUS_KEYS = new Set<EntryKey>(["overallTestStatus", "webOverallTestStatus", "waOverallTestStatus"]);
+
 // Free-text fields that are only filled in when something went wrong.
 const PROBLEM_TEXT_KEYS = new Set<EntryKey>(["translationErrorType", "voiceIssueDescription", "defectIdBugRef"]);
 
 // Long free text gets two grid columns so it reads as a paragraph, not a
 // narrow strip.
-const WIDE_KEYS = new Set<EntryKey>(["queryText", "reviewerRemarks", "testerRemarks", "voiceIssueDescription"]);
+const WIDE_KEYS = new Set<EntryKey>([
+    "queryText",
+    "reviewerRemarks",
+    "testerRemarks",
+    "voiceIssueDescription",
+    "crossPlatformDiscrepancyNotes",
+]);
 
 const BADGE_CLASS = "inline-block max-w-full text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded";
 
@@ -75,10 +95,13 @@ function isNotApplicable(value: string): boolean {
 // Renders a field's value and says whether it flags a problem, so the tile
 // around it can be tinted red too.
 function renderValue(key: EntryKey, value: string | undefined): { node: ReactNode; isProblem: boolean } {
+    if (!value && key === "crossPlatformDiscrepancyNotes") {
+        return { node: <span className="font-normal italic text-muted-foreground">No discrepancies noted.</span>, isProblem: false };
+    }
     if (!value) {
         return { node: <span className="text-muted-foreground/40">—</span>, isProblem: false };
     }
-    if (key === "overallTestStatus") {
+    if (TEST_STATUS_KEYS.has(key)) {
         return {
             node: <span className={`${BADGE_CLASS} ${statusBadgeClass(value)}`}>{value}</span>,
             isProblem: value.trim().toLowerCase() === "fail",
@@ -103,17 +126,47 @@ function renderValue(key: EntryKey, value: string | undefined): { node: ReactNod
     if (PROBLEM_TEXT_KEYS.has(key) && !isNotApplicable(value)) {
         return { node: <span className="font-medium text-red-700">{value}</span>, isProblem: true };
     }
-    if (key === "_id") {
+    if (key === "testId") {
         return { node: <span className="font-mono text-[13px]">{value}</span>, isProblem: false };
     }
     return { node: value, isProblem: false };
+}
+
+function FieldTile({ entry, field }: { entry: ITesterLogEntry; field: IEntryDetailField }) {
+    const rawValue = entry[field.key] as string | undefined;
+    const value = field.isDateTime ? formatDateTimeIST(rawValue) : rawValue;
+    const { node, isProblem } = renderValue(field.key, value);
+    return (
+        <div
+            className={`min-w-0 rounded-lg border px-3 py-2 ${
+                WIDE_KEYS.has(field.key) ? "sm:col-span-2" : ""
+            } ${
+                isProblem
+                    ? "border-red-200 bg-red-50/60"
+                    : "border-muted-foreground/10 bg-muted/30"
+            }`}
+        >
+            <dt className="text-[11px] font-medium leading-tight text-muted-foreground">
+                {field.label}
+            </dt>
+            <dd className="mt-1 text-sm font-medium text-foreground tabular-nums whitespace-pre-wrap [overflow-wrap:anywhere]">
+                {node}
+            </dd>
+        </div>
+    );
 }
 
 // Full-record detail view for a tester log entry - the table shows only a
 // handful of columns at a glance; this lists every field, grouped and
 // labelled like the submission form, with vertical scroll instead of
 // horizontal so nothing gets cut off.
+//
+// A cross-platform ("Both") entry also gets a WebApp / WhatsApp comparison
+// (summary plus one tab per platform) after Basic Information, which takes
+// over the per-channel fields from their usual groups. Any other entry never shows the WhatsApp-side fields,
+// even stale ones left from before its channel was changed.
 export function TesterEntryDetailDialog({ entry }: TesterEntryDetailDialogProps) {
+    const isCross = isCrossPlatform(entry.channelTested);
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -146,6 +199,12 @@ export function TesterEntryDetailDialog({ entry }: TesterEntryDetailDialogProps)
                                 {entry.defectSeverity}
                             </span>
                         )}
+                        {isCross && (
+                            <span className={`${BADGE_CLASS} inline-flex items-center gap-1 ${CROSS_PLATFORM_BADGE_CLASS}`}>
+                                <MonitorSmartphone className="h-3 w-3" aria-hidden />
+                                Cross-Platform
+                            </span>
+                        )}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">
@@ -158,54 +217,38 @@ export function TesterEntryDetailDialog({ entry }: TesterEntryDetailDialogProps)
                         </span>
                         <span className="inline-flex min-w-0 items-center gap-1.5">
                             <Hash className="h-3.5 w-3.5 shrink-0" />
-                            Test ID: <span className="font-mono [overflow-wrap:anywhere]">{entry._id || "—"}</span>
+                            Test ID: <span className="font-mono [overflow-wrap:anywhere]">{entry.testId || "—"}</span>
                         </span>
                     </div>
                 </DialogHeader>
 
                 <ScrollArea className="flex-1 min-h-0 bg-muted/20">
                     <div className="space-y-4 p-4 sm:p-6">
-                        {ENTRY_DETAIL_GROUPS.map((group) => {
-                            const Icon = group.icon;
-                            return (
-                                <section key={group.title} className="rounded-xl border bg-card shadow-xs">
-                                    <h3 className="sticky top-0 z-10 flex items-center gap-2.5 rounded-t-xl border-b bg-card px-4 py-2.5 text-sm font-semibold text-foreground">
-                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden>
-                                            <Icon className="h-4 w-4" />
-                                        </span>
-                                        {group.title}
-                                    </h3>
+                        {entryDetailGroupsFor(isCross).map((group) => (
+                            <Fragment key={group.title}>
+                                <EntryDetailSection title={group.title} icon={group.icon}>
                                     <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2 p-3">
-                                        {group.fields.map((field) => {
-                                            const rawValue = entry[field.key] as string | undefined;
-                                            const value = field.isDateTime
-                                                ? formatDateTimeIST(rawValue)
-                                                : rawValue;
-                                            const { node, isProblem } = renderValue(field.key, value);
-                                            return (
-                                                <div
-                                                    key={String(field.key)}
-                                                    className={`min-w-0 rounded-lg border px-3 py-2 ${
-                                                        WIDE_KEYS.has(field.key) ? "sm:col-span-2" : ""
-                                                    } ${
-                                                        isProblem
-                                                            ? "border-red-200 bg-red-50/60"
-                                                            : "border-muted-foreground/10 bg-muted/30"
-                                                    }`}
-                                                >
-                                                    <dt className="text-[11px] font-medium leading-tight text-muted-foreground">
-                                                        {field.label}
-                                                    </dt>
-                                                    <dd className="mt-1 text-sm font-medium text-foreground tabular-nums whitespace-pre-wrap [overflow-wrap:anywhere]">
-                                                        {node}
-                                                    </dd>
-                                                </div>
-                                            );
-                                        })}
+                                        {group.fields.map((field) => (
+                                            <FieldTile key={String(field.key)} entry={entry} field={field} />
+                                        ))}
                                     </dl>
-                                </section>
-                            );
-                        })}
+                                </EntryDetailSection>
+                                {isCross && group.title === CROSS_PLATFORM_AFTER_GROUP && (
+                                    <>
+                                        <CrossPlatformComparison
+                                            values={entry}
+                                            listAs="dl"
+                                            renderField={(field) => <FieldTile entry={entry} field={field} />}
+                                        />
+                                        <EntryDetailSection title="Cross-Platform Discrepancy Notes" icon={StickyNote}>
+                                            <dl className="grid grid-cols-1 gap-2 p-3">
+                                                <FieldTile entry={entry} field={CROSS_PLATFORM_NOTES_FIELD} />
+                                            </dl>
+                                        </EntryDetailSection>
+                                    </>
+                                )}
+                            </Fragment>
+                        ))}
                     </div>
                 </ScrollArea>
             </DialogContent>

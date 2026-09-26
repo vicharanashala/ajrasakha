@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { CalendarDays, Hash, Loader2, User } from "lucide-react";
+import { Fragment, useState, type FormEvent } from "react";
+import { CalendarDays, Hash, Loader2, StickyNote, User } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -10,6 +10,8 @@ import {
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import type { ITesterLogEntry } from "../types";
 import {
+    isCrossPlatform,
+    synthesizeOverallTestStatus,
     TYPE_OF_QUESTION_OPTIONS,
     CHANNEL_OPTIONS,
     QUESTION_CATEGORY_OPTIONS,
@@ -33,9 +35,18 @@ import {
     INDIAN_LANGUAGES_OPTIONS,
     VOICE_QUALITY_OPTIONS,
 } from "../types";
-import { ENTRY_DETAIL_GROUPS } from "../entryDetailFields";
+import {
+    CROSS_PLATFORM_AFTER_GROUP,
+    CROSS_PLATFORM_FIELD_PAIRS,
+    CROSS_PLATFORM_NOTES_FIELD,
+    CROSS_PLATFORM_ONLY_KEYS,
+    ENTRY_DETAIL_GROUPS,
+    entryDetailGroupsFor,
+    type IEntryDetailField,
+} from "../entryDetailFields";
 import { formatDateTimeIST } from "../utils/formatIST";
 import { useUpdateTesterLogEntry } from "../hooks/useTesterLogAdminActions";
+import { CrossPlatformComparison, EntryDetailSection } from "./CrossPlatformComparison";
 
 type EntryKey = keyof ITesterLogEntry;
 
@@ -50,6 +61,7 @@ const READ_ONLY_KEYS = new Set<EntryKey>([
     "createdAt",
     "updatedAt",
     "responseTimeMins",
+    "waResponseTimeMins",
     "authorTatMins",
     "review1TatMins",
     "review2TatMins",
@@ -92,6 +104,12 @@ const SELECT_OPTIONS: Partial<Record<EntryKey, string[]>> = {
     overallTestStatus: OVERALL_STATUS_OPTIONS,
     defectSeverity: DEFECT_SEVERITY_OPTIONS,
     status: STATUS_OPTIONS,
+    waSlaStatus: SLA_STATUS_OPTIONS,
+    waNotificationReceived: NOTIFICATION_OPTIONS,
+    waVoiceInputWorking: NOTIFICATION_OPTIONS,
+    waVoiceOutputWorking: NOTIFICATION_OPTIONS,
+    webOverallTestStatus: OVERALL_STATUS_OPTIONS,
+    waOverallTestStatus: OVERALL_STATUS_OPTIONS,
 };
 
 // The form lets testers pick a language or type their own ("Others"), so
@@ -99,7 +117,15 @@ const SELECT_OPTIONS: Partial<Record<EntryKey, string[]>> = {
 const LANGUAGE_KEYS = new Set<EntryKey>(["languageTested", "originalLanguage", "translatedLanguage"]);
 const LANGUAGE_LIST_ID = "tester-entry-edit-languages";
 
-const TEXTAREA_KEYS = new Set<EntryKey>(["queryText", "reviewerRemarks", "testerRemarks", "voiceIssueDescription"]);
+const TEXTAREA_KEYS = new Set<EntryKey>([
+    "queryText",
+    "reviewerRemarks",
+    "testerRemarks",
+    "voiceIssueDescription",
+    "crossPlatformDiscrepancyNotes",
+]);
+
+const CROSS_PLATFORM_ONLY = new Set<EntryKey>(CROSS_PLATFORM_ONLY_KEYS);
 
 // What <input type="datetime-local"> can display. Older entries may hold
 // other formats (bare HH:MM:SS, "NA", ...) - those get a text box instead,
@@ -111,12 +137,13 @@ const INPUT_CLASS =
 
 type FormValues = Partial<Record<EntryKey, string>>;
 
+// Every editable field, the cross-platform ones included, so switching
+// Channel Tested to Both in the editor shows their stored values.
 function initialValues(entry: ITesterLogEntry): FormValues {
     const values: FormValues = {};
-    for (const group of ENTRY_DETAIL_GROUPS) {
-        for (const { key } of group.fields) {
-            if (!READ_ONLY_KEYS.has(key)) values[key] = (entry[key] as string | undefined) ?? "";
-        }
+    const keys = [...ENTRY_DETAIL_GROUPS.flatMap((g) => g.fields.map((f) => f.key)), ...CROSS_PLATFORM_ONLY_KEYS];
+    for (const key of keys) {
+        if (!READ_ONLY_KEYS.has(key)) values[key] = (entry[key] as string | undefined) ?? "";
     }
     return values;
 }
@@ -181,14 +208,78 @@ function EditForm({ entry, onDone, mutation }: {
 }) {
     const [values, setValues] = useState<FormValues>(() => initialValues(entry));
     const { mutate, isPending } = mutation;
+    // Follows the edited Channel Tested, so picking Both reveals the
+    // WhatsApp fields and picking a single channel hides them.
+    const isCross = isCrossPlatform(values.channelTested);
 
     // Only fields the admin actually changed are sent, so values the editor
-    // can't represent exactly are never rewritten by an untouched input.
+    // can't represent exactly are never rewritten by an untouched input. The
+    // cross-platform fields are hidden, and so not sent, off a Both entry.
     const changes: FormValues = {};
     for (const [key, value] of Object.entries(values) as [EntryKey, string][]) {
+        if (!isCross && CROSS_PLATFORM_ONLY.has(key)) continue;
         if (value !== ((entry[key] as string | undefined) ?? "")) changes[key] = value;
     }
     const hasChanges = Object.keys(changes).length > 0;
+
+    function setField(key: EntryKey, value: string) {
+        setValues((prev) => {
+            const next = { ...prev, [key]: value };
+            // Same rule the submission form applies (see
+            // synthesizeOverallTestStatus): changing either channel's status
+            // re-derives the overall one, which stays editable afterwards.
+            if (key === "webOverallTestStatus" || key === "waOverallTestStatus") {
+                const synthesized = isCrossPlatform(next.channelTested)
+                    ? synthesizeOverallTestStatus(next.webOverallTestStatus, next.waOverallTestStatus)
+                    : undefined;
+                if (synthesized) next.overallTestStatus = synthesized;
+            }
+            return next;
+        });
+    }
+
+    function renderField(field: IEntryDetailField) {
+        const readOnly = READ_ONLY_KEYS.has(field.key);
+        const rawValue = (entry[field.key] as string | undefined) ?? "";
+        const isChanged = field.key in changes;
+        return (
+            <div
+                key={String(field.key)}
+                className={`min-w-0 rounded-lg border px-3 py-2 ${
+                    TEXTAREA_KEYS.has(field.key) ? "sm:col-span-2" : ""
+                } ${
+                    isChanged
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-muted-foreground/10 bg-muted/30"
+                }`}
+            >
+                <label
+                    htmlFor={readOnly ? undefined : `tester-entry-edit-${field.key}`}
+                    className="block text-[11px] font-medium leading-tight text-muted-foreground"
+                >
+                    {field.label}
+                    {readOnly && <span className="ml-1 text-muted-foreground/60">(read-only)</span>}
+                </label>
+                <div className="mt-1">
+                    {readOnly ? (
+                        <p className="text-sm font-medium text-foreground tabular-nums whitespace-pre-wrap [overflow-wrap:anywhere]">
+                            {(field.isDateTime ? formatDateTimeIST(rawValue) : rawValue) || (
+                                <span className="text-muted-foreground/40">—</span>
+                            )}
+                        </p>
+                    ) : (
+                        <FieldInput
+                            fieldKey={field.key}
+                            isDateTime={field.isDateTime}
+                            value={values[field.key] ?? ""}
+                            disabled={isPending}
+                            onChange={(v) => setField(field.key, v)}
+                        />
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
@@ -206,63 +297,32 @@ function EditForm({ entry, onDone, mutation }: {
 
             <ScrollArea className="flex-1 min-h-0 bg-muted/20">
                 <div className="space-y-4 p-4 sm:p-6">
-                    {ENTRY_DETAIL_GROUPS.map((group) => {
-                        const Icon = group.icon;
-                        return (
-                            <section key={group.title} className="rounded-xl border bg-card shadow-xs">
-                                <h3 className="sticky top-0 z-10 flex items-center gap-2.5 rounded-t-xl border-b bg-card px-4 py-2.5 text-sm font-semibold text-foreground">
-                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden>
-                                        <Icon className="h-4 w-4" />
-                                    </span>
-                                    {group.title}
-                                </h3>
+                    {entryDetailGroupsFor(isCross).map((group) => (
+                        <Fragment key={group.title}>
+                            <EntryDetailSection title={group.title} icon={group.icon}>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2 p-3">
-                                    {group.fields.map((field) => {
-                                        const readOnly = READ_ONLY_KEYS.has(field.key);
-                                        const rawValue = (entry[field.key] as string | undefined) ?? "";
-                                        const isChanged = field.key in changes;
-                                        return (
-                                            <div
-                                                key={String(field.key)}
-                                                className={`min-w-0 rounded-lg border px-3 py-2 ${
-                                                    TEXTAREA_KEYS.has(field.key) ? "sm:col-span-2" : ""
-                                                } ${
-                                                    isChanged
-                                                        ? "border-primary/40 bg-primary/5"
-                                                        : "border-muted-foreground/10 bg-muted/30"
-                                                }`}
-                                            >
-                                                <label
-                                                    htmlFor={readOnly ? undefined : `tester-entry-edit-${field.key}`}
-                                                    className="block text-[11px] font-medium leading-tight text-muted-foreground"
-                                                >
-                                                    {field.label}
-                                                    {readOnly && <span className="ml-1 text-muted-foreground/60">(read-only)</span>}
-                                                </label>
-                                                <div className="mt-1">
-                                                    {readOnly ? (
-                                                        <p className="text-sm font-medium text-foreground tabular-nums whitespace-pre-wrap [overflow-wrap:anywhere]">
-                                                            {(field.isDateTime ? formatDateTimeIST(rawValue) : rawValue) || (
-                                                                <span className="text-muted-foreground/40">—</span>
-                                                            )}
-                                                        </p>
-                                                    ) : (
-                                                        <FieldInput
-                                                            fieldKey={field.key}
-                                                            isDateTime={field.isDateTime}
-                                                            value={values[field.key] ?? ""}
-                                                            disabled={isPending}
-                                                            onChange={(v) => setValues((prev) => ({ ...prev, [field.key]: v }))}
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                    {group.fields.map(renderField)}
                                 </div>
-                            </section>
-                        );
-                    })}
+                            </EntryDetailSection>
+                            {isCross && group.title === CROSS_PLATFORM_AFTER_GROUP && (
+                                <>
+                                    <CrossPlatformComparison
+                                        values={{ ...entry, ...values }}
+                                        renderField={renderField}
+                                        changedCount={{
+                                            web: CROSS_PLATFORM_FIELD_PAIRS.filter((p) => p.webKey in changes).length,
+                                            wa: CROSS_PLATFORM_FIELD_PAIRS.filter((p) => p.waKey in changes).length,
+                                        }}
+                                    />
+                                    <EntryDetailSection title="Cross-Platform Discrepancy Notes" icon={StickyNote}>
+                                        <div className="grid grid-cols-1 gap-2 p-3">
+                                            {renderField(CROSS_PLATFORM_NOTES_FIELD)}
+                                        </div>
+                                    </EntryDetailSection>
+                                </>
+                            )}
+                        </Fragment>
+                    ))}
                 </div>
             </ScrollArea>
 
@@ -325,7 +385,7 @@ export function TesterEntryEditDialog({ entry, open, onOpenChange }: TesterEntry
                         </span>
                         <span className="inline-flex min-w-0 items-center gap-1.5">
                             <Hash className="h-3.5 w-3.5 shrink-0" />
-                            Test ID: <span className="font-mono [overflow-wrap:anywhere]">{entry._id || "—"}</span>
+                            Test ID: <span className="font-mono [overflow-wrap:anywhere]">{entry.testId || "—"}</span>
                         </span>
                     </DialogDescription>
                 </DialogHeader>

@@ -60,17 +60,22 @@ interface TesterUserRecord {
 // backend/data/testers-dashboard/updated.csv's header row if the Sheet ever
 // adds/renames a column.
 //
+// The Sheet's "Test ID" is the tester-entered ID (testId). _id,
 // submittedByUserId, submittedByEmail, createdAt, updatedAt have no Sheet
 // equivalent and are deliberately left out of this export (app-internal
 // bookkeeping, not part of the Sheet's own log format).
+//
+// The one deliberate departure from the Sheet: its "Sprint / Cycle" column
+// (sprintCycle) is left out. The form no longer collects it and the admin
+// views no longer show it; stored values are kept in the database. Since
+// EDITABLE_FIELDS below derives from these columns, it isn't admin-editable
+// either.
 const EXPORT_COLUMNS: { key: keyof TesterLogEntry; header: string }[] = [
-    { key: '_id', header: 'Test ID' },
+    { key: 'testId', header: 'Test ID' },
     { key: 'testDate', header: 'Test Date' },
-    { key: 'testId', header: 'Test ID (TL-005)' },
     { key: 'testerName', header: 'Tester Name' },
     { key: 'typeOfQuestion', header: 'Type of Question' },
     { key: 'buildVersion', header: 'Build / Version' },
-    { key: 'sprintCycle', header: 'Sprint / Cycle' },
     { key: 'channelTested', header: 'Channel Tested' },
     { key: 'languageTested', header: 'Language Tested' },
     { key: 'threadId', header: 'Question ID' },
@@ -218,13 +223,33 @@ function computeDurations(e: Partial<TesterLogEntry>, testDate: string): Partial
     };
 }
 
-// Fields an admin edit may change: every form-entered column, i.e. the
-// export columns minus the record's identity (_id, testerName) and the
-// computed durations. Anything else in the request body is ignored, so an
-// edit can never rewrite who submitted an entry or when.
+// The cross-platform ("Both") fields - not Sheet columns, so absent from
+// EXPORT_COLUMNS, but still form-entered and so editable.
+const CROSS_PLATFORM_FIELDS: (keyof TesterLogEntry)[] = [
+    'webThreadId',
+    'waThreadId',
+    'waTimeQuestionAsked',
+    'waTimeAnswerReceived',
+    'waResponseTimeMins',
+    'waSlaStatus',
+    'waVoiceInputWorking',
+    'waVoiceOutputWorking',
+    'waVoiceInputQuality',
+    'waVoiceOutputQuality',
+    'waVoiceIssueDescription',
+    'waNotificationReceived',
+    'webOverallTestStatus',
+    'waOverallTestStatus',
+    'crossPlatformDiscrepancyNotes',
+];
+
+// Fields an admin edit may change: every form-entered field, i.e. the
+// export columns plus the cross-platform fields, minus the record's identity
+// (_id - not exported, but excluded here regardless - and testerName) and
+// the computed durations. testId is tester-entered, so it stays editable. Anything else in the request
+// body is ignored, so an edit can never rewrite who submitted an entry or when.
 const DERIVED_FIELDS = new Set(Object.keys(computeDurations({}, '')));
-const EDITABLE_FIELDS: (keyof TesterLogEntry)[] = EXPORT_COLUMNS
-    .map((c) => c.key)
+const EDITABLE_FIELDS: (keyof TesterLogEntry)[] = [...EXPORT_COLUMNS.map((c) => c.key), ...CROSS_PLATFORM_FIELDS]
     .filter((k) => k !== '_id' && k !== 'testerName' && !DERIVED_FIELDS.has(k));
 
 function toObjectId(id: string): ObjectId | null {

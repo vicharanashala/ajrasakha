@@ -333,6 +333,22 @@ export function isCrossPlatform(channel?: string): boolean {
     return lower === 'both' || lower.includes('cross');
 }
 
+/**
+ * A cross-platform entry's Overall Test Status, derived from its Web App and
+ * WhatsApp statuses: Pass/Fail/NA only when both channels agree, otherwise
+ * Partial. Returns undefined until both are set. The form and the admin
+ * editor apply it when either status changes; the result stays overridable.
+ */
+export function synthesizeOverallTestStatus(webStatus?: string, waStatus?: string): string | undefined {
+    if (!webStatus || !waStatus) return undefined;
+    const w1 = webStatus.toLowerCase();
+    const w2 = waStatus.toLowerCase();
+    if (w1 === "pass" && w2 === "pass") return "Pass";
+    if (w1 === "fail" && w2 === "fail") return "Fail";
+    if (w1 === "na" && w2 === "na") return "NA";
+    return "Partial";
+}
+
 export const CHANNEL_OPTIONS = ['WhatsApp', 'WebApp', 'Both'];
 
 export const QUESTION_CATEGORY_OPTIONS = [

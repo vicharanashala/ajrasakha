@@ -12,7 +12,7 @@ export class CreateTesterLogDto {
     @IsOptional()
     typeOfQuestion?: string;
 
-    @JSONSchema({ description: 'Test ID (alias TL-005) – unique identifier for the test case' })
+    @JSONSchema({ description: 'Test ID – tester-entered identifier for the test case' })
     @IsString()
     @IsOptional()
     testId?: string;

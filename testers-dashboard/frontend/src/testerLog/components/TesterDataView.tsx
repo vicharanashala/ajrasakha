@@ -35,6 +35,7 @@ import { statusBadgeClass, severityBadgeClass } from "../utils/badgeClasses";
 import { getPageItems } from "../../utils";
 import type { ITesterLogAdminFilters, ITesterLogEntry } from "../types";
 import {
+    isCrossPlatform,
     TYPE_OF_QUESTION_OPTIONS,
     CHANNEL_OPTIONS,
     OVERALL_STATUS_OPTIONS,
@@ -63,7 +64,7 @@ const ALL = "all";
 // Columns reviewers need at a glance - real fields on TesterLogEntry
 // (see ITesterLogService.ts), not a mirror of the Google Sheet's wider column set.
 const TABLE_COLUMNS: { key: keyof ITesterLogEntry; label: string }[] = [
-    { key: "_id", label: "Test ID" },
+    { key: "testId", label: "Test ID" },
     { key: "testDate", label: "Test Date" },
     { key: "testerName", label: "Tester Name" },
     { key: "typeOfQuestion", label: "Type of Question" },
@@ -119,13 +120,25 @@ function SummaryCard({ icon: Icon, iconClassName, label, value, description }: {
     );
 }
 
-function renderCell(key: keyof ITesterLogEntry, value: string | undefined): ReactNode {
+function renderCell(entry: ITesterLogEntry, key: keyof ITesterLogEntry): ReactNode {
+    const value = entry[key] as string | undefined;
+    // A cross-platform entry has a response time per channel: the Web App's
+    // in responseTimeMins, WhatsApp's in waResponseTimeMins. Both are shown
+    // here rather than as extra columns; View has the full comparison.
+    if (key === "responseTimeMins" && isCrossPlatform(entry.channelTested)) {
+        return (
+            <div className="flex flex-col gap-0.5 text-xs tabular-nums leading-tight">
+                <span><span className="font-semibold text-blue-700 dark:text-blue-300">Web</span> {value || EMPTY_VALUE}</span>
+                <span><span className="font-semibold text-emerald-700 dark:text-emerald-300">WA</span> {entry.waResponseTimeMins || EMPTY_VALUE}</span>
+            </div>
+        );
+    }
     if (!value) return EMPTY_VALUE;
     if (key === "overallTestStatus") return <span className={`${BADGE_CLASS} ${statusBadgeClass(value)}`}>{value}</span>;
     if (key === "defectSeverity") return <span className={`${BADGE_CLASS} ${severityBadgeClass(value)}`}>{value}</span>;
     // Long values are cut with an ellipsis so they can't stretch the column;
     // hovering shows the full value, and View shows the whole record.
-    if (key === "_id") {
+    if (key === "testId") {
         return <span className="block max-w-[110px] truncate font-mono text-xs" title={value}>{value}</span>;
     }
     return <span className="block max-w-[200px] truncate" title={value}>{value}</span>;
@@ -437,7 +450,7 @@ export function TesterDataView() {
                                         </td>
                                         {TABLE_COLUMNS.map((c) => (
                                             <td key={c.key} className="px-3 py-2 whitespace-nowrap">
-                                                {renderCell(c.key, entry[c.key] as string | undefined)}
+                                                {renderCell(entry, c.key)}
                                             </td>
                                         ))}
                                         <td className="px-3 py-2">
