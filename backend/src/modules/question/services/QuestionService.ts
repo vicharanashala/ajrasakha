@@ -2682,6 +2682,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.maintenanceService.backfillEmptyEmbeddings(batchLimit);
   }
 
+  async backfillMissingEmbeddings(batchLimit?: number) {
+    return this.maintenanceService.backfillMissingEmbeddings(batchLimit);
+  }
+
+  async backfillAnswerEmbeddings(batchLimit?: number) {
+    return this.maintenanceService.backfillAnswerEmbeddings(batchLimit);
+  }
+
   // ─── Time-bound question tracking ───────────────────────────────────────────
 
   /** Called whenever an expert selects ANY question in the UI.
@@ -3034,5 +3042,17 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getPaeValidationQueueDetails(params?: { section?: 'waitingAuto' | 'waitingManual' | 'assigned'; page?: number; limit?: number }) {
     return this.paeValidationService.getPaeValidationQueueDetails(params);
+  }
+
+  async sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ) {
+    return this.paeValidationService.sendPaeMilestoneReport(
+      paeExpertId,
+      milestoneCount,
+      recipients,
+    );
   }
 }

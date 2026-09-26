@@ -21,6 +21,7 @@ import {
   Shield,
   Briefcase,
   UsersRound,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
@@ -35,6 +36,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { Separator } from "@/components/atoms/separator";
 import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
 // import { useDashboardData } from "./hooks/useDashboardData";
 // import { BarGraph } from "./components/shared/BarGrapgh";
@@ -56,6 +58,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Input } from "@/components/atoms/input";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useDeleteUser } from "./hooks/useDeleteUser";
@@ -82,6 +93,7 @@ import { AddFarmerModal } from "./components/AddFarmerModal";
 import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { FarmerNameLink } from "./components/FarmerNameLink";
 import { useAddUser } from "./hooks/useAddUser";
+import { useExportUserDetails } from "./hooks/useExportUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
 import CountUp from "react-countup";
 import { Badge } from "@/components/atoms/badge";
@@ -116,6 +128,43 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   loginStatus: "all",
 };
 
+
+const yesNo = (value?: boolean) => (value == null ? "" : value ? "Yes" : "No");
+const cropList = (value?: string[]) => (value?.length ? value.join("; ") : "");
+
+const DOWNLOAD_PREVIEW_COLUMNS: {
+  key: string;
+  label: string;
+  getValue: (user: UserDetail) => React.ReactNode;
+}[] = [
+  { key: "name", label: "Name", getValue: (u) => u.name || "" },
+  { key: "email", label: "Email", getValue: (u) => u.email || "" },
+  { key: "userRole", label: "User Role", getValue: (u) => u.userRole || u.role || "" },
+  { key: "isVerified", label: "Verified", getValue: (u) => yesNo(u.isVerified) },
+  { key: "questions", label: "Questions", getValue: (u) => u.totalQuestionsCount ?? 0 },
+  { key: "messages", label: "Messages", getValue: (u) => u.totalMessagesCount ?? u.totalQuestions ?? 0 },
+  { key: "farmerName", label: "Farmer Name", getValue: (u) => u.farmerProfile?.farmerName || "" },
+  { key: "age", label: "Age", getValue: (u) => u.farmerProfile?.age ?? "" },
+  { key: "gender", label: "Gender", getValue: (u) => u.farmerProfile?.gender || "" },
+  { key: "phone", label: "Phone", getValue: (u) => u.farmerProfile?.phoneNo || "" },
+  { key: "language", label: "Language", getValue: (u) => u.farmerProfile?.languagePreference || "" },
+  { key: "experience", label: "Years Of Experience", getValue: (u) => u.farmerProfile?.yearsOfExperience ?? "" },
+  { key: "village", label: "Village", getValue: (u) => u.farmerProfile?.villageName || "" },
+  { key: "block", label: "Block", getValue: (u) => u.farmerProfile?.blockName || "" },
+  { key: "district", label: "District", getValue: (u) => u.farmerProfile?.district || "" },
+  { key: "state", label: "State", getValue: (u) => u.farmerProfile?.state || "" },
+  { key: "crops", label: "Crops Cultivated", getValue: (u) => cropList(u.farmerProfile?.cropsCultivated) },
+  { key: "primaryCrop", label: "Primary Crop", getValue: (u) => u.farmerProfile?.primaryCrop || "" },
+  { key: "secondaryCrop", label: "Secondary Crop", getValue: (u) => u.farmerProfile?.secondaryCrop || "" },
+  { key: "landhold", label: "Landhold (acres)", getValue: (u) => u.farmerProfile?.landhold ?? "" },
+  { key: "kcc", label: "Aware Of KCC", getValue: (u) => yesNo(u.farmerProfile?.awarenessOfKCC) },
+  { key: "agriApps", label: "Uses Agri Apps", getValue: (u) => yesNo(u.farmerProfile?.usesAgriApps) },
+  { key: "education", label: "Highest Educated Person", getValue: (u) => u.farmerProfile?.highestEducatedPerson || "" },
+  { key: "smartphones", label: "Number Of Smartphones", getValue: (u) => u.farmerProfile?.numberOfSmartphones ?? "" },
+  { key: "kvk", label: "Nearest KVK", getValue: (u) => u.farmerProfile?.nearestKVK || "" },
+  { key: "platform", label: "Platform", getValue: (u) => u.farmerProfile?.platform || "" },
+];
+
 const rolesForUserType = (value: "all" | "external" | "internal"): string[] => {
   if (value === "external") {
     return [
@@ -148,6 +197,7 @@ export function UserDetailsView({
   const updateUserMutation = useUpdateUser();
   const changeUserPasswordMutation = useChangeUserPassword();
   const addUserMutation = useAddUser();
+  const exportUserDetailsMutation = useExportUserDetails();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
@@ -183,6 +233,7 @@ export function UserDetailsView({
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [userToView, setUserToView] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
+  const [downloadConfirmOpen, setDownloadConfirmOpen] = useState(false);
   // const [hovered, setHovered] = useState<string | null>(null);
   // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -366,6 +417,21 @@ export function UserDetailsView({
   const handleResetFilters = () => {
     setFilters(DEFAULT_FILTERS);
     setCurrentPage(1);
+  };
+
+  const handleDownload = () => {
+    exportUserDetailsMutation.mutate({
+      filters,
+      source,
+      userType,
+      sortBy,
+      sortOrder,
+    });
+  };
+
+  const handleConfirmDownload = () => {
+    setDownloadConfirmOpen(false);
+    handleDownload();
   };
 
   const handleSort = (
@@ -598,8 +664,8 @@ export function UserDetailsView({
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4"
             >
-              {/* Title */}
-              <div className="min-w-0 flex items-start gap-3">
+              {/* Title + summary stat */}
+              <div className="flex min-w-0 items-start gap-3">
                 <motion.div
                   whileHover={{ rotate: -6, scale: 1.05 }}
                   transition={{ type: "spring", stiffness: 300, damping: 18 }}
@@ -608,18 +674,64 @@ export function UserDetailsView({
                   <Users className="h-4 w-4 text-primary" />
                 </motion.div>
                 <div className="min-w-0">
-                  <CardTitle className="text-base font-semibold tracking-tight truncate">
-                    All Farmers
-                  </CardTitle>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-base font-semibold tracking-tight">
+                      All Farmers
+                    </CardTitle>
+                    {data?.totalQueries !== undefined && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            tabIndex={0}
+                            aria-label={`Total queries asked: ${data.totalQueries.toLocaleString()}`}
+                            className="flex h-6 items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 text-xs cursor-help hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Queries
+                            </span>
+                            <span className="font-semibold tabular-nums text-primary">
+                              <CountUp
+                                end={data.totalQueries}
+                                duration={1.2}
+                                separator=","
+                                preserveValue
+                              />
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="p-3">
+                          <div className="space-y-1.5 min-w-[160px]">
+                            <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">
+                              Total queries asked
+                            </p>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Messages:</span>
+                              <span className="font-medium">
+                                {data.totalMessagesCount ?? 0}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Questions:</span>
+                              <span className="font-medium">
+                                {data.totalQuestionsCount ?? 0}
+                              </span>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground mt-0.5 truncate">
                     View and manage farmer details, activity, and preferences.
                   </p>
                 </div>
               </div>
 
-              <div className="flex w-full items-center gap-2 lg:w-auto">
+              {/* Search + actions */}
+              <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
                 {/* Search */}
-                <div className="relative w-full min-w-0 lg:w-72 lg:shrink-0 xl:w-80">
+                <div className="relative w-full min-w-0 sm:flex-1 lg:w-72 lg:flex-none lg:shrink-0 xl:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     type="text"
@@ -649,7 +761,8 @@ export function UserDetailsView({
                   </AnimatePresence>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
+                {/* Action toolbar */}
+                <div className="flex shrink-0 items-center gap-1.5">
                   <AnimatePresence>
                     {isFiltered && (
                       <motion.div
@@ -670,7 +783,9 @@ export function UserDetailsView({
                               <X className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom">Clear filters</TooltipContent>
+                          <TooltipContent side="bottom">
+                            Clear filters
+                          </TooltipContent>
                         </Tooltip>
                       </motion.div>
                     )}
@@ -702,63 +817,56 @@ export function UserDetailsView({
                     <TooltipContent side="bottom">Refresh</TooltipContent>
                   </Tooltip>
 
-                  {data?.totalQueries !== undefined && (
+                  {isAdmin && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div
-                          tabIndex={0}
-                          aria-label={`Total queries asked: ${data.totalQueries.toLocaleString()}`}
-                          className="flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 text-sm cursor-help hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label={`Download ${totalUsers} farmer details`}
+                          className="border-border/60"
+                          disabled={
+                            exportUserDetailsMutation.isPending ||
+                            totalUsers === 0
+                          }
+                          onClick={() => setDownloadConfirmOpen(true)}
                         >
-                          <Inbox className="h-4 w-4 text-muted-foreground" />
-                          <span className="hidden text-muted-foreground xl:inline">
-                            Total queries asked
-                          </span>
-                          <span className="font-semibold tabular-nums text-primary">
-                            <CountUp
-                              end={data.totalQueries}
-                              duration={1.2}
-                              separator=","
-                              preserveValue
-                            />
-                          </span>
-                        </div>
+                          {exportUserDetailsMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="p-3">
-                        <div className="space-y-1.5 min-w-[160px]">
-                          <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Total queries asked</p>
-                          <div className="flex justify-between items-center text-sm">
-                            <span>Messages:</span>
-                            <span className="font-medium">{data.totalMessagesCount ?? 0}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span>Questions:</span>
-                            <span className="font-medium">{data.totalQuestionsCount ?? 0}</span>
-                          </div>
-                        </div>
+                      <TooltipContent side="bottom">
+                        Download ({totalUsers})
                       </TooltipContent>
                     </Tooltip>
                   )}
 
                   {isAdmin &&
                     (source === "annam" || source === "vicharanashala") && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            size="icon"
-                            aria-label="Add user"
-                            className="shadow-sm shadow-primary/20"
-                            onClick={() => {
-                              setFilters((prev) => ({ ...prev, search: "" }));
-                              setIsAddModalOpen(true);
-                            }}
-                          >
-                            <UserPlus className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Add user</TooltipContent>
-                      </Tooltip>
+                      <>
+                        <Separator orientation="vertical" className="!h-6" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              aria-label="Add user"
+                              className="shadow-sm shadow-primary/20"
+                              onClick={() => {
+                                setFilters((prev) => ({ ...prev, search: "" }));
+                                setIsAddModalOpen(true);
+                              }}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Add user</TooltipContent>
+                        </Tooltip>
+                      </>
                     )}
                 </div>
               </div>
@@ -1190,6 +1298,80 @@ export function UserDetailsView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Download confirmation / preview */}
+      <Dialog
+        open={downloadConfirmOpen}
+        onOpenChange={(open) => setDownloadConfirmOpen(open)}
+      >
+        <DialogContent className="sm:max-w-6xl w-[95vw]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-4.5 w-4.5 text-primary" />
+              Download farmer data
+            </DialogTitle>
+            <DialogDescription>
+              A CSV with{" "}
+              <strong className="text-foreground">
+                {totalUsers.toLocaleString()} farmer
+                {totalUsers === 1 ? "" : "s"}
+              </strong>
+              {isFiltered ? " matching the current filters" : ""} will be
+              downloaded. Preview of the columns and first rows below.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="rounded-md border border-border/60 h-[50vh] w-full">
+            <Table className="min-w-[1400px]">
+              <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
+                <TableRow className="hover:bg-transparent">
+                  {DOWNLOAD_PREVIEW_COLUMNS.map((col) => (
+                    <TableHead
+                      key={col.key}
+                      className="h-9 whitespace-nowrap text-[11px] font-semibold text-muted-foreground uppercase tracking-wider"
+                    >
+                      {col.label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.slice(0, 5).map((user) => (
+                  <TableRow key={user.userId} className="hover:bg-transparent">
+                    {DOWNLOAD_PREVIEW_COLUMNS.map((col) => (
+                      <TableCell
+                        key={col.key}
+                        className="whitespace-nowrap text-xs"
+                      >
+                        {col.getValue(user)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+
+          <p className="text-xs text-muted-foreground">
+            Showing {Math.min(5, users.length)} of {totalUsers.toLocaleString()}{" "}
+            row{totalUsers === 1 ? "" : "s"} that will be included in the
+            download.
+          </p>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDownloadConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleConfirmDownload}>
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {verificationToConfirm && (
   <div className="fixed inset-0 z-[9999] flex items-center justify-center">

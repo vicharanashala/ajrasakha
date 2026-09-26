@@ -33,8 +33,8 @@ export function PlaygroundHeader({
           />
         </div>
 
-        <div className="flex-1 md:flex justify-center min-w-0 hidden ">
-          <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
+        <div className="flex-1 md:flex justify-center min-w-0 hidden">
+          <TabsList className="flex gap-1 md:gap-2 flex-wrap justify-center bg-transparent p-0">
             {user &&
               user.role !== "expert" &&
               user.role !== "call_agent" &&
@@ -42,7 +42,7 @@ export function PlaygroundHeader({
               user.role !== "auditor" && (
                 <TabsTrigger
                   value="performance"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
                 >
                   <HoverCard openDelay={150}>
                     <span>Dashboard</span>
@@ -53,7 +53,7 @@ export function PlaygroundHeader({
             {user && (user.role === "gate_keeper" || user.role === "auditor") && (
               <TabsTrigger
                 value="roleDashboard"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
                 <HoverCard openDelay={150}>
                   <span>Dashboard</span>
@@ -63,7 +63,7 @@ export function PlaygroundHeader({
             {user && user.role === "expert" && (
               <TabsTrigger
                 value="expertPerformance"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
                 <HoverCard openDelay={150}>
                   <span>Dashboard</span>
@@ -86,7 +86,7 @@ export function PlaygroundHeader({
             {user && user.role == "expert" && (
               <TabsTrigger
                 value="questions"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
                 <span>My Queue</span>
               </TabsTrigger>
@@ -94,16 +94,28 @@ export function PlaygroundHeader({
             {user && user.role !== "call_agent" && (
               <TabsTrigger
                 value="all_questions"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
                 <span>All Questions</span>
+              </TabsTrigger>
+            )}
+
+            {user && user.role !== "call_agent" && (
+              <TabsTrigger
+                value="closed_answers"
+                className="relative px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+              >
+                <span className="absolute -top-1.5 -left-1.5 z-10 inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500">
+                  new
+                </span>
+                <span>Answer Sources</span>
               </TabsTrigger>
             )}
 
             {user && canManageUsers(user.role) && (
                 <TabsTrigger
                   value="user_management"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
                 >
                   <HoverCard openDelay={150}>
                     <span>
@@ -116,7 +128,7 @@ export function PlaygroundHeader({
             {user && user.role !== "call_agent" && (
               <TabsTrigger
                 value="upload"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
                 <HoverCard openDelay={150}>
                   <span>Agents Interface</span>
@@ -128,7 +140,7 @@ export function PlaygroundHeader({
               <>
                 <TabsTrigger
                   value="call_dashboard"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
                 >
                   <HoverCard openDelay={150}>
                     <span>Dashboard</span>
@@ -136,7 +148,7 @@ export function PlaygroundHeader({
                 </TabsTrigger>
                 <TabsTrigger
                   value="call_interface"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
                 >
                   <HoverCard openDelay={150}>
                     <span>Call Interface</span>
@@ -144,7 +156,7 @@ export function PlaygroundHeader({
                 </TabsTrigger>
                 <TabsTrigger
                   value="call_history"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
                 >
                   <HoverCard openDelay={150}>
                     <span>Call History</span>
@@ -157,11 +169,11 @@ export function PlaygroundHeader({
               <TabsTrigger
                 value="manage_agents"
                 onClick={() => onTabChange("manage_agents")}
-                className={
+                className={`px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 ${
                   activeTab === "manage_agents"
                     ? "bg-accent text-accent-foreground"
                     : ""
-                }
+                }`}
               >
                 Manage Agents
               </TabsTrigger>
@@ -172,7 +184,7 @@ export function PlaygroundHeader({
               user.role === "moderator") && (
                 <TabsTrigger
                   value="chatbotanalytics"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
                 >
                   <span>ChatBot Analytics</span>
                 </TabsTrigger>
@@ -181,7 +193,7 @@ export function PlaygroundHeader({
               (user.role === "admin" || user.role === "moderator" || user.role === "expert") && (
               <TabsTrigger
                 value="data_processing"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
                 <span>Data Processing</span>
               </TabsTrigger>

@@ -3992,6 +3992,77 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
+  /** Paginated variant of {@link findTimeBoundQuestionsForReallocation}: exact total count
+   *  plus a single DB page. The filter/$lookup/sort run once, then a $facet branches into
+   *  the page (skip/limit) and the count. */
+  async findTimeBoundQuestionsForReallocationPaged(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    requirePaeReviewNotDone = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
+    await this.init();
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+
+    const res = await this.QuestionSubmissionCollection.aggregate<{
+      items: IQuestionSubmission[];
+      total: { count: number }[];
+    }>([
+      {
+        $match: {
+          currentExpertAllocatedAt: {
+            $exists: true,
+            $ne: null,
+            $lte: fortyFiveMinAgo,
+          },
+          $or: [
+            {currentExpertOpenedAt: {$exists: false}},
+            {currentExpertOpenedAt: null},
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      {$unwind: '$question'},
+      {
+        $match: {
+          'question.source': { $in: sources },
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq: true},
+          ...(!isAdmin && {
+            'question.isTrainingQuestion': isTrainingUser ? true : { $ne: true },
+          }),
+          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
+        },
+      },
+      {$sort: {'question.createdAt': 1}},
+      {
+        $facet: {
+          items: [
+            {$skip: skip},
+            {$limit: limit},
+            {$project: {'question.embedding': 0}},
+          ],
+          total: [{$count: 'count'}],
+        },
+      },
+    ]).toArray();
+
+    return {
+      count: res[0]?.total?.[0]?.count ?? 0,
+      items: (res[0]?.items ?? []) as IQuestionSubmission[],
+    };
+  }
+
   /** Time-bound questions the current expert OPENED more than 45 min ago but still
    *  hasn't produced an answer for — i.e. the latest history entry carries no
    *  answer / approvedAnswer / modifiedAnswer / rejectedAnswer (an empty history,
@@ -4050,6 +4121,78 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
+  /** Paginated variant of {@link findOpenedButIdleTimeBoundQuestions}: exact total count
+   *  plus a single DB page via $facet. */
+  async findOpenedButIdleTimeBoundQuestionsPaged(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
+    await this.init();
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+
+    const res = await this.QuestionSubmissionCollection.aggregate<{
+      items: IQuestionSubmission[];
+      total: { count: number }[];
+    }>([
+      {
+        $match: {
+          currentExpertOpenedAt: {
+            $exists: true,
+            $ne: null,
+            $lte: fortyFiveMinAgo,
+          },
+        },
+      },
+      {
+        $addFields: {
+          lastHistory: {$arrayElemAt: [{$ifNull: ['$history', []]}, -1]},
+        },
+      },
+      {
+        $match: {
+          'lastHistory.answer': {$in: [null]},
+          'lastHistory.approvedAnswer': {$in: [null]},
+          'lastHistory.modifiedAnswer': {$in: [null]},
+          'lastHistory.rejectedAnswer': {$in: [null]},
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      {$unwind: '$question'},
+      {
+        $match: {
+          'question.source': { $in: sources },
+          'question.status': { $in: ['open', 'delayed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': { $eq: true },
+        },
+      },
+      {$sort: {'question.createdAt': 1}},
+      {
+        $facet: {
+          items: [
+            {$skip: skip},
+            {$limit: limit},
+            {$project: {'question.embedding': 0}},
+          ],
+          total: [{$count: 'count'}],
+        },
+      },
+    ]).toArray();
+
+    return {
+      count: res[0]?.total?.[0]?.count ?? 0,
+      items: (res[0]?.items ?? []) as IQuestionSubmission[],
+    };
+  }
+
   async findUnallocatedTimeBoundQuestions(
     sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
     requirePaeReviewNotDone: boolean = false,
@@ -4092,6 +4235,54 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       history: [],
       createdAt: q.createdAt,
     })) as unknown as IQuestionSubmission[];
+  }
+
+  /** Paginated variant of {@link findUnallocatedTimeBoundQuestions}: exact total count
+   *  plus a single DB page (skip/limit). Same filter/sort/shape as the non-paged method,
+   *  so the queue-details UI reads only one page instead of the whole list. */
+  async findUnallocatedTimeBoundQuestionsPaged(
+    sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
+    await this.init();
+
+    const filter: Record<string, unknown> = {
+      source: { $in: sources },
+      isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser ? true : { $ne: true },
+      }),
+      status: { $in: ['open', 'delayed'] },
+      firstAllocationAt: null,
+      isOnHold: { $ne: true },
+      isTesting: { $ne: true },
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    };
+
+    const [count, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any, {
+        projection: { embedding: 0 },
+      })
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+
+    const items = questions.map(q => ({
+      questionId: q._id,
+      question: q,
+      queue: [],
+      history: [],
+      createdAt: q.createdAt,
+    })) as unknown as IQuestionSubmission[];
+
+    return { count, items };
   }
 
   /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert
@@ -4173,6 +4364,91 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
     ]).toArray();
+  }
+
+  /** Paginated variant of {@link findAnsweredQuestionsNeedingReviewer}: exact total count
+   *  plus a single DB page via $facet. Oldest-first for stable pagination (the non-paged
+   *  version is unordered; ordering only affects display, not the level counts which are
+   *  computed separately). */
+  async findAnsweredQuestionsNeedingReviewerPaged(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    requirePaeReviewNotDone = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
+    await this.init();
+    const res = await this.QuestionSubmissionCollection.aggregate<{
+      items: IQuestionSubmission[];
+      total: { count: number }[];
+    }>([
+      {
+        $addFields: {
+          histLen: {$size: {$ifNull: ['$history', []]}},
+          queueLen: {$size: {$ifNull: ['$queue', []]}},
+          lastHistory: {$arrayElemAt: ['$history', -1]},
+        },
+      },
+      {
+        $match: {
+          queueLen: {$gt: 0},
+          $expr: {$gte: ['$histLen', '$queueLen']},
+          $or: [
+            {
+              $and: [
+                {queueLen: 1},
+                {'lastHistory.answer': {$exists: true, $ne: null}},
+              ],
+            },
+            {
+              $and: [
+                {queueLen: {$gt: 1}},
+                {'lastHistory.status': {$nin: ['in-review']}},
+              ],
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      {$unwind: '$question'},
+      {
+        $match: {
+          'question.isTesting': {$ne: true},
+          'question.source': { $in: sources },
+          'question.status': { $in: ['open', 'delayed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq: true},
+          ...(!isAdmin && {
+            'question.isTrainingQuestion': isTrainingUser ? true : { $ne: true },
+          }),
+          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
+        },
+      },
+      {$sort: {'question.createdAt': 1}},
+      {
+        $facet: {
+          items: [
+            {$skip: skip},
+            {$limit: limit},
+            {$project: {'question.embedding': 0}},
+          ],
+          total: [{$count: 'count'}],
+        },
+      },
+    ]).toArray();
+
+    return {
+      count: res[0]?.total?.[0]?.count ?? 0,
+      items: (res[0]?.items ?? []) as IQuestionSubmission[],
+    };
   }
 
   /** Atomically add a reviewer to a time-bound question:
@@ -5193,5 +5469,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       reviewerId: r.reviewerId?.toString(),
       assignedAt: r.assignedAt,
     }));
+  }
+
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   */
+  async getCompletedPaeValidationCount(paeExpertId: string): Promise<number> {
+    await this.init();
+    const paeOid = ObjectId.isValid(paeExpertId) ? new ObjectId(paeExpertId) : null;
+    const paeIds = paeOid ? [paeOid, paeExpertId] : [paeExpertId];
+
+    return await this.QuestionSubmissionCollection.countDocuments({
+      paeValidation: {
+        $elemMatch: {
+          paeId: { $in: paeIds },
+          paeStatus: 'completed',
+        },
+      },
+    });
   }
 }

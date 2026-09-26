@@ -429,7 +429,6 @@ const DownloadShiftWiseReportButton = ({
           disabled={isDownloading}
           onClick={() => closeSideBar()}
         >
-          <TopRightBadge label="new" left={0} />
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
               {isDownloading ? (

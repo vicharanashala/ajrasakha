@@ -84,7 +84,7 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH" | "QUESTION_COLLECTION";
 // New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium" | "critical";
 export type QuestionTimeRange = {
@@ -258,7 +258,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
         <div className="flex items-center gap-2 ">
           <Eye className="w-4 h-4 text-primary" />
           <span>All Statuses</span>
-          <TopRightBadge label="new" />
         </div>
       ),
     },
@@ -433,7 +432,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
       <DialogTrigger asChild>
         <button className="  w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative">
           <div className="flex items-center gap-3 w-full ">
-            <TopRightBadge label="new" left={0} />
             <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-500 dark:text-purple-400">
               <Settings size={20} />
             </div>

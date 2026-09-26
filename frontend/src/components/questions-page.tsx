@@ -25,6 +25,7 @@ import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuesti
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 export const QuestionsPage = ({
   currentUser,
@@ -707,6 +708,7 @@ export const QuestionsPage = ({
           )}
         </>
       )}
+      <ScrollToTopButton />
     </main>
   );
 };

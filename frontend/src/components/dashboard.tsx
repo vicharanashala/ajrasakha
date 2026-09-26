@@ -37,6 +37,7 @@ import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import type { IUser } from "@/types";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -597,6 +598,7 @@ export const Dashboard = () => {
           </button>
         </div>
       )}
+      <ScrollToTopButton />
     </main>
   );
 };

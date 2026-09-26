@@ -74,6 +74,10 @@ export class QuestionRepository implements IQuestionRepository {
   private ReviewCollection: Collection<IReview>;
   private ReRouteCollection: Collection<IReroute>;
 
+  /** Queue/moderator-details indexes are built once per process (createIndex is idempotent
+   *  but we still avoid the extra round-trips on every init()). */
+  private indexesEnsured = false;
+
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -92,13 +96,96 @@ export class QuestionRepository implements IQuestionRepository {
     this.AnswersCollection = await this.db.getCollection<IAnswer>('answers');
     this.ReviewCollection = await this.db.getCollection<IReview>('reviews');
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+
+    // Build the queue/moderator-details indexes once, in the background, on first use.
+    if (!this.indexesEnsured) {
+      this.indexesEnsured = true;
+      void this.ensureIndexes();
+    }
   }
 
   private async ensureIndexes() {
     try {
-      await this.QuestionCollection.createIndex({ status: 1, createdAt: 1 });
+      await Promise.all([
+        // Existing status/time index (kept).
+        this.QuestionCollection.createIndex({ status: 1, createdAt: 1 }),
+
+        // ── Queue-details: expert sections ────────────────────────────────
+        // received / allocated / autoAllocateOff / autoAllocateOpen /
+        // autoAllocateDelayed + allocated-level-counts all filter
+        // source(+isAutoAllocate)+status and sort by createdAt desc.
+        this.QuestionCollection.createIndex(
+          { source: 1, isAutoAllocate: 1, status: 1, createdAt: -1 },
+          { name: 'queue_expert_sections' },
+        ),
+        // "received" (source only, optional createdAt range) and the
+        // getReceivedStatusCounts group-by-status.
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, createdAt: -1 },
+          { name: 'queue_received' },
+        ),
+
+        // ── Queue-details: moderator sections ─────────────────────────────
+        // findUnassignedInReviewQuestions (waiting moderator queue).
+        this.QuestionCollection.createIndex(
+          {
+            status: 1,
+            autoAllocateModerator: 1,
+            moderatorId: 1,
+            createdAt: 1,
+          },
+          { name: 'queue_moderator_waiting' },
+        ),
+        // findModeratorAssignedQuestions (allocated moderator queue).
+        this.QuestionCollection.createIndex(
+          { status: 1, moderatorId: 1, createdAt: 1 },
+          { name: 'queue_moderator_allocated' },
+        ),
+        // findQuestionsWithOpenFeedbacks (waiting-feedback questions merged into the
+        // moderator queue): closed questions with an open feedback entry, ordered by
+        // recentFeedback. (feedbacks.status is multikey — feedbacks is an array.)
+        this.QuestionCollection.createIndex(
+          {
+            status: 1,
+            'feedbacks.status': 1,
+            recentFeedback: 1,
+            createdAt: 1,
+          },
+          { name: 'queue_feedback_waiting' },
+        ),
+
+        // ── Queue-details: gate keeper / auditor role sections ────────────
+        // findUnassignedQuestionsForRole (per assignee field).
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, gateKeeperId: 1, createdAt: 1 },
+          { name: 'queue_gatekeeper' },
+        ),
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, auditorId: 1, createdAt: 1 },
+          { name: 'queue_auditor' },
+        ),
+
+        // ── The $lookup join key used by nearly every queue aggregation ───
+        // Every queue-details section that reads submission queue/history does
+        // a $lookup from question_submissions on questionId. Without this the
+        // join scans the whole collection per question — the biggest win here.
+        this.QuestionSubmissionCollection.createIndex(
+          { questionId: 1 },
+          { name: 'submission_questionId' },
+        ),
+        // "Stuck" section: submissions allocated >45min ago and never opened.
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertAllocatedAt: 1 },
+          { name: 'submission_stuck' },
+        ),
+        // "Opened but idle" section: submissions opened >45min ago.
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertOpenedAt: 1 },
+          { name: 'submission_opened_idle' },
+        ),
+      ]);
     } catch (error) {
-      console.error('Failed to create index:', error);
+      console.error('Failed to create queue-details indexes:', error);
     }
   }
 
@@ -7410,15 +7497,40 @@ export class QuestionRepository implements IQuestionRepository {
     ).toArray() as Promise<{ _id: ObjectId; question: string; text?: string }[]>;
   }
 
+  async getQuestionsMissingEmbedding(
+    limit = 50,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  > {
+    await this.init();
+
+    return this.QuestionCollection.find(
+      {
+        $or: [
+          { embedding: { $exists: false } },
+          { embedding: null },
+          { embedding: { $size: 0 } },
+        ],
+      },
+      {
+        projection: { _id: 1, question: 1, text: 1, status: 1 },
+        limit,
+      },
+    ).toArray() as Promise<
+      { _id: ObjectId; question: string; text?: string; status?: string }[]
+    >;
+  }
+
   async updateQuestionEmbedding(
     questionId: string,
     embedding: number[],
-  ): Promise<void> {
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
     await this.init();
-    await this.QuestionCollection.updateOne(
+    const res = await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { embedding, updatedAt: new Date() } },
     );
+    return { matchedCount: res.matchedCount, modifiedCount: res.modifiedCount };
   }
 
   async bulkUpdateEmbeddings(
@@ -8505,6 +8617,38 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Paginated variant of {@link findModeratorAssignedQuestions}: exact total count plus a
+   *  single DB page (skip/limit), so the queue-details UI doesn't load the whole list into
+   *  memory just to show one page. Same filter/sort as the non-paged method. */
+  async findModeratorAssignedQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] },
+      moderatorId: { $exists: true, $ne: null },
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser ? true : { $ne: true };
+    }
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
+  }
+
   /** Mark ONE feedback source's entry (DATASET / WEB_APPLICATION / PAE_Validation) as
    *  closed on the question, then report whether EVERY feedback entry is now closed.
    *  Used so a reviewer's feedbacksAssigned id is removed and the review round is
@@ -8593,6 +8737,34 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Paginated variant of {@link findUnassignedQuestionsForRole}: exact total count plus a
+   *  single DB page (skip/limit). Same filter/sort as the non-paged method. */
+  async findUnassignedQuestionsForRolePaged(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: statuses },
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      [assigneeField]: { $in: [null, undefined] },
+      [autoAllocateField]: { $eq: true },
+      isOnHold: { $ne: true },
+    };
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
+  }
+
   /** Questions created in a window, for the TAT (turnaround-time) lifecycle report.
    *  Mirrors scripts/timebound-question-cycle-report.js: default scope is time-bound
    *  (AJRASAKHA/WHATSAPP + isAutoAllocate), test questions excluded. `allSources` drops
@@ -8658,6 +8830,31 @@ export class QuestionRepository implements IQuestionRepository {
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
     } as any)
       .toArray();
+  }
+
+  /** Paginated variant of {@link findQuestionsAssignedToRole}: exact total count plus a
+   *  single DB page (skip/limit), ordered oldest-first for stable pagination. */
+  async findQuestionsAssignedToRolePaged(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter = {
+      [assigneeField]: { $ne: null, $exists: true },
+      status: { $in: statuses },
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+    };
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
   }
 
   /** "Leaked" role assignments: a question still points to a gate keeper / auditor

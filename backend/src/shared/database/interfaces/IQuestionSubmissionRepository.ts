@@ -310,6 +310,15 @@ export interface IQuestionSubmissionRepository {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findTimeBoundQuestionsForReallocation (count + one DB page). */
+  findTimeBoundQuestionsForReallocationPaged(
+    sources: QuestionSource[] | undefined,
+    requirePaeReviewNotDone: boolean | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Find all single-allocation submissions that were never allocated — queue is
    *  empty and currentExpertAllocatedAt is null/missing. Defaults to time-bound
@@ -320,6 +329,15 @@ export interface IQuestionSubmissionRepository {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findUnallocatedTimeBoundQuestions (count + one DB page). */
+  findUnallocatedTimeBoundQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    requirePaeReviewNotDone: boolean | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Find time-bound submissions the current expert opened > 45 min ago but still
    *  hasn't answered (latest history entry has no answer/approved/modified/rejected).
@@ -327,6 +345,12 @@ export interface IQuestionSubmissionRepository {
   findOpenedButIdleTimeBoundQuestions(
     sources?: QuestionSource[],
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findOpenedButIdleTimeBoundQuestions (count + one DB page). */
+  findOpenedButIdleTimeBoundQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Find submissions where the initial answer was submitted (last history entry
    *  has an answer) but status is still open/delayed — needs a reviewer. */
@@ -336,6 +360,15 @@ export interface IQuestionSubmissionRepository {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
+  /** Paginated variant of findAnsweredQuestionsNeedingReviewer (count + one DB page). */
+  findAnsweredQuestionsNeedingReviewerPaged(
+    sources: QuestionSource[] | undefined,
+    requirePaeReviewNotDone: boolean | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }>;
 
   /** Atomically push reviewer into queue, add an in-review history entry, and
    *  reset the 45-min allocation clock (currentExpertAllocatedAt/OpenedAt). */
@@ -390,4 +423,9 @@ export interface IQuestionSubmissionRepository {
     {questionId: string; reviewerId: string; assignedAt: Date}[]
   >;
 
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   * @param paeExpertId - The PAE expert's user ID
+   */
+  getCompletedPaeValidationCount(paeExpertId: string): Promise<number>;
 }
