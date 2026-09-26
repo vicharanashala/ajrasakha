@@ -15,6 +15,7 @@ import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { getBackgroundJobs, getJobById } from '#root/workers/workerManager.js';
+import { getBulkDeleteJobs, getBulkDeleteJobById } from '#root/workers/bulkDelete.manager.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { CheckOverlapsService } from '../services/CheckOverlapsService.js';
 import { InternalApiAuth } from '#root/shared/index.js';
@@ -44,6 +45,20 @@ export class QuestionMaintenanceController {
   @OpenAPI({ summary: 'Get status of a specific background job by ID' })
   getJob(@Param('id') id: string) {
     const job = getJobById(id);
+    if (!job) return { message: 'Job not found' };
+    return job;
+  }
+
+  @Get('/bulk-delete-status')
+  @OpenAPI({ summary: 'Get status of all bulk delete worker jobs' })
+  getAllBulkDeleteJobs() {
+    return getBulkDeleteJobs();
+  }
+
+  @Get('/bulk-delete/jobs/:id')
+  @OpenAPI({ summary: 'Get status of a specific bulk delete job by ID' })
+  getBulkDeleteJob(@Param('id') id: string) {
+    const job = getBulkDeleteJobById(id);
     if (!job) return { message: 'Job not found' };
     return job;
   }

@@ -250,6 +250,7 @@ export const STATUS=[
   "in-review",
   "delayed",
   "re-routed",
+  "hold",
   "pae_submitted",
   //"pae_closed",
   "pass",

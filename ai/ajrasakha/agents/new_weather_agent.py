@@ -667,6 +667,19 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
         if is_past_rain_q:
             clean_ans = re.sub(r"(?im)^(?:Yes,\s+there\s+is\s+a\s+chance\s+of\s+rain|No\s+(?:significant\s+)?rain\s+is\s+expected|Rain\s+forecast:)[^\n]*\n*", "", clean_ans).strip()
             clean_ans = re.sub(r"(?im)^\s*[\*\-]?\s*(?:Departure|Departure\s+from\s+normal)\s*:\s*[+\-0-9%]+\.?\s*$\n?", "", clean_ans).strip()
+
+        # Guarantee Observation station / Notice line from full_answer is preserved in final answer
+        obs_match = re.search(r"(?im)^\s*(?:Observation station|Notice: No active)[^\n]+", full_answer)
+        if obs_match:
+            obs_line = obs_match.group(0).strip()
+            if "Observation station" not in clean_ans and "Notice:" not in clean_ans:
+                clean_lines = clean_ans.split("\n")
+                if len(clean_lines) >= 2:
+                    clean_lines.insert(2, obs_line)
+                else:
+                    clean_lines.append(obs_line)
+                clean_ans = "\n".join(clean_lines)
+
         return _ensure_weather_answer_spacing(clean_ans)
 
     if answer and answer.strip():
@@ -879,50 +892,7 @@ _INDIAN_STATES = {
 }
 
 
-def _extract_location_from_query(query: str) -> tuple[str | None, str | None]:
-    """Extract (place_name, state_name) from query string when omitted from tool call arguments."""
-    q = (query or "").strip()
-    if not q:
-        return None, None
-    q_low = q.lower()
-
-    # 1. State match (longest match first)
-    detected_state = None
-    for s in sorted(_INDIAN_STATES, key=len, reverse=True):
-        if re.search(rf"\b{re.escape(s)}\b", q_low):
-            detected_state = s.title()
-            break
-
-    # 2. Prepositional place pattern: "in <place>", "at <place>", "for <place>", "near <place>", "around <place>", "of <place>"
-    # Search all occurrences and pick the best place candidate (excluding weather/temporal words)
-    STOP_WORDS = {
-        "today", "tomorrow", "yesterday", "this week", "now", "right now",
-        "weather", "climate", "rain", "rainfall", "chances", "chance",
-        "warning", "warnings", "information", "info", "forecast", "history",
-        "temp", "temperature", "humidity", "wind", "advisory", "the", "a", "an",
-        "past", "days", "last", "next", "current", "over", "during", "since"
-    }
-
-    detected_place = None
-    pattern = r"\b(in|at|near|around|for|of)\s+([A-Za-z\s]+?)(?=\s+(?:today|tomorrow|yesterday|this\s+week|now|right\s+now|weather|climate|rain|rainfall|chances|chance|warning|warnings|history|forecast|over|during|since|for|from|past|last|next|coming)\b|\s+\d|[.,?!]|$)"
-
-    candidates = []
-    for m in re.finditer(pattern, q, re.I):
-        prep = m.group(1).lower()
-        cand = m.group(2).strip()
-        cand_clean = re.sub(r"\b(?:the|a|an|district|state|city|town)\b", "", cand, flags=re.I).strip()
-        cand_words = {w.lower() for w in cand_clean.split()}
-        if cand_clean and not cand_words.issubset(STOP_WORDS) and cand_clean.lower() not in STOP_WORDS:
-            score = 3 if prep in {"in", "at", "near", "around"} else (2 if prep == "for" else 1)
-            candidates.append((score, cand_clean))
-
-    if candidates:
-        candidates.sort(key=lambda x: x[0])
-        detected_place = candidates[-1][1]
-
-    if detected_place and detected_place.lower() in _INDIAN_STATES:
-        return None, detected_place.title()
-    return detected_place, detected_state
+from ajrasakha.agents.location_context import extract_location_from_query as _extract_location_from_query
 
 
 
@@ -946,7 +916,7 @@ async def new_weather(
     try:
         lat = latitude
         lon = longitude
-        place_district = district or address
+        place_district = district
         place_state = state
         place_location = location
 
@@ -1012,11 +982,13 @@ async def new_weather(
                 from ajrasakha.agents.location_context import forward_geocode
                 geocode_result = await forward_geocode(
                     state=place_state,
-                    district=place_district or place_location,
+                    district=place_location or place_district,
                 )
                 if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
                     lat = geocode_result.get("latitude")
                     lon = geocode_result.get("longitude")
+                    if geocode_result.get("district"):
+                        place_district = geocode_result.get("district")
                     logger.info(
                         "new_weather_agent: forward geocoded location %r to %s, %s",
                         place_district or place_location or place_state,
