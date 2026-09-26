@@ -24,6 +24,8 @@ import {
 } from './adminSummaryTargets.js';
 
 const COLLECTION = 'tester_test_cases';
+const COUNTER_COLLECTION = 'tester_log_counters';
+const TEST_CASE_COUNTER_ID = 'test_case_id';
 // One row per admin edit/delete of a tester_test_cases entry (see
 // TesterLogAuditRecord) - a delete's row holds the full removed document.
 const AUDIT_COLLECTION = 'tester_test_cases_audit';
@@ -291,12 +293,166 @@ function buildDateFilter(
     };
 }
 
+/**
+ * Auto-increments a Test ID string while preserving its prefix and zero-padding.
+ * Examples:
+ *   "TL-0005" => "TL-0006"
+ *   "TL-005" => "TL-006"
+ *   "TL_1-6513" => "TL_1-6514"
+ *   "TL-999" => "TL-1000"
+ *   "123" => "124"
+ */
+export function incrementTestId(lastId?: string | null): string {
+    if (!lastId || typeof lastId !== 'string') {
+        return 'TL-0001';
+    }
+    const trimmed = lastId.trim();
+    const match = trimmed.match(/^(.*?)(\d+)$/);
+    if (!match) {
+        return `${trimmed}-0001`;
+    }
+    const prefix = match[1];
+    const digitsStr = match[2];
+    const currentNum = parseInt(digitsStr, 10);
+    const nextNum = currentNum + 1;
+    const nextDigits = String(nextNum).padStart(digitsStr.length, '0');
+    return `${prefix}${nextDigits}`;
+}
+
 @injectable()
 export class TesterLogService implements ITesterLogService {
     constructor(
         @inject(DATABASE_TOKEN)
         private readonly db: DatabaseProvider,
     ) {}
+
+    private async ensureCounterInitialized(): Promise<void> {
+        try {
+            const counters = await this.db.getCollection(COUNTER_COLLECTION);
+            const existing = await counters.findOne({ _id: TEST_CASE_COUNTER_ID });
+            if (existing) return;
+
+            // Determine starting seq from existing entries in tester_test_cases
+            let startSeq = 0;
+            let prefix = 'TL-';
+            let padLen = 4;
+
+            try {
+                const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
+                const docs = await collection
+                    .find({ testId: { $exists: true, $nin: [null, ''] } })
+                    .sort({ createdAt: -1, _id: -1 })
+                    .limit(100)
+                    .toArray();
+
+                for (const doc of docs) {
+                    const rawId = doc.testId?.trim();
+                    if (!rawId) continue;
+                    const match = rawId.match(/^(.*?)(\d+)$/);
+                    if (match) {
+                        const num = parseInt(match[2], 10);
+                        if (num > startSeq) {
+                            startSeq = num;
+                            prefix = match[1];
+                            padLen = match[2].length;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('[TesterLogService] Error scanning existing testIds for counter init:', err);
+            }
+
+            try {
+                await counters.insertOne({
+                    _id: TEST_CASE_COUNTER_ID,
+                    seq: startSeq,
+                    prefix,
+                    padLen,
+                    updatedAt: new Date(),
+                });
+            } catch (err: any) {
+                // If another concurrent request inserted it first (E11000 duplicate key), ignore safely
+                if (err?.code !== 11000 && !err?.message?.includes('duplicate key')) {
+                    console.error('[TesterLogService] Error inserting counter doc:', err);
+                }
+            }
+        } catch (err) {
+            console.error('[TesterLogService] Error ensuring counter initialized:', err);
+        }
+    }
+
+    async allocateNextTestId(): Promise<string> {
+        await this.ensureCounterInitialized();
+        try {
+            const counters = await this.db.getCollection(COUNTER_COLLECTION);
+            const res = await counters.findOneAndUpdate(
+                { _id: TEST_CASE_COUNTER_ID },
+                { $inc: { seq: 1 }, $setOnInsert: { prefix: 'TL-', padLen: 4 } },
+                { upsert: true, returnDocument: 'after' },
+            );
+            const doc = (res && typeof res === 'object' && 'value' in res) ? res.value : res;
+            if (doc && typeof doc.seq === 'number') {
+                const prefix = doc.prefix ?? 'TL-';
+                const padLen = doc.padLen ?? 4;
+                return `${prefix}${String(doc.seq).padStart(padLen, '0')}`;
+            }
+        } catch (err) {
+            console.error('[TesterLogService] Error allocating next testId via atomic counter:', err);
+        }
+
+        const lastId = await this.getLastTestId();
+        return incrementTestId(lastId);
+    }
+
+    async getLastTestId(): Promise<string | null> {
+        try {
+            const counters = await this.db.getCollection(COUNTER_COLLECTION);
+            const counterDoc = await counters.findOne({ _id: TEST_CASE_COUNTER_ID });
+            if (counterDoc && typeof counterDoc.seq === 'number' && counterDoc.seq > 0) {
+                const prefix = counterDoc.prefix ?? 'TL-';
+                const padLen = counterDoc.padLen ?? 4;
+                return `${prefix}${String(counterDoc.seq).padStart(padLen, '0')}`;
+            }
+        } catch (err) {
+            console.error('[TesterLogService] Error fetching counter doc:', err);
+        }
+
+        try {
+            const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
+            const latestDocs = await collection
+                .find({ testId: { $exists: true, $nin: [null, ''] } })
+                .sort({ createdAt: -1, _id: -1 })
+                .limit(1)
+                .toArray();
+
+            if (latestDocs && latestDocs.length > 0 && latestDocs[0].testId?.trim()) {
+                return latestDocs[0].testId.trim();
+            }
+        } catch (err) {
+            console.error('[TesterLogService] Error fetching latest testId from DB:', err);
+        }
+
+        return null;
+    }
+
+    async getNextTestId(): Promise<string> {
+        await this.ensureCounterInitialized();
+        try {
+            const counters = await this.db.getCollection(COUNTER_COLLECTION);
+            const counterDoc = await counters.findOne({ _id: TEST_CASE_COUNTER_ID });
+            if (counterDoc && typeof counterDoc.seq === 'number') {
+                const nextSeq = counterDoc.seq + 1;
+                const prefix = counterDoc.prefix ?? 'TL-';
+                const padLen = counterDoc.padLen ?? 4;
+                return `${prefix}${String(nextSeq).padStart(padLen, '0')}`;
+            }
+        } catch (err) {
+            console.error('[TesterLogService] Error getting next testId from counter:', err);
+        }
+
+        const lastId = await this.getLastTestId();
+        return incrementTestId(lastId);
+    }
 
     async createEntry(
         userId: string,
@@ -307,8 +463,29 @@ export class TesterLogService implements ITesterLogService {
         const now = new Date();
         const testDate = getTodayIST(now);
 
+        let testId = body.testId?.trim();
+        if (!testId) {
+            testId = await this.allocateNextTestId();
+        } else {
+            // If an explicit testId was provided, synchronize counter sequence if higher
+            const match = testId.match(/^(.*?)(\d+)$/);
+            if (match) {
+                const num = parseInt(match[2], 10);
+                try {
+                    const counters = await this.db.getCollection(COUNTER_COLLECTION);
+                    await counters.updateOne(
+                        { _id: TEST_CASE_COUNTER_ID, seq: { $lt: num } },
+                        { $set: { seq: num, prefix: match[1], padLen: match[2].length } },
+                    );
+                } catch {
+                    // best effort
+                }
+            }
+        }
+
         const entry: TesterLogEntry = {
             ...body,
+            testId,
             testDate,
             submittedByUserId: userId,
             submittedByEmail: email,

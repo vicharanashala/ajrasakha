@@ -51,3 +51,11 @@ export const useTesterQuestionTypeSummary = (filters: ITesterQuestionTypeSummary
         staleTime: 1000 * 60 * 2,
     });
 };
+
+export const useNextTestId = () => {
+    return useQuery({
+        queryKey: ['tester-log-next-test-id'],
+        queryFn: () => testerLogService.getNextTestId(),
+        staleTime: 0,
+    });
+};

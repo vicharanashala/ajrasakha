@@ -10,15 +10,18 @@ interface TimeInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement
     label?: string;
     hint?: string;
     readOnly?: boolean;
+    error?: string;
+    required?: boolean;
 }
 
 export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(
-    ({ label, hint, className, readOnly, ...props }, ref) => {
+    ({ label, hint, className, readOnly, error, required, ...props }, ref) => {
         return (
             <div className="flex flex-col gap-1">
                 {label && (
                     <label className="text-sm font-medium text-foreground">
                         {label}
+                        {required && <span className="text-destructive ml-0.5">*</span>}
                         {readOnly && (
                             <span className="ml-1 text-xs text-muted-foreground">(auto)</span>
                         )}
@@ -36,11 +39,13 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(
                         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                         readOnly && 'bg-muted text-muted-foreground cursor-default',
+                        error && 'border-destructive focus-visible:ring-destructive',
                         className,
                     )}
                     {...props}
                 />
-                {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+                {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
+                {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
             </div>
         );
     },

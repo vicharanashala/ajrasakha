@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as XLSX from 'xlsx';
-import { TesterLogService } from '../services/TesterLogService.js';
+import { TesterLogService, incrementTestId } from '../services/TesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
 
 describe('TesterLogService date filtering', () => {
@@ -26,7 +26,7 @@ describe('TesterLogService date filtering', () => {
         // limit->toArray) and the unpaginated one (exportEntries: sort->
         // toArray directly) - both need to work off the same mock.
         mockSkip = vi.fn().mockReturnValue({ limit: mockLimit });
-        mockSort = vi.fn().mockReturnValue({ skip: mockSkip, toArray: mockToArray });
+        mockSort = vi.fn().mockReturnValue({ skip: mockSkip, toArray: mockToArray, limit: mockLimit });
         // getQuestionTypeSummary calls find(filter).toArray() directly, with
         // no sort/skip/limit chain - toArray needs to be reachable straight
         // off find()'s return too, same as a real MongoDB cursor supports
@@ -53,10 +53,19 @@ describe('TesterLogService date filtering', () => {
         mockUsersFind = vi.fn().mockReturnValue({ toArray: mockUsersToArray });
         mockUsersCollection = { find: mockUsersFind };
 
+        const mockCountersCollection = {
+            findOne: vi.fn().mockResolvedValue({ _id: 'test_case_id', seq: 1, prefix: 'TL-', padLen: 4 }),
+            findOneAndUpdate: vi.fn().mockResolvedValue({ seq: 2, prefix: 'TL-', padLen: 4 }),
+            insertOne: vi.fn().mockResolvedValue({}),
+            updateOne: vi.fn().mockResolvedValue({}),
+        };
+
         mockDb = {
-            getCollection: vi.fn((name: string) =>
-                Promise.resolve(name === 'users' ? mockUsersCollection : mockCollection),
-            ),
+            getCollection: vi.fn((name: string) => {
+                if (name === 'users') return Promise.resolve(mockUsersCollection);
+                if (name === 'tester_log_counters') return Promise.resolve(mockCountersCollection);
+                return Promise.resolve(mockCollection);
+            }),
         };
 
         service = new TesterLogService(mockDb);
@@ -986,5 +995,157 @@ describe('TesterLogService admin edit/delete', () => {
         entries.findOne.mockResolvedValue(null);
         expect(await service.deleteEntry(ID, actor)).toBe(false);
         expect(entries.deleteOne).not.toHaveBeenCalled();
+    });
+});
+
+describe('incrementTestId', () => {
+    it('increments standard TL-0005 to TL-0006 preserving padding', () => {
+        expect(incrementTestId('TL-0005')).toBe('TL-0006');
+    });
+
+    it('increments TL-005 to TL-006 preserving 3-digit padding', () => {
+        expect(incrementTestId('TL-005')).toBe('TL-006');
+    });
+
+    it('increments TL_1-6513 to TL_1-6514', () => {
+        expect(incrementTestId('TL_1-6513')).toBe('TL_1-6514');
+    });
+
+    it('increments and expands digits on overflow (e.g. TL-999 to TL-1000)', () => {
+        expect(incrementTestId('TL-999')).toBe('TL-1000');
+    });
+
+    it('handles numeric only ID like 1 to 2', () => {
+        expect(incrementTestId('1')).toBe('2');
+        expect(incrementTestId('09')).toBe('10');
+    });
+
+    it('returns TL-0001 when lastId is null or empty', () => {
+        expect(incrementTestId(null)).toBe('TL-0001');
+        expect(incrementTestId('')).toBe('TL-0001');
+        expect(incrementTestId(undefined)).toBe('TL-0001');
+    });
+
+    it('appends -0001 when string does not end with digits', () => {
+        expect(incrementTestId('TL-ABC')).toBe('TL-ABC-0001');
+    });
+});
+
+describe('TesterLogService getNextTestId and allocateNextTestId', () => {
+    let service: TesterLogService;
+    let mockCollection: any;
+    let mockCountersCollection: any;
+    let mockDb: any;
+
+    beforeEach(() => {
+        mockCollection = {
+            find: vi.fn().mockReturnValue({
+                sort: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockReturnValue({
+                        toArray: vi.fn().mockResolvedValue([]),
+                    }),
+                }),
+            }),
+            insertOne: vi.fn().mockResolvedValue({ insertedId: 'entry-test-1' }),
+        };
+
+        mockCountersCollection = {
+            findOne: vi.fn().mockResolvedValue(null),
+            findOneAndUpdate: vi.fn().mockImplementation(async (filter, update) => {
+                return { seq: 1, prefix: 'TL-', padLen: 4 };
+            }),
+            insertOne: vi.fn().mockResolvedValue({}),
+            updateOne: vi.fn().mockResolvedValue({}),
+        };
+
+        mockDb = {
+            getCollection: vi.fn((name: string) => {
+                if (name === 'tester_log_counters') return Promise.resolve(mockCountersCollection);
+                return Promise.resolve(mockCollection);
+            }),
+        };
+        service = new TesterLogService(mockDb);
+    });
+
+    it('returns TL-0001 when database is completely empty', async () => {
+        const nextId = await service.getNextTestId();
+        expect(nextId).toBe('TL-0001');
+    });
+
+    it('increments from existing counter in tester_log_counters', async () => {
+        mockCountersCollection.findOne.mockResolvedValue({
+            _id: 'test_case_id',
+            seq: 25,
+            prefix: 'TL-',
+            padLen: 4,
+        });
+
+        const nextId = await service.getNextTestId();
+        expect(nextId).toBe('TL-0026');
+    });
+
+    it('initializes counter from existing entries in tester_test_cases if counter does not exist', async () => {
+        mockCollection.find.mockReturnValue({
+            sort: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                    toArray: vi.fn().mockResolvedValue([{ testId: 'TL-0042' }]),
+                }),
+            }),
+        });
+
+        const nextId = await service.getNextTestId();
+        expect(nextId).toBe('TL-0043');
+        expect(mockCountersCollection.insertOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                _id: 'test_case_id',
+                seq: 42,
+                prefix: 'TL-',
+                padLen: 4,
+            }),
+        );
+    });
+
+    it('auto-assigns testId in createEntry atomically if testId is omitted', async () => {
+        mockCountersCollection.findOneAndUpdate.mockResolvedValue({
+            seq: 100,
+            prefix: 'TL-',
+            padLen: 4,
+        });
+
+        const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+            typeOfQuestion: 'Unique',
+        } as any);
+
+        expect(result.entry.testId).toBe('TL-0100');
+        expect(mockCollection.insertOne).toHaveBeenCalledWith(
+            expect.objectContaining({ testId: 'TL-0100' }),
+        );
+    });
+
+    it('supports 50 concurrent submissions with unique sequential test IDs and zero duplicates', async () => {
+        let currentSeq = 10;
+        // Simulate atomic findOneAndUpdate in MongoDB
+        mockCountersCollection.findOneAndUpdate.mockImplementation(async () => {
+            currentSeq += 1;
+            return { seq: currentSeq, prefix: 'TL-', padLen: 4 };
+        });
+
+        // 50 concurrent testers submitting test cases simultaneously
+        const concurrentPromises = Array.from({ length: 50 }, (_, i) =>
+            service.createEntry(`user-${i}`, `tester${i}@example.com`, `Tester ${i}`, {
+                typeOfQuestion: 'Functional',
+            } as any),
+        );
+
+        const results = await Promise.all(concurrentPromises);
+        const allocatedIds = results.map(r => r.entry.testId);
+
+        // All 50 IDs must be unique
+        const uniqueIds = new Set(allocatedIds);
+        expect(uniqueIds.size).toBe(50);
+
+        // Sequence must range from TL-0011 to TL-0060
+        expect(allocatedIds).toContain('TL-0011');
+        expect(allocatedIds).toContain('TL-0060');
     });
 });

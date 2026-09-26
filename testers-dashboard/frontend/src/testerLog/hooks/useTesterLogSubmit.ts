@@ -1,4 +1,4 @@
-﻿import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { testerLogService } from '../services/testerLogService';
 import type { ITesterLogEntry } from '../types';
@@ -13,6 +13,7 @@ export const useTesterLogSubmit = () => {
         onSuccess: () => {
             toast.success('Test case submitted successfully!');
             queryClient.invalidateQueries({ queryKey: ['tester-log-history'] });
+            queryClient.invalidateQueries({ queryKey: ['tester-log-next-test-id'] });
         },
         onError: (err: Error) => {
             toast.error(err.message ?? 'Failed to submit test case');

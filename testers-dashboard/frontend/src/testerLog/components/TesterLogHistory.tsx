@@ -66,6 +66,15 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                         </span>
                     )}
                 </td>
+                <td className="px-4 py-3 text-sm font-mono font-medium whitespace-nowrap">
+                    {entry.testId ? (
+                        <span className="inline-block px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-xs">
+                            {entry.testId}
+                        </span>
+                    ) : (
+                        <span className="text-muted-foreground">—</span>
+                    )}
+                </td>
                 <td className="px-4 py-3 text-sm font-mono text-muted-foreground">
                     <div>{entry.threadId || entry.webThreadId || "—"}</div>
                     {entry.waThreadId && (
@@ -84,7 +93,7 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
             </tr>
             {expanded && (
                 <tr className="border-b border-border bg-muted/20">
-                    <td colSpan={7} className="px-6 py-4">
+                    <td colSpan={8} className="px-6 py-4">
                         {isCross && (
                             <div className="mb-4 p-3.5 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
                                 <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
@@ -105,6 +114,7 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                             </div>
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                            <DetailRow label="Test ID" value={entry.testId} />
                             <DetailRow label="Type of Question" value={entry.typeOfQuestion} />
                             <DetailRow label="Build / Version" value={entry.buildVersion} />
                             <DetailRow label="Sprint / Cycle" value={entry.sprintCycle} />
@@ -363,7 +373,7 @@ export function TesterLogHistory() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-muted/60 border-b border-border">
-                                    {["Test Date", "Thread ID", "Query Text", "Overall Status", "Status", "Submitted At", ""].map(h => (
+                                    {["Test Date", "Test ID", "Thread ID", "Query Text", "Overall Status", "Status", "Submitted At", ""].map(h => (
                                         <th key={h} className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                                             {h}
                                         </th>

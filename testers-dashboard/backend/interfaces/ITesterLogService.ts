@@ -353,6 +353,12 @@ export interface ITesterLogService {
         body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt' | 'testDate'> & { testDate?: string },
     ): Promise<CreateTesterLogEntryResponse>;
 
+    // Computes the next auto-incremented Test ID based on the last recorded test case.
+    getNextTestId(): Promise<string>;
+
+    // Atomically increments and allocates the next unique Test ID.
+    allocateNextTestId(): Promise<string>;
+
     // Admin edit. Only the form's own input fields are applied - record
     // bookkeeping (_id, submittedBy*, testerName, createdAt) is never
     // touched, and the [Auto] duration fields are recomputed. Returns null

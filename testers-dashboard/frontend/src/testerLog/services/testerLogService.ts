@@ -12,6 +12,7 @@ import type {
     ITesterQuestionTypeSummary,
     ITesterQuestionTypeSummaryFilters,
     ITesterLogSummaryResponse,
+    INextTestIdResponse,
 } from "../types";
 
 const API_BASE_URL = env.apiBaseUrl();
@@ -31,6 +32,12 @@ function buildAdminFilterParams(filters: ITesterLogAdminFilters): URLSearchParam
 
 export class TesterLogService {
     private readonly baseUrl = `${API_BASE_URL}/tester-log`;
+
+    async getNextTestId(): Promise<string> {
+        const response = await apiFetch<INextTestIdResponse>(`${this.baseUrl}/next-test-id`);
+        if (!response?.nextTestId) throw new Error("Failed to fetch next test ID");
+        return response.nextTestId;
+    }
 
     async submitEntry(
         body: Omit<ITesterLogEntry, "_id" | "submittedByUserId" | "submittedByEmail" | "testerName" | "createdAt" | "updatedAt">,

@@ -69,6 +69,10 @@ export class TesterLogController {
         const userId = currentUser._id?.toString();
         if (!userId) throw new BadRequestError('Could not resolve user ID');
 
+        if (!body.typeOfQuestion?.trim() || !body.channelTested?.trim() || !body.queryText?.trim()) {
+            throw new BadRequestError('Required fields missing: typeOfQuestion, channelTested, and queryText must be provided.');
+        }
+
         const testerName =
             [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ').trim() ||
             currentUser.email;
@@ -120,6 +124,16 @@ export class TesterLogController {
         );
     }
 
+    @OpenAPI({
+        summary: 'Get next auto-incremented Test ID',
+        description: 'Returns the next consistent Test ID based on the last recorded test case in the database or sheet.',
+    })
+    @Authorized(['tester'])
+    @Get('/next-test-id')
+    async getNextTestId() {
+        const nextTestId = await this.testerLogService.getNextTestId();
+        return { success: true, nextTestId };
+    }
 
     @OpenAPI({
         summary: 'Get all tester submissions (admin only)',

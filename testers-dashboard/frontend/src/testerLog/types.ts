@@ -158,6 +158,11 @@ export interface ICreateTesterLogEntryResponse {
     entry: ITesterLogEntry;
 }
 
+export interface INextTestIdResponse {
+    success: boolean;
+    nextTestId: string;
+}
+
 /** The question-type categories the Summary tab's targets are defined over.
  * Mirrors the backend's QuestionTypeKey - see the backend's
  * services/adminSummaryTargets.ts for the actual numbers (this side has no
@@ -460,3 +465,5 @@ export const INDIAN_LANGUAGES_OPTIONS = [
     'Urdu',
     'Others',
 ];
+
+export const TAGGING_OPTIONS = ['Tagged as Duplicate', 'Other'];
