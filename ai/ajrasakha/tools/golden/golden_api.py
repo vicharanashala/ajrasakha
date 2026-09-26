@@ -592,6 +592,13 @@ class TranslateToEnglishRequest(BaseModel):
     )
 
 
+class ResolvedTerm(BaseModel):
+    """A single resolved local/regional term."""
+    original_term: str = Field(..., description="Original term as used in input text")
+    canonical_name: str = Field(..., description="Canonical/standardized name")
+    english_meaning: Optional[str] = Field(None, description="English meaning of the canonical name")
+
+
 class TranslateToEnglishResponse(BaseModel):
     """Response model for translation endpoint."""
     original_text: str = Field(..., description="The original input text")
@@ -599,9 +606,9 @@ class TranslateToEnglishResponse(BaseModel):
     source_language: Optional[str] = Field(None, description="The detected or provided source language")
     original_length: int = Field(..., description="Character count of original text")
     translated_length: int = Field(..., description="Character count of translated text")
-    local_names_resolved: list[list[str]] = Field(
+    local_names_resolved: list[ResolvedTerm] = Field(
         default_factory=list,
-        description="List of [original_name, canonical_name] pairs resolved via MCP local aliases tool"
+        description="List of local/regional terms resolved via MCP lookup_sentence tool"
     )
 
 
@@ -618,9 +625,10 @@ class TranslateToEnglishResponse(BaseModel):
         "- Auto-detects source language if not provided\n"
         "- Resolves local/regional crop names to canonical names via MCP local aliases tool\n\n"
         "**MCP Integration:**\n"
-        "- Calls lookup_local_name() on MCP server at http://100.100.108.44:9103/\n"
-        "- Resolves regional names like 'vazhuthana' to canonical 'Brinjal'\n"
-        "- Returns local_names_resolved in response\n\n"
+        "- Uses lookup_sentence() batch tool for efficient sentence-based lookup\n"
+        "- Handles multi-word terms (e.g., 'Gulli Danda', 'Madhya Pradesh')\n"
+        "- Returns English meanings for better translation context\n"
+        "- MCP server: http://100.100.108.44:9103/\n\n"
         "**Use cases:**\n"
         "- Preprocess non-English queries before Golden DB search\n"
         "- Translate farmer questions to English for downstream processing"
@@ -629,26 +637,27 @@ class TranslateToEnglishResponse(BaseModel):
 async def translate_to_english_endpoint(body: TranslateToEnglishRequest):
     """Translate input text to English using Claude Sonnet model with MCP local aliases integration."""
     from anthropic import APITimeoutError, APIConnectionError, APIStatusError
-    from mcp_client import resolve_local_names_in_text
+    from mcp_client import resolve_local_names_batch
     
     try:
         log.info("translate_to_english_endpoint: text_len=%d source_language=%s", len(body.text), body.source_language)
         
-        # Step 1: Resolve local/regional names via MCP first
-        resolved_text, resolved_pairs = await resolve_local_names_in_text(body.text)
+        # Step 1: Resolve local/regional names via MCP batch lookup (sentence-based)
+        # This uses lookup_sentence() which handles multi-word terms and returns English meanings
+        resolved_text, resolved_tuples = await resolve_local_names_batch(body.text)
         
-        # Step 2: Translate to English
+        # Step 2: Translate to English (passes English meanings to LLM for context)
         translated = await translate_to_english(
             text=resolved_text, 
             source_language=body.source_language,
-            resolve_local_names=False,  # Already resolved above
+            resolve_local_names=False,  # Already resolved above via batch lookup
         )
         
         log.info(
             "translate_to_english_endpoint: success original_len=%d translated_len=%d local_names_resolved=%d",
             len(body.text), 
             len(translated),
-            len(resolved_pairs),
+            len(resolved_tuples),
         )
         
         return TranslateToEnglishResponse(
@@ -657,7 +666,14 @@ async def translate_to_english_endpoint(body: TranslateToEnglishRequest):
             source_language=body.source_language,
             original_length=len(body.text),
             translated_length=len(translated),
-            local_names_resolved=[list(pair) for pair in resolved_pairs],
+            local_names_resolved=[
+                ResolvedTerm(
+                    original_term=t[0],
+                    canonical_name=t[1],
+                    english_meaning=t[2] if len(t) > 2 else None,
+                )
+                for t in resolved_tuples
+            ],
         )
         
     except APITimeoutError as exc:

@@ -86,6 +86,33 @@ async def _resolve_local_names(text: str) -> tuple[str, list[tuple[str, str]]]:
         return text, []
 
 
+async def _resolve_local_names_batch(text: str) -> tuple[str, list[tuple[str, str, str]]]:
+    """
+    Resolve local/regional names in text using sentence-based MCP lookup.
+    
+    This uses the batch lookup_sentence tool which:
+    - Handles multi-word terms (e.g., "Gulli Danda", "Madhya Pradesh")
+    - Returns English meanings for better translation context
+    - Makes only ONE API call instead of one per word
+    
+    Returns:
+        Tuple of (original_text, list of (original, canonical, english_meaning) tuples found)
+    """
+    if not ENABLE_LOCAL_ALIASES:
+        return text, []
+    
+    try:
+        # Import here to avoid circular imports and allow graceful degradation
+        from mcp_client import resolve_local_names_batch
+        return await resolve_local_names_batch(text)
+    except ImportError:
+        logger.debug("mcp_client not available, skipping local name resolution")
+        return text, []
+    except Exception as exc:
+        logger.warning("_resolve_local_names_batch: error - %s: %s", type(exc).__name__, exc)
+        return text, []
+
+
 async def translate_to_english(
     text: str,
     model: Optional[str] = None,
@@ -117,10 +144,10 @@ async def translate_to_english(
     original_text = text.strip()
     text = original_text
     
-    # Step 1: Resolve local/regional names to canonical names via MCP
-    resolved_pairs: list[tuple[str, str]] = []
+    # Step 1: Resolve local/regional names to canonical names via MCP (batch/sentence-based)
+    resolved_pairs: list[tuple[str, str, str]] = []  # (original, canonical, english_meaning)
     if resolve_local_names:
-        text, resolved_pairs = await _resolve_local_names(text)
+        text, resolved_pairs = await _resolve_local_names_batch(text)
         if resolved_pairs:
             logger.info(
                 "translate_to_english: resolved %d local names: %s",
@@ -138,11 +165,14 @@ async def translate_to_english(
     else:
         human_msg = f"Translate the following text to English:\n\n{text}"
     
-    # Add context about resolved local names if any
+    # Add context about resolved local names with English meanings for better translation
     if resolved_pairs:
-        context = "\n\nNote: The following local names were identified and should be translated to their canonical English equivalents:\n"
-        for original, canonical in resolved_pairs:
-            context += f"- {original} → {canonical}\n"
+        context = "\n\nNote: The following local/regional terms were identified. Please translate them using their canonical English equivalents:\n"
+        for original, canonical, english_meaning in resolved_pairs:
+            if english_meaning:
+                context += f"- \"{original}\" = {canonical} ({english_meaning})\n"
+            else:
+                context += f"- \"{original}\" = {canonical}\n"
         human_msg += context
     
     messages = [
