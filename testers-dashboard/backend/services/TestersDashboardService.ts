@@ -1,0 +1,512 @@
+import { injectable, inject, optional } from 'inversify';
+import fs from 'fs';
+import path from 'path';
+import { Readable } from 'stream';
+import csv from 'csv-parser';
+import { google } from 'googleapis';
+import {
+    ITestersDashboardService,
+    TestersDashboardDataResponse,
+    TestersDashboardRecord,
+    TestersDashboardSummaryResponse,
+} from '../interfaces/ITestersDashboardService.js';
+import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
+import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
+import { isFutureTestDate } from '../testersDashboard/normalize.js';
+import { calculateKpis, calculatePreviousPeriodStats, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
+import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
+import { calculateChartData } from '../testersDashboard/chartData.js';
+import {
+    mergeSheetSources,
+    type SheetFetchResult,
+    type SheetSourceConfig,
+} from '../testersDashboard/sheetMerge.js';
+import { DASHBOARD_TYPES } from '../types.js';
+import type { IZohoTicketStatusService } from '../interfaces/IZohoTicketStatusService.js';
+
+// Configurable via env so this doesn't hardcode a path that only exists on one machine.
+const CSV_PATH =
+    process.env.TESTERS_DASHBOARD_CSV_PATH ||
+    path.join(process.cwd(), 'data', 'testers-dashboard', 'updated.csv');
+
+const SERVICE_ACCOUNT_PATH =
+    process.env.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH || '';
+
+// Any number of Test Log sheets to merge, e.g.:
+//   [{"id":"...","tab":"Test Log_1","label":"1.0"},{"id":"...","tab":"Test Log","label":"2.0"}]
+// Adding a sheet is a config change, not a code change. The first entry to produce usable
+// rows becomes the header baseline (see sheetMerge.ts's mergeSheetSources), so list the
+// most reliable/established sheet first.
+function parseSheetSources(): SheetSourceConfig[] {
+    const raw = process.env.TESTERS_DASHBOARD_SHEETS || '';
+    if (!raw.trim()) return [];
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (err) {
+        console.error('[TestersDashboard] TESTERS_DASHBOARD_SHEETS is not valid JSON - sync will find no sources.', err);
+        return [];
+    }
+    if (!Array.isArray(parsed)) {
+        console.error('[TestersDashboard] TESTERS_DASHBOARD_SHEETS must be a JSON array - sync will find no sources.');
+        return [];
+    }
+
+    return parsed.filter((s): s is SheetSourceConfig => {
+        const valid =
+            typeof s?.id === 'string' && s.id.trim() !== '' &&
+            typeof s?.tab === 'string' && s.tab.trim() !== '' &&
+            typeof s?.label === 'string' && s.label.trim() !== '';
+        if (!valid) {
+            console.error('[TestersDashboard] Skipping malformed entry in TESTERS_DASHBOARD_SHEETS (needs id/tab/label):', s);
+        }
+        return valid;
+    });
+}
+
+const SHEET_SOURCES = parseSheetSources();
+
+// Standard CSV field escaping. Exported for reuse by TesterLogService's own CSV export.
+export function escapeCsvField(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+}
+
+const DB_COLLECTION = 'tester_test_cases';
+const DATABASE_TOKEN = Symbol.for('Database');
+
+interface DatabaseProvider {
+    getCollection<T>(name: string): Promise<any>;
+}
+
+export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
+    return {
+        'Test ID': entry._id ? String(entry._id) : '',
+        'Test Date': entry.testDate || (entry.createdAt ? new Date(entry.createdAt).toISOString().slice(0, 10) : ''),
+        'Tester Name': entry.testerName || '',
+        'Type of Question': entry.typeOfQuestion || '',
+        'Build / Version': entry.buildVersion || '',
+        'Sprint / Cycle': entry.sprintCycle || '',
+        'Channel Tested': entry.channelTested || '',
+        'Language Tested': entry.languageTested || '',
+        'Question ID': entry.threadId || entry.webThreadId || entry.waThreadId || '',
+        'Query Text (Original)': entry.queryText || '',
+        'Question Category': entry.questionCategory || '',
+        'Time Question Asked (HH:MM:SS)': entry.timeQuestionAsked || entry.waTimeQuestionAsked || '',
+        'Time Answer Received (HH:MM:SS)': entry.timeAnswerReceived || entry.waTimeAnswerReceived || '',
+        'Response Time (mins) [Auto] (HH:MM:SS)': entry.responseTimeMins || entry.waResponseTimeMins || '',
+        'SLA Status': entry.slaStatus || entry.waSlaStatus || '',
+        'Question in Review Model?': entry.questionInReviewModel || '',
+        'Question Correctly Framed?': entry.questionCorrectlyFramed || '',
+        'Original Language': entry.originalLanguage || '',
+        'Translated Language': entry.translatedLanguage || '',
+        'Translation Quality': entry.translationQuality || '',
+        'Translation Error Type': entry.translationErrorType || '',
+        'Tagging': entry.tagging || '',
+        'Allocated to Reviewer?': entry.allocatedToReviewer || '',
+        "Author's Name": entry.authorsName || '',
+        'Author Assignment Time': entry.authorAssignmentTime || '',
+        'Author Completion Time': entry.authorCompletionTime || '',
+        'Author TAT (mins) [Auto]': entry.authorTatMins || '',
+        'Reviewer1 Name': entry.reviewer1Name || '',
+        'Reviewer1 Assignment Time': entry.reviewer1AssignmentTime || '',
+        'Reviewer1 Completion Time': entry.reviewer1CompletionTime || '',
+        'Review1 TAT (mins) [Auto]': entry.review1TatMins || '',
+        'Reviewer2 Name': entry.reviewer2Name || '',
+        'Reviewer2 Assignment Time': entry.reviewer2AssignmentTime || '',
+        'Reviewer2 Completion Time': entry.reviewer2CompletionTime || '',
+        'Review2 TAT (mins) [Auto]': entry.review2TatMins || '',
+        'Reviewer3 Name': entry.reviewer3Name || '',
+        'Reviewer3 Assignment Time': entry.reviewer3AssignmentTime || '',
+        'Reviewer3 Completion Time': entry.reviewer3CompletionTime || '',
+        'Review3 TAT (mins) [Auto]': entry.review3TatMins || '',
+        'Reviewer4 Name': entry.reviewer4Name || '',
+        'Reviewer4 Assignment Time': entry.reviewer4AssignmentTime || '',
+        'Reviewer4 Completion Time': entry.reviewer4CompletionTime || '',
+        'Review4 TAT (mins) [Auto]': entry.review4TatMins || '',
+        'Reviewer5 Name': entry.reviewer5Name || '',
+        'Reviewer5 Assignment Time': entry.reviewer5AssignmentTime || '',
+        'Reviewer5 Completion Time': entry.reviewer5CompletionTime || '',
+        'Review5 TAT (mins) [Auto]': entry.review5TatMins || '',
+        "Moderator's Name": entry.moderatorName || '',
+        'Moderator Assignment Time': entry.moderatorAssignmentTime || '',
+        'ModeratorCompletion Time': entry.moderatorCompletionTime || '',
+        'Moderator TAT (mins) [Auto]': entry.moderatorTatMins || '',
+        'Follow-up Q in Review Model?': entry.followUpQInReviewModel || '',
+        'Answer Scientifically Correct?': entry.answerScientificallyCorrect || '',
+        'Expert Name Displayed?': entry.expertNameDisplayed || '',
+        'Correct Expert Name displayed?': entry.correctExpertNameDisplayed || '',
+        'Correct Source Links Provided?': entry.correctSourceLinksProvided || '',
+        '120-min Msg Shown to User?': entry.msg120MinShownToUser || '',
+        'Notification Received?': entry.notificationReceived || '',
+        'Notification on Same Thread?': entry.notificationOnSameThread || '',
+        'Notification Linked Correct Q-ID?': entry.notificationLinkedCorrectQId || '',
+        'Voice Input Working?': entry.voiceInputWorking || '',
+        'Voice Output Working?': entry.voiceOutputWorking || '',
+        'Voice Input Quality': entry.voiceInputQuality || '',
+        'Voice Output Quality': entry.voiceOutputQuality || '',
+        'Voice Issue Description': entry.voiceIssueDescription || '',
+        'Weather Q Answered Correctly?': entry.weatherQAnsweredCorrectly || '',
+        'Mandi Price Q Correct?': entry.mandiPriceQCorrect || '',
+        'Scheme Q Correct?': entry.schemeQCorrect || '',
+        'Question Saved in DB?': entry.questionSavedInDb || '',
+        'Answer Saved in DB?': entry.answerSavedInDb || '',
+        'Q-ID Consistent Across Systems?': entry.qIdConsistentAcrossSystems || '',
+        'WhatsApp vs Web Answer Match?': entry.whatsappVsWebAnswerMatch || '',
+        'Overall Test Status': entry.overallTestStatus || '',
+        'Defect Severity': entry.defectSeverity || '',
+        "Defect ID / Bug Ref\nZoho Desk Ticketing": entry.defectIdBugRef || '',
+        'Reviewer Remarks': entry.reviewerRemarks || '',
+        'Tester Remarks': entry.testerRemarks || '',
+        'Status': entry.status || '',
+    };
+}
+
+@injectable()
+export class TestersDashboardService implements ITestersDashboardService {
+    private cachedRecords: TestersDashboardRecord[] | null = null;
+    private cachedDbRecords: TestersDashboardRecord[] | null = null;
+    private cachedDbRecordsTimestamp: number = 0;
+    private cachedDbLastSyncedAt: string | null = null;
+    private readonly DB_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+
+    constructor(
+        @optional()
+        @inject(DATABASE_TOKEN)
+        private readonly db?: DatabaseProvider,
+        // Optional so every existing `new TestersDashboardService()`/
+        // `new TestersDashboardService(db)` call (tests included) keeps
+        // working unchanged - when absent, the ticket card's Zoho-sourced
+        // openTickets/allTickets just come back empty (see getSummary
+        // below) rather than throwing.
+        // Optional for backward compatibility with existing call sites; when absent, the
+        // ticket card's Zoho-sourced openTickets/allTickets just come back empty (see
+        // getSummary below) rather than throwing.
+        @optional()
+        @inject(DASHBOARD_TYPES.ZohoTicketStatusService)
+        private readonly zohoTicketStatusService?: IZohoTicketStatusService,
+    ) { }
+
+    private parseCSV(filePath: string): Promise<TestersDashboardRecord[]> {
+        return new Promise((resolve, reject) => {
+            let fileContent: string;
+            try {
+                fileContent = fs.readFileSync(filePath, 'utf8');
+            } catch (err) {
+                return reject(err);
+            }
+
+            // The real header row starts with "Test ID," further down the
+            // file, past some boilerplate rows.
+            const headerIndex = fileContent.indexOf('Test ID,');
+            if (headerIndex !== -1) {
+                fileContent = fileContent.substring(headerIndex);
+            }
+
+            const results: TestersDashboardRecord[] = [];
+            Readable.from([fileContent])
+                .pipe(csv())
+                .on('data', (data: TestersDashboardRecord) => {
+                    const testId = data['Test ID'] ? data['Test ID'].trim() : '';
+                    if (
+                        testId &&
+                        !testId.startsWith('Project:') &&
+                        !testId.startsWith('Test ID') &&
+                        // Future-dated rows (Test Date after today, IST) are dropped before any
+                        // filter/calculation sees them - these are data-entry mistakes, not real
+                        // results. Unparseable dates are kept (isFutureTestDate only returns true
+                        // for a row that parses AND is in the future).
+                        !isFutureTestDate(data['Test Date'])
+                    ) {
+                        results.push(data);
+                    }
+                })
+                .on('end', () => resolve(results))
+                .on('error', reject);
+        });
+    }
+
+    private async getDbRecords(): Promise<{ records: TestersDashboardRecord[]; lastSyncedAt: string | null }> {
+        const now = Date.now();
+        if (this.cachedDbRecords && now - this.cachedDbRecordsTimestamp < this.DB_CACHE_TTL_MS) {
+            return {
+                records: this.cachedDbRecords,
+                lastSyncedAt: this.cachedDbLastSyncedAt,
+            };
+        }
+
+        if (!this.db) {
+            console.warn('[TestersDashboard] Database provider is not available for db source.');
+            return { records: [], lastSyncedAt: null };
+        }
+
+        try {
+            const collection = await this.db.getCollection(DB_COLLECTION);
+            const docs = await collection.find({}).sort({ createdAt: -1 }).toArray();
+            const records: TestersDashboardRecord[] = docs.map(mapTesterLogEntryToRecord);
+
+            let latestDate: Date | null = null;
+            for (const doc of docs) {
+                const d = doc.updatedAt || doc.createdAt;
+                if (d) {
+                    const dt = new Date(d);
+                    if (!latestDate || dt > latestDate) latestDate = dt;
+                }
+            }
+            const lastSyncedAt = latestDate ? latestDate.toISOString() : (records.length > 0 ? new Date().toISOString() : null);
+
+            this.cachedDbRecords = records;
+            this.cachedDbRecordsTimestamp = now;
+            this.cachedDbLastSyncedAt = lastSyncedAt;
+
+            return { records, lastSyncedAt };
+        } catch (err) {
+            console.error('[TestersDashboard] Error fetching tester_test_cases from database:', err);
+            return { records: [], lastSyncedAt: null };
+        }
+    }
+
+    async getData(source: 'sheet' | 'db' = 'sheet'): Promise<TestersDashboardDataResponse> {
+        if (source === 'db') {
+            const { records, lastSyncedAt } = await this.getDbRecords();
+            return {
+                success: true,
+                totalRecords: records.length,
+                records,
+                lastSyncedAt,
+            };
+        }
+
+        if (!fs.existsSync(CSV_PATH)) {
+            return { success: false, totalRecords: 0, records: [], lastSyncedAt: null };
+        }
+
+        const records = await this.parseCSV(CSV_PATH);
+        this.cachedRecords = records;
+
+        // File's last-modified time is when the sync cron (syncFromSheet) last overwrote it -
+        // genuinely "when did we last sync," not just "when did the browser last ask."
+        const stats = fs.statSync(CSV_PATH);
+
+        return {
+            success: true,
+            totalRecords: records.length,
+            records,
+            lastSyncedAt: stats.mtime.toISOString(),
+        };
+    }
+
+    // Serves cachedRecords when populated instead of re-parsing the whole CSV on every
+    // filter change. getData() (the raw /data route) always re-reads from disk since that
+    // route's contract is "freshest possible data." Cache is invalidated in syncFromSheet().
+    private async getRecordsForSummary(): Promise<TestersDashboardRecord[]> {
+        if (this.cachedRecords) {
+            return this.cachedRecords;
+        }
+        if (!fs.existsSync(CSV_PATH)) {
+            return [];
+        }
+        const records = await this.parseCSV(CSV_PATH);
+        this.cachedRecords = records;
+        return records;
+    }
+
+    private buildFiltersFromQuery(query: GetTestersDashboardQuery): TestersDashboardFilters {
+        return {
+            // query.dateRange is typed as plain `string` (see TestersDashboardValidators.ts),
+            // but @IsIn(...) already guarantees it's one of the valid values, so the cast is safe.
+            dateRange: (query.dateRange ?? EMPTY_FILTERS.dateRange) as TestersDashboardFilters['dateRange'],
+            type: query.type ?? EMPTY_FILTERS.type,
+            category: query.category ?? EMPTY_FILTERS.category,
+            build: query.build ?? EMPTY_FILTERS.build,
+            channel: query.channel ?? EMPTY_FILTERS.channel,
+            language: query.language ?? EMPTY_FILTERS.language,
+            tester: query.tester ?? EMPTY_FILTERS.tester,
+            status: query.status ?? EMPTY_FILTERS.status,
+            severity: query.severity ?? EMPTY_FILTERS.severity,
+            // Wire format is a comma-separated string (see TestersDashboardValidators.ts),
+            // parsed into a string[] here once so every downstream consumer sees a plain array.
+            dynamicSubTypes: query.dynamicSubTypes
+                ? query.dynamicSubTypes
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                : EMPTY_FILTERS.dynamicSubTypes,
+            // Same cast rationale as dateRange above.
+            typeBranch: (query.typeBranch ?? EMPTY_FILTERS.typeBranch) as TestersDashboardFilters['typeBranch'],
+            // Same comma-separated wire format as dynamicSubTypes above.
+            staticSubTypes: query.staticSubTypes
+                ? query.staticSubTypes
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                : EMPTY_FILTERS.staticSubTypes,
+        };
+    }
+
+    async getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse> {
+        const isDb = query.source === 'db';
+
+        // Ticket card's Critical Defect Tickets / All Tickets lists come from this cache
+        // (see calculateDiagnostics's zohoTickets param) - independent of source/filters.
+        const zohoTickets = this.zohoTicketStatusService?.getCachedStatuses() ?? {};
+
+        let allRecords: TestersDashboardRecord[];
+        let lastSyncedAt: string | null = null;
+
+        if (isDb) {
+            const dbData = await this.getDbRecords();
+            allRecords = dbData.records;
+            lastSyncedAt = dbData.lastSyncedAt;
+        } else {
+            allRecords = await this.getRecordsForSummary();
+            if (!fs.existsSync(CSV_PATH)) {
+                return {
+                    success: false,
+                    totalRecords: 0,
+                    kpis: calculateKpis([]),
+                    diagnostics: calculateDiagnostics([], zohoTickets),
+                    chartData: calculateChartData([]),
+                    previousPeriodStats: null,
+                    filterOptions: buildFilterOptions([]),
+                    lastSyncedAt: null,
+                    channelStats: calculateChannelStats([]),
+                    languageStats: calculateLanguageStats([]),
+                };
+            }
+            const stats = fs.statSync(CSV_PATH);
+            lastSyncedAt = stats.mtime.toISOString();
+        }
+
+        const filters = this.buildFiltersFromQuery(query);
+        // excludeFailures arrives as the string "true"/"false" since query params are always
+        // strings and this app doesn't enable implicit type conversion.
+        const excludeFailures = query.excludeFailures === 'true';
+
+        const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
+        const kpis = calculateKpis(filteredRows, filters.typeBranch);
+        const diagnostics = calculateDiagnostics(filteredRows, zohoTickets);
+        const chartData = calculateChartData(filteredRows, undefined, filters.typeBranch);
+        const channelStats = calculateChannelStats(filteredRows);
+        const languageStats = calculateLanguageStats(filteredRows);
+        // Deliberately over the UNFILTERED records - getPreviousPeriodRows applies the
+        // same non-date filters itself, against the shifted date window instead of the current one.
+        const previousPeriodStats = calculatePreviousPeriodStats(
+            allRecords,
+            filters,
+            excludeFailures,
+            query.customStart,
+            query.customEnd,
+        );
+        // Built from the unfiltered records - dropdown options shouldn't shrink based on the
+        // user's own filter selections.
+        const filterOptions = buildFilterOptions(allRecords);
+
+        return {
+            success: true,
+            totalRecords: allRecords.length,
+            kpis,
+            diagnostics,
+            chartData,
+            previousPeriodStats,
+            filterOptions,
+            lastSyncedAt,
+            channelStats,
+            languageStats,
+        };
+    }
+
+    // Fetches one sheet's raw rows via the Sheets API. Returns null (not throws) on missing
+    // config or an empty result, so the caller can skip that source without failing the sync.
+    private async fetchSheetRows(
+        auth: InstanceType<typeof google.auth.GoogleAuth>,
+        sheetId: string,
+        sheetTab: string,
+        label: string,
+    ): Promise<string[][] | null> {
+        if (!sheetId) return null;
+
+        const sheets = google.sheets({ version: 'v4', auth });
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: sheetId,
+            range: sheetTab,
+        });
+
+        const rows = response.data.values || [];
+        if (rows.length === 0) {
+            console.warn(`[TestersDashboard] ${label} returned no rows, skipping.`);
+            return null;
+        }
+        return rows as string[][];
+    }
+
+    async syncFromSheet(): Promise<void> {
+        if (SHEET_SOURCES.length === 0 || !SERVICE_ACCOUNT_PATH) {
+            console.warn(
+                '[TestersDashboard] Sheet sync skipped - TESTERS_DASHBOARD_SHEETS or ' +
+                'TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH not configured.',
+            );
+            return;
+        }
+
+        const auth = new google.auth.GoogleAuth({
+            keyFile: SERVICE_ACCOUNT_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+        });
+
+        // Fetch every configured sheet independently - one sheet's fetch failing must not be
+        // fatal to the whole sync, so each gets its own try/catch.
+        const fetchResults: SheetFetchResult[] = [];
+        for (const source of SHEET_SOURCES) {
+            try {
+                const rawRows = await this.fetchSheetRows(auth, source.id, source.tab, source.label);
+                fetchResults.push({ label: source.label, rawRows });
+            } catch (err) {
+                console.error(
+                    `[TestersDashboard] Error fetching ${source.label} - skipping this sheet, others still merge:`,
+                    err,
+                );
+                fetchResults.push({ label: source.label, rawRows: null });
+            }
+        }
+
+        const { header, rows, merged, skipped } = mergeSheetSources(fetchResults);
+
+        for (const s of skipped) {
+            console.error(`[TestersDashboard] ${s.label}: ${s.reason} - skipped, other sheets still merged.`);
+        }
+
+        if (!header || merged.length === 0) {
+            console.warn(
+                '[TestersDashboard] No configured sheet returned usable, header-matching rows - ' +
+                'skipping overwrite entirely rather than writing empty/malformed data.',
+            );
+            return;
+        }
+
+        const combinedRows: string[][] = [header, ...rows];
+        const csvLines = combinedRows.map((row) =>
+            row.map((cell) => escapeCsvField(String(cell ?? ''))).join(','),
+        );
+        const csvContent = csvLines.join('\n');
+
+        const dir = path.dirname(CSV_PATH);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(CSV_PATH, csvContent, 'utf8');
+
+        // Invalidate the cache so the next /summary request re-reads from disk instead of
+        // serving stale pre-sync data.
+        this.cachedRecords = null;
+
+        const summary = merged.map((m) => `${m.count} rows from ${m.label}`).join(' + ');
+        console.log(
+            `[TestersDashboard] Synced ${summary} into updated.csv ` +
+            `(${merged.length}/${SHEET_SOURCES.length} sheets merged successfully)`,
+        );
+    }
+}

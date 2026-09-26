@@ -1,0 +1,35 @@
+{
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "compilerOptions": {
+    "target": "ES2022",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+
+    /* Bundler mode - matches ../../frontend/tsconfig.json, since this
+       package is bundled by the same Vite build, not compiled on its own. */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    /* "@/*" here means "the main frontend app" (../../frontend/src), not a
+       self-referential root - moved files reuse shared UI atoms/config from
+       there, e.g. @/components/atoms/card, @/config/env. */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../frontend/src/*"]
+    },
+
+    "allowJs": true,
+    "resolveJsonModule": true
+  }
+}

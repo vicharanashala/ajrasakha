@@ -18,6 +18,9 @@ firebase-debug.*.log*
 # .firebaserc
 
 # Runtime data
+# Testers Dashboard CSV - regenerated from the Google Sheets by the sync cron
+# (TestersDashboardService.syncFromSheet), which creates it if missing.
+data/testers-dashboard/updated.csv
 pids
 *.pid
 *.seed
@@ -88,3 +91,4 @@ gcp-service-account.json
 src/migrations
 
 backups
+testers-dashboard-service-account.json

@@ -20,10 +20,17 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      "@testers-dashboard": resolve(__dirname, "../testers-dashboard/frontend/src"),
     },
   },
 
   server: {
+    fs: {
+      // Testers Dashboard code lives outside this project root
+      // (../testers-dashboard/frontend/src) but is still part of this same
+      // Vite build - allow the dev server to read it.
+      allow: [resolve(__dirname, ".."), resolve(__dirname)],
+    },
     proxy: {
       "/api": {
         target: "http://localhost:4000",

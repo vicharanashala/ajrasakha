@@ -44,7 +44,16 @@ import { PerformanceController } from '../performance/controllers/PerformanceCon
 import { CORE_TYPES } from './types.js';
 import { GLOBAL_TYPES } from '../../types.js';
 import { PerformanceService } from '../performance/services/PerformanceService.js';
+// Testers Dashboard now lives in testers-dashboard/backend/ - these come
+// from its compiled output, so `pnpm run build:testers-dashboard` must run
+// before this file can be type-checked/compiled (see backend/package.json).
+import { TestersDashboardController } from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js';
+import { TestersDashboardService } from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js';
 import { RequestController } from '../request/controllers/RequestController.js';
+import { ZohoTicketStatusService } from '../../../../testers-dashboard/backend/build/services/ZohoTicketStatusService.js';
+import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
+import { TesterLogController } from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js';
+import { TesterLogService } from '../../../../testers-dashboard/backend/build/services/TesterLogService.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
@@ -75,6 +84,9 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CommentController).toSelf().inSingletonScope();
   options.bind(RequestController).toSelf().inSingletonScope();
   options.bind(PerformanceController).toSelf().inSingletonScope();
+  options.bind(TestersDashboardController).toSelf().inSingletonScope();
+  options.bind(ZohoTicketStatusController).toSelf().inSingletonScope();
+  options.bind(TesterLogController).toSelf().inSingletonScope();
   options.bind(OrganizationController).toSelf().inSingletonScope();
   options.bind(PopController).toSelf().inSingletonScope();
   options.bind(NewSourceController).toSelf().inSingletonScope();
@@ -148,8 +160,11 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
   options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
   options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
+  options.bind(CORE_TYPES.ZohoTicketStatusService).to(ZohoTicketStatusService).inSingletonScope();
 
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
+  options.bind(CORE_TYPES.TestersDashboardService).to(TestersDashboardService).inSingletonScope();
+  options.bind(CORE_TYPES.TesterLogService).to(TesterLogService).inSingletonScope();
   options.bind(CORE_TYPES.OrganizationService).to(OrganizationService).inSingletonScope();
   options.bind(CORE_TYPES.PopService).to(PopService).inSingletonScope();
   options.bind(CORE_TYPES.NewSourceService).to(NewSourceService).inSingletonScope();
