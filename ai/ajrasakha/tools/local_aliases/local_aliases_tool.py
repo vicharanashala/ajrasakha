@@ -22,6 +22,7 @@ import difflib
 import time
 import json
 import re
+import string
 from typing import Dict, List
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -76,6 +77,15 @@ _WORD_TO_TERMS: Dict[str, List[str]] = {}
 
 _INDEX_LOCK = threading.Lock()
 _LAST_RELOAD = 0.0
+
+# Common punctuation to strip from words (but keep hyphens inside words)
+_PUNCTUATION_TO_STRIP = '.,!?;:()[]{}"\'।॥゛゜、。「」『』【】〔〕〖〗〈〉《》〈〉‹›«»¿¡''‐‑‒–—―～˙′″\'"'
+
+
+def _strip_punctuation(word: str) -> str:
+    """Strip leading/trailing punctuation from a word."""
+    # Use translate for efficiency
+    return word.strip(_PUNCTUATION_TO_STRIP)
 
 
 def _load_and_build_index():
@@ -197,7 +207,7 @@ def _get_canonical(search_term: str) -> str:
     2. Only for longer words (5+ chars): fuzzy match with HIGH cutoff (0.85)
     3. Return original if nothing found
     """
-    term = search_term.strip().lower()
+    term = _strip_punctuation(search_term.strip().lower())
     
     with _INDEX_LOCK:
         # 1. Direct lookup first (always)
@@ -235,9 +245,10 @@ def _find_terms_in_sentence(sentence: str) -> List[dict]:
     
     Strategy:
     1. Tokenize sentence into words
-    2. For each position, try matching 1, 2, and 3-word combinations
-    3. Prefer longer matches (e.g., "Gulli Danda" over just "Gulli")
-    4. Return all found terms with their positions and English meanings
+    2. Strip punctuation from each word
+    3. For each position, try matching 1, 2, and 3-word combinations
+    4. Prefer longer matches (e.g., "Gulli Danda" over just "Gulli")
+    5. Return all found terms with their positions and English meanings
     
     Args:
         sentence: Input sentence in any language
@@ -248,10 +259,13 @@ def _find_terms_in_sentence(sentence: str) -> List[dict]:
     if not sentence or not sentence.strip():
         return []
     
-    # Tokenize: split on whitespace and filter empty strings
+    # Tokenize: split on whitespace
     words = sentence.split()
     if not words:
         return []
+    
+    # Strip punctuation from each word for matching, but keep original words too
+    clean_words = [_strip_punctuation(w) for w in words]
     
     found_terms = []
     skip_indices = set()
@@ -274,8 +288,8 @@ def _find_terms_in_sentence(sentence: str) -> List[dict]:
         # Try matching from longest (3 words) to shortest (1 word)
         # This ensures we prefer "Gulli Danda" over just "Gulli"
         for term_len in range(min(_MAX_TERM_LENGTH, n - i), 0, -1):
-            # Build the candidate phrase from words[i] to words[i + term_len - 1]
-            candidate_words = words[i:i + term_len]
+            # Build the candidate phrase from clean_words[i] to clean_words[i + term_len - 1]
+            candidate_words = clean_words[i:i + term_len]
             candidate_phrase = " ".join(candidate_words).lower()
             
             # Check if this exact phrase is in our index
@@ -283,8 +297,11 @@ def _find_terms_in_sentence(sentence: str) -> List[dict]:
                 canonical = index[candidate_phrase]
                 english = english_map.get(canonical, "")
                 
+                # Use original words for the matched term (with punctuation)
+                original_matched = " ".join(words[i:i + term_len])
+                
                 found_terms.append({
-                    "original_term": " ".join(candidate_words),
+                    "original_term": original_matched,
                     "canonical_name": canonical,
                     "english_meaning": english,
                     "start_index": i,
@@ -300,13 +317,13 @@ def _find_terms_in_sentence(sentence: str) -> List[dict]:
         
         if not matched:
             # Also check if the single word itself is in index
-            single_word = words[i].lower()
+            single_word = clean_words[i].lower()
             if single_word in index:
                 canonical = index[single_word]
                 english = english_map.get(canonical, "")
                 
                 found_terms.append({
-                    "original_term": words[i],
+                    "original_term": words[i],  # Keep original with punctuation
                     "canonical_name": canonical,
                     "english_meaning": english,
                     "start_index": i,
