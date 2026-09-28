@@ -8,6 +8,7 @@ import {
     MessageCircle,
     Radio,
     Search,
+    Shuffle,
     Sparkles,
     UserCheck,
     UserRound,
@@ -26,7 +27,7 @@ export const MODES = [
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
     { id: "training", label: "Training", icon: BookOpen },
-    { id: "dynamic", label: "Dynamic", icon: Sparkles },
+    { id: "dynamic", label: "Dynamic", icon: Shuffle },
 ] as const;
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
