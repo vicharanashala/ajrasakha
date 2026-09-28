@@ -12,6 +12,7 @@ export interface TestersDashboardDataResponse {
     totalRecords: number;
     records: TestersDashboardRecord[];
     lastSyncedAt: string | null;
+    error?: string;
 }
 
 export interface TestersDashboardSummaryResponse {
@@ -28,6 +29,7 @@ export interface TestersDashboardSummaryResponse {
     // (including the Dynamic/Static tree) the same way.
     channelStats: ChannelPerformanceStat[];
     languageStats: LanguagePerformanceStat[];
+    error?: string;
 }
 
 export interface ITestersDashboardService {
