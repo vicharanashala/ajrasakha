@@ -172,6 +172,13 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
+    ...(user && user.role === "admin"
+      ? [
+          { id: "manage_agents", label: "Manage Agents", icon: Users },
+          { id: "testers_dashboard", label: "Testers Dashboard", icon: ClipboardList },
+        ]
+      : []),
+
     ...(user && !isCoordinator && user.role !== "call_agent"
       ? [{ id: "history", label: "History", icon: History }]
       : []),

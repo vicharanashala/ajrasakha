@@ -2,11 +2,13 @@ import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { BellIcon } from "lucide-react";
 import { MobileSidebar } from "./mobile-sidebar";
-import { HoverCard } from "./atoms/hover-card";
 import { NotificationModal } from "./NotificationModal";
 import { TabsList, TabsTrigger } from "@/components/atoms/tabs";
 import { canManageUsers, canLogTestCases, hasFullUserManagement } from "@/lib/roles";
 import type { IUser } from "@/types";
+
+const tabTriggerClassName =
+  "px-2 xl:px-2.5 py-1.5 rounded-lg font-medium text-xs xl:text-sm transition-all duration-150 flex-initial shrink-0 whitespace-nowrap";
 
 export function PlaygroundHeader({
   user,
@@ -23,18 +25,18 @@ export function PlaygroundHeader({
 }) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex items-center justify-between gap-2 xl:gap-4 px-4 py-2.5">
         {/* Logo */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <img
             src="/annam-logo.png"
             alt="Annam Logo"
-            className="h-10 w-auto md:h-14"
+            className="h-8 md:h-9 xl:h-10 w-auto object-contain"
           />
         </div>
 
-        <div className="flex-1 md:flex justify-center min-w-0 hidden">
-          <TabsList className="flex gap-1 md:gap-2 flex-wrap justify-center bg-transparent p-0">
+        <div className="flex-1 md:flex min-w-0 hidden px-2">
+          <TabsList className="flex items-center gap-1 xl:gap-1.5 flex-nowrap bg-transparent py-2 px-1 overflow-x-auto scrollbar-hiding max-w-full mx-auto">
             {user &&
               user.role !== "expert" &&
               user.role !== "call_agent" &&
@@ -42,32 +44,26 @@ export function PlaygroundHeader({
               user.role !== "auditor" && (
                 <TabsTrigger
                   value="performance"
-                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                  className={tabTriggerClassName}
                 >
-                  <HoverCard openDelay={150}>
-                    <span>Dashboard</span>
-                  </HoverCard>
+                  <span>Dashboard</span>
                 </TabsTrigger>
               )}
             {/* Gate keepers / auditors get their own role dashboard instead. */}
             {user && (user.role === "gate_keeper" || user.role === "auditor") && (
               <TabsTrigger
                 value="roleDashboard"
-                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className={tabTriggerClassName}
               >
-                <HoverCard openDelay={150}>
-                  <span>Dashboard</span>
-                </HoverCard>
+                <span>Dashboard</span>
               </TabsTrigger>
             )}
             {user && user.role === "expert" && (
               <TabsTrigger
                 value="expertPerformance"
-                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className={tabTriggerClassName}
               >
-                <HoverCard openDelay={150}>
-                  <span>Dashboard</span>
-                </HoverCard>
+                <span>Dashboard</span>
               </TabsTrigger>
             )}
             {/* Moderators keep the admin overview ("Dashboard") and get their own
@@ -75,18 +71,16 @@ export function PlaygroundHeader({
             {user && user.role === "moderator" && (
               <TabsTrigger
                 value="moderatorDashboard"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className={tabTriggerClassName}
               >
-                <HoverCard openDelay={150}>
-                  <span>My Dashboard</span>
-                </HoverCard>
+                <span>My Dashboard</span>
               </TabsTrigger>
             )}
 
             {user && user.role == "expert" && (
               <TabsTrigger
                 value="questions"
-                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className={tabTriggerClassName}
               >
                 <span>My Queue</span>
               </TabsTrigger>
@@ -94,7 +88,7 @@ export function PlaygroundHeader({
             {user && user.role !== "call_agent" && (
               <TabsTrigger
                 value="all_questions"
-                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className={tabTriggerClassName}
               >
                 <span>All Questions</span>
               </TabsTrigger>
@@ -103,9 +97,9 @@ export function PlaygroundHeader({
             {user && user.role !== "call_agent" && (
               <TabsTrigger
                 value="closed_answers"
-                className="relative px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className={`relative ${tabTriggerClassName}`}
               >
-                <span className="absolute -top-1.5 -left-1.5 z-10 inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500">
+                <span className="absolute -top-1 left-0 z-10 inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500 shadow-xs pointer-events-none">
                   new
                 </span>
                 <span>Answer Sources</span>
@@ -113,26 +107,22 @@ export function PlaygroundHeader({
             )}
 
             {user && canManageUsers(user.role) && (
-                <TabsTrigger
-                  value="user_management"
-                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
-                >
-                  <HoverCard openDelay={150}>
-                    <span>
-                      {hasFullUserManagement(user.role) ? "User" : "Expert"} Management
-                    </span>
-                  </HoverCard>
-                </TabsTrigger>
-              )}
+              <TabsTrigger
+                value="user_management"
+                className={tabTriggerClassName}
+              >
+                <span>
+                  {hasFullUserManagement(user.role) ? "User" : "Expert"} Management
+                </span>
+              </TabsTrigger>
+            )}
 
             {user && user.role !== "call_agent" && (
               <TabsTrigger
                 value="upload"
-                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className={tabTriggerClassName}
               >
-                <HoverCard openDelay={150}>
-                  <span>Agents Interface</span>
-                </HoverCard>
+                <span>Agents Interface</span>
               </TabsTrigger>
             )}
 
@@ -140,27 +130,21 @@ export function PlaygroundHeader({
               <>
                 <TabsTrigger
                   value="call_dashboard"
-                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                  className={tabTriggerClassName}
                 >
-                  <HoverCard openDelay={150}>
-                    <span>Dashboard</span>
-                  </HoverCard>
+                  <span>Dashboard</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="call_interface"
-                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                  className={tabTriggerClassName}
                 >
-                  <HoverCard openDelay={150}>
-                    <span>Call Interface</span>
-                  </HoverCard>
+                  <span>Call Interface</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="call_history"
-                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                  className={tabTriggerClassName}
                 >
-                  <HoverCard openDelay={150}>
-                    <span>Call History</span>
-                  </HoverCard>
+                  <span>Call History</span>
                 </TabsTrigger>
               </>
             )}
@@ -168,14 +152,9 @@ export function PlaygroundHeader({
             {user?.role === "admin" && (
               <TabsTrigger
                 value="manage_agents"
-                onClick={() => onTabChange("manage_agents")}
-                className={`px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 ${
-                  activeTab === "manage_agents"
-                    ? "bg-accent text-accent-foreground"
-                    : ""
-                }`}
+                className={tabTriggerClassName}
               >
-                Manage Agents
+                <span>Manage Agents</span>
               </TabsTrigger>
             )}
 
@@ -184,7 +163,7 @@ export function PlaygroundHeader({
               user.role === "moderator") && (
                 <TabsTrigger
                   value="chatbotanalytics"
-                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                  className={tabTriggerClassName}
                 >
                   <span>ChatBot Analytics</span>
                 </TabsTrigger>
@@ -193,7 +172,7 @@ export function PlaygroundHeader({
               (user.role === "admin" || user.role === "moderator" || user.role === "expert") && (
               <TabsTrigger
                 value="data_processing"
-                className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
+                className={tabTriggerClassName}
               >
                 <span>Data Processing</span>
               </TabsTrigger>
@@ -201,7 +180,7 @@ export function PlaygroundHeader({
             {user && user.role === "admin" && (
               <TabsTrigger
                 value="testers_dashboard"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className={tabTriggerClassName}
               >
                 <span>Testers Dashboard</span>
               </TabsTrigger>
@@ -209,11 +188,9 @@ export function PlaygroundHeader({
             {user && canLogTestCases(user.role) && (
               <TabsTrigger
                 value="tester_log"
-                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                className={tabTriggerClassName}
               >
-                <HoverCard openDelay={150}>
-                  <span>Log Test Case</span>
-                </HoverCard>
+                <span>Log Test Case</span>
               </TabsTrigger>
             )}
           </TabsList>

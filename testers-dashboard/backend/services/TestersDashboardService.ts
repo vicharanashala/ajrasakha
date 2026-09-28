@@ -32,6 +32,32 @@ const CSV_PATH =
 const SERVICE_ACCOUNT_PATH =
     process.env.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH || '';
 
+function getGoogleAuth(): InstanceType<typeof google.auth.GoogleAuth> | null {
+    const raw = (process.env.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH || '').trim();
+    if (!raw) return null;
+
+    if (raw.startsWith('{')) {
+        try {
+            const credentials = JSON.parse(raw);
+            return new google.auth.GoogleAuth({
+                credentials,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+            });
+        } catch (err) {
+            console.error(
+                '[TestersDashboard] TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH was provided as JSON, but failed to parse:',
+                err,
+            );
+            return null;
+        }
+    }
+
+    return new google.auth.GoogleAuth({
+        keyFile: raw,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+}
+
 // Any number of Test Log sheets to merge, e.g.:
 //   [{"id":"...","tab":"Test Log_1","label":"1.0"},{"id":"...","tab":"Test Log","label":"2.0"}]
 // Adding a sheet is a config change, not a code change. The first entry to produce usable
@@ -281,6 +307,13 @@ export class TestersDashboardService implements ITestersDashboardService {
         }
 
         if (!fs.existsSync(CSV_PATH)) {
+            if (SHEET_SOURCES.length > 0 && getGoogleAuth()) {
+                console.log('[TestersDashboard] CSV missing on request - attempting initial sheet sync...');
+                await this.syncFromSheet();
+            }
+        }
+
+        if (!fs.existsSync(CSV_PATH)) {
             return { success: false, totalRecords: 0, records: [], lastSyncedAt: null };
         }
 
@@ -305,6 +338,12 @@ export class TestersDashboardService implements ITestersDashboardService {
     private async getRecordsForSummary(): Promise<TestersDashboardRecord[]> {
         if (this.cachedRecords) {
             return this.cachedRecords;
+        }
+        if (!fs.existsSync(CSV_PATH)) {
+            if (SHEET_SOURCES.length > 0 && getGoogleAuth()) {
+                console.log('[TestersDashboard] CSV missing for summary - attempting initial sheet sync...');
+                await this.syncFromSheet();
+            }
         }
         if (!fs.existsSync(CSV_PATH)) {
             return [];
@@ -443,19 +482,27 @@ export class TestersDashboardService implements ITestersDashboardService {
         return rows as string[][];
     }
 
+    private activeSyncPromise: Promise<void> | null = null;
+
     async syncFromSheet(): Promise<void> {
-        if (SHEET_SOURCES.length === 0 || !SERVICE_ACCOUNT_PATH) {
+        if (this.activeSyncPromise) {
+            return this.activeSyncPromise;
+        }
+        this.activeSyncPromise = this.performSyncFromSheet().finally(() => {
+            this.activeSyncPromise = null;
+        });
+        return this.activeSyncPromise;
+    }
+
+    private async performSyncFromSheet(): Promise<void> {
+        const auth = getGoogleAuth();
+        if (SHEET_SOURCES.length === 0 || !auth) {
             console.warn(
                 '[TestersDashboard] Sheet sync skipped - TESTERS_DASHBOARD_SHEETS or ' +
-                'TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH not configured.',
+                'TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH not configured or invalid.',
             );
             return;
         }
-
-        const auth = new google.auth.GoogleAuth({
-            keyFile: SERVICE_ACCOUNT_PATH,
-            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-        });
 
         // Fetch every configured sheet independently - one sheet's fetch failing must not be
         // fatal to the whole sync, so each gets its own try/catch.
