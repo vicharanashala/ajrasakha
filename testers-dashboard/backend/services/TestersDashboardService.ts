@@ -23,6 +23,7 @@ import {
 } from '../testersDashboard/sheetMerge.js';
 import { DASHBOARD_TYPES } from '../types.js';
 import type { IZohoTicketStatusService } from '../interfaces/IZohoTicketStatusService.js';
+import { streamAggregateSummary } from '../testersDashboard/streamAggregator.js';
 
 // Configurable via env so this doesn't hardcode a path that only exists on one machine.
 const CSV_PATH =
@@ -230,6 +231,7 @@ export class TestersDashboardService implements ITestersDashboardService {
     private cachedDbLastSyncedAt: string | null = null;
     private lastSyncError: string | null = null;
     private readonly DB_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+    private summaryCache: Map<string, { mtimeMs: number; response: TestersDashboardSummaryResponse }> = new Map();
 
     constructor(
         @optional()
@@ -435,70 +437,96 @@ export class TestersDashboardService implements ITestersDashboardService {
         // (see calculateDiagnostics's zohoTickets param) - independent of source/filters.
         const zohoTickets = this.zohoTicketStatusService?.getCachedStatuses() ?? {};
 
-        let allRecords: TestersDashboardRecord[];
-        let lastSyncedAt: string | null = null;
-
         if (isDb) {
             const dbData = await this.getDbRecords();
-            allRecords = dbData.records;
-            lastSyncedAt = dbData.lastSyncedAt;
-        } else {
-            allRecords = await this.getRecordsForSummary();
-            if (!fs.existsSync(CSV_PATH)) {
-                return {
-                    success: false,
-                    totalRecords: 0,
-                    kpis: calculateKpis([]),
-                    diagnostics: calculateDiagnostics([], zohoTickets),
-                    chartData: calculateChartData([]),
-                    previousPeriodStats: null,
-                    filterOptions: buildFilterOptions([]),
-                    lastSyncedAt: null,
-                    channelStats: calculateChannelStats([]),
-                    languageStats: calculateLanguageStats([]),
-                    error: this.lastSyncError || 'CSV source file not found on disk and Google Sheet sync failed or is not configured.',
-                };
+            const allRecords = dbData.records;
+            const lastSyncedAt = dbData.lastSyncedAt;
+            const filters = this.buildFiltersFromQuery(query);
+            const excludeFailures = query.excludeFailures === 'true';
+
+            const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
+            const kpis = calculateKpis(filteredRows, filters.typeBranch);
+            const diagnostics = calculateDiagnostics(filteredRows, zohoTickets);
+            const chartData = calculateChartData(filteredRows, undefined, filters.typeBranch);
+            const channelStats = calculateChannelStats(filteredRows);
+            const languageStats = calculateLanguageStats(filteredRows);
+            const previousPeriodStats = calculatePreviousPeriodStats(
+                allRecords,
+                filters,
+                excludeFailures,
+                query.customStart,
+                query.customEnd,
+            );
+            const filterOptions = buildFilterOptions(allRecords);
+
+            return {
+                success: true,
+                totalRecords: allRecords.length,
+                kpis,
+                diagnostics,
+                chartData,
+                previousPeriodStats,
+                filterOptions,
+                lastSyncedAt,
+                channelStats,
+                languageStats,
+            };
+        }
+
+        if (!fs.existsSync(CSV_PATH)) {
+            const sources = parseSheetSources();
+            const auth = getGoogleAuth();
+            if (sources.length > 0 && auth) {
+                console.log('[TestersDashboard] CSV missing for summary - attempting initial sheet sync...');
+                await this.syncFromSheet();
             }
-            const stats = fs.statSync(CSV_PATH);
-            lastSyncedAt = stats.mtime.toISOString();
+        }
+
+        if (!fs.existsSync(CSV_PATH)) {
+            return {
+                success: false,
+                totalRecords: 0,
+                kpis: calculateKpis([]),
+                diagnostics: calculateDiagnostics([], zohoTickets),
+                chartData: calculateChartData([]),
+                previousPeriodStats: null,
+                filterOptions: buildFilterOptions([]),
+                lastSyncedAt: null,
+                channelStats: calculateChannelStats([]),
+                languageStats: calculateLanguageStats([]),
+                error: this.lastSyncError || 'CSV source file not found on disk and Google Sheet sync failed or is not configured.',
+            };
+        }
+
+        const stats = fs.statSync(CSV_PATH);
+        const cacheKey = JSON.stringify({
+            ...query,
+            zohoKeys: Object.keys(zohoTickets).length,
+        });
+        const cached = this.summaryCache.get(cacheKey);
+        if (cached && cached.mtimeMs === stats.mtimeMs) {
+            return cached.response;
         }
 
         const filters = this.buildFiltersFromQuery(query);
-        // excludeFailures arrives as the string "true"/"false" since query params are always
-        // strings and this app doesn't enable implicit type conversion.
         const excludeFailures = query.excludeFailures === 'true';
 
-        const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
-        const kpis = calculateKpis(filteredRows, filters.typeBranch);
-        const diagnostics = calculateDiagnostics(filteredRows, zohoTickets);
-        const chartData = calculateChartData(filteredRows, undefined, filters.typeBranch);
-        const channelStats = calculateChannelStats(filteredRows);
-        const languageStats = calculateLanguageStats(filteredRows);
-        // Deliberately over the UNFILTERED records - getPreviousPeriodRows applies the
-        // same non-date filters itself, against the shifted date window instead of the current one.
-        const previousPeriodStats = calculatePreviousPeriodStats(
-            allRecords,
+        const response = await streamAggregateSummary(
+            CSV_PATH,
             filters,
             excludeFailures,
             query.customStart,
             query.customEnd,
+            zohoTickets,
         );
-        // Built from the unfiltered records - dropdown options shouldn't shrink based on the
-        // user's own filter selections.
-        const filterOptions = buildFilterOptions(allRecords);
 
-        return {
-            success: true,
-            totalRecords: allRecords.length,
-            kpis,
-            diagnostics,
-            chartData,
-            previousPeriodStats,
-            filterOptions,
-            lastSyncedAt,
-            channelStats,
-            languageStats,
-        };
+        this.summaryCache.set(cacheKey, { mtimeMs: stats.mtimeMs, response });
+        if (this.summaryCache.size > 50) {
+            const firstKey = this.summaryCache.keys().next().value;
+            if (firstKey) this.summaryCache.delete(firstKey);
+        }
+
+        return response;
     }
 
     // Fetches one sheet's raw rows via the Sheets API. Returns null (not throws) on missing
@@ -581,21 +609,26 @@ export class TestersDashboardService implements ITestersDashboardService {
             return;
         }
 
-        const combinedRows: string[][] = [header, ...rows];
-        const csvLines = combinedRows.map((row) =>
-            row.map((cell) => escapeCsvField(String(cell ?? ''))).join(','),
-        );
-        const csvContent = csvLines.join('\n');
-
         const dir = path.dirname(CSV_PATH);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-        fs.writeFileSync(CSV_PATH, csvContent, 'utf8');
+
+        const writeStream = fs.createWriteStream(CSV_PATH, { encoding: 'utf8' });
+        writeStream.write(header.map(escapeCsvField).join(',') + '\n');
+        for (let i = 0; i < rows.length; i++) {
+            writeStream.write(rows[i].map((cell) => escapeCsvField(String(cell ?? ''))).join(',') + '\n');
+        }
+        await new Promise<void>((resolve, reject) => {
+            writeStream.end();
+            writeStream.on('finish', () => resolve());
+            writeStream.on('error', reject);
+        });
 
         // Invalidate the cache so the next /summary request re-reads from disk instead of
         // serving stale pre-sync data.
         this.cachedRecords = null;
+        this.summaryCache.clear();
         this.lastSyncError = null;
 
         const summary = merged.map((m) => `${m.count} rows from ${m.label}`).join(' + ');
