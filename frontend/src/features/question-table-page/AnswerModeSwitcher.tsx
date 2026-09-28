@@ -1,7 +1,20 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
-import { TopRightBadge } from "@/components/NewBadge";
-import { BookOpen, FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, MessageSquareDiff, UtensilsCrossed } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import {
+    BookOpen,
+    ChevronLeft,
+    ChevronRight,
+    FileText,
+    LeafyGreen,
+    MessageCircle,
+    Radio,
+    Search,
+    Sparkles,
+    UserCheck,
+    UserRound,
+    UtensilsCrossed,
+} from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { cn } from "@/lib/utils";
 
 export const MODES = [
     { id: "ajraskha", label: "AJRASAKHA", icon: Sparkles },
@@ -14,7 +27,7 @@ export const MODES = [
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
     { id: "training", label: "Training", icon: BookOpen },
     { id: "dynamic", label: "Dynamic", icon: Sparkles },
-] as const
+] as const;
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
     ajraskha:
@@ -87,119 +100,260 @@ export function AnswerModeSwitcher({
     /** Called when the dedicated sub-tab changes - controlled by parent */
     onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 }) {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const groupRef = useRef<HTMLDivElement>(null);
     const [glider, setGlider] = useState({ left: 0, width: 0 });
+    const [isOverflowing, setIsOverflowing] = useState(false);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+    const [isMouseDown, setIsMouseDown] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeftState, setScrollLeftState] = useState(0);
+
     const visibleModes = currentUserIsTrainingUser
         ? MODES.filter((mode) => mode.id === "training")
         : (currentUserIsAdmin || canViewTraining)
             ? MODES
             : MODES.filter((mode) => mode.id !== "training");
 
-    useEffect(() => {
+    const updateGlider = useCallback(() => {
         const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
             isDedicatedView ? `[data-mode="dedicated"]` : `[data-mode="${answerMode}"]`
         );
         if (activeBtn && groupRef.current) {
             setGlider({
                 left: activeBtn.offsetLeft,
-                width: activeBtn.offsetWidth
+                width: activeBtn.offsetWidth,
             });
         }
     }, [answerMode, isDedicatedView]);
 
-    return (
-        <div
-            ref={groupRef}
-            className="relative flex w-full items-center gap-0.5 rounded-xl border border-border bg-muted/50 py-2 px-1.5 overflow-x-auto scrollbar-hiding flex-nowrap"
-        >
-            <span
-                className="absolute inset-y-1 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
-                style={{ left: glider.left, width: glider.width }}
-            />
+    const updateScrollButtons = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const { scrollLeft, scrollWidth, clientWidth } = container;
+        const overflowing = scrollWidth > clientWidth + 4;
+        setIsOverflowing(overflowing);
+        setCanScrollLeft(scrollLeft > 4);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 4);
+    }, []);
 
-            {!currentUserIsTrainingUser && hasSearch && (
-                <Tooltip delayDuration={1200}>
-                    <TooltipTrigger asChild>
-                        <button
-                            data-mode="search"
-                            onClick={() => handleAnswerModeChange("search")}
-                            className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${answerMode === "search"
-                                ? "text-primary-foreground scale-[1.02]"
-                                : "text-muted-foreground hover:text-foreground"
-                                }`}
-                        >
-                            <Search className="h-4 w-4" />
-                            Search Results
-                            {totalSearchCount != null && (
-                                <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
-                                    {totalSearchCount}
-                                </span>
-                            )}
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                        {MODE_DESCRIPTIONS["search"]}
-                    </TooltipContent>
-                </Tooltip>
+    useEffect(() => {
+        updateGlider();
+        updateScrollButtons();
+
+        const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
+            isDedicatedView ? `[data-mode="dedicated"]` : `[data-mode="${answerMode}"]`
+        );
+        if (activeBtn) {
+            activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        }
+    }, [answerMode, isDedicatedView, updateGlider, updateScrollButtons]);
+
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        const group = groupRef.current;
+
+        const handleResize = () => {
+            updateGlider();
+            updateScrollButtons();
+        };
+
+        window.addEventListener("resize", handleResize);
+
+        let ro: ResizeObserver | null = null;
+        if (group) {
+            ro = new ResizeObserver(handleResize);
+            ro.observe(group);
+        }
+
+        if (container) {
+            container.addEventListener("scroll", updateScrollButtons, { passive: true });
+        }
+
+        const timer = setTimeout(() => {
+            updateGlider();
+            updateScrollButtons();
+        }, 50);
+
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener("resize", handleResize);
+            if (ro) ro.disconnect();
+            if (container) container.removeEventListener("scroll", updateScrollButtons);
+        };
+    }, [updateGlider, updateScrollButtons]);
+
+    const scroll = (direction: "left" | "right") => {
+        if (scrollContainerRef.current) {
+            const step = Math.max(160, Math.floor(scrollContainerRef.current.clientWidth * 0.5));
+            const scrollAmount = direction === "left" ? -step : step;
+            scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+        }
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!scrollContainerRef.current) return;
+        setIsMouseDown(true);
+        setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+        setScrollLeftState(scrollContainerRef.current.scrollLeft);
+    };
+
+    const handleMouseLeaveOrUp = () => {
+        setIsMouseDown(false);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isMouseDown || !scrollContainerRef.current) return;
+        e.preventDefault();
+        const x = e.pageX - scrollContainerRef.current.offsetLeft;
+        const walk = (x - startX) * 1.5;
+        scrollContainerRef.current.scrollLeft = scrollLeftState - walk;
+    };
+
+    return (
+        <div className="relative flex w-full items-center rounded-xl border border-border bg-muted/50 p-1 overflow-hidden">
+            {/* Left Integrated Scroll Button (Medium devices only) */}
+            {isOverflowing && (
+                <button
+                    type="button"
+                    onClick={() => scroll("left")}
+                    disabled={!canScrollLeft}
+                    aria-label="Scroll tabs left"
+                    className={cn(
+                        "hidden md:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 mr-0.5",
+                        canScrollLeft
+                            ? "hover:text-foreground hover:bg-background hover:shadow-sm border border-transparent hover:border-border/60 cursor-pointer text-foreground"
+                            : "opacity-25 pointer-events-none"
+                    )}
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                </button>
             )}
 
-            {visibleModes.map(({ id, label, icon: Icon }) => {
-                const srcKey = Object.entries(SOURCE_TO_MODE).find(([, mode]) => mode === id)?.[0];
-                const srcCount = srcKey ? sourceCounts?.find(s => s.source === srcKey)?.count : undefined;
-                return (
-                    <Tooltip key={id} delayDuration={1200}>
-                        <TooltipTrigger asChild>
-                            <button
-                                data-mode={id}
-                                onClick={() => handleAnswerModeChange(id as Mode)}
-                                className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${!isDedicatedView && answerMode === id
-                                    ? "text-primary-foreground scale-[1.02]"
-                                    : "text-muted-foreground hover:text-foreground"
-                                    }`}
-                            >
-                                <Icon className="h-4 w-4" />
-                                {(id === "annadatha") && (
-                                    <TopRightBadge label="new" right={0} />
-                                )} 
-                                {label}
-                                {hasSearch && srcCount != null && (
-                                    <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
-                                        {srcCount}
-                                    </span>
-                                )}
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-sm">
-                            {MODE_DESCRIPTIONS[id]}
-                        </TooltipContent>
-                    </Tooltip>
-                );
-            })}
+            {/* Scrollable Tabs Track */}
+            <div
+                ref={scrollContainerRef}
+                onMouseDown={handleMouseDown}
+                onMouseLeave={handleMouseLeaveOrUp}
+                onMouseUp={handleMouseLeaveOrUp}
+                onMouseMove={handleMouseMove}
+                className="relative flex flex-1 items-center overflow-x-auto overflow-y-hidden select-none scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] touch-pan-x"
+            >
+                <div ref={groupRef} className="relative flex items-center gap-0.5 min-w-max py-0.5 px-0.5">
+                    <span
+                        className="absolute inset-y-0.5 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
+                        style={{ left: glider.left, width: glider.width }}
+                    />
 
-            {/* Dedicated / My Assignment tab — shown only for moderators/admins */}
-            { showDedicated && (
-                <>
-                    <Tooltip delayDuration={1200}>
-                        <TooltipTrigger asChild>
-                            <button
-                                data-mode="dedicated"
-                                onClick={onDedicatedClick}
-                                className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
-                                    isDedicatedView
-                                        ? "text-primary-foreground scale-[1.02]"
-                                        : "text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                                <UserCheck className="h-4 w-4" />
-                                My Assignment
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-sm">
-                            Questions assigned to you
-                        </TooltipContent>
-                    </Tooltip>
+                    {!currentUserIsTrainingUser && hasSearch && (
+                        <Tooltip delayDuration={1200}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    data-mode="search"
+                                    onClick={() => handleAnswerModeChange("search")}
+                                    className={cn(
+                                        "relative z-10 flex flex-shrink-0 items-center gap-1.5 px-4 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer select-none",
+                                        !isDedicatedView && answerMode === "search"
+                                            ? "text-foreground font-semibold scale-[1.01]"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    <Search className={cn("h-4 w-4", !isDedicatedView && answerMode === "search" ? "text-primary" : "text-muted-foreground")} />
+                                    Search Results
+                                    {totalSearchCount != null && (
+                                        <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
+                                            {totalSearchCount}
+                                        </span>
+                                    )}
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-sm">
+                                {MODE_DESCRIPTIONS["search"]}
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
 
-                </>
+                    {visibleModes.map(({ id, label, icon: Icon }) => {
+                        const srcKey = Object.entries(SOURCE_TO_MODE).find(([, mode]) => mode === id)?.[0];
+                        const srcCount = srcKey ? sourceCounts?.find(s => s.source === srcKey)?.count : undefined;
+                        const isActive = !isDedicatedView && answerMode === id;
+                        return (
+                            <Tooltip key={id} delayDuration={1200}>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        data-mode={id}
+                                        onClick={() => handleAnswerModeChange(id as Mode)}
+                                        className={cn(
+                                            "relative z-10 flex flex-shrink-0 items-center gap-1.5 px-4 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer select-none",
+                                            isActive
+                                                ? "text-foreground font-semibold scale-[1.01]"
+                                                : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                    >
+                                        <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                                        <span>{label}</span>
+                                        {id === "annadatha" && (
+                                            <span className="inline-flex items-center justify-center rounded-full bg-red-600 dark:bg-red-500 px-1.5 py-[2px] text-[9px] font-bold uppercase tracking-wider text-white leading-none animate-badgePulse shadow-sm shrink-0">
+                                                new
+                                            </span>
+                                        )}
+                                        {hasSearch && srcCount != null && (
+                                            <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
+                                                {srcCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs text-sm">
+                                    {MODE_DESCRIPTIONS[id]}
+                                </TooltipContent>
+                            </Tooltip>
+                        );
+                    })}
+
+                    {/* Dedicated / My Assignment tab — shown only for moderators/admins */}
+                    {showDedicated && (
+                        <Tooltip delayDuration={1200}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    data-mode="dedicated"
+                                    onClick={onDedicatedClick}
+                                    className={cn(
+                                        "relative z-10 flex flex-shrink-0 items-center gap-1.5 px-4 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer select-none",
+                                        isDedicatedView
+                                            ? "text-foreground font-semibold scale-[1.01]"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    <UserCheck className={cn("h-4 w-4", isDedicatedView ? "text-primary" : "text-muted-foreground")} />
+                                    My Assignment
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-sm">
+                                Questions assigned to you
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+                </div>
+            </div>
+
+            {/* Right Integrated Scroll Button (Medium devices only) */}
+            {isOverflowing && (
+                <button
+                    type="button"
+                    onClick={() => scroll("right")}
+                    disabled={!canScrollRight}
+                    aria-label="Scroll tabs right"
+                    className={cn(
+                        "hidden md:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 ml-0.5",
+                        canScrollRight
+                            ? "hover:text-foreground hover:bg-background hover:shadow-sm border border-transparent hover:border-border/60 cursor-pointer text-foreground"
+                            : "opacity-25 pointer-events-none"
+                    )}
+                >
+                    <ChevronRight className="h-4 w-4" />
+                </button>
             )}
         </div>
     );
