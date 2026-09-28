@@ -15,3 +15,17 @@ cron.schedule('*/30 * * * *', async () => {
     );
     await runTestersDashboardSync(testersDashboardService);
 });
+
+// Run initial sync on startup so updated.csv is generated immediately upon deployment
+setTimeout(async () => {
+    try {
+        const container = getContainer();
+        const testersDashboardService = container.get<TestersDashboardService>(
+            CORE_TYPES.TestersDashboardService,
+        );
+        await runTestersDashboardSync(testersDashboardService);
+    } catch (err) {
+        console.error('<<CRON>> Error during startup Testers Dashboard sheet sync:', err);
+    }
+}, 3000);
+
