@@ -5,7 +5,7 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { NotificationModal } from "./NotificationModal";
 import { TabsList, TabsTrigger } from "@/components/atoms/tabs";
-import { canManageUsers, hasFullUserManagement } from "@/lib/roles";
+import { canManageUsers, canLogTestCases, hasFullUserManagement } from "@/lib/roles";
 import type { IUser } from "@/types";
 
 export function PlaygroundHeader({
@@ -196,6 +196,24 @@ export function PlaygroundHeader({
                 className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
                 <span>Data Processing</span>
+              </TabsTrigger>
+            )}
+            {user && user.role === "admin" && (
+              <TabsTrigger
+                value="testers_dashboard"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <span>Testers Dashboard</span>
+              </TabsTrigger>
+            )}
+            {user && canLogTestCases(user.role) && (
+              <TabsTrigger
+                value="tester_log"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <HoverCard openDelay={150}>
+                  <span>Log Test Case</span>
+                </HoverCard>
               </TabsTrigger>
             )}
           </TabsList>

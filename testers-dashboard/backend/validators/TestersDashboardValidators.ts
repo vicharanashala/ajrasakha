@@ -1,0 +1,132 @@
+import { IsIn, IsOptional, IsString, IsBooleanString } from 'class-validator';
+import { JSONSchema } from 'class-validator-jsonschema';
+
+// Query params for the server-side-filtered Testers Dashboard summary endpoint, matching
+// filters.ts's TestersDashboardFilters shape. Every filter value is a normalized value or
+// "all"/omitted - the same values buildFilterOptions() returns for each dropdown, so the
+// frontend can pass a selected option straight through.
+export class GetTestersDashboardQuery {
+  @JSONSchema({
+    example: 'db',
+    description: 'Data source: "sheet" (default, reads Google Sheet CSV) or "db" (reads tester_test_cases collection)',
+  })
+  @IsOptional()
+  @IsIn(['sheet', 'db'])
+  source?: 'sheet' | 'db';
+
+  @JSONSchema({
+    example: '7days',
+    description: 'Date range filter: all, today, 7days, 30days, or custom',
+  })
+  // Deliberately typed as plain `string`, not a string-literal union type: TypeScript erases
+  // type aliases at compile time, so a union-typed property has no runtime constructor for
+  // emitDecoratorMetadata to reflect, and routing-controllers would try JSON.parse() on the
+  // raw query string and throw a 400 for every value. @IsIn still fully validates the allowed
+  // values at runtime; TestersDashboardService casts to the real union type afterward.
+  @IsOptional()
+  @IsIn(['all', 'today', '7days', '30days', 'custom'])
+  dateRange?: string;
+
+  @JSONSchema({
+    example: '2026-08-01',
+    description: 'Custom range start date (YYYY-MM-DD) - only used when dateRange="custom"',
+  })
+  @IsOptional()
+  @IsString()
+  customStart?: string;
+
+  @JSONSchema({
+    example: '2026-08-10',
+    description: 'Custom range end date (YYYY-MM-DD) - only used when dateRange="custom"',
+  })
+  @IsOptional()
+  @IsString()
+  customEnd?: string;
+
+  @JSONSchema({ example: 'GDB', description: 'Type of Question filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @JSONSchema({ example: 'Insect–Pest Management', description: 'Question Category filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @JSONSchema({ example: '0.1', description: 'Build / Version filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  build?: string;
+
+  @JSONSchema({ example: 'Web App', description: 'Channel Tested filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  channel?: string;
+
+  @JSONSchema({ example: 'English', description: 'Language Tested filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @JSONSchema({ example: 'Joydeep', description: 'Tester Name filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  tester?: string;
+
+  @JSONSchema({ example: 'Pass', description: 'Overall Test Status filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @JSONSchema({ example: 'Critical', description: 'Defect Severity filter (normalized value, or "all")' })
+  @IsOptional()
+  @IsString()
+  severity?: string;
+
+  @JSONSchema({
+    example: 'Weather,Mandi Prices',
+    description:
+      'Dynamic sub-type filter (multi-select, OR logic) - comma-separated list of dynamicSubBucketFor values ' +
+      '(Weather, Mandi Prices, Government Schemes). Independent of `type` - selecting sub-types does not require ' +
+      'type=Dynamic. Omitted/empty means no filter.',
+  })
+  // A true array-typed query param would need the frontend to send repeated keys
+  // (?dynamicSubTypes=Weather&dynamicSubTypes=Mandi...) - a comma-separated string is simpler
+  // on both ends and avoids the same query-parsing pitfall as dateRange above. Parsed into a
+  // string[] in TestersDashboardService.buildFiltersFromQuery.
+  @IsOptional()
+  @IsString()
+  dynamicSubTypes?: string;
+
+  @JSONSchema({
+    example: 'Dynamic',
+    description:
+      'Dynamic/Static tree filter (whole-branch selection, no sub-type chosen): "Dynamic" or "Static", or ' +
+      'omitted/"all" for no filter. Independent of the legacy `type` param above. See filters.ts\'s TypeBranch.',
+  })
+  @IsOptional()
+  @IsIn(['all', 'Dynamic', 'Static'])
+  typeBranch?: string;
+
+  @JSONSchema({
+    example: 'GDB,Unique',
+    description:
+      'Static sub-type filter (multi-select, OR logic) - comma-separated list of "GDB"/"Unique"/"Outreach". Only ' +
+      'meaningful when typeBranch="Static" - omitted/empty means "match the whole Static branch" (GDB+Unique+' +
+      'Outreach combined). Same wire format as dynamicSubTypes above.',
+  })
+  @IsOptional()
+  @IsString()
+  staticSubTypes?: string;
+
+  @JSONSchema({
+    example: 'true',
+    description: 'Exclude rows with a DB-save failure, a wrongly-flagged duplicate, or a Critical defect - "true" or "false"',
+  })
+  // Query params always arrive as strings and this app doesn't enable implicit type
+  // conversion, so @IsBoolean() would reject every real request. The consumer compares
+  // against the literal string "true".
+  @IsOptional()
+  @IsBooleanString()
+  excludeFailures?: string;
+}

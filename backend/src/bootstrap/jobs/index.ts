@@ -7,6 +7,8 @@ import './reAllocateCron.js'
 import './timeBoundReAllocateCron.js'
 import './moderatorQueueCron.js'
 import './agentStatusCleanupJob.js';
+import './testersDashboardSyncCron.js'
+import './zohoTicketStatusSyncCron.js'
 import './gateKeeperAuditorQueueCron.js'
 import './feedbackAllocationCron.js'
 import './paeValidationQueueCron.js'
