@@ -609,7 +609,7 @@ export function QuestionActivityModal({
                     : "text-muted-foreground"
                 }`}
               >
-                Non Agri Queries
+                All
               </span>
               <Switch
                 checked={viewType === "questions"}
