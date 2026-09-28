@@ -1,14 +1,12 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { useTestersDashboardData } from "../hooks/useTestersDashboardData";
 import { useTestersDashboardSummary } from "../hooks/useTestersDashboardSummary";
 import { useZohoTicketStatuses } from "../hooks/useZohoTicketStatuses";
-import type { ITestersDashboardRecord } from "../services/testersDashboardService";
 import { TrendChart, buildXAxisTicks, buildRobustRangeSeries, type TrendChartProps } from "./TrendChart";
 import { FilterBar, DYNAMIC_SUB_TYPE_OPTIONS, STATIC_SUB_TYPE_OPTIONS, type IFilterField } from "./FilterBar";
 import { ExecutiveSummary } from "./ExecutiveSummary";
@@ -17,19 +15,6 @@ import { DiagnosticsRow, type IDefectsTab, type ITeamBreakdown } from "./Diagnos
 import { InfoPopover } from "./InfoPopover";
 import { channelDisplayLabel, UNASSIGNED_TEAM_LABEL } from "../utils";
 
-function normalize(value?: string): string {
-  return (value || "").trim().toLowerCase();
-}
-
-function matchesAny(value: string | undefined, options: string[]): boolean {
-  const n = normalize(value);
-  return options.includes(n);
-}
-
-function isNAlike(value?: string): boolean {
-  const n = normalize(value);
-  return n === "" || n === "na" || n === "nil" || n === "n/a";
-}
 
 const KNOWN_SEVERITIES: Record<string, string> = {
   CRITICAL: "Critical",
@@ -60,39 +45,6 @@ function toTitleCase(value?: string): string {
 
   return v.toLowerCase().replace(/(^|[\s\-–])([a-z])/g, (_match, sep: string, letter: string) => sep + letter.toUpperCase());
 }
-
-const KNOWN_LEAKED_TESTER_NAMES = new Set(["LAVANYA MATHIALAGAN", "ITHAGANI SHIREESHA"]);
-
-function normalizeTypeOfQuestion(value?: string): string {
-  const upper = (value || "").trim().toUpperCase();
-  if (KNOWN_LEAKED_TESTER_NAMES.has(upper)) return "";
-  if (upper === "GDB" || upper === "GDP") return "GDB";
-  if (upper === "DYNAMIC" || upper === "DYNMIC") return "Dynamic";
-  if (upper === "UNIQUE" || upper === "UNIUQE") return "Unique";
-  return toTitleCase(value);
-}
-
-function moduleGroupFor(typeOfQuestion?: string): "GDB" | "Dynamic" | "Unique Questions" | "Outreach" | null {
-  const t = normalizeTypeOfQuestion(typeOfQuestion);
-  if (t === "GDB") return "GDB";
-  if (t.toLowerCase().includes("static dynamic")) return null;
-  if (t.toLowerCase().includes("dynamic")) return "Dynamic";
-  if (t === "Unique") return "Unique Questions";
-  if (t === "Outreach") return "Outreach";
-  return null;
-}
-
-function dynamicSubBucketFor(category?: string, typeOfQuestion?: string): string | null {
-  if (moduleGroupFor(typeOfQuestion) !== "Dynamic") return null;
-
-  const cat = (category || "").trim().toLowerCase();
-  if (cat.includes("weather")) return "Weather";
-  if (cat.includes("mandi") || cat.includes("market rate") || cat.includes("price")) return "Mandi Prices";
-  if (cat.includes("scheme") || cat.includes("subsidy") || cat.includes("government")) return "Government Schemes";
-  return null;
-}
-
-const STATIC_SUB_TYPES = new Set(["GDB", "Unique", "Outreach"]);
 
 const KNOWN_CATEGORY_WORD_ORDER_SWAPS: Record<string, string> = {
   "BIO–PESTICIDES AND BIO–FERTILIZERS": "Bio–Fertilizers And Bio–Pesticides",
@@ -176,68 +128,6 @@ function formatLastUpdated(isoString: string | null): string {
   });
 }
 
-const MONTH_NAMES: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4,
-  may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9,
-  september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
-};
-
-const KNOWN_DATE_TYPOS: Record<string, string> = {
-  "24-06-26": "2026-06-24",
-  "08-06-26": "2026-06-08",
-  "25-07--2026": "2026-07-25",
-  "24-07--2026": "2026-07-24",
-  "25-06-2-26": "2026-06-25",
-  "14-07-026": "2026-07-14",
-  "10.06.2026": "2026-06-10",
-  "12-06 -2026": "2026-06-12",
-  "14-06-206": "2026-06-14",
-  "17-06-026": "2026-06-17",
-  "19-06-206": "2026-06-19",
-  "25-0-6-2026": "2026-06-25",
-  "15-07-206": "2026-07-15",
-};
-
-function parseTestDateToISO(dateStr?: string): string | null {
-  const s = (dateStr || "").trim();
-  if (!s || isNAlike(s)) return null;
-  if (KNOWN_DATE_TYPOS[s]) return KNOWN_DATE_TYPOS[s];
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const [y, m, d] = s.split("-").map(Number);
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 2020 && y <= 2026) {
-      return s;
-    }
-    return null;
-  }
-
-  const monthNameMatch = s.match(/^(\d{1,2})[-\s]+([A-Za-z]+)[-\s]+(\d{4})$/);
-  if (monthNameMatch) {
-    const day = parseInt(monthNameMatch[1], 10);
-    const month = MONTH_NAMES[monthNameMatch[2].toLowerCase()];
-    const year = parseInt(monthNameMatch[3], 10);
-    if (month && day >= 1 && day <= 31 && year >= 2020 && year <= 2026) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-    return null;
-  }
-
-  const numericMatch = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
-  if (numericMatch) {
-    const day = parseInt(numericMatch[1], 10);
-    const month = parseInt(numericMatch[2], 10);
-    const rawYear = numericMatch[3];
-    if (rawYear.length !== 2 && rawYear.length !== 4) return null;
-    let year = parseInt(rawYear, 10);
-    if (rawYear.length === 2) year += 2000;
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2026) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  return null;
-}
-
 const EMPTY_FILTERS = {
   dateRange: "all",
   category: "all",
@@ -277,7 +167,6 @@ export function TestersDashboardSection({
   description = "Quality Assurance Performance Analytics",
   sourceBadge,
 }: TestersDashboardSectionProps) {
-  const { data, isLoading, isError } = useTestersDashboardData(source);
   const { data: zohoData } = useZohoTicketStatuses();
   const zohoStatuses = zohoData?.statuses ?? {};
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
@@ -425,67 +314,6 @@ export function TestersDashboardSection({
     source,
   );
 
-  const allRecords = data?.records ?? [];
-
-  const applyNonDateFilters = (rows: ITestersDashboardRecord[]): ITestersDashboardRecord[] => {
-    let out = rows;
-    if (excludeFailures) {
-      out = out.filter(
-        (r) =>
-          !matchesAny(r["Question Saved in DB?"], ["not saved"]) &&
-          !matchesAny(r["Answer Saved in DB?"], ["not saved"]) &&
-          !matchesAny(r["Q-ID Consistent Across Systems?"], ["wrongly identified as duplicate"]) &&
-          normalizeDefectSeverity(r["Defect Severity"]) !== "Critical" &&
-          (dynamicSubBucketFor(r["Question Category"], r["Type of Question"]) !== null ||
-            STATIC_SUB_TYPES.has(normalizeTypeOfQuestion(r["Type of Question"]))),
-      );
-    }
-    for (const field of FILTER_FIELDS) {
-      const value = filters[field.key];
-      if (value !== "all") {
-        if (field.normalize) {
-          out = out.filter((r) => field.normalize!(r[field.csvKey]) === value);
-        } else {
-          out = out.filter((r) => r[field.csvKey] === value);
-        }
-      }
-    }
-    return out;
-  };
-
-  const filtered = useMemo(() => {
-    let rows: ITestersDashboardRecord[] = applyNonDateFilters(allRecords);
-
-    const isCustomWithNoDatesYet = filters.dateRange === "custom" && !customStart && !customEnd;
-
-    if (filters.dateRange !== "all" && !isCustomWithNoDatesYet) {
-      const now = new Date();
-      const todayISO = now.toISOString().slice(0, 10);
-      rows = rows.filter((r) => {
-        const iso = parseTestDateToISO(r["Test Date"]);
-        if (!iso) return false;
-        const rDate = new Date(iso);
-
-        if (filters.dateRange === "today") {
-          return iso === todayISO;
-        } else if (filters.dateRange === "7days") {
-          const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-          return diffDays <= 7;
-        } else if (filters.dateRange === "30days") {
-          const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-          return diffDays <= 30;
-        } else if (filters.dateRange === "custom") {
-          if (customStart && iso < customStart) return false;
-          if (customEnd && iso > customEnd) return false;
-          return true;
-        }
-        return true;
-      });
-    }
-
-    return rows;
-  }, [allRecords, filters, excludeFailures, customStart, customEnd]);
-
   const getTicketTeam = (ticketId: string): string => zohoStatuses[ticketId]?.team || UNASSIGNED_TEAM_LABEL;
   const matchesTeam = (ticketId: string, team: string | null): boolean => !team || getTicketTeam(ticketId) === team;
   const matchesSelectedTeam = (ticketId: string): boolean => matchesTeam(ticketId, selectedTeam);
@@ -573,12 +401,12 @@ export function TestersDashboardSection({
     ).length,
   ]);
 
-  if (isLoading || summaryQuery.isLoading || !data || !summaryQuery.data) {
+  if (summaryQuery.isLoading || !summaryQuery.data) {
     return <div className="p-6 text-muted-foreground">Loading {title.toLowerCase()} data...</div>;
   }
 
-  if (isError || !data.success || summaryQuery.isError || !summaryQuery.data.success) {
-    const errorDetail = data?.error || summaryQuery.data?.error;
+  if (summaryQuery.isError || !summaryQuery.data.success) {
+    const errorDetail = summaryQuery.data?.error;
     return (
       <div className="p-6 text-destructive">
         <p className="font-semibold">Failed to load {title.toLowerCase()} data.</p>
@@ -819,11 +647,11 @@ export function TestersDashboardSection({
           <div className="flex flex-col text-left">
             <span className="text-muted-foreground">
               {excludeFailures
-                ? `Showing ${filtered.length} clean of ${allRecords.length} records.`
-                : `Loaded ${allRecords.length} records.`}
+                ? `Showing ${summaryQuery.data.kpis.N} clean of ${summaryQuery.data.totalRecords} records.`
+                : `Loaded ${summaryQuery.data.totalRecords} records.`}
             </span>
             <span className="text-muted-foreground">
-              Last synced: {formatLastUpdated(data?.lastSyncedAt ?? null)}
+              Last synced: {formatLastUpdated(summaryQuery.data.lastSyncedAt ?? null)}
             </span>
           </div>
         </div>
