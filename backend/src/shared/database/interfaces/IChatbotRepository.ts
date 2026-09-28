@@ -924,6 +924,14 @@ export interface IChatbotRepository {
     endDate?: string,
   ): Promise<any>;
 
+  getUserNonAgriQuestionsData(
+    userId: string,
+    page?: number,
+    limit?: number,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any>;
+
   getUserMessageMetricDetails(
     userId: string,
     metric: string,

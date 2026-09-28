@@ -1756,19 +1756,32 @@ async getUserQuestionsData(
     endDate,
   );
 
+  const emptyQuestionsPage = {
+    total: 0,
+    totalPages: 0,
+    currentPage: page,
+    limit,
+    items: [],
+  };
+
   // No user found
   if (!user) {
     return {
-      questions: {
-        total: 0,
-        totalPages: 0,
-        currentPage: page,
-        limit,
-        items: [],
-      },
+      questions: emptyQuestionsPage,
+      nonAgriQuestions: emptyQuestionsPage,
       messages,
     };
   }
+
+  // Non-agri questions only depend on the user, not on linked messageIds
+  const nonAgriQuestions =
+    await this.chatbotRepository.getUserNonAgriQuestionsData(
+      user.userId,
+      page,
+      limit,
+      startDate,
+      endDate,
+    );
 
   const threadIds = [];
 
@@ -1784,13 +1797,8 @@ async getUserQuestionsData(
   // No linked messages
   if (!messageIds.length) {
     return {
-      questions: {
-        total: 0,
-        totalPages: 0,
-        currentPage: page,
-        limit,
-        items: [],
-      },
+      questions: emptyQuestionsPage,
+      nonAgriQuestions,
       messages,
     };
   }
@@ -1812,6 +1820,7 @@ async getUserQuestionsData(
 
   return {
     questions,
+    nonAgriQuestions,
     messages,
   };
 }

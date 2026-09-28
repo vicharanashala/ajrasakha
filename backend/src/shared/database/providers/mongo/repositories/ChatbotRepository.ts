@@ -8673,6 +8673,195 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getUserNonAgriQuestionsData(
+    userId: string,
+    page = 1,
+    limit = 12,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    try {
+      await this.initReviewSystem();
+
+      const matchQuery: any = {
+        userId: new ObjectId(userId),
+        status: 'non_agri',
+        source: 'AJRASAKHA',
+      };
+
+      if (startDate || endDate) {
+        matchQuery.createdAt = {};
+
+        if (startDate) {
+          matchQuery.createdAt.$gte = new Date(`${startDate}T00:00:00+05:30`);
+        }
+
+        if (endDate) {
+          matchQuery.createdAt.$lte = new Date(`${endDate}T23:59:59.999+05:30`);
+        }
+      }
+
+      const skip = (page - 1) * limit;
+
+      const pipeline = [
+        {
+          $match: matchQuery,
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        {
+          $group: {
+            _id: {
+              $toLower: {
+                $trim: {
+                  input: '$question',
+                },
+              },
+            },
+
+            repeatedCount: {
+              $sum: 1,
+            },
+
+            latestQuestion: {
+              $first: '$question',
+            },
+
+            latestStatus: {
+              $first: '$status',
+            },
+
+            latestCreatedAt: {
+              $first: '$createdAt',
+            },
+
+            latestUpdatedAt: {
+              $first: '$updatedAt',
+            },
+
+            latestMessageId: {
+              $first: '$messageId',
+            },
+
+            latestThreadId: {
+              $first: '$threadId',
+            },
+
+            latestUserId: {
+              $first: '$userId',
+            },
+
+            latestId: {
+              $first: '$_id',
+            },
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
+          },
+        },
+
+        {
+          $project: {
+            _id: '$latestId',
+
+            messageId: '$latestMessageId',
+
+            threadId: '$latestThreadId',
+
+            userId: '$latestUserId',
+
+            question: {
+              $trim: {
+                input: '$latestQuestion',
+              },
+            },
+
+            status: '$latestStatus',
+
+            createdAt: '$latestCreatedAt',
+
+            updatedAt: '$latestUpdatedAt',
+
+            repeatedCount: '$repeatedCount',
+
+            repeatedAt: '$allCreatedAt',
+
+            isDuplicate: {
+              $gt: ['$repeatedCount', 1],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        {
+          $facet: {
+            metadata: [
+              {
+                $count: 'total',
+              },
+            ],
+
+            data: [
+              {
+                $skip: skip,
+              },
+
+              {
+                $limit: limit,
+              },
+            ],
+          },
+        },
+      ];
+
+      const result = await this.QuestionCollection.aggregate(pipeline, {
+        allowDiskUse: true,
+      }).toArray();
+
+      const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
+
+      const questions = result[0]?.data || [];
+
+      questions.forEach((q: any) => {
+        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
+
+        q.repeatedAt = (q.repeatedAt || []).sort(
+          (a: string, b: string) =>
+            new Date(b).getTime() - new Date(a).getTime(),
+        );
+      });
+
+      const totalPages = Math.ceil(totalQuestions / limit);
+
+      return {
+        total: totalQuestions,
+
+        totalPages,
+
+        currentPage: page,
+
+        limit,
+
+        items: questions,
+      };
+    } catch (err) {
+      throw new InternalServerError(
+        `Failed to get non-agri question data: ${err}`,
+      );
+    }
+  }
+
   async getUsersMessages(
     email: string,
     source = 'annam',

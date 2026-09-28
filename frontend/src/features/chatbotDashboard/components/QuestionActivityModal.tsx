@@ -7,12 +7,10 @@ import {
   ChevronRight,
   CircleHelp,
   Clock,
-  HelpCircle,
   History,
   Inbox,
   Mail,
   MapPin,
-  MessageSquare,
   MessageSquareText,
   User,
   X,
@@ -33,7 +31,6 @@ import {
   DialogTitle,
 } from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import { Switch } from "@/components/atoms/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -43,7 +40,7 @@ import {
 
 import { TranslatableText } from "./TranslatableText";
 
-export type QuestionActivityViewType = "messages" | "questions";
+export type QuestionActivityViewType = "messages" | "questions" | "non_agri";
 
 export interface QuestionActivityItem {
   _id?: string;
@@ -134,6 +131,7 @@ function StatusBadge({ status }: { status: string }) {
   > = {
     duplicate: { variant: "destructive", label: "Duplicate" },
     closed: { variant: "secondary", label: "Closed" },
+    "non-agri": { variant: "outline", label: "Non Agri" },
   };
   const cfg = map[normalizedStatus] ?? { variant: "outline", label: status };
 
@@ -252,10 +250,11 @@ function ActivityCard({
   viewType: QuestionActivityViewType;
   onTimelineClick?: (dates: string[]) => void;
 }) {
-  const text = viewType === "questions" ? item.question : item.message;
+  const isQuestionView = viewType === "questions" || viewType === "non_agri";
+  const text = isQuestionView ? item.question : item.message;
   const displayText =
     text?.trim() ||
-    (viewType === "questions"
+    (isQuestionView
       ? "Question text not available"
       : "Message content not available");
   const repeatCount = (item.repeatedCount ?? 0) - 1;
@@ -263,7 +262,7 @@ function ActivityCard({
   const [showContentModal, setShowContentModal] = useState(false);
 
   const handleCardClick = () => {
-    if (viewType === "questions" && item._id) {
+    if (isQuestionView && item._id) {
       navigate({
         to: "/home",
         search: (prev: any) => ({ ...prev, question: item._id }),
@@ -278,7 +277,7 @@ function ActivityCard({
     <>
       <div
         className={`group rounded-xl border bg-background px-4 py-3.5 transition-all duration-150 hover:border-border/80 hover:bg-muted/20 ${
-          viewType === "questions" && item._id ? "cursor-pointer" : ""
+          isQuestionView && item._id ? "cursor-pointer" : ""
         }`}
         onClick={handleCardClick}
       >
@@ -292,7 +291,7 @@ function ActivityCard({
                 text={displayText}
                 showTooltip
                 textClassName={`text-xs line-clamp-2 ${
-                  viewType === "questions" && item._id
+                  isQuestionView && item._id
                     ? "group-hover:underline cursor-pointer"
                     : ""
                 }`}
@@ -305,7 +304,7 @@ function ActivityCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-            {viewType === "questions" && item.status && (
+            {isQuestionView && item.status && (
               <StatusBadge status={item.status} />
             )}
             
@@ -541,6 +540,24 @@ function DuplicateGroupCard({ group }: { group: QuestionDuplicateGroup }) {
   );
 }
 
+const VIEW_TYPE_TABS: { value: QuestionActivityViewType; label: string }[] = [
+  { value: "questions", label: "Agri Queries" },
+  { value: "non_agri", label: "Non Agri Queries" },
+  { value: "messages", label: "All" },
+];
+
+const VIEW_TYPE_LABELS: Record<QuestionActivityViewType, string> = {
+  questions: "Agri Queries",
+  non_agri: "Non Agri Queries",
+  messages: "All",
+};
+
+const VIEW_TYPE_STAT_LABELS: Record<QuestionActivityViewType, string> = {
+  questions: "Total Agri Queries",
+  non_agri: "Total Non Agri Queries",
+  messages: "Total Messages",
+};
+
 export function QuestionActivityModal({
   open,
   onOpenChange,
@@ -572,7 +589,9 @@ export function QuestionActivityModal({
   const dialogContentRef = useRef<HTMLDivElement>(null);
   const showToggle = mode === "activity" && onViewTypeChange;
   const defaultEmptyMessage =
-    mode === "activity" ? `No ${viewType} found.` : "No question details for this selection.";
+    mode === "activity"
+      ? `No ${VIEW_TYPE_LABELS[viewType].toLowerCase()} found.`
+      : "No question details for this selection.";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -594,46 +613,21 @@ export function QuestionActivityModal({
           {(showToggle || headerEndActions || showCloseButton) && (
             <div className="flex shrink-0 items-center gap-3">
           {showToggle && (
-            <div className="flex items-center gap-2.5 rounded-full border bg-muted/40 px-3.5 py-1.5">
-              <MessageSquare
-                className={`h-3.5 w-3.5 transition-colors ${
-                  viewType === "messages"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              />
-              <span
-                className={`text-xs font-medium transition-colors ${
-                  viewType === "messages"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              >
-                All
-              </span>
-              <Switch
-                checked={viewType === "questions"}
-                onCheckedChange={(checked) =>
-                  onViewTypeChange(checked ? "questions" : "messages")
-                }
-                className="scale-90 data-[state=checked]:bg-primary"
-              />
-              <span
-                className={`text-xs font-medium transition-colors ${
-                  viewType === "questions"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              >
-                Agri Queries
-              </span>
-              <HelpCircle
-                className={`h-3.5 w-3.5 transition-colors ${
-                  viewType === "questions"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              />
+            <div className="flex items-center gap-1 rounded-full border bg-muted/40 p-1">
+              {VIEW_TYPE_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => onViewTypeChange(tab.value)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    viewType === tab.value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
                 </div>
               )}
               {headerEndActions}
@@ -672,16 +666,12 @@ export function QuestionActivityModal({
                         icon: Clock,
                       },
                       {
-                        label:
-                          totalLabel ??
-                          (viewType === "questions"
-                            ? "Total Agri Queries"
-                            : "Total Non Agri Queries"),
+                        label: totalLabel ?? VIEW_TYPE_STAT_LABELS[viewType],
                         value: totalCount,
                         icon:
-                          viewType === "questions"
-                            ? CircleHelp
-                            : MessageSquareText,
+                          viewType === "messages"
+                            ? MessageSquareText
+                            : CircleHelp,
                       },
                     ].map(({ label, value, icon: Icon }) => (
                       <div
