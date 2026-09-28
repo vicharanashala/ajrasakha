@@ -118,7 +118,8 @@ async def ajrasakha_node(
     merged_configurable = dict((config.get("configurable") or {}))
     merged_configurable["location"] = state.get("location")
     enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
+    from ajrasakha.agents.config import get_planner_chat_model, CLAUDE_MODEL
+    llm = get_planner_chat_model(default_claude_model=CLAUDE_MODEL).bind_tools(main_tools)
     long_term_summary = await load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory from previous daily threads:\n{long_term_summary}"

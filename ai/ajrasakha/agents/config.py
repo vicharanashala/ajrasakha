@@ -25,6 +25,16 @@ SANITIZER_MODEL = MINIMAX_MODEL       # Relevance scoring
 TRANSLATE_MODEL = CLAUDE_MODEL        # Translation uses Claude Sonnet (avoid crop substitution)
 FOLLOW_UP_MODEL = CLAUDE_MODEL        # Translation/transformation - Sonnet for quality
 CROP_CLASSIFY_MODEL = MINIMAX_MODEL   # Binary classification
+DAILY_PRICE_MODEL = os.getenv("DAILY_PRICE_MODEL", MINIMAX_MODEL)  # Intent & synthesis use MiniMax
+
+
+
+MINIMAX_MAX_TOKENS = int(os.getenv("MINIMAX_MAX_TOKENS", "4096"))
+MINIMAX_TIMEOUT = float(os.getenv("MINIMAX_TIMEOUT", "60.0"))
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
 
 
 def get_minimax_chat_model(**overrides):
