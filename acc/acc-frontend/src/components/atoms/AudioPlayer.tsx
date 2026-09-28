@@ -72,7 +72,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to load recording URL:', err);
-      setErrorMessage('Could not load recording');
+      setErrorMessage(err?.message || 'Could not load recording');
       return null;
     } finally {
       setIsLoading(false);

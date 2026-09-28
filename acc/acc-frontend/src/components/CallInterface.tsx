@@ -578,6 +578,7 @@ export const CallInterface = () => {
   const callPhoneNumberRef = useRef<string | null>(null);
   const lastCallPhoneNumberRef = useRef<string | null>(null);
   const activeProfileRef = useRef<any>(null);
+  const [farmerProfile, setFarmerProfile] = useState<any>(null);
   const farmerDetailsRef = useRef<FarmerDetailsRef | null>(null);
 
   // HITL state
@@ -654,6 +655,7 @@ export const CallInterface = () => {
 
   const handleStateChange = (val: string) => {
     setEditableState(val);
+    setFarmerProfile((prev: any) => (prev ? { ...prev, state: val } : { state: val }));
     setQueryCards((prev) => {
       if (!prev[activeQueryIndex]) return prev;
       const copy = [...prev];
@@ -664,6 +666,7 @@ export const CallInterface = () => {
 
   const handleDistrictChange = (val: string) => {
     setEditableDistrict(val);
+    setFarmerProfile((prev: any) => (prev ? { ...prev, district: val } : { district: val }));
     setQueryCards((prev) => {
       if (!prev[activeQueryIndex]) return prev;
       const copy = [...prev];
@@ -674,6 +677,7 @@ export const CallInterface = () => {
 
   const handleBlockChange = (val: string) => {
     setEditableBlock(val);
+    setFarmerProfile((prev: any) => (prev ? { ...prev, blockName: val } : { blockName: val }));
     setQueryCards((prev) => {
       if (!prev[activeQueryIndex]) return prev;
       const copy = [...prev];
@@ -684,6 +688,7 @@ export const CallInterface = () => {
 
   const handleVillageChange = (val: string) => {
     setEditableVillage(val);
+    setFarmerProfile((prev: any) => (prev ? { ...prev, villageName: val } : { villageName: val }));
     setQueryCards((prev) => {
       if (!prev[activeQueryIndex]) return prev;
       const copy = [...prev];
@@ -851,6 +856,7 @@ export const CallInterface = () => {
     lastCallPhoneNumberRef.current = null;
     activeProfileRef.current = null;
     setExtractedFarmerProfile(null);
+    setFarmerProfile(null);
     setTranscriptsList([]);
     setQuestions([]);
     setTranslatedQuestions({});
@@ -975,16 +981,30 @@ export const CallInterface = () => {
     setExtractedCrop("");
     setHasGeneratedQuestions(false);
 
+    // Set test farmer profile with broader location
+    const sampleFarmer = {
+      farmerName: "Ramesh Pawar",
+      phoneNo: testPhone,
+      state: "Maharashtra",
+      district: "Yavatmal",
+      blockName: "Yavatmal",
+      villageName: "Arni",
+      primaryCrop: "Cotton",
+    };
+    setExtractedFarmerProfile(sampleFarmer);
+    setFarmerProfile(sampleFarmer);
+    activeProfileRef.current = sampleFarmer;
+
     // Reset HITL state
     setThreadId(null);
     setExtractedData(null);
     setIsHumanVerificationMode(false);
     setEditableQuery("");
     setEditableCrop("");
-    setEditableState("");
-    setEditableDistrict("");
-    setEditableBlock("");
-    setEditableVillage("");
+    setEditableState("Maharashtra");
+    setEditableDistrict("Yavatmal");
+    setEditableBlock("Yavatmal");
+    setEditableVillage("Arni");
     setEditableDomain([]);
     setEditableSeason("");
     setQueryCards([]);
@@ -1366,6 +1386,7 @@ export const CallInterface = () => {
           numberOfSmartphones: data.extracted_smartphones_at_home !== undefined && data.extracted_smartphones_at_home !== null ? Number(data.extracted_smartphones_at_home) : undefined,
         };
         setExtractedFarmerProfile(farmerProfileData);
+        setFarmerProfile(farmerProfileData);
         activeProfileRef.current = farmerProfileData;
         setEditableState(data.extracted_state || "");
         setEditableDistrict(data.extracted_district || "");
@@ -1750,6 +1771,7 @@ export const CallInterface = () => {
             disabled={!isCallActive && !isSimulatingMode && !(callUuid && callUuid.startsWith("testing_")) && !callPhoneNumber && !lastCallPhoneNumber}
             onProfileUpdated={(profile) => {
               activeProfileRef.current = profile;
+              setFarmerProfile(profile);
             }}
             defaultOpen={true}
             className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300"
@@ -2536,8 +2558,16 @@ export const CallInterface = () => {
 
         {/* Right Column: Weather Information (top) + Live Questions & Specialist Answers (bottom) (Rest: 45%) */}
         <div className="w-full space-y-4 flex flex-col">
-          {/* Weather Widget */}
-          <WeatherWidget defaultState={editableState || extractedState || "Karnataka"} />
+          {/* Weather Widget with Hierarchical Location (Taluk -> District -> State) from Farmer Profile & Manual Dropdowns */}
+          <WeatherWidget
+            farmerLocation={{
+              state: farmerProfile?.state || editableState || extractedState || "Karnataka",
+              district: farmerProfile?.district || editableDistrict || "",
+              taluk: farmerProfile?.blockName || editableBlock || "",
+              village: farmerProfile?.villageName || editableVillage || "",
+            }}
+            defaultState={farmerProfile?.state || editableState || extractedState || "Karnataka"}
+          />
 
           {/* Live Questions & AI Specialist Answers List */}
           <Card className="flex-1 min-h-[400px] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">

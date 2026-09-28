@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader } from "./atoms/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./atoms/select";
+import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
 import { Button } from "./atoms/button";
+import { Input } from "./atoms/input";
+import { Label } from "./atoms/label";
 import {
   Cloud,
   Sun,
@@ -15,22 +17,35 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  Search,
+  RotateCcw,
+  Loader2,
+  X,
+  Check,
 } from "lucide-react";
+import { getDistrictsForState, getTaluksForDistrict } from "@/utils/indiaLocationData";
 
-// List of Indian States & UTs with capital coordinates for weather fetching
+// List of Indian States & UTs with central/capital coordinates for weather fetching
 const INDIAN_STATES_COORDINATES: Record<string, { city: string; lat: number; lon: number }> = {
-  "Karnataka": { city: "Bengaluru", lat: 12.9716, lon: 77.5946 },
+  "Andaman and Nicobar Islands": { city: "Port Blair", lat: 11.6234, lon: 92.7265 },
   "Andhra Pradesh": { city: "Vijayawada", lat: 16.5062, lon: 80.6480 },
   "Arunachal Pradesh": { city: "Itanagar", lat: 27.0844, lon: 93.6053 },
   "Assam": { city: "Guwahati", lat: 26.1433, lon: 91.7898 },
   "Bihar": { city: "Patna", lat: 25.5941, lon: 85.1376 },
+  "Chandigarh": { city: "Chandigarh", lat: 30.7333, lon: 76.7794 },
   "Chhattisgarh": { city: "Raipur", lat: 21.2514, lon: 81.6296 },
+  "Dadra and Nagar Haveli and Daman and Diu": { city: "Daman", lat: 20.4283, lon: 72.8397 },
+  "Delhi": { city: "New Delhi", lat: 28.6139, lon: 77.2090 },
   "Goa": { city: "Panaji", lat: 15.4909, lon: 73.8278 },
-  "Gujarat": { city: "Ahmedabad", lat: 23.0225, lon: 72.5714 },
+  "Gujarat": { city: "Gandhinagar", lat: 23.2156, lon: 72.6369 },
   "Haryana": { city: "Chandigarh", lat: 30.7333, lon: 76.7794 },
   "Himachal Pradesh": { city: "Shimla", lat: 31.1048, lon: 77.1734 },
+  "Jammu and Kashmir": { city: "Srinagar", lat: 34.0837, lon: 74.7973 },
   "Jharkhand": { city: "Ranchi", lat: 23.3441, lon: 85.3096 },
+  "Karnataka": { city: "Bengaluru", lat: 12.9716, lon: 77.5946 },
   "Kerala": { city: "Thiruvananthapuram", lat: 8.5241, lon: 76.9366 },
+  "Ladakh": { city: "Leh", lat: 34.1526, lon: 77.5771 },
+  "Lakshadweep": { city: "Kavaratti", lat: 10.5667, lon: 72.6417 },
   "Madhya Pradesh": { city: "Bhopal", lat: 23.2599, lon: 77.4126 },
   "Maharashtra": { city: "Mumbai", lat: 19.0760, lon: 72.8777 },
   "Manipur": { city: "Imphal", lat: 24.8170, lon: 93.9368 },
@@ -38,6 +53,7 @@ const INDIAN_STATES_COORDINATES: Record<string, { city: string; lat: number; lon
   "Mizoram": { city: "Aizawl", lat: 23.7271, lon: 92.7176 },
   "Nagaland": { city: "Kohima", lat: 25.6751, lon: 94.1086 },
   "Odisha": { city: "Bhubaneswar", lat: 20.2961, lon: 85.8245 },
+  "Puducherry": { city: "Puducherry", lat: 11.9416, lon: 79.8083 },
   "Punjab": { city: "Chandigarh", lat: 30.7333, lon: 76.7794 },
   "Rajasthan": { city: "Jaipur", lat: 26.9124, lon: 75.7873 },
   "Sikkim": { city: "Gangtok", lat: 27.3389, lon: 88.6065 },
@@ -47,9 +63,40 @@ const INDIAN_STATES_COORDINATES: Record<string, { city: string; lat: number; lon
   "Uttar Pradesh": { city: "Lucknow", lat: 26.8467, lon: 80.9462 },
   "Uttarakhand": { city: "Dehradun", lat: 30.3165, lon: 78.0322 },
   "West Bengal": { city: "Kolkata", lat: 22.5726, lon: 88.3639 },
-  "Delhi": { city: "New Delhi", lat: 28.6139, lon: 77.2090 },
-  "Jammu and Kashmir": { city: "Srinagar", lat: 34.0837, lon: 74.7973 },
 };
+
+export interface FarmerLocation {
+  state?: string;
+  district?: string;
+  taluk?: string; // Block / Taluk / Tehsil
+  village?: string;
+}
+
+export interface WeatherWidgetProps {
+  defaultState?: string;
+  farmerLocation?: FarmerLocation;
+}
+
+interface GeocodePlace {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  admin1?: string; // State
+  admin2?: string; // District
+  admin3?: string; // Taluk / Sub-district
+}
+
+interface ResolvedLocation {
+  state: string;
+  district?: string;
+  taluk?: string;
+  village?: string;
+  lat: number;
+  lon: number;
+  displayName: string;
+  isFromProfile: boolean;
+}
 
 interface HourlyForecast {
   time: string;
@@ -77,6 +124,254 @@ interface WeatherData {
   source: "IMD" | "Open-Meteo";
 }
 
+// In-memory cache for Open-Meteo Geocoding requests to prevent duplicate network calls
+const geocodeCache = new Map<string, GeocodePlace[]>();
+
+async function searchOpenMeteo(query: string, stateFilter?: string): Promise<GeocodePlace[]> {
+  const cleanName = query.split(",")[0].trim();
+  if (cleanName.length < 2) return [];
+
+  const cacheKey = `${cleanName.toLowerCase()}__${(stateFilter || "").toLowerCase()}`;
+  if (geocodeCache.has(cacheKey)) {
+    return geocodeCache.get(cacheKey)!;
+  }
+
+  try {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanName)}&count=10&language=en&country_code=IN`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results: GeocodePlace[] = (data.results || []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      admin1: r.admin1 || "",
+      admin2: r.admin2 || "",
+      admin3: r.admin3 || "",
+    }));
+
+    let filtered = results;
+    if (stateFilter) {
+      const sf = stateFilter.toLowerCase();
+      const stateMatches = results.filter(
+        (r) =>
+          r.admin1?.toLowerCase().includes(sf) ||
+          sf.includes(r.admin1?.toLowerCase() || "")
+      );
+      if (stateMatches.length > 0) {
+        filtered = stateMatches;
+      }
+    }
+
+    geocodeCache.set(cacheKey, filtered);
+    return filtered;
+  } catch (err) {
+    console.warn("[WeatherWidget] Geocoding lookup failed:", err);
+    return [];
+  }
+}
+
+// Reusable Searchable Dropdown with search embedded directly inside the dropdown menu
+interface SearchableDropdownProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+  placeholder: string;
+  searchPlaceholder?: string;
+  disabled?: boolean;
+  onDynamicSearch?: (query: string) => Promise<GeocodePlace[]>;
+  onSelectDynamicPlace?: (place: GeocodePlace) => void;
+}
+
+const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  searchPlaceholder = "Search...",
+  disabled = false,
+  onDynamicSearch,
+  onSelectDynamicPlace,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [dynamicResults, setDynamicResults] = useState<GeocodePlace[]>([]);
+  const [isSearchingDynamic, setIsSearchingDynamic] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isOpen]);
+
+  // Reset search when closed
+  useEffect(() => {
+    if (!isOpen) {
+      setSearch("");
+      setDynamicResults([]);
+    }
+  }, [isOpen]);
+
+  // Filter static options
+  const filteredOptions = options.filter((opt) =>
+    opt.toLowerCase().includes(search.trim().toLowerCase())
+  );
+
+  // Dynamic geocoding search if no static match
+  useEffect(() => {
+    if (!isOpen || !onDynamicSearch) return;
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    const q = search.trim();
+    if (q.length >= 2 && filteredOptions.length === 0) {
+      setIsSearchingDynamic(true);
+      searchDebounceRef.current = setTimeout(async () => {
+        const results = await onDynamicSearch(q);
+        setDynamicResults(results);
+        setIsSearchingDynamic(false);
+      }, 250);
+    } else {
+      setDynamicResults([]);
+      setIsSearchingDynamic(false);
+    }
+  }, [search, isOpen, filteredOptions.length, onDynamicSearch]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      {/* Trigger Button */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex h-7.5 w-full items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-zinc-900 dark:text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors"
+      >
+        <span className="truncate text-left font-medium">
+          {value || <span className="text-zinc-400 dark:text-zinc-500 font-normal">{placeholder}</span>}
+        </span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 opacity-50 ml-1.5 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {/* Dropdown Menu with Embedded Search */}
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 max-h-56 overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl z-40 flex flex-col">
+          {/* Search Input right inside the dropdown */}
+          <div className="p-1.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 shrink-0">
+            <div className="relative flex items-center">
+              <Search className="absolute left-2 h-3 w-3 text-zinc-400 pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="h-6.5 text-[11px] pl-6.5 pr-6 bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                autoFocus
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Scrollable Items List */}
+          <div className="overflow-y-auto max-h-44 p-1 space-y-0.5 custom-scrollbar">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((opt) => {
+                const isSelected = opt.toLowerCase() === value.toLowerCase();
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-2 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${isSelected
+                      ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold"
+                      : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+                      }`}
+                  >
+                    <span className="truncate">{opt}</span>
+                    {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                  </button>
+                );
+              })
+            ) : isSearchingDynamic ? (
+              <div className="flex items-center justify-center gap-1.5 py-4 text-xs text-zinc-500 dark:text-zinc-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+                <span>Searching online...</span>
+              </div>
+            ) : dynamicResults.length > 0 ? (
+              <div>
+                <div className="px-2 py-1 text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">
+                  Online Locations
+                </div>
+                {dynamicResults.map((place) => (
+                  <button
+                    key={place.id}
+                    type="button"
+                    onClick={() => {
+                      if (onSelectDynamicPlace) {
+                        onSelectDynamicPlace(place);
+                      } else {
+                        onChange(place.name);
+                      }
+                      setIsOpen(false);
+                    }}
+                    className="w-full text-left px-2 py-1.5 rounded-md text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/60 flex items-center justify-between text-zinc-800 dark:text-zinc-200 transition-colors"
+                  >
+                    <span className="font-semibold truncate">{place.name}</span>
+                    <span className="text-[10px] text-zinc-400 truncate max-w-[120px]">
+                      {[place.admin2, place.admin1].filter(Boolean).join(", ")}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : search.trim().length >= 2 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(search.trim());
+                  setIsOpen(false);
+                }}
+                className="w-full text-left px-2 py-2 rounded-md text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 font-semibold flex items-center gap-1.5"
+              >
+                <Search className="h-3 w-3" />
+                <span>Use "{search.trim()}"</span>
+              </button>
+            ) : (
+              <div className="py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
+                {options.length === 0 ? "No options available" : "No matches found"}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Weather WMO Code mapping helper
 const getWeatherCondition = (code: number, sizeClass = "h-7 w-7"): { text: string; icon: React.ReactNode } => {
   if (code === 0) return { text: "Sunny / Clear", icon: <Sun className={`${sizeClass} text-amber-400`} /> };
@@ -90,7 +385,7 @@ const getWeatherCondition = (code: number, sizeClass = "h-7 w-7"): { text: strin
 };
 
 // Helper to normalize fuzzy/abbreviated Indian state names
-const normalizeStateName = (inputState: string): string => {
+const normalizeStateName = (inputState?: string): string => {
   if (!inputState || !inputState.trim()) return "Karnataka";
   const trimmed = inputState.trim();
 
@@ -123,6 +418,9 @@ const normalizeStateName = (inputState: string): string => {
     br: "Bihar",
     ga: "Goa",
     jk: "Jammu and Kashmir",
+    ch: "Chandigarh",
+    py: "Puducherry",
+    la: "Ladakh",
   };
 
   if (abbrevMap[lower]) return abbrevMap[lower];
@@ -140,10 +438,24 @@ const normalizeStateName = (inputState: string): string => {
   return "Karnataka";
 };
 
-export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultState = "Karnataka" }) => {
-  const [selectedState, setSelectedState] = useState<string>(() =>
-    normalizeStateName(defaultState)
-  );
+export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
+  defaultState = "Karnataka",
+  farmerLocation,
+}) => {
+  // Active resolved location for weather display
+  const [activeLocation, setActiveLocation] = useState<ResolvedLocation>(() => {
+    const norm = normalizeStateName(defaultState);
+    const defInfo = INDIAN_STATES_COORDINATES[norm] || INDIAN_STATES_COORDINATES["Karnataka"];
+    return {
+      state: norm,
+      lat: defInfo.lat,
+      lon: defInfo.lon,
+      displayName: `${defInfo.city}, ${norm}`,
+      isFromProfile: false,
+    };
+  });
+
+  const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
   const [unit, setUnit] = useState<"C" | "F">("C");
   const [activeTab, setActiveTab] = useState<"Temperature" | "Precipitation" | "Wind">("Temperature");
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -151,22 +463,427 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
   const [error, setError] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (defaultState) {
-      const normalized = normalizeStateName(defaultState);
-      if (normalized && normalized !== selectedState) {
-        setSelectedState(normalized);
+  // Ref to track the last resolved farmer location fingerprint
+  const lastFarmerLocationKeyRef = useRef<string>("");
+
+  // Fingerprint for the current farmer profile location details
+  const farmerLocationKey = [
+    farmerLocation?.state || "",
+    farmerLocation?.district || "",
+    farmerLocation?.taluk || "",
+    farmerLocation?.village || "",
+  ]
+    .map((s) => s.trim().toLowerCase())
+    .join("|");
+
+  // Popover state
+  const [isPopoverOpen, setIsPopoverOpen] = useState<boolean>(false);
+  const [selectedState, setSelectedState] = useState<string>(() => activeLocation.state);
+  const [selectedDistrict, setSelectedDistrict] = useState<string>(() => activeLocation.district || "");
+  const [selectedTaluk, setSelectedTaluk] = useState<string>(() => activeLocation.taluk || "");
+
+  // Pre-loaded dropdown lists
+  const availableDistricts = getDistrictsForState(selectedState);
+  const availableTaluks = getTaluksForDistrict(selectedDistrict);
+
+  // Helper to format clean breadcrumb
+  const buildBreadcrumb = (parts: {
+    village?: string;
+    taluk?: string;
+    district?: string;
+    state: string;
+    fallbackCity?: string;
+  }): string => {
+    const list: string[] = [];
+    const v = parts.village?.trim();
+    const t = parts.taluk?.trim();
+    const d = parts.district?.trim();
+    const s = parts.state?.trim();
+
+    if (v) {
+      list.push(v);
+    }
+    if (t && (!v || t.toLowerCase() !== v.toLowerCase())) {
+      list.push(t);
+    }
+    if (d && (!t || d.toLowerCase() !== t.toLowerCase()) && (!v || d.toLowerCase() !== v.toLowerCase())) {
+      list.push(d);
+    }
+    if (list.length === 0 && parts.fallbackCity) {
+      list.push(parts.fallbackCity);
+    }
+    if (s) {
+      list.push(s);
+    }
+    return list.join(", ");
+  };
+
+  // Hierarchical location resolver: Village (if present) -> Taluk/Block -> District -> State
+  const resolveLocationHierarchically = useCallback(async (loc: FarmerLocation) => {
+    const rawState = loc.state?.trim() || "";
+    const rawDistrict = loc.district?.trim() || "";
+    const rawTaluk = loc.taluk?.trim() || "";
+    const rawVillage = loc.village?.trim() || "";
+
+    const normalizedState = normalizeStateName(rawState || defaultState);
+    const stateInfo = INDIAN_STATES_COORDINATES[normalizedState] || INDIAN_STATES_COORDINATES["Karnataka"];
+
+    // Level 1: Village level (highest precision when present in farmer profile)
+    if (rawVillage && rawVillage.toLowerCase() !== "all" && rawVillage.length >= 2) {
+      const villageResults = await searchOpenMeteo(rawVillage, normalizedState);
+      if (villageResults.length > 0) {
+        const matched = rawDistrict
+          ? villageResults.find(
+              (r) =>
+                r.admin2?.toLowerCase().includes(rawDistrict.toLowerCase()) ||
+                rawDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
+            ) || villageResults[0]
+          : villageResults[0];
+
+        const resTaluk = rawTaluk || matched.admin3 || "";
+        const resDistrict = rawDistrict || matched.admin2 || "";
+        const breadcrumb = buildBreadcrumb({
+          village: rawVillage,
+          taluk: resTaluk,
+          district: resDistrict,
+          state: normalizedState,
+        });
+
+        setActiveLocation({
+          state: normalizedState,
+          district: resDistrict,
+          taluk: resTaluk,
+          village: rawVillage,
+          lat: matched.latitude,
+          lon: matched.longitude,
+          displayName: breadcrumb,
+          isFromProfile: true,
+        });
+        setSelectedState(normalizedState);
+        setSelectedDistrict(resDistrict);
+        setSelectedTaluk(resTaluk);
+        return;
       }
     }
+
+    // Level 2: Taluk / Block (if village not present or village geocoding returned no results)
+    if (rawTaluk && rawTaluk.toLowerCase() !== "all" && rawTaluk.length >= 2) {
+      const results = await searchOpenMeteo(rawTaluk, normalizedState);
+      if (results.length > 0) {
+        const matched = rawDistrict
+          ? results.find(
+              (r) =>
+                r.admin2?.toLowerCase().includes(rawDistrict.toLowerCase()) ||
+                rawDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
+            ) || results[0]
+          : results[0];
+
+        const resDistrict = rawDistrict || matched.admin2 || matched.admin3 || "";
+        const breadcrumb = buildBreadcrumb({
+          taluk: rawTaluk,
+          district: resDistrict,
+          state: normalizedState,
+        });
+
+        setActiveLocation({
+          state: normalizedState,
+          district: resDistrict,
+          taluk: rawTaluk,
+          village: undefined,
+          lat: matched.latitude,
+          lon: matched.longitude,
+          displayName: breadcrumb,
+          isFromProfile: true,
+        });
+        setSelectedState(normalizedState);
+        setSelectedDistrict(resDistrict);
+        setSelectedTaluk(rawTaluk);
+        return;
+      }
+    }
+
+    // Level 3: District (if taluk not present or geocoding returned no results)
+    if (rawDistrict && rawDistrict.toLowerCase() !== "all" && rawDistrict.length >= 2) {
+      const results = await searchOpenMeteo(rawDistrict, normalizedState);
+      if (results.length > 0) {
+        const top = results[0];
+        const breadcrumb = buildBreadcrumb({
+          district: rawDistrict,
+          state: normalizedState,
+        });
+        setActiveLocation({
+          state: normalizedState,
+          district: rawDistrict,
+          taluk: undefined,
+          village: undefined,
+          lat: top.latitude,
+          lon: top.longitude,
+          displayName: breadcrumb,
+          isFromProfile: true,
+        });
+        setSelectedState(normalizedState);
+        setSelectedDistrict(rawDistrict);
+        setSelectedTaluk("");
+        return;
+      } else {
+        const breadcrumb = buildBreadcrumb({
+          district: rawDistrict,
+          state: normalizedState,
+        });
+        setActiveLocation({
+          state: normalizedState,
+          district: rawDistrict,
+          taluk: undefined,
+          village: undefined,
+          lat: stateInfo.lat,
+          lon: stateInfo.lon,
+          displayName: breadcrumb,
+          isFromProfile: true,
+        });
+        setSelectedState(normalizedState);
+        setSelectedDistrict(rawDistrict);
+        setSelectedTaluk("");
+        return;
+      }
+    }
+
+    // Level 4: State capital fallback
+    const breadcrumb = buildBreadcrumb({
+      state: normalizedState,
+      fallbackCity: stateInfo.city,
+    });
+    setActiveLocation({
+      state: normalizedState,
+      district: undefined,
+      taluk: undefined,
+      village: undefined,
+      lat: stateInfo.lat,
+      lon: stateInfo.lon,
+      displayName: breadcrumb,
+      isFromProfile: Boolean(rawState),
+    });
+    setSelectedState(normalizedState);
+    setSelectedDistrict("");
+    setSelectedTaluk("");
   }, [defaultState]);
 
-  const stateInfo = INDIAN_STATES_COORDINATES[selectedState] || INDIAN_STATES_COORDINATES["Karnataka"];
+  // Synchronize whenever farmer profile location details change
+  useEffect(() => {
+    const hasLocationData = Boolean(
+      farmerLocation &&
+        (farmerLocation.state ||
+          farmerLocation.district ||
+          farmerLocation.taluk ||
+          farmerLocation.village)
+    );
 
+    const isNewLocation = farmerLocationKey !== lastFarmerLocationKeyRef.current;
+
+    if (isNewLocation) {
+      lastFarmerLocationKeyRef.current = farmerLocationKey;
+
+      // When the farmer profile location details change, immediately reset manual override
+      setIsManualOverride(false);
+
+      if (hasLocationData && farmerLocation) {
+        resolveLocationHierarchically(farmerLocation);
+      } else if (defaultState) {
+        const norm = normalizeStateName(defaultState);
+        const stateInfo = INDIAN_STATES_COORDINATES[norm] || INDIAN_STATES_COORDINATES["Karnataka"];
+        setActiveLocation({
+          state: norm,
+          lat: stateInfo.lat,
+          lon: stateInfo.lon,
+          displayName: `${stateInfo.city}, ${norm}`,
+          isFromProfile: false,
+        });
+        setSelectedState(norm);
+        setSelectedDistrict("");
+        setSelectedTaluk("");
+      }
+    }
+  }, [farmerLocationKey, farmerLocation, defaultState, resolveLocationHierarchically]);
+
+  // Handle State Change in Popover
+  const handleStateChange = (newState: string) => {
+    setSelectedState(newState);
+    setSelectedDistrict("");
+    setSelectedTaluk("");
+    setIsManualOverride(true);
+
+    const stateInfo = INDIAN_STATES_COORDINATES[newState] || INDIAN_STATES_COORDINATES["Karnataka"];
+    const breadcrumb = buildBreadcrumb({
+      state: newState,
+      fallbackCity: stateInfo.city,
+    });
+    setActiveLocation({
+      state: newState,
+      district: undefined,
+      taluk: undefined,
+      village: undefined,
+      lat: stateInfo.lat,
+      lon: stateInfo.lon,
+      displayName: breadcrumb,
+      isFromProfile: false,
+    });
+  };
+
+  // Handle District selection from Dropdown
+  const handleSelectDistrictName = async (districtName: string) => {
+    setSelectedDistrict(districtName);
+    setSelectedTaluk(""); // Reset taluk when district changes
+    setIsManualOverride(true);
+
+    const results = await searchOpenMeteo(districtName, selectedState);
+    const breadcrumb = buildBreadcrumb({
+      district: districtName,
+      state: selectedState,
+    });
+
+    if (results.length > 0) {
+      const top = results[0];
+      setActiveLocation({
+        state: selectedState,
+        district: districtName,
+        taluk: undefined,
+        village: undefined,
+        lat: top.latitude,
+        lon: top.longitude,
+        displayName: breadcrumb,
+        isFromProfile: false,
+      });
+    } else {
+      const stateInfo = INDIAN_STATES_COORDINATES[selectedState] || INDIAN_STATES_COORDINATES["Karnataka"];
+      setActiveLocation({
+        state: selectedState,
+        district: districtName,
+        taluk: undefined,
+        village: undefined,
+        lat: stateInfo.lat,
+        lon: stateInfo.lon,
+        displayName: breadcrumb,
+        isFromProfile: false,
+      });
+    }
+  };
+
+  // Handle Taluk selection from Dropdown
+  const handleSelectTalukName = async (talukName: string) => {
+    setSelectedTaluk(talukName);
+    setIsManualOverride(true);
+
+    const results = await searchOpenMeteo(talukName, selectedState);
+    const breadcrumb = buildBreadcrumb({
+      taluk: talukName,
+      district: selectedDistrict,
+      state: selectedState,
+    });
+
+    if (results.length > 0) {
+      const matched = selectedDistrict
+        ? results.find(
+            (r) =>
+              r.admin2?.toLowerCase().includes(selectedDistrict.toLowerCase()) ||
+              selectedDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
+          ) || results[0]
+        : results[0];
+
+      setActiveLocation({
+        state: selectedState,
+        district: selectedDistrict || matched.admin2,
+        taluk: talukName,
+        village: undefined,
+        lat: matched.latitude,
+        lon: matched.longitude,
+        displayName: breadcrumb,
+        isFromProfile: false,
+      });
+    } else {
+      setActiveLocation((prev) => ({
+        ...prev,
+        taluk: talukName,
+        village: undefined,
+        displayName: breadcrumb,
+        isFromProfile: false,
+      }));
+    }
+  };
+
+  // Dynamic geocode place selection for District
+  const handleSelectDistrictPlace = (place: GeocodePlace) => {
+    const districtName = place.name;
+    setSelectedDistrict(districtName);
+    setSelectedTaluk("");
+    setIsManualOverride(true);
+
+    const breadcrumb = buildBreadcrumb({
+      district: districtName,
+      state: selectedState,
+    });
+    setActiveLocation({
+      state: selectedState,
+      district: districtName,
+      taluk: undefined,
+      village: undefined,
+      lat: place.latitude,
+      lon: place.longitude,
+      displayName: breadcrumb,
+      isFromProfile: false,
+    });
+  };
+
+  // Dynamic geocode place selection for Taluk
+  const handleSelectTalukPlace = (place: GeocodePlace) => {
+    const talukName = place.name;
+    setSelectedTaluk(talukName);
+    setIsManualOverride(true);
+
+    const breadcrumb = buildBreadcrumb({
+      taluk: talukName,
+      district: selectedDistrict || place.admin2,
+      state: selectedState,
+    });
+    setActiveLocation({
+      state: selectedState,
+      district: selectedDistrict || place.admin2,
+      taluk: talukName,
+      village: undefined,
+      lat: place.latitude,
+      lon: place.longitude,
+      displayName: breadcrumb,
+      isFromProfile: false,
+    });
+  };
+
+  // Reset to profile location
+  const handleResetToProfile = () => {
+    setIsManualOverride(false);
+    if (farmerLocation && (farmerLocation.state || farmerLocation.district || farmerLocation.taluk)) {
+      resolveLocationHierarchically(farmerLocation);
+    } else {
+      const norm = normalizeStateName(defaultState);
+      const stateInfo = INDIAN_STATES_COORDINATES[norm] || INDIAN_STATES_COORDINATES["Karnataka"];
+      setActiveLocation({
+        state: norm,
+        lat: stateInfo.lat,
+        lon: stateInfo.lon,
+        displayName: `${stateInfo.city}, ${norm}`,
+        isFromProfile: false,
+      });
+      setSelectedState(norm);
+      setSelectedDistrict("");
+      setSelectedTaluk("");
+    }
+    setIsPopoverOpen(false);
+  };
+
+  // Weather data fetching
   const fetchWeatherData = async () => {
     setIsLoading(true);
     setError(null);
 
-    const { lat, lon } = stateInfo;
+    const lat = activeLocation.lat;
+    const lon = activeLocation.lon;
 
     const fetchOpenMeteoFallback = async () => {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FKolkata`;
@@ -250,7 +967,6 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
       });
     } catch (imdError) {
       console.warn("[WeatherWidget] IMD API unavailable, switching to Open-Meteo fallback:", imdError);
-      // Priority 2: Fallback to Open-Meteo in Catch block
       try {
         await fetchOpenMeteoFallback();
       } catch (fallbackError: any) {
@@ -264,7 +980,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
 
   useEffect(() => {
     fetchWeatherData();
-  }, [selectedState]);
+  }, [activeLocation.lat, activeLocation.lon]);
 
   const displayTemp = (celsius: number) => {
     if (unit === "F") return Math.round((celsius * 9) / 5 + 32);
@@ -279,31 +995,147 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
       <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5">
         {/* Row 1: Location & Controls */}
         <div className="flex items-center justify-between gap-2">
-          {/* Location Header */}
+          {/* Location Header - Clean Breadcrumb Display */}
           <div
             className="flex items-center gap-1.5 text-zinc-900 dark:text-zinc-100 cursor-pointer select-none min-w-0"
             onClick={() => setIsCollapsed(!isCollapsed)}
+            title={activeLocation.displayName}
           >
             <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <span className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
-              {stateInfo.city}, {selectedState}
+            <span className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100 tracking-tight truncate max-w-[210px] sm:max-w-[300px]">
+              {activeLocation.displayName}
             </span>
           </div>
 
-          {/* Controls: State Selector Dropdown & Refresh & Accordion Toggle */}
+          {/* Controls: Change Location Popover + Refresh + Accordion Toggle */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger className="h-7 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 w-[130px] sm:w-[155px] shadow-sm">
-                <SelectValue placeholder="Select State..." />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 max-h-60 z-50">
-                {Object.keys(INDIAN_STATES_COORDINATES).map((st) => (
-                  <SelectItem key={st} value={st} className="text-xs focus:bg-indigo-50 dark:focus:bg-indigo-950 focus:text-indigo-600 dark:focus:text-indigo-300">
-                    {st}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Location Popover for manual selection: State, District, Taluk */}
+            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-sm flex items-center gap-1 rounded-lg"
+                  title="Change Location (State, District, Taluk dropdowns)"
+                >
+                  <MapPin className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                  <span>Location</span>
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 max-h-[85vh] overflow-y-auto p-3.5 space-y-3.5 shadow-2xl border-zinc-200 dark:border-zinc-800 rounded-xl" align="end">
+                {/* Popover Header */}
+                <div className="flex items-center justify-between border-b border-zinc-200/80 dark:border-zinc-800 pb-2">
+                  <div>
+                    <h4 className="font-bold text-xs text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">
+                      Select Weather Location
+                    </h4>
+                  </div>
+                  {isManualOverride && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResetToProfile}
+                      className="h-6 px-1.5 text-[11px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 flex items-center gap-1 font-semibold rounded-md"
+                      title="Reset to Farmer Profile location"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Reset</span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* 1. State Searchable Dropdown */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                    State
+                  </Label>
+                  <SearchableDropdown
+                    value={selectedState}
+                    onChange={handleStateChange}
+                    options={Object.keys(INDIAN_STATES_COORDINATES)}
+                    placeholder="Select State..."
+                    searchPlaceholder="Search state (e.g. Karnataka)..."
+                  />
+                </div>
+
+                {/* 2. District Searchable Dropdown */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                      District
+                    </Label>
+                    {selectedDistrict && (
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[140px]">
+                        Active: <strong className="text-indigo-600 dark:text-indigo-400">{selectedDistrict}</strong>
+                      </span>
+                    )}
+                  </div>
+                  <SearchableDropdown
+                    value={selectedDistrict}
+                    onChange={handleSelectDistrictName}
+                    options={availableDistricts}
+                    placeholder={
+                      availableDistricts.length > 0
+                        ? "Select District..."
+                        : "Select State first"
+                    }
+                    searchPlaceholder="Search district (e.g. Mandya)..."
+                    disabled={availableDistricts.length === 0}
+                    onDynamicSearch={(q) => searchOpenMeteo(`${q} ${selectedState}`, selectedState)}
+                    onSelectDynamicPlace={handleSelectDistrictPlace}
+                  />
+                </div>
+
+                {/* 3. Taluk / Block Searchable Dropdown */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                      Taluk / Block
+                    </Label>
+                    {selectedTaluk && (
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[140px]">
+                        Active: <strong className="text-indigo-600 dark:text-indigo-400">{selectedTaluk}</strong>
+                      </span>
+                    )}
+                  </div>
+                  <SearchableDropdown
+                    value={selectedTaluk}
+                    onChange={handleSelectTalukName}
+                    options={availableTaluks}
+                    placeholder={
+                      !selectedDistrict
+                        ? "Select District first"
+                        : availableTaluks.length > 0
+                          ? "Select Taluk / Block..."
+                          : "Search taluk / block..."
+                    }
+                    searchPlaceholder="Search taluk (e.g. Maddur)..."
+                    disabled={!selectedDistrict}
+                    onDynamicSearch={(q) => searchOpenMeteo(`${q} ${selectedDistrict || ""} ${selectedState}`, selectedState)}
+                    onSelectDynamicPlace={handleSelectTalukPlace}
+                  />
+                </div>
+
+                {/* Footer Controls */}
+                <div className="pt-2 border-t border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    {activeLocation.isFromProfile ? "Profile location" : "Custom location"}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsPopoverOpen(false)}
+                    className="h-6.5 px-3 text-xs font-semibold btn-primary-emerald rounded-md shadow-xs flex items-center gap-1"
+                  >
+                    <Check className="h-3 w-3" />
+                    <span>Done</span>
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
             <Button
               onClick={fetchWeatherData}
@@ -329,7 +1161,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
           </div>
         </div>
 
-        {/* Row 2: Full-width Weather Summary Bar matching Live Conversation Row 2 height */}
+        {/* Row 2: Full-width Weather Summary Bar */}
         <div className="h-8.5 w-full flex items-center justify-between px-3 rounded-lg bg-zinc-100/80 dark:bg-zinc-900/60 border border-zinc-200/70 dark:border-zinc-800 text-xs font-semibold shadow-sm">
           {weather ? (
             <>
@@ -375,7 +1207,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
           ) : (
             <>
               {/* Top Weather Section: Temperature, Stats & Condition */}
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between">
                 {/* Left: Big Temp Display & Switcher */}
                 <div className="flex items-center gap-2.5">
                   <div className="shrink-0">{getWeatherCondition(weather.weatherCode, "h-7 w-7").icon}</div>
@@ -432,8 +1264,8 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`transition-all pb-1 border-b-2 text-[11px] ${activeTab === tab
-                          ? "border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-bold"
-                          : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                        ? "border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-bold"
+                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                         }`}
                     >
                       {tab}
@@ -502,8 +1334,8 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
                       <div
                         key={idx}
                         className={`p-1 sm:p-1.5 rounded-lg border flex flex-col items-center justify-between text-center transition-all ${idx === 0
-                            ? "bg-indigo-50/80 dark:bg-zinc-800/80 border-indigo-500/50 shadow-sm"
-                            : "bg-zinc-50/50 dark:bg-zinc-900/30 border-zinc-200/60 dark:border-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
+                          ? "bg-indigo-50/80 dark:bg-zinc-800/80 border-indigo-500/50 shadow-sm"
+                          : "bg-zinc-50/50 dark:bg-zinc-900/30 border-zinc-200/60 dark:border-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
                           }`}
                       >
                         <span className="text-[9.5px] font-semibold text-zinc-700 dark:text-zinc-300 truncate w-full">{idx === 0 ? "Today" : day.dayName}</span>
