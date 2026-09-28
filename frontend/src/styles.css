@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Testers Dashboard lives outside this project root (../../testers-dashboard/frontend/src)
+   after the move to a root-level folder - Tailwind v4's automatic content
+   detection only scans within this project root, so it needs to be listed
+   explicitly or its classes silently produce no CSS. */
+@source "../../testers-dashboard/frontend/src";
 @import "primereact/resources/themes/lara-light-indigo/theme.css";
 @import "primereact/resources/primereact.min.css";
 @import "primeicons/primeicons.css";
