@@ -21,16 +21,32 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const target = path.resolve(__dirname, '../node_modules');
 const linkPath = path.resolve(__dirname, '../../testers-dashboard/backend/node_modules');
 
-if (fs.existsSync(linkPath)) {
-  const stat = fs.lstatSync(linkPath);
+let stat = null;
+try {
+  stat = fs.lstatSync(linkPath);
+} catch {
+  // Path does not exist or broken link
+}
+
+if (stat) {
   if (stat.isSymbolicLink()) {
-    // Already linked - nothing to do.
+    try {
+      const existingTarget = path.resolve(path.dirname(linkPath), fs.readlinkSync(linkPath));
+      if (existingTarget === target) {
+        // Already linked to the expected target.
+        process.exit(0);
+      }
+    } catch {
+      // Broken link or unable to read target
+    }
+    // Remove stale symlink
+    fs.unlinkSync(linkPath);
+  } else {
+    console.warn(
+      `[link-testers-dashboard-deps] ${linkPath} already exists and is not a symlink/junction - leaving it alone.`,
+    );
     process.exit(0);
   }
-  console.warn(
-    `[link-testers-dashboard-deps] ${linkPath} already exists and is not a symlink/junction - leaving it alone.`,
-  );
-  process.exit(0);
 }
 
 fs.mkdirSync(path.dirname(linkPath), { recursive: true });
