@@ -521,7 +521,7 @@ function DuplicateGroupCard({ group }: { group: QuestionDuplicateGroup }) {
                   className="border-none"
                 >
                   <AccordionTrigger className="rounded-md bg-muted/30 px-3 py-2 text-xs font-semibold hover:no-underline">
-                    Duplicate questions
+                    Duplicate Agri Queries
                   </AccordionTrigger>
                   <AccordionContent className="space-y-2 pt-2">
                     {location.questions.map((question, index) => (
@@ -609,7 +609,7 @@ export function QuestionActivityModal({
                     : "text-muted-foreground"
                 }`}
               >
-                Messages
+                Non Agri Queries
               </span>
               <Switch
                 checked={viewType === "questions"}
@@ -625,7 +625,7 @@ export function QuestionActivityModal({
                     : "text-muted-foreground"
                 }`}
               >
-                Questions
+                Agri Queries
               </span>
               <HelpCircle
                 className={`h-3.5 w-3.5 transition-colors ${
@@ -675,8 +675,8 @@ export function QuestionActivityModal({
                         label:
                           totalLabel ??
                           (viewType === "questions"
-                            ? "Total Questions"
-                            : "Total Messages"),
+                            ? "Total Agri Queries"
+                            : "Total Non Agri Queries"),
                         value: totalCount,
                         icon:
                           viewType === "questions"
