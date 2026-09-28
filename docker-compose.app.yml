@@ -5,8 +5,8 @@
 services:
   reviewer-backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.app
+      context: .
+      dockerfile: backend/Dockerfile.app
     container_name: reviewer-backend
     restart: unless-stopped
     ports:
