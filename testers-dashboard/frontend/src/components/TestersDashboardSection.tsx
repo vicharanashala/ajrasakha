@@ -578,9 +578,13 @@ export function TestersDashboardSection({
   }
 
   if (isError || !data.success || summaryQuery.isError || !summaryQuery.data.success) {
+    const errorDetail = data?.error || summaryQuery.data?.error;
     return (
       <div className="p-6 text-destructive">
-        Failed to load {title.toLowerCase()} data. {source === 'sheet' ? 'Check that the backend CSV source is configured.' : 'Check database connectivity.'}
+        <p className="font-semibold">Failed to load {title.toLowerCase()} data.</p>
+        <p className="text-sm mt-1 text-muted-foreground">
+          {errorDetail || (source === 'sheet' ? 'Check that the backend CSV source is configured.' : 'Check database connectivity.')}
+        </p>
       </div>
     );
   }
