@@ -6,7 +6,7 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { NotificationModal } from "./NotificationModal";
 import { TabsList, TabsTrigger } from "@/components/atoms/tabs";
-import { canManageUsers, hasFullUserManagement } from "@/lib/roles";
+import { canManageUsers, canLogTestCases, hasFullUserManagement } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import type { IUser } from "@/types";
 
@@ -89,6 +89,7 @@ export function PlaygroundHeader({
       scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
   };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
@@ -196,7 +197,7 @@ export function PlaygroundHeader({
                   value="closed_answers"
                   className="relative px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 shrink-0"
                 >
-                  <span className="absolute -top-1 -left-1.5 z-10 inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500">
+                  <span className="absolute -top-1.5 -left-1.5 z-10 inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500">
                     new
                   </span>
                   <span>Answer Sources</span>
@@ -204,17 +205,17 @@ export function PlaygroundHeader({
               )}
 
               {user && canManageUsers(user.role) && (
-                  <TabsTrigger
-                    value="user_management"
-                    className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>
-                        {hasFullUserManagement(user.role) ? "User" : "Expert"} Management
-                      </span>
-                    </HoverCard>
-                  </TabsTrigger>
-                )}
+                <TabsTrigger
+                  value="user_management"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 shrink-0"
+                >
+                  <HoverCard openDelay={150}>
+                    <span>
+                      {hasFullUserManagement(user.role) ? "User" : "Expert"} Management
+                    </span>
+                  </HoverCard>
+                </TabsTrigger>
+              )}
 
               {user && user.role !== "call_agent" && (
                 <TabsTrigger
@@ -287,6 +288,24 @@ export function PlaygroundHeader({
                   className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 shrink-0"
                 >
                   <span>Data Processing</span>
+                </TabsTrigger>
+              )}
+              {user && user.role === "admin" && (
+                <TabsTrigger
+                  value="testers_dashboard"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 shrink-0"
+                >
+                  <span>Testers Dashboard</span>
+                </TabsTrigger>
+              )}
+              {user && canLogTestCases(user.role) && (
+                <TabsTrigger
+                  value="tester_log"
+                  className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150 shrink-0"
+                >
+                  <HoverCard openDelay={150}>
+                    <span>Log Test Case</span>
+                  </HoverCard>
                 </TabsTrigger>
               )}
             </TabsList>

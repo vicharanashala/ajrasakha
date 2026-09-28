@@ -1666,6 +1666,17 @@ async processPaeValidation(
     return res;
   }
 
+  /**
+   * Fetches the background worker status of a bulk delete job.
+   */
+  async getBulkDeleteJobStatus(jobId: string): Promise<IBulkDeleteJobStatus | null> {
+    const res = await apiFetch<IBulkDeleteJobStatus>(
+      `${this._baseUrl}/bulk-delete/jobs/${jobId}`,
+      { method: "GET" }
+    );
+    return res;
+  }
+
 }
 
 export interface IQuestionBulkJobStatus {
@@ -1674,6 +1685,20 @@ export interface IQuestionBulkJobStatus {
   processed: number;
   created: number;
   duplicates: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+  startedAt: string | Date;
+  finishedAt?: string | Date;
+  logs: string[];
+  errors?: any[];
+  successIds?: string[];
+}
+
+export interface IBulkDeleteJobStatus {
+  id: string;
+  total: number;
+  processed: number;
+  deleted: number;
   failed: number;
   status: "running" | "completed" | "failed";
   startedAt: string | Date;
