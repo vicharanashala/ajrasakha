@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { getDistrictsForState, getTaluksForDistrict } from "@/utils/indiaLocationData";
 import { apiFetch } from "@/hooks/api/api-fetch";
+import { env } from "@/config/env";
 
 // List of Indian States & UTs with central/capital coordinates for weather fetching
 const INDIAN_STATES_COORDINATES: Record<string, { city: string; lat: number; lon: number }> = {
@@ -909,7 +910,9 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
       if (taluk) queryParams.set("taluk", taluk);
       if (village) queryParams.set("village", village);
 
-      const imdData = await apiFetch<WeatherData>(`/api/weather/imd?${queryParams.toString()}`);
+      const imdData = await apiFetch<WeatherData>(
+        `${env.apiBaseUrl()}/weather/imd?${queryParams.toString()}`
+      );
 
       if (!imdData || imdData.currentTemp === undefined) {
         throw new Error("Invalid response received from IMD weather service");

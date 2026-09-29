@@ -45,12 +45,13 @@ export class WeatherService {
           params: {
             latitude: lat,
             longitude: lon,
-            data_type: 'bundle',
+            data_type: 'forecast',
           },
-          timeout: 4000,
+          timeout: 8000,
         });
 
-        if (resp.status === 200 && resp.data && resp.data.success !== false) {
+        const res = resp.data?.result || resp.data;
+        if (resp.status === 200 && resp.data && resp.data.success !== false && res?.success !== false) {
           console.log(`[WeatherService] Successfully fetched live IMD weather from: ${upstreamUrl}`);
           return this.formatUpstreamImdResponse(resp.data, params);
         }
@@ -67,7 +68,7 @@ export class WeatherService {
   }
 
   /**
-   * Format upstream IMD mirror bundle into standardized IMD Weather response
+   * Format upstream IMD mirror response (supports both data_type='forecast' and data_type='bundle')
    */
   private formatUpstreamImdResponse(data: any, params: {
     lat: number;
@@ -78,37 +79,88 @@ export class WeatherService {
     village?: string;
   }): ImdWeatherResponse {
     const res = data.result || data;
-    const aws = res.aws?.station || res.station || {};
-    const today = res.today || {};
-    const rawForecastList = res.forecast || [];
 
-    const rawTemp = aws.temperature_c ?? today.observed_max_temp ?? today.forecast_max_temp;
-    const currentTemp = rawTemp != null ? Math.round(Number(rawTemp)) : 28;
+    // Helper to safely parse strings or numeric values from IMD
+    const parseNum = (val: any, fallback: number): number => {
+      if (val == null || val === '' || val === '-' || val === 'NA' || val === 'N/A') return fallback;
+      const num = Number(val);
+      return isNaN(num) ? fallback : num;
+    };
 
-    const rawHumidity = aws.humidity_pct ?? today.humidity_0830 ?? today.humidity_1730;
-    const humidity = rawHumidity != null ? Math.round(Number(rawHumidity)) : 65;
+    // Supports data_type='forecast' (direct city forecast) and data_type='bundle' (nested bundle)
+    const today = res.today || res.forecast?.today || {};
+    const aws = res.nearest_aws?.station || res.aws?.station || res.station || {};
+    const rawForecastList: any[] = Array.isArray(res.forecast)
+      ? res.forecast
+      : Array.isArray(res.forecast?.forecast)
+        ? res.forecast.forecast
+        : [];
 
-    const rawWind = aws.wind_speed_kmph ?? today.wind_speed;
-    const windSpeed = rawWind != null ? Math.round(Number(rawWind)) : 12;
+    // Temperature resolution
+    const currentHour = new Date().getHours();
+    const rawMax = today.observed_max_temp ?? today.forecast_max_temp ?? aws.temperature_c;
+    const maxTemp = parseNum(rawMax, 28);
+    const rawMin = today.observed_min_temp ?? today.forecast_min_temp;
+    const minTemp = parseNum(rawMin, maxTemp - 6);
 
-    const rawCondition = aws.weather_message || today.forecast || 'Partly Cloudy';
+    let currentTemp: number;
+    if (aws.temperature_c != null) {
+      currentTemp = Math.round(parseNum(aws.temperature_c, maxTemp));
+    } else {
+      // Estimate current temperature between min and max based on time of day (peak at 2pm, lowest at 6am)
+      const sunRatio = Math.sin(((currentHour - 6) / 24) * 2 * Math.PI);
+      const estTemp = (maxTemp + minTemp) / 2 + (sunRatio * (maxTemp - minTemp)) / 2;
+      currentTemp = Math.round(estTemp);
+    }
+
+    // Humidity resolution (IMD records morning 08:30 and evening 17:30 humidity)
+    let humidity = 65;
+    if (aws.humidity_pct != null) {
+      humidity = Math.round(parseNum(aws.humidity_pct, 65));
+    } else if (today.humidity_0830 != null || today.humidity_1730 != null) {
+      if (currentHour < 12 && today.humidity_0830 != null) {
+        humidity = Math.round(parseNum(today.humidity_0830, 65));
+      } else if (today.humidity_1730 != null) {
+        humidity = Math.round(parseNum(today.humidity_1730, 65));
+      } else {
+        humidity = Math.round(parseNum(today.humidity_0830 || 65, 65));
+      }
+    }
+
+    // Wind speed resolution
+    const windSpeed = aws.wind_speed_kmph != null ? Math.round(parseNum(aws.wind_speed_kmph, 12)) : 12;
+
+    // Weather condition resolution
+    const rawCondition = today.forecast || aws.weather_message || 'Partly Cloudy';
     const condition = this.parseCondition(rawCondition);
 
-    const stationName = aws.name || today.station || params.taluk || params.district || 'IMD Station';
-    const distanceKm = res.distance_km ?? today.distance_to_station_km ?? null;
+    // Station name and distance
+    const stationName = today.station || aws.name || aws.STATION || params.taluk || params.district || 'IMD Station';
+    const distanceKm = today.distance_to_station_km ?? res.distance_km ?? aws.distance_km ?? null;
+
+    // Precipitation probability estimation from IMD rainfall records
+    let precipitationProb = 20;
+    const pastRain = parseNum(today.past_24hrs_rainfall, 0);
+    const condLower = (rawCondition || '').toLowerCase();
+    if (pastRain > 0 || condLower.includes('rain') || condLower.includes('shower') || condLower.includes('thunder')) {
+      precipitationProb = 75;
+    } else if (condLower.includes('cloud') || condLower.includes('overcast')) {
+      precipitationProb = 40;
+    } else {
+      precipitationProb = 15;
+    }
 
     // Hourly projection from IMD observation baseline
-    const currentHour = new Date().getHours();
     const hourly: ImdHourlyForecast[] = [];
     for (let i = 0; i < 8; i++) {
       const hour = (currentHour + i * 3) % 24;
       const period = hour >= 12 ? 'pm' : 'am';
       const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-      const tempDelta = Math.sin((i / 8) * Math.PI) * 4 - 2;
+      const diurnalOffset = Math.sin(((hour - 6) / 24) * 2 * Math.PI) * 3;
       hourly.push({
         time: `${displayHour} ${period}`,
-        temp: Math.round(currentTemp + tempDelta),
-        precipitationProb: Math.max(5, Math.min(95, Math.round(Number(today.past_24hrs_rainfall ? 40 : 15)))),
+        temp: Math.round(currentTemp + diurnalOffset),
+        precipitationProb: Math.max(5, Math.min(95, Math.round(precipitationProb + (i % 2 === 0 ? 5 : -5)))),
         windSpeed: Math.max(2, Math.round(windSpeed + (i % 2 === 0 ? 2 : -2))),
       });
     }
@@ -118,28 +170,38 @@ export class WeatherService {
     const todayDate = new Date();
     const daily: ImdDailyForecast[] = [];
 
-    if (Array.isArray(rawForecastList) && rawForecastList.length > 0) {
-      rawForecastList.slice(0, 7).forEach((f: any, idx: number) => {
-        const date = new Date(todayDate);
-        date.setDate(todayDate.getDate() + idx);
+    // Day 1 is Today
+    daily.push({
+      dayName: 'Today',
+      weatherCode: condition.code,
+      tempMax: Math.round(maxTemp),
+      tempMin: Math.round(minTemp),
+      forecastText: today.forecast || condition.text,
+    });
+
+    // Days 2 to 7 from IMD forecast list
+    if (rawForecastList.length > 0) {
+      rawForecastList.slice(0, 6).forEach((f: any, idx: number) => {
+        const nextDate = new Date(todayDate);
+        nextDate.setDate(todayDate.getDate() + idx + 1);
         const dayCond = this.parseCondition(f.forecast);
         daily.push({
-          dayName: daysOfWeek[date.getDay()],
+          dayName: daysOfWeek[nextDate.getDay()],
           weatherCode: dayCond.code,
-          tempMax: Math.round(Number(f.max_temp || currentTemp + 2)),
-          tempMin: Math.round(Number(f.min_temp || currentTemp - 5)),
+          tempMax: Math.round(parseNum(f.max_temp ?? f.Day_Max_Temp, maxTemp)),
+          tempMin: Math.round(parseNum(f.min_temp ?? f.Day_Min_temp, minTemp)),
           forecastText: f.forecast || dayCond.text,
         });
       });
     } else {
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(todayDate);
-        date.setDate(todayDate.getDate() + i);
+      for (let i = 1; i <= 6; i++) {
+        const nextDate = new Date(todayDate);
+        nextDate.setDate(todayDate.getDate() + i);
         daily.push({
-          dayName: daysOfWeek[date.getDay()],
+          dayName: daysOfWeek[nextDate.getDay()],
           weatherCode: condition.code,
-          tempMax: currentTemp + (i % 2 === 0 ? 2 : 1),
-          tempMin: currentTemp - 5,
+          tempMax: Math.round(Number(maxTemp) + (i % 2 === 0 ? 1 : 0)),
+          tempMin: Math.round(Number(minTemp)),
           forecastText: condition.text,
         });
       }
