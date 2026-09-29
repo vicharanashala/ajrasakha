@@ -1,0 +1,8 @@
+# Locust + helpers for Project 7 reviewer loadtests.
+# Pin majors; the rest is open. Lock Locust 2.x — the FastHttpSession API is
+# stable across the 2.x line and we rely on it in helpers/assertions.py.
+locust>=2.31,<3.0
+pymongo>=4.7,<5.0
+requests>=2.32,<3.0
+python-dateutil>=2.9,<3.0
+pyyaml>=6.0,<7.0

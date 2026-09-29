@@ -1,0 +1,129 @@
+# =============================================================================
+# Project 7 — Reviewer System Load & SLA Testing Testbed
+# -----------------------------------------------------------------------------
+# Spins up an isolated environment that mirrors production but never touches
+# the real DB / Firebase project.
+#
+#  Services
+#  ────────
+#    mongo            : dedicated MongoDB instance, single-node replica set
+#                       (rs0). Multi-document transactions in the reviewer
+#                       backend require either a replica set or mongos; we
+#                       pick a single-node RS so the testbed is self-contained.
+#    mongo-repl-init  : one-shot sidecar that runs `rs.initiate()` (idempotent)
+#                       and applies ./mongo-init/*.js (the user indexes the
+#                       app expects) AFTER the primary is writable.
+#    firebase-emulator: Firebase Auth Emulator (issues idTokens for /api/login)
+#    reviewer-backend : the Ajrasakha reviewer backend pointed at the above
+#
+#  Volumes
+#  ───────
+#    mongo-data       : persistent Mongo data (drop with `make down-volumes`)
+#    backend-loadtest-env.env : env-file overlay for the backend container
+# =============================================================================
+
+services:
+  mongo:
+    image: mongo:8
+    container_name: p7-mongo
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27019:27017"          # host port chosen to avoid clashing with local mongod
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo-repl-init:
+    # One-shot. Idempotent. The `--replSet rs0` flag on the `mongo` container
+    # is meaningless until something calls `rs.initiate()`; we do that here
+    # once the primary is healthy, then re-apply the loadtest indexes
+    # (which the docker-entrypoint-initdb.d hook would normally run on a
+    # first-start, but we override `command:` on `mongo` to pass replSet,
+    # so that hook is bypassed).
+    #
+    # Logic in ./mongo-init/02-repl-init.sh — easier to read than a multi-line
+    # YAML block, and easier to keep CRLF-free (Dockerfile-app's `find ... sed`
+    # CRLF strip covers anything we drop in here too).
+    image: mongo:8
+    container_name: p7-mongo-repl-init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    working_dir: /mongo-init
+    volumes:
+      - ./mongo-init:/mongo-init:ro
+    entrypoint: ["bash", "/mongo-init/02-repl-init.sh"]
+    restart: "no"
+
+  firebase-emulator:
+    # firebase-tools image — runs only the Auth Emulator for issuing
+    # idTokens that mirror what identitytoolkit.googleapis.com would issue.
+    # The official `ghcr.io/firebase/firebase-tools:14` tag is not on a public
+    # registry mirror accessible from this host; `andreysenov/firebase-tools`
+    # is the same `firebase` CLI repackaged and works for our purposes
+    # (`emulators:start --only auth`).
+    image: andreysenov/firebase-tools:latest
+    container_name: p7-firebase-auth
+    command:
+      - "firebase"
+      - "emulators:start"
+      - "--only"
+      - "auth"
+      - "--project"
+      - "ajrasakha-loadtest"
+    working_dir: /firebase
+    volumes:
+      # firebase.json pins host=0.0.0.0; without this the auth emulator
+      # binds to loopback only and other containers in the compose network
+      # cannot reach it on the bridge interface.
+      - ./firebase.json:/firebase/firebase.json:ro
+    environment:
+      # The emulator requires an explicit project; do NOT use a real one.
+      GCLOUD_PROJECT: ajrasakha-loadtest
+      FIREBASE_AUTH_EMULATOR_HOST: 0.0.0.0:9099
+      # Auth Emulator listens on 9099 internally; expose the same port.
+    ports:
+      - "9099:9099"            # Auth REST endpoint  (used by /api/login)
+      # NOTE: 4000 (Emulator UI) is intentionally not mapped. Debug UI is not
+      # needed for the load-test harness and frequently collides with another
+      # Firebase emulator already bound to that port on the host.
+
+  reviewer-backend:
+    build:
+      context: ../../ajrasakha/backend
+      dockerfile: Dockerfile.app
+    container_name: p7-reviewer-backend
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-repl-init:
+        condition: service_completed_successfully
+      firebase-emulator:
+        condition: service_started
+    env_file:
+      - backend-loadtest.env
+    environment:
+      # These two MUST match the host:port mappings above so the backend
+      # container reaches its peers on the docker network.
+      # NOTE: no replicaSet query param here — the driver discovers the RS
+      # from the server's hello response and uses normal primary targeting.
+      DB_URL: mongodb://mongo:27017/?ssl=false&tls=false
+      FIREBASE_AUTH_EMULATOR_HOST: firebase-emulator:9099
+      # NODE_ENV must be exactly "production"|"staging" — see
+      # ajrasakha/.github/workflows/backend-staging-deployment.yml:124-127:
+      #   loadAppModules() reads ./build/modules only when NODE_ENV is one of
+      #   those two; otherwise it tries `./src/modules`, which the production
+      #   Dockerfile doesn't ship, and the boot crashes with ENOENT.
+      NODE_ENV: staging
+      APP_PORT: "3141"
+      APP_ROUTE_PREFIX: /api
+    ports:
+      - "3141:3141"
+    # HEALTHCHECK is already declared in Dockerfile.app; nothing more to do.
+
+volumes:
+  mongo-data:

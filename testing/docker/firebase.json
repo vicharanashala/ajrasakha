@@ -1,0 +1,13 @@
+{
+  "_comment": "Binding config for the Firebase Auth Emulator. Without this file the CLI uses defaults (loopback), so other containers cannot reach it on the docker bridge. host=0.0.0.0 is required for `docker compose` cross-service traffic.",
+  "emulators": {
+    "auth": {
+      "host": "0.0.0.0",
+      "port": 9099
+    },
+    "hub": {
+      "host": "0.0.0.0",
+      "port": 4400
+    }
+  }
+}
