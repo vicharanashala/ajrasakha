@@ -30,4 +30,5 @@ export interface ImdWeatherResponse {
   warnings?: string[];
   rainfallStatus?: string;
   rawImd?: any;
+  upstreamUrl?: string;
 }

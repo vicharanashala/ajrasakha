@@ -38,6 +38,8 @@ export class WeatherService {
   }): Promise<ImdWeatherResponse> {
     const { lat, lon, state, district, taluk, village } = params;
 
+    const upstreamDiagnostics: string[] = [];
+
     // Try to fetch from active upstream IMD mirror endpoints
     for (const upstreamUrl of this.upstreamUrls) {
       try {
@@ -51,33 +53,46 @@ export class WeatherService {
         });
 
         const res = resp.data?.result || resp.data;
+
         if (resp.status === 200 && resp.data && resp.data.success !== false && res?.success !== false) {
-          console.log(`[WeatherService] Successfully fetched live IMD weather from: ${upstreamUrl}`);
-          return this.formatUpstreamImdResponse(resp.data, params);
+          return this.formatUpstreamImdResponse(resp.data, params, upstreamUrl);
+        } else {
+          const detail = `Status ${resp.status}, body: ${JSON.stringify(resp.data)}`;
+          upstreamDiagnostics.push(`${upstreamUrl} -> ${detail}`);
         }
       } catch (err: any) {
-        console.warn(`[WeatherService] Upstream IMD mirror ${upstreamUrl} failed: ${err.message || err}`);
+        const errorDetail = err.response
+          ? `Status ${err.response.status}, body: ${JSON.stringify(err.response.data)}`
+          : (err.message || String(err));
+        upstreamDiagnostics.push(`${upstreamUrl} -> ${errorDetail}`);
       }
     }
 
-    // No fallback: if IMD is unreachable, throw an error
-    throw new HttpError(
+    // No fallback: if IMD is unreachable, throw an error containing full diagnostic details so the frontend receives it
+    const diagnosticMessage = upstreamDiagnostics.join(' | ');
+    const httpError = new HttpError(
       503,
-      `IMD Weather Service is currently unavailable. Could not fetch live data from IMD mirror (${this.upstreamUrls.join(', ')}).`,
+      `IMD Weather Service unavailable. Upstream diagnostics: [${diagnosticMessage}]`,
     );
+    (httpError as any).errors = upstreamDiagnostics;
+    throw httpError;
   }
 
   /**
    * Format upstream IMD mirror response (supports both data_type='forecast' and data_type='bundle')
    */
-  private formatUpstreamImdResponse(data: any, params: {
-    lat: number;
-    lon: number;
-    state?: string;
-    district?: string;
-    taluk?: string;
-    village?: string;
-  }): ImdWeatherResponse {
+  private formatUpstreamImdResponse(
+    data: any,
+    params: {
+      lat: number;
+      lon: number;
+      state?: string;
+      district?: string;
+      taluk?: string;
+      village?: string;
+    },
+    upstreamUrl?: string,
+  ): ImdWeatherResponse {
     const res = data.result || data;
 
     // Helper to safely parse strings or numeric values from IMD
@@ -222,6 +237,7 @@ export class WeatherService {
       daily,
       source: 'IMD (India Meteorological Department)',
       rawImd: data,
+      upstreamUrl,
     };
   }
 }

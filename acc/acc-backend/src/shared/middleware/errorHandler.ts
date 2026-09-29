@@ -155,7 +155,7 @@ export class HttpErrorHandler implements ExpressErrorMiddlewareInterface {
       } else {
         response
           .status(error.httpCode)
-          .json(new ErrorResponse<null>(error.message, null));
+          .json(new ErrorResponse<any>(error.message, (error as any).errors ?? null));
       }
     } else if (error instanceof Error) {
       response.status(500).json(
