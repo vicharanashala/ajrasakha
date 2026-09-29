@@ -15,6 +15,7 @@ import {
   deleteDashboardDocument,
   findDuplicatesForDocument,
   mergeUniqueDocuments,
+  getOriginalDownloadUrl,
 } from "../../api";
 import { formatDate } from "@/utils/formatDate";
 import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
@@ -198,6 +199,7 @@ export default function DocumentDetailModal({
                   <FileActionIcons
                     shareableLink={doc.shareable_link}
                     fileId={doc.representative_file_id}
+                    downloadUrl={getOriginalDownloadUrl(doc.id)}
                     filename={doc.shareable_name}
                   />
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide ml-2">

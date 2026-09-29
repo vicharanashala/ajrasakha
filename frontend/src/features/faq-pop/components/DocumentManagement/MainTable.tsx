@@ -1,13 +1,15 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Eye, Pencil, Trash2, RefreshCw, X } from "lucide-react";
+import { Eye, Pencil, Trash2, RefreshCw, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import {
   getDashboardDocuments,
   updateDashboardDocument,
   deleteDashboardDocument,
   getDashboardStates,
   getDashboardFolders,
+  getDashboardDistricts,
+  getDashboardKvks,
   getDashboardLanguages,
 } from "../../api";
 import ColumnFilter from "../FunctionsPanel/ColumnFilter";
@@ -21,7 +23,44 @@ import { ADVISORY_TYPE_OPTIONS } from "./fields";
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
 const LANGUAGE_SOURCE_OPTIONS = ["detected", "state", "ambiguous", "manual"];
 const PAGE_SIZE = 100;
-const COL_COUNT = 11; // Row ID, Document ID, Document, Advisory Type, State, Folder, Language, Language Source, Translation, Review, actions
+// Column key -> sort= value, only for columns whose sort key differs from how they're filtered.
+// State/Folder are filtered by id (state_id, crop_id/organization_id) but sort by name — confirmed
+// by the backend as the deliberate exception; the id forms 400 on sort=. Folder maps to "crop" for
+// both a crop and an organisation folder, same as the underlying `crop` field itself does.
+const SORT_KEYS = { state_id: "state", crop_id: "crop", district_id: "district", kvk_id: "kvk" };
+function sortKeyFor(filterKey) {
+  return SORT_KEYS[filterKey] || filterKey;
+}
+
+// Shared sort-toggle button, appended next to a column's filter control — see
+// UniqueDocumentsTable.tsx's identical pattern.
+function SortToggle({ sortKey, sort, onToggle, label }) {
+  const active = sort === sortKey || sort === `-${sortKey}`;
+  return (
+    <button
+      className={`shrink-0 rounded p-0.5 transition-colors cursor-pointer ${
+        active ? "text-primary" : "text-muted-foreground/50 hover:text-foreground"
+      }`}
+      title={
+        sort === sortKey
+          ? "Sorted ascending — click for descending"
+          : sort === `-${sortKey}`
+            ? "Sorted descending — click to stop sorting"
+            : `Sort by ${label}`
+      }
+      onClick={() => onToggle(sortKey)}
+    >
+      {sort === sortKey ? (
+        <ArrowUp size={11} />
+      ) : sort === `-${sortKey}` ? (
+        <ArrowDown size={11} />
+      ) : (
+        <ArrowUpDown size={11} />
+      )}
+    </button>
+  );
+}
+const COL_COUNT = 13; // Row ID, Document ID, Document, Advisory Type, State, Folder, District, KVK, Language, Language Source, Translation, Review, actions
 
 // A row of the main table is a PLACEMENT (POP_xxxxx), joined with its document (ANNAM_xxxxx) —
 // see docs/first_render_frontend.md. state/crop are plain strings now (no {id, name} relation
@@ -47,6 +86,13 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
+  // "" | "<field>" | "-<field>" — "-" prefix means descending, one `sort=` value at a time.
+  // Widened 2026-09-29 to every filterable column on /documents. Confirmed by the backend: sort by
+  // the PLAIN name for state/crop/district/kvk (`state`/`crop`/`district`/`kvk`) even though this
+  // table FILTERS them by id (`state_id`/`crop_id`/`organization_id`/`district_id`/`kvk_id`) — the
+  // two conventions are deliberately asymmetric here, see SORT_KEYS below. Every other column
+  // sorts by the same name it filters by.
+  const [sort, setSort] = useState("");
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -77,10 +123,27 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       .catch(() => {});
   }, [advisoryTypeFilterValue]);
 
+  // District/KVK — placement-level, id-referenced vocabularies like state/crop (2026-09-29).
+  // Narrowed to entries actually used under the State column filter's value, same rule as Folder
+  // above (only meaningful when exactly one state is selected — with 0 or several selected, fall
+  // back to every district/KVK). Every placement's value is blank until someone fills it in;
+  // there's no WorkDrive folder level to backfill from.
+  const stateFilterId = filters.state_id?.length === 1 ? filters.state_id[0] : "";
+  const [districtFilterOptions, setDistrictFilterOptions] = useState([]);
+  const [kvkFilterOptions, setKvkFilterOptions] = useState([]);
+  useEffect(() => {
+    getDashboardDistricts(stateFilterId)
+      .then((d) => setDistrictFilterOptions(d || []))
+      .catch(() => {});
+    getDashboardKvks(stateFilterId)
+      .then((d) => setKvkFilterOptions(d || []))
+      .catch(() => {});
+  }, [stateFilterId]);
+
   async function load() {
     setLoading(true);
     try {
-      const data = await getDashboardDocuments(page, filters);
+      const data = await getDashboardDocuments(page, filters, sort);
       setRows(data.items || []);
       setTotal(data.total || 0);
       setError(null);
@@ -90,10 +153,17 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       setLoading(false);
     }
   }
+
+  // Cycles a sortable column none -> ascending -> descending -> none. Only one column sorts at a
+  // time (the backend only accepts a single sort= value) — same pattern as UniqueDocumentsTable.
+  function toggleSort(key) {
+    setSort((prev) => (prev === key ? `-${key}` : prev === `-${key}` ? "" : key));
+    setPage(1);
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load();
-  }, [page, JSON.stringify(filters), refreshKey]);
+  }, [page, JSON.stringify(filters), sort, refreshKey]);
 
   function setFilter(key, values) {
     setFilters((f) => ({ ...f, [key]: values }));
@@ -194,6 +264,38 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
     );
   }
 
+  // Last-hovered row stays highlighted (a stronger color than the plain :hover state) until
+  // another row is hovered — a quick "where was I" anchor when scanning a wide table, requested
+  // separately from the per-row hover feedback itself.
+  const [hoveredRowId, setHoveredRowId] = useState(null);
+
+  // Native `title` on the row — shows on hover anywhere in the row that doesn't already have its
+  // own more specific title (e.g. the truncated Document cell), a quick glance without opening the
+  // Document Detail modal.
+  function rowSummary(row) {
+    return [
+      `${row.shareable_name || "(untitled)"} (${row.document_id})`,
+      `Row: ${row.row_id}`,
+      `${row.state || "—"} / ${row.crop || "(no folder)"}`,
+      row.district ? `District: ${row.district}` : null,
+      row.kvk ? `KVK: ${row.kvk}` : null,
+      row.language ? `Language: ${row.language}` : null,
+      row.num_pages != null ? `Pages: ${row.num_pages}` : null,
+      `Translation: ${row.translation_status || "not_started"}`,
+      `Review: ${row.review_status || "not_started"}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  // Double-click anywhere in the row that isn't an interactive control opens the same Document
+  // Detail modal as the Eye button — clicking a button/link/input inside the row (edit, delete,
+  // copy id) should behave as itself, not also open the modal underneath it.
+  function handleRowDoubleClick(e, row) {
+    if (e.target.closest("button, a, input, select, textarea")) return;
+    onOpenDetail(row.unique_document_id);
+  }
+
   const [deletingId, setDeletingId] = useState(null);
   async function handleDelete(row) {
     if (
@@ -255,84 +357,160 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
           <thead>
             <tr className="border-b border-border bg-muted/30">
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <TextFilter
-                  label="Row ID"
-                  value={filters.row_id?.[0] || ""}
-                  onChange={(v) => setFilter("row_id", v ? [v] : [])}
-                  placeholder="POP_00042"
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <TextFilter
+                      label="Row ID"
+                      value={filters.row_id?.[0] || ""}
+                      onChange={(v) => setFilter("row_id", v ? [v] : [])}
+                      placeholder="POP_00042"
+                    />
+                  </div>
+                  <SortToggle sortKey="row_id" sort={sort} onToggle={toggleSort} label="Row ID" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <TextFilter
-                  label="Document"
-                  value={filters.shareable_name?.[0] || ""}
-                  onChange={(v) => setFilter("shareable_name", v ? [v] : [])}
-                  placeholder="Search name…"
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <TextFilter
+                      label="Document"
+                      value={filters.shareable_name?.[0] || ""}
+                      onChange={(v) => setFilter("shareable_name", v ? [v] : [])}
+                      placeholder="Search name…"
+                    />
+                  </div>
+                  <SortToggle sortKey="shareable_name" sort={sort} onToggle={toggleSort} label="Document" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <TextFilter
-                  label="Document ID"
-                  value={filters.document_id?.[0] || ""}
-                  onChange={(v) => setFilter("document_id", v ? [v] : [])}
-                  placeholder="ANNAM_00042"
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <TextFilter
+                      label="Document ID"
+                      value={filters.document_id?.[0] || ""}
+                      onChange={(v) => setFilter("document_id", v ? [v] : [])}
+                      placeholder="ANNAM_00042"
+                    />
+                  </div>
+                  <SortToggle sortKey="document_id" sort={sort} onToggle={toggleSort} label="Document ID" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Advisory Type"
-                  options={ADVISORY_TYPE_OPTIONS}
-                  selected={filters.advisory_type || []}
-                  onChange={(v) => setFilter("advisory_type", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Advisory Type"
+                      options={ADVISORY_TYPE_OPTIONS}
+                      selected={filters.advisory_type || []}
+                      onChange={(v) => setFilter("advisory_type", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey="advisory_type" sort={sort} onToggle={toggleSort} label="Advisory Type" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="State"
-                  options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
-                  selected={filters.state_id || []}
-                  onChange={(v) => setFilter("state_id", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="State"
+                      options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
+                      selected={filters.state_id || []}
+                      onChange={(v) => setFilter("state_id", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey={sortKeyFor("state_id")} sort={sort} onToggle={toggleSort} label="State" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Folder"
-                  options={folderFilterUiOptions}
-                  selected={selectedFolderIds}
-                  onChange={setFolderFilter}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Folder"
+                      options={folderFilterUiOptions}
+                      selected={selectedFolderIds}
+                      onChange={setFolderFilter}
+                    />
+                  </div>
+                  <SortToggle sortKey={sortKeyFor("crop_id")} sort={sort} onToggle={toggleSort} label="Folder" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Language"
-                  options={languageOptions}
-                  selected={filters.language || []}
-                  onChange={(v) => setFilter("language", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="District"
+                      options={districtFilterOptions.map((d) => ({ value: d.id, label: d.name }))}
+                      selected={filters.district_id || []}
+                      onChange={(v) => setFilter("district_id", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey={sortKeyFor("district_id")} sort={sort} onToggle={toggleSort} label="District" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Language Source"
-                  options={LANGUAGE_SOURCE_OPTIONS}
-                  selected={filters.language_source || []}
-                  onChange={(v) => setFilter("language_source", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="KVK"
+                      options={kvkFilterOptions.map((k) => ({ value: k.id, label: k.name }))}
+                      selected={filters.kvk_id || []}
+                      onChange={(v) => setFilter("kvk_id", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey={sortKeyFor("kvk_id")} sort={sort} onToggle={toggleSort} label="KVK" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Translation"
-                  options={STATUS_OPTIONS}
-                  selected={filters.translation_status || []}
-                  onChange={(v) => setFilter("translation_status", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Language"
+                      options={languageOptions}
+                      selected={filters.language || []}
+                      onChange={(v) => setFilter("language", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey="language" sort={sort} onToggle={toggleSort} label="Language" />
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Review"
-                  options={STATUS_OPTIONS}
-                  selected={filters.review_status || []}
-                  onChange={(v) => setFilter("review_status", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Language Source"
+                      options={LANGUAGE_SOURCE_OPTIONS}
+                      selected={filters.language_source || []}
+                      onChange={(v) => setFilter("language_source", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey="language_source" sort={sort} onToggle={toggleSort} label="Language Source" />
+                </div>
+              </th>
+              <th className="text-left px-3 py-2 whitespace-nowrap">
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Translation"
+                      options={STATUS_OPTIONS}
+                      selected={filters.translation_status || []}
+                      onChange={(v) => setFilter("translation_status", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey="translation_status" sort={sort} onToggle={toggleSort} label="Translation" />
+                </div>
+              </th>
+              <th className="text-left px-3 py-2 whitespace-nowrap">
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Review"
+                      options={STATUS_OPTIONS}
+                      selected={filters.review_status || []}
+                      onChange={(v) => setFilter("review_status", v)}
+                    />
+                  </div>
+                  <SortToggle sortKey="review_status" sort={sort} onToggle={toggleSort} label="Review" />
+                </div>
               </th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
@@ -348,7 +526,12 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
               rows.map((row, idx) => (
                 <tr
                   key={row.id}
-                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
+                  title={rowSummary(row)}
+                  onMouseEnter={() => setHoveredRowId(row.id)}
+                  onDoubleClick={(e) => handleRowDoubleClick(e, row)}
+                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors cursor-default ${
+                    hoveredRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                  }`}
                 >
                   <td className="px-3 py-2 align-middle font-mono text-[10px] text-muted-foreground">
                     {row.row_id}
@@ -410,6 +593,8 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                       <span className="text-foreground">{row.crop || "(no folder)"}</span>
                     )}
                   </td>
+                  <td className="px-3 py-2 align-middle text-muted-foreground">{row.district || "—"}</td>
+                  <td className="px-3 py-2 align-middle text-muted-foreground">{row.kvk || "—"}</td>
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.language || "—"}</td>
                   <td className="px-3 py-2 align-middle">
                     {row.language_source === "state" ? (

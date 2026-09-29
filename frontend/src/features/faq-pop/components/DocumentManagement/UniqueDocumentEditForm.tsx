@@ -114,6 +114,16 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <label className={labelClass}>Document Name</label>
+            <input
+              type="text"
+              className={inputClass}
+              value={values.shareable_name}
+              onChange={(e) => setValue("shareable_name", e.target.value)}
+              placeholder="Shareable name shown across the dashboard"
+            />
+          </div>
           {DOCUMENT_METADATA_FIELDS.map((f) => (
             <div key={f.key} className="flex flex-col gap-1">
               <label className={labelClass}>{f.label}</label>

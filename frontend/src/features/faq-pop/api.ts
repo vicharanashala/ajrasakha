@@ -603,6 +603,23 @@ export async function getDashboardOrganizations(state?: string) {
   return _handleResponse(res);
 }
 
+// District/KVK — placement-level fields, same shape/id-referenced convention as state/crop, added
+// 2026-09-29. `state`/`state_id` narrows to entries actually used under that state (same as
+// getDashboardCrops/getDashboardOrganizations above). Every placement's value is blank until
+// someone fills it in — there's no WorkDrive folder level to backfill either from (confirmed by
+// the backend: the tree is only <state>/<folder>/, no district/KVK level).
+export async function getDashboardDistricts(stateId?: string) {
+  const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
+  const res = await fetch(`${POP_API}/dashboard/districts${qs}`);
+  return _handleResponse(res);
+}
+
+export async function getDashboardKvks(stateId?: string) {
+  const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
+  const res = await fetch(`${POP_API}/dashboard/kvks${qs}`);
+  return _handleResponse(res);
+}
+
 export async function createDashboardState(name: string) {
   const res = await fetch(`${POP_API}/dashboard/states`, {
     method: "POST",
@@ -886,16 +903,20 @@ export function getFileDownloadUrl(fileId: string) {
   return `${POP_API}/dashboard/files/${fileId}/download`;
 }
 
-// Named-download endpoints (docs/first_render_frontend.md, "Translation and review, named after
-// the document") — unlike getFileDownloadUrl, these name the file after the DOCUMENT rather than
-// whatever it's called in WorkDrive (e.g. "Paddy_KA_2021.pdf" -> "Paddy_KA_2021_translation.docx"
-// / "..._reviewed.docx"), via Content-Disposition (FileActionIcons.tsx reads it off the response
-// rather than guessing the name itself). 404 when the document has no translation/review yet.
+// Named-download endpoints — unlike getFileDownloadUrl, these name the file after the DOCUMENT's
+// shareable_name (e.g. "Paddy_KA_2021.pdf" -> "Paddy_KA_2021_translation.docx" / "..._reviewed.docx"
+// / plain "Paddy_KA_2021.pdf" for the original), via Content-Disposition (FileActionIcons.tsx reads
+// it off the response rather than guessing the name itself). `getOriginalDownloadUrl` mirrors
+// translation/review (added 2026-09-29) — confirmed by the backend to support `?inline=1` the same
+// way. Translation/review 404 when the document has none yet.
 export function getTranslationDownloadUrl(documentId: string, inline = false) {
   return `${POP_API}/dashboard/unique-documents/${documentId}/translation/download${inline ? "?inline=1" : ""}`;
 }
 export function getReviewDownloadUrl(documentId: string, inline = false) {
   return `${POP_API}/dashboard/unique-documents/${documentId}/review/download${inline ? "?inline=1" : ""}`;
+}
+export function getOriginalDownloadUrl(documentId: string, inline = false) {
+  return `${POP_API}/dashboard/unique-documents/${documentId}/original/download${inline ? "?inline=1" : ""}`;
 }
 
 export async function getDashboardConfig() {

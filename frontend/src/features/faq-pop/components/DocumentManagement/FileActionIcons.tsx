@@ -11,15 +11,16 @@ import { getFileDownloadUrl } from "../../api";
 // saves it from a same-origin blob: URL, which actually triggers a save with no navigation.
 //
 // Download source, in priority order:
-// 1. `downloadUrl` — the translation/review named-download endpoints
-//    (GET /dashboard/unique-documents/{id}/translation|review/download, see
-//    getTranslationDownloadUrl/getReviewDownloadUrl in api.ts). The filename comes from this
-//    response's Content-Disposition header (RFC 5987 filename*, exposed cross-origin by the
-//    backend) — e.g. "Paddy_KA_2021_translation.docx" — not the `filename` prop.
+// 1. `downloadUrl` — the named-download endpoints (GET
+//    /dashboard/unique-documents/{id}/original|translation|review/download, see
+//    getOriginalDownloadUrl/getTranslationDownloadUrl/getReviewDownloadUrl in api.ts). The filename
+//    comes from this response's Content-Disposition header (RFC 5987 filename*, exposed
+//    cross-origin by the backend) — e.g. "Paddy_KA_2021_translation.docx" — not the `filename`
+//    prop.
 // 2. `fileId` — the backend's generic download proxy (GET /dashboard/files/{fileId}/download —
-//    sends Allow-Origin: *, Content-Length, and supports Range requests for large files), used
-//    for the original file (`representative_file_id`). Falls back to the `filename` prop for its
-//    save name, since that endpoint doesn't set a document-aware Content-Disposition.
+//    sends Allow-Origin: *, Content-Length, and supports Range requests for large files). Kept as
+//    a fallback for callers that don't have a document id on hand; falls back to the `filename`
+//    prop for its save name, since that endpoint names the file after WorkDrive, not the document.
 // 3. `shareableLink` directly — only works if Zoho's own CORS policy allows it.
 // Either way, a failed fetch falls back to opening shareableLink in a new tab with a toast
 // explaining why. Renders nothing if there's no link — the "not yet done" button state covers

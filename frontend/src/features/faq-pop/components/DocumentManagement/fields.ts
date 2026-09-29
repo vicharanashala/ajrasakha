@@ -139,10 +139,18 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
   { key: "document_status", label: "Document Status", type: "select", options: DOCUMENT_STATUS_OPTIONS },
 ];
 
-// Editable, but not part of the upload form or DOCUMENT_METADATA_FIELDS — `language` is
-// PATCH-able on the document (validated against GET /languages, 400 on an unknown code) and
-// setting it stamps language_source: "manual", so it always needs the dropdown, never free text.
+// Editable, but not part of the upload form or DOCUMENT_METADATA_FIELDS.
+// `shareable_name` is the document's display name in the catalogue — confirmed PATCH-able
+// (`PATCH /unique-documents/{id}` accepts it, 2026-09-29) and purely cosmetic: renaming it does
+// NOT touch the file's actual name in WorkDrive. It's kept out of DOCUMENT_METADATA_FIELDS because
+// that array also drives AddDocumentForm.tsx's upload fields, and a name isn't something you type
+// on upload — it comes from the uploaded file. One caveat carried over from the backend: it's also
+// what the named translation/review downloads build their saved filename from, so renaming a
+// document changes what those download as. `language` is PATCH-able on the document (validated
+// against GET /languages, 400 on an unknown code) and setting it stamps
+// language_source: "manual", so it always needs the dropdown, never free text.
 export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
+  { key: "shareable_name", label: "Document Name", type: "text" },
   { key: "language", label: "Language", type: "select", optionsSource: "language" },
 ];
 
@@ -156,7 +164,6 @@ export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
 // timestamp fields so the modal renders them with the shared formatDate() util instead of the raw
 // ISO string.
 export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
-  { key: "shareable_name", label: "Shareable Name", type: "text" },
   { key: "shareable_link", label: "Shareable Link", type: "text" },
   { key: "language_source", label: "Language Source", type: "text" },
   { key: "num_pages", label: "No. of Pages", type: "number" },
