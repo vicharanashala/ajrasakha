@@ -104,6 +104,7 @@ class PlannerPlan(TypedDict, total=False):
     places: list[str]  # every place the current message names (planner LLM)
     sub_places: list[str]  # weather/mandi: named places LGD did not verify, or beyond the one state/district
     profile_coordinates: Optional[dict[str, float]]  # farmerProfile lat/long when the location came from the profile
+    location_from_profile: bool  # final state/district are the farmer profile's (profile_coordinates belong to the asked place)
 
 
 TRANSLATE_PATH_EMPTY_GDB = "empty_gdb"

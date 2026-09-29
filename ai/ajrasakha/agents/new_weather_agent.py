@@ -730,11 +730,8 @@ class NewWeatherInput(BaseModel):
     district: Optional[str] = Field(None, description="District name (e.g. Ernakulam, Karnal).")
     state: Optional[str] = Field(None, description="State name (e.g. Kerala, Haryana).")
     location: Optional[str] = Field(None, description="Block, village, or specific sub-location name.")
-<<<<<<< HEAD
-    sub_places: Optional[list[str]] = Field(None, description="List of sub-location names (blocks, villages, panchayats) provided by the planner for geocoding.")
-=======
     sub_places: list[str] = Field(default_factory=list, description="Places the farmer named that are not the verified state/district (towns, villages, blocks, or other districts).")
->>>>>>> df25f9449 (added the source extraction and pass to weather and mandi tool)
+    location_from_profile: bool = Field(False, description="True when state/district came from the farmer profile, i.e. latitude/longitude belong to the asked place.")
     latitude: Optional[float] = Field(None, description="Optional latitude float.")
     longitude: Optional[float] = Field(None, description="Optional longitude float.")
     address: Optional[str] = Field(None, description="Optional full location address string.")
@@ -908,6 +905,7 @@ async def new_weather(
     state: Optional[str] = None,
     location: Optional[str] = None,
     sub_places: Optional[list[str]] = None,
+    location_from_profile: bool = False,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
     address: Optional[str] = None,
@@ -982,55 +980,36 @@ async def new_weather(
             eff_to_date = (today_d - timedelta(days=1)).strftime("%Y-%m-%d")
             ext_qt = ext_qt or "previous"
 
-        # Geocode if coordinates omitted (district/location/state)
-        if (lat is None or lon is None) and (place_district or place_location or place_state):
+        # Coordinates for the asked place: the profile lat/long only when the
+        # question names no other place, else geocode the named place.
+        if place_district or place_location or place_state or sub_places:
             try:
-                from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
+                from ajrasakha.agents.location_extractor import resolve_place_coordinates
 
-                # sub_places from the planner: try each as subdistrict for more precise geocoding.
-                # Fall back to place_location, then district-only.
-                candidates = list(sub_places or [])
-                if place_location and place_location not in candidates:
-                    candidates.insert(0, place_location)
-
-                _lat, _lon, _resolved_name = None, None, None
-                if candidates:
-                    for sp in candidates:
-                        _lat, _lon, _resolved_name = await _get_lat_long(
-                            district=place_district,
-                            subdistrict=sp.strip(),
-                            state=place_state,
-                        )
-                        if _lat is not None and _lon is not None:
-                            break
-
-                # Final fallback: district/state only (no subdistrict)
-                if _lat is None or _lon is None:
-                    _lat, _lon, _resolved_name = await _get_lat_long(
-                        district=place_district,
-                        subdistrict=None,
-                        state=place_state,
-                    )
-
-                if _lat is not None and _lon is not None:
-                    lat = _lat
-                    lon = _lon
-                    if place_district is None and _resolved_name:
-                        # If only state was given, don't overwrite district with state name
-                        pass
-                    logger.info(
-                        "new_weather_agent: geocoded location=%r district=%r state=%r sub_places=%r -> lat=%s, lon=%s (%s)",
-                        place_location,
-                        place_district,
-                        place_state,
-                        sub_places,
-                        lat,
-                        lon,
-                        _resolved_name,
-                    )
+                candidates = [p.strip() for p in (sub_places or []) if p and p.strip()]
+                if place_location and place_location.strip() not in candidates:
+                    candidates.insert(0, place_location.strip())
+                lat, lon, _resolved_name = await resolve_place_coordinates(
+                    state=place_state,
+                    district=place_district,
+                    sub_places=candidates,
+                    latitude=lat,
+                    longitude=lon,
+                    location_from_profile=location_from_profile,
+                )
+                logger.info(
+                    "new_weather_agent: location=%r district=%r state=%r sub_places=%r from_profile=%s -> lat=%s, lon=%s (%s)",
+                    place_location,
+                    place_district,
+                    place_state,
+                    sub_places,
+                    location_from_profile,
+                    lat,
+                    lon,
+                    _resolved_name or "profile coordinates",
+                )
             except Exception as geo_err:
                 logger.warning("Geocoding lookup notice: %s", geo_err)
-
 
         if lat is None or lon is None:
             from ajrasakha.tools.weather.weather_tools2 import _resolve_coordinates, LOCATION_UNRESOLVED_MESSAGE

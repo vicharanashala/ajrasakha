@@ -1812,11 +1812,8 @@ class DailyPriceInput(BaseModel):
     crop: str
     state: Optional[str] = None
     district: Optional[str] = None
-<<<<<<< HEAD
-    sub_places: Optional[list[str]] = None
-=======
     sub_places: list[str] = []  # places the farmer named that are not the verified state/district
->>>>>>> df25f9449 (added the source extraction and pass to weather and mandi tool)
+    location_from_profile: bool = False  # state/district came from the farmer profile, so lat/long are the asked place's
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1828,6 +1825,7 @@ async def daily_price(
     state: Optional[str] = None,
     district: Optional[str] = None,
     sub_places: Optional[list[str]] = None,
+    location_from_profile: bool = False,
     config: RunnableConfig = None,
 ) -> str:
     """
@@ -1838,46 +1836,36 @@ async def daily_price(
     try:
         lat = latitude
         lon = longitude
-        if lat is None or lon is None:
-            from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
+        from ajrasakha.agents.location_extractor import resolve_place_coordinates
 
-            # Use district from parameter (preferred) or extract from query as fallback
-            district_val = district
-            if not district_val:
-                m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
-                if m_dist:
-                    district_val = m_dist.group(1).strip()
+        # Use district from parameter (preferred) or extract from query as fallback
+        district_val = district
+        if not district_val:
+            m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
+            if m_dist:
+                district_val = m_dist.group(1).strip()
 
-            # sub_places provided by the planner: try each sub-place as subdistrict
-            # until geocoding succeeds, then fall back to district-only.
-            subdistrict_val = (sub_places[0].strip() if sub_places else None)
-            _lat, _lon, _resolved_name = await _get_lat_long(
-                district=district_val,
-                subdistrict=subdistrict_val,
+        # The profile lat/long only when the question names no other place,
+        # else geocode the named place (sub_places first, then district/state).
+        if district_val or state or sub_places:
+            lat, lon, _resolved_name = await resolve_place_coordinates(
                 state=state,
+                district=district_val,
+                sub_places=sub_places,
+                latitude=lat,
+                longitude=lon,
+                location_from_profile=location_from_profile,
             )
-            # If first sub_place failed and there are more, iterate through the rest
-            if (_lat is None or _lon is None) and sub_places and len(sub_places) > 1:
-                for sp in sub_places[1:]:
-                    _lat, _lon, _resolved_name = await _get_lat_long(
-                        district=district_val,
-                        subdistrict=sp.strip(),
-                        state=state,
-                    )
-                    if _lat is not None and _lon is not None:
-                        break
-            if _lat is not None and _lon is not None:
-                lat = _lat
-                lon = _lon
-                logger.info(
-                    "daily_price_agent: geocoded state=%r district=%r sub_places=%r -> lat=%s, lon=%s (%s)",
-                    state,
-                    district_val,
-                    sub_places,
-                    lat,
-                    lon,
-                    _resolved_name,
-                )
+            logger.info(
+                "daily_price_agent: state=%r district=%r sub_places=%r from_profile=%s -> lat=%s, lon=%s (%s)",
+                state,
+                district_val,
+                sub_places,
+                location_from_profile,
+                lat,
+                lon,
+                _resolved_name or "profile coordinates",
+            )
 
         intent = await extract_daily_price_intent(
             query,

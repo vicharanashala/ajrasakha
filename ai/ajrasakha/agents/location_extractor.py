@@ -318,3 +318,47 @@ async def get_lat_long(
         district, subdistrict, state,
     )
     return None, None, None
+
+
+async def resolve_place_coordinates(
+    *,
+    state: Optional[str],
+    district: Optional[str],
+    sub_places: Optional[list[str]],
+    latitude: Optional[float],
+    longitude: Optional[float],
+    location_from_profile: bool,
+) -> tuple[float | None, float | None, str | None]:
+    """Coordinates for the place the farmer asked about.
+
+    The planner always passes the farmer profile's lat/long. They are used as-is
+    only when the question names no other place (``location_from_profile`` and no
+    ``sub_places``). Otherwise the named place is geocoded first; the profile
+    lat/long remain the fallback only while state/district are the profile's.
+
+    Returns (latitude, longitude, resolved_name); resolved_name is None when the
+    profile coordinates were kept, and all three are None when nothing resolved.
+    """
+    has_coords = latitude is not None and longitude is not None
+    if has_coords and location_from_profile and not sub_places:
+        return latitude, longitude, None
+
+    for sp in sub_places or []:
+        if not _clean(sp) or _clean(sp).lower() in _PLACEHOLDERS:
+            continue
+        # Only a match for the sub-place itself: get_lat_long's district/state
+        # fallbacks would pass off the district (or state) centre as that place.
+        query = _build_query_string(district if _clean(district).lower() not in _PLACEHOLDERS else None, sp, state)
+        lat, lng, name = await _google_geocode(query)
+        if lat is None:
+            lat, lng, name = await _nominatim_geocode(query)
+        if lat is not None and lng is not None:
+            return lat, lng, name
+
+    # The profile lat/long belong to the asked place: they beat a district lookup.
+    if has_coords and location_from_profile:
+        return latitude, longitude, None
+
+    # Another place (or no coordinates): look up the planner's district/state. The
+    # profile lat/long may be in another state, so they are never the fallback here.
+    return await get_lat_long(district=district, state=state)

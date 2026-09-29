@@ -399,3 +399,83 @@ async def test_state_only_location_never_borrows_the_profile_district():
     calls, resolved = await build_specialist_tool_calls_from_plan(plan, "Will it rain in Kharar?", thread_location)
     assert (resolved.state, resolved.district) == ("Punjab", "all")
     assert _args(calls, "new_weather")["district"] is None
+
+
+@pytest.mark.asyncio
+async def test_tools_are_told_whether_the_coordinates_are_the_asked_place():
+    plan = _tool_plan(location_from_profile=True, profile_coordinates={"latitude": 17.7, "longitude": 83.3})
+    calls, _ = await build_specialist_tool_calls_from_plan(plan, "Will it rain tomorrow?", {})
+    assert _args(calls, "new_weather")["location_from_profile"] is True
+    assert _args(calls, "daily_price")["location_from_profile"] is True
+    plan = _tool_plan(profile_coordinates={"latitude": 17.7, "longitude": 83.3})
+    calls, _ = await build_specialist_tool_calls_from_plan(plan, "Weather in Ludhiana?", {})
+    assert _args(calls, "new_weather")["location_from_profile"] is False
+
+
+# --- coordinates inside the weather/mandi tools ----------------------------------
+
+_PROFILE = {"latitude": 10.0, "longitude": 76.4}
+
+
+@pytest.fixture
+def geocoded(monkeypatch):
+    """Fake geocoders: know Kharar and Ludhiana; record every lookup."""
+    from ajrasakha.agents import location_extractor
+
+    known = {"Kharar": (30.74, 76.65), "Ludhiana": (30.90, 75.85)}
+    lookups = []
+
+    async def fake_get_lat_long(*, district=None, subdistrict=None, state=None, **_):
+        lookups.append(("district", district, state))
+        hit = known.get(district)
+        return (*hit, f"{district}, {state}") if hit else (None, None, None)
+
+    async def fake_place_geocode(query, **_):
+        lookups.append(("place", query))
+        hit = known.get(query.split(",")[0])
+        return (*hit, query) if hit else (None, None, None)
+
+    monkeypatch.setattr(location_extractor, "get_lat_long", fake_get_lat_long)
+    monkeypatch.setattr(location_extractor, "_google_geocode", fake_place_geocode)
+    monkeypatch.setattr(location_extractor, "_nominatim_geocode", fake_place_geocode)
+    return lookups
+
+
+async def _resolve(**kwargs):
+    from ajrasakha.agents.location_extractor import resolve_place_coordinates
+
+    base = dict(state="Andhra Pradesh", district="Visakhapatnam", sub_places=[], location_from_profile=True, **_PROFILE)
+    base.update(kwargs)
+    return await resolve_place_coordinates(**base)
+
+
+@pytest.mark.asyncio
+async def test_profile_coordinates_are_used_when_no_other_place_is_named(geocoded):
+    assert await _resolve() == (10.0, 76.4, None)
+    assert geocoded == []
+
+
+@pytest.mark.asyncio
+async def test_a_named_sub_place_is_geocoded_before_the_profile_coordinates(geocoded):
+    lat, lon, _ = await _resolve(state="Punjab", district=None, sub_places=["Kharar"], location_from_profile=False)
+    assert (lat, lon) == (30.74, 76.65)
+
+
+@pytest.mark.asyncio
+async def test_a_verified_district_that_is_not_the_profiles_is_geocoded(geocoded):
+    lat, lon, _ = await _resolve(state="Punjab", district="Ludhiana", location_from_profile=False)
+    assert (lat, lon) == (30.90, 75.85)
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_sub_place_falls_back_to_the_profile_coordinates(geocoded):
+    assert await _resolve(sub_places=["Xyzabad"]) == (10.0, 76.4, None)
+    # Only the place itself was searched: no district or state centre replaces the farmer's coordinates.
+    assert all(kind == "place" for kind, *_ in geocoded)
+
+
+@pytest.mark.asyncio
+async def test_another_places_lookup_never_falls_back_to_the_profile_coordinates(geocoded):
+    lat, lon, _ = await _resolve(state="Punjab", district=None, sub_places=["Xyzabad"], location_from_profile=False)
+    assert (lat, lon) == (None, None)
+    assert geocoded[-1] == ("district", None, "Punjab")

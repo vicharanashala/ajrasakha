@@ -1047,18 +1047,18 @@ async def planner_node(
             sources_out=location_sources,
         )
         final_entities = plan.get("entities") or {}
+        # True when the final state/district are still the profile's, i.e. the
+        # profile lat/long belong to the place asked about.
+        plan["location_from_profile"] = bool(
+            profile_district
+            and profile_district == str(final_entities.get("district") or "").strip().lower()
+        )
         plan["profile_coordinates"] = (
             {"latitude": stored_location["latitude"], "longitude": stored_location["longitude"]}
             if stored_location
             # Weather/mandi always get the profile coordinates, even for another
             # named place; the weather and mandi agents decide which to use.
-            and (
-                is_weather_or_mandi_plan(plan)
-                or (
-                    profile_district
-                    and profile_district == str(final_entities.get("district") or "").strip().lower()
-                )
-            )
+            and (is_weather_or_mandi_plan(plan) or plan["location_from_profile"])
             and stored_location.get("latitude") is not None
             and stored_location.get("longitude") is not None
             else None
