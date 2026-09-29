@@ -8132,8 +8132,47 @@ export class ChatbotRepository implements IChatbotRepository {
            }
          }
       ];
-      
-      const questionCountsRes = await this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray();
+
+      // Same match as the Agri count above, except we want status
+      // 'non_agri' exactly instead of excluding it — mirrors the logic
+      // used for the user-activity modal's Non Agri tab.
+      const nonAgriQuestionMatchQuery: any = {
+        ...questionMatchQuery,
+        $and: (questionMatchQuery.$and || []).filter(
+          (condition: any) => !('status' in condition),
+        ),
+        status: 'non_agri',
+      };
+
+      const nonAgriQuestionCountsPipeline = [
+         { $match: nonAgriQuestionMatchQuery },
+         {
+           $group: {
+             _id: {
+               userId: "$userId",
+               question: {
+                 $toLower: {
+                   $trim: {
+                     input: "$question",
+                   },
+                 },
+               },
+             }
+           }
+         },
+         {
+           $group: {
+             _id: "$_id.userId",
+             total: { $sum: 1 }
+           }
+         }
+      ];
+
+      const [questionCountsRes, nonAgriQuestionCountsRes] = await Promise.all([
+        this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray(),
+        this.QuestionCollection.aggregate(nonAgriQuestionCountsPipeline, { session }).toArray(),
+      ]);
+
       const questionCountMap = new Map();
       let totalQuestionsCount = 0;
       for (const res of questionCountsRes) {
@@ -8141,7 +8180,15 @@ export class ChatbotRepository implements IChatbotRepository {
         questionCountMap.set(idStr, res.total);
         totalQuestionsCount += res.total;
       }
-      
+
+      const nonAgriQuestionCountMap = new Map();
+      let totalNonAgriQuestionsCount = 0;
+      for (const res of nonAgriQuestionCountsRes) {
+        const idStr = String(res._id);
+        nonAgriQuestionCountMap.set(idStr, res.total);
+        totalNonAgriQuestionsCount += res.total;
+      }
+
       const totalQueries = totalMessagesCount + totalQuestionsCount;
 
       // Update finalList users with their specific counts
@@ -8150,6 +8197,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const qCount = questionCountMap.get(uId) || 0;
         u.totalMessagesCount = u.totalQuestions || 0;
         u.totalQuestionsCount = qCount;
+        u.totalNonAgriQuestionsCount = nonAgriQuestionCountMap.get(uId) || 0;
         u.totalQueries = u.totalMessagesCount + u.totalQuestionsCount;
       }
 
@@ -8173,6 +8221,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalQueries,
         totalMessagesCount,
         totalQuestionsCount,
+        totalNonAgriQuestionsCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);
@@ -8435,6 +8484,65 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate?: string,
     endDate?: string,
   ) {
+    return this.queryUserQuestionsByStatus(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+      'agri',
+    );
+  }
+
+  async getUserNonAgriQuestionsData(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 12,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    return this.queryUserQuestionsByStatus(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+      'non_agri',
+    );
+  }
+
+  /**
+   * Shared query behind both the Agri and Non-Agri tabs on the user-activity
+   * modal. Both tabs use identical threadId/messageId/userId matching,
+   * source and userType filtering, and date-range handling — the only
+   * difference is the status clause:
+   *  - 'agri'     -> the normal base match, which excludes status 'non_agri'
+   *  - 'non_agri' -> the same base match, but requiring status 'non_agri' exactly
+   */
+  private async queryUserQuestionsByStatus(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 12,
+    startDate: string | undefined,
+    endDate: string | undefined,
+    statusMode: 'agri' | 'non_agri',
+  ) {
     try {
       await this.initReviewSystem();
 
@@ -8486,6 +8594,15 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       const matchQuery: any = buildBaseQuestionMatch(sourceType);
+
+      if (statusMode === 'non_agri') {
+        // Same base match as the Agri tab, except we want status
+        // 'non_agri' exactly instead of excluding it.
+        matchQuery.$and = (matchQuery.$and || []).filter(
+          (condition: any) => !('status' in condition),
+        );
+        matchQuery.status = 'non_agri';
+      }
 
       if (startDate || endDate) {
   matchQuery.createdAt = {};
@@ -8669,195 +8786,8 @@ export class ChatbotRepository implements IChatbotRepository {
         items: questions,
       };
     } catch (err) {
-      throw new InternalServerError(`Failed to get question data: ${err}`);
-    }
-  }
-
-  async getUserNonAgriQuestionsData(
-    userId: string,
-    page = 1,
-    limit = 12,
-    startDate?: string,
-    endDate?: string,
-  ) {
-    try {
-      await this.initReviewSystem();
-
-      const matchQuery: any = {
-        userId: new ObjectId(userId),
-        status: 'non_agri',
-        source: 'AJRASAKHA',
-      };
-
-      if (startDate || endDate) {
-        matchQuery.createdAt = {};
-
-        if (startDate) {
-          matchQuery.createdAt.$gte = new Date(`${startDate}T00:00:00+05:30`);
-        }
-
-        if (endDate) {
-          matchQuery.createdAt.$lte = new Date(`${endDate}T23:59:59.999+05:30`);
-        }
-      }
-
-      const skip = (page - 1) * limit;
-
-      const pipeline = [
-        {
-          $match: matchQuery,
-        },
-
-        {
-          $sort: {
-            createdAt: -1,
-          },
-        },
-
-        {
-          $group: {
-            _id: {
-              $toLower: {
-                $trim: {
-                  input: '$question',
-                },
-              },
-            },
-
-            repeatedCount: {
-              $sum: 1,
-            },
-
-            latestQuestion: {
-              $first: '$question',
-            },
-
-            latestStatus: {
-              $first: '$status',
-            },
-
-            latestCreatedAt: {
-              $first: '$createdAt',
-            },
-
-            latestUpdatedAt: {
-              $first: '$updatedAt',
-            },
-
-            latestMessageId: {
-              $first: '$messageId',
-            },
-
-            latestThreadId: {
-              $first: '$threadId',
-            },
-
-            latestUserId: {
-              $first: '$userId',
-            },
-
-            latestId: {
-              $first: '$_id',
-            },
-
-            allCreatedAt: {
-              $push: '$createdAt',
-            },
-          },
-        },
-
-        {
-          $project: {
-            _id: '$latestId',
-
-            messageId: '$latestMessageId',
-
-            threadId: '$latestThreadId',
-
-            userId: '$latestUserId',
-
-            question: {
-              $trim: {
-                input: '$latestQuestion',
-              },
-            },
-
-            status: '$latestStatus',
-
-            createdAt: '$latestCreatedAt',
-
-            updatedAt: '$latestUpdatedAt',
-
-            repeatedCount: '$repeatedCount',
-
-            repeatedAt: '$allCreatedAt',
-
-            isDuplicate: {
-              $gt: ['$repeatedCount', 1],
-            },
-          },
-        },
-
-        {
-          $sort: {
-            createdAt: -1,
-          },
-        },
-
-        {
-          $facet: {
-            metadata: [
-              {
-                $count: 'total',
-              },
-            ],
-
-            data: [
-              {
-                $skip: skip,
-              },
-
-              {
-                $limit: limit,
-              },
-            ],
-          },
-        },
-      ];
-
-      const result = await this.QuestionCollection.aggregate(pipeline, {
-        allowDiskUse: true,
-      }).toArray();
-
-      const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
-
-      const questions = result[0]?.data || [];
-
-      questions.forEach((q: any) => {
-        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
-
-        q.repeatedAt = (q.repeatedAt || []).sort(
-          (a: string, b: string) =>
-            new Date(b).getTime() - new Date(a).getTime(),
-        );
-      });
-
-      const totalPages = Math.ceil(totalQuestions / limit);
-
-      return {
-        total: totalQuestions,
-
-        totalPages,
-
-        currentPage: page,
-
-        limit,
-
-        items: questions,
-      };
-    } catch (err) {
       throw new InternalServerError(
-        `Failed to get non-agri question data: ${err}`,
+        `Failed to get ${statusMode === 'non_agri' ? 'non-agri ' : ''}question data: ${err}`,
       );
     }
   }

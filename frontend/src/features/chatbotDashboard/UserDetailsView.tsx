@@ -713,6 +713,12 @@ export function UserDetailsView({
                                 {data.totalQuestionsCount ?? 0}
                               </span>
                             </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Non Agri Queries:</span>
+                              <span className="font-medium">
+                                {data.totalNonAgriQuestionsCount ?? 0}
+                              </span>
+                            </div>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -1060,6 +1066,10 @@ export function UserDetailsView({
                                         <div className="flex justify-between items-center text-sm">
                                           <span>Agri Queries:</span>
                                           <span className="font-medium">{user.totalQuestionsCount ?? 0}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Non Agri Queries:</span>
+                                          <span className="font-medium">{user.totalNonAgriQuestionsCount ?? 0}</span>
                                         </div>
                                       </div>
                                     </TooltipContent>

@@ -1773,16 +1773,6 @@ async getUserQuestionsData(
     };
   }
 
-  // Non-agri questions only depend on the user, not on linked messageIds
-  const nonAgriQuestions =
-    await this.chatbotRepository.getUserNonAgriQuestionsData(
-      user.userId,
-      page,
-      limit,
-      startDate,
-      endDate,
-    );
-
   const threadIds = [];
 
   // Extract messageIds
@@ -1798,25 +1788,39 @@ async getUserQuestionsData(
   if (!messageIds.length) {
     return {
       questions: emptyQuestionsPage,
-      nonAgriQuestions,
+      nonAgriQuestions: emptyQuestionsPage,
       messages,
     };
   }
 
-  // Fetch questions using messageIds
-  const questions = await this.chatbotRepository.getUserQuestionsData(
-    {
-      threadIds,
-      messageIds,
-      userId: user.userId,
-    },
-    source,
-    userType,
-    page,
-    limit,
-    startDate,
-    endDate,
-  );
+  // Agri and Non-Agri questions use the identical identifiers — only the
+  // status they're matched against differs.
+  const identifiers = {
+    threadIds,
+    messageIds,
+    userId: user.userId,
+  };
+
+  const [questions, nonAgriQuestions] = await Promise.all([
+    this.chatbotRepository.getUserQuestionsData(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+    ),
+    this.chatbotRepository.getUserNonAgriQuestionsData(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+    ),
+  ]);
 
   return {
     questions,
