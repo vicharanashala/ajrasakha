@@ -1,0 +1,63 @@
+# Run Playwright E2E tests against the staging environment.
+#
+# Triggers:
+#   - Manually via workflow_dispatch
+#   - Automatically after a successful Reviewer App deployment
+#
+# Required repository secrets:
+#   MODERATOR_EMAIL        — Firebase email for a moderator test account
+#   MODERATOR_PASSWORD     — Firebase password for a moderator test account
+#   EXPERT_EMAIL           — Firebase email for an expert test account
+#   EXPERT_PASSWORD        — Firebase password for an expert test account
+
+name: Playwright E2E Tests
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Reviewer App Deployment"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    name: Run Playwright Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        env:
+          STAGING_BASE_URL: https://desk.vicharanashala.ai
+          MODERATOR_EMAIL: ${{ secrets.MODERATOR_EMAIL }}
+          MODERATOR_PASSWORD: ${{ secrets.MODERATOR_PASSWORD }}
+          EXPERT_EMAIL: ${{ secrets.EXPERT_EMAIL }}
+          EXPERT_PASSWORD: ${{ secrets.EXPERT_PASSWORD }}
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
