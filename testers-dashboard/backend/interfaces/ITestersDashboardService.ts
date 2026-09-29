@@ -17,6 +17,8 @@ export interface TestersDashboardDataResponse {
 
 export interface TestersDashboardSummaryResponse {
     success: boolean;
+    syncing?: boolean;
+    message?: string;
     totalRecords: number;
     kpis: KpiSummary;
     diagnostics: DiagnosticsResult;

@@ -405,6 +405,20 @@ export function TestersDashboardSection({
     return <div className="p-6 text-muted-foreground">Loading {title.toLowerCase()} data...</div>;
   }
 
+  if (summaryQuery.data?.syncing) {
+    return (
+      <div className="p-12 flex flex-col items-center justify-center space-y-4 text-center border rounded-lg bg-card shadow-sm my-6">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div>
+          <h3 className="text-base font-semibold">Synchronizing Google Sheet Data...</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md">
+            The initial dataset is being fetched and prepared in the background. The dashboard will automatically update once ready.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (summaryQuery.isError || !summaryQuery.data.success) {
     const errorDetail = summaryQuery.data?.error;
     return (

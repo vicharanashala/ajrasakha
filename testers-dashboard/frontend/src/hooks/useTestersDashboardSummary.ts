@@ -73,5 +73,9 @@ export const useTestersDashboardSummary = (
         // visible while the new query resolves, so the filter bar never
         // disappears on a filter change. Do not remove.
         placeholderData: keepPreviousData,
+        refetchInterval: (query) => {
+            const data = query.state.data;
+            return data?.syncing ? 3000 : false;
+        },
     });
 };
