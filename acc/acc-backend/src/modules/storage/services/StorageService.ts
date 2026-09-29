@@ -103,13 +103,20 @@ export class StorageService {
     let stream: Readable | null = null;
     let lastError: any = null;
 
-    // Retry attempts with 1-minute (60 seconds) gap between each attempt for Plivo transcoding
+    // Retry attempts with progressive backoff for Plivo transcoding
+    // Attempt 1 checks immediately (0s delay) - for historical calls/cron or fast transcoding, it downloads in <1s.
+    // If Plivo returns 404 (transcoding in progress), it retries with progressive backoff (3s, 6s, 12s, 24s).
     const MAX_ATTEMPTS = 5;
-    const RETRY_DELAY_MS = 60000; // 60 seconds (1 minute)
+    const retryDelaysMs = [0, 3000, 6000, 12000, 24000];
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      console.log(`⏳ [STORAGE-SERVICE] Attempt ${attempt}/${MAX_ATTEMPTS}: Waiting 1 minute after call ends for Plivo MP3 transcoding...`);
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      const waitMs = retryDelaysMs[attempt - 1] || 15000;
+      if (waitMs > 0) {
+        console.log(`⏳ [STORAGE-SERVICE] Attempt ${attempt}/${MAX_ATTEMPTS}: Waiting ${waitMs / 1000}s for Plivo audio stream...`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      } else {
+        console.log(`⏳ [STORAGE-SERVICE] Attempt ${attempt}/${MAX_ATTEMPTS}: Connecting to Plivo audio stream...`);
+      }
 
       let activeUrl = sourceUrl;
       if (resolveFreshUrl) {
@@ -142,12 +149,13 @@ export class StorageService {
 
       if (stream) break;
       if (attempt < MAX_ATTEMPTS) {
-        console.log(`⚠️ [STORAGE-SERVICE] Attempt ${attempt} failed. Retrying in 1 minute (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`);
+        const nextWaitSec = (retryDelaysMs[attempt] || 15000) / 1000;
+        console.log(`⚠️ [STORAGE-SERVICE] Attempt ${attempt} failed. Retrying in ${nextWaitSec}s (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`);
       }
     }
 
     if (!stream) {
-      console.error(`❌ [STORAGE-SERVICE] All ${MAX_ATTEMPTS} download attempts (with 1-minute intervals) failed for ${sourceUrl}:`, lastError?.message || lastError);
+      console.error(`❌ [STORAGE-SERVICE] All ${MAX_ATTEMPTS} download attempts failed for ${sourceUrl}:`, lastError?.message || lastError);
       throw lastError || new Error(`Failed to stream audio from remote URL after ${MAX_ATTEMPTS} attempts`);
     }
 

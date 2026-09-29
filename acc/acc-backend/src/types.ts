@@ -5,6 +5,7 @@ const TYPES = {
   // Services
   UserService: Symbol.for('UserService'),
   AccAgentService: Symbol.for('AccAgentService'),
+  WeatherService: Symbol.for('WeatherService'),
 
   // Repositories
   UserRepository: Symbol.for('userRepository'),

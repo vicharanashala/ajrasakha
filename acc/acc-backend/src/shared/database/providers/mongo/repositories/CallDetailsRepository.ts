@@ -600,6 +600,38 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     }
   }
 
+  async findCallsMissingRecordings(
+    sinceDate: Date,
+    session?: ClientSession
+  ): Promise<CallDetails[]> {
+    try {
+      await this.init();
+      const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+
+      const docs = await this.callDetailsCollection
+        .find(
+          {
+            callUuid: { $exists: true, $ne: null, $not: /^testing_/ },
+            createdAt: { $gte: sinceDate, $lte: thirtySecondsAgo },
+            $or: [
+              { recording: { $exists: false } },
+              { recording: null },
+              { 'recording.status': { $in: ['failed', 'processing', 'recording'] } },
+              { 'recording.storagePath': { $in: [null, ''] } },
+            ],
+          },
+          { session }
+        )
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      return docs as unknown as CallDetails[];
+    } catch (error: any) {
+      console.error('[CallDetailsRepository] findCallsMissingRecordings error:', error.stack || error);
+      return [];
+    }
+  }
+
   async markPlivoRecordingDeleted(
     callUuid: string,
     recordingId: string,

@@ -8,19 +8,19 @@ import { appConfig } from '#root/config/app.js';
 import type { ICallDetailsRepository, CallRecording } from '#shared/database/interfaces/ICallDetailsRepository.js';
 
 /**
- * Scheduled job to purge Plivo recordings older than 20 days.
- * Ensures recordings are safely preserved in GCP Cloud Storage before deletion from Plivo.
- * Keeps Plivo storage cost at $0.00 while ensuring zero audio loss.
- * Runs daily at 02:00 AM.
+ * Scheduled daily job running at 02:00 AM.
+ * 1. Pulls and stores missing call recordings from Plivo for calls within the past 20 days.
+ * 2. Safely purges Plivo recordings older than 20 days after confirming they are archived in GCP Cloud Storage.
+ * Ensures 100% recording retention, zero cross-call mismatch, and $0.00 Plivo storage cost.
  */
-cron.schedule('0 2 * * *', async () => {
-  console.log('<<CRON>> Starting Plivo 20-day recording cleanup job...');
+export async function runPlivoDailyJob(): Promise<void> {
+  console.log('<<CRON>> Starting Plivo daily recording sync and cleanup job...');
   try {
-    const authId = process.env.PLIVO_AUTH_ID;
-    const authToken = process.env.PLIVO_AUTH_TOKEN;
+    const authId = process.env.PLIVO_AUTH_ID || appConfig.plivo.authId;
+    const authToken = process.env.PLIVO_AUTH_TOKEN || appConfig.plivo.authToken;
 
-    if (!authId || !authToken) {
-      console.warn('⚠️ <<CRON>> Plivo credentials missing, skipping recording cleanup job.');
+    if (!authId || !authToken || authId.startsWith('dummy-') || authToken.startsWith('dummy-')) {
+      console.warn('⚠️ <<CRON>> Plivo credentials missing or placeholder, skipping daily recording job.');
       return;
     }
 
@@ -29,28 +29,134 @@ cron.schedule('0 2 * * *', async () => {
     const callDetailsRepository = container.get<ICallDetailsRepository>(PLIVO_TYPES.CallDetailsRepository);
     const storageService = container.get<StorageService>(STORAGE_TYPES.StorageService);
 
-    // 20 days retention threshold
-    const twentyDaysAgo = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
-    const recordingsToPurge = await callDetailsRepository.findRecordingsForPlivoCleanup(twentyDaysAgo);
+    const now = new Date();
+    const twentyDaysAgo = new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000);
 
-    console.log(`<<CRON>> Found ${recordingsToPurge.length} Plivo recordings older than 20 days eligible for cleanup.`);
+    // =========================================================================
+    // PHASE 1: Scan and Pull Missing Recordings for Calls Within Past 20 Days
+    // =========================================================================
+    console.log(`<<CRON>> [PHASE 1] Scanning for calls in past 20 days missing recordings (since ${twentyDaysAgo.toISOString()})...`);
+    const callsMissingRecordings = await callDetailsRepository.findCallsMissingRecordings(twentyDaysAgo);
+    console.log(`<<CRON>> [PHASE 1] Found ${callsMissingRecordings.length} calls eligible for recording retrieval.`);
+
+    for (const call of callsMissingRecordings) {
+      const callUuid = call.callUuid;
+      if (!callUuid || callUuid.startsWith('testing_')) continue;
+
+      try {
+        console.log(`<<CRON>> [PHASE 1] Querying Plivo API for callUuid: ${callUuid}...`);
+        
+        // Strict 1-to-1 match: Filter Plivo recordings strictly by this call's UUID
+        const rawRecordings: any = await plivoClient.recordings.list({ callUuid });
+        const plivoRecordings: any[] = Array.isArray(rawRecordings)
+          ? rawRecordings
+          : (rawRecordings && rawRecordings.recordingId ? [rawRecordings] : []);
+
+        if (!plivoRecordings || plivoRecordings.length === 0) {
+          const callAgeMs = now.getTime() - (call.createdAt ? new Date(call.createdAt).getTime() : 0);
+          // If call is older than 10 minutes and Plivo has no recording, mark it to avoid re-querying daily
+          if (callAgeMs > 10 * 60 * 1000) {
+            console.log(`ℹ️ <<CRON>> [PHASE 1] No recording exists on Plivo for ${callUuid} (call was unanswered/missed/not recorded).`);
+            const noRecItem: CallRecording = {
+              recordingId: `none_${callUuid}`,
+              storagePath: '',
+              storageBucket: appConfig.storage.bucket || appConfig.firebase.storageBucket,
+              duration: 0,
+              format: 'mp3',
+              status: 'failed',
+              reason: 'no_plivo_recording',
+              plivoDeleted: true,
+              plivoDeletedAt: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            await callDetailsRepository.addRecordingToCall(callUuid, noRecItem);
+          }
+          continue;
+        }
+
+        // Use primary recording associated strictly with this callUuid
+        const plivoRec = plivoRecordings[0];
+        const recordingId = plivoRec.recordingId;
+        const recordUrl = plivoRec.recordingUrl;
+
+        if (!recordUrl || !recordingId) {
+          console.warn(`⚠️ <<CRON>> [PHASE 1] Recording for ${callUuid} is missing URL or recordingId. Skipping.`);
+          continue;
+        }
+
+        let duration = 0;
+        if (plivoRec.recordingDurationMs) {
+          duration = Math.round(Number(plivoRec.recordingDurationMs) / 1000);
+        } else if ((plivoRec as any).recordingDuration) {
+          duration = Math.round(Number((plivoRec as any).recordingDuration));
+        }
+
+        const format = (plivoRec.recordingFormat?.toLowerCase().includes('wav') ? 'wav' : 'mp3') as 'mp3' | 'wav';
+        const callDate = call.createdAt ? new Date(call.createdAt) : now;
+        const year = callDate.getFullYear();
+        const month = String(callDate.getMonth() + 1).padStart(2, '0');
+        const prefix = appConfig.storage?.recordingsPathPrefix || 'call-recordings';
+        const destinationPath = `${prefix}/${year}/${month}/${callUuid}_${recordingId}.${format}`;
+        const auth = authId && authToken ? { user: authId, pass: authToken } : undefined;
+
+        console.log(`<<CRON>> [PHASE 1] Streaming recording ${recordingId} for call ${callUuid} to storage: ${destinationPath}`);
+        const uploadResult = await storageService.uploadStreamFromUrl(
+          recordUrl,
+          destinationPath,
+          auth,
+          format === 'wav' ? 'audio/wav' : 'audio/mpeg'
+        );
+
+        const recordingItem: CallRecording = {
+          recordingId,
+          storagePath: uploadResult.storagePath,
+          storageBucket: appConfig.storage.bucket || appConfig.firebase.storageBucket,
+          duration,
+          durationMs: plivoRec.recordingDurationMs ? Number(plivoRec.recordingDurationMs) : duration * 1000,
+          format,
+          status: 'completed',
+          sizeBytes: uploadResult.size,
+          plivoRecordUrl: recordUrl,
+          plivoDeleted: false,
+          plivoDeletedAt: null,
+          type: (plivoRec.recordingType as 'normal' | 'conference') || 'normal',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await callDetailsRepository.addRecordingToCall(callUuid, recordingItem);
+        console.log(`✅ <<CRON>> [PHASE 1] Successfully stored recording for call ${callUuid} in GCP & MongoDB.`);
+      } catch (callRecErr: any) {
+        console.error(`❌ <<CRON>> [PHASE 1] Failed to process recording for call ${callUuid}:`, callRecErr.message || callRecErr);
+      }
+
+      // Small pacing delay (150ms) to respect Plivo REST API rate limits
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    // =========================================================================
+    // PHASE 2: Safely Purge Plivo Recordings Older Than 20 Days
+    // =========================================================================
+    console.log(`<<CRON>> [PHASE 2] Starting Plivo 20-day recording purge...`);
+    const recordingsToPurge = await callDetailsRepository.findRecordingsForPlivoCleanup(twentyDaysAgo);
+    console.log(`<<CRON>> [PHASE 2] Found ${recordingsToPurge.length} Plivo recordings older than 20 days eligible for cleanup.`);
 
     for (const item of recordingsToPurge) {
       const { callUuid, recording } = item;
       const recordingId = recording.recordingId;
 
       try {
-        // 1. Check if recording is already safely stored in GCP
+        // 1. Verify recording is safely stored in GCP before deletion
         const isStoredInGcp = Boolean(recording.storagePath && recording.status === 'completed');
 
         if (!isStoredInGcp) {
-          console.log(`<<CRON>> Recording ${recordingId} for call ${callUuid} is missing from GCP. Fetching from Plivo to store before deletion...`);
+          console.log(`<<CRON>> [PHASE 2] Recording ${recordingId} for call ${callUuid} missing from GCP. Fetching before deletion...`);
 
           let recordUrl = recording.plivoRecordUrl;
           let duration = recording.duration || 0;
           let format = recording.format || 'mp3';
 
-          // Attempt to retrieve latest recording info from Plivo API
           try {
             const plivoRec = await plivoClient.recordings.get(recordingId);
             if (plivoRec?.recordingUrl) {
@@ -65,30 +171,28 @@ cron.schedule('0 2 * * *', async () => {
               format = (plivoRec.recordingFormat.toLowerCase().includes('wav') ? 'wav' : 'mp3') as 'mp3' | 'wav';
             }
           } catch (fetchErr: any) {
-            // If recording was already deleted on Plivo (404), mark it locally and continue
             if (fetchErr.status === 404 || fetchErr.message?.includes('404') || fetchErr.message?.includes('not found')) {
-              console.log(`<<CRON>> Recording ${recordingId} not found on Plivo (already deleted). Marked locally.`);
+              console.log(`<<CRON>> [PHASE 2] Recording ${recordingId} already deleted on Plivo. Marked locally.`);
               await callDetailsRepository.markPlivoRecordingDeleted(callUuid, recordingId);
               continue;
             }
-            console.warn(`<<CRON>> Could not fetch recording details from Plivo API for ${recordingId}:`, fetchErr.message || fetchErr);
+            console.warn(`<<CRON>> [PHASE 2] Could not fetch details for ${recordingId}:`, fetchErr.message || fetchErr);
           }
 
           if (!recordUrl) {
-            console.error(` <<CRON>> Cannot upload recording ${recordingId} for call ${callUuid}: no URL available. Skipping deletion to prevent loss.`);
+            console.error(`⚠️ <<CRON>> [PHASE 2] Cannot upload recording ${recordingId} for ${callUuid}: no URL. Skipping deletion to prevent loss.`);
             continue;
           }
 
-          // Construct GCP storage destination path
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const callDate = recording.createdAt ? new Date(recording.createdAt) : now;
+          const year = callDate.getFullYear();
+          const month = String(callDate.getMonth() + 1).padStart(2, '0');
           const prefix = appConfig.storage?.recordingsPathPrefix || 'call-recordings';
           const ext = format === 'wav' ? 'wav' : 'mp3';
           const destinationPath = `${prefix}/${year}/${month}/${callUuid}_${recordingId}.${ext}`;
           const auth = authId && authToken ? { user: authId, pass: authToken } : undefined;
 
-          console.log(`<<CRON>> Streaming recording ${recordingId} to GCP: ${destinationPath}`);
+          console.log(`<<CRON>> [PHASE 2] Streaming recording ${recordingId} to GCP: ${destinationPath}`);
           const uploadResult = await storageService.uploadStreamFromUrl(
             recordUrl,
             destinationPath,
@@ -96,7 +200,6 @@ cron.schedule('0 2 * * *', async () => {
             ext === 'wav' ? 'audio/wav' : 'audio/mpeg'
           );
 
-          // Update MongoDB with completed GCP storage metadata
           const updatedRecording: CallRecording = {
             ...recording,
             storagePath: uploadResult.storagePath,
@@ -112,27 +215,33 @@ cron.schedule('0 2 * * *', async () => {
           };
 
           await callDetailsRepository.addRecordingToCall(callUuid, updatedRecording);
-          console.log(`✅ <<CRON>> Successfully stored recording ${recordingId} for call ${callUuid} in GCP.`);
+          console.log(`✅ <<CRON>> [PHASE 2] Successfully stored recording ${recordingId} for call ${callUuid} in GCP.`);
         }
 
-        // 2. Now that the recording is confirmed stored in GCP, safely delete from Plivo
-        console.log(`<<CRON>> Deleting Plivo recording ${recordingId} for call ${callUuid}...`);
+        // 2. Now that recording is confirmed stored in GCP, safely delete from Plivo
+        console.log(`<<CRON>> [PHASE 2] Deleting Plivo recording ${recordingId} for call ${callUuid}...`);
         await plivoClient.recordings.delete(recordingId);
         await callDetailsRepository.markPlivoRecordingDeleted(callUuid, recordingId);
-        console.log(`✅ <<CRON>> Deleted recording ${recordingId} from Plivo.`);
+        console.log(`✅ <<CRON>> [PHASE 2] Deleted recording ${recordingId} from Plivo.`);
       } catch (err: any) {
-        // If recording was already deleted on Plivo (404), mark it deleted locally
         if (err.status === 404 || err.message?.includes('404') || err.message?.includes('not found')) {
           await callDetailsRepository.markPlivoRecordingDeleted(callUuid, recordingId);
-          console.log(`ℹ️ <<CRON>> Recording ${recordingId} not found on Plivo (already deleted). Marked locally.`);
+          console.log(`ℹ️ <<CRON>> [PHASE 2] Recording ${recordingId} not found on Plivo (already deleted). Marked locally.`);
         } else {
-          console.error(`❌ <<CRON>> Error processing recording ${recordingId} for call ${callUuid}:`, err.message || err);
-          // Do NOT delete from Plivo if GCP upload or verification failed - guarantees zero audio loss
+          console.error(`❌ <<CRON>> [PHASE 2] Error processing recording ${recordingId} for call ${callUuid}:`, err.message || err);
         }
       }
     }
-    console.log('✅ <<CRON>> Finished Plivo recording cleanup job.');
+
+    console.log('✅ <<CRON>> Finished Plivo daily recording sync and cleanup job.');
   } catch (error: any) {
-    console.error('❌ <<CRON>> Error in Plivo recording cleanup job:', error.stack || error);
+    console.error('❌ <<CRON>> Error in Plivo daily recording job:', error.stack || error);
   }
+}
+
+// Scheduled to run daily at 02:00 AM IST
+cron.schedule('0 2 * * *', async () => {
+  await runPlivoDailyJob();
+}, {
+  timezone: 'Asia/Kolkata',
 });

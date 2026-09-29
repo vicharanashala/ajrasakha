@@ -53,6 +53,7 @@ export interface CallRecording {
   startMs?: number;
   endMs?: number;
   type?: 'normal' | 'conference';
+  reason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -147,6 +148,7 @@ export interface ICallDetailsRepository {
   updateCallDetails(callUuid: string, details: Partial<CallDetails>, session?: ClientSession): Promise<void>;
   addRecordingToCall(callUuid: string, recording: CallRecording, session?: ClientSession): Promise<void>;
   findRecordingsForPlivoCleanup(olderThanDate: Date, session?: ClientSession): Promise<{ callUuid: string; recording: CallRecording }[]>;
+  findCallsMissingRecordings(sinceDate: Date, session?: ClientSession): Promise<CallDetails[]>;
   markPlivoRecordingDeleted(callUuid: string, recordingId: string, session?: ClientSession): Promise<void>;
   getAgentAnalytics(
     agentUserId: string,

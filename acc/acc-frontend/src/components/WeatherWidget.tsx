@@ -24,6 +24,7 @@ import {
   Check,
 } from "lucide-react";
 import { getDistrictsForState, getTaluksForDistrict } from "@/utils/indiaLocationData";
+import { apiFetch } from "@/hooks/api/api-fetch";
 
 // List of Indian States & UTs with central/capital coordinates for weather fetching
 const INDIAN_STATES_COORDINATES: Record<string, { city: string; lat: number; lon: number }> = {
@@ -119,15 +120,19 @@ interface WeatherData {
   windSpeed: number;
   weatherCode: number;
   conditionText: string;
+  pressure?: number | string;
+  stationName?: string;
+  distanceKm?: number | null;
+  observationTime?: string;
   hourly: HourlyForecast[];
   daily: DailyForecast[];
-  source: "IMD" | "Open-Meteo";
+  source: "IMD (India Meteorological Department)";
 }
 
-// In-memory cache for Open-Meteo Geocoding requests to prevent duplicate network calls
+// In-memory cache for OpenStreetMap Nominatim geocoding requests
 const geocodeCache = new Map<string, GeocodePlace[]>();
 
-async function searchOpenMeteo(query: string, stateFilter?: string): Promise<GeocodePlace[]> {
+async function searchOsmNominatim(query: string, stateFilter?: string): Promise<GeocodePlace[]> {
   const cleanName = query.split(",")[0].trim();
   if (cleanName.length < 2) return [];
 
@@ -137,18 +142,23 @@ async function searchOpenMeteo(query: string, stateFilter?: string): Promise<Geo
   }
 
   try {
-    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanName)}&count=10&language=en&country_code=IN`;
-    const res = await fetch(url);
+    const searchParam = stateFilter ? `${cleanName}, ${stateFilter}, India` : `${cleanName}, India`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchParam)}&countrycodes=in&format=json&addressdetails=1&limit=5`;
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
     if (!res.ok) return [];
     const data = await res.json();
-    const results: GeocodePlace[] = (data.results || []).map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      latitude: r.latitude,
-      longitude: r.longitude,
-      admin1: r.admin1 || "",
-      admin2: r.admin2 || "",
-      admin3: r.admin3 || "",
+    const results: GeocodePlace[] = (data || []).map((r: any) => ({
+      id: r.place_id,
+      name: r.address?.village || r.address?.suburb || r.address?.town || r.address?.city || r.name || cleanName,
+      latitude: parseFloat(r.lat),
+      longitude: parseFloat(r.lon),
+      admin1: r.address?.state || "",
+      admin2: r.address?.state_district || r.address?.county || "",
+      admin3: r.address?.subdistrict || r.address?.taluk || r.address?.tehsil || "",
     }));
 
     let filtered = results;
@@ -167,7 +177,7 @@ async function searchOpenMeteo(query: string, stateFilter?: string): Promise<Geo
     geocodeCache.set(cacheKey, filtered);
     return filtered;
   } catch (err) {
-    console.warn("[WeatherWidget] Geocoding lookup failed:", err);
+    console.warn("[WeatherWidget] OSM Nominatim geocoding lookup failed:", err);
     return [];
   }
 }
@@ -530,14 +540,14 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
 
     // Level 1: Village level (highest precision when present in farmer profile)
     if (rawVillage && rawVillage.toLowerCase() !== "all" && rawVillage.length >= 2) {
-      const villageResults = await searchOpenMeteo(rawVillage, normalizedState);
+      const villageResults = await searchOsmNominatim(rawVillage, normalizedState);
       if (villageResults.length > 0) {
         const matched = rawDistrict
           ? villageResults.find(
-              (r) =>
-                r.admin2?.toLowerCase().includes(rawDistrict.toLowerCase()) ||
-                rawDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
-            ) || villageResults[0]
+            (r) =>
+              r.admin2?.toLowerCase().includes(rawDistrict.toLowerCase()) ||
+              rawDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
+          ) || villageResults[0]
           : villageResults[0];
 
         const resTaluk = rawTaluk || matched.admin3 || "";
@@ -568,14 +578,14 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
 
     // Level 2: Taluk / Block (if village not present or village geocoding returned no results)
     if (rawTaluk && rawTaluk.toLowerCase() !== "all" && rawTaluk.length >= 2) {
-      const results = await searchOpenMeteo(rawTaluk, normalizedState);
+      const results = await searchOsmNominatim(rawTaluk, normalizedState);
       if (results.length > 0) {
         const matched = rawDistrict
           ? results.find(
-              (r) =>
-                r.admin2?.toLowerCase().includes(rawDistrict.toLowerCase()) ||
-                rawDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
-            ) || results[0]
+            (r) =>
+              r.admin2?.toLowerCase().includes(rawDistrict.toLowerCase()) ||
+              rawDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
+          ) || results[0]
           : results[0];
 
         const resDistrict = rawDistrict || matched.admin2 || matched.admin3 || "";
@@ -604,7 +614,7 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
 
     // Level 3: District (if taluk not present or geocoding returned no results)
     if (rawDistrict && rawDistrict.toLowerCase() !== "all" && rawDistrict.length >= 2) {
-      const results = await searchOpenMeteo(rawDistrict, normalizedState);
+      const results = await searchOsmNominatim(rawDistrict, normalizedState);
       if (results.length > 0) {
         const top = results[0];
         const breadcrumb = buildBreadcrumb({
@@ -671,10 +681,10 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
   useEffect(() => {
     const hasLocationData = Boolean(
       farmerLocation &&
-        (farmerLocation.state ||
-          farmerLocation.district ||
-          farmerLocation.taluk ||
-          farmerLocation.village)
+      (farmerLocation.state ||
+        farmerLocation.district ||
+        farmerLocation.taluk ||
+        farmerLocation.village)
     );
 
     const isNewLocation = farmerLocationKey !== lastFarmerLocationKeyRef.current;
@@ -734,7 +744,7 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
     setSelectedTaluk(""); // Reset taluk when district changes
     setIsManualOverride(true);
 
-    const results = await searchOpenMeteo(districtName, selectedState);
+    const results = await searchOsmNominatim(districtName, selectedState);
     const breadcrumb = buildBreadcrumb({
       district: districtName,
       state: selectedState,
@@ -772,7 +782,7 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
     setSelectedTaluk(talukName);
     setIsManualOverride(true);
 
-    const results = await searchOpenMeteo(talukName, selectedState);
+    const results = await searchOsmNominatim(talukName, selectedState);
     const breadcrumb = buildBreadcrumb({
       taluk: talukName,
       district: selectedDistrict,
@@ -782,10 +792,10 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
     if (results.length > 0) {
       const matched = selectedDistrict
         ? results.find(
-            (r) =>
-              r.admin2?.toLowerCase().includes(selectedDistrict.toLowerCase()) ||
-              selectedDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
-          ) || results[0]
+          (r) =>
+            r.admin2?.toLowerCase().includes(selectedDistrict.toLowerCase()) ||
+            selectedDistrict.toLowerCase().includes(r.admin2?.toLowerCase() || "")
+        ) || results[0]
         : results[0];
 
       setActiveLocation({
@@ -877,102 +887,51 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
     setIsPopoverOpen(false);
   };
 
-  // Weather data fetching
+  // Weather data fetching directly from India Meteorological Department (IMD) endpoint
   const fetchWeatherData = async () => {
     setIsLoading(true);
     setError(null);
 
     const lat = activeLocation.lat;
     const lon = activeLocation.lon;
-
-    const fetchOpenMeteoFallback = async () => {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FKolkata`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch weather data from Open-Meteo");
-      const data = await res.json();
-
-      const currentTemp = Math.round(data.current.temperature_2m);
-      const humidity = Math.round(data.current.relative_humidity_2m);
-      const windSpeed = Math.round(data.current.wind_speed_10m);
-      const weatherCode = data.current.weather_code;
-
-      const currentHourIdx = new Date().getHours();
-      const hourlyList: HourlyForecast[] = [];
-      for (let i = 0; i < 8; i++) {
-        const idx = (currentHourIdx + i * 3) % 24;
-        const timeStr = new Date(data.hourly.time[idx]).toLocaleTimeString([], { hour: "numeric" }).toLowerCase();
-        hourlyList.push({
-          time: timeStr,
-          temp: Math.round(data.hourly.temperature_2m[idx] || currentTemp),
-          precipitationProb: data.hourly.precipitation_probability ? data.hourly.precipitation_probability[idx] : 15,
-          windSpeed: Math.round(data.hourly.wind_speed_10m[idx] || windSpeed),
-        });
-      }
-
-      const dailyList: DailyForecast[] = [];
-      const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      if (data.daily && data.daily.time) {
-        for (let i = 0; i < Math.min(7, data.daily.time.length); i++) {
-          const d = new Date(data.daily.time[i]);
-          dailyList.push({
-            dayName: daysOfWeek[d.getDay()],
-            weatherCode: data.daily.weather_code[i],
-            tempMax: Math.round(data.daily.temperature_2m_max[i]),
-            tempMin: Math.round(data.daily.temperature_2m_min[i]),
-          });
-        }
-      }
-
-      const condition = getWeatherCondition(weatherCode);
-
-      setWeather({
-        currentTemp,
-        precipitationProb: hourlyList[0]?.precipitationProb || 20,
-        humidity,
-        windSpeed,
-        weatherCode,
-        conditionText: condition.text,
-        hourly: hourlyList,
-        daily: dailyList,
-        source: "Open-Meteo",
-      });
-    };
+    const state = activeLocation.state || "";
+    const district = activeLocation.district || "";
+    const taluk = activeLocation.taluk || "";
+    const village = activeLocation.village || "";
 
     try {
-      // Priority 1: IMD Weather API
-      const imdResp = await fetch(
-        `https://api.imd.gov.in/public/weather?lat=${lat}&lon=${lon}`,
-        { method: "GET", signal: AbortSignal.timeout(3000) }
-      );
+      const queryParams = new URLSearchParams({
+        lat: lat.toString(),
+        lon: lon.toString(),
+      });
+      if (state) queryParams.set("state", state);
+      if (district) queryParams.set("district", district);
+      if (taluk) queryParams.set("taluk", taluk);
+      if (village) queryParams.set("village", village);
 
-      if (!imdResp.ok) {
-        throw new Error(`IMD API returned HTTP ${imdResp.status}`);
-      }
+      const imdData = await apiFetch<WeatherData>(`/api/weather/imd?${queryParams.toString()}`);
 
-      const imdData = await imdResp.json();
-      if (!imdData || !imdData.current) {
-        throw new Error("IMD response payload missing current weather data");
+      if (!imdData || imdData.currentTemp === undefined) {
+        throw new Error("Invalid response received from IMD weather service");
       }
 
       setWeather({
-        currentTemp: Math.round(imdData.current.temp || 26),
-        precipitationProb: imdData.current.precipitation || 20,
-        humidity: imdData.current.humidity || 70,
-        windSpeed: Math.round(imdData.current.wind_speed || 15),
-        weatherCode: imdData.current.weather_code || 3,
-        conditionText: imdData.current.condition || "Cloudy",
+        currentTemp: Math.round(imdData.currentTemp),
+        precipitationProb: imdData.precipitationProb ?? 20,
+        humidity: Math.round(imdData.humidity ?? 65),
+        windSpeed: Math.round(imdData.windSpeed ?? 14),
+        weatherCode: imdData.weatherCode ?? 1,
+        conditionText: imdData.conditionText || "Mainly Clear",
         hourly: imdData.hourly || [],
         daily: imdData.daily || [],
-        source: "IMD",
+        source: "IMD (India Meteorological Department)",
+        stationName: imdData.stationName,
+        observationTime: imdData.observationTime,
       });
-    } catch (imdError) {
-      console.warn("[WeatherWidget] IMD API unavailable, switching to Open-Meteo fallback:", imdError);
-      try {
-        await fetchOpenMeteoFallback();
-      } catch (fallbackError: any) {
-        console.error("[WeatherWidget] Weather fallback error:", fallbackError);
-        setError(fallbackError.message || "Unable to fetch weather data");
-      }
+    } catch (imdError: any) {
+      console.error("[WeatherWidget] IMD API fetch error:", imdError);
+      setWeather(null);
+      setError(imdError.message || "Unable to fetch IMD weather data");
     } finally {
       setIsLoading(false);
     }
@@ -1084,7 +1043,7 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
                     }
                     searchPlaceholder="Search district (e.g. Mandya)..."
                     disabled={availableDistricts.length === 0}
-                    onDynamicSearch={(q) => searchOpenMeteo(`${q} ${selectedState}`, selectedState)}
+                    onDynamicSearch={(q) => searchOsmNominatim(`${q} ${selectedState}`, selectedState)}
                     onSelectDynamicPlace={handleSelectDistrictPlace}
                   />
                 </div>
@@ -1114,7 +1073,7 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
                     }
                     searchPlaceholder="Search taluk (e.g. Maddur)..."
                     disabled={!selectedDistrict}
-                    onDynamicSearch={(q) => searchOpenMeteo(`${q} ${selectedDistrict || ""} ${selectedState}`, selectedState)}
+                    onDynamicSearch={(q) => searchOsmNominatim(`${q} ${selectedDistrict || ""} ${selectedState}`, selectedState)}
                     onSelectDynamicPlace={handleSelectTalukPlace}
                   />
                 </div>
@@ -1169,8 +1128,11 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
                 <span className="font-extrabold text-zinc-900 dark:text-zinc-100 font-mono text-xs sm:text-sm">
                   {displayTemp(weather.currentTemp)}°{unit}
                 </span>
-                <span className="text-zinc-600 dark:text-zinc-300 font-medium truncate max-w-[120px] sm:max-w-[160px]">
+                <span className="text-zinc-600 dark:text-zinc-300 font-medium truncate max-w-[110px] sm:max-w-[150px]">
                   {weather.conditionText}
+                </span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 tracking-wide uppercase">
+                  IMD
                 </span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -1185,7 +1147,20 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
               </div>
             </>
           ) : (
-            <span className="text-[11px] text-zinc-400 font-medium">Fetching weather summary...</span>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[11px] text-red-500 dark:text-red-400 font-medium truncate max-w-[220px]" title={error || ""}>
+                {error ? "IMD Weather Unavailable" : "Fetching weather summary..."}
+              </span>
+              {error && (
+                <button
+                  type="button"
+                  onClick={fetchWeatherData}
+                  className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
           )}
         </div>
       </CardHeader>
@@ -1198,10 +1173,18 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider">Fetching live weather data...</p>
             </div>
           ) : error || !weather ? (
-            <div className="text-center py-4 text-zinc-500 dark:text-zinc-400 space-y-1.5">
-              <p className="text-xs font-semibold text-red-500 dark:text-red-400">Failed to load weather forecast.</p>
-              <Button onClick={fetchWeatherData} size="sm" variant="outline" className="h-7 text-xs border-zinc-200 dark:border-zinc-800">
-                Try Again
+            <div className="text-center py-8 text-zinc-500 dark:text-zinc-400 space-y-2">
+              <div className="inline-flex p-2.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-500 dark:text-red-400 mb-0.5">
+                <CloudRain className="h-6 w-6 opacity-80" />
+              </div>
+              <p className="text-xs font-bold text-red-600 dark:text-red-400">
+                Failed to fetch IMD weather data
+              </p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-[280px] mx-auto leading-relaxed">
+                {error || "Could not connect to India Meteorological Department service"}
+              </p>
+              <Button onClick={fetchWeatherData} size="sm" variant="outline" className="h-7 text-xs border-zinc-200 dark:border-zinc-800 font-semibold mt-1">
+                <RefreshCw className="h-3 w-3 mr-1" /> Try Again
               </Button>
             </div>
           ) : (
@@ -1348,6 +1331,26 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* IMD Official Source Attribution & Station Badge */}
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300 truncate">
+                    IMD (India Meteorological Department)
+                  </span>
+                  {weather.stationName && (
+                    <span className="truncate opacity-80 hidden sm:inline">
+                      • Station: {weather.stationName}
+                    </span>
+                  )}
+                </div>
+                {weather.observationTime && (
+                  <span className="font-mono text-[9px] text-zinc-400 shrink-0">
+                    Obs: {weather.observationTime}
+                  </span>
+                )}
               </div>
             </>
           )}

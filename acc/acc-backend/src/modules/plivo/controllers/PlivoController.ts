@@ -299,15 +299,15 @@ export class PlivoController {
       // Process streaming upload to GCS / Storage Emulator asynchronously
       (async () => {
         try {
-          // 1. Strictly wait for the call to end / hang up first before doing anything
+          // If media streams are still active, wait a brief moment (max 10s) for stream to finalize
           if (this.plivoService.isCallActive(callUuid)) {
-            console.log(`⏳ [PLIVO-CONTROLLER] Recording webhook arrived for ${callUuid}, but call is still active. Waiting for call to hangup...`);
-            const maxWaitCallEndMs = 300000; // max 5 mins
+            console.log(`⏳ [PLIVO-CONTROLLER] Recording webhook arrived for ${callUuid}, waiting briefly for streams to finalize...`);
+            const maxWaitCallEndMs = 10000; // max 10s
             const startWait = Date.now();
             while (this.plivoService.isCallActive(callUuid) && (Date.now() - startWait) < maxWaitCallEndMs) {
-              await new Promise((r) => setTimeout(r, 2000));
+              await new Promise((r) => setTimeout(r, 1000));
             }
-            console.log(`📞 [PLIVO-CONTROLLER] Call ${callUuid} has hung up / ended. Now proceeding to download pipeline.`);
+            console.log(`📞 [PLIVO-CONTROLLER] Call ${callUuid} ready for download pipeline.`);
           }
 
           const now = new Date();
@@ -384,9 +384,14 @@ export class PlivoController {
           }
         }
       })();
+
+      return res;
     } catch (error: any) {
       console.error('❌ [PLIVO-CONTROLLER] Error in record webhook handler:', error);
-      res.status(500).send('Internal Server Error');
+      if (!res.headersSent) {
+        return res.status(500).send('Internal Server Error');
+      }
+      return res;
     }
   }
 
@@ -411,7 +416,7 @@ export class PlivoController {
         currentUser.role !== 'moderator' &&
         callDetails.agent?.userid?.toString() !== currentUser._id?.toString()
       ) {
-        throw new ForbiddenError('You are not authorized to access this call recording');
+        throw new ForbiddenError('As you did not attend this call, you will not be able to access this recording');
       }
 
       const recording = callDetails.recording;
