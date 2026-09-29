@@ -1,14 +1,43 @@
 import { injectable } from 'inversify';
 import axios from 'axios';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { HttpError } from 'routing-controllers';
 import type { ImdWeatherResponse, ImdHourlyForecast, ImdDailyForecast } from '../types.js';
 
 @injectable()
 export class WeatherService {
   private readonly upstreamUrls: string[] = [
-    process.env.IMD_WEATHER_API_URL || 'http://100.100.108.44:6103/imd/weather',
-    'http://127.0.0.1:9004/imd/weather',
+    'http://100.100.108.44:6103/imd/weather',
   ];
+
+  // SOCKS5 proxy agent for Tailscale network (localhost:1055) in Cloud Run userspace networking
+  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
+
+  /**
+   * Helper to fetch from upstream mirror, routing 100.x addresses through Tailscale SOCKS5 proxy
+   * (matching AccAgentService, PlivoService, and ContextService) with fallback to direct for local dev.
+   */
+  private async fetchFromMirror(url: string, params: Record<string, any>) {
+    const isTailscale = /^https?:\/\/100\./.test(url);
+
+    if (isTailscale) {
+      try {
+        const proxyClient = axios.create({
+          httpAgent: this.httpAgent,
+          httpsAgent: this.httpAgent,
+        });
+        return await proxyClient.get(url, { params, timeout: 8000 });
+      } catch (proxyErr: any) {
+        // If SOCKS proxy is not running on localhost:1055 (e.g. local dev with native Tailscale OS adapter), try direct
+        if (proxyErr.code === 'ECONNREFUSED') {
+          return await axios.get(url, { params, timeout: 8000 });
+        }
+        throw proxyErr;
+      }
+    }
+
+    return await axios.get(url, { params, timeout: 8000 });
+  }
 
   /**
    * Map IMD weather condition string or code to standard numeric code and text
@@ -38,44 +67,30 @@ export class WeatherService {
   }): Promise<ImdWeatherResponse> {
     const { lat, lon, state, district, taluk, village } = params;
 
-    const upstreamDiagnostics: string[] = [];
-
     // Try to fetch from active upstream IMD mirror endpoints
     for (const upstreamUrl of this.upstreamUrls) {
       try {
-        const resp = await axios.get(upstreamUrl, {
-          params: {
-            latitude: lat,
-            longitude: lon,
-            data_type: 'forecast',
-          },
-          timeout: 8000,
+        const resp = await this.fetchFromMirror(upstreamUrl, {
+          latitude: lat,
+          longitude: lon,
+          data_type: 'forecast',
         });
 
         const res = resp.data?.result || resp.data;
 
         if (resp.status === 200 && resp.data && resp.data.success !== false && res?.success !== false) {
           return this.formatUpstreamImdResponse(resp.data, params, upstreamUrl);
-        } else {
-          const detail = `Status ${resp.status}, body: ${JSON.stringify(resp.data)}`;
-          upstreamDiagnostics.push(`${upstreamUrl} -> ${detail}`);
         }
       } catch (err: any) {
-        const errorDetail = err.response
-          ? `Status ${err.response.status}, body: ${JSON.stringify(err.response.data)}`
-          : (err.message || String(err));
-        upstreamDiagnostics.push(`${upstreamUrl} -> ${errorDetail}`);
+        // continue to next mirror
       }
     }
 
-    // No fallback: if IMD is unreachable, throw an error containing full diagnostic details so the frontend receives it
-    const diagnosticMessage = upstreamDiagnostics.join(' | ');
-    const httpError = new HttpError(
+    // No fallback: if IMD is unreachable, throw an error
+    throw new HttpError(
       503,
-      `IMD Weather Service unavailable. Upstream diagnostics: [${diagnosticMessage}]`,
+      `IMD Weather Service is currently unavailable. Could not fetch live data from IMD mirror (${this.upstreamUrls.join(', ')}).`,
     );
-    (httpError as any).errors = upstreamDiagnostics;
-    throw httpError;
   }
 
   /**
