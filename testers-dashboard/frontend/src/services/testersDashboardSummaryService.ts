@@ -323,6 +323,8 @@ export interface ITestersDashboardLanguageStat {
 
 export interface ITestersDashboardSummaryResponse {
     success: boolean;
+    syncing?: boolean;
+    message?: string;
     totalRecords: number;
     kpis: ITestersDashboardKpiSummary;
     diagnostics: ITestersDashboardDiagnostics;

@@ -11,7 +11,7 @@ import {
     TestersDashboardSummaryResponse,
 } from '../interfaces/ITestersDashboardService.js';
 import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
-import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
+import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters, type NonDateFilterKey } from '../testersDashboard/filters.js';
 import { isFutureTestDate } from '../testersDashboard/normalize.js';
 import { calculateKpis, calculatePreviousPeriodStats, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
@@ -232,6 +232,8 @@ export class TestersDashboardService implements ITestersDashboardService {
     private lastSyncError: string | null = null;
     private readonly DB_CACHE_TTL_MS = 30 * 1000; // 30 seconds
     private summaryCache: Map<string, { mtimeMs: number; response: TestersDashboardSummaryResponse }> = new Map();
+    private cachedFilterOptions: Record<NonDateFilterKey, string[]> | null = null;
+    private cachedFilterOptionsMtimeMs: number = 0;
 
     constructor(
         @optional()
@@ -430,6 +432,29 @@ export class TestersDashboardService implements ITestersDashboardService {
         };
     }
 
+    private getSummaryCacheKey(query: GetTestersDashboardQuery, zohoCount: number): string {
+        const filters = this.buildFiltersFromQuery(query);
+        return [
+            query.source || 'sheet',
+            filters.dateRange,
+            filters.type,
+            filters.category,
+            filters.build,
+            filters.channel,
+            filters.language,
+            filters.tester,
+            filters.status,
+            filters.severity,
+            filters.typeBranch,
+            filters.dynamicSubTypes.join(','),
+            filters.staticSubTypes.join(','),
+            query.excludeFailures === 'true' ? 'true' : 'false',
+            query.customStart || '',
+            query.customEnd || '',
+            zohoCount,
+        ].join('|');
+    }
+
     async getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse> {
         const isDb = query.source === 'db';
 
@@ -477,8 +502,24 @@ export class TestersDashboardService implements ITestersDashboardService {
             const sources = parseSheetSources();
             const auth = getGoogleAuth();
             if (sources.length > 0 && auth) {
-                console.log('[TestersDashboard] CSV missing for summary - attempting initial sheet sync...');
-                await this.syncFromSheet();
+                console.log('[TestersDashboard] CSV missing for summary - initiating non-blocking background sheet sync...');
+                this.syncFromSheet().catch((err) => {
+                    console.error('[TestersDashboard] Background sheet sync failed:', err);
+                });
+                return {
+                    success: false,
+                    syncing: true,
+                    totalRecords: 0,
+                    kpis: calculateKpis([]),
+                    diagnostics: calculateDiagnostics([], zohoTickets),
+                    chartData: calculateChartData([]),
+                    previousPeriodStats: null,
+                    filterOptions: buildFilterOptions([]),
+                    lastSyncedAt: null,
+                    channelStats: calculateChannelStats([]),
+                    languageStats: calculateLanguageStats([]),
+                    message: 'Initial data sync from Google Sheets is in progress...',
+                };
             }
         }
 
@@ -499,10 +540,7 @@ export class TestersDashboardService implements ITestersDashboardService {
         }
 
         const stats = fs.statSync(CSV_PATH);
-        const cacheKey = JSON.stringify({
-            ...query,
-            zohoKeys: Object.keys(zohoTickets).length,
-        });
+        const cacheKey = this.getSummaryCacheKey(query, Object.keys(zohoTickets).length);
         const cached = this.summaryCache.get(cacheKey);
         if (cached && cached.mtimeMs === stats.mtimeMs) {
             return cached.response;
@@ -511,6 +549,11 @@ export class TestersDashboardService implements ITestersDashboardService {
         const filters = this.buildFiltersFromQuery(query);
         const excludeFailures = query.excludeFailures === 'true';
 
+        const cachedOptions =
+            this.cachedFilterOptionsMtimeMs === stats.mtimeMs && this.cachedFilterOptions
+                ? this.cachedFilterOptions
+                : undefined;
+
         const response = await streamAggregateSummary(
             CSV_PATH,
             filters,
@@ -518,10 +561,17 @@ export class TestersDashboardService implements ITestersDashboardService {
             query.customStart,
             query.customEnd,
             zohoTickets,
+            new Date(),
+            cachedOptions,
         );
 
+        if (!this.cachedFilterOptions || this.cachedFilterOptionsMtimeMs !== stats.mtimeMs) {
+            this.cachedFilterOptions = response.filterOptions;
+            this.cachedFilterOptionsMtimeMs = stats.mtimeMs;
+        }
+
         this.summaryCache.set(cacheKey, { mtimeMs: stats.mtimeMs, response });
-        if (this.summaryCache.size > 50) {
+        if (this.summaryCache.size > 10) {
             const firstKey = this.summaryCache.keys().next().value;
             if (firstKey) this.summaryCache.delete(firstKey);
         }
@@ -575,15 +625,15 @@ export class TestersDashboardService implements ITestersDashboardService {
             return;
         }
 
-        console.log(`[TestersDashboard] Starting Google Sheet sync for ${sources.length} sources...`);
-        const fetchResults: SheetFetchResult[] = [];
+        console.log(`[TestersDashboard] Starting Google Sheet sync for ${sources.length} sources (sequentially for low memory footprint)...`);
         const errorsOccurred: string[] = [];
+        const fetchResults: SheetFetchResult[] = [];
 
         for (const source of sources) {
             try {
                 const rawRows = await this.fetchSheetRows(auth, source.id, source.tab, source.label);
-                fetchResults.push({ label: source.label, rawRows });
                 console.log(`[TestersDashboard] Successfully fetched ${rawRows?.length || 0} rows from ${source.label}`);
+                fetchResults.push({ label: source.label, rawRows });
             } catch (err: any) {
                 const errDetail = err?.message || String(err);
                 console.error(
@@ -617,7 +667,10 @@ export class TestersDashboardService implements ITestersDashboardService {
         const writeStream = fs.createWriteStream(CSV_PATH, { encoding: 'utf8' });
         writeStream.write(header.map(escapeCsvField).join(',') + '\n');
         for (let i = 0; i < rows.length; i++) {
-            writeStream.write(rows[i].map((cell) => escapeCsvField(String(cell ?? ''))).join(',') + '\n');
+            const line = rows[i].map((cell) => escapeCsvField(String(cell ?? ''))).join(',') + '\n';
+            if (!writeStream.write(line)) {
+                await new Promise<void>((resolve) => writeStream.once('drain', () => resolve()));
+            }
         }
         await new Promise<void>((resolve, reject) => {
             writeStream.end();
@@ -628,6 +681,8 @@ export class TestersDashboardService implements ITestersDashboardService {
         // Invalidate the cache so the next /summary request re-reads from disk instead of
         // serving stale pre-sync data.
         this.cachedRecords = null;
+        this.cachedFilterOptions = null;
+        this.cachedFilterOptionsMtimeMs = 0;
         this.summaryCache.clear();
         this.lastSyncError = null;
 
@@ -636,5 +691,12 @@ export class TestersDashboardService implements ITestersDashboardService {
             `[TestersDashboard] Synced ${summary} into updated.csv ` +
             `(${merged.length}/${sources.length} sheets merged successfully)`,
         );
+
+        // Pre-warm the default summary cache so incoming requests are served instantly (< 1ms)
+        setTimeout(() => {
+            this.getSummary({}).catch((err) => {
+                console.error('[TestersDashboard] Error pre-warming summary cache:', err);
+            });
+        }, 100);
     }
 }

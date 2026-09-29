@@ -42,6 +42,7 @@ COPY backend/scripts ./scripts
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
 RUN mkdir -p /app/data/testers-dashboard
+COPY --from=builder /app/data ./data
 
 # Testers Dashboard runtime setup:
 # 1. Compiled build output at /testers-dashboard/backend/build
