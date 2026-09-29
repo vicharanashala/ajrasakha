@@ -49,13 +49,14 @@ def _openai_chunk(
     chunk_id: str,
     finish_reason: str | None = None,
     reasoning_content: str | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     delta: dict[str, Any] = {}
     if reasoning_content is not None:
         delta["reasoning_content"] = reasoning_content
     if content:
         delta["content"] = content
-    return {
+    chunk: dict[str, Any] = {
         "id": chunk_id,
         "object": "chat.completion.chunk",
         "created": int(time.time()),
@@ -69,6 +70,13 @@ def _openai_chunk(
             }
         ],
     }
+    # Additive, non-standard field. Ignored by any strict OpenAI-schema
+    # consumer; a compatible client can read it to render an "Answer source"
+    # trust indicator. Omitted entirely when there's nothing honest to say
+    # (see ajrasakha.agents.answer_provenance) — never sent as null/empty.
+    if provenance is not None:
+        chunk["provenance"] = provenance
+    return chunk
 
 
 def _extract_text_content(message_chunk: Any) -> str:
@@ -479,6 +487,38 @@ def _final_ai_reply_from_messages(messages: list[Any]) -> str:
     return ""
 
 
+def _final_ai_provenance_from_messages(messages: list[Any]) -> dict[str, Any] | None:
+    """Provenance metadata attached (via additional_kwargs) to the final AI reply.
+
+    Mirrors _final_ai_reply_from_messages' turn-scoping so provenance always
+    corresponds to the same message the reply text came from. Returns None
+    when the message carries no provenance (a valid, expected state — see
+    ajrasakha.agents.answer_provenance) or when the field is malformed.
+    """
+    if not messages:
+        return None
+
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, dict) and msg.get("type") == "human":
+            last_human_idx = i
+            break
+
+    current_run_messages = (
+        messages[last_human_idx + 1 :] if last_human_idx >= 0 else messages
+    )
+
+    for msg in reversed(current_run_messages):
+        if isinstance(msg, dict) and msg.get("type") in ("ai", "assistant"):
+            if _has_tool_calls(msg):
+                continue
+            if _extract_text_content(msg):
+                provenance = (msg.get("additional_kwargs") or {}).get("provenance")
+                return provenance if isinstance(provenance, dict) else None
+    return None
+
+
 async def _emit_final_reply_fallback(
     client: httpx.AsyncClient,
     thread_id: str,
@@ -599,6 +639,7 @@ async def stream_openai_from_langgraph(
                 pass
 
             final_reply = ""
+            provenance: dict[str, Any] | None = None
             try:
                 messages = await fetch_thread_messages(
                     client,
@@ -607,6 +648,7 @@ async def stream_openai_from_langgraph(
                     langgraph_headers=lg_headers,
                 )
                 final_reply = _final_ai_reply_from_messages(messages)
+                provenance = _final_ai_provenance_from_messages(messages)
             except httpx.HTTPError as exc:
                 logger.warning(
                     "Failed to fetch thread state for stream tail (thread=%s): %s",
@@ -615,7 +657,9 @@ async def stream_openai_from_langgraph(
                 )
 
             if final_reply:
-                chunk = _openai_chunk(content=final_reply, model=model, chunk_id=chunk_id)
+                chunk = _openai_chunk(
+                    content=final_reply, model=model, chunk_id=chunk_id, provenance=provenance
+                )
                 yield f"data: {json.dumps(chunk)}\n\n"
             else:
                 logger.warning(
@@ -637,6 +681,7 @@ async def complete_openai_from_langgraph(
     model = body.get("model") or LANGGRAPH_ASSISTANT_ID
     completion_id = f"chatcmpl-{uuid.uuid4().hex}"
     parts: list[str] = []
+    provenance: dict[str, Any] | None = None
     run_meta: dict[str, Any] = {}
 
     async for line in stream_openai_from_langgraph(
@@ -658,9 +703,11 @@ async def complete_openai_from_langgraph(
         if delta.get("content"):
             # In final-only streaming mode, there should be at most one content-bearing chunk.
             parts.append(delta["content"])
+        if "provenance" in chunk:
+            provenance = chunk["provenance"]
 
     content = "".join(parts)
-    return {
+    response: dict[str, Any] = {
         "id": completion_id,
         "object": "chat.completion",
         "created": int(time.time()),
@@ -676,3 +723,6 @@ async def complete_openai_from_langgraph(
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "thread_id": run_meta.get("thread_id"),
     }
+    if provenance is not None:
+        response["provenance"] = provenance
+    return response
