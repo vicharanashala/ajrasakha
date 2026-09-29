@@ -1812,6 +1812,7 @@ class DailyPriceInput(BaseModel):
     crop: str
     state: Optional[str] = None
     district: Optional[str] = None
+    sub_places: Optional[list[str]] = None
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1822,6 +1823,7 @@ async def daily_price(
     crop: str,
     state: Optional[str] = None,
     district: Optional[str] = None,
+    sub_places: Optional[list[str]] = None,
     config: RunnableConfig = None,
 ) -> str:
     """
@@ -1832,8 +1834,8 @@ async def daily_price(
     try:
         lat = latitude
         lon = longitude
-        if (lat is None or lon is None) and state:
-            from ajrasakha.agents.location_context import forward_geocode
+        if lat is None or lon is None:
+            from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
 
             # Use district from parameter (preferred) or extract from query as fallback
             district_val = district
@@ -1842,16 +1844,35 @@ async def daily_price(
                 if m_dist:
                     district_val = m_dist.group(1).strip()
 
-            geocode_result = await forward_geocode(state=state, district=district_val)
-            if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
-                lat = geocode_result.get("latitude")
-                lon = geocode_result.get("longitude")
+            # sub_places provided by the planner: try each sub-place as subdistrict
+            # until geocoding succeeds, then fall back to district-only.
+            subdistrict_val = (sub_places[0].strip() if sub_places else None)
+            _lat, _lon, _resolved_name = await _get_lat_long(
+                district=district_val,
+                subdistrict=subdistrict_val,
+                state=state,
+            )
+            # If first sub_place failed and there are more, iterate through the rest
+            if (_lat is None or _lon is None) and sub_places and len(sub_places) > 1:
+                for sp in sub_places[1:]:
+                    _lat, _lon, _resolved_name = await _get_lat_long(
+                        district=district_val,
+                        subdistrict=sp.strip(),
+                        state=state,
+                    )
+                    if _lat is not None and _lon is not None:
+                        break
+            if _lat is not None and _lon is not None:
+                lat = _lat
+                lon = _lon
                 logger.info(
-                    "daily_price_agent: forward geocoded state %r district %r to %s, %s",
+                    "daily_price_agent: geocoded state=%r district=%r sub_places=%r -> lat=%s, lon=%s (%s)",
                     state,
                     district_val,
+                    sub_places,
                     lat,
                     lon,
+                    _resolved_name,
                 )
 
         intent = await extract_daily_price_intent(
