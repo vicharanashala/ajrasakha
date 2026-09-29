@@ -74,7 +74,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
 const { controllers, validators } = await loadAppModules(
   appConfig.module.toLowerCase(),
 );
