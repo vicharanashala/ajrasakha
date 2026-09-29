@@ -8833,8 +8833,8 @@ if (endDate) {
       ? { createdAt: dateFilter }
       : {}),
 
-            // sender: 'User',
-            // isCreatedByUser: true,
+            isCreatedByUser: true,
+            isDeleted: {$ne: true},
           },
           // ...userTypeLookupStages
         },
@@ -9045,9 +9045,9 @@ if (endDate) {
         delete msg.messageIds;
       });
 
-      const filteredMessages = messages.filter(
-        (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
-      );
+      // isCreatedByUser/isDeleted are already enforced in the $match stage above,
+      // so every doc here already qualifies; just strip the now-unneeded fields.
+      const filteredMessages = messages;
 
       filteredMessages.forEach((msg: any) => {
         delete msg.messageIds;
