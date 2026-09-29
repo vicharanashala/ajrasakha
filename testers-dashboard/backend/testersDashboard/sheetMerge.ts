@@ -143,7 +143,9 @@ export function mergeSheetSources(results: SheetFetchResult[]): MergeResult {
         if (baselineHeader === null) {
             baselineHeader = header;
             baselineLabel = label;
-            rows.push(...dataRows);
+            for (let j = 0; j < dataRows.length; j++) {
+                rows.push(dataRows[j]);
+            }
             merged.push({ label, count: dataRows.length });
             continue;
         }
@@ -153,7 +155,9 @@ export function mergeSheetSources(results: SheetFetchResult[]): MergeResult {
             continue;
         }
 
-        rows.push(...dataRows);
+        for (let j = 0; j < dataRows.length; j++) {
+            rows.push(dataRows[j]);
+        }
         merged.push({ label, count: dataRows.length });
     }
 

@@ -378,11 +378,13 @@ code {
   animation: shimmer 3s ease-in-out infinite;
 }
 
-.scrollbar-hiding {
+.scrollbar-hiding,
+.no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;   
 }
-.scrollbar-hiding::-webkit-scrollbar {
+.scrollbar-hiding::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
   display: none;           
 }
 

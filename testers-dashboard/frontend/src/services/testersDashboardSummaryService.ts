@@ -332,6 +332,7 @@ export interface ITestersDashboardSummaryResponse {
     lastSyncedAt: string | null;
     channelStats: ITestersDashboardChannelStat[];
     languageStats: ITestersDashboardLanguageStat[];
+    error?: string;
 }
 
 export class TestersDashboardSummaryService {

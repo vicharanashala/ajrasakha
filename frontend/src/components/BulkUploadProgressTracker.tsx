@@ -7,7 +7,6 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   Trash2,
   AlertTriangle,
 } from "lucide-react";
