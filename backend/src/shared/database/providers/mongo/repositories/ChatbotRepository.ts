@@ -8079,6 +8079,11 @@ export class ChatbotRepository implements IChatbotRepository {
         );
       }
 
+      
+      finalList.sort(
+        (a, b) => (b.isVerified ? 1 : 0) - (a.isVerified ? 1 : 0),
+      );
+
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
       const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
