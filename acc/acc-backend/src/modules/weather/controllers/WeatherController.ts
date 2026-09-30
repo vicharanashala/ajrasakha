@@ -1,10 +1,10 @@
-import 'reflect-metadata';
 import {
   JsonController,
   Get,
   QueryParam,
   HttpCode,
   Authorized,
+  BadRequestError,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -31,19 +31,27 @@ export class WeatherController {
     description: 'Returns IMD Automatic Weather Station (AWS) data, 7-day forecast, rainfall and warnings.',
   })
   async getImdWeather(
-    @QueryParam('lat', { required: false }) lat?: number,
-    @QueryParam('lon', { required: false }) lon?: number,
+    @QueryParam('lat', { required: true }) lat: number,
+    @QueryParam('lon', { required: true }) lon: number,
     @QueryParam('state', { required: false }) state?: string,
     @QueryParam('district', { required: false }) district?: string,
     @QueryParam('taluk', { required: false }) taluk?: string,
     @QueryParam('village', { required: false }) village?: string,
   ) {
-    const parsedLat = lat != null ? Number(lat) : 20.3888;
-    const parsedLon = lon != null ? Number(lon) : 78.1204;
+    if (lat == null || lon == null) {
+      throw new BadRequestError('Latitude (lat) and Longitude (lon) are required query parameters.');
+    }
+
+    const parsedLat = Number(lat);
+    const parsedLon = Number(lon);
+
+    if (isNaN(parsedLat) || isNaN(parsedLon)) {
+      throw new BadRequestError('Latitude (lat) and Longitude (lon) must be valid numbers.');
+    }
 
     return await this.weatherService.getImdWeather({
-      lat: isNaN(parsedLat) ? 20.3888 : parsedLat,
-      lon: isNaN(parsedLon) ? 78.1204 : parsedLon,
+      lat: parsedLat,
+      lon: parsedLon,
       state,
       district,
       taluk,

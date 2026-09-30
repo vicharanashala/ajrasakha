@@ -115,7 +115,9 @@ interface DailyForecast {
 }
 
 interface WeatherData {
-  currentTemp: number;
+  tempMax: number;
+  tempMin: number;
+  currentTemp?: number;
   precipitationProb: number;
   humidity: number;
   windSpeed: number;
@@ -914,17 +916,19 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
         `${env.apiBaseUrl()}/weather/imd?${queryParams.toString()}`
       );
 
-      if (!imdData || imdData.currentTemp === undefined) {
+      if (!imdData || (imdData.tempMax === undefined && imdData.currentTemp === undefined)) {
         throw new Error("Invalid response received from IMD weather service");
       }
 
       setWeather({
-        currentTemp: Math.round(imdData.currentTemp),
-        precipitationProb: imdData.precipitationProb ?? 20,
-        humidity: Math.round(imdData.humidity ?? 65),
-        windSpeed: Math.round(imdData.windSpeed ?? 14),
-        weatherCode: imdData.weatherCode ?? 1,
-        conditionText: imdData.conditionText || "Mainly Clear",
+        tempMax: Math.round(imdData.tempMax ?? imdData.currentTemp ?? 0),
+        tempMin: Math.round(imdData.tempMin ?? imdData.currentTemp ?? 0),
+        currentTemp: imdData.currentTemp !== undefined ? Math.round(imdData.currentTemp) : undefined,
+        precipitationProb: imdData.precipitationProb ?? 0,
+        humidity: Math.round(imdData.humidity ?? 0),
+        windSpeed: Math.round(imdData.windSpeed ?? 0),
+        weatherCode: imdData.weatherCode,
+        conditionText: imdData.conditionText,
         hourly: imdData.hourly || [],
         daily: imdData.daily || [],
         source: "IMD (India Meteorological Department)",
@@ -1124,27 +1128,29 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
         </div>
 
         {/* Row 2: Full-width Weather Summary Bar */}
-        <div className="h-8.5 w-full flex items-center justify-between px-3 rounded-lg bg-zinc-100/80 dark:bg-zinc-900/60 border border-zinc-200/70 dark:border-zinc-800 text-xs font-semibold shadow-sm">
+        <div className="h-8.5 w-full flex items-center justify-between px-3 rounded-lg bg-zinc-100/80 dark:bg-zinc-900/60 border border-zinc-200/70 dark:border-zinc-800 text-xs font-semibold shadow-sm overflow-hidden">
           {weather ? (
             <>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-zinc-900 dark:text-zinc-100 font-mono text-xs sm:text-sm">
-                  {displayTemp(weather.currentTemp)}°{unit}
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-extrabold text-zinc-900 dark:text-zinc-100 font-mono text-xs sm:text-sm whitespace-nowrap shrink-0">
+                  {weather.tempMin !== weather.tempMax
+                    ? `${displayTemp(weather.tempMin)}° – ${displayTemp(weather.tempMax)}°${unit}`
+                    : `${displayTemp(weather.tempMin)}°${unit}`}
                 </span>
-                <span className="text-zinc-600 dark:text-zinc-300 font-medium truncate max-w-[110px] sm:max-w-[150px]">
+                <span className="text-zinc-600 dark:text-zinc-300 font-medium truncate max-w-[110px] sm:max-w-[160px]">
                   {weather.conditionText}
                 </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 tracking-wide uppercase">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 tracking-wide uppercase shrink-0">
                   IMD
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-                <span className="flex items-center gap-1">
-                  <Droplets className="h-3 w-3 text-blue-500" />
+              <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400 shrink-0">
+                <span className="flex items-center gap-1 whitespace-nowrap">
+                  <Droplets className="h-3 w-3 text-blue-500 shrink-0" />
                   <span>Rain: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.precipitationProb}%</strong></span>
                 </span>
-                <span className="hidden sm:flex items-center gap-1">
-                  <Wind className="h-3 w-3 text-emerald-500" />
+                <span className="hidden sm:flex items-center gap-1 whitespace-nowrap">
+                  <Wind className="h-3 w-3 text-emerald-500 shrink-0" />
                   <span>Wind: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.windSpeed} km/h</strong></span>
                 </span>
               </div>
@@ -1192,53 +1198,79 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
             </div>
           ) : (
             <>
-              {/* Top Weather Section: Temperature, Stats & Condition */}
-              <div className="flex items-center justify-between">
-                {/* Left: Big Temp Display & Switcher */}
-                <div className="flex items-center gap-2.5">
-                  <div className="shrink-0">{getWeatherCondition(weather.weatherCode, "h-7 w-7").icon}</div>
-                  <div className="flex items-start">
-                    <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white font-mono">
-                      {displayTemp(weather.currentTemp)}
-                    </span>
-                    <div className="flex items-center text-xs font-semibold ml-1.5 text-zinc-400 pt-0.5">
-                      <button
-                        onClick={() => setUnit("C")}
-                        className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "C" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
-                      >
-                        °C
-                      </button>
-                      <span className="mx-0.5">|</span>
-                      <button
-                        onClick={() => setUnit("F")}
-                        className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "F" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
-                      >
-                        °F
-                      </button>
-                    </div>
+              {/* Top Weather Section: Temperature & Condition Header */}
+              <div className="flex items-start justify-between gap-3">
+                {/* Left: Weather Icon + Temperature Range & Unit Switcher */}
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="p-2 rounded-xl bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200/60 dark:border-zinc-800/60 shrink-0">
+                    {getWeatherCondition(weather.weatherCode, "h-8 w-8").icon}
                   </div>
-
-                  {/* Additional Stats: Precipitation, Humidity, Wind */}
-                  <div className="border-l border-zinc-200 dark:border-zinc-800 pl-2.5 space-y-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
-                    <div className="flex items-center gap-1">
-                      <Droplets className="h-3 w-3 text-blue-500 dark:text-blue-400" />
-                      <span>Rain: <strong className="text-zinc-900 dark:text-zinc-200">{weather.precipitationProb}%</strong></span>
+                  <div className="flex flex-col">
+                    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+                      <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white font-mono whitespace-nowrap">
+                        {weather.tempMin !== weather.tempMax
+                          ? `${displayTemp(weather.tempMin)}° – ${displayTemp(weather.tempMax)}°`
+                          : `${displayTemp(weather.tempMin)}°`}
+                      </span>
+                      <div className="inline-flex items-center text-xs font-semibold text-zinc-400 bg-zinc-100/90 dark:bg-zinc-900/90 px-1.5 py-0.5 rounded-md border border-zinc-200/80 dark:border-zinc-800">
+                        <button
+                          type="button"
+                          onClick={() => setUnit("C")}
+                          className={`hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer ${unit === "C" ? "text-zinc-900 dark:text-white font-bold" : "text-zinc-400"}`}
+                        >
+                          °C
+                        </button>
+                        <span className="mx-1 text-zinc-300 dark:text-zinc-700">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setUnit("F")}
+                          className={`hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer ${unit === "F" ? "text-zinc-900 dark:text-white font-bold" : "text-zinc-400"}`}
+                        >
+                          °F
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Thermometer className="h-3 w-3 text-amber-500 dark:text-amber-400" />
-                      <span>Humidity: <strong className="text-zinc-900 dark:text-zinc-200">{weather.humidity}%</strong></span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Wind className="h-3 w-3 text-emerald-500 dark:text-emerald-400" />
-                      <span>Wind: <strong className="text-zinc-900 dark:text-zinc-200">{weather.windSpeed} km/h</strong></span>
-                    </div>
+                    {weather.tempMin !== weather.tempMax ? (
+                      <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap mt-0.5">
+                        <span>Min: <strong className="text-blue-600 dark:text-blue-400 font-mono">{displayTemp(weather.tempMin)}°{unit}</strong></span>
+                        <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                        <span>Max: <strong className="text-amber-600 dark:text-amber-400 font-mono">{displayTemp(weather.tempMax)}°{unit}</strong></span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
+                        Current IMD Observation
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Right: Condition & Day/Time */}
-                <div className="text-right space-y-0.5">
-                  <h4 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{weather.conditionText}</h4>
-                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">{dayTimeString}</p>
+                <div className="text-right space-y-0.5 min-w-0">
+                  <h4 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                    {weather.conditionText}
+                  </h4>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 font-medium whitespace-nowrap">
+                    {dayTimeString}
+                  </p>
+                </div>
+              </div>
+
+              {/* Key Weather Metrics Strip: Rain, Humidity, Wind */}
+              <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2 rounded-xl bg-zinc-100/60 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 text-xs shadow-inner">
+                <div className="flex items-center gap-1.5 justify-center py-0.5">
+                  <Droplets className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">Rain:</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-[11px] whitespace-nowrap">{weather.precipitationProb}%</span>
+                </div>
+                <div className="flex items-center gap-1.5 justify-center py-0.5 border-x border-zinc-200/60 dark:border-zinc-800/60">
+                  <Thermometer className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">Humidity:</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-[11px] whitespace-nowrap">{weather.humidity}%</span>
+                </div>
+                <div className="flex items-center gap-1.5 justify-center py-0.5">
+                  <Wind className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">Wind:</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-[11px] whitespace-nowrap">{weather.windSpeed} km/h</span>
                 </div>
               </div>
 

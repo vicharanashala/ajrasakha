@@ -14,7 +14,9 @@ export interface ImdDailyForecast {
 }
 
 export interface ImdWeatherResponse {
-  currentTemp: number;
+  tempMax: number;
+  tempMin: number;
+  currentTemp?: number;
   precipitationProb: number;
   humidity: number;
   windSpeed: number;
@@ -30,5 +32,4 @@ export interface ImdWeatherResponse {
   warnings?: string[];
   rainfallStatus?: string;
   rawImd?: any;
-  upstreamUrl?: string;
 }
