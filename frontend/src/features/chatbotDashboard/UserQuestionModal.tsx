@@ -114,7 +114,9 @@ const UserQuestionsModal = ({
       ? (fullData?.questions?.total ?? 0)
       : viewType === "non_agri"
         ? (fullData?.nonAgriQuestions?.total ?? 0)
-        : (user?.totalQuestions?.toLocaleString() ?? 0);
+        : `${fullData?.messages?.totalRaw ?? fullData?.messages?.total ?? 0} (${
+            fullData?.messages?.total ?? 0
+          } unique)`;
 
   const handleRefresh = async () => {
     await queryClient.refetchQueries({ queryKey: ["user-questions-data"] });

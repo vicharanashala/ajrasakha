@@ -8985,33 +8985,43 @@ if (endDate) {
       //   ])
       //   .toArray();
 
-      const result = await this.messagesCollection
-        .aggregate([
-          ...pipeline,
+      const [result, rawCountResult] = await Promise.all([
+        this.messagesCollection
+          .aggregate([
+            ...pipeline,
 
-          {
-            $facet: {
-              metadata: [
-                {
-                  $count: 'total',
-                },
-              ],
+            {
+              $facet: {
+                metadata: [
+                  {
+                    $count: 'total',
+                  },
+                ],
 
-              data: [
-                {
-                  $skip: skip,
-                },
+                data: [
+                  {
+                    $skip: skip,
+                  },
 
-                {
-                  $limit: limit,
-                },
-              ],
+                  {
+                    $limit: limit,
+                  },
+                ],
+              },
             },
-          },
-        ])
-        .toArray();
+          ])
+          .toArray(),
+
+        // Raw count before the repeated-text dedup above, so the UI can show
+        // both the actual message count and the deduplicated one.
+        this.messagesCollection
+          .aggregate([{$match: pipeline[0].$match}, {$count: 'total'}])
+          .toArray(),
+      ]);
 
       const totalMessages = result[0]?.metadata?.[0]?.total || 0;
+
+      const totalRawMessages = rawCountResult[0]?.total || 0;
 
       const messages = result[0]?.data || [];
 
@@ -9057,6 +9067,8 @@ if (endDate) {
 
       return {
         total: totalMessages,
+
+        totalRaw: totalRawMessages,
 
         totalPages,
 

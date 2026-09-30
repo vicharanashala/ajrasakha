@@ -26,6 +26,8 @@ export interface UserMessage {
 
 export interface PaginatedResponse<T> {
   total: number;
+  // Raw (pre-dedup) count, only populated for the "messages" (All) tab.
+  totalRaw?: number;
   totalPages: number;
   currentPage: number;
   limit: number;
