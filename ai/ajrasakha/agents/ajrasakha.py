@@ -69,6 +69,7 @@ MCP_SERVERS = {
 }
 
 _tools_cache: list | None = None
+_mcp_clients: dict[str, MultiServerMCPClient] = {}  # Keep client references for reuse
 
 
 def use_planner_graph() -> bool:
@@ -80,6 +81,29 @@ async def _get_main_tools_legacy() -> list:
     return await get_main_tools()
 
 
+async def _get_mcp_client(server_name: str, config: dict) -> MultiServerMCPClient | None:
+    """Get or create a cached MCP client to avoid connection leaks."""
+    if server_name not in _mcp_clients:
+        try:
+            _mcp_clients[server_name] = MultiServerMCPClient({server_name: config})
+        except Exception as err:
+            logger.warning("Could not create MCP client for %s: %s", server_name, err)
+            return None
+    return _mcp_clients[server_name]
+
+
+async def close_all_mcp_clients() -> None:
+    """Close all cached MCP clients to release file descriptors."""
+    for name, client in _mcp_clients.items():
+        try:
+            if hasattr(client, 'close'):
+                await client.close()
+            logger.info("Closed MCP client: %s", name)
+        except Exception as err:
+            logger.warning("Error closing MCP client %s: %s", name, err)
+    _mcp_clients.clear()
+
+
 async def _get_tools() -> list:
     global _tools_cache
     if _tools_cache is None:
@@ -87,7 +111,10 @@ async def _get_tools() -> list:
         seen: set[str] = set()
         for server_name, config in MCP_SERVERS.items():
             try:
-                client = MultiServerMCPClient({server_name: config})
+                # Reuse cached client instead of creating new one each time
+                client = await _get_mcp_client(server_name, config)
+                if client is None:
+                    continue
                 tools = await client.get_tools()
                 for t in tools:
                     if t.name in seen:

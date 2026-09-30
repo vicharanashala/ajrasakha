@@ -13,6 +13,7 @@ on:
           - ans_gen_pop
           - golden_api
           - answer_shortener
+          - answer_scoring
 
 permissions:
   contents: read
@@ -91,3 +92,15 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/answer_shortener:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/answer_shortener:${{ github.sha }}
+
+      - name: Build & Push answer_scoring
+        if: github.event.inputs.target_api == 'answer_scoring'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apis/answer-scoring
+          file: ./apis/answer-scoring/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/answer_scoring:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/answer_scoring:${{ github.sha }}
