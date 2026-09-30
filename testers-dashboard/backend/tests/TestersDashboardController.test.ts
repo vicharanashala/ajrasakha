@@ -29,6 +29,12 @@ const mockTestersDashboardService = {
     getData: vi.fn().mockResolvedValue({ success: true, totalRecords: 1, records: [], lastSyncedAt: null }),
     getSummary: vi.fn().mockResolvedValue(mockSummaryResponse),
     syncFromSheet: vi.fn(),
+    getSheetSources: vi.fn().mockReturnValue([{ index: 0, label: 'Sheet 1', tab: 'Tab 1' }]),
+    streamSheet: vi.fn().mockImplementation((index, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.status(200).send(JSON.stringify({ range: 'Tab 1!A1:Z', values: [['Test ID'], ['TL-1']] }));
+        return Promise.resolve();
+    }),
 };
 
 describe('TestersDashboardController', () => {
@@ -130,6 +136,23 @@ describe('TestersDashboardController', () => {
             const res = await request(app).get('/dashboard/testers/data').query({ source: 'db' });
             expect(res.status).toBe(200);
             expect(mockTestersDashboardService.getData).toHaveBeenCalledWith('db');
+        });
+    });
+
+    describe('GET /dashboard/testers/sheets/sources', () => {
+        it('admin gets 200 with sources array', async () => {
+            const res = await request(app).get('/dashboard/testers/sheets/sources');
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(res.body.sources).toHaveLength(1);
+        });
+    });
+
+    describe('GET /dashboard/testers/sheets/stream', () => {
+        it('admin gets 200 with stream content and does not return 404', async () => {
+            const res = await request(app).get('/dashboard/testers/sheets/stream').query({ index: 0 });
+            expect(res.status).toBe(200);
+            expect(mockTestersDashboardService.streamSheet).toHaveBeenCalledWith(0, expect.anything());
         });
     });
 });

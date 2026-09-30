@@ -4,6 +4,15 @@ import {
     type ITestersDashboardSummaryQuery,
     type ITestersDashboardSummaryResponse,
 } from "../services/testersDashboardSummaryService";
+import {
+    getRecordsFromBrowserStorage,
+    syncAndCacheSheetsFromBackend,
+    computeClientSummary,
+} from "../analytics/clientSheetAnalytics.js";
+import { calculateKpis, calculateChannelStats, calculateLanguageStats } from "../analytics/kpis.js";
+import { calculateDiagnostics } from "../analytics/diagnostics.js";
+import { calculateChartData } from "../analytics/chartData.js";
+import { buildFilterOptions, type TestersDashboardFilters } from "../analytics/filters.js";
 
 // Matches TestersDashboard.tsx's EMPTY_FILTERS shape (dateRange + the
 // remaining single-select filter dimensions). The Dynamic/Static tree
@@ -24,20 +33,11 @@ export const useTestersDashboardSummary = (
     excludeFailures: boolean,
     customStart: string,
     customEnd: string,
-    // Multi-select OR filter on Dynamic's sub-components - a string[], not
-    // part of ITestersDashboardFiltersState (which is single-value fields
-    // only), same reason customStart/customEnd are their own params.
     dynamicSubTypes: string[] = [],
-    // Dynamic/Static tree's whole-branch selection ("all" | "Dynamic" |
-    // "Static") and Static's sub-types (GDB/Unique/Outreach, multi-select
-    // OR) - driven by the tree control, not the single-value filter dropdowns.
     typeBranch: string = "all",
     staticSubTypes: string[] = [],
     source: 'sheet' | 'db' = 'sheet',
 ) => {
-    // "all" means "no filter" (EMPTY_FILTERS default), so it's omitted here
-    // rather than sent literally - keeps query strings clean and matches
-    // the backend's own defaulting when a param is absent.
     const query: ITestersDashboardSummaryQuery = {
         source,
         dateRange: filters.dateRange !== "all" ? filters.dateRange : undefined,
@@ -56,22 +56,62 @@ export const useTestersDashboardSummary = (
         staticSubTypes: staticSubTypes.length > 0 ? staticSubTypes.join(",") : undefined,
     };
 
+    const filtersObj: TestersDashboardFilters = {
+        dateRange: (filters.dateRange ?? 'all') as any,
+        type: 'all',
+        category: filters.category ?? 'all',
+        build: filters.build ?? 'all',
+        channel: filters.channel ?? 'all',
+        language: filters.language ?? 'all',
+        tester: filters.tester ?? 'all',
+        status: filters.status ?? 'all',
+        severity: filters.severity ?? 'all',
+        dynamicSubTypes,
+        typeBranch: (typeBranch ?? 'all') as any,
+        staticSubTypes,
+    };
+
     return useQuery<ITestersDashboardSummaryResponse>({
-        // Includes the full query object so a change to any filter,
-        // excludeFailures, the custom date range, or dynamicSubTypes
-        // triggers a refetch.
         queryKey: ["testers-dashboard-summary", source, query],
-        queryFn: () => testersDashboardSummaryService.getSummary(query),
+        queryFn: async () => {
+            if (source === 'sheet') {
+                let stored = await getRecordsFromBrowserStorage();
+                // If not in local storage yet, automatically stream and cache from Google Sheets!
+                if (!stored || !stored.records || stored.records.length === 0) {
+                    stored = await syncAndCacheSheetsFromBackend();
+                }
+
+                if (!stored || !stored.records || stored.records.length === 0) {
+                    return {
+                        success: false,
+                        needClientData: true,
+                        message: 'Google Sheet data could not be automatically synced. You can upload a CSV file manually.',
+                        totalRecords: 0,
+                        kpis: calculateKpis([]),
+                        diagnostics: calculateDiagnostics([]),
+                        chartData: calculateChartData([]),
+                        previousPeriodStats: null,
+                        filterOptions: buildFilterOptions([]),
+                        lastSyncedAt: null,
+                        channelStats: calculateChannelStats([]),
+                        languageStats: calculateLanguageStats([]),
+                    } as ITestersDashboardSummaryResponse;
+                }
+
+                return computeClientSummary(
+                    stored.records,
+                    filtersObj,
+                    excludeFailures,
+                    customStart || undefined,
+                    customEnd || undefined,
+                    {},
+                    stored.lastSyncedAt,
+                );
+            }
+
+            return testersDashboardSummaryService.getSummary(query);
+        },
         staleTime: 1000 * 60 * 5, // 5 minutes
-        // Every distinct filter combination is its own queryKey/cache entry.
-        // Without keepPreviousData, a never-before-seen combination (e.g. a
-        // new Custom Range date) briefly returns isLoading=true, and
-        // TestersDashboard's loading early-return unmounts the entire filter
-        // bar (Start/End inputs included) for that fetch's duration - a
-        // click on End right after Start can land mid-unmount and get
-        // silently swallowed. keepPreviousData keeps the last-fetched data
-        // visible while the new query resolves, so the filter bar never
-        // disappears on a filter change. Do not remove.
         placeholderData: keepPreviousData,
         refetchInterval: (query) => {
             const data = query.state.data;

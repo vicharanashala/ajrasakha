@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { JsonController, Get, Authorized, QueryParams, QueryParam } from 'routing-controllers';
+import { JsonController, Get, Authorized, QueryParams, QueryParam, Res } from 'routing-controllers';
 import { inject } from 'inversify';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { DASHBOARD_TYPES } from '../types.js';
@@ -41,5 +41,30 @@ export class TestersDashboardController {
     @Get('/summary')
     async getSummary(@QueryParams() query: GetTestersDashboardQuery) {
         return this.testersDashboardService.getSummary(query);
+    }
+
+    @OpenAPI({
+        summary: 'Get list of configured Google Sheet sources',
+        description: 'Returns metadata for each configured Google Sheet source (index, label, tab).',
+    })
+    @Authorized(['admin'])
+    @Get('/sheets/sources')
+    async getSheetSources() {
+        const sources = this.testersDashboardService.getSheetSources();
+        return {
+            success: true,
+            sources,
+        };
+    }
+
+    @OpenAPI({
+        summary: 'Zero-buffer stream Google Sheet raw data',
+        description: 'Pipes the Google Sheets API response directly to client socket without buffering or parsing on server.',
+    })
+    @Authorized(['admin'])
+    @Get('/sheets/stream')
+    async streamSheet(@QueryParam('index') index: number, @Res() res: any) {
+        await this.testersDashboardService.streamSheet(Number(index) || 0, res);
+        return res;
     }
 }
