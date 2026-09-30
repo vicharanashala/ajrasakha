@@ -294,11 +294,7 @@ export function AnswerModeSwitcher({
                                     >
                                         <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
                                         <span>{label}</span>
-                                        {id === "annadatha" && (
-                                            <span className="inline-flex items-center justify-center rounded-full bg-red-600 dark:bg-red-500 px-1.5 py-[2px] text-[9px] font-bold uppercase tracking-wider text-white leading-none animate-badgePulse shadow-sm shrink-0">
-                                                new
-                                            </span>
-                                        )}
+                                        
                                         {hasSearch && srcCount != null && (
                                             <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
                                                 {srcCount}
