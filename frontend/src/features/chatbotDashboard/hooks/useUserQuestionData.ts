@@ -26,6 +26,8 @@ export interface UserMessage {
 
 export interface PaginatedResponse<T> {
   total: number;
+  // Raw (pre-dedup) count, only populated for the "messages" (All) tab.
+  totalRaw?: number;
   totalPages: number;
   currentPage: number;
   limit: number;
@@ -34,6 +36,8 @@ export interface PaginatedResponse<T> {
 
 export interface UserActivityResponse {
   questions: PaginatedResponse<UserQuestion>;
+
+  nonAgriQuestions: PaginatedResponse<UserQuestion>;
 
   messages: PaginatedResponse<UserMessage>;
 }
@@ -95,6 +99,13 @@ export function useUserQuestionsData(
             limit: 12,
             items: [],
           },
+          nonAgriQuestions: {
+            totalQuestions: 0,
+            totalPages: 1,
+            currentPage: 1,
+            limit: 12,
+            items: [],
+          },
           messages: {
             totalMessages: 0,
             totalPages: 1,
@@ -110,6 +121,13 @@ export function useUserQuestionsData(
   return {
     data: data ?? {
       questions: {
+        totalQuestions: 0,
+        totalPages: 1,
+        currentPage: 1,
+        limit: 12,
+        items: [],
+      },
+      nonAgriQuestions: {
         totalQuestions: 0,
         totalPages: 1,
         currentPage: 1,

@@ -1,19 +1,19 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import {
   Activity,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
+  CircleSlash,
   Clock,
-  HelpCircle,
   History,
   Inbox,
   Mail,
   MapPin,
-  MessageSquare,
   MessageSquareText,
+  Sprout,
   User,
   X,
 } from "lucide-react";
@@ -33,7 +33,6 @@ import {
   DialogTitle,
 } from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import { Switch } from "@/components/atoms/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -43,7 +42,7 @@ import {
 
 import { TranslatableText } from "./TranslatableText";
 
-export type QuestionActivityViewType = "messages" | "questions";
+export type QuestionActivityViewType = "messages" | "questions" | "non_agri";
 
 export interface QuestionActivityItem {
   _id?: string;
@@ -134,6 +133,7 @@ function StatusBadge({ status }: { status: string }) {
   > = {
     duplicate: { variant: "destructive", label: "Duplicate" },
     closed: { variant: "secondary", label: "Closed" },
+    "non-agri": { variant: "outline", label: "Non Agri" },
   };
   const cfg = map[normalizedStatus] ?? { variant: "outline", label: status };
 
@@ -252,10 +252,11 @@ function ActivityCard({
   viewType: QuestionActivityViewType;
   onTimelineClick?: (dates: string[]) => void;
 }) {
-  const text = viewType === "questions" ? item.question : item.message;
+  const isQuestionView = viewType === "questions" || viewType === "non_agri";
+  const text = isQuestionView ? item.question : item.message;
   const displayText =
     text?.trim() ||
-    (viewType === "questions"
+    (isQuestionView
       ? "Question text not available"
       : "Message content not available");
   const repeatCount = (item.repeatedCount ?? 0) - 1;
@@ -263,7 +264,7 @@ function ActivityCard({
   const [showContentModal, setShowContentModal] = useState(false);
 
   const handleCardClick = () => {
-    if (viewType === "questions" && item._id) {
+    if (isQuestionView && item._id) {
       navigate({
         to: "/home",
         search: (prev: any) => ({ ...prev, question: item._id }),
@@ -273,18 +274,20 @@ function ActivityCard({
 
   const hasContent = Array.isArray(item.content) && item.content.length > 0;
   const hasError = hasContent && item.content!.some((c: any) => c.type === "error");
+  const ViewIcon = VIEW_TYPE_ICONS[viewType];
 
   return (
     <>
       <div
         className={`group rounded-xl border bg-background px-4 py-3.5 transition-all duration-150 hover:border-border/80 hover:bg-muted/20 ${
-          viewType === "questions" && item._id ? "cursor-pointer" : ""
+          isQuestionView && item._id ? "cursor-pointer" : ""
         }`}
         onClick={handleCardClick}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-2">
+              <ViewIcon className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
               {viewType === "messages" && hasError && (
                 <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" aria-hidden />
               )}
@@ -292,7 +295,7 @@ function ActivityCard({
                 text={displayText}
                 showTooltip
                 textClassName={`text-xs line-clamp-2 ${
-                  viewType === "questions" && item._id
+                  isQuestionView && item._id
                     ? "group-hover:underline cursor-pointer"
                     : ""
                 }`}
@@ -305,7 +308,7 @@ function ActivityCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-            {viewType === "questions" && item.status && (
+            {isQuestionView && item.status && (
               <StatusBadge status={item.status} />
             )}
             
@@ -521,7 +524,7 @@ function DuplicateGroupCard({ group }: { group: QuestionDuplicateGroup }) {
                   className="border-none"
                 >
                   <AccordionTrigger className="rounded-md bg-muted/30 px-3 py-2 text-xs font-semibold hover:no-underline">
-                    Duplicate questions
+                    Duplicate Agri Queries
                   </AccordionTrigger>
                   <AccordionContent className="space-y-2 pt-2">
                     {location.questions.map((question, index) => (
@@ -540,6 +543,37 @@ function DuplicateGroupCard({ group }: { group: QuestionDuplicateGroup }) {
     </div>
   );
 }
+
+const VIEW_TYPE_TABS: {
+  value: QuestionActivityViewType;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+}[] = [
+  { value: "messages", label: "All", icon: MessageSquareText },
+  { value: "questions", label: "Agri Queries", icon: Sprout },
+  { value: "non_agri", label: "Non Agri Queries", icon: CircleSlash },
+];
+
+const VIEW_TYPE_LABELS: Record<QuestionActivityViewType, string> = {
+  messages: "All",
+  questions: "Agri Queries",
+  non_agri: "Non Agri Queries",
+};
+
+const VIEW_TYPE_STAT_LABELS: Record<QuestionActivityViewType, string> = {
+  messages: "Total Messages",
+  questions: "Total Agri Queries",
+  non_agri: "Total Non Agri Queries",
+};
+
+const VIEW_TYPE_ICONS: Record<
+  QuestionActivityViewType,
+  ComponentType<{ className?: string }>
+> = {
+  messages: MessageSquareText,
+  questions: Sprout,
+  non_agri: CircleSlash,
+};
 
 export function QuestionActivityModal({
   open,
@@ -572,16 +606,28 @@ export function QuestionActivityModal({
   const dialogContentRef = useRef<HTMLDivElement>(null);
   const showToggle = mode === "activity" && onViewTypeChange;
   const defaultEmptyMessage =
-    mode === "activity" ? `No ${viewType} found.` : "No question details for this selection.";
+    mode === "activity"
+      ? `No ${VIEW_TYPE_LABELS[viewType].toLowerCase()} found.`
+      : "No question details for this selection.";
+
+  const ActiveTabIcon = VIEW_TYPE_ICONS[viewType];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent  ref={dialogContentRef} className="!max-w-6xl flex h-[90vh] max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
-        <div className="flex shrink-0 items-center justify-between border-b px-6 pb-4 pt-5">
+        <motion.div
+          initial={{ opacity: 0, y: 10, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="flex h-full min-h-0 flex-col"
+        >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-gradient-to-b from-muted/40 to-transparent px-6 pb-4 pt-5">
           <div className="flex items-center justify-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Activity className="h-4.5 w-4.5 text-primary" />
+            </div>
             <DialogHeader className="p-0">
-              <DialogTitle className="flex items-center gap-2 text-base font-semibold">
-                <Activity className="h-4.5 w-4.5 text-primary" />
+              <DialogTitle className="text-base font-semibold">
                 {title}
               </DialogTitle>
               {subtitle && (
@@ -594,46 +640,35 @@ export function QuestionActivityModal({
           {(showToggle || headerEndActions || showCloseButton) && (
             <div className="flex shrink-0 items-center gap-3">
           {showToggle && (
-            <div className="flex items-center gap-2.5 rounded-full border bg-muted/40 px-3.5 py-1.5">
-              <MessageSquare
-                className={`h-3.5 w-3.5 transition-colors ${
-                  viewType === "messages"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              />
-              <span
-                className={`text-xs font-medium transition-colors ${
-                  viewType === "messages"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              >
-                Messages
-              </span>
-              <Switch
-                checked={viewType === "questions"}
-                onCheckedChange={(checked) =>
-                  onViewTypeChange(checked ? "questions" : "messages")
-                }
-                className="scale-90 data-[state=checked]:bg-primary"
-              />
-              <span
-                className={`text-xs font-medium transition-colors ${
-                  viewType === "questions"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              >
-                Questions
-              </span>
-              <HelpCircle
-                className={`h-3.5 w-3.5 transition-colors ${
-                  viewType === "questions"
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
-              />
+            <div className="flex items-center gap-1 rounded-full border bg-muted/40 p-1">
+              {VIEW_TYPE_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = viewType === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => onViewTypeChange(tab.value)}
+                    className={`relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      isActive
+                        ? "text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="activityTabActive"
+                        className="absolute inset-0 rounded-full bg-primary"
+                        transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center gap-1.5">
+                      <Icon className="h-3.5 w-3.5" />
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
                 </div>
               )}
               {headerEndActions}
@@ -653,7 +688,7 @@ export function QuestionActivityModal({
 
         {user && (
           <div className="shrink-0 border-b px-6">
-            <Accordion type="single" collapsible>
+            <Accordion type="single" collapsible defaultValue="user-details">
               <AccordionItem value="user-details" className="border-none">
                 <AccordionTrigger className="py-3 hover:no-underline">
                   <div className="flex items-center gap-2 text-sm font-medium">
@@ -664,33 +699,31 @@ export function QuestionActivityModal({
                 <AccordionContent className="pb-3">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { label: "Name", value: user.name, icon: User },
-                      { label: "Email", value: user.email, icon: Mail },
+                      { label: "Name", value: user.name, icon: User, accent: "text-primary bg-primary/10" },
+                      { label: "Email", value: user.email, icon: Mail, accent: "text-primary bg-primary/10" },
                       {
                         label: "Account Created",
                         value: user.createdAt ? new Date(user.createdAt).toLocaleString() : "N/A",
                         icon: Clock,
+                        accent: "text-primary bg-primary/10",
                       },
                       {
-                        label:
-                          totalLabel ??
-                          (viewType === "questions"
-                            ? "Total Questions"
-                            : "Total Messages"),
+                        label: totalLabel ?? VIEW_TYPE_STAT_LABELS[viewType],
                         value: totalCount,
-                        icon:
-                          viewType === "questions"
-                            ? CircleHelp
-                            : MessageSquareText,
+                        icon: ActiveTabIcon,
+                        accent:
+                          viewType === "non_agri"
+                            ? "text-amber-600 bg-amber-500/10 dark:text-amber-400"
+                            : "text-primary bg-primary/10",
                       },
-                    ].map(({ label, value, icon: Icon }) => (
+                    ].map(({ label, value, icon: Icon, accent }) => (
                       <div
                         key={label}
-                        className="rounded-lg border bg-muted/40 px-3 py-3"
+                        className="rounded-lg border bg-muted/40 px-3 py-3 transition-colors hover:bg-muted/60"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="mt-0.5 rounded-md bg-primary/10 p-2">
-                            <Icon className="h-4 w-4 text-primary" />
+                          <div className={`mt-0.5 rounded-md p-2 ${accent}`}>
+                            <Icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -755,11 +788,11 @@ export function QuestionActivityModal({
         {footerContent}
 
         {mode === "activity" && totalPages > 1 && onPageChange && (
-          <div className="flex shrink-0 items-center justify-between border-t bg-muted/10 px-6 py-3.5">
+          <div className="flex shrink-0 items-center justify-between border-t bg-muted/20 px-6 py-3.5">
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 rounded-lg"
+              className="gap-1.5 rounded-full"
               disabled={currentPage === 1}
               onClick={() => onPageChange(currentPage - 1)}
             >
@@ -767,7 +800,7 @@ export function QuestionActivityModal({
               Previous
             </Button>
 
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
               Page {currentPage} of {totalPages}
             </span>
 
@@ -776,7 +809,7 @@ export function QuestionActivityModal({
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5 rounded-lg"
+                className="gap-1.5 rounded-full"
                 disabled={currentPage === totalPages}
                 onClick={() => onPageChange(currentPage + 1)}
               >
@@ -786,6 +819,7 @@ export function QuestionActivityModal({
             </div>
           </div>
         )}
+        </motion.div>
       </DialogContent>
     </Dialog>
   );
