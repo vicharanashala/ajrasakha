@@ -10,24 +10,14 @@ from ajrasakha.agents.location_context import sub_agent_system_prompt_with_threa
 from ajrasakha.agents.prompts import SCHEMES_SYSTEM_PROMPT
 from langchain.agents import create_agent
 
-# Lazy-initialized MCP client - only created when first accessed
-_schemes_mcp: MultiServerMCPClient | None = None
-
-
-def _get_schemes_mcp() -> MultiServerMCPClient:
-    """Get or create the schemes MCP client lazily."""
-    global _schemes_mcp
-    if _schemes_mcp is None:
-        _schemes_mcp = MultiServerMCPClient(
-            {
-                "schemes": {
-                    "url": MCP_URLS["schemes"],
-                    "transport": "streamable_http",
-                }
-            }
-        )
-    return _schemes_mcp
-
+schemes_mcp = MultiServerMCPClient(
+    {
+        "schemes": {
+            "url": MCP_URLS["schemes"],
+            "transport": "streamable_http",
+        }
+    }
+)
 
 llm = get_minimax_chat_model()
 
@@ -37,7 +27,7 @@ _schemes_agent_graph = None  # lazy init
 async def _get_schemes_agent():
     global _schemes_agent_graph
     if _schemes_agent_graph is None:
-        tools = await _get_schemes_mcp().get_tools()
+        tools = await schemes_mcp.get_tools()
         _schemes_agent_graph = create_agent(
             name="schemes_agent",
             model=llm,

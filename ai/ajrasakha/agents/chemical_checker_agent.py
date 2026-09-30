@@ -10,24 +10,14 @@ from ajrasakha.agents.config import MCP_URLS, get_minimax_chat_model
 from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import CHEMICAL_SYSTEM_PROMPT
 
-# Lazy-initialized MCP client - only created when first accessed
-_chemical_mcp: MultiServerMCPClient | None = None
-
-
-def _get_chemical_mcp() -> MultiServerMCPClient:
-    """Get or create the chemical checker MCP client lazily."""
-    global _chemical_mcp
-    if _chemical_mcp is None:
-        _chemical_mcp = MultiServerMCPClient(
-            {
-                "chemical_checker": {
-                    "url": MCP_URLS["chemical_checker"],
-                    "transport": "streamable_http",
-                }
-            }
-        )
-    return _chemical_mcp
-
+chemical_mcp = MultiServerMCPClient(
+    {
+        "chemical_checker": {
+            "url": MCP_URLS["chemical_checker"],
+            "transport": "streamable_http",
+        }
+    }
+)
 
 llm = get_minimax_chat_model()
 
@@ -37,7 +27,7 @@ _chemical_agent_graph = None
 async def _get_chemical_agent():
     global _chemical_agent_graph
     if _chemical_agent_graph is None:
-        tools = await _get_chemical_mcp().get_tools()
+        tools = await chemical_mcp.get_tools()
         _chemical_agent_graph = create_agent(
             name="chemical_agent",
             model=llm,

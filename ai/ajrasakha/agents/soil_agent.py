@@ -13,24 +13,14 @@ from ajrasakha.agents.config import MCP_URLS, get_minimax_chat_model
 from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT, WEATHER_SYSTEM_PROMPT, SOIL_SYSTEM_PROMPT
 
-# Lazy-initialized MCP client - only created when first accessed
-_soil_mcp: MultiServerMCPClient | None = None
-
-
-def _get_soil_mcp() -> MultiServerMCPClient:
-    """Get or create the soil MCP client lazily."""
-    global _soil_mcp
-    if _soil_mcp is None:
-        _soil_mcp = MultiServerMCPClient(
-            {
-                "soil": {
-                    "url": MCP_URLS["soil"],
-                    "transport": "streamable_http",
-                }
-            }
-        )
-    return _soil_mcp
-
+soil_mcp = MultiServerMCPClient(
+    {
+        "soil": {
+            "url": MCP_URLS["soil"],
+            "transport": "streamable_http",
+        }
+    }
+)
 
 llm = get_minimax_chat_model()
 
@@ -39,7 +29,7 @@ _soil_agent_graph = None  # lazy init
 async def _get_soil_agent():
     global _soil_agent_graph
     if _soil_agent_graph is None:
-        tools = await _get_soil_mcp().get_tools()
+        tools = await soil_mcp.get_tools()
         _soil_agent_graph = create_agent(
             name="soil_agent",
             model=llm,
