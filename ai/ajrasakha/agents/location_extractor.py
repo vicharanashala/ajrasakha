@@ -320,45 +320,117 @@ async def get_lat_long(
     return None, None, None
 
 
-async def resolve_place_coordinates(
+# ---------------------------------------------------------------------------
+# Sub-place lookup for the planner
+# ---------------------------------------------------------------------------
+
+# A result of these types is Google/Nominatim falling back to the region
+# around a place it could not find, not the place itself.
+_REGION_TYPES = frozenset({"country", "administrative_area_level_1", "state"})
+
+
+async def _google_place(
+    place: str,
     *,
     state: Optional[str],
     district: Optional[str],
-    sub_places: Optional[list[str]],
-    latitude: Optional[float],
-    longitude: Optional[float],
-    location_from_profile: bool,
-) -> tuple[float | None, float | None, str | None]:
-    """Coordinates for the place the farmer asked about.
-
-    The planner always passes the farmer profile's lat/long. They are used as-is
-    only when the question names no other place (``location_from_profile`` and no
-    ``sub_places``). Otherwise the named place is geocoded first; the profile
-    lat/long remain the fallback only while state/district are the profile's.
-
-    Returns (latitude, longitude, resolved_name); resolved_name is None when the
-    profile coordinates were kept, and all three are None when nothing resolved.
-    """
-    has_coords = latitude is not None and longitude is not None
-    if has_coords and location_from_profile and not sub_places:
-        return latitude, longitude, None
-
-    for sp in sub_places or []:
-        if not _clean(sp) or _clean(sp).lower() in _PLACEHOLDERS:
+    timeout: float,
+) -> tuple[float, float, str] | tuple[None, None, None]:
+    """Google's best full match for ``place``; inside ``state`` when given."""
+    if not _GEOCODE_APIKEY:
+        return None, None, None
+    components = "country:IN"
+    if state:
+        # administrative_area picks the right one of several same-named places;
+        # when the place is not in that state Google returns a partial match.
+        components = f"administrative_area:{state}|{components}"
+    params = {
+        "address": ", ".join(p for p in (place, district) if p),
+        "components": components,
+        "region": "in",
+        "key": _GEOCODE_APIKEY,
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(_GOOGLE_GEOCODE_URL, params=params, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        logger.warning("Google sub-place lookup failed for %r: %s", place, exc)
+        return None, None, None
+    for result in data.get("results") or []:
+        if result.get("partial_match") or _REGION_TYPES.intersection(result.get("types") or []):
             continue
-        # Only a match for the sub-place itself: get_lat_long's district/state
-        # fallbacks would pass off the district (or state) centre as that place.
-        query = _build_query_string(district if _clean(district).lower() not in _PLACEHOLDERS else None, sp, state)
-        lat, lng, name = await _google_geocode(query)
-        if lat is None:
-            lat, lng, name = await _nominatim_geocode(query)
+        loc = result["geometry"]["location"]
+        return float(loc["lat"]), float(loc["lng"]), result.get("formatted_address", place)
+    return None, None, None
+
+
+async def _nominatim_place(
+    place: str,
+    *,
+    state: Optional[str],
+    timeout: float,
+) -> tuple[float, float, str] | tuple[None, None, None]:
+    """Nominatim's first match for ``place`` (finds villages Google may miss)."""
+    params = {
+        "q": _build_query_string(None, place, state),
+        "format": "json",
+        "limit": 1,
+        "countrycodes": "in",
+    }
+    headers = {"User-Agent": "AjraSakha-Agent/1.0 (agri-weather)"}
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(_NOMINATIM_URL, params=params, headers=headers, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        logger.warning("Nominatim sub-place lookup failed for %r: %s", place, exc)
+        return None, None, None
+    for item in data if isinstance(data, list) else []:
+        if item.get("addresstype") in _REGION_TYPES:
+            continue
+        return float(item["lat"]), float(item["lon"]), item.get("display_name", place)
+    return None, None, None
+
+
+async def geocode_sub_place(
+    place: str,
+    *,
+    state: Optional[str] = None,
+    district: Optional[str] = None,
+    timeout: float = 10.0,
+) -> tuple[float | None, float | None, str | None]:
+    """Lat/long of a place the farmer named that LGD does not list (town, village, block).
+
+    Tried in order, first hit wins:
+      1. Google inside ``state`` (near ``district``): the query's state/district,
+         or the farmer profile's when the query named none.
+      2. Google anywhere in India.
+      3. Nominatim inside ``state``, then anywhere in India.
+
+    Returns (latitude, longitude, resolved_name), or (None, None, None) when the
+    place is not found at all.
+    """
+    place = _clean(place)
+    if not place or place.lower() in _PLACEHOLDERS:
+        return None, None, None
+    state = None if _clean(state).lower() in _PLACEHOLDERS else _clean(state)
+    district = None if _clean(district).lower() in _PLACEHOLDERS else _clean(district)
+
+    attempts = []
+    if state:
+        attempts.append(("google_in_state", lambda: _google_place(place, state=state, district=district, timeout=timeout)))
+    attempts.append(("google_india", lambda: _google_place(place, state=None, district=None, timeout=timeout)))
+    if state:
+        attempts.append(("nominatim_in_state", lambda: _nominatim_place(place, state=state, timeout=timeout)))
+    attempts.append(("nominatim_india", lambda: _nominatim_place(place, state=None, timeout=timeout)))
+
+    for source, attempt in attempts:
+        lat, lng, name = await attempt()
         if lat is not None and lng is not None:
+            logger.info("geocode_sub_place: %r (state=%r district=%r) -> %s, %s via %s (%s)", place, state, district, lat, lng, source, name)
             return lat, lng, name
-
-    # The profile lat/long belong to the asked place: they beat a district lookup.
-    if has_coords and location_from_profile:
-        return latitude, longitude, None
-
-    # Another place (or no coordinates): look up the planner's district/state. The
-    # profile lat/long may be in another state, so they are never the fallback here.
-    return await get_lat_long(district=district, state=state)
+    logger.info("geocode_sub_place: %r (state=%r district=%r) not found", place, state, district)
+    return None, None, None

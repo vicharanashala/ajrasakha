@@ -769,8 +769,10 @@ async def build_specialist_tool_calls_from_plan(
     # Weather/mandi only: places the farmer named that LGD did not verify.
     sub_places: list[str] = list(plan.get("sub_places") or [])
     curr_sub_loc: Optional[str] = sub_places[0] if sub_places else None
-    # Tells weather/mandi whether lat/long belong to the asked place or only the profile's.
+    # Weather/mandi: lat/long above are the farmer profile's; the tools use them
+    # only when the question names no place, else the planner-geocoded sub-place.
     location_from_profile = bool(plan.get("location_from_profile"))
+    sub_coords = plan.get("sub_place_coordinates") or {}
 
     if out_transient_location is not None and lat is not None and lon is not None:
         out_transient_location["state"] = state_name
@@ -819,6 +821,8 @@ async def build_specialist_tool_calls_from_plan(
                 "location": curr_sub_loc,
                 "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
+                "sub_place_latitude": sub_coords.get("latitude"),
+                "sub_place_longitude": sub_coords.get("longitude"),
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -845,6 +849,8 @@ async def build_specialist_tool_calls_from_plan(
                 "district": eff_district,
                 "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
+                "sub_place_latitude": sub_coords.get("latitude"),
+                "sub_place_longitude": sub_coords.get("longitude"),
             },
             "id": _new_tool_call_id(),
             "type": "tool_call",

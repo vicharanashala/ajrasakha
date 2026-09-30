@@ -44,6 +44,7 @@ from ajrasakha.agents.translation_catalog import (
     get_catalog,
     get_crop_follow_up,
     language_pair_from_plan,
+    needs_translation,
 )
 from ajrasakha.agents.location_context import (
     extract_state_from_text,
@@ -57,6 +58,7 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
+    apply_sub_place_coordinates,
     is_weather_or_mandi_plan,
     classify_follow_up_heuristic,
     crop_slot_satisfied,
@@ -99,7 +101,8 @@ class PlannerEntitiesOutput(BaseModel):
         default_factory=list,
         description=(
             "Every place name the current message mentions (state, district, city, town, "
-            "block, or village), exactly as named. Empty when it names none."
+            "block, or village), in English (Latin) script: transliterate names written "
+            "in another script (e.g. खरड़ -> Kharar). Empty when it names none."
         ),
     )
 
@@ -990,15 +993,6 @@ async def planner_node(
         )
         plan["entities"] = entities
         trace_event("planner_entities_merged", entities=entities)
-        # Read before the completeness rules re-run the merge, which sees the
-        # profile's place already in plan.entities and no longer credits the profile.
-        # Compared on district: that re-run may correct the profile's state through
-        # LGD (e.g. "other" -> "Kerala" for Kottayam).
-        profile_district = (
-            str(entities.get("district") or "").strip().lower()
-            if location_sources.get("state_source") == "stored_user_location"
-            else None
-        )
 
         if not plan.get("is_agriculture_related", True):
             plan = apply_non_agriculture_gate(plan)
@@ -1046,18 +1040,25 @@ async def planner_node(
             stored_location=stored_location,
             sources_out=location_sources,
         )
-        final_entities = plan.get("entities") or {}
-        # True when the final state/district are still the profile's, i.e. the
-        # profile lat/long belong to the place asked about.
-        plan["location_from_profile"] = bool(
-            profile_district
-            and profile_district == str(final_entities.get("district") or "").strip().lower()
-        )
+        plan = await apply_sub_place_coordinates(plan, prev_plan)
+        if plan.get("rejected_places"):
+            # "Could not find <place>" names the place, so it cannot come from
+            # the fixed catalog like the other location questions: translate it.
+            script, vocal = language_pair_from_plan(plan)
+            if needs_translation(script, vocal):
+                from ajrasakha.agents.translate_answer import _translate_body
+
+                plan["follow_up_question"] = await _translate_body(
+                    plan["follow_up_question"], vocal, script, config
+                )
+        # True when the question names no place, so the farmer profile lat/long
+        # belong to the place asked about.
+        plan["location_from_profile"] = not plan.get("places")
         plan["profile_coordinates"] = (
             {"latitude": stored_location["latitude"], "longitude": stored_location["longitude"]}
             if stored_location
-            # Weather/mandi always get the profile coordinates, even for another
-            # named place; the weather and mandi agents decide which to use.
+            # Weather/mandi always get the profile coordinates; they use them
+            # only when location_from_profile is true.
             and (is_weather_or_mandi_plan(plan) or plan["location_from_profile"])
             and stored_location.get("latitude") is not None
             and stored_location.get("longitude") is not None

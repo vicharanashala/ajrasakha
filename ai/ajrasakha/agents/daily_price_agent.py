@@ -1813,7 +1813,9 @@ class DailyPriceInput(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     sub_places: list[str] = []  # places the farmer named that are not the verified state/district
-    location_from_profile: bool = False  # state/district came from the farmer profile, so lat/long are the asked place's
+    location_from_profile: Optional[bool] = None  # False when the question names a place: use sub_place_latitude/longitude, not latitude/longitude (farmer profile)
+    sub_place_latitude: Optional[float] = None  # sub_places[0], geocoded by the planner
+    sub_place_longitude: Optional[float] = None
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1825,7 +1827,9 @@ async def daily_price(
     state: Optional[str] = None,
     district: Optional[str] = None,
     sub_places: Optional[list[str]] = None,
-    location_from_profile: bool = False,
+    location_from_profile: Optional[bool] = None,
+    sub_place_latitude: Optional[float] = None,
+    sub_place_longitude: Optional[float] = None,
     config: RunnableConfig = None,
 ) -> str:
     """
@@ -1834,38 +1838,54 @@ async def daily_price(
     Requires crop name and resolved latitude/longitude when possible.
     """
     try:
-        lat = latitude
-        lon = longitude
-        from ajrasakha.agents.location_extractor import resolve_place_coordinates
+        # The planner sets location_from_profile=False when the question names a
+        # place: then the planner-geocoded sub_places[0], else none (the
+        # district/state names are used below). Otherwise the given lat/long
+        # (the farmer profile's).
+        if location_from_profile is False:
+            lat, lon = sub_place_latitude, sub_place_longitude
+        else:
+            lat, lon = latitude, longitude
+        if lat is None or lon is None:
+            from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
 
-        # Use district from parameter (preferred) or extract from query as fallback
-        district_val = district
-        if not district_val:
-            m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
-            if m_dist:
-                district_val = m_dist.group(1).strip()
+            # Use district from parameter (preferred) or extract from query as fallback
+            district_val = district
+            if not district_val:
+                m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
+                if m_dist:
+                    district_val = m_dist.group(1).strip()
 
-        # The profile lat/long only when the question names no other place,
-        # else geocode the named place (sub_places first, then district/state).
-        if district_val or state or sub_places:
-            lat, lon, _resolved_name = await resolve_place_coordinates(
-                state=state,
+            # sub_places provided by the planner: try each sub-place as subdistrict
+            # until geocoding succeeds, then fall back to district-only.
+            subdistrict_val = (sub_places[0].strip() if sub_places else None)
+            _lat, _lon, _resolved_name = await _get_lat_long(
                 district=district_val,
-                sub_places=sub_places,
-                latitude=lat,
-                longitude=lon,
-                location_from_profile=location_from_profile,
+                subdistrict=subdistrict_val,
+                state=state,
             )
-            logger.info(
-                "daily_price_agent: state=%r district=%r sub_places=%r from_profile=%s -> lat=%s, lon=%s (%s)",
-                state,
-                district_val,
-                sub_places,
-                location_from_profile,
-                lat,
-                lon,
-                _resolved_name or "profile coordinates",
-            )
+            # If first sub_place failed and there are more, iterate through the rest
+            if (_lat is None or _lon is None) and sub_places and len(sub_places) > 1:
+                for sp in sub_places[1:]:
+                    _lat, _lon, _resolved_name = await _get_lat_long(
+                        district=district_val,
+                        subdistrict=sp.strip(),
+                        state=state,
+                    )
+                    if _lat is not None and _lon is not None:
+                        break
+            if _lat is not None and _lon is not None:
+                lat = _lat
+                lon = _lon
+                logger.info(
+                    "daily_price_agent: geocoded state=%r district=%r sub_places=%r -> lat=%s, lon=%s (%s)",
+                    state,
+                    district_val,
+                    sub_places,
+                    lat,
+                    lon,
+                    _resolved_name,
+                )
 
         intent = await extract_daily_price_intent(
             query,

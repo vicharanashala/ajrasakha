@@ -606,6 +606,63 @@ def resolve_weather_mandi_places(
     return chosen_state, chosen_district, sub_places
 
 
+SUB_PLACE_NOT_FOUND = (
+    "I could not find {place}. Could you tell me the place name again, "
+    "with its district or state?"
+)
+
+
+async def apply_sub_place_coordinates(
+    plan: PlannerPlan,
+    prev_plan: Optional[PlannerPlan] = None,
+) -> PlannerPlan:
+    """Weather/mandi: geocode ``sub_places[0]``, or ask for the place again.
+
+    Searched inside the plan's state/district (the query's, or the farmer
+    profile's when the query named none), then anywhere in India. Only a place
+    found nowhere turns the plan into a location clarification. Places already
+    reported as not found earlier in this clarification are skipped, since the
+    clarification reply is merged onto the question that still names them.
+    """
+    out: PlannerPlan = dict(plan)
+    out["sub_place_coordinates"] = None
+    rejected = [p.casefold() for p in (prev_plan or {}).get("rejected_places") or []]
+    out["rejected_places"] = []
+    if not is_weather_or_mandi_plan(out):
+        return out
+    sub_places = [p for p in out.get("sub_places") or [] if p.casefold() not in rejected]
+    out["sub_places"] = sub_places
+    if not sub_places:
+        return out
+
+    from ajrasakha.agents.location_extractor import geocode_sub_place
+
+    place = sub_places[0]
+    entities = out.get("entities") or {}
+    lat, lon, resolved = await geocode_sub_place(
+        place, state=entities.get("state"), district=entities.get("district")
+    )
+    trace_resolution(
+        "planner_sub_place_geocode",
+        state=entities.get("state"),
+        state_source="plan.entities (search area)",
+        district=entities.get("district"),
+        district_source="plan.entities (search area)",
+        latitude=lat,
+        longitude=lon,
+        lat_long_source=f"geocode_sub_place({place!r}) -> {resolved or 'not found'}",
+    )
+    if lat is not None and lon is not None:
+        out["sub_place_coordinates"] = {"latitude": lat, "longitude": lon}
+        return out
+
+    out["is_complete"] = False
+    out["missing_info"] = ["location"]
+    out["follow_up_question"] = SUB_PLACE_NOT_FOUND.format(place=place)
+    out["rejected_places"] = [*((prev_plan or {}).get("rejected_places") or []), place]
+    return out
+
+
 def merge_entities_from_rephrased_query(
     plan: PlannerPlan,
     messages: list[BaseMessage],
