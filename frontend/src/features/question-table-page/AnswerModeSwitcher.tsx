@@ -10,9 +10,9 @@ import {
     Search,
     Shuffle,
     Sparkles,
+    Sprout,
     UserCheck,
     UserRound,
-    UtensilsCrossed,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ export const MODES = [
     { id: "manual", label: "Manual", icon: UserRound },
     { id: "outreach", label: "Outreach", icon: Radio },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
-    { id: "annadatha", label: "AnnaDatha", icon: UtensilsCrossed },
+    { id: "annadatha", label: "AnnaDatha", icon: Sprout },
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
