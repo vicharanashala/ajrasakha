@@ -197,3 +197,44 @@ async def test_build_specialist_tool_calls_official_districts():
     assert args5["district"] == "Anakapalli"
     assert args5["location"] == "Yelamanchili"
     assert args5["state"] == "Andhra Pradesh"
+
+
+def test_extract_location_temporal_words():
+    from ajrasakha.agents.location_context import extract_location_from_query
+
+    # Regression test: "around noon" must not be parsed as a location "noon"
+    place, state = extract_location_from_query("What will the sky conditions be in Krishnagiri, Tamil Nadu around noon?")
+    assert place == "Krishnagiri"
+    assert state == "Tamil Nadu"
+
+    place2, state2 = extract_location_from_query("Will it rain in Ludhiana, Punjab tomorrow morning?")
+    assert place2 == "Ludhiana"
+    assert state2 == "Punjab"
+
+    place3, _ = extract_location_from_query("Current temperature in Pune at night")
+    assert place3 == "Pune"
+
+
+@pytest.mark.asyncio
+async def test_forward_geocode_ignores_temporal_words():
+    # If district is a time word like 'noon', forward_geocode must NOT fall back to Noon, Sirohi, Rajasthan
+    res = await forward_geocode(state="Tamil Nadu", district="noon")
+    assert res is not None
+    assert res["state"] == "Tamil Nadu"
+    assert res["district"] != "Sirohi"
+    assert "Rajasthan" not in res.get("address", "")
+
+
+@pytest.mark.asyncio
+async def test_krishnagiri_around_noon_plan_execution():
+    from ajrasakha.agents.plan_executor import build_specialist_tool_calls_from_plan
+
+    p = {"domain": "Weather", "weather": True, "entities": {"state": "Tamil Nadu", "district": "Krishnagiri"}}
+    calls, _ = await build_specialist_tool_calls_from_plan(
+        p, "What will the sky conditions be in Krishnagiri, Tamil Nadu around noon?", {}
+    )
+    assert len(calls) > 0
+    args = calls[0]["args"]
+    assert args["state"] == "Tamil Nadu"
+    assert args["district"] == "Krishnagiri"
+

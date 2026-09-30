@@ -1265,7 +1265,11 @@ async def get_current_and_forecast_info(
 
             # Case B: Previous date / Date range (from_date to eff_to_date)
             elif qt == "previous" or eff_from_date:
-                result_payload["selected_timeframe"] = f"date_range ({eff_from_date} to {eff_to_date})"
+                is_future_range = bool(eff_from_date and eff_from_date >= today_str)
+                if is_future_range:
+                    result_payload["selected_timeframe"] = f"forecast_date_range ({eff_from_date} to {eff_to_date})"
+                else:
+                    result_payload["selected_timeframe"] = f"date_range ({eff_from_date} to {eff_to_date})"
                 result_payload["from_date"] = eff_from_date
                 result_payload["to_date"] = eff_to_date
 
@@ -1312,7 +1316,11 @@ async def get_current_and_forecast_info(
                     if match:
                         ranged_items.append(match)
 
-                result_payload["historical_weather_range"] = ranged_items
+                if is_future_range:
+                    result_payload["forecast_list"] = ranged_items
+                    result_payload["forecast_days_count"] = len(ranged_items)
+                else:
+                    result_payload["historical_weather_range"] = ranged_items
 
             # Case C: Multi-day forecast / next N days
             elif qt == "forecast" or (forecast_days > 1 and qt != "today" and not target_date):

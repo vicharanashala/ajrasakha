@@ -227,8 +227,17 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
         val_s = p_match.group(1)
         past_days = num_words.get(val_s, int(val_s) if val_s.isdigit() else None)
 
+    # Check if this is a single "today" query even if "forecast" is in the sentence
+    is_pure_today = bool(
+        re.search(r"\b(?:today|todays|today's)\b", q_lower)
+        and not any(k in q_lower for k in ["next", "coming", "week", "days", "dyas", "day after", "and tomorrow", "to tomorrow", "past"])
+        and not ext_from
+    )
+
     forecast_days = None
-    if any(k in q_lower for k in ["7 day", "7-day", "7day", "7 days", "7-days", "7days", "week", "next week", "coming days", "upcoming days", "next days", "forecasting", "forecast"]):
+    if is_pure_today:
+        forecast_days = 1
+    elif any(k in q_lower for k in ["7 day", "7-day", "7day", "7 days", "7-days", "7days", "week", "next week", "coming days", "upcoming days", "next days", "forecasting", "forecast"]):
         forecast_days = 7
     elif any(k in q_lower for k in ["6 day", "6-day", "6day", "6 days", "6-days", "6days"]):
         forecast_days = 6
@@ -245,7 +254,7 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
         r"\b(?:in\s+|for\s+|over\s+)?(?:the\s+)?(?:next|coming)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:days?|dyas)\b",
         q_lower,
     )
-    if f_match:
+    if f_match and not is_pure_today:
         num_words = {
             "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
             "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
@@ -254,6 +263,16 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
         cnt_d = num_words.get(val_s, int(val_s) if val_s.isdigit() else 1)
         # today = Day 1; "next N days" means N total (today through Day N)
         forecast_days = min(7, cnt_d)
+
+    if ext_from and ext_to:
+        today_str = date.today().strftime("%Y-%m-%d")
+        if ext_from >= today_str:
+            try:
+                e_d = datetime.strptime(ext_to, "%Y-%m-%d").date()
+                days_needed = (e_d - date.today()).days + 1
+                forecast_days = max(1, min(7, days_needed))
+            except Exception:
+                forecast_days = 7
 
     hours_ahead = None
     h_match = re.search(r"\b(?:next|coming|in)\s*(1|2|3|one|two|three)\s*(?:hours?|hrs?|h)\b", q_lower)
@@ -276,7 +295,9 @@ def _heuristic_weather_intent(query: str) -> dict[str, Any]:
 
     query_type = ext_qt
     if not query_type:
-        if "forecast" in q_lower or (forecast_days and forecast_days > 1):
+        if is_pure_today:
+            query_type = "today"
+        elif "forecast" in q_lower or (forecast_days and forecast_days > 1):
             query_type = "forecast"
         elif "previous" in q_lower or "past" in q_lower or "yesterday" in q_lower or "history" in q_lower or past_days:
             if not re.search(r"\bpast\s+24\s*(?:hours?|hrs?)\b", q_lower):
@@ -372,12 +393,27 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
     from_date = _clean_date(raw.get("from_date"), base.get("from_date"))
     to_date = _clean_date(raw.get("to_date"), base.get("to_date"))
 
-    # Materialize past_days into from/to when Gemma gave a lookback but no explicit dates.
-    if past_days and not from_date and not target_date:
-        from_date, to_date = _past_days_to_range(past_days)
-        query_type = query_type or "previous"
-        if tool == "get_rainfall_and_monsoon_info" and not data_type:
-            data_type = "historical"
+    q_lower = (query or "").lower()
+    is_pure_today = bool(
+        re.search(r"\b(?:today|todays|today's)\b", q_lower)
+        and not any(k in q_lower for k in ["next", "coming", "week", "days", "dyas", "day after", "and tomorrow", "to tomorrow", "past"])
+        and not base.get("from_date")
+    )
+    if is_pure_today:
+        query_type = "today"
+        forecast_days = 1
+        target_date = date.today().strftime("%Y-%m-%d")
+        from_date = None
+        to_date = None
+    elif from_date and to_date and from_date >= date.today().strftime("%Y-%m-%d"):
+        query_type = "forecast"
+        target_date = None
+        try:
+            e_d = datetime.strptime(to_date, "%Y-%m-%d").date()
+            days_needed = (e_d - date.today()).days + 1
+            forecast_days = max(1, min(7, days_needed))
+        except Exception:
+            forecast_days = 7
 
     out = {
         "tool": tool,
@@ -541,9 +577,16 @@ def _weather_answer_preserves_facts(source: str, candidate: str) -> bool:
         "<think>", "</think>", "<reasoning>", "</reasoning>",
     )):
         return False
-    for d in ("day 2", "day 3", "day 4", "day 5"):
-        if d in source.lower() and d not in cand_lower:
+    # Ensure multi-day forecast days or dates from source are preserved
+    source_dates = set(re.findall(r"\b20\d{2}-\d{2}-\d{2}\b", source))
+    if source_dates:
+        missing_dates = [d for d in source_dates if d not in cand_lower]
+        if missing_dates:
             return False
+    else:
+        for d in ("day 2", "day 3", "day 4", "day 5"):
+            if d in source.lower() and d not in cand_lower:
+                return False
     source_facts = _extract_weather_answer_facts(source)
     if not source_facts:
         return True
@@ -569,7 +612,7 @@ def _ensure_weather_answer_spacing(text: str) -> str:
         return text
     today_str = date.today().strftime("%Y-%m-%d")
     # Add date in brackets for today / today's if not already present, avoiding (Today) or Today's observation
-    text = re.sub(r"(?<!\()\b(today)\b(?!\s*[\(\[\d\)])(?!\s*['’]s\s+observation)", rf"\1 ({today_str})", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?<!\()\b(today)\b(?!\s*[\(\[\d\)])(?!\s*['’]s)", rf"\1 ({today_str})", text, flags=re.IGNORECASE)
     text = re.sub(r"(?<!\()\btoday's\s+weather\b(?!\s*[\(\[\d\)])", f"Today's ({today_str}) weather", text, flags=re.IGNORECASE)
 
     # Scrub any leftover N/A departure or actual rainfall lines
@@ -772,14 +815,32 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
     }
     month_names_or = "|".join(months.keys())
 
-    # Range format: "7/August to 9/august", "7 August to 9 august", "7 to 9 august", "7-9 august", "from 7 to 9 august"
-    r_range1 = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?(?:\/|\s+)?(" + month_names_or + r")?\s*(?:to|-|until|through|and)\s*(\d{1,2})(?:st|nd|rd|th)?(?:\/|\s+)?(" + month_names_or + r")\b", q)
+    # Month-first range format: "October 1 to October 4", "October1 to October4", "from October 1 to 4", "october 2 to october 5"
+    r_range_m = re.search(
+        r"\b(" + month_names_or + r")\s*(\d{1,2})(?:st|nd|rd|th)?\s*(?:to|-|until|through|and)\s*(?:(" + month_names_or + r")\s*)?(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(20\d\d))?\b",
+        q,
+    )
+    if r_range_m:
+        m1, d1, m2, d2 = r_range_m.group(1), r_range_m.group(2), r_range_m.group(3), r_range_m.group(4)
+        m_name1 = m1
+        m_name2 = m2 or m1
+        if m_name1 in months and m_name2 in months:
+            m1_num = months[m_name1]
+            m2_num = months[m_name2]
+            yr = int(r_range_m.group(5)) if r_range_m.group(5) else today.year
+            f_str = f"{yr}-{m1_num:02d}-{int(d1):02d}"
+            t_str = f"{yr}-{m2_num:02d}-{int(d2):02d}"
+            if f_str <= t_str:
+                return None, f_str, t_str, "previous" if f_str < today_str else "forecast"
+
+    # Day-first range format: "7/August to 9/august", "7 August to 9 august", "7 to 9 august", "7-9 august", "from 7 to 9 august"
+    r_range1 = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?(?:\/|\s+)?(" + month_names_or + r")?\s*(?:to|-|until|through|and)\s*(\d{1,2})(?:st|nd|rd|th)?(?:\/|\s+)?(" + month_names_or + r")(?:\s*,?\s*(20\d\d))?\b", q)
     if r_range1:
         d1, m1, d2, m2 = r_range1.group(1), r_range1.group(2), r_range1.group(3), r_range1.group(4)
         m_name = m2 or m1
         if m_name in months:
             m_num = months[m_name]
-            yr = today.year
+            yr = int(r_range1.group(5)) if r_range1.group(5) else today.year
             f_str = f"{yr}-{m_num:02d}-{int(d1):02d}"
             t_str = f"{yr}-{m_num:02d}-{int(d2):02d}"
             if f_str <= t_str:
@@ -798,21 +859,21 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
         if f_str <= t_str:
             return None, f_str, t_str, "previous" if f_str < today_str else "forecast"
 
-    m_regex = r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(" + month_names_or + r")\b"
+    m_regex = r"\b(\d{1,2})(?:st|nd|rd|th)?\s*(" + month_names_or + r")(?:\s*,?\s*(20\d\d))?\b"
     m_match = re.search(m_regex, q)
     if not m_match:
-        m_regex2 = r"\b(" + month_names_or + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b"
+        m_regex2 = r"\b(" + month_names_or + r")\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(20\d\d))?\b"
         m_match2 = re.search(m_regex2, q)
         if m_match2:
             m_name, day_val = m_match2.group(1), m_match2.group(2)
             m_num = months[m_name]
-            yr = today.year
+            yr = int(m_match2.group(3)) if m_match2.group(3) else today.year
             d_str = f"{yr}-{m_num:02d}-{int(day_val):02d}"
             return d_str, None, None, "previous" if d_str < today_str else "forecast"
     else:
         day_val, m_name = m_match.group(1), m_match.group(2)
         m_num = months[m_name]
-        yr = today.year
+        yr = int(m_match.group(3)) if m_match.group(3) else today.year
         d_str = f"{yr}-{m_num:02d}-{int(day_val):02d}"
         return d_str, None, None, "previous" if d_str < today_str else "forecast"
 
@@ -830,6 +891,11 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
     if "day after tomorrow" in q:
         d_str = (today + timedelta(days=2)).strftime("%Y-%m-%d")
         return d_str, None, None, "forecast"
+    if (
+        re.search(r"\b(?:today|todays|today's)\b", q)
+        and not any(k in q for k in ["next", "coming", "week", "days", "dyas", "past"])
+    ):
+        return today_str, None, None, "today"
 
     num_words = {
         "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
@@ -1185,7 +1251,11 @@ async def new_weather(
             result = await _invoke_mcp_or_direct("get_rainfall_and_monsoon_info", args)
         else:
             _is_current_query = any(k in q_lower for k in ["current weather", "current condition", "right now", "at the moment", "current climate"])
-            _is_today_query = any(k in q_lower for k in ["today", "todays", "today's"])
+            _is_pure_today_query = bool(
+                re.search(r"\b(?:today|todays|today's)\b", q_lower)
+                and not any(k in q_lower for k in ["next", "coming", "week", "days", "dyas", "day after", "and tomorrow", "to tomorrow", "past"])
+                and not eff_from_date
+            )
             today_str = date.today().strftime("%Y-%m-%d")
 
             is_past = (
@@ -1198,11 +1268,18 @@ async def new_weather(
             is_fc = (
                 eff_qt == "forecast"
                 or bool(eff_forecast_days and eff_forecast_days > 1)
+                or bool(eff_from_date and eff_from_date >= today_str)
                 or any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "next 3 days", "next 5 days", "next 7 days", "next week", "forecast", "forecasting", "upcoming"])
                 or bool(eff_target_date and eff_target_date > today_str)
-            )
+            ) and not _is_pure_today_query
 
-            if is_past:
+            if _is_pure_today_query:
+                qt = "today"
+                f_days = 1
+                t_date = today_str
+                f_date = None
+                to_d = None
+            elif is_past:
                 qt = "previous"
                 f_days = 1
                 t_date = eff_target_date
@@ -1217,16 +1294,32 @@ async def new_weather(
                         to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
             elif is_fc:
                 qt = "forecast"
-                f_days = 1 if eff_target_date else (eff_forecast_days or (
-                    7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
-                    else 6 if ("5 day" in q_lower or "5-day" in q_lower)
-                    else 4 if ("3 day" in q_lower or "3-day" in q_lower)
-                    else 3 if ("2 day" in q_lower or "2-day" in q_lower)
-                    else 7
-                ))
-                t_date = eff_target_date
-                f_date = None
-                to_d = None
+                if eff_from_date and eff_to_date:
+                    f_date = eff_from_date
+                    to_d = eff_to_date
+                    t_date = None
+                    try:
+                        e_d = datetime.strptime(eff_to_date, "%Y-%m-%d").date()
+                        days_needed = (e_d - date.today()).days + 1
+                        f_days = max(1, min(7, days_needed))
+                    except Exception:
+                        f_days = 7
+                elif eff_target_date:
+                    f_days = 1
+                    t_date = eff_target_date
+                    f_date = None
+                    to_d = None
+                else:
+                    f_days = eff_forecast_days or (
+                        7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+                        else 6 if ("5 day" in q_lower or "5-day" in q_lower)
+                        else 4 if ("3 day" in q_lower or "3-day" in q_lower)
+                        else 3 if ("2 day" in q_lower or "2-day" in q_lower)
+                        else 7
+                    )
+                    t_date = None
+                    f_date = None
+                    to_d = None
             elif _is_current_query:
                 qt = "current"
                 f_days = 1

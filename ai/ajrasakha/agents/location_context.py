@@ -14,15 +14,15 @@ from ajrasakha.agents.resolution_trace import trace_resolution
 # Canonical state names and common spellings in farmer queries (longest match first).
 _STATE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("Andaman and Nicobar Islands", re.compile(r"\bandaman\b", re.I)),
-    ("Andhra Pradesh", re.compile(r"\bandhra\s+pradesh\b", re.I)),
-    ("Arunachal Pradesh", re.compile(r"\barunachal\b", re.I)),
-    ("Dadra and Nagar Haveli and Daman and Diu", re.compile(r"\bdadra\b|\bdaman\s+and\s+diu\b", re.I)),
-    ("Himachal Pradesh", re.compile(r"\bhimachal\b", re.I)),
+    ("Andhra Pradesh", re.compile(r"\b(andhra\s*pradesh|andhra)\b", re.I)),
+    ("Arunachal Pradesh", re.compile(r"\barunachal(?:\s*pradesh)?\b", re.I)),
+    ("Dadra and Nagar Haveli and Daman and Diu", re.compile(r"\bdadra\b|\bdaman\s*and\s*diu\b", re.I)),
+    ("Himachal Pradesh", re.compile(r"\bhimachal(?:\s*pradesh)?\b", re.I)),
     ("Jammu and Kashmir", re.compile(r"\bjammu\b", re.I)),
-    ("Madhya Pradesh", re.compile(r"\bmadhya\s+pradesh\b", re.I)),
-    ("Tamil Nadu", re.compile(r"\btamil\s+nadu\b", re.I)),
-    ("Uttar Pradesh", re.compile(r"\buttar\s+pradesh\b", re.I)),
-    ("West Bengal", re.compile(r"\bwest\s+bengal\b", re.I)),
+    ("Madhya Pradesh", re.compile(r"\bmadhya\s*pradesh\b", re.I)),
+    ("Tamil Nadu", re.compile(r"\btamil\s*nadu\b", re.I)),
+    ("Uttar Pradesh", re.compile(r"\buttar\s*pradesh\b", re.I)),
+    ("West Bengal", re.compile(r"\bwest\s*bengal\b", re.I)),
     ("Assam", re.compile(r"\bassam\b", re.I)),
     ("Bihar", re.compile(r"\bbihar\b", re.I)),
     ("Chhattisgarh", re.compile(r"\bchhattisgarh\b", re.I)),
@@ -87,6 +87,27 @@ def extract_state_from_text(text: str) -> Optional[str]:
     return None
 
 
+TIME_WORDS = {
+    "noon", "midday", "midnight", "dawn", "dusk",
+    "morning", "mornings", "afternoon", "afternoons", "evening", "evenings",
+    "night", "nights", "tonight", "today", "tomorrow", "yesterday",
+    "now", "clock", "o'clock", "am", "pm", "day", "days", "week", "weeks",
+    "month", "months", "year", "years", "hour", "hours", "minute", "minutes",
+    "time", "times", "daily", "hourly", "weekly", "monthly",
+    "season", "seasons", "monsoon", "summer", "winter", "spring", "autumn",
+}
+
+WEATHER_WORDS = {
+    "rain", "rainfall", "thunderstorm", "thunderstorms", "storm", "storms",
+    "fog", "snow", "haze", "mist", "cloud", "clouds", "cloudy", "sun", "sunny",
+    "wind", "winds", "temperature", "temp", "weather", "climate", "humidity",
+    "heat", "heatwave", "showers", "shower", "chance", "chances", "possibility",
+    "expected", "forecast", "warning", "warnings", "advisory", "advisories",
+    "precipitation", "lightning", "cold", "cyclone", "flood", "floods",
+    "sky", "skies", "condition", "conditions", "status", "report", "update", "updates"
+}
+
+
 def extract_location_from_query(query: str) -> tuple[str | None, str | None]:
     """Extract (place_name, state_name) from query string.
     Returns (specific_place, detected_state).
@@ -99,16 +120,7 @@ def extract_location_from_query(query: str) -> tuple[str | None, str | None]:
 
     detected_state = extract_state_from_text(q)
 
-    WEATHER_WORDS = {
-        "rain", "rainfall", "thunderstorm", "thunderstorms", "storm", "storms",
-        "fog", "snow", "haze", "mist", "cloud", "clouds", "cloudy", "sun", "sunny",
-        "wind", "winds", "temperature", "temp", "weather", "climate", "humidity",
-        "heat", "heatwave", "showers", "shower", "chance", "chances", "possibility",
-        "expected", "forecast", "warning", "warnings", "advisory", "advisories",
-        "precipitation", "lightning", "cold", "cyclone", "flood", "floods"
-    }
-
-    pattern = r"\b(?:in|at|near|around)\s+([A-Za-z][A-Za-z\s]{1,40}?)(?=\s+\b(?:in|at|near|around|on|for|from|to|of|by|with|during|today|tomorrow|yesterday|this|next|last|past|coming|morning|evening|afternoon|night|now|days?|hours?)\b|[.,?!]|$)"
+    pattern = r"\b(?:in|at|near|around|for)\s+([A-Za-z][A-Za-z\s]{1,40}?)(?=\s+\b(?:in|at|near|around|on|for|from|to|of|by|with|during|today|tomorrow|yesterday|this|next|last|past|coming|morning|evening|afternoon|night|now|days?|hours?|noon|midday|midnight|dawn|dusk)\b|[.,?!]|$)"
 
     candidates: list[str] = []
     for m in re.finditer(pattern, q, re.I):
@@ -119,9 +131,34 @@ def extract_location_from_query(query: str) -> tuple[str | None, str | None]:
             continue
         if any(w in WEATHER_WORDS for w in words):
             continue
+        if any(w in TIME_WORDS for w in words):
+            continue
         candidates.append(cand_clean)
 
-    detected_place = candidates[-1] if candidates else None
+    detected_place = None
+    if candidates:
+        # 1. Prefer candidate directly preceding detected_state in query text (e.g. "Krishnagiri, Tamil Nadu" or "anakappally, andhrapradesh")
+        if detected_state:
+            st_pat = re.sub(r"\s+", r"\\s*", re.escape(detected_state))
+            for c in candidates:
+                if re.search(rf"\b{re.escape(c)}\b\s*,\s*\b{st_pat}\b", q, re.I):
+                    detected_place = c
+                    break
+        # 2. Prefer candidate matching a known Indian district
+        if not detected_place and detected_state:
+            from ajrasakha.tools.weather.weather_service import get_service
+            try:
+                svc = get_service()
+                for c in candidates:
+                    obj_id, _ = svc.resolve_district_obj_id(c, detected_state)
+                    if obj_id is not None:
+                        detected_place = c
+                        break
+            except Exception:
+                pass
+        # 3. Default to the candidate
+        if not detected_place:
+            detected_place = candidates[0] if len(candidates) == 1 else candidates[-1]
 
     from ajrasakha.tools.weather.weather_tools2 import _INDIAN_STATES_LOWER
     if detected_place and detected_place.lower() in _INDIAN_STATES_LOWER:
@@ -527,11 +564,17 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
         if canonical_district and not state:
             inferred_district_state = canonical_district
 
-    # If district is a placeholder or repeats state name, treat as pure state query
+    # If district is a placeholder, temporal word, weather word, or repeats state name, treat as pure state query
     if district:
         d_clean = district.lower().strip()
         st_clean = (state or inferred_district_state or "").lower().strip()
-        if d_clean in {"all", "not specified", "unknown", "none", "null", ""}:
+        words = set(d_clean.split())
+        if (
+            d_clean in {"all", "not specified", "unknown", "none", "null", ""}
+            or d_clean in TIME_WORDS
+            or d_clean in WEATHER_WORDS
+            or (words and words.issubset(TIME_WORDS | WEATHER_WORDS))
+        ):
             district = None
         elif d_clean == st_clean:
             district = None

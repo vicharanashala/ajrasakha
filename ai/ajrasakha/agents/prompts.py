@@ -953,11 +953,12 @@ Tool selection rules (pick the best single tool):
 
 Date / range rules (Today is provided below):
 - Resolve relative phrases using Today (yesterday, tomorrow, past N days, next N days, last week).
+- Queries for "today" (even if containing the word "forecast", e.g. "weather forecast for Shimla district today", "forecast for today") → query_type="today", forecast_days=1, target_date=Today.
 - "past N days" / "last N days" → past_days=N, query_type="previous", and set from_date/to_date when possible.
 - Bare "past/previous/historical weather" with no N → past_days=7, query_type="previous".
 - "past 24 hours rain" is current/recent rainfall, NOT a multi-day previous range (past_days=null).
 - "next N days" / "N-day forecast" → forecast_days=N, query_type="forecast".
-- Single named day → target_date; date range → from_date + to_date.
+- Single named day → target_date; date range → from_date + to_date (query_type="forecast" if from_date >= Today else "previous").
 - Omit unused fields as null. Never invent tools outside the list.
 
 Examples:
@@ -1059,6 +1060,23 @@ FORMAT & FOCUS RULES:
     - Past 24h Rain: [Rain] mm (if available)
     - Humidity (Morning - 08:30 IST): [H1]% (if available)
     - Humidity (Evening - 17:30 IST): [H2]% (if available)
+
+- TODAY'S WEATHER / TODAY'S FORECAST (e.g. "weather forecast for [Place] today"):
+  * For queries asking for today's weather or today's forecast, provide ONLY today's weather.
+  * Direct answer opening: "Here is the weather forecast for [Place]:" (or "Here is today's weather forecast for [Place]:")
+  * Do NOT provide multi-day (7-day) forecast days unless multiple days were explicitly requested.
+
+- DATE RANGE FORECAST QUERIES (e.g. "forecast from October 1 to October 4"):
+  * Direct answer opening: "Here is the weather forecast for [Place] from [Start Date] to [End Date]:" (or "Here is the [N]-day weather forecast for [Place]:")
+  * List EVERY single day in the date range without omitting any day:
+    - [Date 1] (or Day 1 - [Date 1]):
+      * Condition: [Condition]
+      * Temperature Range: [Min]°C–[Max]°C
+    - [Date 2] (or Day 2 - [Date 2]):
+      * Condition: [Condition]
+      * Temperature Range: [Min]°C–[Max]°C
+    ... for all days in the requested interval.
+  * CRITICAL: NEVER output only the first day when a date range is requested! Always output all dates in the requested range.
 
 - MULTI-DAY FORECAST QUERIES (2 to 7 days, or up to a specific date):
   * Direct answer opening: "Here is the [N]-day weather forecast for [Place]:"

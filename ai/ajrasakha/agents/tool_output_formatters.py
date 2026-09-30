@@ -584,7 +584,10 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
 
             target_dt = data.get("target_date") or w_data.get("target_date")
             from_dt = data.get("from_date") or w_data.get("from_date")
-            if "date_range" in st_timeframe or "previous" in st_timeframe or from_dt or (target_dt and target_dt < today_str):
+            to_dt_val = data.get("to_date") or w_data.get("to_date") or from_dt
+            if from_dt and from_dt >= today_str:
+                header_title = f"Weather forecast ({from_dt} to {to_dt_val})" if to_dt_val and to_dt_val != from_dt else f"Weather forecast ({from_dt})"
+            elif "date_range" in st_timeframe or "previous" in st_timeframe or (from_dt and from_dt < today_str) or (target_dt and target_dt < today_str):
                 header_title = f"Historical weather ({target_dt})" if target_dt else "Historical weather"
             elif target_dt == today_str or st_timeframe == "today":
                 header_title = f"Today's weather ({today_str})"
