@@ -8,24 +8,13 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import type { TestersDashboardService } from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js';
 import { runTestersDashboardSync } from '../../../../testers-dashboard/backend/build/jobs/testersDashboardSyncCron.js';
 
-cron.schedule('*/30 * * * *', async () => {
-    const container = getContainer();
-    const testersDashboardService = container.get<TestersDashboardService>(
-        CORE_TYPES.TestersDashboardService,
-    );
-    await runTestersDashboardSync(testersDashboardService);
-});
-
-// Run initial sync on startup so updated.csv is generated immediately upon deployment
-setTimeout(async () => {
-    try {
-        const container = getContainer();
-        const testersDashboardService = container.get<TestersDashboardService>(
-            CORE_TYPES.TestersDashboardService,
-        );
-        await runTestersDashboardSync(testersDashboardService);
-    } catch (err) {
-        console.error('<<CRON>> Error during startup Testers Dashboard sheet sync:', err);
-    }
-}, 3000);
-
+// Testers Dashboard sheet sync cron is disabled on the backend server to ensure
+// 0 RAM and 0 heap overhead on resource-constrained containers.
+// Google Sheet analytics are offloaded to client-side in-browser processing.
+// cron.schedule('*/30 * * * *', async () => {
+//     const container = getContainer();
+//     const testersDashboardService = container.get<TestersDashboardService>(
+//         CORE_TYPES.TestersDashboardService,
+//     );
+//     await runTestersDashboardSync(testersDashboardService);
+// });

@@ -324,6 +324,7 @@ export interface ITestersDashboardLanguageStat {
 export interface ITestersDashboardSummaryResponse {
     success: boolean;
     syncing?: boolean;
+    needClientData?: boolean;
     message?: string;
     totalRecords: number;
     kpis: ITestersDashboardKpiSummary;
@@ -372,6 +373,20 @@ export class TestersDashboardSummaryService {
         }
 
         return response;
+    }
+
+    async getSheetSources(): Promise<{ success: boolean; sources: { index: number; label: string; tab: string }[] }> {
+        const response = await apiFetch<{ success: boolean; sources: { index: number; label: string; tab: string }[] }>(
+            `${this._baseUrl}/sheets/sources`,
+        );
+        return response || { success: false, sources: [] };
+    }
+
+    async fetchSheetStream(index: number): Promise<{ range?: string; values?: string[][] } | null> {
+        const response = await apiFetch<{ range?: string; values?: string[][] }>(
+            `${this._baseUrl}/sheets/stream?index=${index}`,
+        );
+        return response || null;
     }
 }
 
