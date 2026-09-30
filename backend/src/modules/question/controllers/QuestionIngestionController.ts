@@ -243,26 +243,26 @@ export class QuestionIngestionController {
           role: user.role,
           avatar: user?.avatar || '',
         };
-        setImmediate(() =>
-          startBackgroundProcessing(
-            actor,
-            this.auditTrailsService,
-            isRequiredAiInitialAnswer,
-            isOutreachQuestion,
-            isTrainingQuestion,
-            payload,
-            allocationMode,
-            paeExpertId,
-          ),
+        const jobId = startBackgroundProcessing(
+          actor,
+          this.auditTrailsService,
+          isRequiredAiInitialAnswer,
+          isOutreachQuestion,
+          isTrainingQuestion,
+          payload,
+          allocationMode,
+          paeExpertId,
         );
 
         return {
-          message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${
+          success: true,
+          message: `Processing ${payload.length} question(s) in the background. Non-duplicate entries are being assigned to experts${
             isRequiredAiInitialAnswer
               ? ' with AI-generated initial answers'
               : ''
           }.`,
           count: payload.length,
+          jobId,
           isBulkUpload: !!file,
         };
       } catch (err: any) {

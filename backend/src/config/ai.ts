@@ -27,4 +27,7 @@ export const aiConfig = {
   accAgentBaseUrl: env('ACC_AGENT_BASE_URL'),
   accAgentAssistantId: env('ACC_AGENT_ASSISTANT_ID'),
   accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
+  minimaxServerIP: env('MINIMAX_API') || 'localhost',
+  minimaxServerPort: Number(env('MINIMAX_PORT')?.trim()) || 8001,
+  minimaxApiKey: env('MINIMAX_API_KEY')
 };

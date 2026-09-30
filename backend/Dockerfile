@@ -1,16 +1,17 @@
 FROM node:22-alpine AS builder
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git bash
 RUN corepack enable && corepack prepare pnpm@10.4.1 --activate && npm install -g rimraf
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml* ./
-COPY scripts ./scripts
+COPY backend/package.json backend/pnpm-lock.yaml* ./
+COPY backend/scripts ./scripts
+COPY testers-dashboard/backend /testers-dashboard/backend
 RUN pnpm install
 
-COPY . .
-RUN pnpm tsc
+COPY backend/ .
+RUN pnpm run build
 
 FROM node:22-alpine
 
@@ -18,11 +19,17 @@ RUN apk add --no-cache dumb-init wget curl
 
 WORKDIR /app
 
-COPY package.json ./
-COPY scripts ./scripts
+COPY backend/package.json ./
+COPY backend/scripts ./scripts
 
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
+RUN mkdir -p /app/data/testers-dashboard
+COPY --from=builder /app/data ./data
+
+COPY --from=builder /testers-dashboard/backend/build /testers-dashboard/backend/build
+COPY --from=builder /testers-dashboard/backend/package.json /testers-dashboard/backend/package.json
+RUN ln -s /app/node_modules /testers-dashboard/backend/node_modules
 
 # Tailscale Setup
 

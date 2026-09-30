@@ -5,6 +5,7 @@ import {
   Bot,
   CheckCircle2,
   Clock,
+  ClipboardList,
   Database,
   History,
   List,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { canManageUsers, isCoordinatorRole } from "@/lib/roles";
+import { canManageUsers, isCoordinatorRole, canLogTestCases } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -171,6 +172,13 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
+    ...(user && user.role === "admin"
+      ? [
+          { id: "manage_agents", label: "Manage Agents", icon: Users },
+          { id: "testers_dashboard", label: "Testers Dashboard", icon: ClipboardList },
+        ]
+      : []),
+
     ...(user && !isCoordinator && user.role !== "call_agent"
       ? [{ id: "history", label: "History", icon: History }]
       : []),
@@ -182,6 +190,10 @@ export const MobileSidebar = ({
             icon: MessageSquare,
           },
         ]
+      : []),
+
+    ...(user && canLogTestCases(user.role)
+      ? [{ id: "tester_log", label: "Log Test Case", icon: ClipboardList }]
       : []),
   ];
 
