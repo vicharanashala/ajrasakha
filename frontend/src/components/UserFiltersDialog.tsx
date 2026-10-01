@@ -97,10 +97,12 @@ function StateSelect({
   value,
   onChange,
   states,
+  isLoading,
 }: {
   value: string;
   onChange: (val: string) => void;
   states: string[];
+  isLoading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,7 +172,12 @@ function StateSelect({
               <span>All States</span>
             </div>
           </SelectItem>
-          {visibleStates.length === 0 ? (
+          {isLoading ? (
+            <div className="py-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              <span>Loading states...</span>
+            </div>
+          ) : visibleStates.length === 0 ? (
             <div className="py-4 text-center text-xs text-muted-foreground">
               No state found
             </div>
@@ -335,8 +342,14 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
   setGetAnalytics,
 }) => {
   const [open, setOpen] = useState(false);
-  const { data: statesResponse = [] } = useGetStates();
-  const states = statesResponse.map((s) => s.stateNameEnglish);
+  // Central API hook for fetching all Indian states
+  const { data: statesResponse = [], isLoading: isLoadingStates } = useGetStates();
+  const states = useMemo(() => {
+    return statesResponse
+      .map((s) => s.stateNameEnglish)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  }, [statesResponse]);
 
   // Draft state
   const [draftFilter, setDraftFilter] = useState(filter === "" ? "ALL" : filter);
@@ -464,7 +477,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
 
         <div className="flex-1 overflow-y-auto px-5 py-4 max-h-[calc(90vh-140px)]">
           <div className="space-y-4">
-            {/* 1. Location / State Filter */}
+            {/* 1. Location / State Filter (Fetched from Location API) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-xs font-semibold">
@@ -481,6 +494,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                 value={draftFilter}
                 onChange={setDraftFilter}
                 states={states}
+                isLoading={isLoadingStates}
               />
             </div>
 
