@@ -603,19 +603,21 @@ export async function getDashboardOrganizations(state?: string) {
   return _handleResponse(res);
 }
 
-// District/KVK — placement-level fields, same shape/id-referenced convention as state/crop, added
-// 2026-09-29. `state`/`state_id` narrows to entries actually used under that state (same as
-// getDashboardCrops/getDashboardOrganizations above). Every placement's value is blank until
-// someone fills it in — there's no WorkDrive folder level to backfill either from (confirmed by
-// the backend: the tree is only <state>/<folder>/, no district/KVK level).
+// District/KVK — placement-level fields, id-referenced like state/crop. Synced from the official
+// LGD registry (2026-10-02) — districts narrow by PARENT (`state_id`), KVKs narrow by their own
+// parent (`district_id`, NOT state_id — a KVK belongs to one district, not directly to a state,
+// even though every KVK row also carries a `state_id` for convenience). Omitting the id entirely
+// returns the FULL list (823 districts / 1,550 KVKs) — the right call for a column filter, which
+// already has its own search and isn't trying to replicate the form's state→district→KVK cascade.
+// States/districts/KVKs are now read-only (synced data) — POST/PATCH/merge/DELETE all 403.
 export async function getDashboardDistricts(stateId?: string) {
   const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
   const res = await fetch(`${POP_API}/dashboard/districts${qs}`);
   return _handleResponse(res);
 }
 
-export async function getDashboardKvks(stateId?: string) {
-  const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
+export async function getDashboardKvks(districtId?: string) {
+  const qs = districtId ? `?district_id=${encodeURIComponent(districtId)}` : "";
   const res = await fetch(`${POP_API}/dashboard/kvks${qs}`);
   return _handleResponse(res);
 }

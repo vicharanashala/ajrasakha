@@ -8,7 +8,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/atoms/dialog";
-import { updateDashboardUniqueDocument, getDashboardLanguages } from "../../api";
+import {
+  updateDashboardUniqueDocument,
+  getDashboardLanguages,
+  getDashboardStates,
+  getDashboardDistricts,
+  getDashboardKvks,
+} from "../../api";
 import { DOCUMENT_METADATA_FIELDS, EDITABLE_DOCUMENT_ONLY_FIELDS } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 
@@ -48,20 +54,86 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
       .catch(() => {});
   }, []);
 
+  // District/KVK are placement-level (like state/crop), so this document-level form has no
+  // `state` field of its own to scope them by — it borrows the anchor placement's state (same
+  // placement Translation/download act on) the same way UniqueDocumentsTable derives State/Folder
+  // for display. `duplicate_links` entries only carry the anchor's district/kvk as plain NAMES, not
+  // ids, so pre-selecting the right dropdown option means resolving that name against the fetched
+  // id-based options once they load (see the prefill effects below) — mirrors how MainTable's own
+  // inline edit resolves a folder name back to an id before saving.
+  const anchor = doc?.duplicate_links?.find((l) => l.row_id === doc.representative_row_id);
+  const [stateOptions, setStateOptions] = useState([]);
+  useEffect(() => {
+    getDashboardStates()
+      .then((d) => setStateOptions(d || []))
+      .catch(() => {});
+  }, []);
+  const anchorStateId = stateOptions.find((s) => s.name === anchor?.state)?.id || "";
+
+  // District narrows by the anchor's state; KVK narrows by the district actually SELECTED in this
+  // form (values.district_id) — a KVK belongs to one district, not directly to a state — so once
+  // the district prefill (below) resolves, this effect re-fires and fetches the right KVK list on
+  // its own.
+  const [districtOptions, setDistrictOptions] = useState([]);
+  useEffect(() => {
+    if (!anchorStateId) {
+      setDistrictOptions([]);
+      return;
+    }
+    getDashboardDistricts(anchorStateId)
+      .then((d) => setDistrictOptions(d || []))
+      .catch(() => {});
+  }, [anchorStateId]);
+
+  const [kvkOptions, setKvkOptions] = useState([]);
+  useEffect(() => {
+    if (!values.district_id) {
+      setKvkOptions([]);
+      return;
+    }
+    getDashboardKvks(values.district_id)
+      .then((d) => setKvkOptions(d || []))
+      .catch(() => {});
+  }, [values.district_id]);
+
+  // One-shot prefill once each option list lands — doesn't re-run after that, so it never
+  // clobbers a value the user has since picked (or cleared) by hand.
+  const [districtPrefilled, setDistrictPrefilled] = useState(false);
+  useEffect(() => {
+    if (districtPrefilled || !anchor?.district || districtOptions.length === 0) return;
+    const match = districtOptions.find((d) => d.name === anchor.district);
+    if (match) setValue("district_id", match.id);
+    setDistrictPrefilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [districtOptions, districtPrefilled]);
+  const [kvkPrefilled, setKvkPrefilled] = useState(false);
+  useEffect(() => {
+    if (kvkPrefilled || !anchor?.kvk || kvkOptions.length === 0) return;
+    const match = kvkOptions.find((k) => k.name === anchor.kvk);
+    if (match) setValue("kvk_id", match.id);
+    setKvkPrefilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kvkOptions, kvkPrefilled]);
+
   function setValue(key, val) {
     setValues((prev) => ({ ...prev, [key]: val }));
   }
 
   async function handleSave() {
     // Every field is optional (str | None / int | None) — an empty string must become null
-    // rather than being sent as "" (a number field would 422 on an empty string). `language` is
-    // never sent as null — leave it out of the payload entirely if unchanged/empty rather than
-    // trying to clear a required vocabulary field.
+    // rather than being sent as "" (a number field would 422 on an empty string). `language`,
+    // `district_id` and `kvk_id` are never sent as null — leave them out of the payload entirely
+    // if unchanged/empty rather than clearing them. For district/kvk specifically this isn't
+    // optional caution: the dropdown only pre-selects the anchor placement's CURRENT value when
+    // its name happens to match an option from the fetched list exactly (see the prefill effects
+    // above) — a near-miss (casing, whitespace, a name not yet in the canonical list) leaves the
+    // select blank even though a real value exists, and treating blank as "clear" there would
+    // silently wipe it on save.
     const payload = {};
     for (const f of EDITABLE_FIELDS) {
       const raw = values[f.key];
-      if (f.key === "language") {
-        if (raw) payload.language = raw;
+      if (f.key === "language" || f.key === "district_id" || f.key === "kvk_id") {
+        if (raw) payload[f.key] = raw;
         continue;
       }
       if (raw === "" || raw == null) {
@@ -150,6 +222,51 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
                 </option>
               ))}
             </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>District</label>
+            {anchorStateId ? (
+              <select
+                className={inputClass}
+                value={values.district_id}
+                onChange={(e) => {
+                  setValue("district_id", e.target.value);
+                  setValue("kvk_id", "");
+                }}
+              >
+                <option value="">— unchanged —</option>
+                {districtOptions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs text-muted-foreground italic py-1.5">
+                Select a state first
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>KVK</label>
+            {values.district_id ? (
+              <select
+                className={inputClass}
+                value={values.kvk_id}
+                onChange={(e) => setValue("kvk_id", e.target.value)}
+              >
+                <option value="">— unchanged —</option>
+                {kvkOptions.map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs text-muted-foreground italic py-1.5">
+                Select a district first
+              </span>
+            )}
           </div>
         </div>
         <DialogFooter>

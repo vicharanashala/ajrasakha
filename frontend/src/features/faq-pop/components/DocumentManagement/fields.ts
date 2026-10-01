@@ -149,9 +149,18 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
 // document changes what those download as. `language` is PATCH-able on the document (validated
 // against GET /languages, 400 on an unknown code) and setting it stamps
 // language_source: "manual", so it always needs the dropdown, never free text.
+// district_id/kvk_id (2026-10-01) — placement-level fields, same as state/crop, added here so
+// UniqueDocumentEditForm's generic save loop picks them up: blank sends null (clears), a picked id
+// sends that id, same as every other non-"language" field in this list. They're assumed-pending on
+// PATCH /unique-documents/{id} — see the backend thread; harmless until it lands since an
+// unrecognized field is a no-op. Rendered manually in UniqueDocumentEditForm (not via
+// MetadataFieldInput) since their options are fetched dynamically, scoped to the document's current
+// state — same reason `language` is rendered manually there too.
 export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
   { key: "shareable_name", label: "Document Name", type: "text" },
   { key: "language", label: "Language", type: "select", optionsSource: "language" },
+  { key: "district_id", label: "District", type: "text" },
+  { key: "kvk_id", label: "KVK", type: "text" },
 ];
 
 // Backend-derived, read-only — shown in the details grid but never submitted.

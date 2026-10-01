@@ -6,6 +6,8 @@ import {
   getDashboardStates,
   getDashboardFolders,
   getDashboardLanguages,
+  getDashboardDistricts,
+  getDashboardKvks,
   createDashboardOrganization,
   uploadDashboardDocument,
 } from "../../api";
@@ -26,39 +28,116 @@ function emptyValues() {
 
 let _groupSeq = 0;
 function emptyGroup() {
-  return { key: ++_groupSeq, state: "", folders: [] };
+  return { key: ++_groupSeq, state: "", folders: [], district_id: "", kvk_id: "" };
 }
 
-// One placement group's row — state + a Folder multi-select. `folderOptions` is passed down from
-// the form (see below): all groups share the SAME options, because Folder options depend only on
-// the form's Advisory Type, never on a group's own state (see the form-level comment).
-function PlacementGroupRow({ group, folderOptions, stateNames, onChange, onRemove, removable }) {
+const selectClass =
+  "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
+
+// One placement group's row — state + a Folder multi-select, plus District/KVK (2026-10-01,
+// placement-level like state/crop, synced from the official LGD registry). `folderOptions` is
+// passed down from the form (see below): all groups share the SAME options, because Folder options
+// depend only on the form's Advisory Type, never on a group's own state (see the form-level
+// comment). District/KVK cascade properly instead — District is scoped to this group's own state,
+// and KVK to this group's own DISTRICT (a KVK belongs to one district, not directly to a state),
+// each disabled with a prompt until its parent is picked.
+function PlacementGroupRow({ group, folderOptions, stateOptions, onChange, onRemove, removable }) {
+  const stateNames = stateOptions.map((s) => s.name);
   const folderLabels = folderOptions.map((f) => f.name || "(no folder)");
+  const stateId = stateOptions.find((s) => s.name === group.state)?.id || "";
+
+  const [districtOptions, setDistrictOptions] = useState([]);
+  useEffect(() => {
+    if (!stateId) {
+      setDistrictOptions([]);
+      return;
+    }
+    getDashboardDistricts(stateId)
+      .then((d) => setDistrictOptions(d || []))
+      .catch(() => {});
+  }, [stateId]);
+
+  const [kvkOptions, setKvkOptions] = useState([]);
+  useEffect(() => {
+    if (!group.district_id) {
+      setKvkOptions([]);
+      return;
+    }
+    getDashboardKvks(group.district_id)
+      .then((d) => setKvkOptions(d || []))
+      .catch(() => {});
+  }, [group.district_id]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-start rounded-md border border-border/50 p-2">
-      <div className="flex flex-col gap-1">
-        <span className="text-[10px] text-muted-foreground">State</span>
-        <StateSelector value={group.state} onChange={(v) => onChange({ state: v })} stateNames={stateNames} />
+    <div className="flex flex-col gap-2 rounded-md border border-border/50 p-2">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-start">
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-muted-foreground">State</span>
+          <StateSelector
+            value={group.state}
+            onChange={(v) => onChange({ state: v, district_id: "", kvk_id: "" })}
+            stateNames={stateNames}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-muted-foreground">Folder(s) — crop or organisation</span>
+          <MultiSelector
+            value={group.folders}
+            onChange={(v) => onChange({ folders: v })}
+            names={folderLabels}
+            placeholder="Select folder(s)…"
+          />
+        </div>
+        {removable && (
+          <button
+            className="self-start mt-4 p-1 rounded border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors cursor-pointer"
+            onClick={onRemove}
+            title="Remove this state"
+          >
+            <X size={12} />
+          </button>
+        )}
       </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-[10px] text-muted-foreground">Folder(s) — crop or organisation</span>
-        <MultiSelector
-          value={group.folders}
-          onChange={(v) => onChange({ folders: v })}
-          names={folderLabels}
-          placeholder="Select folder(s)…"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-muted-foreground">District</span>
+          {stateId ? (
+            <select
+              className={selectClass}
+              value={group.district_id}
+              onChange={(e) => onChange({ district_id: e.target.value, kvk_id: "" })}
+            >
+              <option value="">— none —</option>
+              {districtOptions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[11px] text-muted-foreground italic py-1.5">Select a state first</span>
+          )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-muted-foreground">KVK</span>
+          {group.district_id ? (
+            <select
+              className={selectClass}
+              value={group.kvk_id}
+              onChange={(e) => onChange({ kvk_id: e.target.value })}
+            >
+              <option value="">— none —</option>
+              {kvkOptions.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[11px] text-muted-foreground italic py-1.5">Select a district first</span>
+          )}
+        </div>
       </div>
-      {removable && (
-        <button
-          className="self-start mt-4 p-1 rounded border border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors cursor-pointer"
-          onClick={onRemove}
-          title="Remove this state"
-        >
-          <X size={12} />
-        </button>
-      )}
     </div>
   );
 }
@@ -97,7 +176,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
 
   useEffect(() => {
     getDashboardStates()
-      .then((d) => setStateOptions((d || []).map((s) => s.name)))
+      .then((d) => setStateOptions(d || []))
       .catch(() => {});
     getDashboardLanguages()
       .then((d) => setLanguageOptions(d || []))
@@ -171,6 +250,8 @@ export default function AddDocumentForm({ onUploadQueued }) {
         const p = { state: g.state };
         if (crop_ids.length) p.crop_ids = crop_ids;
         if (organization_ids.length) p.organization_ids = organization_ids;
+        if (g.district_id) p.district_id = g.district_id;
+        if (g.kvk_id) p.kvk_id = g.kvk_id;
         return p;
       })
       .filter((p) => p.crop_ids || p.organization_ids);
@@ -267,7 +348,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
             key={g.key}
             group={g}
             folderOptions={folderOptions}
-            stateNames={stateOptions}
+            stateOptions={stateOptions}
             onChange={(patch) => updateGroup(g.key, patch)}
             onRemove={() => removeGroup(g.key)}
             removable={groups.length > 1}

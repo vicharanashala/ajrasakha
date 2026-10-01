@@ -111,16 +111,15 @@ const FIELD_COLUMNS = [
 ];
 const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, actions (delete)
 
-// Every column sorts now (2026-09-29 widening: "a column you can filter, you can sort", 34
-// columns on /unique-documents) except placement_count above (`sortable: false`, opted out
-// explicitly) — a plain filterable/options/filterType column sorts by its own `key`; the two
-// derived State/Folder columns sort by their `sortKey` (the real field name the backend resolves
-// against the anchor placement) since their `key` here is a client-side-only property name.
+// Pulled back (2026-10-01) from "every column sorts" to numeric columns only — num_pages,
+// month_of_release/collection, year_of_release/collection — per the perf pass: that many sort
+// buttons plus the state behind them wasn't worth it for columns a user sorts alphabetically at
+// best. `sortKeyFor` is still here for the numeric columns' own `key`.
 function sortKeyFor(col) {
   return col.sortKey || col.key;
 }
 function isSortable(col) {
-  return col.sortable !== false;
+  return col.filterType === "numberRange";
 }
 
 const MULTI_PLACEMENT_OPTIONS = [
@@ -164,11 +163,11 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     getDashboardReviewedByOptions().then(setReviewedByOptions).catch(() => {});
   }, [refreshKey]);
 
-  // State/Folder/District/KVK filter dropdowns — id-based, same convention and narrowing rules as
-  // MainTable.tsx's identical setup (Folder follows the Advisory Type filter's value; District/KVK
-  // follow the State filter's value, only when exactly one state is picked). Filtering here now
-  // matches on any of the document's placements, not just the anchor shown in the column (see
-  // DERIVED_COLUMNS comment above) — same filter[] keys as the Main Table.
+  // State/Folder/District/KVK filter dropdowns — id-based, same convention as MainTable.tsx's
+  // identical setup (Folder follows the Advisory Type filter's value; District/KVK fetch their full
+  // lists, unnarrowed — see the fetch effect below). Filtering here now matches on any of the
+  // document's placements, not just the anchor shown in the column (see DERIVED_COLUMNS comment
+  // above) — same filter[] keys as the Main Table.
   const [stateOptions, setStateOptions] = useState([]);
   useEffect(() => {
     getDashboardStates()
@@ -198,17 +197,17 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     label: f.name || "(no folder)",
   }));
 
-  const stateFilterId = filters.state_id?.length === 1 ? filters.state_id[0] : "";
+  // Full list, not narrowed by the State filter — see MainTable.tsx's identical comment.
   const [districtFilterOptions, setDistrictFilterOptions] = useState([]);
   const [kvkFilterOptions, setKvkFilterOptions] = useState([]);
   useEffect(() => {
-    getDashboardDistricts(stateFilterId)
+    getDashboardDistricts()
       .then((d) => setDistrictFilterOptions(d || []))
       .catch(() => {});
-    getDashboardKvks(stateFilterId)
+    getDashboardKvks()
       .then((d) => setKvkFilterOptions(d || []))
       .catch(() => {});
-  }, [stateFilterId]);
+  }, []);
 
   // The anchor placement — same one `representative_file_id`/Translation act on — named by
   // `representative_row_id` inside the document's own `duplicate_links` (see DERIVED_COLUMNS
@@ -285,25 +284,14 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   }
   const multiPlacementValue = filters.multi_placement?.[0] || "";
 
-  // Last-hovered row stays highlighted (a stronger color than the plain :hover state) until
-  // another row is hovered — see MainTable.tsx's identical pattern.
-  const [hoveredRowId, setHoveredRowId] = useState(null);
-
-  function rowSummary(row) {
-    return [
-      `${row.shareable_name || "(untitled)"} (${row.document_id})`,
-      row._anchor_state ? `${row._anchor_state} / ${row._anchor_crop || "(no folder)"}` : null,
-      row._anchor_district ? `District: ${row._anchor_district}` : null,
-      row._anchor_kvk ? `KVK: ${row._anchor_kvk}` : null,
-      row.language ? `Language: ${row.language}` : null,
-      row.num_pages != null ? `Pages: ${row.num_pages}` : null,
-      row.document_status ? `Doc Status: ${row.document_status}` : null,
-      row.verification_status ? `Verification: ${row.verification_status}` : null,
-      `Translation: ${row.translation_status || "not_started"}`,
-      `Review: ${row.review_status || "not_started"}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+  // Row color is click-driven only (2026-10-01 perf pass) — no tooltip, no hover handling at all;
+  // a hover-driven tooltip/highlight was re-rendering the whole 100-row table on every mousemove,
+  // which is what made the page feel slow. A click just toggles the row's highlight; double-click
+  // still opens the Document Detail modal.
+  const [selectedRowId, setSelectedRowId] = useState(null);
+  function handleRowClick(e, row) {
+    if (e.target.closest("button, a, input, select, textarea")) return;
+    setSelectedRowId(row.id);
   }
 
   // Double-click anywhere in the row that isn't an interactive control opens the same Document
@@ -630,11 +618,10 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
               rows.map((row, idx) => (
                 <tr
                   key={row.id}
-                  title={rowSummary(row)}
-                  onMouseEnter={() => setHoveredRowId(row.id)}
+                  onClick={(e) => handleRowClick(e, row)}
                   onDoubleClick={(e) => handleRowDoubleClick(e, row)}
-                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors cursor-default ${
-                    hoveredRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                  className={`border-b border-border/50 transition-colors cursor-pointer ${
+                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
                   }`}
                 >
                   {FIELD_COLUMNS.map((col) => {
