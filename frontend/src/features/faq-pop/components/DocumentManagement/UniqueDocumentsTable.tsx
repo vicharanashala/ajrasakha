@@ -114,12 +114,14 @@ const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, 
 // Pulled back (2026-10-01) from "every column sorts" to numeric columns only — num_pages,
 // month_of_release/collection, year_of_release/collection — per the perf pass: that many sort
 // buttons plus the state behind them wasn't worth it for columns a user sorts alphabetically at
-// best. `sortKeyFor` is still here for the numeric columns' own `key`.
+// best. `sortKeyFor` is still here for the numeric columns' own `key`. Re-added (2026-10-02) for
+// the four dateRange columns too — date_of_release, date_of_collection, translated_at, reviewed_at
+// — chronological sort is as meaningful as a numeric one, unlike the alphabetic columns left out.
 function sortKeyFor(col) {
   return col.sortKey || col.key;
 }
 function isSortable(col) {
-  return col.filterType === "numberRange";
+  return col.filterType === "numberRange" || col.filterType === "dateRange";
 }
 
 const MULTI_PLACEMENT_OPTIONS = [
