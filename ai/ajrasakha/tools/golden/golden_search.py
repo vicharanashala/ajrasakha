@@ -17,6 +17,7 @@ BM25_RELEVANCE_WEIGHT = float(os.getenv("BM25_RELEVANCE_WEIGHT", "0.4"))
 SEMANTIC_RELEVANCE_WEIGHT = float(os.getenv("SEMANTIC_RELEVANCE_WEIGHT", "0.6"))
 
 try:
+    from ajrasakha.utils import jev_client, jev_tasks
     from .gemma_classifier import (
         GEMMA_MODEL,
         _decision_to_score,
@@ -38,6 +39,8 @@ try:
     )
     from .keyword_extractor import extract_keywords, extract_keywords_for_bm25
 except ImportError:
+    import jev_client  # type: ignore[no-redef]
+    import jev_tasks  # type: ignore[no-redef]
     from gemma_classifier import (
         GEMMA_MODEL,
         _decision_to_score,
@@ -62,6 +65,13 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 SELECTION_RULE = "relevance_filter_then_same_intent_then_covered_by_context"
+
+
+def _decision_model() -> str:
+    """Name the model that the configured Golden decision path will call."""
+    if jev_client.provider_for("golden_relevance") == "jev":
+        return f"jev:{jev_client.gateway()}:{jev_client.model_name()}"
+    return GEMMA_MODEL
 
 
 def _apply_crop_fallback_metadata(
@@ -103,7 +113,7 @@ def _exact_match_response(
         "selected_match": None,
         "classification_audit": {
             "status": "exact_bypass",
-            "model": GEMMA_MODEL,
+            "model": "none (strict exact match)",
             "evaluations": [],
             "selected_question_id": pair.question_id,
             "selection_rule": "strict_exact",
@@ -365,7 +375,7 @@ async def gdb_search(
         "selected_match": None,
         "classification_audit": {
             "status": "empty",
-            "model": GEMMA_MODEL,
+            "model": _decision_model(),
             "relevance_filter_mode": "batch_all_candidates",
             "evaluations": [],
             "selected_question_id": None,
@@ -456,6 +466,246 @@ async def gdb_search(
         crop_fallback=crop_fallback,
         scoring_query=scoring_query,
     )
+
+
+async def gdb_search_jev_existing_eval(
+    rephrased_query: str,
+    crop: str,
+    state: str,
+    *,
+    season: Optional[str] = None,
+    domain: Optional[str] = None,
+) -> dict[str, Any]:
+    """Run the existing GDB flow while forcing only its decision calls to Jev."""
+    with jev_client.provider_override({
+        jev_tasks.GOLDEN_FILTER_TASK: "jev",
+        jev_tasks.GOLDEN_CLASSIFY_TASK: "jev",
+        jev_tasks.GOLDEN_TIE_TASK: "jev",
+        "fallback": "current",
+    }):
+        response = await gdb_search(
+            rephrased_query=rephrased_query,
+            crop=crop,
+            state=state,
+            season=season,
+            domain=domain,
+            embedding_field="embedding",
+        )
+    audit = response.get("classification_audit") or {}
+    audit["mode"] = "jev_existing_flow_experimental"
+    response["classification_audit"] = audit
+    return response
+
+
+async def gdb_search_choice_noul_eval(
+    rephrased_query: str,
+    crop: str,
+    state: str,
+    *,
+    season: Optional[str] = None,
+    domain: Optional[str] = None,
+    sufficiency_threshold: float = 0.5,
+) -> dict[str, Any]:
+    """Experimental retrieval + batched Jev Choice/Noul selection.
+
+    This is intentionally separate from ``gdb_search`` so Swagger evaluation
+    cannot change the production selection path.
+    """
+    crop, state = _normalize_crop_state(crop, state)
+    original_crop = crop
+    crop_fallback = False
+    query = (rephrased_query or "").strip()
+    if not query:
+        raise ValueError("rephrased_query is required")
+
+    response: dict[str, Any] = {
+        "rephrased_query": query,
+        "state": state,
+        "crop": crop,
+        "exact_match": {},
+        "selected_match": None,
+        "classification_audit": {
+            "status": "empty",
+            "model": f"jev:{jev_client.gateway()}:{jev_client.model_name()}",
+            "mode": "choice_plus_noul_experimental",
+            "sufficiency_threshold": sufficiency_threshold,
+            "evaluations": [],
+            "selected_question_id": None,
+            "selection_rule": "answer_sufficiency_then_same_probability_then_vector_similarity",
+        },
+    }
+
+    strict_results = await strict_exact_search(query=query, crop=crop, state=state)
+    if strict_results:
+        exact = _exact_match_response(
+            query, state, crop, strict_results[0], original_crop=original_crop, crop_fallback=False
+        )
+        exact["classification_audit"]["mode"] = "choice_plus_noul_experimental"
+        return exact
+
+    pairs = await vector_rag_search(query, crop, state, season=season, domain=domain)
+    if not pairs and crop != "all":
+        crop_fallback = True
+        pairs = await vector_rag_search(query, "all", state, season=season, domain=domain)
+        crop = "all"
+        response["crop"] = crop
+    if not pairs:
+        _apply_crop_fallback_metadata(
+            response, original_crop=original_crop, crop_fallback=crop_fallback
+        )
+        return response
+
+    jev_state, questions = jev_tasks.golden_choice_noul_request(query, crop, state, pairs)
+    result = await jev_client.adecide(jev_tasks.GOLDEN_CHOICE_NOUL_TASK, jev_state, questions)
+    decisions = jev_tasks.golden_choice_noul_results(result, len(pairs))
+    winner_idx = jev_tasks.select_golden_choice_noul(
+        decisions, pairs, sufficiency_threshold=sufficiency_threshold
+    )
+
+    evaluations = []
+    for i, (pair, decision) in enumerate(zip(pairs, decisions)):
+        chosen = i == winner_idx
+        sufficient = decision["answer_sufficiency"] >= sufficiency_threshold
+        evaluations.append({
+            "question_id": pair.question_id,
+            "retrieved_question": pair.question_text,
+            "similarity_score": pair.similarity_score,
+            "intent": decision["intent"],
+            "intent_probabilities": decision["intent_probabilities"],
+            "intent_confidence": decision["intent_confidence"],
+            "answer_sufficiency_noul": decision["answer_sufficiency"],
+            "eligible": decision["intent"] != "REJECT" and sufficient,
+            "chosen_for_answer": chosen,
+            "action": "selected" if chosen else (
+                "rejected_intent" if decision["intent"] == "REJECT" else
+                "rejected_insufficient_answer" if not sufficient else
+                "skipped_lower_answer_sufficiency"
+            ),
+        })
+
+    audit = response["classification_audit"]
+    audit["evaluations"] = evaluations
+    audit["jev_usage"] = {
+        "model": result.model,
+        "latency_ms": round(result.latency_ms, 1),
+        "input_tokens": result.input_tokens,
+        "output_tokens": result.output_tokens,
+        "cost": result.cost,
+    }
+    if winner_idx is not None:
+        winner = pairs[winner_idx]
+        response["selected_match"] = match_entry(
+            winner,
+            RETRIEVAL_SOURCE_RAG,
+            gemma_class="JEV_CHOICE_NOUL",
+            chosen_for_answer=True,
+            answer_from_class="ANSWER_SUFFICIENT",
+        )
+        audit["status"] = "selected"
+        audit["selected_question_id"] = winner.question_id
+        audit["chosen_for_answer"] = True
+    else:
+        audit["chosen_for_answer"] = False
+
+    _apply_crop_fallback_metadata(
+        response, original_crop=original_crop, crop_fallback=crop_fallback
+    )
+    return response
+
+
+async def gdb_search_jev_gated_eval(
+    rephrased_query: str,
+    crop: str,
+    state: str,
+    *,
+    season: Optional[str] = None,
+    domain: Optional[str] = None,
+    max_conflict_probability: float = 0.2,
+    reject_conflict_probability: float = 0.8,
+) -> dict[str, Any]:
+    """Run the existing GDB selection first, then let Jev verify its answer."""
+    crop, state = _normalize_crop_state(crop, state)
+    query = (rephrased_query or "").strip()
+    if not query:
+        raise ValueError("rephrased_query is required")
+    # This route measures Jev's value as a verifier. The ordinary GDB pipeline
+    # chooses its answer using the existing provider, even when environment
+    # variables route other experimental GDB calls through Jev.
+    with jev_client.provider_override({"*": "current", "fallback": "current"}):
+        response = await gdb_search(
+            rephrased_query=query,
+            crop=crop,
+            state=state,
+            season=season,
+            domain=domain,
+            embedding_field="embedding",
+        )
+
+    baseline_audit = response.get("classification_audit") or {}
+    baseline_match = response.get("exact_match") or response.get("selected_match")
+    audit: dict[str, Any] = {
+        "status": "baseline_no_answer",
+        "mode": "verify_existing_gdb_answer_experimental",
+        "model": f"jev:{jev_client.gateway()}:{jev_client.model_name()}",
+        "baseline_model": baseline_audit.get("model"),
+        "baseline_status": baseline_audit.get("status"),
+        "baseline_selected_match": baseline_match,
+        "thresholds": {
+            "maximum_conflict": max_conflict_probability,
+            "reject_conflict": reject_conflict_probability,
+        },
+        "checks": {},
+        "gate_decision": "not_run",
+        "requires_review": False,
+        "selected_question_id": baseline_match.get("question_id") if baseline_match else None,
+        "selection_rule": "existing_gdb_selects_then_jev_verifies_selected_answer",
+        "baseline_audit": baseline_audit,
+    }
+    response["classification_audit"] = audit
+    if not baseline_match:
+        return response
+
+    jev_state, questions = jev_tasks.golden_answer_verify_request(
+        query, response.get("crop") or crop, state, baseline_match
+    )
+    result = await jev_client.adecide(
+        jev_tasks.GOLDEN_ANSWER_VERIFY_TASK, jev_state, questions
+    )
+    checks = jev_tasks.golden_answer_verify_result(result)
+    decision = jev_tasks.golden_answer_gate_decision(
+        checks,
+        max_conflict_probability=max_conflict_probability,
+        reject_conflict_probability=reject_conflict_probability,
+    )
+    audit.update({
+        "status": decision,
+        "gate_decision": decision,
+        "checks": {
+            "target_alignment": checks["target_alignment"],
+            "target_probabilities": checks["target_probabilities"],
+            "target_confidence": checks["target_confidence"],
+            "task_coverage": checks["task_coverage"],
+            "task_probabilities": checks["task_probabilities"],
+            "task_confidence": checks["task_confidence"],
+            "conflict_probability": checks["has_conflict"],
+        },
+        "requires_review": decision == "review",
+        "chosen_for_answer": decision == "accept",
+        "jev_usage": {
+            "model": result.model,
+            "latency_ms": round(result.latency_ms, 1),
+            "input_tokens": result.input_tokens,
+            "output_tokens": result.output_tokens,
+            "cost": result.cost,
+        },
+    })
+
+    if decision != "accept":
+        # Keep the blocked answer in baseline_selected_match for inspection,
+        # but do not expose it as the endpoint's usable answer.
+        response["exact_match"] = {}
+        response["selected_match"] = None
+    return response
 
 
 def _combined_score(similarity_score: float, relevance_score: float) -> float:
@@ -766,7 +1016,7 @@ async def gdb_search_v2(
             "selected_match": None,
             "classification_audit": {
                 "status": "empty",
-                "model": GEMMA_MODEL,
+                "model": _decision_model(),
                 "search_mode": "v2_combined",
                 "keywords_used": keywords,
                 "evaluations": [],
@@ -797,7 +1047,7 @@ async def gdb_search_v2(
         "selected_match": None,
         "classification_audit": {
             "status": "empty",
-            "model": GEMMA_MODEL,
+            "model": _decision_model(),
             "search_mode": "v2_combined",
             "relevance_filter_mode": "batch_all_candidates",
             "evaluations": [],

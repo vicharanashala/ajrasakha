@@ -4,22 +4,38 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 
 log = logging.getLogger(__name__)
 
 try:
-    from .golden_search import gdb_search, gdb_search_v2
+    from .golden_search import (
+        gdb_search,
+        gdb_search_v2,
+        gdb_search_jev_existing_eval,
+        gdb_search_choice_noul_eval,
+        gdb_search_jev_gated_eval,
+    )
+    from ajrasakha.utils import jev_client
     from .golden_pending_duplicate import check_pending_duplicate
     from .query_refinement import refine_query_to_core_farming_question
     from .golden_similar_question import find_similar_questions, SimilarQuestionRequest
     from .translate import translate_to_english
     from .query_preprocessor import classify_query_combined
 except ImportError:
-    from golden_search import gdb_search, gdb_search_v2
+    from golden_search import (
+        gdb_search,
+        gdb_search_v2,
+        gdb_search_jev_existing_eval,
+        gdb_search_choice_noul_eval,
+        gdb_search_jev_gated_eval,
+    )
+    import jev_client
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
     from golden_similar_question import find_similar_questions, SimilarQuestionRequest
@@ -82,6 +98,33 @@ class GDBSearchResponse(BaseModel):
     classification_audit: dict = Field(
         default_factory=dict,
         description="Full Gemma pipeline audit: relevance, classification, chosen_for_answer per candidate.",
+    )
+
+
+class GDBChoiceNoulRequest(GDBSearchRequest):
+    sufficiency_threshold: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Experimental minimum Noul probability that the stored answer sufficiently answers the farmer. "
+            "0.50 is provisional and is not a production recommendation."
+        ),
+    )
+
+
+class GDBGatedJevRequest(GDBSearchRequest):
+    max_conflict_probability: float = Field(
+        0.2,
+        ge=0.0,
+        le=1.0,
+        description="Maximum conflict probability allowed for automatic acceptance.",
+    )
+    reject_conflict_probability: float = Field(
+        0.8,
+        ge=0.0,
+        le=1.0,
+        description="Conflict probability at or above this value causes rejection.",
     )
 
 
@@ -160,6 +203,12 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/demo", include_in_schema=False)
+async def comparison_demo():
+    """Serve the local four-method GDB comparison interface."""
+    return FileResponse(Path(__file__).with_name("golden_demo.html"))
+
+
 @app.post(
     "/v1/gdb/search",
     response_model=GDBSearchResponse,
@@ -169,19 +218,109 @@ async def health():
         "1. **Strict exact** on `rephrased_query` (+ crop/state filters) → if hit, return `exact_match` only.\n"
         "2. Else **vector RAG** on `rephrased_query`.\n"
         "3. If both return no hits and crop is not `all`, retry steps 1–2 with `crop=all`.\n"
-        "4. **Gemma** relevance + classify + select one answer using the same `rephrased_query`."
+        "4. The existing decision provider performs relevance, classification, and selection "
+        "using the same `rephrased_query`."
     ),
 )
 async def search_gdb(body: GDBSearchRequest):
-    result = await gdb_search(
-        rephrased_query=body.rephrased_query,
-        crop=body.crop,
-        state=body.state,
-        season=body.season,
-        domain=body.domain,
-        embedding_field="embedding",  # V1 uses "embedding" field
-    )
+    # Keep this route as a stable baseline for side-by-side Swagger demos.
+    # Dedicated experimental routes below explicitly opt into Jev.
+    with jev_client.provider_override({"*": "current", "fallback": "current"}):
+        result = await gdb_search(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            embedding_field="embedding",  # V1 uses "embedding" field
+        )
     return result
+
+
+@app.post(
+    "/v1/gdb/search-jev-existing-flow",
+    response_model=GDBSearchResponse,
+    summary="Method 1: Run the existing GDB flow with Jev",
+    description=(
+        "Experimental Swagger route for Method 1. Retrieval, filters, and selection order remain unchanged. "
+        "Only the existing relevance, intent-classification, and tie-break decisions are forced to Jev. "
+        "The normal `/v1/gdb/search` endpoint remains on its configured provider."
+    ),
+)
+async def search_gdb_jev_existing_flow(body: GDBSearchRequest):
+    try:
+        return await gdb_search_jev_existing_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev Method 1 evaluation failed: {type(exc).__name__}",
+        ) from exc
+
+
+@app.post(
+    "/v1/gdb/search-jev-choice-noul",
+    response_model=GDBSearchResponse,
+    summary="Experiment: Search GDB with Jev Choice + Noul",
+    description=(
+        "Experimental Swagger route; it does not change `/v1/gdb/search`.\n\n"
+        "1. Retrieve GDB candidates using the existing vector search.\n"
+        "2. In one Jev request, classify each candidate question as SAME/KEEP/REJECT.\n"
+        "3. In that same request, use Noul to estimate whether each stored answer sufficiently answers the farmer.\n"
+        "4. Select among non-REJECT candidates whose answer-sufficiency probability meets the supplied threshold."
+    ),
+)
+async def search_gdb_choice_noul(body: GDBChoiceNoulRequest):
+    try:
+        return await gdb_search_choice_noul_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            sufficiency_threshold=body.sufficiency_threshold,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev evaluation failed: {type(exc).__name__}",
+        ) from exc
+
+
+@app.post(
+    "/v1/gdb/search-jev-gated",
+    response_model=GDBSearchResponse,
+    summary="Experiment: Verify the existing GDB answer with Jev",
+    description=(
+        "Experimental Swagger route; it does not change `/v1/gdb/search` or the earlier Choice + Noul route.\n\n"
+        "1. Run the existing GDB search and let its normal pipeline select one answer.\n"
+        "2. Send only the farmer question and that selected answer to Jev.\n"
+        "3. Classify target alignment and task coverage with Choice, then estimate material-conflict risk with Noul.\n"
+        "4. Apply a transparent policy: exact target + full task + low conflict is accepted; broad/partial is sent "
+        "for review; different target/task or high conflict is rejected. Conflict thresholds are provisional."
+    ),
+)
+async def search_gdb_jev_gated(body: GDBGatedJevRequest):
+    try:
+        return await gdb_search_jev_gated_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            max_conflict_probability=body.max_conflict_probability,
+            reject_conflict_probability=body.reject_conflict_probability,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev gated selection failed: {type(exc).__name__}",
+        ) from exc
 
 
 @app.post(

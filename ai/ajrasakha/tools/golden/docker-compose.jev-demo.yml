@@ -1,0 +1,16 @@
+# Side-by-side Jev/GDB evaluation service.
+# This intentionally uses a different container name and host port from the
+# existing Golden API so evaluation cannot replace production traffic.
+services:
+  golden-jev-demo:
+    build:
+      context: ../../..
+      dockerfile: ajrasakha/tools/golden/Dockerfile
+    container_name: golden-jev-demo
+    ports:
+      - "${JEV_DEMO_PORT:-8111}:8005"
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    restart: unless-stopped
