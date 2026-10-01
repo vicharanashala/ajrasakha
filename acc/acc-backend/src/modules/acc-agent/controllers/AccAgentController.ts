@@ -5,6 +5,7 @@ import {
   Body,
   HttpCode,
   Authorized,
+  CurrentUser,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -147,7 +148,8 @@ export class AccAgentController {
         farmerPhone?: string;
         farmerName?: string;
       };
-    }
+    },
+    @CurrentUser() currentUser?: any
   ): Promise<any> {
     try {
       // 1. Resume the agent
@@ -238,7 +240,8 @@ export class AccAgentController {
         if ((!existingCallDetails || (existingCallDetails.status === 'connected' && (!existingCallDetails.duration || existingCallDetails.duration === 0))) && !isTestCall) {
           const isAlreadyRegisteredParent = !!this.plivoService.getCallMetadata(targetCallUuid);
           if (!isAlreadyRegisteredParent) {
-            const parentUuid = this.plivoService.findParentCallUuid(farmerPhone);
+            const currentAgentId = currentUser?._id ? String(currentUser._id) : (currentUser?.agent || undefined);
+            const parentUuid = this.plivoService.findParentCallUuid(farmerPhone, currentAgentId);
             if (parentUuid && parentUuid !== targetCallUuid) {
               console.log(`🔗 [AccAgentController] Redirected query from bridge leg ${targetCallUuid} to parent ${parentUuid}`);
               targetCallUuid = parentUuid;

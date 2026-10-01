@@ -38,11 +38,14 @@ export const initWebSocket = (server: Server) => {
 
     Array.from(wss.clients).forEach((client: any) => {
       if (client.readyState === 1 && !client.isMediaStream) {
-        const isTargetAgent = assignedAgentId && client.userId === assignedAgentId;
+        const isTargetAgent = Boolean(
+          assignedAgentId &&
+          (client.userId === assignedAgentId || client.agentNumber === assignedAgentId)
+        );
         const isAdminOrMod = client.userRole === 'admin' || client.userRole === 'moderator';
 
-        // Deliver to the assigned call agent, verified admins/moderators, or authenticated frontend softphone clients
-        if (isTargetAgent || isAdminOrMod || Boolean(client.userId)) {
+        // Deliver strictly to the assigned call agent or verified admins/moderators
+        if (isTargetAgent || isAdminOrMod) {
           try {
             client.send(JSON.stringify(payload));
             recipientCount++;
@@ -81,8 +84,9 @@ export const initWebSocket = (server: Server) => {
         const decodedUser = await firebaseAuthService.getCurrentUserFromToken(rawToken);
         if (decodedUser) {
           (ws as any).userId = decodedUser._id?.toString() || null;
+          (ws as any).agentNumber = decodedUser.agent || null;
           (ws as any).userRole = decodedUser.role || null;
-          console.log(`[WEBSOCKET] Client authenticated: userId=${(ws as any).userId}, role=${(ws as any).userRole}`);
+          console.log(`[WEBSOCKET] Client authenticated: userId=${(ws as any).userId}, agent=${(ws as any).agentNumber}, role=${(ws as any).userRole}`);
         }
       }
     } catch (authError: any) {
@@ -237,15 +241,12 @@ export const initWebSocket = (server: Server) => {
 
       if (isMediaStream) {
         await handleCallEnd();
-      } else {
-        plivoService.clearTranscript(callId.toString());
+        sendTargeted(callId.toString(), {
+          type: 'call_disconnected',
+          callId,
+          timestamp: new Date().toISOString()
+        });
       }
-
-      sendTargeted(callId.toString(), {
-        type: 'call_disconnected',
-        callId,
-        timestamp: new Date().toISOString()
-      });
     });
 
     ws.on('error', (err) => {

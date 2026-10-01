@@ -157,29 +157,39 @@ export class PlivoController {
               agentUser = activeAgents.find(a => a.agent === matchedCred.agentNumber) || null;
             }
           }
-          if (!agentUser && activeAgents.length > 0) {
-            agentUser = activeAgents[0];
+          if (!agentUser) {
+            console.warn(`⚠️ [PLIVO-CONTROLLER] Could not identify agent for outbound call ${callUuid}. Caller: ${callerNumber}, Identifier: ${agentIdentifier}`);
           }
         } catch (findErr) {
           console.warn(`⚠️ [PLIVO-CONTROLLER] Error identifying agent for outbound call ${callUuid}:`, findErr);
         }
 
+        if (!agentUser) {
+          console.error(`❌ [PLIVO-CONTROLLER] Refusing outbound call ${callUuid} because no agent could be verified.`);
+          const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Speak voice="MAN" language="en-US">Agent identity could not be verified for outbound call.</Speak>
+  <Hangup />
+</Response>`;
+          res.set('Content-Type', 'text/xml');
+          return res.send(xml);
+        }
+
         const effectiveCallerId = myPlivoNumber && !myPlivoNumber.includes('+1555') ? myPlivoNumber : '+918031150392';
 
-        if (agentUser) {
-          availableAgent = agentUser;
-          await this.agentAssignmentService.markAgentAsBusy(agentUser._id.toString(), callUuid);
-        }
+        availableAgent = agentUser;
+        await this.agentAssignmentService.markAgentAsBusy(agentUser._id.toString(), callUuid);
 
         this.plivoService.registerCall(callUuid, {
           from: effectiveCallerId,
           to: destination,
-          agentUserId: agentUser?._id?.toString(),
+          agentUserId: agentUser._id.toString(),
+          agentNumber: agentUser.agent,
           direction: 'outbound',
           startTime: new Date(),
         });
 
-        console.log(`✅ [PLIVO-CONTROLLER] Outbound call ${callUuid} to ${destination} registered for agent ${agentUser?.agent || 'unknown'}`);
+        console.log(`✅ [PLIVO-CONTROLLER] Outbound call ${callUuid} to ${destination} registered for agent ${agentUser.agent || 'unknown'}`);
 
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -210,6 +220,7 @@ export class PlivoController {
           from: callerNumber,
           to: myPlivoNumber,
           agentUserId: availableAgent._id.toString(),
+          agentNumber: agentNumber,
           direction: 'inbound',
           startTime: new Date(),
         });

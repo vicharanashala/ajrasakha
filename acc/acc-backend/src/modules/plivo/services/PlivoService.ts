@@ -53,7 +53,7 @@ export class PlivoService {
   private activeStreams: Map<string, SarvamStreamSession> = new Map();
   private plivoClient: plivo.Client;
   private callAgentMapping: Map<string, string> = new Map();
-  private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }> = new Map();
+  private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; agentNumber?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }> = new Map();
 
   private lastActivityMap: Map<string, number> = new Map();
   // private audioDumpBuffers: Map<string, Buffer[]> = new Map();
@@ -583,7 +583,7 @@ export class PlivoService {
   }
 
 
-  registerCall(callUuid: string, info: { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }): void {
+  registerCall(callUuid: string, info: { from?: string; to?: string; agentUserId?: string; agentNumber?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }): void {
     // Inline purge if memory map grows above 500 entries (TTL 30 minutes)
     if (this.callMetadataMap.size > 500) {
       const now = Date.now();
@@ -607,10 +607,10 @@ export class PlivoService {
     if (info.agentUserId) {
       this.callAgentMapping.set(callUuid, info.agentUserId);
     }
-    console.log(`📞 [PLIVO-SERVICE] Registered call metadata for ${callUuid}: from=${info.from}, to=${info.to}, direction=${info.direction || 'inbound'}, agent=${info.agentUserId}`);
+    console.log(`📞 [PLIVO-SERVICE] Registered call metadata for ${callUuid}: from=${info.from}, to=${info.to}, direction=${info.direction || 'inbound'}, agent=${info.agentUserId}, agentNumber=${info.agentNumber}`);
   }
 
-  getCallMetadata(callUuid: string): { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date } | undefined {
+  getCallMetadata(callUuid: string): { from?: string; to?: string; agentUserId?: string; agentNumber?: string; direction?: 'inbound' | 'outbound'; startTime?: Date } | undefined {
     return this.callMetadataMap.get(callUuid);
   }
 
@@ -646,7 +646,8 @@ export class PlivoService {
         if (now - startTimeMs > maxWindowMs) continue;
 
         const cleanFrom = meta.from ? meta.from.replace(/[^\d]/g, '').slice(-10) : '';
-        if (cleanFrom === cleanTargetPhone && meta.agentUserId === agentUserId) {
+        const matchesAgent = meta.agentUserId === agentUserId || meta.agentNumber === agentUserId;
+        if (cleanFrom === cleanTargetPhone && matchesAgent) {
           return uuid;
         }
       }
@@ -674,7 +675,8 @@ export class PlivoService {
         const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
         if (now - startTimeMs > 45 * 1000) continue;
 
-        if (meta.agentUserId === agentUserId) {
+        const matchesAgent = meta.agentUserId === agentUserId || meta.agentNumber === agentUserId;
+        if (matchesAgent) {
           return uuid;
         }
       }

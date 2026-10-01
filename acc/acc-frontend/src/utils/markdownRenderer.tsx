@@ -34,7 +34,7 @@ export const renderMarkdown = (text: string, options: RenderMarkdownOptions = {}
           return (
             <code
               key={`c-${bIdx}-${cIdx}`}
-              className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-[12px] border border-zinc-200/60 dark:border-zinc-700/60"
+              className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-[12px] border border-zinc-200/60 dark:border-zinc-700/60 break-all"
             >
               {codePart}
             </code>
@@ -47,7 +47,7 @@ export const renderMarkdown = (text: string, options: RenderMarkdownOptions = {}
             return (
               <em
                 key={`i-${bIdx}-${cIdx}-${iIdx}`}
-                className="italic text-zinc-800 dark:text-zinc-200"
+                className="italic text-zinc-800 dark:text-zinc-200 break-words"
               >
                 {italicPart}
               </em>
@@ -61,7 +61,7 @@ export const renderMarkdown = (text: string, options: RenderMarkdownOptions = {}
         return (
           <strong
             key={`b-${bIdx}`}
-            className="font-bold text-zinc-950 dark:text-zinc-50"
+            className="font-bold text-zinc-950 dark:text-zinc-50 break-words"
           >
             {elements}
           </strong>
@@ -150,56 +150,56 @@ export const renderMarkdown = (text: string, options: RenderMarkdownOptions = {}
   pushCurrentList();
 
   return (
-    <div className={`space-y-1.5 ${baseFontSize} ${className}`}>
+    <div className={`space-y-1.5 ${baseFontSize} ${className} break-words [overflow-wrap:anywhere] min-w-0`}>
       {blocks.map((block, idx) => {
         if (block.type === "h1") {
           return (
-            <h1 key={idx} className="text-base font-bold text-zinc-900 dark:text-zinc-100 pt-1 pb-0.5 border-b border-zinc-200 dark:border-zinc-800">
+            <h1 key={idx} className="text-base font-bold text-zinc-900 dark:text-zinc-100 pt-1 pb-0.5 border-b border-zinc-200 dark:border-zinc-800 break-words">
               {parseInlineMarkdown(block.text)}
             </h1>
           );
         }
         if (block.type === "h2") {
           return (
-            <h2 key={idx} className="text-sm font-bold text-zinc-900 dark:text-zinc-100 pt-1 pb-0.5">
+            <h2 key={idx} className="text-sm font-bold text-zinc-900 dark:text-zinc-100 pt-1 pb-0.5 break-words">
               {parseInlineMarkdown(block.text)}
             </h2>
           );
         }
         if (block.type === "h3") {
           return (
-            <h3 key={idx} className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 pt-0.5">
+            <h3 key={idx} className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 pt-0.5 break-words">
               {parseInlineMarkdown(block.text)}
             </h3>
           );
         }
         if (block.type === "quote") {
           return (
-            <blockquote key={idx} className="pl-3 border-l-2 border-indigo-500 text-zinc-600 dark:text-zinc-400 italic text-xs py-0.5">
+            <blockquote key={idx} className="pl-3 border-l-2 border-indigo-500 text-zinc-600 dark:text-zinc-400 italic text-xs py-0.5 break-words">
               {parseInlineMarkdown(block.text)}
             </blockquote>
           );
         }
         if (block.type === "unordered-list") {
           return (
-            <ul key={idx} className="list-disc list-inside space-y-0.5 text-zinc-700 dark:text-zinc-300 pl-1">
+            <ul key={idx} className="list-disc list-inside space-y-0.5 text-zinc-700 dark:text-zinc-300 pl-1 break-words">
               {block.items.map((item: string, itemIdx: number) => (
-                <li key={itemIdx}>{parseInlineMarkdown(item)}</li>
+                <li key={itemIdx} className="break-words">{parseInlineMarkdown(item)}</li>
               ))}
             </ul>
           );
         }
         if (block.type === "ordered-list") {
           return (
-            <ol key={idx} className="list-decimal list-inside space-y-0.5 text-zinc-700 dark:text-zinc-300 pl-1">
+            <ol key={idx} className="list-decimal list-inside space-y-0.5 text-zinc-700 dark:text-zinc-300 pl-1 break-words">
               {block.items.map((item: string, itemIdx: number) => (
-                <li key={itemIdx}>{parseInlineMarkdown(item)}</li>
+                <li key={itemIdx} className="break-words">{parseInlineMarkdown(item)}</li>
               ))}
             </ol>
           );
         }
         return (
-          <p key={idx} className="text-zinc-800 dark:text-zinc-200 leading-relaxed">
+          <p key={idx} className="text-zinc-800 dark:text-zinc-200 leading-relaxed break-words">
             {parseInlineMarkdown(block.text)}
           </p>
         );

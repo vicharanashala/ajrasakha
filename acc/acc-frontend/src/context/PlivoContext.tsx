@@ -215,15 +215,26 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     ws.onMessage("call_start", (message: PlivoTranscriptMessage) => {
       console.log("📞 [PlivoContext] New call stream started via WS:", message.callId);
+      const currentUuid = activeCallUuidRef.current || parentCallUuidRef.current;
+      if (currentUuid && message.callId && currentUuid !== message.callId) {
+        console.warn(`[PlivoContext] Ignoring call_start for foreign call ${message.callId} (Active: ${currentUuid})`);
+        return;
+      }
+
       if (message.callId) {
         activeCallUuidRef.current = message.callId;
+        lastCallUuidRef.current = message.callId;
       }
       setTranscripts([]);
       setFarmerDetectedLanguage(null);
-      lastCallUuidRef.current = message.callId || null;
     });
 
     ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
+      const currentUuid = activeCallUuidRef.current || parentCallUuidRef.current;
+      if (currentUuid && message.callId && currentUuid !== message.callId) {
+        return;
+      }
+
       if (message.callId && !activeCallUuidRef.current) {
         activeCallUuidRef.current = message.callId;
       }
@@ -243,6 +254,10 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     ws.onMessage("call_end", (message: any) => {
       console.log("📴 [PlivoContext] Call ended from WebSocket:", message);
+      const currentUuid = activeCallUuidRef.current || parentCallUuidRef.current;
+      if (currentUuid && message.callId && currentUuid !== message.callId) {
+        return;
+      }
       if (message.callId) {
         activeCallUuidRef.current = message.callId;
       }
@@ -408,7 +423,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           const currentPhone = activeCallInfoRef.current?.number || activeCall?.number || null;
           const currentDir = activeCallInfoRef.current?.direction || activeCall?.direction || "inbound";
-          const agentIdVal = currentUser?.agent || (currentUser?._id ? String(currentUser._id) : undefined);
+          const agentIdVal = currentUser?._id ? String(currentUser._id) : (currentUser?.agent || undefined);
           plivoApi.saveCallAnswered({
             callUuid: answeredCallUuid,
             phoneNumber: currentPhone || undefined,

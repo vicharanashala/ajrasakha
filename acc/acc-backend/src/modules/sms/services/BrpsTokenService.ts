@@ -7,6 +7,7 @@ import type { IBsnlTokenStatusResponse } from '../types.js';
 export class BrpsTokenService {
   private token: string | null = null;
   private tokenExpiry: Date | null = null;
+  private refreshPromise: Promise<void> | null = null;
 
   /**
    * Clear the in-memory token cache (used when 401 Unauthorized is encountered)
@@ -14,6 +15,7 @@ export class BrpsTokenService {
   clearToken(): void {
     this.token = null;
     this.tokenExpiry = null;
+    this.refreshPromise = null;
     console.log('[BRPS-TOKEN] In-memory BSNL BRPS token cleared');
   }
 
@@ -24,7 +26,12 @@ export class BrpsTokenService {
     if (this.token && this.tokenExpiry && new Date() < this.tokenExpiry) {
       return this.token;
     }
-    await this.refreshToken();
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.refreshToken().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+    await this.refreshPromise;
     if (!this.token) {
       throw new Error('Failed to obtain a valid BSNL BRPS token');
     }
