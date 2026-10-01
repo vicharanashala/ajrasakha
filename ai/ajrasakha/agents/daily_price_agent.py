@@ -1816,6 +1816,8 @@ class DailyPriceInput(BaseModel):
     location_from_profile: Optional[bool] = None  # False when the question names a place: use sub_place_latitude/longitude, not latitude/longitude (farmer profile)
     sub_place_latitude: Optional[float] = None  # sub_places[0], geocoded by the planner
     sub_place_longitude: Optional[float] = None
+    sub_place_state: Optional[str] = None  # state/district of sub_places[0] as the geocoder names them
+    sub_place_district: Optional[str] = None
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1830,6 +1832,8 @@ async def daily_price(
     location_from_profile: Optional[bool] = None,
     sub_place_latitude: Optional[float] = None,
     sub_place_longitude: Optional[float] = None,
+    sub_place_state: Optional[str] = None,
+    sub_place_district: Optional[str] = None,
     config: RunnableConfig = None,
 ) -> str:
     """

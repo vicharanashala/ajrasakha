@@ -734,6 +734,8 @@ class NewWeatherInput(BaseModel):
     location_from_profile: Optional[bool] = Field(None, description="False when the question names a place: use sub_place_latitude/longitude, not latitude/longitude (farmer profile).")
     sub_place_latitude: Optional[float] = Field(None, description="Latitude of sub_places[0], geocoded by the planner.")
     sub_place_longitude: Optional[float] = Field(None, description="Longitude of sub_places[0], geocoded by the planner.")
+    sub_place_state: Optional[str] = Field(None, description="State of sub_places[0] as the geocoder names it.")
+    sub_place_district: Optional[str] = Field(None, description="District of sub_places[0] as the geocoder names it.")
     latitude: Optional[float] = Field(None, description="Optional latitude float.")
     longitude: Optional[float] = Field(None, description="Optional longitude float.")
     address: Optional[str] = Field(None, description="Optional full location address string.")
@@ -910,6 +912,8 @@ async def new_weather(
     location_from_profile: Optional[bool] = None,
     sub_place_latitude: Optional[float] = None,
     sub_place_longitude: Optional[float] = None,
+    sub_place_state: Optional[str] = None,
+    sub_place_district: Optional[str] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
     address: Optional[str] = None,
