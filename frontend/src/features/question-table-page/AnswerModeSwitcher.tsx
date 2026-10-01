@@ -10,9 +10,9 @@ import {
     Search,
     Shuffle,
     Sparkles,
+    Sprout,
     UserCheck,
     UserRound,
-    UtensilsCrossed,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ export const MODES = [
     { id: "manual", label: "Manual", icon: UserRound },
     { id: "outreach", label: "Outreach", icon: Radio },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
-    { id: "annadatha", label: "AnnaDatha", icon: UtensilsCrossed },
+    { id: "annadatha", label: "AnnaDatha", icon: Sprout },
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
@@ -294,11 +294,7 @@ export function AnswerModeSwitcher({
                                     >
                                         <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
                                         <span>{label}</span>
-                                        {id === "annadatha" && (
-                                            <span className="inline-flex items-center justify-center rounded-full bg-red-600 dark:bg-red-500 px-1.5 py-[2px] text-[9px] font-bold uppercase tracking-wider text-white leading-none animate-badgePulse shadow-sm shrink-0">
-                                                new
-                                            </span>
-                                        )}
+                                        
                                         {hasSearch && srcCount != null && (
                                             <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
                                                 {srcCount}

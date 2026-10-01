@@ -14,7 +14,6 @@ import { Sliders, Circle, Layers, Calendar, ArrowLeft } from "lucide-react";
 import { RequestCard } from "./RequestCard";
 import ViewDropdown from "@/features/questions/components/ViewDropdown";
 import { RequestListItem } from "./RequestListItem";
-import { TopRightBadge } from "./NewBadge";
 
 type SortOrder = "newest" | "oldest";
 
