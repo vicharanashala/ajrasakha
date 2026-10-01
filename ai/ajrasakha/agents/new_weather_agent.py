@@ -17,8 +17,9 @@ from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import MINIMAX_API_KEY, MINIMAX_BASE_URL, MINIMAX_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_error, trace_llm_request, trace_llm_response
-from ajrasakha.agents.prompts import NEW_WEATHER_ANSWER_PROMPT, NEW_WEATHER_INTENT_PROMPT
+from ajrasakha.agents.prompts import NEW_WEATHER_INTENT_PROMPT
 from ajrasakha.agents.tool_output_formatters import format_new_weather_tool_dict
+from ajrasakha.agents.weather_farmer_answer import FARMER_WEATHER_ANSWER_PROMPT, render_farmer_weather_answer
 from ajrasakha.tools.weather.weather_tools2 import (
     call_current_and_forecast_info,
     call_rainfall_and_monsoon_info,
@@ -636,13 +637,27 @@ def _ensure_weather_answer_spacing(text: str) -> str:
 
 
 async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
-    """Return a complete bullet-style answer from server JSON; MiniMax may only rephrase."""
+    """Return a farmer-friendly answer built from server JSON.
+
+    Known tool payloads are rendered deterministically (no LLM, so values cannot drift).
+    Unknown shapes fall back to the text formatter, which MiniMax may only rephrase.
+    """
+    if not isinstance(tool_result, dict) or not _weather_tool_has_usable_data(tool_result):
+        return _weather_tool_unavailable_answer(tool_result)
+    try:
+        farmer_answer = render_farmer_weather_answer(query, tool_result)
+    except Exception as render_err:
+        logger.warning("Farmer weather renderer failed: %s", render_err)
+        farmer_answer = ""
+    if farmer_answer:
+        return farmer_answer
+
     full_answer = build_full_weather_answer(tool_result)
     if not full_answer:
         return _weather_tool_unavailable_answer(tool_result)
 
     user_content = (
-        f"{NEW_WEATHER_ANSWER_PROMPT}\n\n"
+        f"{FARMER_WEATHER_ANSWER_PROMPT}\n\n"
         f"Farmer query: {query}\n\n"
         "Complete weather brief from server (include EVERY fact below; do not omit any line or value):\n"
         f"{full_answer}\n\n"
@@ -668,19 +683,8 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
             clean_ans = re.sub(r"(?im)^(?:Yes,\s+there\s+is\s+a\s+chance\s+of\s+rain|No\s+(?:significant\s+)?rain\s+is\s+expected|Rain\s+forecast:)[^\n]*\n*", "", clean_ans).strip()
             clean_ans = re.sub(r"(?im)^\s*[\*\-]?\s*(?:Departure|Departure\s+from\s+normal)\s*:\s*[+\-0-9%]+\.?\s*$\n?", "", clean_ans).strip()
 
-        # Guarantee Observation station / Notice line from full_answer is preserved in final answer
-        obs_match = re.search(r"(?im)^\s*(?:Observation station|Notice: No active)[^\n]+", full_answer)
-        if obs_match:
-            obs_line = obs_match.group(0).strip()
-            if "Observation station" not in clean_ans and "Notice:" not in clean_ans:
-                clean_lines = clean_ans.split("\n")
-                if len(clean_lines) >= 2:
-                    clean_lines.insert(2, obs_line)
-                else:
-                    clean_lines.append(obs_line)
-                clean_ans = "\n".join(clean_lines)
-
-        return _ensure_weather_answer_spacing(clean_ans)
+        # The farmer prompt already formats dates and sources, so the technical spacing pass is skipped.
+        return clean_ans
 
     if answer and answer.strip():
         logger.info(
