@@ -23,6 +23,9 @@
     button { border:0; border-radius:9px; padding:12px 19px; background:var(--green); color:white; font-weight:750; cursor:pointer; white-space:nowrap; }
     button:disabled { opacity:.55; cursor:wait; }
     .message { min-height:22px; margin:13px 2px 0; color:var(--muted); font-size:14px; }
+    .legend { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:14px; }
+    .legend div { background:#f7f9f7; border-radius:9px; padding:9px 11px; color:#58645d; font-size:12px; line-height:1.45; }
+    .legend strong { color:#29362f; }
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:22px; }
     .card { min-height:340px; background:white; border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 7px 22px rgba(25,45,34,.04); }
     .card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border-bottom:1px solid #edf0ee; padding-bottom:14px; margin-bottom:16px; }
@@ -43,7 +46,7 @@
     summary { cursor:pointer; color:var(--green); font-weight:700; }
     .answer { margin-top:10px; white-space:pre-wrap; max-height:220px; overflow:auto; color:#36423b; line-height:1.55; font-size:14px; }
     .placeholder { color:#89938d; padding-top:44px; text-align:center; }
-    @media (max-width:900px) { .form-grid,.grid { grid-template-columns:1fr; } header { align-items:flex-start; flex-direction:column; } }
+    @media (max-width:900px) { .form-grid,.grid,.legend { grid-template-columns:1fr; } header { align-items:flex-start; flex-direction:column; } }
   </style>
 </head>
 <body>
@@ -61,6 +64,11 @@
       <button id="runButton" type="submit">Compare all methods</button>
     </div>
     <div id="message" class="message">Ready to run the same GDB request through all four methods.</div>
+    <div class="legend">
+      <div><strong>Selected-question similarity</strong><br>Embedding closeness used during retrieval. It is not an answer-correctness score.</div>
+      <div><strong>Jev confidence</strong><br>Confidence in the displayed decision label. Read the label and confidence together.</div>
+      <div><strong>Answer sufficiency</strong><br>Estimated probability that the stored answer sufficiently addresses the farmer's request.</div>
+    </div>
   </form>
 
   <section id="results" class="grid"></section>
@@ -113,14 +121,19 @@ function renderResult(method, data) {
   card.lastChild.remove();
   const facts=el('div','facts');
   facts.append(fact('Model',audit.model));
-  facts.append(fact('Similarity',value(match?.similarity_score,3)));
+  facts.append(fact('Selected-question similarity',value(match?.similarity_score,3)));
   if(method.id==='method1') {
-    facts.append(fact('Intent',evaluation?.relevance_decision));
-    facts.append(fact('Jev confidence',(evaluation?.relevance_reason || '').replace('jev confidence ','') || '—'));
+    facts.append(fact('Relevance label',evaluation?.relevance_decision));
+    facts.append(fact('Relevance confidence',(evaluation?.relevance_reason || '').replace('jev confidence ','') || '—'));
+    facts.append(fact('Final classification',evaluation?.classification));
+    facts.append(fact('Classification confidence',(evaluation?.reason || '').replace('jev confidence ','') || '—'));
   } else if(method.id==='method2') {
-    facts.append(fact('Intent',evaluation?.intent));
+    facts.append(fact('Relevance label',evaluation?.intent));
+    facts.append(fact('Relevance confidence',value(evaluation?.intent_confidence)));
     facts.append(fact('Answer sufficiency',value(evaluation?.answer_sufficiency_noul)));
+    facts.append(fact('Required sufficiency',value(audit.sufficiency_threshold)));
   } else if(method.id==='method3') {
+    facts.append(fact('Gate result',gate === 'not_run' ? 'NOT RUN' : gate));
     facts.append(fact('Task coverage',audit.checks?.task_coverage));
     facts.append(fact('Conflict probability',value(audit.checks?.conflict_probability)));
   } else {
@@ -130,6 +143,9 @@ function renderResult(method, data) {
   card.append(facts);
   const q=el('div','section'); q.append(el('div','section-title','Selected GDB question'),el('div','question',match?.question || 'No answer selected'));
   card.append(q);
+  if(method.id==='method3' && gate==='not_run') {
+    card.append(el('div','message','Verification was not run because the current Gemma flow selected no baseline answer.'));
+  }
   if(match?.answer) {
     const details=el('details'); const summary=el('summary','', 'View stored answer'); const answer=el('div','answer',match.answer);
     details.append(summary,answer); card.append(details);
