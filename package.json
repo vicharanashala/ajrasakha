@@ -1,13 +1,23 @@
 {
-  "dependencies": {
-    "pdfkit": "^0.18.0",
-    "plivo": "^4.77.1",
-    "ws": "^8.21.0"
+  "name": "reviewer-system-e2e",
+  "version": "1.0.0",
+  "description": "Playwright E2E tests for a local Ajrasakha-like Reviewer System",
+  "main": "index.js",
+  "scripts": {
+    "app": "node app/server.mjs",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:public": "playwright test tests/auth",
+    "report": "playwright show-report"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
   "devDependencies": {
-    "@types/ws": "^8.18.1",
-    "bcryptjs": "^3.0.3",
-    "http-proxy-middleware": "^4.0.0",
-    "pdfkit": "^0.18.0"
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.0",
+    "dotenv": "^17.4.2"
   }
 }
