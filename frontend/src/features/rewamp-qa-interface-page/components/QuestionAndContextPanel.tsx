@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Info,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
@@ -25,6 +26,7 @@ import {
 } from "@/components/atoms/select";
 import { toast } from "sonner";
 import type { IQuestionContextData } from "../types";
+import { QaPreferencesDialog } from "./QaPreferencesDialog";
 
 interface QuestionAndContextPanelProps {
   question?: IQuestionContextData | null;
@@ -33,6 +35,12 @@ interface QuestionAndContextPanelProps {
   progressPercent?: number;
   actionType?: "allocated" | "reroute";
   onActionTypeChange?: (actionType: "allocated" | "reroute") => void;
+  reviewLevel?: string;
+  source?: string;
+  states?: string[];
+  crops?: string[];
+  onFilterChange?: (key: string, value: any) => void;
+  onRefresh?: () => void;
 }
 
 export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = ({
@@ -42,6 +50,12 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   progressPercent = 15,
   actionType = "allocated",
   onActionTypeChange,
+  reviewLevel = "all",
+  source = "all",
+  states = [],
+  crops = [],
+  onFilterChange,
+  onRefresh,
 }) => {
   const [activeTab, setActiveTab] = useState<"current" | "queue">("current");
   const [showAllMetadata, setShowAllMetadata] = useState(false);
@@ -105,8 +119,26 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   return (
     <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden">
       <CardContent className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
-        {/* Action Type Selector */}
-        <div className="flex justify-end">
+        {/* Action Type Selector with Preferences and Refresh */}
+        <div className="flex items-center justify-end gap-2">
+          <QaPreferencesDialog
+            reviewLevel={reviewLevel}
+            source={source}
+            states={states}
+            crops={crops}
+            onFilterChange={onFilterChange || (() => {})}
+          />
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onRefresh || (() => {})}
+            className="h-8 w-8 shrink-0 bg-transparent"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span className="sr-only">Refresh</span>
+          </Button>
+
           <Select value={actionType} onValueChange={onActionTypeChange}>
             <SelectTrigger className="h-8 text-xs px-2 min-w-fit shrink-0">
               <SelectValue placeholder="Select action" />

@@ -26,6 +26,34 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   // Action type state for the question filter (allocated vs reroute)
   const [actionType, setActionType] = useState<"allocated" | "reroute">("allocated");
 
+  // Preferences state
+  const [reviewLevel, setReviewLevel] = useState<string>("all");
+  const [source, setSource] = useState<string>("all");
+  const [states, setStates] = useState<string[]>([]);
+  const [crops, setCrops] = useState<string[]>([]);
+
+  const handleFilterChange = (key: string, value: any) => {
+    switch (key) {
+      case "review_level":
+        setReviewLevel(value);
+        break;
+      case "source":
+        setSource(value);
+        break;
+      case "states":
+        setStates(value);
+        break;
+      case "crops":
+        setCrops(value);
+        break;
+    }
+  };
+
+  const handleRefresh = () => {
+    // Refresh logic - could trigger a refetch or refresh the page
+    window.location.reload();
+  };
+
   const togglePanel = (panel: keyof IPanelCollapseState) => {
     setCollapsed((prev) => ({
       ...prev,
@@ -64,6 +92,12 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
             progressPercent={15}
             actionType={actionType}
             onActionTypeChange={setActionType}
+            reviewLevel={reviewLevel}
+            source={source}
+            states={states}
+            crops={crops}
+            onFilterChange={handleFilterChange}
+            onRefresh={handleRefresh}
           />
         </div>
 
