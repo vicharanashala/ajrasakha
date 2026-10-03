@@ -1,33 +1,14 @@
-"""LLM-based agricultural answer quality checks using MiniMax.
+"""Model-based answer quality checks (MiniMax).
 
-Split into two independently-callable groups instead of one combined call:
-
-- "coverage": answer_structure, sequence, query_properly_answered -- these
-  three genuinely benefit from reasoning about the answer together (they're
-  all "does this answer cover what's needed, in the right form"), and share
-  the same large context (the answer template). technical_completeness used
-  to be a fourth check here; it was folded into query_properly_answered
-  because the two were grading the same thing twice in the common case
-  (most agricultural questions directly ask for the technical elements --
-  dosage, timing, method -- that technical_completeness also checked), just
-  framed differently, which risked the model disagreeing with itself on the
-  same underlying fact within one call. query_properly_answered now also
-  covers template-implied technical elements the question didn't literally
-  ask for, which was technical_completeness's one genuinely distinct job.
-- "context": contextuality, private_product_name, local_name_mismatch --
-  a different, lighter-weight cluster that needs the local-name reference
-  data, not the template.
-
-Each group has its own prompt and its own failure domain: if one group's
-call fails, the other group's already-evaluated results are unaffected,
-instead of one bad response wasting all six checks. This also keeps each
-prompt smaller, which measurably improves the odds of the samagama.in
-proxy returning a clean response (see llm_client.py).
+Two separate calls, so one failing doesn't lose the other:
+- coverage: answer_structure, sequence, query_properly_answered
+- context: contextuality, private_product_name, local_name_mismatch
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -56,17 +37,7 @@ with ANSWER_TEMPLATES_PATH.open(encoding="utf-8") as template_source:
     ANSWER_TEMPLATES: dict[str, dict[str, Any]] = json.load(template_source)
 
 
-# --- Deterministic cross-checks -------------------------------------------
-#
-# The LLM-based checks below (query_properly_answered, sequence,
-# contextuality, private_product_name) are pure model judgment with no
-# external ground truth, so they cannot be made fully reliable. These
-# helpers give each one a cheap, auditable, non-LLM signal to lean on --
-# either grounding the prompt with facts Python already knows for certain
-# (query_properly_answered), or flagging when the model's verdict disagrees
-# with an obvious textual fact so a reviewer notices instead of the
-# disagreement being silently trusted (sequence, contextuality,
-# private_product_name).
+# Keyword checks that back up the model's verdicts.
 
 _DOSE_MENTION_PATTERN = re.compile(
     r"\d+(?:\.\d+)?\s*%?\s*(?:ml|kg|gm?|litres?|liters?|l)\b", re.IGNORECASE
@@ -79,11 +50,7 @@ _APPLICATION_METHOD_KEYWORDS = (
 
 
 def _core_technical_signals(answer_text: str) -> dict[str, bool]:
-    """Detect, by keyword search alone, whether the answer text mentions a
-    dose/quantity, a PHI, or an application method -- given to the coverage
-    prompt as established facts instead of leaving the model to notice (or
-    miss) them itself while also deciding whether the question needed them.
-    """
+    """Whether the answer mentions a dose, a PHI and an application method."""
     lowered = answer_text.casefold()
     return {
         "dose_or_quantity_mentioned": bool(_DOSE_MENTION_PATTERN.search(answer_text)),
@@ -101,12 +68,7 @@ _IDENTIFICATION_MARKER_WORDS = (
 
 
 def _dose_precedes_identification(answer_text: str) -> bool:
-    """True only when a dose is mentioned before any identification/symptom
-    language appears at all -- the one concrete "confuses a farmer" failure
-    mode sequence's own prompt names (dosage before what it treats is
-    identified). Advisory only: this is a narrow textual heuristic, not
-    proof the order is actually wrong.
-    """
+    """True if a dose appears before any symptom/identification wording. Not used."""
     dose_match = _DOSE_MENTION_PATTERN.search(answer_text)
     if not dose_match:
         return False
@@ -137,16 +99,9 @@ _SIGNAL_TO_KEYWORDS = {
 def _flag_query_answered_contradictions(
     coverage: dict[str, Any], answer_text: str
 ) -> None:
-    """Flag (not override) when the model claims a part was substantively
-    answered that the deterministic keyword check says never appears in
-    the text at all -- the model shouldn't be able to claim something is
-    present that Python already confirmed is absent. Mutates in place.
-    """
+    """Add a note when the model says a part was answered but the keyword check finds no such term."""
     qpa = coverage.get("query_properly_answered")
-    # A raw, successful LLM response has no "execution" key at all (that's
-    # only added by the error_result()/not_applicable_result() paths) --
-    # check status directly instead of a field that's absent on the
-    # success path this is actually meant to run on.
+    # a successful model response has no "execution" key, so go by status
     if not qpa or qpa.get("status") not in (PASS, FAIL):
         return
     detected = _core_technical_signals(answer_text)
@@ -154,11 +109,7 @@ def _flag_query_answered_contradictions(
     for signal_key, keywords in _SIGNAL_TO_KEYWORDS.items():
         if detected.get(signal_key):
             continue  # the term genuinely appears -- no contradiction possible
-        # Word-boundary match, not a bare substring check -- a naive `in`
-        # check on the short keyword "phi" matches inside "aphid", which a
-        # real 15-answer test run confirmed produces false contradictions
-        # (a pest-management answer mentioning "aphid" is not claiming PHI
-        # was addressed).
+        # word boundary, so "phi" doesn't match inside "aphid"
         if any(
             re.search(rf"\b{re.escape(keyword)}\b", parts_answered_text)
             for keyword in keywords
@@ -175,30 +126,15 @@ GENERIC_CHEMICAL_NAMES_PATH = PROJECT_DIRECTORY / "data" / "quality_generic_chem
 with GENERIC_CHEMICAL_NAMES_PATH.open(encoding="utf-8") as generic_names_source:
     _CIBRC_GENERIC_NAMES: list[str] = json.load(generic_names_source)["names"]
 
-# Union of the official CIBRC-registered active-ingredient list (371 names,
-# comprehensive) with the banned/restricted reference data (a handful of
-# names phrased slightly differently, e.g. "Benzene Hexachloride" vs the
-# CIBRC list's own spelling) -- belt and suspenders, cheap to keep both.
+# CIBRC list plus our banned/restricted names (a few are spelled differently)
 _GENERIC_CHEMICAL_NAMES = {
     chemical["name"].casefold() for chemical in (*BANNED_CHEMICALS, *RESTRICTED_CHEMICALS)
 } | {name.casefold() for name in _CIBRC_GENERIC_NAMES}
 
 
 def _matches_known_generic_chemical(name: str) -> bool:
-    """True when an LLM-flagged 'private product name' is actually a
-    recognized generic active-ingredient name -- from CIBRC's official
-    registered-pesticides list plus the banned/restricted reference data.
-    CIBRC does not publish a public brand/trade-name registry, so this can
-    only rule out false positives (a generic name is never a private
-    brand); it cannot positively confirm a name IS a private brand.
-    """
-    # Real crash found via a fresh 50-answer run: the model occasionally
-    # returns "found" as a list (e.g. ["Product X"]) instead of a plain
-    # string, which _valid_group_response() doesn't reject since it only
-    # checks status/detail shape, not every field. `(name or "")` doesn't
-    # catch this -- a non-empty list is truthy, so it passes through as
-    # the list itself, and .strip() on a list crashes the whole answer's
-    # coverage/context result. Coerce to string first.
+    """True if the flagged 'private product name' is really a generic chemical name."""
+    # the model sometimes returns a list here instead of a string
     normalized = str(name or "").strip().casefold()
     if not normalized:
         return False
@@ -247,12 +183,7 @@ MOCK_CONTEXT_RESPONSE: dict[str, Any] = {
 MOCK_RESPONSE: dict[str, Any] = {**MOCK_COVERAGE_RESPONSE, **MOCK_CONTEXT_RESPONSE}
 
 
-# Just above the p99 answer length (15,741 chars) measured across all
-# 1,413 real labeled answers in data/rdqa_eval_dataset.json -- protects
-# against the rare oversized outlier (max seen: 27,534) without
-# truncating the common case (median ~3,751 chars), consistent with the
-# same prompt-size-vs-reliability tradeoff already documented for source
-# text in source_fidelity.py.
+# cut very long answers so the prompt stays small (p99 answer is ~15.7k chars)
 MAX_ANSWER_CHARS_FOR_PROMPT = 16000
 
 
@@ -261,9 +192,7 @@ def _truncate_answer_text(answer_text: str) -> str:
 
 
 def _blank_coverage_result(detail: str) -> dict[str, Any]:
-    """An empty/whitespace-only answer definitionally fails every coverage
-    check -- no need to spend an LLM call finding that out.
-    """
+    """An empty answer fails every coverage check, no model call needed."""
     extra_fields = {
         "query_properly_answered": {"parts_asked": [], "parts_answered": [], "missing": []},
     }
@@ -274,10 +203,7 @@ def _blank_coverage_result(detail: str) -> dict[str, Any]:
 
 
 def _blank_context_result(detail: str) -> dict[str, Any]:
-    """An empty answer can't be on-topic (contextuality FAILs), but it also
-    can't contain a private product name or misuse a local name -- there's
-    nothing in it to be wrong about, so those PASS.
-    """
+    """An empty answer fails contextuality; the other two have nothing to flag, so they pass."""
     return {
         "contextuality": {**check_result(FAIL, detail), "expected": "", "found": ""},
         "private_product_name": {
@@ -289,6 +215,18 @@ def _blank_context_result(detail: str) -> dict[str, Any]:
             "expected": None, "found": None, "evidence": None,
         },
     }
+
+
+logger = logging.getLogger(__name__)
+
+
+def _model_failure_detail(what: str, exc: Exception) -> str:
+    """Detail text for a failed model call, with the real reason (keeps the
+    phrase "model call failed", which _group_errored() looks for)."""
+    reason = str(exc).strip()[:200]
+    logger.warning("%s: model call failed after every retry: %s", what, reason or "(no detail)")
+    suffix = f": {reason}" if reason else ""
+    return f"{what} could not be evaluated because the model call failed{suffix}"
 
 
 def _group_failure(check_names: tuple[str, ...], detail: str) -> dict[str, Any]:
@@ -312,11 +250,8 @@ def build_coverage_prompt(
     question_type: str | None,
     answer_template: dict[str, Any] | None,
 ) -> str:
-    """Build the prompt for answer_structure, sequence, and
-    query_properly_answered.
-    """
-    # Signals are computed from the full text (cheap, no reliability cost);
-    # only what actually goes into the prompt is truncated.
+    """Prompt for answer_structure, sequence and query_properly_answered."""
+    # signals come from the full text, only the prompt copy is truncated
     detected_signals = _core_technical_signals(answer_text)
     return f"""You are checking an agricultural answer for quality.
 
@@ -412,9 +347,7 @@ def build_context_prompt(
     local_names: list[dict[str, Any]],
     used_local_names: list[dict[str, Any]],
 ) -> str:
-    """Build the prompt for contextuality, private_product_name, and
-    local_name_mismatch.
-    """
+    """Prompt for contextuality, private_product_name and local_name_mismatch."""
     return f"""You are checking an agricultural answer for quality.
 
 Question: {question_text}
@@ -474,24 +407,19 @@ def detect_question_type(question_text: str) -> str | None:
     for question_type, keywords in keyword_groups:
         if any(keyword in normalized for keyword in keywords):
             return question_type
-    # Domains added from the team's Domain-wise Answer Structure workbook.
-    # Checked only after every older category, so existing routing is
-    # unchanged; ordered specific -> generic (e.g. "cold storage" must reach
-    # infrastructure before the broader post-harvest "storage").
+    # domains from the answer structure workbook, checked after the ones above
+    # (specific before generic, e.g. "cold storage" before "storage")
     for question_type, pattern in _DOMAIN_PATTERNS:
         if pattern.search(normalized):
             return question_type
     return None
 
 
-# Word-boundary regexes on purpose: substring matching would send "cowpea"
-# to livestock ("cow") or "respond" to fisheries ("pond").
+# word boundaries so "cowpea" doesn't match "cow" and "respond" doesn't match "pond"
 _DOMAIN_PATTERNS = tuple(
     (name, re.compile(pattern))
     for name, pattern in (
-        # Credit and schemes first: a question that mentions a subsidy or
-        # insurance is about the scheme even when it also names machinery,
-        # livestock or a fish pond.
+        # credit and schemes first, they win over machinery/livestock/fish
         ("credit", r"\bloans?\b|kisan credit|\bkcc\b|insurance|\bpmfby\b|\bcredit\b|interest rate|\bnabard\b"),
         ("schemes", r"\bschemes?\b|subsid|\byojana|pm-? ?kisan|\bpmksy\b|financial assistance|financial support|\bgrants?\b|compensation"),
         ("fisheries", r"\bfish|aquaculture|\bprawn|\bshrimp|fingerling"),
@@ -501,7 +429,7 @@ _DOMAIN_PATTERNS = tuple(
         ("mechanisation", r"\btractor|\bmachine|mechani[sz]|\bimplements?\b|happy seeder|rotavator|\bharvester|\bthresher|seed drill|\bdrones?\b|power tiller|custom hiring"),
         ("market", r"\bmsp\b|minimum support price|\bmandi|market price|marketing|procurement|\be-?nam\b|selling price"),
         ("infrastructure", r"infrastructure|warehouse|godown|cold storage|market yard|rural road|cold chain"),
-        # No bare "drying": it matches plant leaf-drying symptom questions.
+        # no plain "drying", it matches leaf-drying symptom questions
         ("postharvest", r"post-?harvest|\bstorage\b|shelf life|\bgrading\b|packaging|\bcuring\b|value addition"),
         ("climate", r"\bfrost|drought|heat stress|heat ?wave|\bhail|\bflood|waterlogg|cold wave|\bweather|climate|temperature|cyclone|monsoon"),
         ("extension", r"\btraining\b|\bkvk\b|krishi vigyan|extension|farmer group|\bfpo\b|farmer producer|helpline|awareness|demonstration|kisan call"),
@@ -539,7 +467,7 @@ def run_coverage_checks(
     question_type: str | None,
     answer_template: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Run the 4 coverage checks as one call, independent of the context group."""
+    """Run the coverage checks as one model call."""
     if not answer_text.strip():
         return _blank_coverage_result("Answer text is empty; nothing to evaluate")
     if USE_MOCK_LLM:
@@ -552,10 +480,9 @@ def run_coverage_checks(
             prompt,
             lambda parsed: _valid_group_response(parsed, COVERAGE_CHECK_NAMES),
         )
-    except LLMCallFailed:
+    except LLMCallFailed as exc:
         return _group_failure(
-            COVERAGE_CHECK_NAMES,
-            "Coverage checks could not be evaluated because the model call failed",
+            COVERAGE_CHECK_NAMES, _model_failure_detail("Coverage checks", exc)
         )
     result = _with_pass_field(result)
     _flag_query_answered_contradictions(result, answer_text)
@@ -570,7 +497,7 @@ def run_context_checks(
     local_names: list[dict[str, Any]],
     used_local_names: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Run the 3 context checks as one call, independent of the coverage group."""
+    """Run the context checks as one model call."""
     if not answer_text.strip():
         return _blank_context_result("Answer text is empty; nothing to evaluate")
     if USE_MOCK_LLM:
@@ -583,66 +510,33 @@ def run_context_checks(
             prompt,
             lambda parsed: _valid_group_response(parsed, CONTEXT_CHECK_NAMES),
         )
-    except LLMCallFailed:
+    except LLMCallFailed as exc:
         return _group_failure(
-            CONTEXT_CHECK_NAMES,
-            "Context checks could not be evaluated because the model call failed",
+            CONTEXT_CHECK_NAMES, _model_failure_detail("Context checks", exc)
         )
     return _with_pass_field(result)
 
 
 def _group_errored(group_result: dict[str, Any], representative_check: str) -> bool:
-    """Each group's own _group_failure() gives every check in that group the
-    identical "model call failed" detail, so checking one representative
-    check is enough to know whether that group's call errored.
-    """
+    """Whether this group's model call failed (all its checks share the same detail)."""
     return "model call failed" in group_result[representative_check]["detail"]
 
 
 def apply_coverage_overrides(
     coverage: dict[str, Any], question_type: str | None, answer_text: str
 ) -> dict[str, Any]:
-    """Apply a deterministic disagreement flag for sequence to a
-    coverage-group result.
+    """Post-process a coverage result (used by both the full run and the retry path).
 
-    question_type is no longer forced to NOT_APPLICABLE when unknown --
-    run_llm_checks()/retry_failed() now pass the generic fallback template
-    in that case, so answer_structure and sequence have something real to
-    evaluate against instead of nothing.
-
-    Shared by the full run_llm_checks() path and the granular per-group
-    retry path, so both apply this exactly the same way.
-
-    A required-section keyword override was tried here (check for
-    literal keywords like "alternative"/"biological" when the template
-    requires alternative_sustainable_methods, etc.) and reverted the same
-    day: tested against the 55 known-good answers, it pushed false
-    positives on your team's own standard answers from 12% to 53%, and on
-    the gold "Team Question" answers from 0% to 75%. The team's real
-    answers cover these sections in wording the guessed keyword lists
-    didn't anticipate. Needs keyword lists validated against real answers
-    before trying again, not guessed from the section names.
+    A keyword check for required sections was tried here and removed: it
+    wrongly failed about half of known-good answers.
     """
-    # Tag which template was actually used -- a reviewer should be able to
-    # tell a PASS against the generic fallback (no domain-specific content,
-    # less calibrated) apart from a PASS against a real pest/disease/
-    # fertilizer/variety template.
+    # record which template was used, the generic one is less specific
     template_used = question_type or "general"
     coverage["answer_structure"]["template_used"] = template_used
     coverage["sequence"]["template_used"] = template_used
 
-    # NOT calling _dose_precedes_identification() here despite it being
-    # defined above -- a real 15-answer test run found it false-triggers
-    # on exactly the kind of answer this dataset is full of: a long,
-    # multi-topic package-of-practices-style answer that mentions a
-    # fertilizer/seed-treatment dose early (one section) and pest
-    # identification language later (a completely different, unrelated
-    # section). The heuristic only checks "does *any* dose appear before
-    # *any* identification word anywhere in the whole text," which can't
-    # tell that apart from a genuine same-topic ordering problem. 3 of 15
-    # real answers tripped it, all false positives. Needs a proximity
-    # window (dose and identification language close together, not just
-    # answer-wide) before this is worth re-enabling.
+    # _dose_precedes_identification() is not used: it flagged long
+    # multi-topic answers (a dose in one section, symptoms in another)
     return coverage
 
 
@@ -653,25 +547,11 @@ def apply_context_overrides(
     crop: str = "",
     answer_text: str = "",
 ) -> dict[str, Any]:
-    """Apply the local_name_mismatch applicability override, a deterministic
-    disagreement flag for contextuality, and the generic-chemical-name gate
-    for private_product_name, to a context-group result that actually
-    succeeded (never call this on a group that errored -- see the caller's
-    guard in run_llm_checks).
-    """
+    """Post-process a context result that succeeded (never call on an errored group)."""
     if used_local_names:
-        # NOT wired to detect_local_name_mismatch() (local_names.py)
-        # despite that function existing and being correct in isolation --
-        # tried it, caught via a real 74-answer run that a chunk of
-        # quality_local_names_crops.json's "local_name" entries are just
-        # the plain English crop name itself (e.g. local_name "neem" for
-        # crop_english "Neem", "onion" for "Onion"). Any answer mentioning
-        # that word for an unrelated reason -- neem used as a pesticide
-        # ingredient on Mango, not a claim that the crop IS neem -- gets
-        # mechanically flagged as a crop mismatch. 19 of 74 real answers
-        # false-flagged this way. The LLM's own judgment doesn't make this
-        # mistake, so keep the LLM's evaluated verdict here until the
-        # reference data itself is cleaned (separate task).
+        # detect_local_name_mismatch() is not used: many crop rows list the
+        # English crop name as the "local name", so it flagged too much.
+        # Keep the model's verdict until that data is cleaned.
         pass
     elif not local_names:
         context_result["local_name_mismatch"] = not_applicable_result(
@@ -691,12 +571,8 @@ def apply_context_overrides(
 
     contextuality = context_result["contextuality"]
     if contextuality["status"] == PASS and not _crop_mentioned_in_text(crop, answer_text):
-        # Deterministic disagreement, not an override: the crop name never
-        # appears in the answer text at all, yet the model says the topic
-        # matches. Flag for review rather than trust silently -- a correct
-        # answer can still legitimately avoid repeating the crop name (e.g.
-        # "this crop", a vernacular name), so this is advisory, not proof of
-        # a wrong verdict.
+        # the crop name never appears in the answer but the model says it
+        # matches: add a note (advisory only, answers can say "this crop")
         contextuality["detail"] += (
             " (Flagged for review: the crop name does not appear verbatim "
             "in the answer text -- verify the topic actually matches.)"
@@ -705,10 +581,7 @@ def apply_context_overrides(
     product = context_result["private_product_name"]
     found_name = product.get("found")
     if found_name and _matches_known_generic_chemical(found_name):
-        # A real gate, not advisory: a name that matches a known generic
-        # active-ingredient name from the banned/restricted reference data
-        # cannot be a private brand, by definition -- safe to override
-        # outright rather than just flag.
+        # a generic chemical name can't be a brand, so override to PASS
         context_result["private_product_name"] = check_result(
             PASS,
             f"'{found_name}' matches a known generic chemical name, not a private brand",
@@ -719,16 +592,9 @@ def apply_context_overrides(
 
 
 def run_llm_checks(context: AnswerContext) -> dict[str, Any]:
-    """Run all 6 quality checks as two independent, isolated model calls."""
+    """Run all six model-based checks as two separate calls."""
     question_type = detect_question_type(context["question_text"])
-    # Fall back to the generic, category-agnostic template when no specific
-    # question type is detected, instead of leaving answer_structure and
-    # sequence with nothing to evaluate against. The "general" template
-    # asserts no domain-specific agronomic facts -- only universal
-    # structural expectations (identify the problem, give the
-    # recommendation, quantity/timing if relevant, precautions) -- so it's
-    # safe to apply even to a question category nobody has built a real
-    # template for yet.
+    # no specific question type: fall back to the generic template
     answer_template = ANSWER_TEMPLATES.get(question_type) if question_type else ANSWER_TEMPLATES.get("general")
     local_names = get_relevant_names(
         context["state"], context["crop"], question_type or ""
@@ -763,19 +629,11 @@ def run_llm_checks(context: AnswerContext) -> dict[str, Any]:
         ]
         result["_error"] = f"LLM checks could not be evaluated because the model call failed ({', '.join(parts)})"
 
-    # Unlike the context override below, this one applies regardless of
-    # whether the coverage call succeeded: question_type is a fixed property
-    # of the question text, so if it's unknown, answer_structure/sequence
-    # can never be evaluated no matter how many times the call is retried --
-    # leaving them as ERROR would queue a retry that can never resolve.
+    # applies even if the coverage call failed
     result.update(
         apply_coverage_overrides(coverage, question_type, context["answer_text"])
     )
-    # Only second-guess local_name_mismatch when the context group actually
-    # ran -- if its call errored, that ERROR result must stand (retrying
-    # the context group can still produce a real verdict for the *other*
-    # two checks in it), not get silently overwritten with a fabricated
-    # PASS/NOT_APPLICABLE verdict.
+    # only when the context call worked, otherwise keep its ERROR result
     if not context_errored:
         result.update(
             apply_context_overrides(
