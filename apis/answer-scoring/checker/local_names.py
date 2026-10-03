@@ -49,11 +49,7 @@ WEED_NAMES = _load("quality_local_names_weeds.json")
 ReferenceRecord: TypeAlias = dict[str, Any]
 NestedIndex: TypeAlias = dict[str, dict[str, list[ReferenceRecord]]]
 crops_index: NestedIndex = defaultdict(lambda: defaultdict(list))
-# Keyed by state only. The AgriTeam sheet's own "category" values (Disease,
-# Pest, Weed, Injury, Deficiency, Nutrient, Soil, Climate, ...) are far
-# broader than the four supported question types, so filtering slang lookup
-# by question type silently dropped most records. State is the real relevance
-# boundary here; question_type is kept as an argument for prompt framing only.
+# keyed by state only, filtering by question type dropped most records
 slangs_index: dict[str, list[ReferenceRecord]] = defaultdict(list)
 weeds_index: dict[str, list[ReferenceRecord]] = defaultdict(list)
 
@@ -101,19 +97,7 @@ def _aliases(local_name: object) -> list[str]:
 
 
 def _is_self_referential_crop_name(record: ReferenceRecord, alias: str) -> bool:
-    """True when a "local name" is just the plain English crop name itself
-    (e.g. local_name "Soybean" for crop_english "Soybean") -- confirmed via
-    a real 74-answer run to be true for 1,115 of 1,735 rows (64%) in
-    quality_local_names_crops.json, apparently entered as a placeholder
-    when no distinct vernacular term was known for that crop/region. These
-    add no real crop-mismatch detection value and were the source of
-    confirmed false positives: "neem" mentioned as a pesticide ingredient
-    on an unrelated crop was being read as a claim that the crop itself
-    was neem, because "neem" is separately recorded as its own "local
-    name" for the crop "Neem". Only applies to crop/weed records (the ones
-    with a crop field); slang/pest/disease terms have no crop field and
-    are unaffected.
-    """
+    """True when the "local name" is just the English crop name (about 64% of the crop rows)."""
     crop_name = str(record.get("crop_english") or record.get("crop") or "").strip()
     return bool(crop_name) and alias.casefold() == crop_name.casefold()
 
@@ -124,13 +108,7 @@ _alias_build_lock = threading.Lock()
 
 
 def _matching_index() -> tuple[dict[str, list[ReferenceRecord]], re.Pattern[str] | None]:
-    """Build one reusable matcher instead of compiling per record/per answer.
-
-    Built under a lock and published only once complete: answers are checked
-    in parallel, and without this a second thread could see the index
-    half-built (index present, pattern still None) and silently report "no
-    local names found" for whichever answers ran first.
-    """
+    """Build the name matcher once; the lock stops threads seeing it half-built."""
     global _alias_index, _alias_pattern
     if _alias_index is None:
         with _alias_build_lock:
@@ -152,9 +130,7 @@ def _matching_index() -> tuple[dict[str, list[ReferenceRecord]], re.Pattern[str]
                     if alternatives
                     else None
                 )
-                # Publish the pattern first, the index last: the index is
-                # what other threads test, so once it is visible the
-                # pattern is already in place.
+                # set the pattern first, other threads check the index
                 _alias_pattern = pattern
                 _alias_index = index
     return _alias_index, _alias_pattern
@@ -177,37 +153,14 @@ def find_local_name_records(answer_text: str) -> list[ReferenceRecord]:
 def detect_local_name_mismatch(
     used_local_names: list[ReferenceRecord], crop: str, state: str
 ) -> tuple[bool | None, ReferenceRecord | None]:
-    """Decide, from the reference data alone, whether a locally-used term
-    is being applied to the wrong crop -- no LLM judgment needed when the
-    data already settles it.
+    """Check from the reference data whether a local name is used for the wrong crop.
 
-    NOT currently wired into llm_checker.apply_context_overrides(), despite
-    being correct in isolation (see its tests). A real 74-answer run
-    surfaced that a chunk of quality_local_names_crops.json's "local_name"
-    values are just the plain English crop name itself ("neem" for
-    crop_english "Neem", "onion" for "Onion"). Any answer mentioning that
-    word for an unrelated reason -- neem used as a pesticide ingredient on
-    a totally different crop, not a claim that the crop IS neem -- gets
-    mechanically flagged as a mismatch. 19 of 74 real answers false-flagged
-    this way before the wiring was reverted. Needs the reference data
-    cleaned (separating genuine vernacular terms from plain crop-name
-    entries) before this can be safely wired in.
+    Not used right now: the crop data lists English crop names as local names,
+    so it flagged too many answers.
 
-    For each distinct local-name term actually found in the answer text,
-    checks every reference record sharing that exact term: if at least one
-    of them names this answer's actual crop, the term is being used
-    correctly here (a term can validly apply to more than one crop). If
-    every record for that term names a *different* crop, it's a real,
-    evidence-backed mismatch.
-
-    Only crop-name and weed records carry a crop field ("crop_english" or
-    "crop"); slang/pest/disease terms carry only state, not crop, so there
-    is nothing to mechanically check them against. Returns (None, None) for
-    those -- the caller should fall back to LLM judgment rather than guess.
-
-    Returns (True, record) for a confirmed mismatch (record is one example
-    naming the actual crop it belongs to), (False, None) when every
-    checkable term matches, or (None, None) when nothing here is checkable.
+    Returns (True, record) for a mismatch, (False, None) if everything
+    matches, or (None, None) when nothing can be checked (slang terms have
+    no crop).
     """
     crop_key = (crop or "").strip().casefold()
     by_term: dict[str, list[ReferenceRecord]] = defaultdict(list)
@@ -216,9 +169,7 @@ def detect_local_name_mismatch(
         if term:
             by_term[term].append(record)
 
-    # A confirmed mismatch always wins outright, even if some other term
-    # used in the same answer happens to be uncheckable -- don't let an
-    # unrelated ambiguous term mask a real, evidence-backed violation.
+    # a confirmed mismatch wins even if another term can't be checked
     any_uncheckable = False
     for records in by_term.values():
         checkable = [r for r in records if r.get("crop_english") or r.get("crop")]

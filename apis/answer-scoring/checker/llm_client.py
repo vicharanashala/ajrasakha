@@ -1,16 +1,9 @@
-"""Shared MiniMax-calling client.
-
-One retry/backoff/parsing policy, used by every check that needs the LLM,
-instead of each checker module reimplementing its own HTTP/retry/JSON
-extraction logic (which is what happened before this module existed --
-llm_checker.py and source_fidelity.py each had their own copy).
-Adding a new LLM-based check should mean writing a prompt and a validator,
-not a new HTTP client.
-"""
+"""MiniMax client with retries, shared by every model-based check."""
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -22,28 +15,14 @@ from dotenv import load_dotenv
 
 import run_stats
 
+logger = logging.getLogger(__name__)
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
-MINIMAX_URL = "https://samagama.in/platform/proxy/v1/chat/completions"
+MINIMAX_URL = "http://100.100.108.41:8001/v1/chat/completions"
 MINIMAX_MODEL = "MiniMax-M3"
-# The samagama.in proxy intermittently returns a truncated response body
-# (valid HTTP 200, Content-Length matches what was sent, finish_reason
-# "stop", but the JSON content is cut off mid-string). Measured empirically
-# to affect a large fraction of individual calls (roughly 15-40% of
-# attempts in a 16-call test at each of 1, 2, 4 and 8 workers), so a generous
-# retry budget is needed for a reasonable chance of success. Every failure
-# observed in that test was this same invalid-response-body error -- never a
-# timeout, HTTP error or rate limit, and the rate did not climb with
-# concurrency -- so waiting before a retry buys nothing: the next attempt is
-# just another draw. The old 3/5/8/8/8-second waits were ~18% of a run's busy
-# time. (Prompt size did not track failures in that test either, contrary to
-# what was assumed earlier.)
-#
-# The failure rate is not fixed and is not specific to a prompt: measured at
-# 15-40% on one day and ~60% on another, and even 7-character answers fail
-# 30-60% of the time. Changing max_completion_tokens does not help, and
-# dropping reasoning_split makes it far worse (21-23 of 24 fail). At a 60%
-# failure rate, 5 retries leave ~6% of calls with no result; 9 leave ~0.6%.
+# The proxy often returns a cut-off response body (15-60% of calls, varies by
+# day), so retry a lot with short waits. max_completion_tokens doesn't help
+# and reasoning_split must stay on.
 MAX_RETRIES = 9
 RETRY_DELAYS_SECONDS = (1, 1, 2, 2, 3, 3, 3, 3, 3)
 
@@ -66,20 +45,22 @@ def _extract_content(response: requests.Response) -> str:
         response_body = response.json()
         return response_body["choices"][0]["message"]["content"]
     except requests.exceptions.JSONDecodeError:
-        # The proxy can truncate MiniMax's separated reasoning field after
-        # returning a complete content field. Recover only that JSON
-        # string; genuinely incomplete content still fails json.loads later.
+        # the proxy can cut off the reasoning field after a complete content
+        # field, so pull the content out by hand
         content_match = re.search(r'"content":("(?:\\.|[^"\\])*")', response.text)
         if content_match is None:
             raise ValueError("MiniMax response envelope is invalid")
         return json.loads(content_match.group(1))
 
 
-def call_llm_once(prompt: str, max_completion_tokens: int = 2048) -> str:
-    """Send one chat-completions request and return its raw text content.
+def api_key_is_set() -> bool:
+    """Whether MINIMAX_API_KEY is set (never exposes the key)."""
+    load_dotenv(PROJECT_DIRECTORY / ".env")
+    return bool(os.getenv("MINIMAX_API_KEY", "").strip())
 
-    Raises on any failure. Prefer `call_llm` for the shared retry policy.
-    """
+
+def call_llm_once(prompt: str, max_completion_tokens: int = 2048) -> str:
+    """One request, returns the raw text. Raises on failure; use call_llm for retries."""
     load_dotenv(PROJECT_DIRECTORY / ".env")
     api_key = os.getenv("MINIMAX_API_KEY", "").strip()
     if not api_key:
@@ -109,13 +90,10 @@ def call_llm(
     max_retries: int = MAX_RETRIES,
     retry_delays: tuple[int, ...] = RETRY_DELAYS_SECONDS,
 ) -> dict[str, Any]:
-    """Call the LLM with the shared retry policy, returning one parsed and
-    validated JSON object.
+    """Call the model with retries and return the parsed JSON.
 
-    `validate(parsed_dict) -> bool` decides whether a response is accepted;
-    a False result is treated as a retryable failure, the same as a
-    network error or malformed JSON. Raises `LLMCallFailed` once every
-    attempt is exhausted.
+    A response that fails `validate` is retried like an error. Raises
+    LLMCallFailed when every attempt fails.
     """
     last_error: Exception | None = None
     run_stats.record(model_calls=1)
@@ -137,6 +115,12 @@ def call_llm(
                 model_attempts=1, model_failed_attempts=1,
                 model_request_seconds=time.time() - started,
             )
+            if attempt == 0:
+                # log only the first failure of each call
+                logger.warning(
+                    "model call attempt 1/%d failed, retrying: %s: %s",
+                    max_retries + 1, type(exc).__name__, str(exc)[:200],
+                )
             if attempt < max_retries:
                 run_stats.record(model_sleep_seconds=retry_delays[attempt])
                 time.sleep(retry_delays[attempt])

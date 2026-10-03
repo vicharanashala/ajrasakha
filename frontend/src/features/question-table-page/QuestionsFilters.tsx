@@ -96,8 +96,6 @@ import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck, LayoutDashboard } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
-
-import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
 
@@ -1414,7 +1412,6 @@ export const QuestionsFilters = ({
                           <Download size={14} />
                         )}
                         AgriTech Management
-                        <TopRightBadge label="new" left={0} />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56 text-xs max-h-72 overflow-y-auto z-[70]">
@@ -1442,7 +1439,6 @@ export const QuestionsFilters = ({
                       <Download size={14} />
                     )}
                     Chemicals List
-                    <TopRightBadge label="new" left={0} />
                   </button>
                 </div>
               </div>
@@ -1519,7 +1515,6 @@ export const QuestionsFilters = ({
             className="text-green-600 dark:text-green-500 shrink-0"
           />
           <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
-            <TopRightBadge label="new" right={0} />
             Total:{" "}
             <span className="text-gray-900 dark:text-white transition-opacity duration-300">
               {statusSummary?.totalQuestions ?? totalQuestions}

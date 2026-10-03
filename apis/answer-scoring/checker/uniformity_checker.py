@@ -10,29 +10,15 @@ from typing import Any
 
 from result_state import FAIL, PASS, check_result, deferred_result, not_applicable_result
 
-# Doses are only compared when chemical name, crop, unit, and basis (e.g.
-# "per acre") all match exactly -- no unit conversion is attempted, so a
-# mismatch here never risks a wrong comparison; it just stays
-# NOT_EVALUATED. This is deliberately conservative: two doses must differ
-# by at least this ratio (2.0 = one is double the other) before being
-# flagged, to avoid flagging routine formulation-driven variance as an
-# error. Revisit this threshold once real reviewer feedback validates it.
+# only flag doses that differ by at least this ratio (2.0 = double)
 MIN_RATIO_FOR_INCONSISTENCY = 2.0
 
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
 ANSWERS_PATH = PROJECT_DIRECTORY / "data" / "sample_answers.json"
 
-# The chemical name must be a single, properly-capitalized word (matching
-# how real active-ingredient names actually appear in these answers, e.g.
-# "Hexaconazole", "Carboxin", "Urea") -- deliberately case-SENSITIVE, unlike
-# the rest of this pattern. An earlier version allowed up to 4 loosely-
-# matched words, which absorbed connector prose in sentences like "diluted
-# in 400 litres" or fertilizer lists ("...and 40 kg of Muriate of Potash"),
-# producing fake chemicals like "acre", "and", and "dissolve". Requiring a
-# single capitalized word immediately before the (optional formulation /
-# optional connector phrase / optional "at") / dose / unit sequence rules
-# those out at the pattern level, not via an ever-growing word denylist.
+# chemical = one capitalized word followed by an (optional formulation) and a
+# dose; case-sensitive on purpose, a looser pattern picked up words like "acre"
 CHEMICAL_DOSE_PATTERN = re.compile(
     r"\b(?P<chemical>[A-Z][a-zA-Z-]*)\s+"
     r"(?:(?i:\d+(?:\.\d+)?\s*%?\s*(?:WP|EC|CG|SC|WG|WDG|GR|SL|DS|DP|SP|WS|CS|OD|FS|TB|ZC|ME)\s*))?"
@@ -43,9 +29,7 @@ CHEMICAL_DOSE_PATTERN = re.compile(
     r"(?:\s*(?:per|/)\s*(?i:(?P<per>[A-Za-z]+)))?"
 )
 
-# A final safety net: even a single capitalized word immediately before a
-# dose can occasionally be a non-chemical proper noun (a place, a heading).
-# Kept small and specific rather than trying to enumerate every case.
+# words that look like a chemical name but aren't
 FORMULATION_CODE_WORDS = {
     "wp", "ec", "cg", "sc", "wg", "wdg", "gr", "sl", "ds", "dp", "sp",
     "ws", "cs", "od", "fs", "tb", "zc", "me", "ppm",
@@ -65,10 +49,7 @@ def _load_answers() -> list[dict[str, Any]]:
 
 
 def _clean_chemical(value: str) -> str:
-    """The regex only ever captures a single capitalized word now; reject
-    it (return empty, so the caller skips the occurrence) if it's a bare
-    formulation code or one of a small set of known non-chemical words.
-    """
+    """Return empty if the word is a formulation code or a known non-chemical word."""
     word = value.strip()
     if word.casefold() in FORMULATION_CODE_WORDS:
         return ""
@@ -129,12 +110,7 @@ def _group_key(item: dict[str, Any]) -> tuple[str, str, str, str]:
 def run_uniformity_checks(
     answers: list[dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Flag doses inconsistent with another answer for the same chemical,
-    crop, unit, and basis. Full dose-correctness against authoritative
-    ranges remains out of scope -- see module docstring; this only checks
-    internal consistency across the answer batch, and only for cases that
-    need no unit conversion.
-    """
+    """Flag doses that differ from another answer for the same chemical, crop, unit and basis."""
     answers = _load_answers() if answers is None else answers
     occurrences_by_answer: dict[str, list[dict[str, Any]]] = defaultdict(list)
     groups: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)

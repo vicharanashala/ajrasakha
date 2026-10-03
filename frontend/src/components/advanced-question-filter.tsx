@@ -73,7 +73,6 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useGetStates } from "@/hooks/api/location/useLocations";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
-import { TopRightBadge } from "./NewBadge";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "auditor_review" | "queue_duplicate";
 export type QuestionDateRangeFilter =

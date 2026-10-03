@@ -1,6 +1,10 @@
 # API Guide
 
 Base URL (local): `http://localhost:8010`
+Base URL (deployed): `http://100.100.108.44:8011` -- 8011 is the external
+port assigned during deployment; this service's own default is 8010
+(see Dockerfile/main.py), so the two can differ depending on how it's
+run/mapped.
 
 Async by design: a single answer needs 2-3 model calls, and the upstream
 model API fails a meaningful fraction of individual calls, so one answer
@@ -44,6 +48,7 @@ Response (completed):
   "systemScore": 11,
   "maxScore": 11,
   "percentage": 100.0,
+  "complete": true,
   "needsHumanReview": false,
   "reviewReasons": [],
   "checks": [
@@ -62,8 +67,15 @@ Response (completed):
 - `notApplicable`: checks that genuinely don't apply to this question
   type, excluded from the score entirely (neither helps nor hurts it).
 - `notEvaluated`: checks that DO apply but got no verdict because a model
-  call failed after every retry -- still given a mark for now, but this
-  IS a gap, unlike `notApplicable`.
+  call failed after every retry. Like `notApplicable`, they are excluded
+  from `systemScore`/`maxScore` (their `mark` is `null`) -- a check that
+  never ran must not earn points. Unlike `notApplicable`, this IS a gap:
+  `complete` is `false`, so the `percentage` only covers the checks that
+  actually ran, and the UI should say the score is incomplete. The
+  check's `reason` now includes why the model call failed.
+- `status` is `"failed"` when the model-based checks could not run; the
+  deterministic checks (chemical, source, officer name) are still scored
+  and returned in that case.
 - `needsHumanReview`: true whenever any applicable check failed, or has
   no verdict at all. `reviewReasons` names exactly which and why, so a
   reviewer knows what to look at without reading the full breakdown.

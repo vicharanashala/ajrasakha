@@ -191,9 +191,6 @@ export function PlaygroundHeader({
                   value="closed_answers"
                   className={`relative ${tabTriggerClassName}`}
                 >
-                  <span className="absolute -top-1 left-0 z-10 inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500 shadow-xs pointer-events-none">
-                    new
-                  </span>
                   <span>Answer Sources</span>
                 </TabsTrigger>
               )}

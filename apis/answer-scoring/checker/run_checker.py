@@ -75,11 +75,7 @@ def _run_parameter_groups(
     chemical = check_banned_chemicals(context)
     source = check_sources(context)
     officer = check_officer_name(context)
-    # run_llm_checks (2 model calls) and check_source_fidelity (a PDF
-    # fetch/parse, plus a model call when a dose is present) don't touch
-    # each other's data, but were previously run one after another --
-    # for a single answer that's the full latency of both stacked, when
-    # they could overlap. Pure concurrency fix, no verdict logic touched.
+    # these two are independent, so run them at the same time
     with ThreadPoolExecutor(max_workers=2) as pool:
         llm_future = pool.submit(run_llm_checks, context)
         source_fidelity_future = pool.submit(check_source_fidelity, context)
@@ -130,12 +126,7 @@ def _default_workers() -> int:
 
 
 def _map_parallel(func, items, max_workers=None, label="processed", progress_every=100):
-    """Apply `func` to every item and return results in input order.
-
-    The work is network-bound (LLM calls and document fetches), so plain
-    threads give a real speedup without restructuring anything. Progress is
-    printed only for large batches so small runs stay quiet.
-    """
+    """Run func on every item in threads and return results in input order."""
     workers = max_workers or _default_workers()
     total = len(items)
     show_progress = total >= 200
@@ -199,9 +190,7 @@ def _check_one(raw_answer: dict[str, Any]) -> dict[str, Any]:
 
 
 def _apply_uniformity(results: list[dict[str, Any]], answers: list[dict[str, Any]]) -> None:
-    """Uniformity compares doses across the whole batch, so it can only run
-    once every independent answer check has finished (and must be redone
-    whenever a retry changes an answer)."""
+    """Dose uniformity compares answers, so it runs after the per-answer checks."""
     uniformity_results = run_uniformity_checks(answers)
     for result in results:
         if not result.get("parameters"):
@@ -232,12 +221,7 @@ def _find_check(result: dict[str, Any], check_name: str) -> dict[str, Any] | Non
 
 
 def _retry_pieces(result: dict[str, Any]) -> set[str]:
-    """Which independently-retriable pieces of this answer are worth
-    re-attempting: the coverage LLM call, the context LLM call, and/or
-    source_fidelity -- each only if something in it has ERROR or DEFERRED
-    execution state. Deterministic checks never need this; they never
-    produce those states.
-    """
+    """Which parts (coverage, context, source_fidelity) have a check that should be retried."""
     pieces = set()
     if any(needs_retry(_find_check(result, name) or {}) for name in _COVERAGE_NAMES):
         pieces.add("coverage")
@@ -253,16 +237,9 @@ def retry_failed(
     all_answers: list[dict[str, Any]],
     max_workers: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Re-run only what's actually worth re-attempting, at the granularity
-    of individual checks, not whole answers.
+    """Retry only the parts that failed, not the whole answer.
 
-    A full MiniMax run can take a long time, and this proxy fails a real
-    fraction of individual calls. Re-running an entire answer wastes every
-    check that already succeeded on it -- if only the context group errored
-    while coverage and every deterministic check already completed, only
-    the context group gets re-attempted here, nothing else. An answer that
-    failed before any check ran at all (parameters entirely empty) falls
-    back to a full re-attempt, since there is nothing narrower to retry.
+    An answer that failed before any check ran is re-run in full.
     """
     answers_by_id = {str(a.get("answer_id") or ""): a for a in all_answers}
 
@@ -348,12 +325,10 @@ def run_until_complete(
     checkpoint_path: Path | None = None,
     chunk_size: int = 500,
 ) -> list[dict[str, Any]]:
-    """Run every answer, then keep retrying whatever failed on infrastructure
-    (model-call errors) until nothing is left or the round limit is hit.
+    """Run every answer, then retry failed model calls until done or out of rounds.
 
-    With a checkpoint path, results are saved after every chunk and an
-    interrupted run resumes from the file instead of starting over. Resume
-    matches on answer_id, so ids must be unique in that mode.
+    With checkpoint_path, results are saved per chunk and a rerun resumes
+    (answer ids must be unique).
     """
     if retry_rounds is None:
         try:
@@ -424,9 +399,7 @@ def main() -> None:
         print(f"Retrying {failed_count} previously failed answer(s)...")
         results = retry_failed(existing_results, answers, workers)
     else:
-        # Large runs save a checkpoint after every 500 answers, so an
-        # interruption resumes instead of restarting; it is removed once the
-        # final results file has been written.
+        # large runs save a checkpoint, removed once the results are written
         checkpoint = RESULTS_PATH.with_suffix(".partial.json") if len(answers) > 500 else None
         results = run_until_complete(
             answers, max_workers=workers, retry_rounds=retry_rounds, checkpoint_path=checkpoint
@@ -478,12 +451,7 @@ def main() -> None:
             )
             print(f"- {check_name}: {count}")
 
-    # Real LLM call reliability, not just check outcomes -- an ERROR
-    # execution state only ever comes from an exhausted-retries LLM call
-    # failure (result_state.error_result()), never from a normal verdict.
-    # Previously this was only visible by spot-checking individual
-    # results; surfacing it in every run's summary means a bad batch is
-    # noticed immediately instead of discovered later by accident.
+    # show how many model calls failed, so a bad run is noticed
     llm_backed_checks = 0
     llm_errored_checks = 0
     for result in results:
