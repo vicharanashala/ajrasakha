@@ -121,6 +121,16 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
       <CardContent className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
         {/* Action Type Selector with Preferences and Refresh */}
         <div className="flex items-center justify-end gap-2">
+          <Select value={actionType} onValueChange={onActionTypeChange}>
+            <SelectTrigger className="h-8 text-xs px-2 min-w-fit shrink-0">
+              <SelectValue placeholder="Select action" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="allocated">Allocated Questions</SelectItem>
+              <SelectItem value="reroute">ReRouted Questions</SelectItem>
+            </SelectContent>
+          </Select>
           <QaPreferencesDialog
             reviewLevel={reviewLevel}
             source={source}
@@ -138,17 +148,6 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
             <RefreshCw className="w-3.5 h-3.5" />
             <span className="sr-only">Refresh</span>
           </Button>
-
-          <Select value={actionType} onValueChange={onActionTypeChange}>
-            <SelectTrigger className="h-8 text-xs px-2 min-w-fit shrink-0">
-              <SelectValue placeholder="Select action" />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="allocated">Allocated Questions</SelectItem>
-              <SelectItem value="reroute">ReRouted Questions</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Sub Navigation / Queue Status Tabs */}
