@@ -4,22 +4,40 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 
 log = logging.getLogger(__name__)
 
 try:
-    from .golden_search import gdb_search, gdb_search_v2
+    from .golden_search import (
+        gdb_search,
+        gdb_search_v2,
+        gdb_search_jev_existing_eval,
+        gdb_search_choice_noul_eval,
+        gdb_search_jev_gated_eval,
+        gdb_search_jev_reranked_eval,
+    )
+    from ajrasakha.utils import jev_client
     from .golden_pending_duplicate import check_pending_duplicate
     from .query_refinement import refine_query_to_core_farming_question
     from .golden_similar_question import find_similar_questions, SimilarQuestionRequest
     from .translate import translate_to_english
     from .query_preprocessor import classify_query_combined
 except ImportError:
-    from golden_search import gdb_search, gdb_search_v2
+    from golden_search import (
+        gdb_search,
+        gdb_search_v2,
+        gdb_search_jev_existing_eval,
+        gdb_search_choice_noul_eval,
+        gdb_search_jev_gated_eval,
+        gdb_search_jev_reranked_eval,
+    )
+    import jev_client
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
     from golden_similar_question import find_similar_questions, SimilarQuestionRequest
@@ -83,6 +101,45 @@ class GDBSearchResponse(BaseModel):
         default_factory=dict,
         description="Full Gemma pipeline audit: relevance, classification, chosen_for_answer per candidate.",
     )
+
+
+class GDBChoiceNoulRequest(GDBSearchRequest):
+    sufficiency_threshold: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Experimental minimum Noul probability that the stored answer sufficiently answers the farmer. "
+            "0.50 is provisional and is not a production recommendation."
+        ),
+    )
+
+
+class GDBGatedJevRequest(GDBSearchRequest):
+    max_conflict_probability: float = Field(
+        0.2,
+        ge=0.0,
+        le=1.0,
+        description="Maximum conflict probability allowed for automatic acceptance.",
+    )
+    reject_conflict_probability: float = Field(
+        0.8,
+        ge=0.0,
+        le=1.0,
+        description="Conflict probability at or above this value causes rejection.",
+    )
+
+
+class GDBJevRerankRequest(GDBSearchRequest):
+    retrieval_top_k: int = Field(20, ge=5, le=50, description="Candidates requested from each retrieval source.")
+    evaluation_top_k: int = Field(10, ge=1, le=30, description="Highest RRF-ranked candidates evaluated by Jev.")
+    max_concurrency: int = Field(5, ge=1, le=10, description="Maximum simultaneous Jev requests.")
+    task_threshold: float = Field(0.5, ge=0.0, le=1.0, description="Provisional same-task eligibility threshold.")
+    evidence_threshold: float = Field(0.5, ge=0.0, le=1.0, description="Provisional answer-evidence threshold.")
+    target_threshold: float = Field(0.5, ge=0.0, le=1.0, description="Provisional crop/problem/constraint match threshold.")
+    max_conflict_probability: float = Field(0.5, ge=0.0, le=1.0, description="Maximum conflict probability for eligibility.")
+    review_margin: float = Field(0.08, ge=0.0, le=1.0, description="Send close top-two scores to review.")
+    fallback_to_current: bool = Field(True, description="Use current GDB flow if every Jev request fails.")
 
 
 class PendingDuplicateCheckRequest(BaseModel):
@@ -160,6 +217,12 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/demo", include_in_schema=False)
+async def comparison_demo():
+    """Serve the local four-method GDB comparison interface."""
+    return FileResponse(Path(__file__).with_name("golden_demo.html"))
+
+
 @app.post(
     "/v1/gdb/search",
     response_model=GDBSearchResponse,
@@ -169,19 +232,153 @@ async def health():
         "1. **Strict exact** on `rephrased_query` (+ crop/state filters) → if hit, return `exact_match` only.\n"
         "2. Else **vector RAG** on `rephrased_query`.\n"
         "3. If both return no hits and crop is not `all`, retry steps 1–2 with `crop=all`.\n"
-        "4. **Gemma** relevance + classify + select one answer using the same `rephrased_query`."
+        "4. The existing decision provider performs relevance, classification, and selection "
+        "using the same `rephrased_query`."
     ),
 )
 async def search_gdb(body: GDBSearchRequest):
-    result = await gdb_search(
-        rephrased_query=body.rephrased_query,
-        crop=body.crop,
-        state=body.state,
-        season=body.season,
-        domain=body.domain,
-        embedding_field="embedding",  # V1 uses "embedding" field
-    )
+    # Keep this route as a stable baseline for side-by-side Swagger demos.
+    # Dedicated experimental routes below explicitly opt into Jev.
+    with jev_client.provider_override({"*": "current", "fallback": "current"}):
+        result = await gdb_search(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            embedding_field="embedding",  # V1 uses "embedding" field
+        )
     return result
+
+
+@app.post(
+    "/v1/gdb/search-jev-existing-flow",
+    response_model=GDBSearchResponse,
+    summary="Method 1: Run the existing GDB flow with Jev",
+    description=(
+        "Experimental Swagger route for Method 1. Retrieval, filters, and selection order remain unchanged. "
+        "Only the existing relevance, intent-classification, and tie-break decisions are forced to Jev. "
+        "The normal `/v1/gdb/search` endpoint remains on its configured provider."
+    ),
+)
+async def search_gdb_jev_existing_flow(body: GDBSearchRequest):
+    try:
+        return await gdb_search_jev_existing_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev Method 1 evaluation failed: {type(exc).__name__}",
+        ) from exc
+
+
+@app.post(
+    "/v1/gdb/search-jev-choice-noul",
+    response_model=GDBSearchResponse,
+    summary="Experiment: Search GDB with Jev Choice + Noul",
+    description=(
+        "Experimental Swagger route; it does not change `/v1/gdb/search`.\n\n"
+        "1. Retrieve GDB candidates using the existing vector search.\n"
+        "2. In one Jev request, classify each candidate question as SAME/KEEP/REJECT.\n"
+        "3. In that same request, use Noul to estimate whether each stored answer sufficiently answers the farmer.\n"
+        "4. Select among non-REJECT candidates whose answer-sufficiency probability meets the supplied threshold."
+    ),
+)
+async def search_gdb_choice_noul(body: GDBChoiceNoulRequest):
+    try:
+        return await gdb_search_choice_noul_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            sufficiency_threshold=body.sufficiency_threshold,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev evaluation failed: {type(exc).__name__}",
+        ) from exc
+
+
+@app.post(
+    "/v1/gdb/search-jev-gated",
+    response_model=GDBSearchResponse,
+    summary="Experiment: Verify the existing GDB answer with Jev",
+    description=(
+        "Experimental Swagger route; it does not change `/v1/gdb/search` or the earlier Choice + Noul route.\n\n"
+        "1. Run the existing GDB search and let its normal pipeline select one answer.\n"
+        "2. Send only the farmer question and that selected answer to Jev.\n"
+        "3. Classify target alignment and task coverage with Choice, then estimate material-conflict risk with Noul.\n"
+        "4. Apply a transparent policy: exact target + full task + low conflict is accepted; broad/partial is sent "
+        "for review; different target/task or high conflict is rejected. Conflict thresholds are provisional."
+    ),
+)
+async def search_gdb_jev_gated(body: GDBGatedJevRequest):
+    try:
+        return await gdb_search_jev_gated_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            max_conflict_probability=body.max_conflict_probability,
+            reject_conflict_probability=body.reject_conflict_probability,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev gated selection failed: {type(exc).__name__}",
+        ) from exc
+
+
+@app.post(
+    "/v1/gdb/search-jev-reranked",
+    response_model=GDBSearchResponse,
+    summary="Experiment: Hybrid retrieval with atomic Jev reranking",
+    description=(
+        "Experimental Method 4; it does not change any existing endpoint.\n\n"
+        "1. Retrieve a broader semantic and BM25 candidate union.\n"
+        "2. Merge candidates with reciprocal-rank fusion rather than comparing unlike raw scores.\n"
+        "3. Evaluate shortlisted candidates concurrently with five atomic Jev Noul questions.\n"
+        "4. Require task, evidence and target gates; rank eligible records with a conflict-adjusted score.\n"
+        "5. Return review when the top two scores are too close, and fall back to current GDB if all Jev calls fail.\n\n"
+        "All default thresholds are provisional and require calibration on human-reviewed GDB examples."
+    ),
+)
+async def search_gdb_jev_reranked(body: GDBJevRerankRequest):
+    if body.evaluation_top_k > body.retrieval_top_k * 2:
+        raise HTTPException(
+            status_code=422,
+            detail="evaluation_top_k cannot exceed the maximum semantic + keyword candidate union",
+        )
+    try:
+        return await gdb_search_jev_reranked_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            retrieval_top_k=body.retrieval_top_k,
+            evaluation_top_k=body.evaluation_top_k,
+            max_concurrency=body.max_concurrency,
+            task_threshold=body.task_threshold,
+            evidence_threshold=body.evidence_threshold,
+            target_threshold=body.target_threshold,
+            max_conflict_probability=body.max_conflict_probability,
+            review_margin=body.review_margin,
+            fallback_to_current=body.fallback_to_current,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev reranking failed: {type(exc).__name__}",
+        ) from exc
 
 
 @app.post(

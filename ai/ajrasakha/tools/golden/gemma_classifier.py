@@ -13,6 +13,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+try:  # package layout (tests, main app) / flat layout (golden service container)
+    from ajrasakha.utils import jev_client, jev_tasks
+except ImportError:  # pragma: no cover - container layout
+    import jev_client  # type: ignore[no-redef]
+    import jev_tasks  # type: ignore[no-redef]
+
 log = logging.getLogger(__name__)
 
 GEMMA_MODEL = os.getenv("GEMMA_MODEL", "google/gemma-4-26B-A4B-it")
@@ -424,6 +430,27 @@ async def filter_relevance_batch(
         num_candidates=n,
         candidates_block=block,
     )
+    def _keep_all(reason: str) -> list[dict]:
+        return [
+            {"relevance_decision": "KEEP", "relevance_reason": reason, "llm_parse_ok": False}
+            for _ in range(n)
+        ]
+
+    if jev_client.provider_for(jev_tasks.GOLDEN_FILTER_TASK) == "jev":
+        try:
+            _crop_n, _state_n = (crop or "all").strip() or "all", (state or "all").strip() or "all"
+            if jev_client.option("relevance_mode", "choice") == "score":
+                j_state, j_questions = jev_tasks.golden_relevance_score_request(original_query, _crop_n, _state_n, pairs)
+                j_res = await jev_client.adecide(jev_tasks.GOLDEN_FILTER_TASK, j_state, j_questions)
+                return _enforce_at_most_one_same(jev_tasks.golden_relevance_score_results(j_res, n), pairs)
+            j_state, j_questions = jev_tasks.golden_relevance_request(original_query, _crop_n, _state_n, pairs)
+            j_res = await jev_client.adecide(jev_tasks.GOLDEN_FILTER_TASK, j_state, j_questions)
+            return _enforce_at_most_one_same(jev_tasks.golden_relevance_results(j_res, n), pairs)
+        except jev_client.JevError as exc:
+            if jev_client.on_failure(jev_tasks.GOLDEN_FILTER_TASK, exc) == "default":
+                return _keep_all(f"Jev filter error — kept: {type(exc).__name__}")
+            # else fall through to the existing Gemma path
+
     try:
         # Scale tokens with candidate count (~40 per result)
         content = await _gemma_chat(prompt, max_tokens=min(400, 60 + n * 50))
@@ -559,6 +586,23 @@ async def filter_pending_duplicate_batch(
         num_candidates=n,
         candidates_block=block,
     )
+    def _not_same_all(reason: str) -> list[dict]:
+        return [
+            {"relevance_decision": "NOT_SAME", "relevance_reason": reason, "llm_parse_ok": False}
+            for _ in range(n)
+        ]
+
+    if jev_client.provider_for(jev_tasks.PENDING_DUP_TASK) == "jev":
+        try:
+            j_state, j_questions = jev_tasks.pending_duplicate_request(
+                original_query, (crop or "all").strip() or "all", (state or "all").strip() or "all", candidates
+            )
+            j_res = await jev_client.adecide(jev_tasks.PENDING_DUP_TASK, j_state, j_questions)
+            return jev_tasks.pending_duplicate_results(j_res, n)
+        except jev_client.JevError as exc:
+            if jev_client.on_failure(jev_tasks.PENDING_DUP_TASK, exc) == "default":
+                return _not_same_all(f"Jev filter error — not same: {type(exc).__name__}")
+
     try:
         content = await _gemma_chat(prompt, max_tokens=min(400, 60 + n * 50))
         results = _parse_pending_duplicate_response(content, n)
@@ -612,6 +656,22 @@ async def classify_pair(
         retrieved_question=(retrieved_question or "")[:2000],
         retrieved_answer=(retrieved_answer or "")[:4000],
     )
+    if jev_client.provider_for(jev_tasks.GOLDEN_CLASSIFY_TASK) == "jev":
+        try:
+            j_state, j_questions = jev_tasks.golden_classify_request(
+                original_query, retrieved_question, retrieved_answer,
+                (crop or "all").strip() or "all", (state or "all").strip() or "all",
+            )
+            j_res = await jev_client.adecide(jev_tasks.GOLDEN_CLASSIFY_TASK, j_state, j_questions)
+            return jev_tasks.golden_classify_result(j_res)
+        except jev_client.JevError as exc:
+            if jev_client.on_failure(jev_tasks.GOLDEN_CLASSIFY_TASK, exc) == "default":
+                return {
+                    "classification": "NOT_COVERED",
+                    "reason": f"Classifier error: {type(exc).__name__}",
+                    "llm_parse_ok": False,
+                }
+
     try:
         content = await _gemma_chat(prompt, max_tokens=120)
         classification, reason = _parse_classification_response(content)
@@ -666,6 +726,19 @@ async def tie_breaker(
         winning_class=winning_class,
         candidates_block=block,
     )
+    if jev_client.provider_for(jev_tasks.GOLDEN_TIE_TASK) == "jev":
+        try:
+            j_state, j_questions = jev_tasks.golden_tie_request(original_query, candidates, winning_class)
+            j_res = await jev_client.adecide(jev_tasks.GOLDEN_TIE_TASK, j_state, j_questions)
+            idx, _conf = jev_tasks.index_result(j_res, len(candidates), jev_tasks.GOLDEN_TIE_TASK)
+            _, pair, cls_result = candidates[idx - 1]
+            cls_result = {**cls_result, "tie_breaker_reason": f"jev confidence {_conf:.2f}", "tie_breaker_index": idx}
+            return pair, cls_result, f"{winning_class.lower()}_tie_breaker"
+        except jev_client.JevError as exc:
+            if jev_client.on_failure(jev_tasks.GOLDEN_TIE_TASK, exc) == "default":
+                candidates.sort(key=lambda x: x[0], reverse=True)
+                return candidates[0][1], candidates[0][2], f"{winning_class.lower()}_highest_score_fallback"
+
     try:
         content = await _gemma_chat(prompt, max_tokens=100)
         idx, reason = _parse_tie_breaker_response(content, len(candidates))
