@@ -759,3 +759,62 @@ async def select_best_match(
         }
 
     return None
+
+
+ANSWER_SOURCE_PROMPT = """You decide which answer a farmer should be shown.
+
+Farmer question:
+{query}
+
+The Golden DB (expert-verified Q&A archive) matched this stored question and answer:
+Q: {matched_question}
+A: {matched_answer}
+
+The stored answer is static expert advice. Live tools (weather forecast, mandi prices, soil
+health, government schemes) can separately supply today's real-time numbers.
+
+Answer with exactly one word:
+- GDB: the stored expert answer already answers the farmer's question. Advice that holds
+  regardless of today's numbers (how to control a pest/weed/disease, a dosage, a practice,
+  a threshold or rule of thumb, whether to do something under a stated condition) is GDB
+  even when the question mentions weather or prices — it wants the advice, not the number.
+- DYNAMIC: the farmer is asking for a live value the archive cannot hold (today's or this
+  week's forecast, a current mandi rate, current scheme status).
+- BOTH: the question genuinely has two parts — one needing the stored advice AND one
+  needing a live value — and neither alone is a complete answer.
+
+Reply with one word only: GDB, DYNAMIC, or BOTH.
+"""
+
+VALID_ANSWER_SOURCES = ("GDB", "DYNAMIC", "BOTH")
+
+
+def _parse_answer_source_response(content: str) -> str:
+    """Pull the verdict out of Gemma's reply; anything unclear falls back to BOTH."""
+    text = _strip_json_fence(content).upper()
+    for source in VALID_ANSWER_SOURCES:
+        if re.search(rf"\b{source}\b", text):
+            return source
+    return "BOTH"
+
+
+async def decide_answer_source(
+    query: str, matched_question: str, matched_answer: str
+) -> str:
+    """GDB / DYNAMIC / BOTH for a query that got a Golden DB match.
+
+    Defaults to BOTH on any failure — BOTH is the pre-existing expert-queue behaviour.
+    """
+    prompt = ANSWER_SOURCE_PROMPT.format(
+        query=query,
+        matched_question=matched_question,
+        matched_answer=(matched_answer or "")[:1200],
+    )
+    try:
+        content = await _gemma_chat(prompt, max_tokens=10)
+    except Exception as exc:
+        log.warning("decide_answer_source failed: %s: %s", type(exc).__name__, exc)
+        return "BOTH"
+    source = _parse_answer_source_response(content)
+    log.info("decide_answer_source query=%r -> %s", query[:80], source)
+    return source
