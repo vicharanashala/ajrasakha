@@ -34,6 +34,7 @@ import {
 import { AUTH_TYPES } from '#auth/types.js';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { appConfig } from '#root/config/app.js';
+import { DecodedIdToken } from 'firebase-admin/auth';
 
 @OpenAPI({
   tags: ['Authentication'],
@@ -46,6 +47,32 @@ export class AuthController {
     @inject(AUTH_TYPES.AuthService)
     private readonly authService: IAuthService,
   ) { }
+
+  private async _verifyTokenAndSyncUser(idToken: string): Promise<DecodedIdToken> {
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+      if (!decodedToken.email_verified && !appConfig.isDevelopment) {
+        await this.authService.sendVerificationEmail(decodedToken.email || '');
+        throw new HttpError(401, 'Please verify your email before logging in. A new verification link has been sent to your email.');
+      }
+
+      const user = await this.authService.syncUserWithDb(
+        decodedToken.uid,
+        decodedToken.email || '',
+        decodedToken.name || ''
+      );
+
+      if (user.isVerified === false) {
+        throw new HttpError(401, 'Your account is pending admin verification. Please contact an administrator.');
+      }
+
+      return decodedToken;
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(401, 'Invalid or expired token.');
+    }
+  }
 
   @OpenAPI({
     summary: 'Register a new user account',
@@ -225,7 +252,7 @@ export class AuthController {
   async login(@Body() body: LoginBody) {
     try {
       const { email, password } = body;
-      const data = await fetch(
+      const response = await fetch(
         `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
         {
           method: 'POST',
@@ -238,53 +265,13 @@ export class AuthController {
         },
       );
 
-      const result: any = await data.json();
+      const result: any = await response.json();
       if (!result.idToken) {
         const errorMessage = result.error?.message || 'Invalid email or password';
         throw new HttpError(401, errorMessage);
       }
 
-      //alternative 
-      //   const decoded = await admin.auth().verifyIdToken(result.idToken);
-
-      // if (!decoded.email_verified) {
-      //   throw new Error('Please verify your email before logging in.');
-      // }
-
-      // 2️⃣ Verify email status
-      const lookup = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken: result.idToken }),
-        }
-      );
-
-      const lookupData: any = await lookup.json();
-      const userInfo = lookupData.users?.[0];
-
-      if (!userInfo?.emailVerified && !appConfig.isDevelopment) {
-        await this.authService.sendVerificationEmail(userInfo.email);
-        throw new HttpError(
-          401,
-          'Please verify your email before logging in. A new verification link has been sent to your email.'
-        );
-      }
-
-      // Ensure the user exists in database
-      const user = await this.authService.syncUserWithDb(
-        userInfo.localId,
-        userInfo.email,
-        userInfo.displayName || ''
-      );
-
-      if (user.isVerified === false) {
-        throw new HttpError(
-          401,
-          'Your account is pending admin verification. Please contact an administrator.'
-        );
-      }
+      await this._verifyTokenAndSyncUser(result.idToken);
 
       return result;
     } catch (error) {
@@ -319,30 +306,16 @@ export class AuthController {
     if (!firebaseToken) throw new HttpError(401, 'No token provided');
 
     try {
-      // Decode the token manually
-      const decodedEmail = await admin.auth().verifyIdToken(firebaseToken);
-
-      if (!decodedEmail.email_verified && !appConfig.isDevelopment) {
-        throw new HttpError(401, 'Please verify your email before syncing account.');
-      }
-
+      const decodedToken = await this._verifyTokenAndSyncUser(firebaseToken);
       const user = await this.authService.syncUserWithDb(
-        decodedEmail.uid,
-        decodedEmail.email || '',
-        decodedEmail.name || ''
+        decodedToken.uid,
+        decodedToken.email || '',
+        decodedToken.name || ''
       );
-
-      if (user.isVerified === false) {
-        throw new HttpError(
-          401,
-          'Your account is pending admin verification. Please contact an administrator.'
-        );
-      }
-
       return { success: true, user };
     } catch (error) {
       if (error instanceof HttpError) throw error;
-      throw new HttpError(500, error.message || 'Sync failed');
+      throw new HttpError(500, 'Sync failed');
     }
   }
 }
