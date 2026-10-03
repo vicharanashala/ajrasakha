@@ -34,6 +34,26 @@ _session_id: Optional[str] = None
 _initialized: bool = False
 
 
+def _reset_session() -> None:
+    """Clear cached MCP session so next call re-initializes cleanly."""
+    global _session_id, _initialized
+    _session_id = None
+    _initialized = False
+    logger.debug("MCP session reset")
+
+
+def _is_session_not_found(response_text: str) -> bool:
+    """Detect JSON-RPC 'Session not found' error (-32600) in response."""
+    try:
+        parsed = json.loads(response_text)
+        error = parsed.get("error", {})
+        if error.get("code") == -32600:
+            return True
+    except json.JSONDecodeError:
+        pass
+    return False
+
+
 def _parse_sse_response(response_text: str) -> dict:
     """Parse SSE format response from MCP server."""
     match = re.search(r'data:\s*(\{.*\})', response_text, re.DOTALL)
@@ -64,8 +84,13 @@ async def _ensure_initialized(client: httpx.AsyncClient) -> Optional[str]:
     }
     
     resp = await client.post(MCP_SERVER_URL, json=payload, headers=MCP_HEADERS, timeout=MCP_TIMEOUT_S)
-    
+
     if resp.status_code == 200:
+        # If the server says session not found, reset and retry once
+        if _is_session_not_found(resp.text):
+            _reset_session()
+            return await _ensure_initialized(client)
+
         result = _parse_sse_response(resp.text)
         if "result" in result:
             _session_id = resp.headers.get("Mcp-Session-Id")
@@ -118,8 +143,13 @@ def _ensure_initialized_sync(client: httpx.Client) -> Optional[str]:
     }
     
     resp = client.post(MCP_SERVER_URL, json=payload, headers=MCP_HEADERS, timeout=MCP_TIMEOUT_S)
-    
+
     if resp.status_code == 200:
+        # If the server says session not found, reset and retry once
+        if _is_session_not_found(resp.text):
+            _reset_session()
+            return _ensure_initialized_sync(client)
+
         result = _parse_sse_response_sync(resp.text)
         if "result" in result:
             _session_id = resp.headers.get("Mcp-Session-Id")
@@ -170,16 +200,24 @@ async def lookup_local_name(name: str) -> str:
     try:
         async with httpx.AsyncClient() as client:
             session_id = await _ensure_initialized(client)
-            
+
             headers = dict(MCP_HEADERS)
             if session_id:
                 headers["Mcp-Session-Id"] = session_id
-            
+
             response = await client.post(MCP_SERVER_URL, json=payload, headers=headers, timeout=MCP_TIMEOUT_S)
+
+            # Detect session expiry and retry once after re-init
+            if response.status_code == 404 or _is_session_not_found(response.text):
+                _reset_session()
+                session_id = await _ensure_initialized(client)
+                headers["Mcp-Session-Id"] = session_id or ""
+                response = await client.post(MCP_SERVER_URL, json=payload, headers=headers, timeout=MCP_TIMEOUT_S)
+
             response.raise_for_status()
-            
+
             result = _parse_sse_response(response.text)
-            
+
             if "result" in result:
                 content = result["result"].get("content", [])
                 if content and isinstance(content, list):
@@ -193,14 +231,14 @@ async def lookup_local_name(name: str) -> str:
                                     canonical
                                 )
                                 return canonical
-            
+
             logger.warning(
                 "lookup_local_name: unexpected response format for '%s': %s",
                 name,
                 result
             )
             return name
-            
+
     except httpx.TimeoutException:
         logger.warning("lookup_local_name: timeout for '%s'", name)
         return name
@@ -248,6 +286,14 @@ def lookup_local_name_sync(name: str) -> str:
                 headers["Mcp-Session-Id"] = session_id
             
             response = client.post(MCP_SERVER_URL, json=payload, headers=headers, timeout=MCP_TIMEOUT_S)
+
+            # Detect session expiry and retry once after re-init
+            if response.status_code == 404 or _is_session_not_found(response.text):
+                _reset_session()
+                session_id = _ensure_initialized_sync(client)
+                headers["Mcp-Session-Id"] = session_id or ""
+                response = client.post(MCP_SERVER_URL, json=payload, headers=headers, timeout=MCP_TIMEOUT_S)
+
             response.raise_for_status()
             
             result = _parse_sse_response_sync(response.text)
@@ -366,11 +412,18 @@ async def lookup_sentence(sentence: str) -> dict:
         
         try:
             resp = await client.post(MCP_SERVER_URL, json=payload, headers=headers, timeout=MCP_TIMEOUT_S)
-            
+
+            # Detect session expiry and retry once after re-init
+            if resp.status_code == 404 or _is_session_not_found(resp.text):
+                _reset_session()
+                session_id = await _ensure_initialized(client)
+                headers["Mcp-Session-Id"] = session_id or ""
+                resp = await client.post(MCP_SERVER_URL, json=payload, headers=headers, timeout=MCP_TIMEOUT_S)
+
             if resp.status_code == 200:
                 raw = resp.text
                 result = _parse_sse_response(raw)
-                
+
                 # Extract the content from MCP response
                 content = ""
                 if "result" in result and "content" in result["result"]:
@@ -378,7 +431,7 @@ async def lookup_sentence(sentence: str) -> dict:
                         if item.get("type") == "text":
                             content = item.get("text", "")
                             break
-                
+
                 # Parse the JSON content returned by lookup_sentence tool
                 try:
                     parsed = json.loads(content)

@@ -785,7 +785,7 @@ async def _pending_vector_search_questions(
     pipeline: list[dict[str, Any]] = [
         {
             "$vectorSearch": {
-                "index": MONGODB_VECTOR_INDEX,
+                "index": MONGODB_QUESTION_EMBEDDING_INDEX,
                 "path": "question_embedding",
                 "queryVector": query_vector,
                 "numCandidates": max(100, fetch_limit * 10),
