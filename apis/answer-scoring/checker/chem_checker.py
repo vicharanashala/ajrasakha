@@ -15,18 +15,14 @@ DATA_DIRECTORY = Path(__file__).resolve().parent.parent / "data"
 BANNED_CHEMICALS_PATH = DATA_DIRECTORY / "quality_banned_chemicals.json"
 RESTRICTED_CHEMICALS_PATH = DATA_DIRECTORY / "quality_restricted_chemicals.json"
 
-# Used to match the category-level restriction in the supplied CIB&RC data.
+# for the vegetable restriction in the CIB&RC data
 VEGETABLE_CROPS = {
     "bhindi", "brinjal", "cabbage", "capsicum", "carrot", "cauliflower",
     "cucumber", "eggplant", "okra", "onion", "potato", "radish", "tomato",
     "turnip",
 }
 
-# Crops commonly eaten fresh/uncooked. Used only for the "fruits and
-# vegetables consumed raw" restriction category — deliberately excludes
-# grains, pulses, and vegetables that are conventionally cooked (okra,
-# lentil, potato, etc.), per the same conservative-interpretation principle
-# used elsewhere in this checker.
+# crops usually eaten raw, for the "fruits and vegetables consumed raw" restriction
 RAW_CONSUMED_CROPS = {
     "apple", "banana", "mango", "grape", "grapes", "guava", "papaya",
     "orange", "watermelon", "muskmelon", "pomegranate", "chikoo", "sapota",
@@ -36,10 +32,7 @@ RAW_CONSUMED_CROPS = {
     "capsicum", "bell pepper", "lettuce", "beetroot", "spring onion",
 }
 
-# Nearby-context keywords for restriction kinds that depend on how a
-# chemical is being used, not on the crop. Mirrors the conservative,
-# evidence-based approach already used for officer-name detection: only
-# treat usage as properly scoped when the answer's own text says so.
+# restrictions that depend on how the chemical is used, not the crop
 OPERATOR_CONTEXT_KEYWORDS = (
     "operator", "licensed", "certified applicator", "pest control operator",
     "pco", "trained personnel", "professional applicator",
@@ -48,13 +41,7 @@ SEED_TREATMENT_KEYWORDS = (
     "seed treatment", "seed dressing", "seed dresser", "treat seed",
     "seed coating", "seed dress",
 )
-# Confirmed real bug (found via a real human-reviewed answer, not
-# speculation): the answer explicitly said "Maleic Hydrazide is currently
-# banned in India and should not be recommended and used" -- correctly
-# warning the farmer against it -- and the checker flagged it as a
-# violation anyway, because plain name-presence matching can't tell a
-# warning from a recommendation. Skip a match whose own sentence is itself
-# the warning; only flag when some occurrence isn't in warning language.
+# words that show the answer is warning against a chemical, not recommending it
 NEGATION_KEYWORDS = (
     "banned", "should not", "must not", "do not", "avoid",
     "prohibited", "not permitted", "not recommended", "not be recommended",
@@ -125,16 +112,10 @@ NEGATION_WINDOW_CHARS = 200
 def _first_recommending_match(
     name: str, answer_text: str
 ) -> re.Match[str] | None:
-    """First occurrence of `name` that isn't itself part of a warning
-    against using it -- so a sentence correctly telling the farmer NOT to
-    use a banned/restricted chemical doesn't get counted as the answer
-    recommending it. If every occurrence is a warning, returns None.
+    """First mention of the chemical that isn't a warning against it, or None.
 
-    Checks a character window around the match, not just its own sentence:
-    the real example that surfaced this (a human-reviewed answer) states
-    the fact first ("Maleic Hydrazide were previously used...") and the
-    warning in the *next* sentence ("...is currently banned and should not
-    be recommended"), so a same-sentence-only check misses it.
+    Looks at a window around the mention, since the warning is often in the
+    next sentence.
     """
     for match in _chemical_pattern(name).finditer(answer_text):
         window_start = max(0, match.start() - NEGATION_WINDOW_CHARS)
@@ -148,11 +129,7 @@ def _first_recommending_match(
 def _restriction_kind_status(
     chemical: dict[str, Any], evidence: str
 ) -> tuple[str, str] | None:
-    """Evaluate a restriction that depends on usage context, not crop.
-
-    Returns (status, detail), or None when this chemical uses the ordinary
-    crop-list restriction handled by `_crop_is_restricted` instead.
-    """
+    """Status and detail for a usage-based restriction, or None for a normal crop restriction."""
     kind = chemical.get("restriction_kind")
     name = chemical["name"]
     if kind == "blanket_ban":
@@ -180,9 +157,7 @@ def _restriction_kind_status(
                 f"{allowed} is permitted"
             )
         found_formulation = formulation_match.group(0)
-        # Normalize away spaces AND "%" -- answers commonly write the
-        # concentration without the percent sign ("3 CG" for "3% CG"),
-        # which is the same formulation, not a different one.
+        # ignore spaces and "%" ("3 CG" is the same as "3% CG")
         normalize = lambda text: text.replace(" ", "").replace("%", "").casefold()
         if allowed and normalize(allowed) in normalize(found_formulation):
             return PASS, f"{name} uses the permitted {allowed} formulation"
