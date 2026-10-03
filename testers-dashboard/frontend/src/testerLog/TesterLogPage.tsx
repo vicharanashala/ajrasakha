@@ -54,17 +54,19 @@ export function TesterLogPage() {
 
             {/* Content */}
             <div>
-                {activeTab === "form" && (
+                <div className={activeTab === "form" ? "block" : "hidden"}>
                     <TesterLogForm
                         testerName={testerName}
                         userEmail={user?.email}
                         onSuccess={() => setActiveTab("history")}
                     />
-                )}
-                {activeTab === "history" && <TesterLogHistory />}
-                {activeTab === "summary" && (
+                </div>
+                <div className={activeTab === "history" ? "block" : "hidden"}>
+                    <TesterLogHistory />
+                </div>
+                <div className={activeTab === "summary" ? "block" : "hidden"}>
                     <TesterLogSummary onLogNewTest={() => setActiveTab("form")} />
-                )}
+                </div>
             </div>
         </div>
     );

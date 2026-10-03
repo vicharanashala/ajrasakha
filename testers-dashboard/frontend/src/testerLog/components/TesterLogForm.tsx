@@ -4,7 +4,7 @@ import { FormSection } from "./FormSection";
 import { TimeInput } from "./TimeInput";
 import { useTesterLogSubmit } from "../hooks/useTesterLogSubmit";
 import { useNextTestId } from "../hooks/useTesterLogHistory";
-import { Plus, ExternalLink, Laptop, Smartphone } from "lucide-react";
+import { Plus, ExternalLink, Laptop, Smartphone, Check, Trash2 } from "lucide-react";
 import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
 import { cn } from "@/lib/utils";
@@ -119,7 +119,7 @@ function Field({
         <div className={cn("flex flex-col gap-1", className)}>
             <label className={labelClass}>
                 {label}
-                {required && <span className="text-destructive ml-0.5">*</span>}
+                {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
             </label>
             {children}
             {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
@@ -314,68 +314,91 @@ function DefectIdBugRefInput({
             <div className="flex items-center justify-between">
                 <label className={labelClass}>
                     Defect ID / Bug Ref
-                    {required && <span className="text-destructive ml-0.5">*</span>}
+                    {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
                 </label>
-                <button
-                    type="button"
-                    onClick={onOpenCreateModal}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors py-0.5 px-2 rounded-md hover:bg-primary/10 border border-primary/20"
-                >
-                    <Plus className="h-3.5 w-3.5" />
-                    Create Zoho Ticket
-                </button>
+                {!isValidUrl && (
+                    <button
+                        type="button"
+                        onClick={onOpenCreateModal}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors py-0.5 px-2 rounded-md hover:bg-primary/10 border border-primary/20"
+                    >
+                        <Plus className="h-3.5 w-3.5" />
+                        Create Zoho Ticket
+                    </button>
+                )}
+                {isValidUrl && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        <Check className="h-3.5 w-3.5" />
+                        Ticket Connected
+                    </span>
+                )}
             </div>
 
-            <select
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
-                value={selectedOption}
-                onChange={handleSelectChange}
-            >
-                <option value="">-- Select --</option>
-                <option value="NA">NA</option>
-                <option value="Zoho Ticket URL">Zoho Ticket URL</option>
-            </select>
-
-            {selectedOption === "Zoho Ticket URL" && (
-                <div className="mt-1.5 flex flex-col gap-2">
-                    <input
-                        type="text"
-                        className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
-                        placeholder="Paste Zoho ticket URL (e.g. https://desk.zoho.in/...)"
-                        value={customUrl}
-                        onChange={handleUrlChange}
-                    />
-
-                    {isValidUrl && (
-                        <div className={`p-2.5 rounded-md border flex items-center justify-between text-xs transition-colors ${badgeStyle.bg}`}>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`h-2 w-2 rounded-full shrink-0 ${badgeStyle.dot}`} />
-                                <span className="font-semibold text-foreground">
-                                    Ticket {cachedStatus?.ticketNumber ? `#${cachedStatus.ticketNumber}` : (ticketId ? `#${ticketId}` : "")}
+            {isValidUrl ? (
+                <div className="mt-1 flex flex-col gap-1.5">
+                    <div className={`p-2.5 rounded-md border flex items-center justify-between text-xs transition-colors ${badgeStyle.bg}`}>
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${badgeStyle.dot}`} />
+                            <span className="font-semibold text-foreground text-sm">
+                                Ticket {cachedStatus?.ticketNumber ? `#${cachedStatus.ticketNumber}` : (ticketId ? `#${ticketId}` : "")}
+                            </span>
+                            {cachedStatus?.status && (
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${badgeStyle.bg} ${badgeStyle.text}`}>
+                                    {cachedStatus.status}
                                 </span>
-                                {cachedStatus?.status && (
-                                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium border ${badgeStyle.bg} ${badgeStyle.text}`}>
-                                        {cachedStatus.status}
-                                    </span>
-                                )}
-                                {cachedStatus?.team && (
-                                    <span className="text-muted-foreground text-[11px]">
-                                        • Team: {cachedStatus.team}
-                                    </span>
-                                )}
-                            </div>
+                            )}
+                            {cachedStatus?.team && (
+                                <span className="text-muted-foreground text-[11px]">
+                                    • Team: {cachedStatus.team}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
                             <a
                                 href={customUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-primary hover:underline font-medium inline-flex items-center gap-1 shrink-0 ml-2"
+                                className="text-primary hover:underline font-medium inline-flex items-center gap-1 text-xs"
                             >
                                 Open in Zoho
                                 <ExternalLink className="h-3 w-3" />
                             </a>
+                            <button
+                                type="button"
+                                onClick={() => onChange("")}
+                                title="Disconnect ticket to choose NA or enter a different URL"
+                                className="inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors border border-destructive/20"
+                            >
+                                <Trash2 className="h-3 w-3" />
+                                Disconnect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <select
+                        className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                        value={selectedOption}
+                        onChange={handleSelectChange}
+                    >
+                        <option value="">-- Select --</option>
+                        <option value="NA">NA</option>
+                        <option value="Zoho Ticket URL">Zoho Ticket URL</option>
+                    </select>
+
+                    {selectedOption === "Zoho Ticket URL" && (
+                        <div className="mt-1.5 flex flex-col gap-2">
+                            <input
+                                type="text"
+                                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                                placeholder="Paste Zoho ticket URL (e.g. https://desk.zoho.in/...)"
+                                value={customUrl}
+                                onChange={handleUrlChange}
+                            />
                         </div>
                     )}
-                </div>
+                </>
             )}
             {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
         </div>
@@ -436,7 +459,7 @@ function TaggingInput({
         <div className="flex flex-col gap-1">
             <label className={labelClass}>
                 Tagging
-                {required && <span className="text-destructive ml-0.5">*</span>}
+                {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
             </label>
             <select
                 className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
@@ -610,6 +633,27 @@ interface TesterLogFormProps {
     onSuccess?: () => void;
 }
 
+const DRAFT_STORAGE_PREFIX = "tester_log_form_draft_";
+
+function getInitialFormValues(userEmail?: string, todayDate: string = getTodayDateString()): FormValues {
+    try {
+        const storageKey = `${DRAFT_STORAGE_PREFIX}${userEmail || "anonymous"}`;
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === "object") {
+                return {
+                    ...parsed,
+                    testDate: parsed.testDate || todayDate,
+                };
+            }
+        }
+    } catch {
+        // ignore localStorage parsing errors
+    }
+    return { testDate: todayDate };
+}
+
 export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFormProps) {
     const { mutate, isPending, isSuccess } = useTesterLogSubmit();
     const { data: nextTestId, isLoading: isLoadingNextId, refetch: refetchNextId } = useNextTestId();
@@ -618,9 +662,10 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const zohoStatuses = zohoData?.statuses;
 
     const todayDate = getTodayDateString();
+    const draftKey = `${DRAFT_STORAGE_PREFIX}${userEmail || "anonymous"}`;
 
-    const { register, handleSubmit, watch, setValue, reset } = useForm<FormValues>({
-        defaultValues: { testDate: todayDate },
+    const { register, handleSubmit, watch, setValue, reset, getValues } = useForm<FormValues>({
+        defaultValues: getInitialFormValues(userEmail, todayDate),
     });
 
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -635,10 +680,28 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     };
 
     useEffect(() => {
-        if (nextTestId) {
+        if (nextTestId && !getValues("testId")) {
             setValue("testId", nextTestId);
         }
-    }, [nextTestId, setValue]);
+    }, [nextTestId, setValue, getValues]);
+
+    // Auto-save form draft to localStorage whenever fields change
+    useEffect(() => {
+        const subscription = watch((values) => {
+            try {
+                const hasUserInput = Object.entries(values).some(([k, v]) => {
+                    if (k === "testDate" || k === "testId") return false;
+                    return typeof v === "string" ? v.trim() !== "" : Boolean(v);
+                });
+                if (hasUserInput) {
+                    localStorage.setItem(draftKey, JSON.stringify(values));
+                }
+            } catch {
+                // ignore storage quota errors
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, [watch, draftKey]);
 
     // Watch fields for dynamic workflow and TAT auto-computations
     const [
@@ -717,6 +780,11 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const excludeReviewerWorkflow = isDynamic || isDuplicate;
 
     const handleReset = (showToast = true) => {
+        try {
+            localStorage.removeItem(draftKey);
+        } catch {
+            // ignore
+        }
         reset({
             testDate: getTodayDateString(),
             testId: nextTestId || "",

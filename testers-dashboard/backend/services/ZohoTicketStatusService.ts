@@ -133,6 +133,8 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
     private cache: Record<string, ZohoTicketStatus> = {};
     private teamsCache: ZohoTeam[] | null = null;
     private teamsCacheExpiresAt = 0;
+    private inFlightCreateTickets = new Map<string, Promise<CreateZohoTicketResponse>>();
+    private recentCreatedTickets = new Map<string, { result: CreateZohoTicketResponse; timestamp: number }>();
 
     private isConfigured(): boolean {
         return Boolean(ZOHO_CLIENT_ID && ZOHO_CLIENT_SECRET && ZOHO_REFRESH_TOKEN && ZOHO_ORG_ID);
@@ -314,6 +316,41 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
     }
 
     async createTicket(params: CreateZohoTicketParams): Promise<CreateZohoTicketResponse> {
+        const dedupeKey = `${(params.subject || '').trim()}|${(params.email || '').trim()}|${(params.appName || '').trim()}|${(params.description || '').trim().slice(0, 150)}`;
+
+        const now = Date.now();
+        const recent = this.recentCreatedTickets.get(dedupeKey);
+        if (recent && now - recent.timestamp < 30000 && recent.result.success) {
+            console.warn(`[ZohoTicketStatus] Duplicate ticket creation request detected within 30s for "${params.subject}". Returning cached ticket.`);
+            return recent.result;
+        }
+
+        const existingPromise = this.inFlightCreateTickets.get(dedupeKey);
+        if (existingPromise) {
+            console.warn(`[ZohoTicketStatus] Concurrent ticket creation already in-flight for "${params.subject}". Reusing in-flight request.`);
+            return existingPromise;
+        }
+
+        const createPromise = this.executeCreateTicket(params);
+        this.inFlightCreateTickets.set(dedupeKey, createPromise);
+
+        try {
+            const result = await createPromise;
+            if (result.success) {
+                this.recentCreatedTickets.set(dedupeKey, { result, timestamp: Date.now() });
+                for (const [key, item] of this.recentCreatedTickets.entries()) {
+                    if (Date.now() - item.timestamp > 120000) {
+                        this.recentCreatedTickets.delete(key);
+                    }
+                }
+            }
+            return result;
+        } finally {
+            this.inFlightCreateTickets.delete(dedupeKey);
+        }
+    }
+
+    private async executeCreateTicket(params: CreateZohoTicketParams): Promise<CreateZohoTicketResponse> {
         const token = await this.getAccessToken();
         if (!token) {
             return {
