@@ -231,7 +231,8 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Current ({currentQuestion.queueIndex || 1}/{currentQuestion.totalInQueue || 20})
+              Current 
+              {/* ({displayQuestion.queueIndex || queueQuestions.findIndex(q => q.id === displayQuestion.id)}/{queueQuestions.length}) */}
             </button>
             <button
               type="button"
@@ -242,7 +243,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              In Queue ({(currentQuestion.totalInQueue || 20) - 1})
+              In Queue ({queueQuestions.length})
             </button>
           </div>
 
@@ -373,7 +374,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
           /* In Queue - List all questions */
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             <div className="text-xs text-muted-foreground mb-2">
-              {queueQuestions.length} questions in queue
+              {queueQuestions.length} question{queueQuestions.length !== 1 ? "s" : ""} in queue
             </div>
             {queueQuestions.map((q) => (
               <QuestionCard key={q.id} q={q} />
