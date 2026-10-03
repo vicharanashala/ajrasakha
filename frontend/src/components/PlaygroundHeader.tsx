@@ -179,6 +179,14 @@ export function PlaygroundHeader({
               )}
               {user && user.role !== "call_agent" && (
                 <TabsTrigger
+                  value="revamp_qa"
+                  className={tabTriggerClassName}
+                >
+                  <span>Revamp QA</span>
+                </TabsTrigger>
+              )}
+              {user && user.role !== "call_agent" && (
+                <TabsTrigger
                   value="all_questions"
                   className={tabTriggerClassName}
                 >

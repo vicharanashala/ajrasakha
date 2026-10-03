@@ -17,20 +17,21 @@ import {
   Code2,
   Languages,
   RotateCcw,
-  Save,
   CheckCircle2,
   Wand2,
   FileCheck,
   RefreshCw,
   ArrowDownToLine,
   FileText,
-  Trash2,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
 import { Label } from "@/components/atoms/label";
 import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
+import { ConfirmationModal } from "@/components/confirmation-modal";
 import { toast } from "sonner";
 import type { SourceItem } from "@/types";
 import type { AiAssistActionType } from "../types";
@@ -41,6 +42,7 @@ interface AnswerReviewDraftPanelProps {
   initialRemarks?: string;
   initialSources?: SourceItem[];
   onSave?: (data: { answer: string; remarks: string; sources: SourceItem[] }) => void;
+  onSubmit?: (data: { answer: string; remarks: string; sources: SourceItem[] }) => void | Promise<void>;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -51,6 +53,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   initialRemarks = "",
   initialSources = [],
   onSave,
+  onSubmit,
   isCollapsed = false,
   onToggleCollapse,
 }) => {
@@ -78,8 +81,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   const [aiAssistOutput, setAiAssistOutput] = useState<string>("");
   const [activeAiAction, setActiveAiAction] = useState<AiAssistActionType | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState<string>("2 mins ago");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Tab horizontal scroll handling
   const tabScrollRef = useRef<HTMLDivElement>(null);
@@ -164,23 +166,39 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     toast.success("Applied AI suggestion to Reviewer Draft!");
   };
 
-  const handleSaveDraft = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      setLastSavedTime("Just now");
-      if (onSave) {
-        onSave({ answer: draftAnswer, remarks, sources });
-      }
-      toast.success("Draft saved successfully!");
-    }, 400);
-  };
-
   const handleUseAiAnswerInDraft = () => {
     setDraftAnswer(aiAnswerText);
     setRemarks("AI Suggested Answer");
     setActiveTab("reviewer_draft");
     toast.success("Copied AI generated answer into Reviewer Draft!");
+  };
+
+  const handleSubmitResponse = async () => {
+    if (!draftAnswer.trim()) {
+      toast.error("Please enter an answer before submitting!");
+      return;
+    }
+    if (sources.length === 0) {
+      toast.error("At least one source is required!");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (onSubmit) {
+        await onSubmit({ answer: draftAnswer, remarks, sources });
+      } else {
+        // Sample submission flow
+        await new Promise((r) => setTimeout(r, 700));
+        toast.success("Your response has been submitted successfully. Thank you!");
+        handleResetDraft();
+      }
+    } catch (error) {
+      console.error("Submission failed:", error);
+      toast.error("Failed to submit response. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isCollapsed) {
@@ -437,7 +455,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 className="h-6 w-6 rounded"
                 title="Numbered List"
               >
-                <ListOrdered className="w-3 h-3" />
+                <ListOrdered className="w-3.5 h-3.5" />
               </Button>
 
               <Button
@@ -447,7 +465,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 className="h-6 w-6 rounded"
                 title="Checklist"
               >
-                <ListChecks className="w-3 h-3" />
+                <ListChecks className="w-3.5 h-3.5" />
               </Button>
 
               <div className="h-3.5 w-px bg-border/80 mx-0.5" />
@@ -459,7 +477,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 className="h-6 w-6 rounded"
                 title="Link"
               >
-                <Link2 className="w-3 h-3" />
+                <Link2 className="w-3.5 h-3.5" />
               </Button>
 
               <Button
@@ -469,7 +487,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 className="h-6 w-6 rounded"
                 title="Code"
               >
-                <Code2 className="w-3 h-3" />
+                <Code2 className="w-3.5 h-3.5" />
               </Button>
             </div>
 
@@ -489,21 +507,9 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 <span>Word count: {wordCount}</span>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-[11px]">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Last saved: {lastSavedTime}
-                </span>
-
-                <Button
-                  size="sm"
-                  onClick={handleSaveDraft}
-                  disabled={isSaving}
-                  className="h-6 px-2.5 text-[11px] bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-md shadow-xs"
-                >
-                  <Save className="w-3 h-3 mr-1" />
-                  {isSaving ? "Saving..." : "Save"}
-                </Button>
+              <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-[11px]">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Auto-saved</span>
               </div>
             </div>
 
@@ -529,6 +535,39 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                   onSourcesChange={setSources}
                 />
               </div>
+            </div>
+
+            {/* Submit Response Footer */}
+            <div className="pt-3 border-t border-border/80 flex items-center justify-between gap-3">
+              <div className="text-[11px] text-muted-foreground">
+                <span>{sources.length} {sources.length === 1 ? "source" : "sources"} attached</span>
+              </div>
+
+              <ConfirmationModal
+                title="Submit Response"
+                description="You are submitting your answer for quality assurance review. Please verify that all agricultural recommendations and sources are accurate before proceeding."
+                confirmText="Submit Response"
+                cancelText="Cancel"
+                onConfirm={handleSubmitResponse}
+                trigger={
+                  <Button
+                    disabled={!draftAnswer.trim() || isSubmitting}
+                    className="h-8 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs rounded-lg flex items-center gap-1.5 transition-all"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Submit Response</span>
+                      </>
+                    )}
+                  </Button>
+                }
+              />
             </div>
           </div>
         )}
