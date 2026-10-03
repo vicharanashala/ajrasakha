@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GDB Decision Comparison</title>
+  <title>GDB decisions comparison</title>
   <style>
     :root { --ink:#17211b; --muted:#647069; --line:#dce4df; --paper:#f6f8f6; --green:#176b45; --soft:#e8f3ed; --amber:#8a5a00; --red:#a33131; }
     * { box-sizing:border-box; }
@@ -11,10 +11,31 @@
     main { max-width:1440px; margin:auto; padding:34px 28px 54px; }
     header { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; margin-bottom:24px; }
     h1 { margin:0 0 6px; font-size:30px; letter-spacing:-.03em; }
-    header p { margin:0; color:var(--muted); }
+    .muted { color:var(--muted); font-weight:500; }
     .health { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
     .dot { width:9px; height:9px; border-radius:50%; background:#aab3ae; }
     .dot.ok { background:#28a36a; box-shadow:0 0 0 4px #dff3e9; }
+    .benchmark { margin-bottom:18px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:0 20px; box-shadow:0 7px 22px rgba(25,45,34,.04); }
+    .benchmark > summary { padding:16px 0; color:var(--ink); }
+    .benchmark[open] > summary { border-bottom:1px solid #edf0ee; }
+    .benchmark-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:13px; }
+    .benchmark h2 { margin:0 0 4px; font-size:17px; }
+    .benchmark p { margin:0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .benchmark-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+    .benchmark-item { border:1px solid #e3e9e5; background:#f8faf8; border-radius:10px; padding:11px 12px; }
+    .benchmark-item.best { border-color:#9ccdb3; background:#edf7f1; }
+    .benchmark-item small { display:block; color:var(--muted); margin-bottom:4px; }
+    .benchmark-item strong { display:block; font-size:18px; }
+    .benchmark-item span { display:block; color:#526159; font-size:11px; margin-top:3px; line-height:1.35; }
+    .benchmark-body { padding:16px 0 18px; }
+    .about { margin-bottom:18px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:0 20px; box-shadow:0 7px 22px rgba(25,45,34,.04); }
+    .about > summary { padding:16px 0; color:var(--ink); }
+    .about-body { padding:4px 0 18px; color:#45534b; font-size:13px; line-height:1.55; }
+    .about-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:10px 0 14px; }
+    .about-item { background:#f7f9f7; border-radius:9px; padding:11px 12px; }
+    .about-item strong { display:block; margin-bottom:3px; color:var(--ink); }
+    .method-list { margin:8px 0 0; padding-left:20px; }
+    .method-list li { margin:5px 0; }
     form { background:white; border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 8px 26px rgba(25,45,34,.05); }
     .form-grid { display:grid; grid-template-columns:minmax(340px,2fr) 1fr 1fr auto; gap:14px; align-items:end; }
     label { display:grid; gap:7px; font-size:12px; font-weight:700; color:#46524b; text-transform:uppercase; letter-spacing:.05em; }
@@ -22,10 +43,6 @@
     input:focus { border-color:#4c9c74; box-shadow:0 0 0 3px #e2f2e9; }
     button { border:0; border-radius:9px; padding:12px 19px; background:var(--green); color:white; font-weight:750; cursor:pointer; white-space:nowrap; }
     button:disabled { opacity:.55; cursor:wait; }
-    .message { min-height:22px; margin:13px 2px 0; color:var(--muted); font-size:14px; }
-    .legend { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:14px; }
-    .legend div { background:#f7f9f7; border-radius:9px; padding:9px 11px; color:#58645d; font-size:12px; line-height:1.45; }
-    .legend strong { color:#29362f; }
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-top:22px; }
     .card { min-height:340px; background:white; border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 7px 22px rgba(25,45,34,.04); }
     .card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border-bottom:1px solid #edf0ee; padding-bottom:14px; margin-bottom:16px; }
@@ -39,22 +56,66 @@
     .fact { background:#f7f9f7; border-radius:9px; padding:10px 11px; min-width:0; }
     .fact small { display:block; color:var(--muted); margin-bottom:4px; }
     .fact strong { display:block; overflow-wrap:anywhere; font-size:14px; }
+    .source { display:inline-block; margin-top:7px; padding:3px 7px; border-radius:999px; background:#e8efeb; color:#476054; font-size:10px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; }
+    .explanation { margin:9px 0 15px; color:#45534b; font-size:13px; line-height:1.5; }
+    .explanation p { margin:9px 0; }
+    .explanation ul { margin:8px 0 0; padding-left:20px; }
+    .explanation li { margin:5px 0; }
     .section { margin-top:15px; }
     .section-title { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
     .question { font-size:17px; line-height:1.45; font-weight:720; }
     details { margin-top:14px; border-top:1px solid #edf0ee; padding-top:12px; }
     summary { cursor:pointer; color:var(--green); font-weight:700; }
     .answer { margin-top:10px; white-space:pre-wrap; max-height:220px; overflow:auto; color:#36423b; line-height:1.55; font-size:14px; }
+    .tech { color:var(--muted); font-size:12px; line-height:1.55; }
+    .raw { margin:10px 0 0; padding:10px; max-height:230px; overflow:auto; white-space:pre-wrap; background:#f7f9f7; border-radius:8px; color:#45534b; font:11px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; }
     .placeholder { color:#89938d; padding-top:44px; text-align:center; }
-    @media (max-width:900px) { .form-grid,.grid,.legend { grid-template-columns:1fr; } header { align-items:flex-start; flex-direction:column; } }
+    @media (max-width:900px) { .form-grid,.grid,.benchmark-grid,.about-grid { grid-template-columns:1fr; } header,.benchmark-head { align-items:flex-start; flex-direction:column; } }
   </style>
 </head>
 <body>
 <main>
   <header>
-    <div><h1>GDB Decision Comparison</h1><p>Compare the current search flow with three Jev evaluation methods.</p></div>
+    <div><h1>GDB decisions comparison</h1></div>
     <div class="health"><span id="healthDot" class="dot"></span><span id="healthText">Checking API</span></div>
   </header>
+
+  <details class="about">
+    <summary><strong>About this comparison</strong> <span class="muted">Jev primitives and method guide</span></summary>
+    <div class="about-body">
+      <p>The same farmer question is sent through the current GDB method and four Jev experiments.</p>
+      <div class="about-grid">
+        <div class="about-item"><strong>Choice</strong>Selects one label from fixed options, such as Same request or Different request.</div>
+        <div class="about-item"><strong>Noul</strong>Estimates how true a statement is from 0% to 100%, such as whether an answer covers the request.</div>
+        <div class="about-item"><strong>Score</strong>Grades something against a numeric rubric. Score is available in Jev but is not used by these methods.</div>
+      </div>
+      <strong>Methods</strong>
+      <ul class="method-list">
+        <li><strong>Current method:</strong> vector retrieval and Gemma; no Jev primitive.</li>
+        <li><strong>Method 1:</strong> Jev Choice selects the closest request.</li>
+        <li><strong>Method 2:</strong> Jev Choice checks the request and Jev Noul checks answer coverage.</li>
+        <li><strong>Method 3:</strong> two Jev Choices check the subject and task; one Jev Noul checks conflict risk.</li>
+        <li><strong>Method 4:</strong> one Jev Choice checks the task; four Jev Nouls check evidence, target, coverage and conflict.</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="benchmark">
+    <summary><strong>Benchmark result:</strong> Method 1 performed best for automatic answers. Method 4 found the most reference candidates.</summary>
+    <div class="benchmark-body">
+      <div class="benchmark-head">
+        <div><h2 id="benchmark-title">100-question benchmark</h2></div>
+        <span class="badge">3 October 2026</span>
+      </div>
+      <div class="benchmark-grid">
+        <div class="benchmark-item"><small>Current Gemma</small><strong>79%</strong><span>reference record returned</span></div>
+        <div class="benchmark-item best"><small>Method 1</small><strong>81%</strong><span>best automatic result</span></div>
+        <div class="benchmark-item"><small>Method 2</small><strong>61%</strong><span>reference record returned</span></div>
+        <div class="benchmark-item"><small>Method 3</small><strong>59.6%</strong><span>reference record returned</span></div>
+        <div class="benchmark-item best"><small>Method 4</small><strong>83%</strong><span>reference candidate found; 64% returned</span></div>
+      </div>
+    </div>
+  </details>
 
   <form id="searchForm">
     <div class="form-grid">
@@ -63,25 +124,24 @@
       <label>State<input id="state" required value="Delhi"></label>
       <button id="runButton" type="submit">Compare all methods</button>
     </div>
-    <div id="message" class="message">Ready to run the same GDB request through all four methods.</div>
-    <div class="legend">
-      <div><strong>Selected-question similarity</strong><br>Embedding closeness used during retrieval. It is not an answer-correctness score.</div>
-      <div><strong>Jev confidence</strong><br>Confidence in the displayed decision label. Read the label and confidence together.</div>
-      <div><strong>Answer sufficiency</strong><br>Estimated probability that the stored answer sufficiently addresses the farmer's request.</div>
-    </div>
   </form>
 
   <section id="results" class="grid"></section>
 </main>
 <script>
 const methods = [
-  { id:'current', label:'Current GDB', subtitle:'Existing Gemma flow', endpoint:'/v1/gdb/search' },
-  { id:'method1', label:'Method 1', subtitle:'Jev in the existing flow', endpoint:'/v1/gdb/search-jev-existing-flow' },
-  { id:'method2', label:'Method 2', subtitle:'Jev Choice + Noul', endpoint:'/v1/gdb/search-jev-choice-noul' },
-  { id:'method3', label:'Method 3', subtitle:'Gemma answer verified by Jev', endpoint:'/v1/gdb/search-jev-gated' }
+  { id:'current', label:'Current method', subtitle:'Gemma selects the closest question', endpoint:'/v1/gdb/search',
+    description:'The GDB finds five possible questions. Gemma selects the one that appears to ask for the same thing.', primitives:'Jev primitives used: none.' },
+  { id:'method1', label:'Method 1', subtitle:'Jev selects the closest question', endpoint:'/v1/gdb/search-jev-existing-flow',
+    description:'The GDB finds possible questions. Jev selects the one that appears to ask for the same thing.', primitives:'Jev primitives used: Choice.' },
+  { id:'method2', label:'Method 2', subtitle:'Jev checks the question and its answer', endpoint:'/v1/gdb/search-jev-choice-noul',
+    description:'Jev selects a matching question only when its stored answer is likely to cover the farmer’s request.', primitives:'Jev primitives used: Choice + Noul.' },
+  { id:'method3', label:'Method 3', subtitle:'Jev checks Gemma’s selection', endpoint:'/v1/gdb/search-jev-gated',
+    description:'Gemma selects a question first. Jev blocks it when the task, subject or answer does not match.', primitives:'Jev primitives used: two Choices + one Noul.' },
+  { id:'method4', label:'Method 4', subtitle:'Jev searches a wider set of questions', endpoint:'/v1/gdb/search-jev-reranked',
+    description:'The GDB finds more possible questions. Jev compares them and selects the best supported answer.', primitives:'Jev primitives used: one Choice + four Nouls.' }
 ];
 const results = document.getElementById('results');
-const message = document.getElementById('message');
 const runButton = document.getElementById('runButton');
 
 function el(tag, cls, text) {
@@ -93,23 +153,111 @@ function el(tag, cls, text) {
 function value(v, digits=2) {
   return typeof v === 'number' ? v.toFixed(digits) : (v ?? '—');
 }
-function fact(label, val) {
-  const box=el('div','fact'); box.append(el('small','',label),el('strong','',val ?? '—')); return box;
+function percent(v) {
+  return typeof v === 'number' ? `${Math.round(v * 100)}%` : '—';
+}
+function reasonPercent(text) {
+  const match=String(text || '').match(/([01](?:\.\d+)?)/);
+  return match ? percent(Number(match[1])) : '—';
+}
+function friendlyLabel(label) {
+  const labels={
+    SAME:'Same request', SAME_INTENT:'Same request', SAME_TASK:'Same task', SAME_TARGET:'Same target',
+    KEEP:'Related request', PARTIAL_TASK:'Partial task', BROAD_TARGET:'Broad target',
+    REJECT:'Different request', DIFFERENT_TASK:'Different task', DIFFERENT_TARGET:'Different target',
+    FULL_TASK:'Full answer', selected:'Selected', review:'Review', accept:'Accept', reject:'Reject',
+    empty:'No answer', no_answer:'No answer', exact_bypass:'Exact match'
+  };
+  return labels[label] || label || '—';
+}
+function fact(label, val, source) {
+  const box=el('div','fact');
+  box.append(el('small','',label),el('strong','',val ?? '—'));
+  if(source) box.append(el('span','source',source));
+  return box;
 }
 function chosenEvaluation(audit) {
-  return (audit?.evaluations || []).find(x => x.chosen_for_answer) || null;
+  const evaluations=audit?.evaluations || [];
+  return evaluations.find(x => x.chosen_for_answer)
+    || evaluations.find(x => x.question_id === audit?.selected_question_id)
+    || evaluations.find(x => x.action === 'selected' || x.action === 'review')
+    || null;
 }
 function displayMatch(data) {
   return data?.exact_match && Object.keys(data.exact_match).length ? data.exact_match
-    : data?.selected_match || data?.classification_audit?.baseline_selected_match || null;
+    : data?.selected_match || data?.classification_audit?.proposed_match || data?.classification_audit?.baseline_selected_match || null;
 }
 function cardShell(method, status='waiting') {
   const card=el('article','card'); card.id='card-'+method.id;
   const head=el('div','card-head');
   const titles=el('div'); titles.append(el('div','eyebrow',method.label),el('h2','',method.subtitle));
-  head.append(titles,el('span','badge '+status,status)); card.append(head,el('div','placeholder','Waiting to run')); return card;
+  head.append(titles);
+  card.append(head,el('div','placeholder','Waiting to run'));
+  return card;
 }
 function renderInitial() { results.replaceChildren(...methods.map(m => cardShell(m))); }
+
+function explanationDetails(method, data, audit, match, evaluation, gate) {
+  const details=el('details','explanation');
+  details.append(el('summary','','Explanation'));
+  details.append(el('p','',method.description));
+  const primitiveLine=el('p','');
+  primitiveLine.append(el('strong','',method.primitives));
+  details.append(primitiveLine);
+  const list=el('ul');
+  if(method.id==='current') {
+    list.append(
+      el('li','',`Question match: ${percent(match?.similarity_score)}. This measures how close the retrieved question is to the farmer’s question. Higher is closer.`),
+      el('li','',`Gemma result: ${friendlyLabel(evaluation?.classification || evaluation?.relevance_decision || audit.status)}. This is Gemma’s decision about whether the questions ask for the same thing.`),
+      el('li','',`Questions compared: ${(audit.evaluations || []).length}. This is the number of possible GDB questions checked.`)
+    );
+  } else if(method.id==='method1') {
+    list.append(
+      el('li','',`Question match: ${percent(match?.similarity_score)}. This measures how close the retrieved question is to the farmer’s question.`),
+      el('li','',`Jev result: ${friendlyLabel(evaluation?.classification || evaluation?.relevance_decision)}. This is Jev’s decision about whether the questions ask for the same thing.`),
+      el('li','',`Jev certainty: ${reasonPercent(evaluation?.relevance_reason || evaluation?.reason)}. Higher means Jev supports that decision more strongly.`)
+    );
+  } else if(method.id==='method2') {
+    list.append(
+      el('li','',`Question match: ${percent(match?.similarity_score)}. This measures how close the retrieved question is to the farmer’s question.`),
+      el('li','',`Jev result: ${friendlyLabel(evaluation?.intent)}. This is Jev’s decision about whether the questions ask for the same thing.`),
+      el('li','',`Answer coverage: ${percent(evaluation?.answer_sufficiency_noul ?? evaluation?.answer_sufficiency)}. This estimates whether the stored answer covers the farmer’s request.`),
+      el('li','',`Required coverage: ${percent(audit.sufficiency_threshold)}. The answer must reach this value to be selected.`)
+    );
+  } else if(method.id==='method3') {
+    list.append(
+      el('li','',`Final result: ${gate === 'not_run' ? 'Not checked' : friendlyLabel(gate)}.`),
+      el('li','',`Subject match: ${friendlyLabel(audit.checks?.target_alignment)}. This checks whether the crop, disease or other subject matches.`),
+      el('li','',`Request covered: ${friendlyLabel(audit.checks?.task_coverage)}. This checks whether the answer performs the task the farmer requested.`),
+      el('li','',`Conflict risk: ${percent(audit.checks?.conflict_probability ?? audit.checks?.has_conflict)}. This estimates whether the answer conflicts with the request. Lower is better.`)
+    );
+  } else {
+    list.append(
+      el('li','',`Final result: ${friendlyLabel(audit.status)}.`),
+      el('li','',`Request match: ${friendlyLabel(evaluation?.task_alignment)}. This checks whether the candidate performs the task the farmer requested.`),
+      el('li','',`Answer coverage: ${percent(evaluation?.complete_coverage ?? evaluation?.answer_evidence)}. This estimates whether the answer contains enough useful information.`),
+      el('li','',`Conflict risk: ${percent(evaluation?.has_conflict)}. This estimates whether the answer conflicts with the request. Lower is better.`)
+    );
+  }
+  details.append(list);
+  let summary='';
+  if(method.id==='current') {
+    summary=`Result: Gemma returned ${match ? 'this question' : 'no question'} after comparing ${(audit.evaluations || []).length} candidates.`;
+  } else if(method.id==='method1') {
+    const decision=friendlyLabel(evaluation?.classification || evaluation?.relevance_decision);
+    const certainty=reasonPercent(evaluation?.relevance_reason || evaluation?.reason);
+    summary=`Result: Jev labelled the retrieved question “${decision}” with ${certainty} certainty.`;
+  } else if(method.id==='method2') {
+    const coverage=percent(evaluation?.answer_sufficiency_noul ?? evaluation?.answer_sufficiency);
+    summary=`Result: answer coverage was ${coverage}; this method requires ${percent(audit.sufficiency_threshold)}.`;
+  } else if(method.id==='method3') {
+    summary=`Result: Jev’s final check was “${gate === 'not_run' ? 'Not checked' : friendlyLabel(gate)}”.`;
+  } else {
+    summary=`Result: Jev’s final decision was “${friendlyLabel(audit.status)}”.`;
+  }
+  details.append(el('p','',summary));
+  return details;
+}
 
 function renderResult(method, data) {
   const audit=data.classification_audit || {};
@@ -120,41 +268,40 @@ function renderResult(method, data) {
   const card=cardShell(method,status);
   card.lastChild.remove();
   const facts=el('div','facts');
-  facts.append(fact('Model',audit.model));
-  facts.append(fact('Selected-question similarity',value(match?.similarity_score,3)));
   if(method.id==='method1') {
-    facts.append(fact('Relevance label',evaluation?.relevance_decision));
-    facts.append(fact('Decision confidence',(evaluation?.relevance_reason || '').replace('jev confidence ','') || '—'));
-    if(audit.selection_method === 'same_question_bypass') {
-      facts.append(fact('Pipeline result',evaluation?.classification));
-      facts.append(fact('Selection path','Direct SAME bypass'));
-    } else {
-      facts.append(fact('Final classification',evaluation?.classification));
-      facts.append(fact('Classification confidence',(evaluation?.reason || '').replace('jev confidence ','') || '—'));
-    }
+    facts.append(fact('Question match',percent(match?.similarity_score),'Retrieval'));
+    facts.append(fact('Jev result',friendlyLabel(evaluation?.classification || evaluation?.relevance_decision),'Jev Choice'));
+    facts.append(fact('Jev certainty',reasonPercent(evaluation?.relevance_reason || evaluation?.reason),'Choice confidence'));
   } else if(method.id==='method2') {
-    facts.append(fact('Relevance label',evaluation?.intent));
-    facts.append(fact('Relevance confidence',value(evaluation?.intent_confidence)));
-    facts.append(fact('Noul answer sufficiency',value(evaluation?.answer_sufficiency_noul)));
-    facts.append(fact('Eligibility threshold',value(audit.sufficiency_threshold)));
+    facts.append(fact('Question match',percent(match?.similarity_score),'Retrieval'));
+    facts.append(fact('Jev result',friendlyLabel(evaluation?.intent),'Jev Choice'));
+    facts.append(fact('Answer coverage',percent(evaluation?.answer_sufficiency_noul ?? evaluation?.answer_sufficiency),'Jev Noul'));
+    facts.append(fact('Required coverage',percent(audit.sufficiency_threshold),'Our rule'));
   } else if(method.id==='method3') {
-    facts.append(fact('Gate result',gate === 'not_run' ? 'NOT RUN' : gate));
-    facts.append(fact('Task coverage',audit.checks?.task_coverage));
-    facts.append(fact('Contradiction risk (Noul)',value(audit.checks?.conflict_probability)));
+    facts.append(fact('Final result',gate === 'not_run' ? 'Not checked' : friendlyLabel(gate),'Our rule'));
+    facts.append(fact('Subject match',friendlyLabel(audit.checks?.target_alignment),'Jev Choice'));
+    facts.append(fact('Request covered',friendlyLabel(audit.checks?.task_coverage),'Jev Choice'));
+    facts.append(fact('Conflict risk',percent(audit.checks?.conflict_probability ?? audit.checks?.has_conflict),'Jev Noul'));
+  } else if(method.id==='method4') {
+    facts.append(fact('Final result',friendlyLabel(audit.status),'Our rule'));
+    facts.append(fact('Request match',friendlyLabel(evaluation?.task_alignment),'Jev Choice'));
+    facts.append(fact('Answer coverage',percent(evaluation?.complete_coverage ?? evaluation?.answer_evidence),'Jev Noul'));
+    facts.append(fact('Conflict risk',percent(evaluation?.has_conflict),'Jev Noul'));
   } else {
-    facts.append(fact('Candidates',(audit.evaluations || []).length));
-    facts.append(fact('Decision',evaluation?.classification || evaluation?.relevance_decision || audit.status));
+    facts.append(fact('Question match',percent(match?.similarity_score),'Retrieval'));
+    facts.append(fact('Gemma result',friendlyLabel(evaluation?.classification || evaluation?.relevance_decision || audit.status),'Gemma'));
+    facts.append(fact('Questions compared',(audit.evaluations || []).length,'Retrieval'));
   }
   card.append(facts);
-  const q=el('div','section'); q.append(el('div','section-title','Selected GDB question'),el('div','question',match?.question || 'No answer selected'));
+  card.append(explanationDetails(method,data,audit,match,evaluation,gate));
+  const q=el('div','section'); q.append(el('div','section-title','Retrieved GDB question'),el('div','question',match?.question || 'No question retrieved'));
   card.append(q);
   if(method.id==='method3' && gate==='not_run') {
     card.append(el('div','message','Verification was not run because the current Gemma flow selected no baseline answer.'));
   }
-  if(match?.answer) {
-    const details=el('details'); const summary=el('summary','', 'View stored answer'); const answer=el('div','answer',match.answer);
-    details.append(summary,answer); card.append(details);
-  }
+  const rawDetails=el('details','tech');
+  rawDetails.append(el('summary','','View raw response'),el('pre','raw',JSON.stringify(data,null,2)));
+  card.append(rawDetails);
   document.getElementById('card-'+method.id).replaceWith(card);
 }
 function renderError(method, error) {
@@ -163,16 +310,19 @@ function renderError(method, error) {
 async function runMethod(method,payload) {
   const response=await fetch(method.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   let body; try { body=await response.json(); } catch { body={}; }
-  if(!response.ok) throw new Error(body.detail || `Request failed (${response.status})`);
+  if(!response.ok) {
+    const fallback=response.status >= 500
+      ? 'GDB service unavailable. Check the database connection.'
+      : `Request could not be completed (${response.status}).`;
+    throw new Error(typeof body.detail === 'string' ? body.detail : fallback);
+  }
   return body;
 }
 document.getElementById('searchForm').addEventListener('submit',async event => {
-  event.preventDefault(); runButton.disabled=true; renderInitial(); message.textContent='Running four methods against the same GDB request…';
+  event.preventDefault(); runButton.disabled=true; renderInitial();
   const payload={rephrased_query:document.getElementById('query').value.trim(),crop:document.getElementById('crop').value.trim(),state:document.getElementById('state').value.trim(),season:null,domain:null};
   const settled=await Promise.allSettled(methods.map(m => runMethod(m,payload)));
   settled.forEach((result,index) => result.status==='fulfilled' ? renderResult(methods[index],result.value) : renderError(methods[index],result.reason.message));
-  const failures=settled.filter(x => x.status==='rejected').length;
-  message.textContent=failures ? `${4-failures} methods completed; ${failures} failed.` : 'All four methods completed.';
   runButton.disabled=false;
 });
 fetch('/health').then(r=>r.ok?r.json():Promise.reject()).then(()=>{document.getElementById('healthDot').classList.add('ok');document.getElementById('healthText').textContent='API connected';}).catch(()=>document.getElementById('healthText').textContent='API unavailable');

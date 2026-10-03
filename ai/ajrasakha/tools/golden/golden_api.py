@@ -20,6 +20,7 @@ try:
         gdb_search_jev_existing_eval,
         gdb_search_choice_noul_eval,
         gdb_search_jev_gated_eval,
+        gdb_search_jev_reranked_eval,
     )
     from ajrasakha.utils import jev_client
     from .golden_pending_duplicate import check_pending_duplicate
@@ -34,6 +35,7 @@ except ImportError:
         gdb_search_jev_existing_eval,
         gdb_search_choice_noul_eval,
         gdb_search_jev_gated_eval,
+        gdb_search_jev_reranked_eval,
     )
     import jev_client
     from golden_pending_duplicate import check_pending_duplicate
@@ -126,6 +128,18 @@ class GDBGatedJevRequest(GDBSearchRequest):
         le=1.0,
         description="Conflict probability at or above this value causes rejection.",
     )
+
+
+class GDBJevRerankRequest(GDBSearchRequest):
+    retrieval_top_k: int = Field(20, ge=5, le=50, description="Candidates requested from each retrieval source.")
+    evaluation_top_k: int = Field(10, ge=1, le=30, description="Highest RRF-ranked candidates evaluated by Jev.")
+    max_concurrency: int = Field(5, ge=1, le=10, description="Maximum simultaneous Jev requests.")
+    task_threshold: float = Field(0.5, ge=0.0, le=1.0, description="Provisional same-task eligibility threshold.")
+    evidence_threshold: float = Field(0.5, ge=0.0, le=1.0, description="Provisional answer-evidence threshold.")
+    target_threshold: float = Field(0.5, ge=0.0, le=1.0, description="Provisional crop/problem/constraint match threshold.")
+    max_conflict_probability: float = Field(0.5, ge=0.0, le=1.0, description="Maximum conflict probability for eligibility.")
+    review_margin: float = Field(0.08, ge=0.0, le=1.0, description="Send close top-two scores to review.")
+    fallback_to_current: bool = Field(True, description="Use current GDB flow if every Jev request fails.")
 
 
 class PendingDuplicateCheckRequest(BaseModel):
@@ -320,6 +334,50 @@ async def search_gdb_jev_gated(body: GDBGatedJevRequest):
         raise HTTPException(
             status_code=502,
             detail=f"Experimental Jev gated selection failed: {type(exc).__name__}",
+        ) from exc
+
+
+@app.post(
+    "/v1/gdb/search-jev-reranked",
+    response_model=GDBSearchResponse,
+    summary="Experiment: Hybrid retrieval with atomic Jev reranking",
+    description=(
+        "Experimental Method 4; it does not change any existing endpoint.\n\n"
+        "1. Retrieve a broader semantic and BM25 candidate union.\n"
+        "2. Merge candidates with reciprocal-rank fusion rather than comparing unlike raw scores.\n"
+        "3. Evaluate shortlisted candidates concurrently with five atomic Jev Noul questions.\n"
+        "4. Require task, evidence and target gates; rank eligible records with a conflict-adjusted score.\n"
+        "5. Return review when the top two scores are too close, and fall back to current GDB if all Jev calls fail.\n\n"
+        "All default thresholds are provisional and require calibration on human-reviewed GDB examples."
+    ),
+)
+async def search_gdb_jev_reranked(body: GDBJevRerankRequest):
+    if body.evaluation_top_k > body.retrieval_top_k * 2:
+        raise HTTPException(
+            status_code=422,
+            detail="evaluation_top_k cannot exceed the maximum semantic + keyword candidate union",
+        )
+    try:
+        return await gdb_search_jev_reranked_eval(
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            season=body.season,
+            domain=body.domain,
+            retrieval_top_k=body.retrieval_top_k,
+            evaluation_top_k=body.evaluation_top_k,
+            max_concurrency=body.max_concurrency,
+            task_threshold=body.task_threshold,
+            evidence_threshold=body.evidence_threshold,
+            target_threshold=body.target_threshold,
+            max_conflict_probability=body.max_conflict_probability,
+            review_margin=body.review_margin,
+            fallback_to_current=body.fallback_to_current,
+        )
+    except jev_client.JevError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Experimental Jev reranking failed: {type(exc).__name__}",
         ) from exc
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from typing import Any, Optional
 
 from dotenv import load_dotenv
@@ -705,6 +706,366 @@ async def gdb_search_jev_gated_eval(
         # but do not expose it as the endpoint's usable answer.
         response["exact_match"] = {}
         response["selected_match"] = None
+    return response
+
+
+def _rrf_merge_candidates(
+    vector_pairs: list[QuestionAnswerPair],
+    keyword_pairs: list[QuestionAnswerPair],
+) -> tuple[list[QuestionAnswerPair], dict[str, dict[str, Any]]]:
+    """Merge semantic and keyword results without comparing unlike raw scores."""
+    by_id: dict[str, QuestionAnswerPair] = {}
+    metadata: dict[str, dict[str, Any]] = {}
+    for source, pairs in (("semantic", vector_pairs), ("keyword", keyword_pairs)):
+        for rank, pair in enumerate(pairs, 1):
+            by_id.setdefault(pair.question_id, pair)
+            item = metadata.setdefault(
+                pair.question_id,
+                {"sources": [], "rrf_score": 0.0, "source_ranks": {}},
+            )
+            item["sources"].append(source)
+            item["source_ranks"][source] = rank
+            item["rrf_score"] += 1.0 / (60.0 + rank)
+    ordered = sorted(
+        by_id.values(),
+        key=lambda p: (
+            metadata[p.question_id]["rrf_score"],
+            float(p.similarity_score or 0.0),
+        ),
+        reverse=True,
+    )
+    return ordered, metadata
+
+
+async def _retrieve_rerank_candidates(
+    query: str,
+    crop: str,
+    state: str,
+    *,
+    season: Optional[str],
+    domain: Optional[str],
+    retrieval_top_k: int,
+) -> tuple[list[QuestionAnswerPair], dict[str, dict[str, Any]]]:
+    """Retrieve a broad semantic + keyword union for the Jev experiment."""
+    keywords = extract_keywords(query, max_keywords=10)
+    vector_task = vector_rag_search(
+        query,
+        crop,
+        state,
+        season=season,
+        domain=domain,
+        top_k=retrieval_top_k,
+        use_dual_search=False,
+        embedding_field="embedding",
+    )
+    keyword_task = bm25_search(
+        keywords=" ".join(keywords) if keywords else query,
+        crop=crop,
+        state=state,
+        top_k=retrieval_top_k,
+    )
+    vector_result, keyword_result = await asyncio.gather(
+        vector_task, keyword_task, return_exceptions=True
+    )
+    vector_pairs = [] if isinstance(vector_result, Exception) else vector_result
+    keyword_pairs = [] if isinstance(keyword_result, Exception) else keyword_result
+    return _rrf_merge_candidates(vector_pairs, keyword_pairs)
+
+
+async def gdb_search_jev_reranked_eval(
+    rephrased_query: str,
+    crop: str,
+    state: str,
+    *,
+    season: Optional[str] = None,
+    domain: Optional[str] = None,
+    retrieval_top_k: int = 20,
+    evaluation_top_k: int = 10,
+    max_concurrency: int = 5,
+    task_threshold: float = 0.5,
+    evidence_threshold: float = 0.5,
+    target_threshold: float = 0.5,
+    max_conflict_probability: float = 0.5,
+    review_margin: float = 0.08,
+    fallback_to_current: bool = True,
+) -> dict[str, Any]:
+    """Experimental hybrid retrieval followed by atomic Jev reranking.
+
+    This endpoint is intentionally separate from ``gdb_search``. Thresholds
+    are provisional and the returned audit exposes retrieval, decisions,
+    latency and usage so they can be calibrated on reviewed examples.
+    """
+    started = time.perf_counter()
+    crop, state = _normalize_crop_state(crop, state)
+    original_crop = crop
+    query = (rephrased_query or "").strip()
+    if not query:
+        raise ValueError("rephrased_query is required")
+
+    strict_results = await strict_exact_search(query=query, crop=crop, state=state)
+    if strict_results:
+        response = _exact_match_response(
+            query, state, crop, strict_results[0], original_crop=original_crop, crop_fallback=False
+        )
+        response["classification_audit"].update({
+            "mode": "jev_atomic_reranker_experimental",
+            "total_latency_ms": round((time.perf_counter() - started) * 1000, 1),
+        })
+        return response
+
+    retrieval_started = time.perf_counter()
+    pairs, retrieval_metadata = await _retrieve_rerank_candidates(
+        query,
+        crop,
+        state,
+        season=season,
+        domain=domain,
+        retrieval_top_k=retrieval_top_k,
+    )
+    crop_fallback = False
+    if not pairs and crop != "all":
+        crop_fallback = True
+        crop = "all"
+        pairs, retrieval_metadata = await _retrieve_rerank_candidates(
+            query,
+            crop,
+            state,
+            season=season,
+            domain=domain,
+            retrieval_top_k=retrieval_top_k,
+        )
+    retrieval_ms = (time.perf_counter() - retrieval_started) * 1000
+    evaluated_pairs = pairs[:evaluation_top_k]
+
+    audit: dict[str, Any] = {
+        "status": "empty",
+        "model": f"jev:{jev_client.gateway()}:{jev_client.model_name()}",
+        "mode": "jev_atomic_reranker_experimental",
+        "thresholds_are_provisional": True,
+        "thresholds": {
+            "same_task": task_threshold,
+            "answer_evidence": evidence_threshold,
+            "target_match": target_threshold,
+            "max_conflict": max_conflict_probability,
+            "review_margin": review_margin,
+        },
+        "retrieval": {
+            "strategy": "semantic_plus_keyword_rrf",
+            "requested_per_source": retrieval_top_k,
+            "unique_candidates": len(pairs),
+            "evaluated_candidates": len(evaluated_pairs),
+            "latency_ms": round(retrieval_ms, 1),
+            "candidates": [
+                {
+                    "rank": rank,
+                    "question_id": pair.question_id,
+                    "question": pair.question_text,
+                    "sources": retrieval_metadata.get(pair.question_id, {}).get("sources", []),
+                    "source_ranks": retrieval_metadata.get(pair.question_id, {}).get("source_ranks", {}),
+                    "rrf_score": retrieval_metadata.get(pair.question_id, {}).get("rrf_score", 0.0),
+                }
+                for rank, pair in enumerate(pairs, 1)
+            ],
+        },
+        "evaluations": [],
+        "selected_question_id": None,
+        "selection_rule": "eligibility_gates_then_risk_adjusted_score_then_rrf",
+    }
+    response: dict[str, Any] = {
+        "rephrased_query": query,
+        "state": state,
+        "crop": crop,
+        "exact_match": {},
+        "selected_match": None,
+        "classification_audit": audit,
+    }
+    _apply_crop_fallback_metadata(
+        response, original_crop=original_crop, crop_fallback=crop_fallback
+    )
+    if not evaluated_pairs:
+        audit["total_latency_ms"] = round((time.perf_counter() - started) * 1000, 1)
+        return response
+
+    semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def evaluate(pair: QuestionAnswerPair) -> tuple[QuestionAnswerPair, dict[str, Any]]:
+        async with semaphore:
+            state_obj, questions = jev_tasks.golden_candidate_rerank_request(
+                query, crop, state, pair
+            )
+            result = await jev_client.adecide(
+                jev_tasks.GOLDEN_CANDIDATE_RERANK_TASK, state_obj, questions
+            )
+            checks = jev_tasks.golden_candidate_rerank_result(result)
+            policy = jev_tasks.golden_candidate_rerank_policy(
+                checks,
+                task_threshold=task_threshold,
+                evidence_threshold=evidence_threshold,
+                target_threshold=target_threshold,
+                max_conflict_probability=max_conflict_probability,
+            )
+            return pair, {
+                **checks,
+                **policy,
+                "jev_latency_ms": round(result.latency_ms, 1),
+                "input_tokens": result.input_tokens,
+                "output_tokens": result.output_tokens,
+                "cost": result.cost,
+            }
+
+    jev_started = time.perf_counter()
+    outcomes = await asyncio.gather(
+        *(evaluate(pair) for pair in evaluated_pairs), return_exceptions=True
+    )
+    jev_ms = (time.perf_counter() - jev_started) * 1000
+    successful: list[tuple[QuestionAnswerPair, dict[str, Any]]] = []
+    costs: list[float] = []
+    total_input_tokens = 0
+    total_output_tokens = 0
+    for pair, outcome in zip(evaluated_pairs, outcomes):
+        meta = retrieval_metadata.get(pair.question_id, {})
+        base = {
+            "question_id": pair.question_id,
+            "retrieved_question": pair.question_text,
+            "similarity_score": pair.similarity_score,
+            "retrieval_sources": meta.get("sources", []),
+            "retrieval_ranks": meta.get("source_ranks", {}),
+            "rrf_score": meta.get("rrf_score", 0.0),
+            "chosen_for_answer": False,
+        }
+        if isinstance(outcome, Exception):
+            audit["evaluations"].append({
+                **base,
+                "eligible": False,
+                "action": "jev_error",
+                "error": type(outcome).__name__,
+            })
+            continue
+        _, decision = outcome
+        successful.append((pair, decision))
+        if decision.get("cost") is not None:
+            costs.append(float(decision["cost"]))
+        total_input_tokens += int(decision.get("input_tokens") or 0)
+        total_output_tokens += int(decision.get("output_tokens") or 0)
+        audit["evaluations"].append({
+            **base,
+            **decision,
+            "action": (
+                "eligible"
+                if decision["eligible"]
+                else "review_candidate"
+                if decision.get("reviewable")
+                else "rejected_by_gate"
+            ),
+        })
+
+    audit["jev"] = {
+        "requests": len(evaluated_pairs),
+        "successful_requests": len(successful),
+        "wall_latency_ms": round(jev_ms, 1),
+        "summed_provider_latency_ms": round(
+            sum(float(d.get("jev_latency_ms") or 0.0) for _, d in successful), 1
+        ),
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cost": round(sum(costs), 8) if costs else None,
+        "max_concurrency": max_concurrency,
+    }
+
+    if not successful and fallback_to_current:
+        with jev_client.provider_override({"*": "current", "fallback": "current"}):
+            fallback = await gdb_search(
+                rephrased_query=query,
+                crop=original_crop,
+                state=state,
+                season=season,
+                domain=domain,
+                embedding_field="embedding",
+            )
+        fallback_audit = fallback.get("classification_audit") or {}
+        fallback_audit.update({
+            "mode": "jev_atomic_reranker_experimental",
+            "status": "fallback",
+            "fallback_used": "current_gdb",
+            "reranker_audit": audit,
+            "total_latency_ms": round((time.perf_counter() - started) * 1000, 1),
+        })
+        fallback["classification_audit"] = fallback_audit
+        return fallback
+
+    eligible = [(pair, decision) for pair, decision in successful if decision["eligible"]]
+
+    def candidate_rank(item: tuple[QuestionAnswerPair, dict[str, Any]]) -> tuple[float, float, float]:
+        pair, decision = item
+        task_priority = 2.0 if decision.get("task_alignment") == "SAME_TASK" else 1.0
+        return (
+            task_priority,
+            float(decision["risk_adjusted_score"]),
+            float(retrieval_metadata[pair.question_id]["rrf_score"]),
+        )
+
+    eligible.sort(
+        key=candidate_rank,
+        reverse=True,
+    )
+    if eligible:
+        winner, winner_decision = eligible[0]
+        runner_score = float(eligible[1][1]["risk_adjusted_score"]) if len(eligible) > 1 else 0.0
+        margin = float(winner_decision["risk_adjusted_score"]) - runner_score
+        failed_requests = len(evaluated_pairs) - len(successful)
+        status = (
+            "review"
+            if failed_requests or (len(eligible) > 1 and margin < review_margin)
+            else "selected"
+        )
+        proposed_match = match_entry(
+            winner,
+            RETRIEVAL_SOURCE_RAG,
+            gemma_class="JEV_RERANKED",
+            chosen_for_answer=True,
+            answer_from_class="JEV_RERANKED",
+            selection_status=status,
+            risk_adjusted_score=winner_decision["risk_adjusted_score"],
+        )
+        audit["proposed_match"] = proposed_match
+        if status == "selected":
+            response["selected_match"] = proposed_match
+        audit["status"] = status
+        audit["selected_question_id"] = winner.question_id
+        audit["score_margin"] = margin
+        audit["failed_jev_requests"] = failed_requests
+        for ev in audit["evaluations"]:
+            if ev["question_id"] == winner.question_id:
+                ev["chosen_for_answer"] = True
+                ev["action"] = "review" if status == "review" else "selected"
+    else:
+        reviewable = [
+            (pair, decision)
+            for pair, decision in successful
+            if decision.get("reviewable")
+        ]
+        reviewable.sort(key=candidate_rank, reverse=True)
+        if reviewable:
+            winner, winner_decision = reviewable[0]
+            proposed_match = match_entry(
+                winner,
+                RETRIEVAL_SOURCE_RAG,
+                gemma_class="JEV_RERANKED_REVIEW",
+                chosen_for_answer=False,
+                answer_from_class="JEV_RERANKED_REVIEW",
+                selection_status="review",
+                risk_adjusted_score=winner_decision["risk_adjusted_score"],
+            )
+            audit["status"] = "review"
+            audit["selected_question_id"] = winner.question_id
+            audit["proposed_match"] = proposed_match
+            for ev in audit["evaluations"]:
+                if ev["question_id"] == winner.question_id:
+                    ev["action"] = "review"
+        else:
+            audit["status"] = "no_answer"
+
+    audit["total_latency_ms"] = round((time.perf_counter() - started) * 1000, 1)
     return response
 
 

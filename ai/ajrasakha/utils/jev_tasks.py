@@ -163,6 +163,7 @@ def golden_relevance_results(result: JevResult, n: int) -> list[dict]:
 # changed after the experiment has been reviewed.
 GOLDEN_CHOICE_NOUL_TASK = "golden_choice_noul"
 GOLDEN_ANSWER_VERIFY_TASK = "golden_answer_verify"
+GOLDEN_CANDIDATE_RERANK_TASK = "golden_candidate_rerank"
 
 
 def golden_choice_noul_request(original_query: str, crop: str, state: str, pairs: Sequence[Any]):
@@ -251,6 +252,117 @@ def select_golden_choice_noul(
         )
 
     return max(eligible, key=rank)
+
+
+def golden_candidate_rerank_request(
+    original_query: str,
+    crop: str,
+    state: str,
+    candidate: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build one compact, atomic Jev request for one retrieved GDB record.
+
+    Keeping candidates in separate states prevents another candidate from
+    influencing the decision and lets callers evaluate several records
+    concurrently without creating one very large prompt.
+    """
+    state_obj = {
+        "farmer_question": original_query.strip(),
+        "farmer_crop": crop,
+        "farmer_state": state,
+        "candidate_question": (candidate.question_text or "")[:500],
+        "candidate_answer": (candidate.answer_text or "")[:4000],
+    }
+    questions = {
+        "task_alignment": choice_question(
+            "How closely does candidate_question match the action or information requested by farmer_question?",
+            {
+                "SAME_TASK": "It asks for the same action or information. Wording may differ and a location may be omitted when the advice can still apply there.",
+                "PARTIAL_TASK": "It covers one material part of the request or a broader/narrower version of the same task.",
+                "DIFFERENT_TASK": "It asks for a different action or fact. Availability, planting instructions, diagnosis, prevention, and treatment are different tasks.",
+            },
+        ),
+        "answer_evidence": noul_question(
+            "Does candidate_answer contain concrete information that can answer farmer_question, rather than "
+            "only discussing a related topic?"
+        ),
+        "target_match": noul_question(
+            "Are the material targets compatible between farmer_question and this candidate: crop, disease, "
+            "pest, weed, symptom, practice, scheme, location, season, and growth stage when stated?"
+        ),
+        "complete_coverage": noul_question(
+            "Does candidate_answer cover every material part of farmer_question with usable information?"
+        ),
+        "has_conflict": noul_question(
+            "Does this candidate materially conflict with farmer_question on the requested task, crop, problem, "
+            "location, season, or growth stage?"
+        ),
+    }
+    return state_obj, questions
+
+
+def golden_candidate_rerank_result(result: JevResult) -> dict[str, Any]:
+    """Parse the five atomic probabilities used by the experimental reranker."""
+    task, task_probabilities, task_confidence = result.choice("task_alignment")
+    if task not in {"SAME_TASK", "PARTIAL_TASK", "DIFFERENT_TASK"}:
+        raise JevInvalidResponse(f"unexpected task alignment {task!r}")
+    return {
+        "task_alignment": task,
+        "task_probabilities": task_probabilities,
+        "task_confidence": task_confidence,
+        "same_task": float(task_probabilities.get("SAME_TASK", 0.0)),
+        "answer_evidence": result.noul("answer_evidence"),
+        "target_match": result.noul("target_match"),
+        "complete_coverage": result.noul("complete_coverage"),
+        "has_conflict": result.noul("has_conflict"),
+    }
+
+
+def golden_candidate_rerank_policy(
+    checks: dict[str, Any],
+    *,
+    task_threshold: float,
+    evidence_threshold: float,
+    target_threshold: float,
+    max_conflict_probability: float,
+) -> dict[str, Any]:
+    """Apply transparent eligibility gates and return a risk-adjusted score.
+
+    Thresholds are deliberately supplied by the caller: their defaults are
+    experimental and must be calibrated against reviewed GDB examples.
+    """
+    task_alignment = str(checks.get("task_alignment") or "DIFFERENT_TASK")
+    task_probabilities = checks.get("task_probabilities") or {}
+    same_task = float(task_probabilities.get("SAME_TASK", checks.get("same_task", 0.0)))
+    partial_task = float(task_probabilities.get("PARTIAL_TASK", 0.0))
+    evidence = float(checks.get("answer_evidence", 0.0))
+    target = float(checks.get("target_match", 0.0))
+    coverage = float(checks.get("complete_coverage", 0.0))
+    conflict = float(checks.get("has_conflict", 1.0))
+
+    failed_gates: list[str] = []
+    if task_alignment != "SAME_TASK" or same_task < task_threshold:
+        failed_gates.append("same_task")
+    if evidence < evidence_threshold:
+        failed_gates.append("answer_evidence")
+    if target < target_threshold:
+        failed_gates.append("target_match")
+    if conflict > max_conflict_probability:
+        failed_gates.append("has_conflict")
+
+    task_fit = same_task + (0.5 * partial_task)
+    mean_positive = (task_fit + evidence + target + coverage) / 4.0
+    score = mean_positive * (1.0 - conflict)
+    hard_reject = task_alignment == "DIFFERENT_TASK" or conflict >= 0.8
+    reviewable = not hard_reject and (task_alignment in {"SAME_TASK", "PARTIAL_TASK"})
+    return {
+        "eligible": not failed_gates,
+        "reviewable": reviewable,
+        "hard_reject": hard_reject,
+        "failed_gates": failed_gates,
+        "quality_score": mean_positive,
+        "risk_adjusted_score": score,
+    }
 
 
 def golden_answer_verify_request(
