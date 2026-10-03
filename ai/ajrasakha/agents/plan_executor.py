@@ -772,7 +772,7 @@ async def build_specialist_tool_calls_from_plan(
     # Weather/mandi: lat/long above are the farmer profile's; the tools use them
     # only when the question names no place, else the planner-geocoded sub-place.
     location_from_profile = bool(plan.get("location_from_profile"))
-    sub_coords = plan.get("sub_place_coordinates") or {}
+    sub_loc = plan.get("sub_place_location") or {}
 
     if out_transient_location is not None and lat is not None and lon is not None:
         out_transient_location["state"] = state_name
@@ -821,8 +821,10 @@ async def build_specialist_tool_calls_from_plan(
                 "location": curr_sub_loc,
                 "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
-                "sub_place_latitude": sub_coords.get("latitude"),
-                "sub_place_longitude": sub_coords.get("longitude"),
+                "sub_place_latitude": sub_loc.get("latitude"),
+                "sub_place_longitude": sub_loc.get("longitude"),
+                "sub_place_state": sub_loc.get("state"),
+                "sub_place_district": sub_loc.get("district"),
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -849,8 +851,10 @@ async def build_specialist_tool_calls_from_plan(
                 "district": eff_district,
                 "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
-                "sub_place_latitude": sub_coords.get("latitude"),
-                "sub_place_longitude": sub_coords.get("longitude"),
+                "sub_place_latitude": sub_loc.get("latitude"),
+                "sub_place_longitude": sub_loc.get("longitude"),
+                "sub_place_state": sub_loc.get("state"),
+                "sub_place_district": sub_loc.get("district"),
             },
             "id": _new_tool_call_id(),
             "type": "tool_call",

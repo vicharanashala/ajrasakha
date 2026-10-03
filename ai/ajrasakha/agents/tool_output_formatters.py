@@ -1638,11 +1638,11 @@ def _today_weather_fallback_lines(tw: dict[str, Any], *, location: str) -> list[
         or tw.get("forecast")
         or "Normal weather"
     )
-    obs_temp = tw.get("observed_max_temp") or tw.get("observed_min_temp") or tw.get("forecast_max_temp")
+    obs_temp = tw.get("current_temp_c") or tw.get("observed_max_temp") or tw.get("observed_min_temp") or tw.get("forecast_max_temp")
     lines: list[str] = []
     if obs_temp is not None:
         lines.append(f"Temperature: {obs_temp}°C")
-    hum = tw.get("humidity_0830") or tw.get("humidity_1730")
+    hum = tw.get("humidity_pct") or tw.get("humidity_0830") or tw.get("humidity_1730")
     if _present(hum):
         lines.append(f"Humidity: {hum}%")
     rain = tw.get("past_24hrs_rainfall")

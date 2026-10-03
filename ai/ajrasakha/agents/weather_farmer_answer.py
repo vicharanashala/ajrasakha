@@ -542,8 +542,8 @@ def _extract_weather(data: dict[str, Any], view: _View, today: date) -> None:
         if str((tw.get("data_source") or "")).lower().startswith("annam"):
             # Annam ground sensor reading is the live observation.
             view.current = _Current(
-                temperature=_bare(_first(tw.get("observed_max_temp"), tw.get("observed_min_temp"))),
-                humidity=_bare(_first(tw.get("humidity_0830"), tw.get("humidity_1730"))),
+                temperature=_bare(_first(tw.get("current_temp_c"), tw.get("observed_max_temp"), tw.get("observed_min_temp"))),
+                humidity=_bare(_first(tw.get("humidity_pct"), tw.get("humidity_0830"), tw.get("humidity_1730"))),
                 rain_24h=_bare(tw.get("past_24hrs_rainfall")),
             )
 

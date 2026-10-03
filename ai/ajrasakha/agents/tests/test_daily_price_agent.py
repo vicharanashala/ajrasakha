@@ -147,80 +147,6 @@ def test_extract_source_systems_from_payload():
     assert sources == ["Agmarknet", "eNAM"]
 
 
-def test_ensure_source_line_appends_when_missing():
-    from ajrasakha.agents.daily_price_agent import _ensure_source_line
-
-    payload = {
-        "price_records": [{"source_system": "Agmarknet", "modal_price": 3000}]
-    }
-    ans = "Potato price in Aluva is Rs 3000/quintal."
-    res = _ensure_source_line(ans, payload)
-    assert res.endswith("This information is fetched from the following source: Agmarknet.")
-
-
-def test_ensure_source_line_does_not_duplicate():
-    from ajrasakha.agents.daily_price_agent import _ensure_source_line
-
-    payload = {
-        "price_records": [{"source_system": "Agmarknet", "modal_price": 3000}]
-    }
-    ans = "Potato price in Aluva is Rs 3000/quintal.\n\nThis information is fetched from the following source: Agmarknet."
-    res = _ensure_source_line(ans, payload)
-    assert res == ans
-
-
-def test_ensure_latest_notice_prepends_when_missing():
-    from ajrasakha.agents.daily_price_agent import _ensure_latest_notice
-
-    payload = {
-        "resolution": {
-            "latest_price_notice": "Today's arrival quantity is not available. Showing the latest available data as of 20-Aug-2026."
-        }
-    }
-    ans = "The highest arrivals for tomato on 20-Aug-2026 were at Mulakalacheruvu APMC with 775.0 quintals."
-    res = _ensure_latest_notice(ans, payload)
-    assert res.startswith("Today's arrival quantity is not available. Showing the latest available data as of 20-Aug-2026.")
-    assert "Mulakalacheruvu APMC" in res
-
-
-def test_ensure_latest_notice_does_not_duplicate():
-    from ajrasakha.agents.daily_price_agent import _ensure_latest_notice
-
-    payload = {
-        "resolution": {
-            "latest_price_notice": "Today's arrival quantity is not available. Showing the latest available data as of 20-Aug-2026."
-        }
-    }
-    ans = "Today's arrival quantity is not available. The highest arrivals for tomato on 20-Aug-2026 were at Mulakalacheruvu APMC."
-    res = _ensure_latest_notice(ans, payload)
-    assert res == ans
-
-
-def test_ensure_latest_notice_not_added_for_historical_query():
-    from ajrasakha.agents.daily_price_agent import _ensure_latest_notice
-
-    payload = {
-        "action": "get_highest_price",
-        "highest_records": [
-            {
-                "market_name": "Fancy Bazaar APMC",
-                "modal_price": 7600,
-                "min_price": 6600,
-                "max_price": 9200,
-                "commodity_name": "Wheat",
-                "date": "2026-08-19",
-                "source_system": "Agmarknet",
-            }
-        ],
-    }
-    ans = "The highest modal price of wheat (atta) in Assam over the last 30 days was recorded at Fancy Bazaar APMC."
-    res = _ensure_latest_notice(ans, payload)
-    assert res == ans
-    assert "Today's price" not in res
-    assert "not available" not in res
-
-
-
 def test_extract_date_from_query_and_fix_year():
     from datetime import datetime
     from ajrasakha.agents.daily_price_agent import _extract_date_from_query, _fix_date_year
@@ -712,8 +638,7 @@ def test_fmt_price_and_dedupe_nearby():
     ans = _format_price_fallback(payload, crop="onion")
     assert "Today's price is not available" in ans
     assert "Prices in nearby markets" in ans
-    assert "Aroor Market" in ans
-    assert "Rs 8600" in ans
+    assert "| Aroor Market (small) | 8600 | 8500 | 8700 |" in ans
     assert ans.count("This information is fetched from the following source") == 1
 
 
@@ -745,10 +670,8 @@ def test_get_lowest_price_fallback():
     }
     ans = _format_price_fallback(payload, crop="onion")
     assert "Lowest Onion prices on 2026-08-22:" in ans
-    assert "1) Anchal Apmc" in ans
-    assert "Rs 3700" in ans
-    assert "2) Kuruppanthura Apmc" in ans
-    assert "Rs 4200" in ans
+    assert "| Anchal APMC | 3700 | 3700 | 3800 |" in ans
+    assert "| Kuruppanthura APMC | 4200 | 4000 | 4500 |" in ans
     assert "Agmarknet" in ans
 
 
@@ -801,10 +724,8 @@ def test_get_price_with_nearby_with_latest_prices_and_notice():
     assert "Today's price is not available. Showing the latest available price (as of 2026-08-22)." in ans
     assert "Modal: Rs 7200/quintal" in ans
     assert "Prices in nearby markets on 2026-08-22:" in ans
-    assert "1) Yemmiganur" in ans
-    assert "Rs 7400" in ans
-    assert "2) Alur" in ans
-    assert "Rs 7100" in ans
+    assert "| Yemmiganur | 7400 | 7000 | 7600 |" in ans
+    assert "| Alur | 7100 | 6900 | 7300 |" in ans
     assert ans.count("This information is fetched from the following source") == 1
 
 
@@ -838,10 +759,8 @@ def test_extract_market_name_ignores_district_clause():
 
 
 @pytest.mark.asyncio
-async def test_arrival_unavailable_strips_header_and_source():
+async def test_arrival_unavailable_answer_is_deterministic_without_header_or_source():
     from ajrasakha.agents.daily_price_agent import (
-        _clean_arrival_unavailable_answer,
-        _ensure_source_line,
         _format_price_fallback,
         _is_arrival_quantity_unavailable,
         synthesize_daily_price_answer,
@@ -849,7 +768,6 @@ async def test_arrival_unavailable_strips_header_and_source():
 
     payload = {
         "action": "get_today_arrival",
-        "date": "2026-09-25",
         "commodity": "onion",
         "state": "Assam",
         "market": None,
@@ -861,41 +779,188 @@ async def test_arrival_unavailable_strips_header_and_source():
         "message": "Data.gov.in does not provide arrival quantity for agmarknet",
         "resolution": {"arrival_notice": "Data.gov.in does not provide arrival quantity for agmarknet"},
     }
-
     assert _is_arrival_quantity_unavailable(payload) is True
 
-    # 1. _ensure_source_line does NOT append source line
-    raw_text = "The Data.gov.in source does not provide arrival quantity for agmarknet."
-    ans = _ensure_source_line(raw_text, payload)
-    assert "This information is fetched from" not in ans
-    assert ans == raw_text
-
-    # 2. _clean_arrival_unavailable_answer strips opening header and closing source line
-    llm_output = (
-        "Onion arrival quantity in Assam on 2026-09-25:\n"
-        "The Data.gov.in source does not provide arrival quantity for agmarknet. Therefore, the arrival quantity for onion in Assam markets (Tinsukia Market, Pamohi(Garchuk) APMC) is not available.\n\n"
-        "This information is fetched from the following source: Agmarknet."
-    )
-    cleaned = _clean_arrival_unavailable_answer(llm_output, payload, crop="onion")
-    assert "Onion arrival quantity in Assam on 2026-09-25:" not in cleaned
-    assert "This information is fetched from the following source" not in cleaned
-    assert "The Data.gov.in source does not provide arrival quantity for agmarknet." in cleaned
-
-    # 3. _format_price_fallback produces concise message without header or source
     fallback = _format_price_fallback(payload, crop="onion")
     assert "Data.gov.in does not provide arrival quantity for agmarknet." in fallback
     assert "This information is fetched from" not in fallback
     assert ":" not in fallback.split("\n")[0]
 
-    # 4. synthesize_daily_price_answer strips header and source
-    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=AsyncMock(return_value=llm_output)):
+    llm = AsyncMock(return_value="should never be used")
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=llm):
         synth = await synthesize_daily_price_answer(
             query="what is the arrival quantity of onion in assam today",
             tool_result=payload,
             crop="onion",
             state="Assam",
         )
-        assert "Onion arrival quantity in Assam on 2026-09-25:" not in synth
-        assert "This information is fetched from the following source" not in synth
-        assert "The Data.gov.in source does not provide arrival quantity for agmarknet." in synth
+    assert synth == fallback
+    llm.assert_not_awaited()
 
+
+@pytest.mark.asyncio
+async def test_synthesize_appends_grounded_llm_summary_and_source():
+    from ajrasakha.agents.daily_price_agent import synthesize_daily_price_answer
+
+    payload = {
+        "action": "get_today_price",
+        "price_records": [{
+            "market_name": "ludhiana", "commodity_name": "wheat", "date": "2026-10-03",
+            "modal_price": 2500.0, "min_price": 2400.0, "max_price": 2600.0, "source_system": "Agmarknet",
+        }],
+    }
+    llm = AsyncMock(return_value="Wheat is Rs 2500 per quintal in Ludhiana on 2026-10-03.")
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=llm):
+        out = await synthesize_daily_price_answer("wheat price in ludhiana", payload, crop="wheat")
+    assert out.startswith("Wheat price at Ludhiana on 2026-10-03:")
+    assert "Modal: Rs 2500/quintal | Min: Rs 2400 | Max: Rs 2600" in out
+    assert "Summary: Wheat is Rs 2500 per quintal" in out
+    assert out.endswith("This information is fetched from the following source: Agmarknet.")
+
+
+@pytest.mark.asyncio
+async def test_synthesize_drops_summary_with_invented_number():
+    from ajrasakha.agents.daily_price_agent import synthesize_daily_price_answer
+
+    payload = {
+        "action": "get_today_price",
+        "price_records": [{
+            "market_name": "ludhiana", "commodity_name": "wheat", "date": "2026-10-03",
+            "modal_price": 2500.0, "min_price": 2400.0, "max_price": 2600.0, "source_system": "Agmarknet",
+        }],
+    }
+    llm = AsyncMock(return_value="Wheat is Rs 2700 per quintal in Ludhiana.")
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=llm):
+        out = await synthesize_daily_price_answer("wheat price in ludhiana", payload, crop="wheat")
+    assert "Summary:" not in out
+    assert "2700" not in out
+    assert "Modal: Rs 2500/quintal" in out
+
+
+@pytest.mark.asyncio
+async def test_synthesize_works_when_llm_is_down():
+    from ajrasakha.agents.daily_price_agent import synthesize_daily_price_answer
+
+    payload = {
+        "action": "get_today_price",
+        "price_records": [{
+            "market_name": "ludhiana", "commodity_name": "wheat", "date": "2026-10-03",
+            "modal_price": 2500.0, "min_price": 2400.0, "max_price": 2600.0, "source_system": "Agmarknet",
+        }],
+    }
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=AsyncMock(return_value=None)):
+        out = await synthesize_daily_price_answer("wheat price in ludhiana", payload, crop="wheat")
+    assert "Modal: Rs 2500/quintal" in out
+    assert "Summary:" not in out
+
+
+def test_normalize_intent_unknown_action_is_flagged_unsupported_not_coerced():
+    intent = _normalize_intent({"action": "compare_markets"}, "compare mandis", llm_succeeded=True)
+    assert intent["unsupported_reason"] == "unrecognized_request"
+
+
+def test_normalize_intent_accepts_llm_unsupported_reason():
+    intent = _normalize_intent(
+        {"action": None, "unsupported_reason": "multi_market_comparison"},
+        "onion price azadpur vs ludhiana",
+        llm_succeeded=True,
+    )
+    assert intent["unsupported_reason"] == "multi_market_comparison"
+
+
+def test_normalize_intent_known_action_has_no_unsupported_reason():
+    intent = _normalize_intent({"action": "get_price_history", "lookback_days": 7}, "onion last 7 days", llm_succeeded=True)
+    assert intent["unsupported_reason"] is None
+    assert intent["dropped_actions"] == []
+
+
+def test_normalize_intent_reports_actions_beyond_the_cap():
+    intent = _normalize_intent(
+        {"action": ["get_today_price", "get_price_history", "get_price_summary", "get_highest_price"]},
+        "wheat everything",
+        llm_succeeded=True,
+    )
+    assert len(intent["actions"]) == 3
+    assert intent["dropped_actions"] == ["get_highest_price"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_declines_two_mandi_comparison_without_calling_tool():
+    with patch("ajrasakha.agents.daily_price_agent.call_mandi_price_tool", new_callable=AsyncMock) as tool:
+        out = await daily_price.ainvoke({
+            "query": "Compare onion price in Azadpur mandi and Ludhiana mandi",
+            "latitude": 30.9, "longitude": 76.5, "crop": "onion", "state": "Punjab",
+        })
+    data = json.loads(out)
+    tool.assert_not_awaited()
+    assert data["status"] == "unsupported"
+    assert data["reason"] == "multi_market_comparison"
+    assert "one mandi at a time" in data["answer"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_declines_when_llm_reports_unsupported():
+    with (
+        patch(
+            "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
+            new_callable=AsyncMock,
+            return_value={"action": "get_today_price", "actions": ["get_today_price"],
+                          "unsupported_reason": "unrecognized_request"},
+        ),
+        patch("ajrasakha.agents.daily_price_agent.call_mandi_price_tool", new_callable=AsyncMock) as tool,
+    ):
+        out = await daily_price.ainvoke({
+            "query": "how do I grow onions", "latitude": 30.9, "longitude": 76.5, "crop": "onion", "state": "Punjab",
+        })
+    data = json.loads(out)
+    tool.assert_not_awaited()
+    assert data["status"] == "unsupported"
+    assert "I can help with" in data["answer"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_asks_for_crop_instead_of_returning_empty():
+    with patch(
+        "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
+        new_callable=AsyncMock,
+        return_value={
+            "action": "get_today_price", "actions": ["get_today_price"], "commodity_name": None,
+            "nearest_market": True, "radius_km": None, "lookback_days": None, "from_date": None,
+            "to_date": None, "market_name": None, "state": None, "sort_order": None,
+            "search_by_apmc": False, "unsupported_reason": None, "dropped_actions": [],
+        },
+    ):
+        out = await daily_price.ainvoke({
+            "query": "mandi price today", "latitude": 30.9, "longitude": 76.5, "crop": "all", "state": "Punjab",
+        })
+    data = json.loads(out)
+    assert data["status"] == "clarify"
+    assert data["reason"] == "missing_commodity"
+    assert data["answer"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_asks_for_state_when_tool_requires_it():
+    with (
+        patch(
+            "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
+            new_callable=AsyncMock,
+            return_value={
+                "action": "search_markets", "actions": ["search_markets"], "commodity_name": None,
+                "nearest_market": True, "radius_km": 50, "lookback_days": None, "from_date": None,
+                "to_date": None, "market_name": None, "state": None, "sort_order": None,
+                "search_by_apmc": False, "unsupported_reason": None, "dropped_actions": [],
+            },
+        ),
+        patch(
+            "ajrasakha.agents.daily_price_agent.call_mandi_price_tool",
+            new_callable=AsyncMock,
+            return_value={"error": "state name is not present"},
+        ),
+    ):
+        out = await daily_price.ainvoke({
+            "query": "which mandis are near me", "latitude": 30.9, "longitude": 76.5, "crop": "all",
+        })
+    data = json.loads(out)
+    assert data["status"] == "clarify"
+    assert data["reason"] == "missing_location"

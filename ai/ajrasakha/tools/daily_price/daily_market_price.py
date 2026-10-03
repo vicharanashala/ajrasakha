@@ -359,7 +359,7 @@ def mandi_price_tool(
 
     def _require_state(state_val: Optional[str]) -> Optional[dict]:
         if not state_val or not str(state_val).strip():
-            return {"error": "state name is not present"}
+            return {"error": "state name is not present", "error_code": "STATE_REQUIRED"}
         return None
 
     def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -749,6 +749,7 @@ def mandi_price_tool(
                 "markets": [],
                 "_raw_docs": [],
                 "error": f"APMC not available for state '{state}'.",
+                "error_code": "MARKET_NOT_FOUND",
             }
 
         mode = "state_exact"
@@ -870,6 +871,7 @@ def mandi_price_tool(
         if not alias_ids:
             return {
                 "error": f"We do not have {', '.join(commodity_list)} available in {state}.",
+                "error_code": "COMMODITY_NOT_AVAILABLE",
                 "unresolved_commodities": unmatched,
             }
 
@@ -898,6 +900,7 @@ def mandi_price_tool(
                 error = f"Mandi price data is not available for {crop_label} in {market_label}."
             return {
                 "error": error,
+                "error_code": "MARKET_NOT_FOUND" if market_not_found else "NO_PRICE_DATA",
                 "resolution": {
                     "requested_market_name": market_name,
                     "requested_commodity": commodity_list,
@@ -1001,6 +1004,7 @@ def mandi_price_tool(
             if not mc_docs_list:
                 return {
                     "error": f"No markets_commodities entries matched crop={commodity_list} in state={state}.",
+                    "error_code": "COMMODITY_NOT_AVAILABLE",
                 }
             candidate_market_ids = list({
                 d["market_id"] for d in mc_docs_list if d.get("market_id")
@@ -1180,6 +1184,7 @@ def mandi_price_tool(
                         )
                         return {
                             "error": f"We do not have {', '.join(commodity_list)} available in {state}.",
+                            "error_code": "COMMODITY_NOT_AVAILABLE",
                             "unresolved_commodities": list(commodity_list),
                         }
 
@@ -1252,7 +1257,7 @@ def mandi_price_tool(
                 stages.append(("lat_long", None, lat, long, nearest_market if nearest_market else True))
             stages.append(("state", None, None, None, False))
 
-        result: dict[str, Any] = {"error": "No price records found."}
+        result: dict[str, Any] = {"error": "No price records found.", "error_code": "NO_PRICE_DATA"}
         raw_docs: list[dict] = []
         chosen_stage: Optional[str] = None
         market_result: dict[str, Any] = {}
@@ -2188,7 +2193,9 @@ def mandi_price_tool(
                     "error": (
                         f"Unknown action '{act_name}'. Choose one of: "
                         + ", ".join(sorted(dispatch.keys()))
-                    )
+                    ),
+                    "error_code": "UNSUPPORTED_ACTION",
+                    "supported_actions": sorted(dispatch.keys()),
                 }
             return handler()
         finally:

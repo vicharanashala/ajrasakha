@@ -335,10 +335,10 @@ async def _google_place(
     state: Optional[str],
     district: Optional[str],
     timeout: float,
-) -> tuple[float, float, str] | tuple[None, None, None]:
+) -> Optional[dict]:
     """Google's best full match for ``place``; inside ``state`` when given."""
     if not _GEOCODE_APIKEY:
-        return None, None, None
+        return None
     components = "country:IN"
     if state:
         # administrative_area picks the right one of several same-named places;
@@ -357,13 +357,22 @@ async def _google_place(
             data = resp.json()
     except Exception as exc:
         logger.warning("Google sub-place lookup failed for %r: %s", place, exc)
-        return None, None, None
+        return None
     for result in data.get("results") or []:
         if result.get("partial_match") or _REGION_TYPES.intersection(result.get("types") or []):
             continue
         loc = result["geometry"]["location"]
-        return float(loc["lat"]), float(loc["lng"]), result.get("formatted_address", place)
-    return None, None, None
+        # In India Google puts the state at level 1 and the district at level 3
+        # (level 2 is the revenue division, e.g. "Ropar Division").
+        parts = {t: c["long_name"] for c in result.get("address_components") or [] for t in c.get("types") or []}
+        return {
+            "latitude": float(loc["lat"]),
+            "longitude": float(loc["lng"]),
+            "state": parts.get("administrative_area_level_1"),
+            "district": parts.get("administrative_area_level_3"),
+            "name": result.get("formatted_address", place),
+        }
+    return None
 
 
 async def _nominatim_place(
@@ -371,13 +380,14 @@ async def _nominatim_place(
     *,
     state: Optional[str],
     timeout: float,
-) -> tuple[float, float, str] | tuple[None, None, None]:
+) -> Optional[dict]:
     """Nominatim's first match for ``place`` (finds villages Google may miss)."""
     params = {
         "q": _build_query_string(None, place, state),
         "format": "json",
         "limit": 1,
         "countrycodes": "in",
+        "addressdetails": 1,
     }
     headers = {"User-Agent": "AjraSakha-Agent/1.0 (agri-weather)"}
     try:
@@ -387,12 +397,19 @@ async def _nominatim_place(
             data = resp.json()
     except Exception as exc:
         logger.warning("Nominatim sub-place lookup failed for %r: %s", place, exc)
-        return None, None, None
+        return None
     for item in data if isinstance(data, list) else []:
         if item.get("addresstype") in _REGION_TYPES:
             continue
-        return float(item["lat"]), float(item["lon"]), item.get("display_name", place)
-    return None, None, None
+        address = item.get("address") or {}
+        return {
+            "latitude": float(item["lat"]),
+            "longitude": float(item["lon"]),
+            "state": address.get("state"),
+            "district": address.get("state_district"),
+            "name": item.get("display_name", place),
+        }
+    return None
 
 
 async def geocode_sub_place(
@@ -401,8 +418,8 @@ async def geocode_sub_place(
     state: Optional[str] = None,
     district: Optional[str] = None,
     timeout: float = 10.0,
-) -> tuple[float | None, float | None, str | None]:
-    """Lat/long of a place the farmer named that LGD does not list (town, village, block).
+) -> Optional[dict]:
+    """Lat/long, state and district of a place the farmer named that LGD does not list (town, village, block).
 
     Tried in order, first hit wins:
       1. Google inside ``state`` (near ``district``): the query's state/district,
@@ -410,12 +427,13 @@ async def geocode_sub_place(
       2. Google anywhere in India.
       3. Nominatim inside ``state``, then anywhere in India.
 
-    Returns (latitude, longitude, resolved_name), or (None, None, None) when the
+    Returns {"latitude", "longitude", "state", "district", "name"} with the
+    state/district as the geocoder names them (may be None), or None when the
     place is not found at all.
     """
     place = _clean(place)
     if not place or place.lower() in _PLACEHOLDERS:
-        return None, None, None
+        return None
     state = None if _clean(state).lower() in _PLACEHOLDERS else _clean(state)
     district = None if _clean(district).lower() in _PLACEHOLDERS else _clean(district)
 
@@ -428,9 +446,9 @@ async def geocode_sub_place(
     attempts.append(("nominatim_india", lambda: _nominatim_place(place, state=None, timeout=timeout)))
 
     for source, attempt in attempts:
-        lat, lng, name = await attempt()
-        if lat is not None and lng is not None:
-            logger.info("geocode_sub_place: %r (state=%r district=%r) -> %s, %s via %s (%s)", place, state, district, lat, lng, source, name)
-            return lat, lng, name
+        found = await attempt()
+        if found:
+            logger.info("geocode_sub_place: %r (state=%r district=%r) -> %s via %s", place, state, district, found, source)
+            return found
     logger.info("geocode_sub_place: %r (state=%r district=%r) not found", place, state, district)
-    return None, None, None
+    return None

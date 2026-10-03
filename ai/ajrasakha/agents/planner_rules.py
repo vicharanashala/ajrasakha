@@ -625,7 +625,7 @@ async def apply_sub_place_coordinates(
     clarification reply is merged onto the question that still names them.
     """
     out: PlannerPlan = dict(plan)
-    out["sub_place_coordinates"] = None
+    out["sub_place_location"] = None
     rejected = [p.casefold() for p in (prev_plan or {}).get("rejected_places") or []]
     out["rejected_places"] = []
     if not is_weather_or_mandi_plan(out):
@@ -639,9 +639,10 @@ async def apply_sub_place_coordinates(
 
     place = sub_places[0]
     entities = out.get("entities") or {}
-    lat, lon, resolved = await geocode_sub_place(
+    found = await geocode_sub_place(
         place, state=entities.get("state"), district=entities.get("district")
     )
+    lat, lon = (found["latitude"], found["longitude"]) if found else (None, None)
     trace_resolution(
         "planner_sub_place_geocode",
         state=entities.get("state"),
@@ -650,10 +651,12 @@ async def apply_sub_place_coordinates(
         district_source="plan.entities (search area)",
         latitude=lat,
         longitude=lon,
-        lat_long_source=f"geocode_sub_place({place!r}) -> {resolved or 'not found'}",
+        lat_long_source=f"geocode_sub_place({place!r}) -> {found or 'not found'}",
     )
-    if lat is not None and lon is not None:
-        out["sub_place_coordinates"] = {"latitude": lat, "longitude": lon}
+    if found:
+        # The geocoder's own state/district for the sub-place, passed to the
+        # tools as-is; the plan's state/district are left unchanged.
+        out["sub_place_location"] = {k: found[k] for k in ("latitude", "longitude", "state", "district")}
         return out
 
     out["is_complete"] = False

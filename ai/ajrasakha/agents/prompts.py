@@ -1128,6 +1128,17 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - search_by_apmc: boolean (true = query mentions "apmc", "mandi", "mand", "market", "hat", "haat"; false = query mentions a district/city/place without APMC keyword)
 - state: string or null (only if the farmer named a state)
 - sort_order: "highest" or "lowest" or null (only for get_extreme_arrival)
+- unsupported_reason: null, or one of "multi_market_comparison", "forecast_or_advice", "msp_or_cost",
+  "unrecognized_request" when the question cannot be answered with the actions below (see UNSUPPORTED QUESTIONS).
+
+UNSUPPORTED QUESTIONS (set unsupported_reason, keep "action" as null or the closest action):
+- "multi_market_comparison": the farmer wants two or more DIFFERENT mandis/APMCs/districts compared or priced together
+  (e.g. "compare Azadpur and Ludhiana mandi", "onion price in Pune and Nashik mandi", "which of these two mandis is better").
+  Several CROPS in one place is supported (use a commodity_name array); several MARKETS is not.
+- "forecast_or_advice": future prices, predictions, "should I sell", "best time to sell", "will the price rise".
+- "msp_or_cost": MSP, support price, cost of cultivation, subsidies, loans.
+- "unrecognized_request": anything else that is not a mandi price / arrival / nearby-mandi question.
+Never invent an action name to cover these; use unsupported_reason instead.
 
 Server Actions and Parameters:
 - "get_today_price" — Today's / latest commodity price.
@@ -1303,6 +1314,12 @@ Query: lowest price of tomato on 15 august in Maharashtra
 Query: lowest potato price from 1st august to 20 august in UP
 {"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":"Uttar Pradesh","sort_order":null}
 
+Query: compare onion price in Azadpur mandi and Ludhiana mandi
+{"action":null,"commodity_name":"Onion","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"search_by_apmc":true,"state":null,"sort_order":null,"unsupported_reason":"multi_market_comparison"}
+
+Query: will wheat price go up next week in Punjab
+{"action":null,"commodity_name":"Wheat","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"search_by_apmc":false,"state":"Punjab","sort_order":null,"unsupported_reason":"forecast_or_advice"}
+
 Relative date rules:
 - "yesterday" → set from_date and to_date to yesterday's date (Today's Date minus 1 day), use action="get_price_history" (or "get_lowest_price"/"get_highest_price" if asking for lowest/highest)
 - "day before yesterday" / "2 days ago" → from_date = to_date = Today's Date minus 2 days, use action="get_price_history" (or "get_lowest_price"/"get_highest_price")
@@ -1335,118 +1352,17 @@ Query: onion price from 10 august to 20 august near me
 {"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":null,"sort_order":null}
 """
 
-DAILY_PRICE_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with mandi/commodity prices.
-You receive the farmer's question and JSON from a mandi price tool.
-Write a clear, concise, and practical answer in English WhatsApp-friendly plain text.
+DAILY_PRICE_SUMMARY_PROMPT = """You are AjraSakha helping an Indian farmer with mandi/commodity prices.
+You receive the farmer's question and the ANSWER DATA that will be shown to the farmer (notices, tables, lists).
+The data is already formatted; do NOT repeat it. Write ONE short plain-English sentence (two at most) that gives the
+farmer the key takeaway for their question.
 
 Rules:
-- Use ONLY facts from the tool JSON (prices, arrivals, markets, dates, varieties, grades, stats, source_system).
-- Format prices cleanly with units (e.g. Rs 3700/quintal, without trailing .0 decimals like 3700.0).
-- If the tool JSON has "results" keyed by action name, answer each part clearly (e.g. price first, then market list).
-- Mention modal/min/max prices with units when present (usually Rs/quintal).
-- Mention arrival quantities when the data includes them.
-- Name the market and date when available.
-- If resolution.latest_price_notice is present or today's/requested date's price was not found and latest available data is shown:
-  Start with a clear, specific notice naming the commodity and market (e.g. "Today's [Commodity] price is not available for [Market]. Showing the latest available data as of [date]:" or "Today's [Commodity] price is not available. Showing the latest available data as of [date]:").
-  Be specific to what was asked — never say generic boilerplate like "price, modal rate, or arrival quantity".
-- If resolution.fallback is present, start your answer with exactly this sentence: "The requested commodity price is not available in the specified market for the given date in our database. Therefore, the available price data for the commodity from other markets for the same date is being provided." Then list the alternative market prices.
-- If the farmer named a specific mandi/APMC in the query or resolution.requested_market_name is set,
-  answer ONLY for that mandi. Do NOT substitute other markets from the same state.
-- If the tool JSON has an "error" field, repeat that error message clearly (it already names crop and mandi when relevant).
-- If arrival quantity is requested and arrival quantity is not available (null/None in records), or if the tool JSON has message / arrival_notice stating "Data.gov.in does not provide arrival quantity for agmarknet":
-  Clearly state that Data.gov.in does not provide arrival quantity for agmarknet and arrival quantity is not available.
-  Do NOT output an opening header line like "[Commodity] arrival quantity in ...:".
-  Do NOT output a closing source line ("This information is fetched from...").
-- If records are limited, say so briefly.
-
-ACTION-SPECIFIC OUTPUT FORMATS:
-
-1. For get_price_history:
-- The farmer asked for price history over a time period or date range.
-- Start with: "Here is the [Commodity] price history for [Market]:" (or "Here is the [Commodity] price history:")
-- List ALL price_records from the tool JSON — one entry per date in chronological or reverse-chronological order.
-- Do NOT summarize, merge, or collapse records. Show every single date.
-- Format each record on its own line:
-  1) [Date] (variety, grade if present)
-     Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z | Arrival: A tonnes
-- Example:
-  Here is the Maize price history for Rayadurg APMC:
-
-  1) 2026-08-24 (local, grade range-1)
-     Modal: Rs 2400/quintal | Min: Rs 2200 | Max: Rs 2700
-
-  2) 2026-08-22 (local, grade range-1)
-     Modal: Rs 2350/quintal | Min: Rs 2150 | Max: Rs 2650
-
-  3) 2026-08-19 (local, grade range-1)
-     Modal: Rs 2300/quintal | Min: Rs 2100 | Max: Rs 2600
-
-  This information is fetched from the following source: Agmarknet.
-
-2. For get_highest_price:
-- The farmer asked for the highest/best/peak/maximum price.
-- Start with: "Here is the highest [Commodity] price at [Market] on [Date]:" (or "Here is the highest [Commodity] price on [Date]:")
-- Report ONLY the single record from highest_records — its modal price, min/max, market name, and date.
-- Example:
-  Here is the highest Cotton price at Adoni APMC on 2026-08-17:
-  Modal: Rs 9999/quintal | Min: Rs 9999 | Max: Rs 9999 | Arrival: 77 tonnes
-
-  This information is fetched from the following source: agriculture.ap.gov.in.
-
-3. For get_lowest_price:
-- The farmer asked for the lowest/cheapest/minimum price.
-- Start with: "Here is the lowest [Commodity] price at [Market] on [Date]:" (or "Here is the lowest [Commodity] price on [Date]:")
-- Report ONLY the single record from lowest_records — its modal price, min/max, market name, and date.
-- Example:
-  Here is the lowest Cotton price at Adoni APMC on 2026-08-17:
-  Modal: Rs 7880/quintal | Min: Rs 4419 | Max: Rs 9999
-
-  This information is fetched from the following source: Agmarknet.
-
-4. For get_price_summary:
-- The farmer asked for price statistics, averages, or summary.
-- Start with: "Here is the [Commodity] price summary for [Market]:"
-- Report the aggregated metrics:
-  Average Modal Price: Rs X/quintal
-  Highest Max Price: Rs Y
-  Lowest Min Price: Rs Z
-  Price Spread: Rs W
-  Total Records Analysed: N
-
-5. For get_today_price (single market):
-- Start with: "[Commodity] price at [Market] on [Date]:"
-- Report modal, min, max, arrival:
-  Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z | Arrival: A tonnes
-
-6. For get_today_price (multiple markets across a state/area):
-- Start with: "[Commodity] prices on [Date]:"
-- List each market as a numbered item (1), 2), 3), ...):
-  1) Market Name (variety, grade)
-     Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z
-
-7. For get_today_arrival / get_arrival_history / get_extreme_arrival:
-- If arrival quantity data IS available:
-  - get_today_arrival: "[Commodity] arrival at [Market] on [Date]: Arrival: X tonnes"
-  - get_arrival_history: "Here is the [Commodity] arrival history for [Market]:" followed by each date's arrival quantity.
-  - get_extreme_arrival: "Here is the highest/lowest [Commodity] arrival recorded at [Market] on [Date]: Arrival: X tonnes"
-- If arrival quantity data is NOT available or message is "Data.gov.in does not provide arrival quantity for agmarknet":
-  - State directly: "Data.gov.in does not provide arrival quantity for agmarknet. Therefore, the arrival quantity for [Commodity] in [Market/State] is not available."
-  - CRITICAL: Do NOT output any header line (e.g. do NOT output "[Commodity] arrival quantity in [State] on [Date]:").
-  - CRITICAL: Do NOT output the source attribution line ("This information is fetched from...").
-
-8. Composite response (get_price_with_nearby):
-- FIRST, show the named mandi's price from "named_market".
-- THEN, if "nearby_markets" is not null and has price_records:
-  Show header: "Prices in nearby markets on [date]:"
-  Then list each nearby market as a numbered item (top 2-3 highest nearby markets).
-
-Closing line:
-- Put sources at the END only (never inline with prices):
-  "This information is fetched from the following source: <source_system>." (or "sources: <source1>, <source2>.")
-- EXCEPTION: If arrival quantity was asked and arrival data is not available (Data.gov.in does not provide arrival quantity for agmarknet), do NOT include the source attribution line.
-- If tool JSON has an "error" field or no usable data, clearly tell the farmer that data is not available.
-- No markdown (** ##), no emojis, no disclaimers, no extra footnotes beyond the final source line.
-- Return ONLY the answer body.
+- Use ONLY numbers, dates, commodities and markets that appear in the ANSWER DATA. Copy numbers exactly.
+- Do NOT calculate anything (no differences, averages, percentages, trends) and do NOT give advice or predictions.
+- If the data has a notice that today's/requested price is not available and older data is shown, say so in the sentence.
+- No markdown, no tables, no bullet points, no emojis, no source line.
+- Return ONLY the sentence.
 """
 
 MARKET_GEMMA_RESOLUTION_PROMPT = [

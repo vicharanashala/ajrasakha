@@ -407,7 +407,7 @@ async def test_tools_get_the_profile_flag_and_the_sub_place_coordinates():
     plan = _tool_plan(
         location_from_profile=False,
         sub_places=["Kharar"],
-        sub_place_coordinates={"latitude": 30.75, "longitude": 76.64},
+        sub_place_location={"latitude": 30.75, "longitude": 76.64, "state": "Punjab", "district": "Sahibzada Ajit Singh Nagar"},
         profile_coordinates={"latitude": 17.7, "longitude": 83.3},
     )
     calls, _ = await build_specialist_tool_calls_from_plan(plan, "Will it rain in Kharar?", {})
@@ -415,10 +415,15 @@ async def test_tools_get_the_profile_flag_and_the_sub_place_coordinates():
         args = _args(calls, name)
         assert args["location_from_profile"] is False
         assert (args["sub_place_latitude"], args["sub_place_longitude"]) == (30.75, 76.64)
+        assert (args["sub_place_state"], args["sub_place_district"]) == ("Punjab", "Sahibzada Ajit Singh Nagar")
         assert (args["latitude"], args["longitude"]) == (17.7, 83.3)
 
 
 # --- sub-place lookup in the planner --------------------------------------------
+
+
+KHARAR = {"latitude": 30.75, "longitude": 76.64, "state": "Punjab", "district": "Sahibzada Ajit Singh Nagar", "name": "Kharar, Punjab"}
+KHARAR_LOCATION = {k: KHARAR[k] for k in ("latitude", "longitude", "state", "district")}
 
 
 @pytest.fixture
@@ -430,7 +435,7 @@ def geocoder(monkeypatch):
 
     async def fake(place, *, state=None, district=None, **_):
         lookups.append((place, state, district))
-        return (30.75, 76.64, "Kharar, Punjab") if place == "Kharar" else (None, None, None)
+        return KHARAR if place == "Kharar" else None
 
     monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
     return lookups
@@ -445,7 +450,8 @@ def _sub_place_plan(sub_places, state="Punjab", district="all"):
 @pytest.mark.asyncio
 async def test_a_found_sub_place_gets_coordinates_searched_in_the_plan_state(geocoder):
     out = await apply_sub_place_coordinates(_sub_place_plan(["Kharar", "Mohali"]))
-    assert out["sub_place_coordinates"] == {"latitude": 30.75, "longitude": 76.64}
+    assert out["sub_place_location"] == KHARAR_LOCATION
+    assert out["entities"]["district"] == "all"  # the plan's own state/district stay as they were
     assert out["is_complete"] is True
     assert geocoder == [("Kharar", "Punjab", "all")]  # only sub_places[0]
 
@@ -457,7 +463,7 @@ async def test_a_sub_place_found_nowhere_asks_the_farmer_again(geocoder):
     assert out["missing_info"] == ["location"]
     assert "Xyzabad" in out["follow_up_question"]
     assert out["rejected_places"] == ["Xyzabad"]
-    assert out["sub_place_coordinates"] is None
+    assert out["sub_place_location"] is None
 
 
 @pytest.mark.asyncio
@@ -466,7 +472,7 @@ async def test_the_reply_turn_skips_the_place_already_not_found(geocoder):
     prev = {"rejected_places": ["Xyzabad"]}
     out = await apply_sub_place_coordinates(_sub_place_plan(["Xyzabad", "Kharar"]), prev)
     assert out["sub_places"] == ["Kharar"]
-    assert out["sub_place_coordinates"] == {"latitude": 30.75, "longitude": 76.64}
+    assert out["sub_place_location"] == KHARAR_LOCATION
     assert out["rejected_places"] == []
 
 
@@ -490,7 +496,7 @@ async def test_sub_place_search_goes_state_then_india_then_openstreetmap(monkeyp
     def fake(source, hit_on):
         async def _f(place, *, state=None, **_):
             calls.append((source, state))
-            return (1.0, 2.0, "x") if (source, state) == hit_on else (None, None, None)
+            return {"latitude": 1.0} if (source, state) == hit_on else None
         return _f
 
     for hit_on, expected in [
@@ -501,5 +507,5 @@ async def test_sub_place_search_goes_state_then_india_then_openstreetmap(monkeyp
         calls.clear()
         monkeypatch.setattr(lx, "_google_place", fake("google", hit_on))
         monkeypatch.setattr(lx, "_nominatim_place", fake("osm", hit_on))
-        assert await lx.geocode_sub_place("Kharar", state="Punjab") == (1.0, 2.0, "x")
+        assert await lx.geocode_sub_place("Kharar", state="Punjab") == {"latitude": 1.0}
         assert calls == expected
