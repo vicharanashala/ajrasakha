@@ -1,0 +1,67 @@
+import React from "react";
+import { ChevronUp, ChevronsRight } from "lucide-react";
+import { Card, CardContent } from "@/components/atoms/card";
+import { Button } from "@/components/atoms/button";
+
+interface ChecksPipelinePanelProps {
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
+  isCollapsed = false,
+  onToggleCollapse,
+}) => {
+  if (isCollapsed) {
+    return (
+      <div className="h-full flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12 min-h-[200px]">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapse}
+          className="h-8 w-8 rounded-lg hover:bg-muted"
+          title="Expand Checks / GDB Pipeline"
+        >
+          <ChevronsRight className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        </Button>
+
+        <div className="flex items-center gap-2 [writing-mode:vertical-rl] rotate-180 select-none py-4">
+          <span className="text-xs font-semibold tracking-wide text-foreground">
+            Checks / GDB Pipeline
+          </span>
+        </div>
+
+        <div className="w-2 h-2 rounded-full bg-amber-500" />
+      </div>
+    );
+  }
+
+  return (
+    <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden relative">
+      {onToggleCollapse && (
+        <div className="absolute top-2 right-2 z-10">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+            title="Collapse Panel"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      <CardContent className="p-6 flex-1 flex items-center justify-center">
+        <div className="text-center p-8 rounded-xl border border-dashed border-border/80 bg-muted/20 w-full h-full flex flex-col items-center justify-center">
+          <p className="text-sm font-semibold text-foreground">
+            Checks / GDB Cleaning Pipeline
+          </p>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Upcoming feature
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
