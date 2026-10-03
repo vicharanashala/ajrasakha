@@ -8,7 +8,7 @@ import re
 from typing import Optional, Dict, Any
 
 import httpx
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
@@ -17,8 +17,9 @@ from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import MINIMAX_API_KEY, MINIMAX_BASE_URL, MINIMAX_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_error, trace_llm_request, trace_llm_response
-from ajrasakha.agents.prompts import NEW_WEATHER_ANSWER_PROMPT, NEW_WEATHER_INTENT_PROMPT
+from ajrasakha.agents.prompts import NEW_WEATHER_INTENT_PROMPT
 from ajrasakha.agents.tool_output_formatters import format_new_weather_tool_dict
+from ajrasakha.agents.weather_farmer_answer import FARMER_WEATHER_ANSWER_PROMPT, render_farmer_weather_answer
 from ajrasakha.tools.weather.weather_tools2 import (
     call_current_and_forecast_info,
     call_rainfall_and_monsoon_info,
@@ -47,6 +48,73 @@ _ALLOWED_WEATHER_TOOLS = frozenset({
     "get_temperature_info",
     "get_current_and_forecast_info",
 })
+
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _today_ist() -> date:
+    """Today's date for the farmer (IST). The server clock is usually UTC, which is a day behind
+    between 00:00 and 05:30 IST and would shift every "today"/"yesterday"/"past N days" window."""
+    return datetime.now(_IST).date()
+
+
+# "past 24 hours rain" asks for the latest recorded rainfall, not a multi-day history range.
+_PAST_24H_RE = re.compile(r"\b(?:past|last|previous)\s+24\s*(?:hours?|hrs?)\b", re.IGNORECASE)
+_PAST_WORDS_RE = re.compile(
+    r"\b(?:yesterday|past|previous|history|historical|last\s+week|previous\s+week|past\s+week)\b"
+)
+
+
+_TODAY_RE = re.compile(r"\b(?:today|todays|today's)\b")
+_MULTI_DAY_CUE_RE = re.compile(r"\b(?:tomorrow|tomorrows|next|coming|upcoming|week|weekly|days|\d+\s*-?\s*day)\b")
+
+
+def _is_today_only(q_lower: str) -> bool:
+    """True when the query asks for today alone ("forecast for X today"), with no multi-day cue."""
+    return bool(_TODAY_RE.search(q_lower)) and not _MULTI_DAY_CUE_RE.search(q_lower)
+
+
+def _wants_week_forecast(q_lower: str) -> bool:
+    """The multi-day keyword check; a bare "forecast" does not count for a today-only query."""
+    if _is_today_only(q_lower):
+        return False
+    return any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+
+
+def _classify_timeframe(
+    q_lower: str,
+    eff_qt: str | None,
+    eff_from_date: str | None,
+    eff_target_date: str | None,
+    eff_forecast_days: int | None,
+    today_str: str,
+) -> tuple[bool, bool]:
+    """Decide (is_past, is_forecast) for a query from the extracted intent and its wording."""
+    words = _PAST_24H_RE.sub(" ", q_lower)
+    if _is_today_only(words):
+        # "weather forecast for X today" is today's weather, not a 7-day forecast.
+        is_past = bool(
+            eff_qt == "previous"
+            or (eff_from_date and eff_from_date < today_str)
+            or (eff_target_date and eff_target_date < today_str)
+            or _PAST_WORDS_RE.search(words)
+        )
+        return is_past, bool(eff_target_date and eff_target_date > today_str)
+    looks_future = any(k in words for k in ["tomorrow", "next", "forecast", "coming"])
+    is_past = (
+        eff_qt == "previous"
+        or bool(eff_from_date and eff_from_date < today_str)
+        or bool(eff_target_date and eff_target_date < today_str)
+        or bool(_PAST_WORDS_RE.search(words))
+    ) and not looks_future
+    is_fc = (
+        eff_qt == "forecast"
+        or bool(eff_forecast_days and eff_forecast_days > 1)
+        or any(k in words for k in ["tomorrow", "tomorrows", "next day", "coming day", "next 3 days", "next 5 days", "next 7 days", "next week", "forecast", "forecasting", "upcoming"])
+        or bool(eff_target_date and eff_target_date > today_str)
+    )
+    return is_past, is_fc
+
 
 _ALLOWED_QUERY_TYPES = frozenset({"today", "forecast", "previous"})
 _ALLOWED_RAINFALL_DATA_TYPES = frozenset({"current", "forecast", "monsoon_status", "historical"})
@@ -147,29 +215,47 @@ _RAINFALL_KEYWORDS = [
 ]
 
 
+def _has_keyword(q: str, keywords: list[str]) -> bool:
+    """True when a keyword starts at a word boundary in `q`.
+
+    Plain substring tests misroute farm questions: "heat" is inside "wheat", "temp" inside "temple".
+    Only the start is anchored so stems still match ("rain" → "rainfall", "temp" → "temperature").
+    """
+    return any(re.search(r"\b" + re.escape(k), q) for k in keywords)
+
+
+# Words that make a query about another day than "the next few hours". "may" is deliberately absent:
+# it is far more often the verb ("it may rain in the next 2 hours") than the month.
+_NOT_NOWCAST_WORDS = [
+    "tomorrow", "tomorrows", "next week", "next 5 days", "next 7 days", "past", "yesterday",
+    "january", "february", "march", "april", "june", "july", "august", "september",
+    "october", "november", "december",
+]
+
+
 def route_weather_query_by_heuristics(query: str) -> str:
     """Keyword & pattern-based intent routing to one of the 6 specialized IMD weather tools."""
     q = query.lower()
-    
+
     # 1. Tool 6: get_weather_alerts (Severe Warnings & Red/Orange/Yellow Alerts)
-    if any(k in q for k in _ALERTS_KEYWORDS):
+    if _has_keyword(q, _ALERTS_KEYWORDS):
         return "get_weather_alerts"
 
     # 2. Tool 5: get_weather_nowcast (Short-term 0-3 Hour Predictions - ONLY for explicit 1-3 hours/nowcast)
-    is_multiday = any(w in q for w in ["tomorrow", "tomorrows", "next week", "next 5 days", "next 7 days", "past", "yesterday", "august", "july", "september", "october", "november", "december", "january", "february", "march", "april", "may", "june"])
+    is_multiday = _has_keyword(q, _NOT_NOWCAST_WORDS) or bool(_extract_dates_from_text(query)[3])
     if not is_multiday and (_NOWCAST_RE.search(q) or any(k in q for k in _NOWCAST_KEYWORDS)):
         return "get_weather_nowcast"
 
     # 3. Tool 3: get_temperature_info (Temperature, Humidity %, Feel-like & Hot/Cold status)
-    if any(k in q for k in _TEMP_KEYWORDS):
+    if _has_keyword(q, _TEMP_KEYWORDS):
         return "get_temperature_info"
 
     # 5. Tool 2: get_rainfall_and_monsoon_info (Rainfall Stats, Departures & Monsoon Progress)
-    if any(k in q for k in _RAINFALL_KEYWORDS):
+    if _has_keyword(q, _RAINFALL_KEYWORDS):
         return "get_rainfall_and_monsoon_info"
-        
+
     # 6. Tool 4: get_location_weather (Hyper-local Block/Village Weather & 50km Nearby AWS Stations)
-    if any(k in q for k in _LOCATION_KEYWORDS):
+    if _has_keyword(q, _LOCATION_KEYWORDS):
         return "get_location_weather"
 
     # 7. Tool 1: get_current_and_forecast_info (General Weather & Multi-day 5-7 Day Forecast - Default Fallback)
@@ -202,7 +288,7 @@ def _past_days_to_range(past_days: int | None) -> tuple[str | None, str | None]:
     if n < 1:
         return None, None
     n = min(n, 30)
-    today_d = date.today()
+    today_d = _today_ist()
     from_d = (today_d - timedelta(days=n)).strftime("%Y-%m-%d")
     to_d = (today_d - timedelta(days=1)).strftime("%Y-%m-%d")
     return from_d, to_d
@@ -567,7 +653,7 @@ def build_full_weather_answer(tool_result: Any) -> str:
 def _ensure_weather_answer_spacing(text: str) -> str:
     if not text:
         return text
-    today_str = date.today().strftime("%Y-%m-%d")
+    today_str = _today_ist().strftime("%Y-%m-%d")
     # Add date in brackets for today / today's if not already present, avoiding (Today) or Today's observation
     text = re.sub(r"(?<!\()\b(today)\b(?!\s*[\(\[\d\)])(?!\s*['’]s\s+observation)", rf"\1 ({today_str})", text, flags=re.IGNORECASE)
     text = re.sub(r"(?<!\()\btoday's\s+weather\b(?!\s*[\(\[\d\)])", f"Today's ({today_str}) weather", text, flags=re.IGNORECASE)
@@ -636,13 +722,27 @@ def _ensure_weather_answer_spacing(text: str) -> str:
 
 
 async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
-    """Return a complete bullet-style answer from server JSON; MiniMax may only rephrase."""
+    """Return a farmer-friendly answer built from server JSON.
+
+    Known tool payloads are rendered deterministically (no LLM, so values cannot drift).
+    Unknown shapes fall back to the text formatter, which MiniMax may only rephrase.
+    """
+    if not isinstance(tool_result, dict) or not _weather_tool_has_usable_data(tool_result):
+        return _weather_tool_unavailable_answer(tool_result)
+    try:
+        farmer_answer = render_farmer_weather_answer(query, tool_result)
+    except Exception as render_err:
+        logger.warning("Farmer weather renderer failed: %s", render_err)
+        farmer_answer = ""
+    if farmer_answer:
+        return farmer_answer
+
     full_answer = build_full_weather_answer(tool_result)
     if not full_answer:
         return _weather_tool_unavailable_answer(tool_result)
 
     user_content = (
-        f"{NEW_WEATHER_ANSWER_PROMPT}\n\n"
+        f"{FARMER_WEATHER_ANSWER_PROMPT}\n\n"
         f"Farmer query: {query}\n\n"
         "Complete weather brief from server (include EVERY fact below; do not omit any line or value):\n"
         f"{full_answer}\n\n"
@@ -668,19 +768,8 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
             clean_ans = re.sub(r"(?im)^(?:Yes,\s+there\s+is\s+a\s+chance\s+of\s+rain|No\s+(?:significant\s+)?rain\s+is\s+expected|Rain\s+forecast:)[^\n]*\n*", "", clean_ans).strip()
             clean_ans = re.sub(r"(?im)^\s*[\*\-]?\s*(?:Departure|Departure\s+from\s+normal)\s*:\s*[+\-0-9%]+\.?\s*$\n?", "", clean_ans).strip()
 
-        # Guarantee Observation station / Notice line from full_answer is preserved in final answer
-        obs_match = re.search(r"(?im)^\s*(?:Observation station|Notice: No active)[^\n]+", full_answer)
-        if obs_match:
-            obs_line = obs_match.group(0).strip()
-            if "Observation station" not in clean_ans and "Notice:" not in clean_ans:
-                clean_lines = clean_ans.split("\n")
-                if len(clean_lines) >= 2:
-                    clean_lines.insert(2, obs_line)
-                else:
-                    clean_lines.append(obs_line)
-                clean_ans = "\n".join(clean_lines)
-
-        return _ensure_weather_answer_spacing(clean_ans)
+        # The farmer prompt already formats dates and sources, so the technical spacing pass is skipped.
+        return clean_ans
 
     if answer and answer.strip():
         logger.info(
@@ -695,7 +784,7 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
 
 async def extract_weather_intent(query: str) -> dict[str, Any]:
     """Ask MiniMax for tool + params; fall back to programmatic heuristics on failure."""
-    today_str = date.today().strftime("%Y-%m-%d")
+    today_str = _today_ist().strftime("%Y-%m-%d")
     user_content = (
         f"{NEW_WEATHER_INTENT_PROMPT}\n\n"
         f"Today: {today_str}\n"
@@ -730,6 +819,12 @@ class NewWeatherInput(BaseModel):
     district: Optional[str] = Field(None, description="District name (e.g. Ernakulam, Karnal).")
     state: Optional[str] = Field(None, description="State name (e.g. Kerala, Haryana).")
     location: Optional[str] = Field(None, description="Block, village, or specific sub-location name.")
+    sub_places: list[str] = Field(default_factory=list, description="Places the farmer named that are not the verified state/district (towns, villages, blocks, or other districts).")
+    location_from_profile: Optional[bool] = Field(None, description="False when the question names a place: use sub_place_latitude/longitude, not latitude/longitude (farmer profile).")
+    sub_place_latitude: Optional[float] = Field(None, description="Latitude of sub_places[0], geocoded by the planner.")
+    sub_place_longitude: Optional[float] = Field(None, description="Longitude of sub_places[0], geocoded by the planner.")
+    sub_place_state: Optional[str] = Field(None, description="State of sub_places[0] as returned by the planner's geocoder.")
+    sub_place_district: Optional[str] = Field(None, description="District of sub_places[0] as returned by the planner's geocoder.")
     latitude: Optional[float] = Field(None, description="Optional latitude float.")
     longitude: Optional[float] = Field(None, description="Optional longitude float.")
     address: Optional[str] = Field(None, description="Optional full location address string.")
@@ -743,8 +838,9 @@ def _extract_dates_from_text(query: str) -> tuple[str | None, str | None, str | 
     Extract (target_date, from_date, to_date, query_type) from user query text.
     Supports ISO (2026-08-15), DD/MM/YYYY, '15th August', 'August 15', 'yesterday', 'tomorrow', 'next week', 'after 2 weeks', 'past 3 days', etc.
     """
-    q = query.lower()
-    today = date.today()
+    # "past 24 hours" is a rolling window handled by the tools, not a date range to extract.
+    q = _PAST_24H_RE.sub(" ", query.lower())
+    today = _today_ist()
     today_str = today.strftime("%Y-%m-%d")
 
     # ISO format YYYY-MM-DD
@@ -902,6 +998,12 @@ async def new_weather(
     district: Optional[str] = None,
     state: Optional[str] = None,
     location: Optional[str] = None,
+    sub_places: Optional[list[str]] = None,
+    location_from_profile: Optional[bool] = None,
+    sub_place_latitude: Optional[float] = None,
+    sub_place_longitude: Optional[float] = None,
+    sub_place_state: Optional[str] = None,
+    sub_place_district: Optional[str] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
     address: Optional[str] = None,
@@ -914,11 +1016,22 @@ async def new_weather(
     Query the cluster-based weather agent (Tools 1 to 7).
     """
     try:
-        lat = latitude
-        lon = longitude
+        # The planner sets location_from_profile=False when the question names a
+        # place: then the planner-geocoded sub_places[0], else none (the
+        # district/state names are used below). Otherwise the given lat/long
+        # (the farmer profile's).
+        if location_from_profile is False:
+            lat, lon = sub_place_latitude, sub_place_longitude
+        else:
+            lat, lon = latitude, longitude
         place_district = district
         place_state = state
         place_location = location
+        if location_from_profile is False and lat is not None and lon is not None:
+            # The coordinates are the planner-geocoded sub-place's: keep the
+            # state/district consistent with them.
+            place_state = sub_place_state or place_state
+            place_district = sub_place_district or place_district
 
         # If location parameters were omitted from tool call args, extract from query
         if not place_district and not place_location and not place_state and (lat is None or lon is None):
@@ -971,7 +1084,7 @@ async def new_weather(
         if re.search(r"\bpast\s+24\s*(?:hours?|hrs?)\b", q_lower):
             looks_past_weather = False
         if looks_past_weather and not eff_target_date and not eff_from_date:
-            today_d = date.today()
+            today_d = _today_ist()
             eff_from_date = (today_d - timedelta(days=7)).strftime("%Y-%m-%d")
             eff_to_date = (today_d - timedelta(days=1)).strftime("%Y-%m-%d")
             ext_qt = ext_qt or "previous"
@@ -979,30 +1092,59 @@ async def new_weather(
         # Geocode if coordinates omitted (district/location/state)
         if (lat is None or lon is None) and (place_district or place_location or place_state):
             try:
-                from ajrasakha.agents.location_context import forward_geocode
-                geocode_result = await forward_geocode(
-                    state=place_state,
-                    district=place_location or place_district,
-                )
-                if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
-                    lat = geocode_result.get("latitude")
-                    lon = geocode_result.get("longitude")
-                    if geocode_result.get("district"):
-                        place_district = geocode_result.get("district")
+                from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
+
+                # sub_places from the planner: try each as subdistrict for more precise geocoding.
+                # Fall back to place_location, then district-only.
+                candidates = list(sub_places or [])
+                if place_location and place_location not in candidates:
+                    candidates.insert(0, place_location)
+
+                _lat, _lon, _resolved_name = None, None, None
+                if candidates:
+                    for sp in candidates:
+                        _lat, _lon, _resolved_name = await _get_lat_long(
+                            district=place_district,
+                            subdistrict=sp.strip(),
+                            state=place_state,
+                        )
+                        if _lat is not None and _lon is not None:
+                            break
+
+                # Final fallback: district/state only (no subdistrict)
+                if _lat is None or _lon is None:
+                    _lat, _lon, _resolved_name = await _get_lat_long(
+                        district=place_district,
+                        subdistrict=None,
+                        state=place_state,
+                    )
+
+                if _lat is not None and _lon is not None:
+                    lat = _lat
+                    lon = _lon
+                    if place_district is None and _resolved_name:
+                        # If only state was given, don't overwrite district with state name
+                        pass
                     logger.info(
-                        "new_weather_agent: forward geocoded location %r to %s, %s",
-                        place_district or place_location or place_state,
+                        "new_weather_agent: geocoded location=%r district=%r state=%r sub_places=%r -> lat=%s, lon=%s (%s)",
+                        place_location,
+                        place_district,
+                        place_state,
+                        sub_places,
                         lat,
                         lon,
+                        _resolved_name,
                     )
             except Exception as geo_err:
                 logger.warning("Geocoding lookup notice: %s", geo_err)
+
 
         if lat is None or lon is None:
             from ajrasakha.tools.weather.weather_tools2 import _resolve_coordinates, LOCATION_UNRESOLVED_MESSAGE
             clat, clon, cname = _resolve_coordinates(None, None, place_location, place_district, place_state)
             if clat is None or clon is None:
                 return json.dumps({
+                    "success": False,
                     "answer": LOCATION_UNRESOLVED_MESSAGE,
                     "tool_data": {
                         "success": False,
@@ -1082,23 +1224,13 @@ async def new_weather(
             }
             result = await _invoke_mcp_or_direct("get_location_weather", args)
         elif tool_name == "get_temperature_info":
-            today_str = date.today().strftime("%Y-%m-%d")
-            is_past = (
-                eff_qt == "previous"
-                or bool(eff_from_date and eff_from_date < today_str)
-                or bool(eff_target_date and eff_target_date < today_str)
-                or any(k in q_lower for k in ["yesterday", "past", "previous", "history", "historical", "last week", "previous week", "past week"])
-            ) and not any(k in q_lower for k in ["tomorrow", "next", "forecast", "coming"])
-
-            is_fc = (
-                eff_qt == "forecast"
-                or bool(eff_forecast_days and eff_forecast_days > 1)
-                or any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "next 3 days", "next 5 days", "next 7 days", "next week", "forecast", "forecasting", "upcoming"])
-                or bool(eff_target_date and eff_target_date > today_str)
+            today_str = _today_ist().strftime("%Y-%m-%d")
+            is_past, is_fc = _classify_timeframe(
+                q_lower, eff_qt, eff_from_date, eff_target_date, eff_forecast_days, today_str,
             )
             qt = "previous" if is_past else ("forecast" if is_fc else (eff_qt or "today"))
             f_days = 1 if eff_target_date else (eff_forecast_days or (
-                7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+                7 if _wants_week_forecast(q_lower)
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
                 else 3 if ("2 day" in q_lower or "2-day" in q_lower)
@@ -1111,11 +1243,11 @@ async def new_weather(
                 t_date = None
             if is_past and not f_date and not t_date:
                 if "yesterday" in q_lower:
-                    t_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                    t_date = (_today_ist() - timedelta(days=1)).strftime("%Y-%m-%d")
                     to_d = t_date
                 else:
-                    f_date = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
-                    to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                    f_date = (_today_ist() - timedelta(days=7)).strftime("%Y-%m-%d")
+                    to_d = (_today_ist() - timedelta(days=1)).strftime("%Y-%m-%d")
 
             args = {
                 "lat": lat,
@@ -1131,19 +1263,9 @@ async def new_weather(
             }
             result = await _invoke_mcp_or_direct("get_temperature_info", args)
         elif tool_name == "get_rainfall_and_monsoon_info":
-            today_str = date.today().strftime("%Y-%m-%d")
-            is_past = (
-                eff_qt == "previous"
-                or bool(eff_from_date and eff_from_date < today_str)
-                or bool(eff_target_date and eff_target_date < today_str)
-                or any(k in q_lower for k in ["yesterday", "past", "previous", "history", "historical", "last week", "previous week", "past week"])
-            ) and not any(k in q_lower for k in ["tomorrow", "next", "forecast", "coming"])
-
-            is_fc = (
-                eff_qt == "forecast"
-                or bool(eff_forecast_days and eff_forecast_days > 1)
-                or any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "next 3 days", "next 5 days", "next 7 days", "next week", "forecast", "forecasting", "upcoming"])
-                or bool(eff_target_date and eff_target_date > today_str)
+            today_str = _today_ist().strftime("%Y-%m-%d")
+            is_past, is_fc = _classify_timeframe(
+                q_lower, eff_qt, eff_from_date, eff_target_date, eff_forecast_days, today_str,
             )
             dt = eff_data_type or (
                 "monsoon_status" if "monsoon" in q_lower
@@ -1151,7 +1273,7 @@ async def new_weather(
                       else ("historical" if is_past else "current"))
             )
             f_days = 1 if eff_target_date else (eff_forecast_days or (
-                7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+                7 if _wants_week_forecast(q_lower)
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
                 else 3 if ("2 day" in q_lower or "2-day" in q_lower)
@@ -1164,11 +1286,11 @@ async def new_weather(
                 t_date = None
             if is_past and not f_date and not t_date:
                 if "yesterday" in q_lower:
-                    t_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                    t_date = (_today_ist() - timedelta(days=1)).strftime("%Y-%m-%d")
                     to_d = t_date
                 else:
-                    f_date = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
-                    to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                    f_date = (_today_ist() - timedelta(days=7)).strftime("%Y-%m-%d")
+                    to_d = (_today_ist() - timedelta(days=1)).strftime("%Y-%m-%d")
 
             args = {
                 "lat": lat,
@@ -1186,20 +1308,10 @@ async def new_weather(
         else:
             _is_current_query = any(k in q_lower for k in ["current weather", "current condition", "right now", "at the moment", "current climate"])
             _is_today_query = any(k in q_lower for k in ["today", "todays", "today's"])
-            today_str = date.today().strftime("%Y-%m-%d")
+            today_str = _today_ist().strftime("%Y-%m-%d")
 
-            is_past = (
-                eff_qt == "previous"
-                or bool(eff_from_date and eff_from_date < today_str)
-                or bool(eff_target_date and eff_target_date < today_str)
-                or any(k in q_lower for k in ["yesterday", "past", "previous", "history", "historical", "last week", "previous week", "past week"])
-            ) and not any(k in q_lower for k in ["tomorrow", "next", "forecast", "coming"])
-
-            is_fc = (
-                eff_qt == "forecast"
-                or bool(eff_forecast_days and eff_forecast_days > 1)
-                or any(k in q_lower for k in ["tomorrow", "tomorrows", "next day", "coming day", "next 3 days", "next 5 days", "next 7 days", "next week", "forecast", "forecasting", "upcoming"])
-                or bool(eff_target_date and eff_target_date > today_str)
+            is_past, is_fc = _classify_timeframe(
+                q_lower, eff_qt, eff_from_date, eff_target_date, eff_forecast_days, today_str,
             )
 
             if is_past:
@@ -1210,15 +1322,15 @@ async def new_weather(
                 to_d = eff_to_date
                 if not f_date and not t_date:
                     if "yesterday" in q_lower:
-                        t_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                        t_date = (_today_ist() - timedelta(days=1)).strftime("%Y-%m-%d")
                         to_d = t_date
                     else:
-                        f_date = (date.today() - timedelta(days=7)).strftime("%Y-%m-%d")
-                        to_d = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                        f_date = (_today_ist() - timedelta(days=7)).strftime("%Y-%m-%d")
+                        to_d = (_today_ist() - timedelta(days=1)).strftime("%Y-%m-%d")
             elif is_fc:
                 qt = "forecast"
                 f_days = 1 if eff_target_date else (eff_forecast_days or (
-                    7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+                    7 if _wants_week_forecast(q_lower)
                     else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                     else 4 if ("3 day" in q_lower or "3-day" in q_lower)
                     else 3 if ("2 day" in q_lower or "2-day" in q_lower)
@@ -1259,8 +1371,14 @@ async def new_weather(
             json.dumps(result, ensure_ascii=False, default=str)[:8000],
         )
         answer = await synthesize_weather_answer(query, result)
+        # Top-level "success" is what plan_executor reads to route to the
+        # weather-unavailable reply; tool_data alone is not inspected there.
         return json.dumps(
-            {"answer": answer or "", "tool_data": result},
+            {
+                "success": _weather_tool_has_usable_data(result),
+                "answer": answer or "",
+                "tool_data": result,
+            },
             ensure_ascii=False,
             default=str,
         )
@@ -1269,6 +1387,7 @@ async def new_weather(
         logger.error("new_weather_agent execution error: %s", exc, exc_info=True)
         return json.dumps(
             {
+                "success": False,
                 "answer": _weather_tool_unavailable_answer({"error": str(exc)}),
                 "tool_data": {"success": False, "error": str(exc)},
             },
