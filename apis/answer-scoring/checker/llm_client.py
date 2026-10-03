@@ -18,7 +18,7 @@ import run_stats
 logger = logging.getLogger(__name__)
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
-MINIMAX_URL = "https://samagama.in/platform/proxy/v1/chat/completions"
+MINIMAX_URL = "http://100.100.108.41:8001/v1/chat/completions"
 MINIMAX_MODEL = "MiniMax-M3"
 # The proxy often returns a cut-off response body (15-60% of calls, varies by
 # day), so retry a lot with short waits. max_completion_tokens doesn't help
