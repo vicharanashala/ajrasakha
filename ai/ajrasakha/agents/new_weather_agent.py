@@ -65,6 +65,22 @@ _PAST_WORDS_RE = re.compile(
 )
 
 
+_TODAY_RE = re.compile(r"\b(?:today|todays|today's)\b")
+_MULTI_DAY_CUE_RE = re.compile(r"\b(?:tomorrow|tomorrows|next|coming|upcoming|week|weekly|days|\d+\s*-?\s*day)\b")
+
+
+def _is_today_only(q_lower: str) -> bool:
+    """True when the query asks for today alone ("forecast for X today"), with no multi-day cue."""
+    return bool(_TODAY_RE.search(q_lower)) and not _MULTI_DAY_CUE_RE.search(q_lower)
+
+
+def _wants_week_forecast(q_lower: str) -> bool:
+    """The multi-day keyword check; a bare "forecast" does not count for a today-only query."""
+    if _is_today_only(q_lower):
+        return False
+    return any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+
+
 def _classify_timeframe(
     q_lower: str,
     eff_qt: str | None,
@@ -75,6 +91,15 @@ def _classify_timeframe(
 ) -> tuple[bool, bool]:
     """Decide (is_past, is_forecast) for a query from the extracted intent and its wording."""
     words = _PAST_24H_RE.sub(" ", q_lower)
+    if _is_today_only(words):
+        # "weather forecast for X today" is today's weather, not a 7-day forecast.
+        is_past = bool(
+            eff_qt == "previous"
+            or (eff_from_date and eff_from_date < today_str)
+            or (eff_target_date and eff_target_date < today_str)
+            or _PAST_WORDS_RE.search(words)
+        )
+        return is_past, bool(eff_target_date and eff_target_date > today_str)
     looks_future = any(k in words for k in ["tomorrow", "next", "forecast", "coming"])
     is_past = (
         eff_qt == "previous"
@@ -1205,7 +1230,7 @@ async def new_weather(
             )
             qt = "previous" if is_past else ("forecast" if is_fc else (eff_qt or "today"))
             f_days = 1 if eff_target_date else (eff_forecast_days or (
-                7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+                7 if _wants_week_forecast(q_lower)
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
                 else 3 if ("2 day" in q_lower or "2-day" in q_lower)
@@ -1248,7 +1273,7 @@ async def new_weather(
                       else ("historical" if is_past else "current"))
             )
             f_days = 1 if eff_target_date else (eff_forecast_days or (
-                7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+                7 if _wants_week_forecast(q_lower)
                 else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                 else 4 if ("3 day" in q_lower or "3-day" in q_lower)
                 else 3 if ("2 day" in q_lower or "2-day" in q_lower)
@@ -1305,7 +1330,7 @@ async def new_weather(
             elif is_fc:
                 qt = "forecast"
                 f_days = 1 if eff_target_date else (eff_forecast_days or (
-                    7 if any(k in q_lower for k in ["7 day", "7-day", "week", "next week", "coming days", "upcoming days", "next days", "forecast", "forecasting"])
+                    7 if _wants_week_forecast(q_lower)
                     else 6 if ("5 day" in q_lower or "5-day" in q_lower)
                     else 4 if ("3 day" in q_lower or "3-day" in q_lower)
                     else 3 if ("2 day" in q_lower or "2-day" in q_lower)
