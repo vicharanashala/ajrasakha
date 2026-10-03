@@ -16,6 +16,13 @@ import {
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
 import { Badge } from "@/components/atoms/badge";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/atoms/select";
 import { toast } from "sonner";
 import type { IQuestionContextData } from "../types";
 
@@ -24,6 +31,8 @@ interface QuestionAndContextPanelProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   progressPercent?: number;
+  actionType?: "allocated" | "reroute";
+  onActionTypeChange?: (actionType: "allocated" | "reroute") => void;
 }
 
 export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = ({
@@ -31,6 +40,8 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   isCollapsed = false,
   onToggleCollapse,
   progressPercent = 15,
+  actionType = "allocated",
+  onActionTypeChange,
 }) => {
   const [activeTab, setActiveTab] = useState<"current" | "queue">("current");
   const [showAllMetadata, setShowAllMetadata] = useState(false);
@@ -94,6 +105,20 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   return (
     <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden">
       <CardContent className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
+        {/* Action Type Selector */}
+        <div className="flex justify-end">
+          <Select value={actionType} onValueChange={onActionTypeChange}>
+            <SelectTrigger className="h-8 text-xs px-2 min-w-fit shrink-0">
+              <SelectValue placeholder="Select action" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="allocated">Allocated Questions</SelectItem>
+              <SelectItem value="reroute">ReRouted Questions</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Sub Navigation / Queue Status Tabs */}
         <div className="flex items-center gap-2">
           <div className="flex-1 grid grid-cols-2 p-1 bg-muted/50 rounded-lg border border-border/60 text-xs font-medium">

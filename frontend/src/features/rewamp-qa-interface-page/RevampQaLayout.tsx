@@ -23,6 +23,9 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     ffv: false,
   });
 
+  // Action type state for the question filter (allocated vs reroute)
+  const [actionType, setActionType] = useState<"allocated" | "reroute">("allocated");
+
   const togglePanel = (panel: keyof IPanelCollapseState) => {
     setCollapsed((prev) => ({
       ...prev,
@@ -59,6 +62,8 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
             isCollapsed={collapsed.questionContext}
             onToggleCollapse={() => togglePanel("questionContext")}
             progressPercent={15}
+            actionType={actionType}
+            onActionTypeChange={setActionType}
           />
         </div>
 
