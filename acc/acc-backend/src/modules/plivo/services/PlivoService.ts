@@ -635,12 +635,17 @@ export class PlivoService {
     const maxWindowMs = 90 * 1000;
     const cleanTargetPhone = phoneNumber ? phoneNumber.replace(/[^\d]/g, '').slice(-10) : '';
 
-    // Search newest-first to always correlate with the most recent call
-    const entries = Array.from(this.callMetadataMap.entries()).reverse();
+    // Sort newest-first by startTime to guarantee most recent call ordering
+    const entries = Array.from(this.callMetadataMap.entries()).sort((a, b) => {
+      const timeA = a[1].startTime ? a[1].startTime.getTime() : 0;
+      const timeB = b[1].startTime ? b[1].startTime.getTime() : 0;
+      return timeB - timeA;
+    });
 
-    // Priority 1: Exact match on BOTH phone number AND assigned agent (Highest confidence)
+    // Priority 1: Exact match on BOTH phone number AND assigned agent for an ACTIVE (non-ended) call
     if (cleanTargetPhone && agentUserId) {
       for (const [uuid, meta] of entries) {
+        if (this.endedCalls.has(uuid)) continue;
         if (meta.direction && meta.direction !== 'inbound') continue;
         const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
         if (now - startTimeMs > maxWindowMs) continue;
@@ -653,30 +658,41 @@ export class PlivoService {
       }
     }
 
-    // Priority 2: Match on phone number alone (if caller phone is known)
-    if (cleanTargetPhone) {
+    // Priority 2: Match on assigned agent ALONE for an ACTIVE (non-ended) call in the ringing window (45s)
+    // If this agent's softphone was dialed and answered, this is their active call
+    if (agentUserId) {
       for (const [uuid, meta] of entries) {
-        if (meta.direction && meta.direction !== 'inbound') continue;
-        const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
-        if (now - startTimeMs > maxWindowMs) continue;
-
-        const cleanFrom = meta.from ? meta.from.replace(/[^\d]/g, '').slice(-10) : '';
-        if (cleanFrom && (cleanFrom === cleanTargetPhone || cleanFrom.includes(cleanTargetPhone) || cleanTargetPhone.includes(cleanFrom))) {
-          return uuid;
-        }
-      }
-    }
-
-    // Priority 3: Fallback match on agentUserId ONLY IF caller phone was NOT provided / unknown
-    // AND the call was placed very recently (within 45s, during active ringing)
-    if (!cleanTargetPhone && agentUserId) {
-      for (const [uuid, meta] of entries) {
+        if (this.endedCalls.has(uuid)) continue;
         if (meta.direction && meta.direction !== 'inbound') continue;
         const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
         if (now - startTimeMs > 45 * 1000) continue;
 
         const matchesAgent = meta.agentUserId === agentUserId || meta.agentNumber === agentUserId;
         if (matchesAgent) {
+          return uuid;
+        }
+      }
+    }
+
+    // Priority 3: Match on phone number alone for an ACTIVE (non-ended) call
+    // NEVER match a call that is explicitly assigned to a DIFFERENT agent
+    if (cleanTargetPhone) {
+      for (const [uuid, meta] of entries) {
+        if (this.endedCalls.has(uuid)) continue;
+        if (meta.direction && meta.direction !== 'inbound') continue;
+        const startTimeMs = meta.startTime ? meta.startTime.getTime() : 0;
+        if (now - startTimeMs > maxWindowMs) continue;
+
+        // If agentUserId is known, do NOT steal a call registered to a different agent
+        if (agentUserId) {
+          const hasDifferentAgent =
+            (meta.agentUserId && meta.agentUserId !== agentUserId) ||
+            (meta.agentNumber && meta.agentNumber !== agentUserId);
+          if (hasDifferentAgent) continue;
+        }
+
+        const cleanFrom = meta.from ? meta.from.replace(/[^\d]/g, '').slice(-10) : '';
+        if (cleanFrom && (cleanFrom === cleanTargetPhone || cleanFrom.includes(cleanTargetPhone) || cleanTargetPhone.includes(cleanFrom))) {
           return uuid;
         }
       }

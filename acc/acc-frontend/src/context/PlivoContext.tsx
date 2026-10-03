@@ -154,6 +154,9 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const lastCallUuidRef = useRef<string | null>(null);
   const activeCallInfoRef = useRef<{ number: string; direction: string } | null>(null);
   const isHangingUpRef = useRef(false);
+  const handledAnsweredLegRef = useRef<string | null>(null);
+  const currentUserRef = useRef<any>(currentUser);
+  currentUserRef.current = currentUser;
 
   // Active call duration timer
   useEffect(() => {
@@ -232,7 +235,21 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
       const currentUuid = activeCallUuidRef.current || parentCallUuidRef.current;
       if (currentUuid && message.callId && currentUuid !== message.callId) {
-        return;
+        // If incoming call was answered and activeCallUuidRef was holding the temporary bridge leg UUID,
+        // and parentCallUuid hasn't been set yet, adopt the parent callId from the server.
+        // If parentCallUuid is ALREADY set for this call, reject foreign call transcripts.
+        if (
+          !parentCallUuidRef.current &&
+          activeCallInfoRef.current?.direction === "inbound" &&
+          (callStatus === "connected" || callStatus === "held")
+        ) {
+          console.log(`🔗 [PlivoContext] Adopting server parent callId ${message.callId} for active connected leg`);
+          activeCallUuidRef.current = message.callId;
+          parentCallUuidRef.current = message.callId;
+          setActiveCall((prev) => (prev ? { ...prev, uuid: message.callId } : prev));
+        } else {
+          return;
+        }
       }
 
       if (message.callId && !activeCallUuidRef.current) {
@@ -421,9 +438,18 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             prev ? { ...prev, uuid: answeredCallUuid } : { uuid: answeredCallUuid, number: "Unknown", direction: "inbound", timestamp: new Date().toISOString() }
           );
 
+          // Deduplicate: Plivo SDK emits onCallAnswered multiple times per connection
+          if (handledAnsweredLegRef.current === answeredCallUuid) {
+            console.log(`ℹ️ [PlivoContext] Skipping duplicate onCallAnswered trigger for leg: ${answeredCallUuid}`);
+            return;
+          }
+          handledAnsweredLegRef.current = answeredCallUuid;
+
           const currentPhone = activeCallInfoRef.current?.number || activeCall?.number || null;
           const currentDir = activeCallInfoRef.current?.direction || activeCall?.direction || "inbound";
-          const agentIdVal = currentUser?._id ? String(currentUser._id) : (currentUser?.agent || undefined);
+          const activeUser = currentUserRef.current;
+          const agentIdVal = activeUser?._id ? String(activeUser._id) : (activeUser?.agent || undefined);
+
           plivoApi.saveCallAnswered({
             callUuid: answeredCallUuid,
             phoneNumber: currentPhone || undefined,
@@ -445,6 +471,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       client.client.on("onCallTerminated", () => {
         console.log("📴 [PlivoContext] Call terminated");
+        handledAnsweredLegRef.current = null;
         if (isHangingUpRef.current) {
           isHangingUpRef.current = false;
           return;
@@ -462,6 +489,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       client.client.on("onCallRejected", () => {
         console.log("❌ [PlivoContext] Call rejected");
+        handledAnsweredLegRef.current = null;
         setCallStatus("idle");
         setActiveCall(null);
         disconnectWebSocket();
@@ -470,6 +498,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       client.client.on("onCallFailed", (error: any) => {
         console.error("❌ [PlivoContext] Call failed:", error);
+        handledAnsweredLegRef.current = null;
         toast.error("Call failed: " + (error?.message || "Network/telephony error"));
         setCallStatus("idle");
         setActiveCall(null);
@@ -479,6 +508,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       client.client.on("onCallCancelled", () => {
         console.log("❌ [PlivoContext] Call cancelled");
+        handledAnsweredLegRef.current = null;
         setCallStatus("idle");
         setActiveCall(null);
         disconnectWebSocket();
@@ -576,6 +606,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const hangupCall = useCallback(() => {
     isHangingUpRef.current = true;
+    handledAnsweredLegRef.current = null;
     if (plivoClientRef.current && plivoClientRef.current.client) {
       try {
         plivoClientRef.current.client.hangup();
@@ -596,6 +627,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [disconnectWebSocket, handleMarkAgentAsAvailable]);
 
   const rejectCall = useCallback(() => {
+    handledAnsweredLegRef.current = null;
     if (plivoClientRef.current && plivoClientRef.current.client) {
       try {
         plivoClientRef.current.client.reject();
@@ -646,6 +678,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isRecording, connectWebSocket, disconnectWebSocket]);
 
   const resetCallState = useCallback(() => {
+    handledAnsweredLegRef.current = null;
     setCallStatus("idle");
     setActiveCall(null);
     setTranscripts([]);

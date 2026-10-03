@@ -161,9 +161,9 @@ export class WeatherService {
     const currentTemp = parseValidNum(aws.temperature_c);
 
     // Humidity resolution (IMD records morning 08:30 and evening 17:30 humidity)
-    let humidity = 0;
+    let humidity: number | undefined;
     if (aws.humidity_pct != null) {
-      humidity = Math.round(parseNum(aws.humidity_pct, 0));
+      humidity = parseValidNum(aws.humidity_pct);
     } else if (today.humidity_0830 != null || today.humidity_1730 != null) {
       const istHour = Number(
         new Intl.DateTimeFormat('en-IN', {
@@ -173,16 +173,16 @@ export class WeatherService {
         }).format(new Date())
       );
       if (istHour < 12 && today.humidity_0830 != null) {
-        humidity = Math.round(parseNum(today.humidity_0830, 0));
+        humidity = parseValidNum(today.humidity_0830);
       } else if (today.humidity_1730 != null) {
-        humidity = Math.round(parseNum(today.humidity_1730, 0));
+        humidity = parseValidNum(today.humidity_1730);
       } else {
-        humidity = Math.round(parseNum(today.humidity_0830 ?? today.humidity_1730, 0));
+        humidity = parseValidNum(today.humidity_0830, today.humidity_1730);
       }
     }
 
-    // Wind speed resolution
-    const windSpeed = aws.wind_speed_kmph != null ? Math.round(parseNum(aws.wind_speed_kmph, 0)) : 0;
+    // Wind speed resolution - only if provided by IMD AWS, no synthetic 0 fallback
+    const windSpeed = parseValidNum(aws.wind_speed_kmph);
 
     // Weather condition resolution
     const rawCondition = today.forecast || aws.weather_message || 'Clear';
@@ -192,17 +192,8 @@ export class WeatherService {
     const stationName = today.station || aws.name || aws.STATION || params.taluk || params.district || 'IMD Station';
     const distanceKm = today.distance_to_station_km ?? res.distance_km ?? aws.distance_km ?? null;
 
-    // Precipitation probability estimation from IMD rainfall records
-    let precipitationProb = 0;
-    const pastRain = parseNum(today.past_24hrs_rainfall, 0);
-    const condLower = (rawCondition || '').toLowerCase();
-    if (pastRain > 0 || condLower.includes('rain') || condLower.includes('shower') || condLower.includes('thunder')) {
-      precipitationProb = 80;
-    } else if (condLower.includes('cloud') || condLower.includes('overcast')) {
-      precipitationProb = 30;
-    } else {
-      precipitationProb = 0;
-    }
+    // Precipitation probability - only if explicitly provided by IMD, zero synthetic estimation
+    const precipitationProb = parseValidNum(today.precipitation_prob, today.pop, res.precipitation_prob);
 
     // Hourly projection aligned to Indian Standard Time (IST)
     const istCurrentHour = Number(
@@ -262,12 +253,12 @@ export class WeatherService {
       tempMax,
       tempMin,
       currentTemp,
-      precipitationProb: hourly[0]?.precipitationProb ?? precipitationProb,
+      precipitationProb,
       humidity,
       windSpeed,
       weatherCode: condition.code,
       conditionText: condition.text,
-      pressure: aws.mslp ? `${aws.mslp} hPa` : '1012 hPa',
+      pressure: aws.mslp ? `${aws.mslp} hPa` : undefined,
       stationName,
       distanceKm: distanceKm != null ? Number(distanceKm) : null,
       observationTime: aws.time ? `${aws.date || ''} ${aws.time}`.trim() : undefined,

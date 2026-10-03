@@ -1,8 +1,8 @@
 export interface ImdHourlyForecast {
   time: string;
   temp: number;
-  precipitationProb: number;
-  windSpeed: number;
+  precipitationProb?: number;
+  windSpeed?: number;
 }
 
 export interface ImdDailyForecast {
@@ -17,9 +17,9 @@ export interface ImdWeatherResponse {
   tempMax: number;
   tempMin: number;
   currentTemp?: number;
-  precipitationProb: number;
-  humidity: number;
-  windSpeed: number;
+  precipitationProb?: number;
+  humidity?: number;
+  windSpeed?: number;
   weatherCode: number;
   conditionText: string;
   pressure?: number | string;

@@ -42,10 +42,9 @@ export const initWebSocket = (server: Server) => {
           assignedAgentId &&
           (client.userId === assignedAgentId || client.agentNumber === assignedAgentId)
         );
-        const isAdminOrMod = client.userRole === 'admin' || client.userRole === 'moderator';
 
-        // Deliver strictly to the assigned call agent or verified admins/moderators
-        if (isTargetAgent || isAdminOrMod) {
+        // Deliver strictly to the assigned call agent for this call to guarantee zero cross-talk
+        if (isTargetAgent) {
           try {
             client.send(JSON.stringify(payload));
             recipientCount++;

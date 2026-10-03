@@ -103,8 +103,8 @@ interface ResolvedLocation {
 interface HourlyForecast {
   time: string;
   temp: number;
-  precipitationProb: number;
-  windSpeed: number;
+  precipitationProb?: number;
+  windSpeed?: number;
 }
 
 interface DailyForecast {
@@ -118,9 +118,9 @@ interface WeatherData {
   tempMax: number;
   tempMin: number;
   currentTemp?: number;
-  precipitationProb: number;
-  humidity: number;
-  windSpeed: number;
+  precipitationProb?: number;
+  humidity?: number;
+  windSpeed?: number;
   weatherCode: number;
   conditionText: string;
   pressure?: number | string;
@@ -924,9 +924,9 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
         tempMax: Math.round(imdData.tempMax ?? imdData.currentTemp ?? 0),
         tempMin: Math.round(imdData.tempMin ?? imdData.currentTemp ?? 0),
         currentTemp: imdData.currentTemp !== undefined ? Math.round(imdData.currentTemp) : undefined,
-        precipitationProb: imdData.precipitationProb ?? 0,
-        humidity: Math.round(imdData.humidity ?? 0),
-        windSpeed: Math.round(imdData.windSpeed ?? 0),
+        precipitationProb: imdData.precipitationProb != null && imdData.precipitationProb > 0 ? imdData.precipitationProb : undefined,
+        humidity: imdData.humidity != null && imdData.humidity > 0 ? Math.round(imdData.humidity) : undefined,
+        windSpeed: imdData.windSpeed != null && imdData.windSpeed > 0 ? Math.round(imdData.windSpeed) : undefined,
         weatherCode: imdData.weatherCode,
         conditionText: imdData.conditionText,
         hourly: imdData.hourly || [],
@@ -1145,14 +1145,24 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400 shrink-0">
-                <span className="flex items-center gap-1 whitespace-nowrap">
-                  <Droplets className="h-3 w-3 text-blue-500 shrink-0" />
-                  <span>Rain: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.precipitationProb}%</strong></span>
-                </span>
-                <span className="hidden sm:flex items-center gap-1 whitespace-nowrap">
-                  <Wind className="h-3 w-3 text-emerald-500 shrink-0" />
-                  <span>Wind: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.windSpeed} km/h</strong></span>
-                </span>
+                {weather.precipitationProb != null && weather.precipitationProb > 0 && (
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    <Droplets className="h-3 w-3 text-blue-500 shrink-0" />
+                    <span>Rain: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.precipitationProb}%</strong></span>
+                  </span>
+                )}
+                {weather.humidity != null && weather.humidity > 0 && (
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    <Thermometer className="h-3 w-3 text-amber-500 shrink-0" />
+                    <span>Humidity: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.humidity}%</strong></span>
+                  </span>
+                )}
+                {weather.windSpeed != null && weather.windSpeed > 0 && (
+                  <span className="hidden sm:flex items-center gap-1 whitespace-nowrap">
+                    <Wind className="h-3 w-3 text-emerald-500 shrink-0" />
+                    <span>Wind: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.windSpeed} km/h</strong></span>
+                  </span>
+                )}
               </div>
             </>
           ) : (
@@ -1255,92 +1265,172 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
                 </div>
               </div>
 
-              {/* Key Weather Metrics Strip: Rain, Humidity, Wind */}
-              <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2 rounded-xl bg-zinc-100/60 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 text-xs shadow-inner">
-                <div className="flex items-center gap-1.5 justify-center py-0.5">
-                  <Droplets className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                  <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">Rain:</span>
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-[11px] whitespace-nowrap">{weather.precipitationProb}%</span>
-                </div>
-                <div className="flex items-center gap-1.5 justify-center py-0.5 border-x border-zinc-200/60 dark:border-zinc-800/60">
-                  <Thermometer className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                  <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">Humidity:</span>
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-[11px] whitespace-nowrap">{weather.humidity}%</span>
-                </div>
-                <div className="flex items-center gap-1.5 justify-center py-0.5">
-                  <Wind className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                  <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">Wind:</span>
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-[11px] whitespace-nowrap">{weather.windSpeed} km/h</span>
-                </div>
-              </div>
+              {/* Key Weather Metrics Strip (only items provided by IMD) */}
+              {(() => {
+                const availableMetrics: { label: string; value: string; icon: React.ReactNode }[] = [];
+                if (weather.precipitationProb != null && weather.precipitationProb > 0) {
+                  availableMetrics.push({
+                    label: "Rain",
+                    value: `${weather.precipitationProb}%`,
+                    icon: <Droplets className="h-3.5 w-3.5 text-blue-500 shrink-0" />,
+                  });
+                }
+                if (weather.humidity != null && weather.humidity > 0) {
+                  availableMetrics.push({
+                    label: "Humidity",
+                    value: `${weather.humidity}%`,
+                    icon: <Thermometer className="h-3.5 w-3.5 text-amber-500 shrink-0" />,
+                  });
+                }
+                if (weather.windSpeed != null && weather.windSpeed > 0) {
+                  availableMetrics.push({
+                    label: "Wind",
+                    value: `${weather.windSpeed} km/h`,
+                    icon: <Wind className="h-3.5 w-3.5 text-emerald-500 shrink-0" />,
+                  });
+                }
+                if (weather.pressure) {
+                  availableMetrics.push({
+                    label: "Pressure",
+                    value: `${weather.pressure}`,
+                    icon: <Cloud className="h-3.5 w-3.5 text-indigo-500 shrink-0" />,
+                  });
+                }
 
-              {/* Interactive Tabs for Graph View */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-1 text-xs font-semibold">
-                  {(["Temperature", "Precipitation", "Wind"] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`transition-all pb-1 border-b-2 text-[11px] ${activeTab === tab
-                        ? "border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-bold"
-                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                if (availableMetrics.length === 0) return null;
+
+                return (
+                  <div
+                    className={`grid gap-1.5 py-1.5 px-2 rounded-xl bg-zinc-100/60 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 text-xs shadow-inner ${
+                      availableMetrics.length === 1
+                        ? "grid-cols-1"
+                        : availableMetrics.length === 2
+                        ? "grid-cols-2"
+                        : "grid-cols-3"
+                    }`}
+                  >
+                    {availableMetrics.map((metric, idx) => (
+                      <div
+                        key={metric.label}
+                        className={`flex items-center gap-1.5 justify-center py-0.5 ${
+                          idx > 0 ? "border-l border-zinc-200/60 dark:border-zinc-800/60" : ""
                         }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Hourly Temperature / Metric SVG Smooth Curve Chart */}
-                <div className="relative pt-2.5 pb-1 px-2 bg-zinc-100/50 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/50 rounded-xl overflow-hidden">
-                  <svg className="w-full h-12 overflow-visible" viewBox="0 0 800 80" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    <path
-                      d={(() => {
-                        const points = weather.hourly.map((h, idx) => {
-                          const x = (idx / 7) * 800;
-                          let val = h.temp;
-                          if (activeTab === "Precipitation") val = h.precipitationProb;
-                          if (activeTab === "Wind") val = h.windSpeed;
-                          const min = Math.min(...weather.hourly.map((item) => (activeTab === "Temperature" ? item.temp : activeTab === "Precipitation" ? item.precipitationProb : item.windSpeed)));
-                          const max = Math.max(...weather.hourly.map((item) => (activeTab === "Temperature" ? item.temp : activeTab === "Precipitation" ? item.precipitationProb : item.windSpeed))) || min + 1;
-                          const y = 65 - ((val - min) / (max - min || 1)) * 45;
-                          return { x, y };
-                        });
-                        let pathD = `M ${points[0].x} ${points[0].y}`;
-                        for (let i = 1; i < points.length; i++) {
-                          pathD += ` L ${points[i].x} ${points[i].y}`;
-                        }
-                        return pathD;
-                      })()}
-                      fill="none"
-                      stroke="#f59e0b"
-                      strokeWidth="2"
-                    />
-                  </svg>
-
-                  {/* Hourly Time Slots Label Row */}
-                  <div className="grid grid-cols-8 gap-0.5 text-center mt-1">
-                    {weather.hourly.map((item, idx) => (
-                      <div key={idx} className="flex flex-col items-center">
-                        <span className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">
-                          {activeTab === "Temperature"
-                            ? `${displayTemp(item.temp)}°`
-                            : activeTab === "Precipitation"
-                              ? `${item.precipitationProb}%`
-                              : `${item.windSpeed}k`}
+                      >
+                        {metric.icon}
+                        <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">{metric.label}:</span>
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-[11px] whitespace-nowrap">
+                          {metric.value}
                         </span>
-                        <span className="text-[9px] text-zinc-500 dark:text-zinc-400">{item.time}</span>
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
+                );
+              })()}
+
+              {/* Interactive Tabs for Graph View */}
+              {(() => {
+                const hasPrecipitation = weather.hourly.some(
+                  (h) => h.precipitationProb != null && h.precipitationProb > 0
+                );
+                const hasWind = weather.hourly.some(
+                  (h) => h.windSpeed != null && h.windSpeed > 0
+                );
+
+                const chartTabs: ("Temperature" | "Precipitation" | "Wind")[] = ["Temperature"];
+                if (hasPrecipitation) chartTabs.push("Precipitation");
+                if (hasWind) chartTabs.push("Wind");
+
+                const effectiveTab = chartTabs.includes(activeTab) ? activeTab : "Temperature";
+
+                return (
+                  <div className="space-y-2">
+                    {chartTabs.length > 1 && (
+                      <div className="flex items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-1 text-xs font-semibold">
+                        {chartTabs.map((tab) => (
+                          <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`transition-all pb-1 border-b-2 text-[11px] ${
+                              effectiveTab === tab
+                                ? "border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-bold"
+                                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                            }`}
+                          >
+                            {tab}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Hourly Temperature / Metric SVG Smooth Curve Chart */}
+                    <div className="relative pt-2.5 pb-1 px-2 bg-zinc-100/50 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/50 rounded-xl overflow-hidden">
+                      <svg className="w-full h-12 overflow-visible" viewBox="0 0 800 80" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        <path
+                          d={(() => {
+                            const points = weather.hourly.map((h, idx) => {
+                              const x = (idx / 7) * 800;
+                              let val = h.temp;
+                              if (effectiveTab === "Precipitation") val = h.precipitationProb ?? 0;
+                              if (effectiveTab === "Wind") val = h.windSpeed ?? 0;
+                              const min = Math.min(
+                                ...weather.hourly.map((item) =>
+                                  effectiveTab === "Temperature"
+                                    ? item.temp
+                                    : effectiveTab === "Precipitation"
+                                    ? item.precipitationProb ?? 0
+                                    : item.windSpeed ?? 0
+                                )
+                              );
+                              const max =
+                                Math.max(
+                                  ...weather.hourly.map((item) =>
+                                    effectiveTab === "Temperature"
+                                      ? item.temp
+                                      : effectiveTab === "Precipitation"
+                                      ? item.precipitationProb ?? 0
+                                      : item.windSpeed ?? 0
+                                  )
+                                ) || min + 1;
+                              const y = 65 - ((val - min) / (max - min || 1)) * 45;
+                              return { x, y };
+                            });
+                            let pathD = `M ${points[0].x} ${points[0].y}`;
+                            for (let i = 1; i < points.length; i++) {
+                              pathD += ` L ${points[i].x} ${points[i].y}`;
+                            }
+                            return pathD;
+                          })()}
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth="2"
+                        />
+                      </svg>
+
+                      {/* Hourly Time Slots Label Row */}
+                      <div className="grid grid-cols-8 gap-0.5 text-center mt-1">
+                        {weather.hourly.map((item, idx) => (
+                          <div key={idx} className="flex flex-col items-center">
+                            <span className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">
+                              {effectiveTab === "Temperature"
+                                ? `${displayTemp(item.temp)}°`
+                                : effectiveTab === "Precipitation"
+                                ? `${item.precipitationProb ?? 0}%`
+                                : `${item.windSpeed ?? 0}k`}
+                            </span>
+                            <span className="text-[9px] text-zinc-500 dark:text-zinc-400">{item.time}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 7-Day Forecast Cards Strip */}
               <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800">
@@ -1358,9 +1448,22 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
                       >
                         <span className="text-[9.5px] font-semibold text-zinc-700 dark:text-zinc-300 truncate w-full">{idx === 0 ? "Today" : day.dayName}</span>
                         <div className="my-0.5">{cond.icon}</div>
-                        <div className="flex items-center gap-0.5 text-[9.5px] font-bold font-mono">
-                          <span className="text-zinc-900 dark:text-zinc-100">{displayTemp(day.tempMax)}°</span>
-                          <span className="text-zinc-400 dark:text-zinc-500 text-[8px]">{displayTemp(day.tempMin)}°</span>
+                        <div className="flex items-center justify-center gap-0.5 text-[9px] sm:text-[9.5px] font-bold font-mono whitespace-nowrap w-full">
+                          {day.tempMin !== day.tempMax ? (
+                            <>
+                              <span className="text-blue-600 dark:text-blue-400 font-extrabold" title={`Min: ${displayTemp(day.tempMin)}°`}>
+                                {displayTemp(day.tempMin)}°
+                              </span>
+                              <span className="text-zinc-400 dark:text-zinc-500 font-light">-</span>
+                              <span className="text-amber-600 dark:text-amber-400 font-extrabold" title={`Max: ${displayTemp(day.tempMax)}°`}>
+                                {displayTemp(day.tempMax)}°
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-zinc-900 dark:text-zinc-100 font-extrabold">
+                              {displayTemp(day.tempMin)}°
+                            </span>
+                          )}
                         </div>
                       </div>
                     );

@@ -294,27 +294,27 @@ const renderWeatherInsights = (weatherInput: any) => {
     const feelsLikeVal = station.feel_like_c != null ? `${station.feel_like_c}°C` : null;
 
     return (
-      <div className="space-y-2.5 text-sky-900 dark:text-sky-300">
+      <div className="space-y-2.5 text-sky-900 dark:text-sky-300 min-w-0">
         {/* Station Sub-Bar: Clean Location, Distance, and Observed Time */}
-        <div className="flex flex-wrap items-center justify-between text-[11px] pb-1.5 border-b border-sky-200/40 dark:border-sky-800/40 gap-1.5">
-          <div className="flex items-center gap-1.5 text-sky-900 dark:text-sky-200">
+        <div className="flex flex-wrap items-center justify-between text-[11px] pb-1.5 border-b border-sky-200/40 dark:border-sky-800/40 gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 text-sky-900 dark:text-sky-200 min-w-0">
             <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-            <span className="font-semibold text-sky-950 dark:text-sky-100">
+            <span className="font-semibold text-sky-950 dark:text-sky-100 truncate">
               {station.name || station.district || "Station"}
             </span>
             {locationStr && locationStr.toLowerCase() !== (station.name || "").toLowerCase() && (
-              <span className="text-sky-600 dark:text-sky-400">
+              <span className="text-sky-600 dark:text-sky-400 truncate">
                 • {locationStr}
               </span>
             )}
             {distance && (
-              <span className="text-sky-600 dark:text-sky-400 font-normal">
+              <span className="text-sky-600 dark:text-sky-400 font-normal shrink-0">
                 ({distance} km away)
               </span>
             )}
           </div>
           {obsTime && (
-            <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium text-[10px]">
+            <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium text-[10px] shrink-0">
               <Clock className="w-3 h-3 shrink-0" />
               <span>{obsTime}</span>
             </div>
@@ -322,18 +322,18 @@ const renderWeatherInsights = (weatherInput: any) => {
         </div>
 
         {/* Primary Hero Row: Large Temp + Feels Like + Sky Condition */}
-        <div className="flex items-center justify-between bg-white/50 dark:bg-zinc-950/40 rounded-xl p-3 border border-sky-100/60 dark:border-sky-900/40">
-          <div className="flex items-baseline gap-2.5">
-            <span className="text-2xl sm:text-3xl font-extrabold text-sky-950 dark:text-sky-50 tracking-tight">
+        <div className="flex items-center justify-between bg-white/50 dark:bg-zinc-950/40 rounded-xl p-3 border border-sky-100/60 dark:border-sky-900/40 min-w-0 gap-2">
+          <div className="flex items-baseline gap-2.5 flex-wrap min-w-0">
+            <span className="text-2xl sm:text-3xl font-extrabold text-sky-950 dark:text-sky-50 tracking-tight shrink-0">
               {tempVal}
             </span>
             {feelsLikeVal && (
-              <span className="text-xs font-medium text-sky-600 dark:text-sky-400 whitespace-nowrap">
+              <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
                 Feels like <strong className="font-semibold text-sky-900 dark:text-sky-200">{feelsLikeVal}</strong>
               </span>
             )}
           </div>
-          <div className="text-right pl-2">
+          <div className="text-right pl-2 shrink-0">
             <span className="text-sm font-bold text-sky-950 dark:text-sky-100 block">
               {station.weather_message || "Clear Sky"}
             </span>
@@ -344,29 +344,29 @@ const renderWeatherInsights = (weatherInput: any) => {
         </div>
 
         {/* Stats Grid: 3 Sleek Metric Tiles */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2 min-w-0">
           {/* Humidity */}
-          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
-            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2 sm:p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between min-w-0">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1 truncate">
               <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
-              <span>Humidity</span>
+              <span className="truncate">Humidity</span>
             </div>
-            <span className="text-sm font-bold text-sky-950 dark:text-sky-100">
+            <span className="text-sm font-bold text-sky-950 dark:text-sky-100 truncate">
               {station.humidity_pct != null ? `${station.humidity_pct}%` : "--"}
             </span>
           </div>
 
           {/* Wind */}
-          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
-            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2 sm:p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between min-w-0">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1 truncate">
               <Wind className="w-3 h-3 text-sky-500 shrink-0" />
-              <span>Wind</span>
+              <span className="truncate">Wind</span>
             </div>
-            <div className="flex items-baseline gap-1 text-sm font-bold text-sky-950 dark:text-sky-100 whitespace-nowrap">
-              <span>{station.wind_speed_kmph != null ? `${station.wind_speed_kmph}` : "--"}</span>
-              <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400">km/h</span>
+            <div className="flex items-baseline gap-1 text-sm font-bold text-sky-950 dark:text-sky-100 flex-wrap min-w-0">
+              <span className="truncate">{station.wind_speed_kmph != null ? `${station.wind_speed_kmph}` : "--"}</span>
+              <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400 shrink-0">km/h</span>
               {compassDir && (
-                <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 ml-0.5">
+                <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 ml-0.5 shrink-0">
                   {compassDir}
                 </span>
               )}
@@ -374,15 +374,15 @@ const renderWeatherInsights = (weatherInput: any) => {
           </div>
 
           {/* Pressure */}
-          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
-            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+          <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2 sm:p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between min-w-0">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1 truncate">
               <Gauge className="w-3 h-3 text-sky-500 shrink-0" />
-              <span>Pressure</span>
+              <span className="truncate">Pressure</span>
             </div>
-            <div className="flex items-baseline gap-1 text-sm font-bold text-sky-950 dark:text-sky-100 whitespace-nowrap">
-              <span>{station.mslp || "--"}</span>
+            <div className="flex items-baseline gap-1 text-sm font-bold text-sky-950 dark:text-sky-100 flex-wrap min-w-0">
+              <span className="truncate">{station.mslp || "--"}</span>
               {station.mslp && (
-                <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400">hPa</span>
+                <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400 shrink-0">hPa</span>
               )}
             </div>
           </div>
@@ -400,22 +400,22 @@ const renderWeatherInsights = (weatherInput: any) => {
     : "--";
 
   return (
-    <div className="space-y-2.5 text-sky-900 dark:text-sky-300">
+    <div className="space-y-2.5 text-sky-900 dark:text-sky-300 min-w-0">
       {/* Station Sub-Bar */}
-      <div className="flex flex-wrap items-center justify-between text-[11px] pb-1.5 border-b border-sky-200/40 dark:border-sky-800/40 gap-1.5">
-        <div className="flex items-center gap-1.5 text-sky-900 dark:text-sky-200">
+      <div className="flex flex-wrap items-center justify-between text-[11px] pb-1.5 border-b border-sky-200/40 dark:border-sky-800/40 gap-1.5 min-w-0">
+        <div className="flex items-center gap-1.5 text-sky-900 dark:text-sky-200 min-w-0">
           <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-          <span className="font-semibold text-sky-950 dark:text-sky-100">
+          <span className="font-semibold text-sky-950 dark:text-sky-100 truncate">
             {today.station || "Forecast Station"}
           </span>
           {distance && (
-            <span className="text-sky-600 dark:text-sky-400 font-normal">
+            <span className="text-sky-600 dark:text-sky-400 font-normal shrink-0">
               ({distance} km away)
             </span>
           )}
         </div>
         {today.date && (
-          <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium text-[10px]">
+          <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium text-[10px] shrink-0">
             <Clock className="w-3 h-3 shrink-0" />
             <span>As of {today.date}</span>
           </div>
@@ -423,16 +423,16 @@ const renderWeatherInsights = (weatherInput: any) => {
       </div>
 
       {/* Primary Hero Row */}
-      <div className="flex items-center justify-between bg-white/50 dark:bg-zinc-950/40 rounded-xl p-3 border border-sky-100/60 dark:border-sky-900/40">
-        <div>
-          <span className="text-xl sm:text-2xl font-extrabold text-sky-950 dark:text-sky-50 tracking-tight">
+      <div className="flex items-center justify-between bg-white/50 dark:bg-zinc-950/40 rounded-xl p-3 border border-sky-100/60 dark:border-sky-900/40 min-w-0 gap-2">
+        <div className="min-w-0">
+          <span className="text-xl sm:text-2xl font-extrabold text-sky-950 dark:text-sky-50 tracking-tight block truncate">
             {tempRange}
           </span>
-          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium block">
+          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium block truncate">
             Expected Temperature Range
           </span>
         </div>
-        <div className="text-right pl-2">
+        <div className="text-right pl-2 shrink-0">
           <span className="text-sm font-bold text-sky-950 dark:text-sky-100 block">
             {today.forecast || "Forecast N/A"}
           </span>
@@ -443,23 +443,23 @@ const renderWeatherInsights = (weatherInput: any) => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 min-w-0">
         {/* Humidity */}
-        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
-          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2 sm:p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between min-w-0">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1 truncate">
             <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
-            <span>Humidity</span>
+            <span className="truncate">Humidity</span>
           </div>
-          <span className="text-xs font-bold text-sky-950 dark:text-sky-100">
+          <span className="text-xs font-bold text-sky-950 dark:text-sky-100 truncate">
             {today.humidity_0830 || "--"}% / {today.humidity_1730 || "--"}%
           </span>
         </div>
 
         {/* Rain (Last 24h) */}
-        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
-          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2 sm:p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between min-w-0">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1 truncate">
             <Wind className="w-3 h-3 text-sky-500 shrink-0" />
-            <span>Rain (24h)</span>
+            <span className="truncate">Rain (24h)</span>
           </div>
           <span className="text-xs font-bold text-sky-950 dark:text-sky-100 truncate">
             {today.past_24hrs_rainfall || "Nil"}
@@ -467,12 +467,12 @@ const renderWeatherInsights = (weatherInput: any) => {
         </div>
 
         {/* Solar */}
-        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between">
-          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1">
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-2 sm:p-2.5 border border-sky-100/50 dark:border-sky-900/30 flex flex-col justify-between min-w-0">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold mb-1 truncate">
             <Clock className="w-3 h-3 text-sky-500 shrink-0" />
-            <span>Sun Timings</span>
+            <span className="truncate">Sun Timings</span>
           </div>
-          <span className="text-[11px] font-bold text-sky-950 dark:text-sky-100 whitespace-nowrap">
+          <span className="text-[10px] sm:text-[11px] font-bold text-sky-950 dark:text-sky-100 truncate" title={`${today.sunrise || "--"} / ${today.sunset || "--"}`}>
             🌅 {today.sunrise || "--"} • 🌇 {today.sunset || "--"}
           </span>
         </div>
@@ -480,12 +480,12 @@ const renderWeatherInsights = (weatherInput: any) => {
 
       {/* Multi-Day Forecast Table */}
       {forecastList.length > 0 && (
-        <div className="space-y-1.5 pt-1">
+        <div className="space-y-1.5 pt-1 min-w-0">
           <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">
             Upcoming Forecast
           </p>
-          <div className="overflow-x-auto rounded-lg border border-sky-100/50 dark:border-sky-900/30 bg-white/30 dark:bg-zinc-950/20">
-            <table className="min-w-full text-xs text-left divide-y divide-sky-100/30 dark:divide-sky-900/30">
+          <div className="overflow-x-auto rounded-lg border border-sky-100/50 dark:border-sky-900/30 bg-white/30 dark:bg-zinc-950/20 max-w-full">
+            <table className="w-full text-xs text-left divide-y divide-sky-100/30 dark:divide-sky-900/30">
               <thead className="bg-sky-100/40 dark:bg-sky-950/40 text-sky-850 dark:text-sky-350">
                 <tr>
                   <th className="px-3 py-1.5 font-semibold text-[11px]">Day</th>
@@ -1760,10 +1760,10 @@ export const CallInterface = () => {
       </div>
 
 
-      {/* 3-Column Modern Call Interface Layout (Left 25%: Farmer Details, Center: 50% of rest, Right: 50% of rest) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[25%_1fr_1fr] gap-4 items-start">
-        {/* Left Column: Farmer Information Form (25%) */}
-        <div className="w-full flex flex-col space-y-4">
+      {/* 3-Column Modern Responsive Call Interface Layout (Left: Farmer Details, Center: 50% of remaining workspace, Right: 50% of remaining workspace) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start w-full min-w-0">
+        {/* Left Column: Farmer Information Form */}
+        <div className="w-full flex flex-col space-y-4 min-w-0">
           <FarmerDetails
             ref={farmerDetailsRef}
             phoneNo={callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || ""}
@@ -1778,9 +1778,9 @@ export const CallInterface = () => {
           />
         </div>
 
-        {/* Center Column: Live Conversation Dialogue + Extracted Query Details below (30%) */}
-        <div className="w-full space-y-4 flex flex-col">
-          <Card className="col-span-1 h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
+        {/* Center Column: Live Conversation Dialogue + Extracted Query Details below */}
+        <div className="w-full space-y-4 flex flex-col min-w-0">
+          <Card className="col-span-1 h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 min-w-0">
             <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5">
               {/* Row 1: Title (Left) + Test & Reset (Center/Right) + Far Right Chevron */}
               <div className="flex items-center justify-between gap-2">
@@ -2254,7 +2254,7 @@ export const CallInterface = () => {
           </Card>
 
           {/* Review & Edit Extracted Query Data Card (Center Column, below Live Conversation) */}
-          <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
+          <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2 min-w-0">
             <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-4 sm:px-5 py-2.5 sm:py-3 min-h-[52px] flex items-center justify-between transition-colors">
               <CardTitle className="flex items-center justify-between w-full text-base sm:text-lg font-bold">
                 <span
@@ -2556,8 +2556,8 @@ export const CallInterface = () => {
           </Card>
         </div>
 
-        {/* Right Column: Weather Information (top) + Live Questions & Specialist Answers (bottom) (Rest: 45%) */}
-        <div className="w-full space-y-4 flex flex-col">
+        {/* Right Column: Weather Information (top) + Live Questions & Specialist Answers (bottom) */}
+        <div className="w-full space-y-4 flex flex-col min-w-0">
           {/* Weather Widget with Hierarchical Location (Taluk -> District -> State) from Farmer Profile & Manual Dropdowns */}
           <WeatherWidget
             farmerLocation={{
@@ -2570,7 +2570,7 @@ export const CallInterface = () => {
           />
 
           {/* Live Questions & AI Specialist Answers List */}
-          <Card className="flex-1 min-h-[400px] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
+          <Card className="flex-1 min-h-[400px] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 min-w-0">
             <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-4 sm:px-5 py-2.5 sm:py-3 min-h-[52px] flex items-center justify-between transition-colors">
               <CardTitle className="flex items-center justify-between w-full text-base sm:text-lg font-bold">
                 <Tooltip>
@@ -2663,14 +2663,14 @@ export const CallInterface = () => {
                     return (
                       <div
                         key={`${qn.question}-${qn.id || originalIndex}`}
-                        className={`rounded-xl border transition-all duration-300 overflow-hidden ${
+                        className={`rounded-xl border transition-all duration-300 overflow-hidden min-w-0 ${
                           isLatest
                             ? "border-indigo-300 dark:border-indigo-800/80 bg-white dark:bg-zinc-900 shadow-sm"
                             : "border-zinc-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 hover:shadow-sm"
                         }`}
                       >
-                        <div className="p-3.5 sm:p-4">
-                          <div className="flex items-start justify-between gap-2 mb-2.5">
+                        <div className="p-3.5 sm:p-4 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-2.5 min-w-0">
                             <div className="flex items-start gap-2 flex-1 min-w-0">
                               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50 shrink-0">
                                 Q{originalIndex + 1}
@@ -2692,17 +2692,17 @@ export const CallInterface = () => {
                           <Accordion
                             type="single"
                             collapsible
-                            className="w-full"
+                            className="w-full min-w-0"
                           >
                             <AccordionItem
                               value="answer"
-                              className="border-none"
+                              className="border-none min-w-0"
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline flex-1 min-w-0 cursor-pointer">
-                                  <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                                  <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 min-w-0 truncate">
                                     <svg
-                                      className="w-3.5 h-3.5"
+                                      className="w-3.5 h-3.5 shrink-0"
                                       fill="none"
                                       stroke="currentColor"
                                       viewBox="0 0 24 24"
@@ -2714,7 +2714,7 @@ export const CallInterface = () => {
                                         d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                       />
                                     </svg>
-                                    <span>View Answer & Details</span>
+                                    <span className="truncate">View Answer & Details</span>
                                   </div>
                                 </AccordionTrigger>
 
@@ -2752,12 +2752,12 @@ export const CallInterface = () => {
                               </div>
 
                               {qn.weather && (
-                                <AccordionContent className="pt-2 pb-1">
-                                  <div className="bg-sky-50/40 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-xl p-3 space-y-2 mb-3">
-                                    <div className="flex justify-between items-center w-full px-1">
-                                      <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
+                                <AccordionContent className="pt-2 pb-1 min-w-0 overflow-hidden">
+                                  <div className="bg-sky-50/40 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-xl p-3 space-y-2 mb-3 min-w-0 overflow-hidden">
+                                    <div className="flex justify-between items-center w-full px-1 min-w-0 gap-2">
+                                      <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase min-w-0 truncate">
                                         <svg
-                                          className="w-3.5 h-3.5 animate-pulse"
+                                          className="w-3.5 h-3.5 animate-pulse shrink-0"
                                           fill="none"
                                           stroke="currentColor"
                                           viewBox="0 0 24 24"
@@ -2769,17 +2769,17 @@ export const CallInterface = () => {
                                             d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
                                           />
                                         </svg>
-                                        <span>Weather Insights</span>
+                                        <span className="truncate">Weather Insights</span>
                                       </div>
                                       <span
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100/90 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300/60 dark:border-sky-800/60 tracking-wider uppercase shadow-2xs"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100/90 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border border-sky-300/60 dark:border-sky-800/60 tracking-wider uppercase shadow-2xs shrink-0"
                                         title={getWeatherSource(qn.weather).label}
                                       >
                                         <Radio className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
                                         {getWeatherSource(qn.weather).tag}
                                       </span>
                                     </div>
-                                    <div className="text-xs text-sky-900 dark:text-sky-300 leading-relaxed px-1">
+                                    <div className="text-xs text-sky-900 dark:text-sky-300 leading-relaxed px-1 min-w-0">
                                       {renderWeatherInsights(qn.weather)}
                                     </div>
                                   </div>
@@ -2787,63 +2787,75 @@ export const CallInterface = () => {
                               )}
 
                               {(qn.authorName || qn.sourceName) && (
-                                <AccordionContent className="pt-0 pb-1">
-                                  <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl p-3 space-y-2 mb-3">
-                                    <div className="flex justify-between items-center w-full px-1">
-                                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
-                                        <User className="w-3.5 h-3.5" />
-                                        <span>Author & Reference Document</span>
+                                <AccordionContent className="pt-0 pb-1 min-w-0 overflow-hidden">
+                                  <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl p-3 space-y-2 mb-3 min-w-0">
+                                    <div className="flex justify-between items-center w-full px-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase min-w-0 truncate">
+                                        <User className="w-3.5 h-3.5 shrink-0" />
+                                        <span className="truncate">Author & Reference Document</span>
                                       </div>
                                     </div>
-                                    <div className="text-xs text-zinc-800 dark:text-zinc-200 px-1 space-y-1">
+                                    <div className="text-xs text-zinc-800 dark:text-zinc-200 px-1 space-y-1 min-w-0 break-words [overflow-wrap:anywhere]">
                                       {qn.authorName && (
-                                        <p><span className="text-zinc-500">Author:</span> <strong>{qn.authorName}</strong></p>
+                                        <p className="break-words"><span className="text-zinc-500">Author:</span> <strong>{qn.authorName}</strong></p>
                                       )}
                                       {qn.sourceName && (
-                                        <p><span className="text-zinc-500">Source:</span> {qn.sourceLink ? <a href={qn.sourceLink} target="_blank" rel="noreferrer" className="text-indigo-600 underline">{qn.sourceName}</a> : <strong>{qn.sourceName}</strong>}</p>
+                                        <p className="break-words">
+                                          <span className="text-zinc-500">Source:</span>{" "}
+                                          {qn.sourceLink ? (
+                                            <a href={qn.sourceLink} target="_blank" rel="noreferrer" className="text-indigo-600 underline break-all hover:text-indigo-700">
+                                              {qn.sourceName}
+                                            </a>
+                                          ) : (
+                                            <strong className="break-words">{qn.sourceName}</strong>
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   </div>
                                 </AccordionContent>
                               )}
 
-                              <AccordionContent className="pt-0 pb-1">
-                                <div className="bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/50 rounded-xl p-3 space-y-2">
-                                  <div className="flex justify-between items-center w-full px-1">
-                                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs tracking-wider uppercase">
-                                      <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                                      <span>AI Specialist Recommendation</span>
+                              <AccordionContent className="pt-0 pb-1 min-w-0 overflow-hidden">
+                                <div className="bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/50 rounded-xl p-3 space-y-2 min-w-0">
+                                  <div className="flex justify-between items-center w-full px-1 min-w-0 gap-2">
+                                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs tracking-wider uppercase min-w-0 truncate">
+                                      <Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0" />
+                                      <span className="truncate">AI Specialist Recommendation</span>
                                     </div>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleCopyAnswer(qnKey, translatedAnswers[qnKey] || qn.answer || "")}
-                                      className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-1"
+                                      className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-1 shrink-0"
                                       title="Copy recommendation"
                                     >
                                       {copiedStates[qnKey] ? (
                                         <>
-                                          <Check className="h-3 w-3 text-emerald-600" />
+                                          <Check className="h-3 w-3 text-emerald-600 shrink-0" />
                                           <span className="text-emerald-600 font-semibold">Copied</span>
                                         </>
                                       ) : (
                                         <>
-                                          <Copy className="h-3 w-3" />
+                                          <Copy className="h-3 w-3 shrink-0" />
                                           <span>Copy</span>
                                         </>
                                       )}
                                     </Button>
                                   </div>
-                                  <div className="text-[14.5px] leading-relaxed px-1 text-zinc-900 dark:text-zinc-100">
+                                  <div className="text-[14.5px] leading-relaxed px-1 text-zinc-900 dark:text-zinc-100 min-w-0 break-words [overflow-wrap:anywhere]">
                                     {translatingQuestions[qnKey] ? (
-                                      <div className="space-y-2 py-1 animate-pulse">
+                                      <div className="space-y-2 py-1 animate-pulse min-w-0">
                                         <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-5/6"></div>
                                         <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-full"></div>
                                         <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-2/3"></div>
                                       </div>
                                     ) : (
-                                      renderMarkdown(translatedAnswers[qnKey] || qn.answer || "Nil", { baseFontSize: "text-[14px]" })
+                                      renderMarkdown(translatedAnswers[qnKey] || qn.answer || "Nil", {
+                                        baseFontSize: "text-[14px]",
+                                        className: "break-words [overflow-wrap:anywhere] min-w-0",
+                                      })
                                     )}
                                   </div>
                                 </div>

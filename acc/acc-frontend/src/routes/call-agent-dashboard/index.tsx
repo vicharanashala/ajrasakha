@@ -228,7 +228,7 @@ function DashboardComponent() {
               <>
                 <TabsContent
                   value="call_interface"
-                  className="m-0 h-full p-6 outline-none"
+                  className="m-0 h-full p-2.5 sm:p-4 lg:p-6 outline-none"
                 >
                   <CallInterface />
                 </TabsContent>

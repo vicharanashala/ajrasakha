@@ -555,6 +555,11 @@ export class PlivoController {
       let existingCall = await this.callDetailsRepository.getByCallUuid(effectiveCallUuid);
       const isOutbound = direction === 'outbound' || existingCall?.direction === 'outbound';
 
+      // Resolve agent identifier with fallback to authenticated currentUser token
+      const effectiveAgentId =
+        agentUserId ||
+        (currentUser?._id ? currentUser._id.toString() : (currentUser?.agent || undefined));
+
       // If call is inbound and no document exists for this UUID, check if it's an unmapped bridge leg.
       // Note: If callUuid is ALREADY registered as the parent call in PlivoService (normal path),
       // skip findParentCallUuid completely to guarantee zero cross-talk between concurrent calls.
@@ -562,7 +567,7 @@ export class PlivoController {
 
       if (!existingCall && !isOutbound && !isTestCall && !isAlreadyRegisteredParent) {
         // Fallback: Check in-memory metadata in PlivoService for legs where SIP header was unavailable
-        const inMemoryParentUuid = this.plivoService.findParentCallUuid(phoneNumber, agentUserId);
+        const inMemoryParentUuid = this.plivoService.findParentCallUuid(phoneNumber, effectiveAgentId);
         if (inMemoryParentUuid && inMemoryParentUuid !== callUuid) {
           console.log(`🔗 [PLIVO-CONTROLLER] Correlated bridge leg ${callUuid} to in-memory parent ${inMemoryParentUuid}`);
           effectiveCallUuid = inMemoryParentUuid;
@@ -580,7 +585,7 @@ export class PlivoController {
         ? (phoneNumber || existingCall?.to || inMemoryMeta?.to || '')
         : (existingCall?.to || inMemoryMeta?.to || myPlivoNumber);
 
-      const agentId = agentUserId || (currentUser?._id ? currentUser._id.toString() : existingCall?.agent?.userid?.toString());
+      const agentId = effectiveAgentId || existingCall?.agent?.userid?.toString();
       const agentObj: any = {
         transcript: existingCall?.agent?.transcript || '',
         translation: existingCall?.agent?.translation || '',
