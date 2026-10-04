@@ -127,15 +127,7 @@ def _extract_by_patterns(text: str, patterns: list[re.Pattern]) -> list[str]:
     matches = []
     for pattern in patterns:
         found = pattern.findall(text)
-        # ``findall`` returns tuples when a pattern has multiple capture
-        # groups (for example ``(rot) (root|stem|foot)``). Normalize those
-        # groups back into text before the keyword pipeline handles them.
-        matches.extend(
-            " ".join(part for part in match if part).strip()
-            if isinstance(match, tuple)
-            else match
-            for match in found
-        )
+        matches.extend(found)
     return matches
 
 

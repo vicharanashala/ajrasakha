@@ -13,12 +13,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-try:  # package layout (tests, main app) / flat layout (golden service container)
-    from ajrasakha.utils import jev_client, jev_tasks
-except ImportError:  # pragma: no cover - container layout
-    import jev_client  # type: ignore[no-redef]
-    import jev_tasks  # type: ignore[no-redef]
-
 log = logging.getLogger(__name__)
 
 GEMMA_MODEL = os.getenv("GEMMA_MODEL", "google/gemma-4-26B-A4B-it")
@@ -230,22 +224,6 @@ async def filter_similar_questions_batch(
         num_candidates=n,
         candidates_block=block,
     )
-    if jev_client.provider_for(jev_tasks.SIMILAR_FILTER_TASK) == "jev":
-        try:
-            j_state, j_questions = jev_tasks.similar_filter_request(original_query, questions)
-            j_res = await jev_client.adecide(jev_tasks.SIMILAR_FILTER_TASK, j_state, j_questions)
-            return _enforce_at_most_one_same_questions(jev_tasks.similar_filter_results(j_res, n), questions)
-        except jev_client.JevError as exc:
-            if jev_client.on_failure(jev_tasks.SIMILAR_FILTER_TASK, exc) == "default":
-                return [
-                    {
-                        "relevance_decision": "KEEP",
-                        "relevance_reason": f"Jev filter error — kept: {type(exc).__name__}",
-                        "llm_parse_ok": False,
-                    }
-                    for _ in range(n)
-                ]
-
     try:
         content = await _gemma_chat(prompt, max_tokens=min(400, 60 + n * 50))
         results = _parse_question_similarity_filter_response(content, n)
@@ -300,19 +278,6 @@ async def classify_question_similarity(
         original_query=original_query.strip(),
         candidate_question=qtext.strip(),
     )
-
-    if jev_client.provider_for(jev_tasks.SIMILAR_CLASSIFY_TASK) == "jev":
-        try:
-            j_state, j_questions = jev_tasks.similar_classify_request(original_query, qtext)
-            j_res = await jev_client.adecide(jev_tasks.SIMILAR_CLASSIFY_TASK, j_state, j_questions)
-            return jev_tasks.similar_classify_result(j_res)
-        except jev_client.JevError as exc:
-            if jev_client.on_failure(jev_tasks.SIMILAR_CLASSIFY_TASK, exc) == "default":
-                return {
-                    "classification": "DIFFERENT",
-                    "reason": f"Classification error: {type(exc).__name__}",
-                    "llm_parse_ok": False,
-                }
 
     try:
         content = await _gemma_chat(prompt, max_tokens=100)
@@ -414,19 +379,6 @@ async def tie_breaker_questions(
         winning_class=winning_class,
         candidates_block=block,
     )
-    if jev_client.provider_for(jev_tasks.SIMILAR_TIE_TASK) == "jev":
-        try:
-            j_state, j_questions = jev_tasks.similar_tie_request(original_query, candidates, winning_class)
-            j_res = await jev_client.adecide(jev_tasks.SIMILAR_TIE_TASK, j_state, j_questions)
-            idx, _conf = jev_tasks.index_result(j_res, len(candidates), jev_tasks.SIMILAR_TIE_TASK)
-            _, q, cls_result = candidates[idx - 1]
-            cls_result = {**cls_result, "tie_breaker_reason": f"jev confidence {_conf:.2f}", "tie_breaker_index": idx}
-            return q, cls_result, f"{winning_class.lower()}_tie_breaker", "tie_breaker"
-        except jev_client.JevError as exc:
-            if jev_client.on_failure(jev_tasks.SIMILAR_TIE_TASK, exc) == "default":
-                candidates.sort(key=lambda x: x[0], reverse=True)
-                return candidates[0][1], candidates[0][2], f"{winning_class.lower()}_highest_score_fallback", "highest_score_fallback"
-
     try:
         content = await _gemma_chat(prompt, max_tokens=100)
         idx, reason = _parse_question_tiebreaker_response(content, len(candidates))

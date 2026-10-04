@@ -10,8 +10,6 @@ COPY ajrasakha/tools/golden/requirements.txt /app/ajrasakha/tools/golden/require
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ajrasakha/tools/golden /app/ajrasakha/tools/golden
-# Jev provider switch (off unless JEV_PROVIDER*=jev): flat-import copies of the shared client
-COPY ajrasakha/utils/jev_client.py ajrasakha/utils/jev_tasks.py /app/ajrasakha/tools/golden/
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/ajrasakha/tools/golden
