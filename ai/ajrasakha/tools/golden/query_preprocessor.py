@@ -22,6 +22,12 @@ log = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
+try:  # package layout / flat layout (golden service container)
+    from ajrasakha.utils import jev_client, jev_tasks
+except ImportError:  # pragma: no cover - container layout
+    import jev_client  # type: ignore[no-redef]
+    import jev_tasks  # type: ignore[no-redef]
+
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -227,6 +233,20 @@ async def check_query_safety(query: str) -> dict:
             "reason": "Vulgar check disabled by configuration"
         }
     
+    if jev_client.provider_for(jev_tasks.SAFETY_TASK) == "jev":
+        try:
+            j_state, j_questions = jev_tasks.safety_request(query)
+            j_res = await jev_client.adecide(jev_tasks.SAFETY_TASK, j_state, j_questions)
+            return jev_tasks.safety_result(j_res)
+        except jev_client.JevError as exc:
+            if jev_client.on_failure(jev_tasks.SAFETY_TASK, exc) == "default":
+                # same fail-open default as the existing error path
+                return {
+                    "is_safe": True,
+                    "category": "safe",
+                    "reason": f"Safety check error - allowed: {type(exc).__name__}",
+                }
+
     try:
         prompt = VULGAR_CONTENT_PROMPT.format(query=query.strip())
         content = await _call_minimax(prompt)
@@ -288,6 +308,19 @@ async def check_agriculture_relevance(query: str) -> dict:
             "reason": "Non-agri queries allowed by configuration"
         }
     
+    if jev_client.provider_for(jev_tasks.AGRI_TASK) == "jev":
+        try:
+            j_state, j_questions = jev_tasks.agri_relevance_request(query)
+            j_res = await jev_client.adecide(jev_tasks.AGRI_TASK, j_state, j_questions)
+            return jev_tasks.agri_relevance_result(j_res)
+        except jev_client.JevError as exc:
+            if jev_client.on_failure(jev_tasks.AGRI_TASK, exc) == "default":
+                return {
+                    "is_related": True,
+                    "category": "related",
+                    "reason": f"Relevance check error - allowed: {type(exc).__name__}",
+                }
+
     try:
         prompt = AGRICULTURE_RELEVANCE_PROMPT.format(query=query.strip())
         content = await _call_minimax(prompt)
@@ -341,6 +374,21 @@ async def classify_query_combined(query: str) -> dict:
     Returns:
         Dict with is_safe, safety_reason, is_agriculture, agriculture_reason
     """
+    if jev_client.provider_for(jev_tasks.COMBINED_TASK) == "jev":
+        try:
+            j_state, j_questions = jev_tasks.combined_request(query)
+            j_res = await jev_client.adecide(jev_tasks.COMBINED_TASK, j_state, j_questions)
+            return jev_tasks.combined_result(j_res)
+        except jev_client.JevError as exc:
+            if jev_client.on_failure(jev_tasks.COMBINED_TASK, exc) == "default":
+                # same fail-open default as the existing error path
+                return {
+                    "is_safe": True,
+                    "safety_reason": f"Classification error - allowed: {type(exc).__name__}",
+                    "is_agriculture": True,
+                    "agriculture_reason": f"Classification error - allowed: {type(exc).__name__}",
+                }
+
     try:
         prompt = COMBINED_CLASSIFICATION_PROMPT.format(query=query.strip())
         content = await _call_minimax(prompt)
