@@ -52,6 +52,9 @@ function PlacementGroupRow({ group, folderOptions, stateOptions, onChange, onRem
       setDistrictOptions([]);
       return;
     }
+    // Each list carries exactly ONE "All" row (2026-10-05 backend change — one shared row per
+    // vocabulary, not per-parent) — a real selectable value (picking it stores that id), distinct
+    // from leaving the dropdown on "— none —" (sends nothing at all). Kept in the list as-is.
     getDashboardDistricts(stateId)
       .then((d) => setDistrictOptions(d || []))
       .catch(() => {});

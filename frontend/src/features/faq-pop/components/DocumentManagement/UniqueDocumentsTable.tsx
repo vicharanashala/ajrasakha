@@ -199,17 +199,24 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     label: f.name || "(no folder)",
   }));
 
-  // Full list, not narrowed by the State filter — see MainTable.tsx's identical comment.
+  // Cascades the same way MainTable.tsx's identical filters do — District narrows by the State
+  // filter, KVK narrows by the District filter. Each list carries exactly ONE "All" row (2026-10-05
+  // backend change — one shared row per vocabulary now, not per-parent) — a real selectable value,
+  // kept in the list rather than dropped.
+  const stateFilterId = filters.state_id?.[0] || "";
+  const districtFilterId = filters.district_id?.[0] || "";
   const [districtFilterOptions, setDistrictFilterOptions] = useState([]);
   const [kvkFilterOptions, setKvkFilterOptions] = useState([]);
   useEffect(() => {
-    getDashboardDistricts()
+    getDashboardDistricts(stateFilterId)
       .then((d) => setDistrictFilterOptions(d || []))
       .catch(() => {});
-    getDashboardKvks()
+  }, [stateFilterId]);
+  useEffect(() => {
+    getDashboardKvks(districtFilterId)
       .then((d) => setKvkFilterOptions(d || []))
       .catch(() => {});
-  }, []);
+  }, [districtFilterId]);
 
   // The anchor placement — same one `representative_file_id`/Translation act on — named by
   // `representative_row_id` inside the document's own `duplicate_links` (see DERIVED_COLUMNS
@@ -456,7 +463,12 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       label="State"
                       options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
                       selected={filters.state_id || []}
-                      onChange={(v) => setFilter("state_id", v)}
+                      onChange={(v) => {
+                        // Changing State invalidates whatever District/KVK was selected under the
+                        // old one — clear both downstream filters, same as MainTable.tsx.
+                        setFilters((f) => ({ ...f, state_id: v, district_id: [], kvk_id: [] }));
+                        setPage(1);
+                      }}
                     />
                   ) : col.vocab === "folder" ? (
                     <ColumnFilter
@@ -470,7 +482,10 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       label="District"
                       options={districtFilterOptions.map((d) => ({ value: d.id, label: d.name }))}
                       selected={filters.district_id || []}
-                      onChange={(v) => setFilter("district_id", v)}
+                      onChange={(v) => {
+                        setFilters((f) => ({ ...f, district_id: v, kvk_id: [] }));
+                        setPage(1);
+                      }}
                     />
                   ) : col.vocab === "kvk" ? (
                     <ColumnFilter

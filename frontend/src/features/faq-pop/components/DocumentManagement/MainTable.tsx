@@ -83,21 +83,28 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
   }, [advisoryTypeFilterValue]);
 
   // District/KVK — placement-level, id-referenced vocabularies like state/crop, synced from the
-  // official LGD registry (2026-10-02). Column filters fetch the FULL list once (823
-  // districts/1,550 KVKs) rather than narrowing by the State filter — a filter dropdown already has
-  // its own search, and narrowing would hide a valid pick whenever State isn't also filtered to
-  // exactly one value. (Forms narrow properly: District by state_id, KVK by district_id — see
-  // AddDocumentForm.tsx/UniqueDocumentEditForm.tsx.)
+  // official LGD registry (2026-10-02). Column filters cascade the same way the forms do —
+  // District narrows by the State filter's value (every district when no state is selected), KVK
+  // narrows by the District filter's value (every KVK when no district is selected). Each list now
+  // carries exactly ONE "All" row (2026-10-05 backend change — was per-parent, 823/1,550 rows, now
+  // one shared row reused across every state/district: 787/728) — it's a real selectable value
+  // (picking it stores that id, same as any other row), not a synonym for "no filter", so it's kept
+  // in the list rather than dropped. `code: null` is still how to spot it, just no longer needed
+  // for filtering it out.
+  const stateFilterId = filters.state_id?.[0] || "";
+  const districtFilterId = filters.district_id?.[0] || "";
   const [districtFilterOptions, setDistrictFilterOptions] = useState([]);
   const [kvkFilterOptions, setKvkFilterOptions] = useState([]);
   useEffect(() => {
-    getDashboardDistricts()
+    getDashboardDistricts(stateFilterId)
       .then((d) => setDistrictFilterOptions(d || []))
       .catch(() => {});
-    getDashboardKvks()
+  }, [stateFilterId]);
+  useEffect(() => {
+    getDashboardKvks(districtFilterId)
       .then((d) => setKvkFilterOptions(d || []))
       .catch(() => {});
-  }, []);
+  }, [districtFilterId]);
 
   async function load() {
     setLoading(true);
@@ -349,7 +356,13 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                       label="State"
                       options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
                       selected={filters.state_id || []}
-                      onChange={(v) => setFilter("state_id", v)}
+                      onChange={(v) => {
+                        // Changing State invalidates whatever District/KVK was selected under the
+                        // old one — clear both downstream filters rather than leave a now-unrelated
+                        // district narrowing a KVK list that no longer has anything to do with it.
+                        setFilters((f) => ({ ...f, state_id: v, district_id: [], kvk_id: [] }));
+                        setPage(1);
+                      }}
                     />
                   </div>
                 </div>
@@ -373,7 +386,10 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                       label="District"
                       options={districtFilterOptions.map((d) => ({ value: d.id, label: d.name }))}
                       selected={filters.district_id || []}
-                      onChange={(v) => setFilter("district_id", v)}
+                      onChange={(v) => {
+                        setFilters((f) => ({ ...f, district_id: v, kvk_id: [] }));
+                        setPage(1);
+                      }}
                     />
                   </div>
                 </div>

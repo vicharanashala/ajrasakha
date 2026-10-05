@@ -18,6 +18,10 @@ export type FieldDef = {
   // Display-only fields whose value is an ISO timestamp — DocumentDetailModal.tsx renders these
   // with the shared formatDate() util instead of the raw string.
   formatDate?: boolean;
+  // Which section of UniqueDocumentEditForm's combined edit+view modal this field renders under
+  // (2026-10-05) — purely a UI grouping label, doesn't affect what's sent on save. Every field in
+  // DOCUMENT_METADATA_FIELDS/EDITABLE_DOCUMENT_ONLY_FIELDS/DISPLAY_ONLY_FIELDS carries one.
+  group?: string;
 };
 
 // Hardcoded dropdown vocabularies (requested 2026-09-11) — these are UI-only constraints, not a
@@ -118,25 +122,25 @@ export const DOCUMENT_STATUS_OPTIONS = [
 // instead, only when a real date was actually entered — never overwriting an existing
 // independently-set month/year with nothing just because the date field was left blank.
 export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
-  { key: "advisory_type", label: "Advisory Type", type: "select", options: ADVISORY_TYPE_OPTIONS },
-  { key: "advisory_scope", label: "Advisory Scope", type: "select", options: ADVISORY_SCOPE_OPTIONS },
-  { key: "season", label: "Season", type: "select", options: SEASON_OPTIONS },
-  { key: "edition_revision_volume", label: "Edition/Revision/Volume", type: "text" },
-  { key: "date_of_release", label: "Date of Release", type: "date" },
-  { key: "date_of_collection", label: "Date of Collection", type: "date" },
-  { key: "advisory_name", label: "Advisory Name", type: "text" },
-  { key: "advisory_released_org", label: "Advisory Released Organization", type: "text" },
-  { key: "advisory_org_address", label: "Address of Advisory Released Organization", type: "text" },
-  { key: "live_source_link", label: "Live Source Link", type: "text" },
-  { key: "domain", label: "Domain", type: "select", options: DOMAIN_OPTIONS },
+  { key: "advisory_type", label: "Advisory Type", type: "select", options: ADVISORY_TYPE_OPTIONS, group: "Advisory Classification" },
+  { key: "advisory_scope", label: "Advisory Scope", type: "select", options: ADVISORY_SCOPE_OPTIONS, group: "Advisory Classification" },
+  { key: "season", label: "Season", type: "select", options: SEASON_OPTIONS, group: "Advisory Classification" },
+  { key: "domain", label: "Domain", type: "select", options: DOMAIN_OPTIONS, group: "Advisory Classification" },
   // On upload, blank = auto-detect from the file extension (uploadDashboardDocument only appends
   // non-empty fields to the form, so a blank pick sends nothing). On PATCH (the edit form), blank
   // sends null and CLEARS the field — UniqueDocumentEditForm.tsx hides the blank option here for
   // that reason, since format is essentially always already set and clearing it isn't a real use
   // case.
-  { key: "format_original", label: "Form/Format of Advisory (Original)", type: "select", options: FORMAT_ORIGINAL_OPTIONS },
-  { key: "verification_status", label: "Verification Status", type: "select", options: VERIFICATION_STATUS_OPTIONS },
-  { key: "document_status", label: "Document Status", type: "select", options: DOCUMENT_STATUS_OPTIONS },
+  { key: "format_original", label: "Form/Format of Advisory (Original)", type: "select", options: FORMAT_ORIGINAL_OPTIONS, group: "Advisory Classification" },
+  { key: "edition_revision_volume", label: "Edition/Revision/Volume", type: "text", group: "Advisory Details" },
+  { key: "advisory_name", label: "Advisory Name", type: "text", group: "Advisory Details" },
+  { key: "advisory_released_org", label: "Advisory Released Organization", type: "text", group: "Advisory Details" },
+  { key: "advisory_org_address", label: "Address of Advisory Released Organization", type: "text", group: "Advisory Details" },
+  { key: "live_source_link", label: "Live Source Link", type: "text", group: "Advisory Details" },
+  { key: "date_of_release", label: "Date of Release", type: "date", group: "Release & Collection" },
+  { key: "date_of_collection", label: "Date of Collection", type: "date", group: "Release & Collection" },
+  { key: "verification_status", label: "Verification Status", type: "select", options: VERIFICATION_STATUS_OPTIONS, group: "Status" },
+  { key: "document_status", label: "Document Status", type: "select", options: DOCUMENT_STATUS_OPTIONS, group: "Status" },
 ];
 
 // Editable, but not part of the upload form or DOCUMENT_METADATA_FIELDS.
@@ -157,10 +161,10 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
 // MetadataFieldInput) since their options are fetched dynamically, scoped to the document's current
 // state — same reason `language` is rendered manually there too.
 export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
-  { key: "shareable_name", label: "Document Name", type: "text" },
-  { key: "language", label: "Language", type: "select", optionsSource: "language" },
-  { key: "district_id", label: "District", type: "text" },
-  { key: "kvk_id", label: "KVK", type: "text" },
+  { key: "shareable_name", label: "Document Name", type: "text", group: "Identity" },
+  { key: "language", label: "Language", type: "select", optionsSource: "language", group: "Language" },
+  { key: "district_id", label: "District", type: "text", group: "Location" },
+  { key: "kvk_id", label: "KVK", type: "text", group: "Location" },
 ];
 
 // Backend-derived, read-only — shown in the details grid but never submitted.
@@ -173,16 +177,16 @@ export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
 // timestamp fields so the modal renders them with the shared formatDate() util instead of the raw
 // ISO string.
 export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
-  { key: "shareable_link", label: "Shareable Link", type: "text" },
-  { key: "language_source", label: "Language Source", type: "text" },
-  { key: "num_pages", label: "No. of Pages", type: "number" },
-  { key: "sha256", label: "SHA-256", type: "text" },
-  { key: "placement_count", label: "Placement Count", type: "number" },
-  { key: "uploaded_by", label: "Uploaded By", type: "text" },
-  { key: "translated_by", label: "Translated By", type: "text" },
-  { key: "translated_at", label: "Translated At", type: "text", formatDate: true },
-  { key: "reviewed_by", label: "Reviewed By", type: "text" },
-  { key: "reviewed_at", label: "Reviewed At", type: "text", formatDate: true },
+  { key: "shareable_link", label: "Shareable Link", type: "text", group: "Advisory Details" },
+  { key: "num_pages", label: "No. of Pages", type: "number", group: "Advisory Details" },
+  { key: "language_source", label: "Language Source", type: "text", group: "Language" },
+  { key: "uploaded_by", label: "Uploaded By", type: "text", group: "Status" },
+  { key: "translated_by", label: "Translated By", type: "text", group: "Translation & Review" },
+  { key: "translated_at", label: "Translated At", type: "text", formatDate: true, group: "Translation & Review" },
+  { key: "reviewed_by", label: "Reviewed By", type: "text", group: "Translation & Review" },
+  { key: "reviewed_at", label: "Reviewed At", type: "text", formatDate: true, group: "Translation & Review" },
+  { key: "sha256", label: "SHA-256", type: "text", group: "File Info" },
+  { key: "placement_count", label: "Placement Count", type: "number", group: "File Info" },
 ];
 
 export const ALL_UNIQUE_DOCUMENT_FIELDS: FieldDef[] = [
