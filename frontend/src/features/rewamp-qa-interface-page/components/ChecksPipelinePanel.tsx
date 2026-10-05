@@ -14,7 +14,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
 }) => {
   if (isCollapsed) {
     return (
-      <div className="h-full flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12 min-h-[200px]">
+      <div className="h-full min-h-[260px] flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12">
         <Button
           variant="ghost"
           size="icon"

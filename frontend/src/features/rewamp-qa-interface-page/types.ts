@@ -19,6 +19,7 @@ export interface IQuestionContextData {
 
 export interface IPanelCollapseState {
   questionContext: boolean;
+  ocrExtraction: boolean;
   answerDraft: boolean;
   sourceReference: boolean;
   checksPipeline: boolean;
