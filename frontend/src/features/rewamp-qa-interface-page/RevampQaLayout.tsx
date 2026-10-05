@@ -5,6 +5,9 @@ import { SourceReferencePanel } from "./components/SourceReferencePanel";
 import { ChecksPipelinePanel } from "./components/ChecksPipelinePanel";
 import { FarmerFriendlyVersionsPanel } from "./components/FarmerFriendlyVersionsPanel";
 import type { IQuestionContextData, IPanelCollapseState } from "./types";
+import {
+  useGetAllocatedQuestions,
+} from "@/hooks/api/question/useGetAllocatedQuestions";
 
 interface RevampQaLayoutProps {
   questionData?: IQuestionContextData | null;
@@ -31,6 +34,19 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   const [source, setSource] = useState<string>("all");
   const [states, setStates] = useState<string[]>([]);
   const [crops, setCrops] = useState<string[]>([]);
+
+  // Call the hook to get allocated questions
+  const LIMIT = 10;
+  const filter = "newest";
+  const preferences = {};
+  const {
+    data: questionPages,
+    isLoading: isQuestionsLoading,
+    refetch,
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, null, reviewLevel);
+
+  // Console log the questions
+  console.log("Questions from API:", questionPages?.pages);
 
   const handleFilterChange = (key: string, value: any) => {
     switch (key) {
@@ -87,6 +103,8 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
         >
           <QuestionAndContextPanel
             question={questionData}
+            questions={questionPages?.pages?.flat() || []}
+            isLoading={isQuestionsLoading}
             isCollapsed={collapsed.questionContext}
             onToggleCollapse={() => togglePanel("questionContext")}
             progressPercent={15}

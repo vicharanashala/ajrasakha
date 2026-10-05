@@ -30,7 +30,8 @@ import { QaPreferencesDialog } from "./QaPreferencesDialog";
 
 interface QuestionAndContextPanelProps {
   question?: IQuestionContextData | null;
-  questions?: IQuestionContextData[];
+  questions?: any;
+  isLoading?:boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   progressPercent?: number;
@@ -49,6 +50,7 @@ interface QuestionAndContextPanelProps {
 export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = ({
   question,
   questions = [],
+  isLoading=false,
   isCollapsed = false,
   onToggleCollapse,
   progressPercent = 15,
