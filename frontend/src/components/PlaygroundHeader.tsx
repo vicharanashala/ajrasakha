@@ -177,7 +177,7 @@ export function PlaygroundHeader({
                   <span>My Queue</span>
                 </TabsTrigger>
               )}
-              {user && user.role !== "call_agent" && (
+              {user && user.role === "expert" && (
                 <TabsTrigger
                   value="revamp_qa"
                   className={tabTriggerClassName}

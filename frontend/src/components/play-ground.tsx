@@ -369,7 +369,7 @@ export const PlaygroundPage = () => {
                   />
                 </TabsContent>
               )}
-              {user && user.role !== "call_agent" && (
+              {user && user.role === "expert" && (
                 <TabsContent
                   value="revamp_qa"
                   className={cn(

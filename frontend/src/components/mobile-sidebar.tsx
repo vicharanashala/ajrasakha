@@ -124,7 +124,7 @@ export const MobileSidebar = ({
       ? [{ id: "questions", label: "Questions", icon: MessageSquare }]
       : []),
 
-    ...(user && user.role !== "call_agent"
+    ...(user && user.role === "expert"
       ? [{ id: "revamp_qa", label: "Revamp QA", icon: Sparkles }]
       : []),
 
