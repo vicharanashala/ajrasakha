@@ -329,6 +329,12 @@ async def get_lat_long(
 _REGION_TYPES = frozenset({"country", "administrative_area_level_1", "state"})
 
 
+def _same_state(wanted: Optional[str], found: Optional[str]) -> bool:
+    """True when both state names are given and name the same state."""
+    a, b = _clean(wanted).casefold(), _clean(found).casefold()
+    return bool(a and b and (a == b or a in b or b in a))
+
+
 async def _google_place(
     place: str,
     *,
@@ -358,21 +364,34 @@ async def _google_place(
     except Exception as exc:
         logger.warning("Google sub-place lookup failed for %r: %s", place, exc)
         return None
+    candidates: list[dict] = []
     for result in data.get("results") or []:
-        if result.get("partial_match") or _REGION_TYPES.intersection(result.get("types") or []):
+        if _REGION_TYPES.intersection(result.get("types") or []):
             continue
-        loc = result["geometry"]["location"]
         # In India Google puts the state at level 1 and the district at level 3
         # (level 2 is the revenue division, e.g. "Ropar Division").
         parts = {t: c["long_name"] for c in result.get("address_components") or [] for t in c.get("types") or []}
-        return {
+        # "Gandhi Ghat" alone is a partial match for "Gandhi Ghat, Patna, Bihar";
+        # that is still the place when it lies inside the state we searched.
+        if result.get("partial_match") and not _same_state(state, parts.get("administrative_area_level_1")):
+            continue
+        loc = result["geometry"]["location"]
+        candidate = {
             "latitude": float(loc["lat"]),
             "longitude": float(loc["lng"]),
             "state": parts.get("administrative_area_level_1"),
             "district": parts.get("administrative_area_level_3"),
             "name": result.get("formatted_address", place),
         }
-    return None
+        # Same-named places in other districts/states are alternatives, not duplicates.
+        if all((c["state"], c["district"]) != (candidate["state"], candidate["district"]) for c in candidates):
+            candidates.append(candidate)
+    if not candidates:
+        return None
+    best = candidates[0]
+    if len(candidates) > 1:
+        best = {**best, "alternatives": candidates[1:]}
+    return best
 
 
 async def _nominatim_place(
@@ -429,13 +448,16 @@ async def geocode_sub_place(
 
     Returns {"latitude", "longitude", "state", "district", "name"} with the
     state/district as the geocoder names them (may be None), or None when the
-    place is not found at all.
+    place is not found at all. When Google finds the name in more than one
+    district/state, the result also carries "alternatives" (the other matches).
     """
     place = _clean(place)
     if not place or place.lower() in _PLACEHOLDERS:
         return None
     state = None if _clean(state).lower() in _PLACEHOLDERS else _clean(state)
     district = None if _clean(district).lower() in _PLACEHOLDERS else _clean(district)
+    if district and district.casefold() == place.casefold():
+        district = None  # the place was also put in the district field
 
     attempts = []
     if state:

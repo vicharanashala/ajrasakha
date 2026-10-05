@@ -106,6 +106,7 @@ class PlannerPlan(TypedDict, total=False):
     profile_coordinates: Optional[dict[str, float]]  # farmerProfile lat/long when the location came from the profile
     location_from_profile: bool  # the current question names no place: tools use the farmer profile lat/long
     sub_place_location: Optional[dict[str, Any]]  # weather/mandi: geocoded sub_places[0] (latitude, longitude, state, district)
+    ambiguous_places: list[str]  # sub-places already asked "which one?" during the current location clarification
     rejected_places: list[str]  # sub-places reported "not found" during the current location clarification
 
 

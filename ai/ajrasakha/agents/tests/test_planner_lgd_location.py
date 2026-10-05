@@ -341,6 +341,24 @@ def test_town_inside_a_state_keeps_the_state_and_becomes_a_sub_place():
     assert resolve_weather_mandi_places("Punjab", "Kharar", ["Kharar", "Punjab"]) == ("Punjab", "all", ["Kharar"])
 
 
+def test_state_and_district_are_not_sub_places_when_lgd_is_unavailable(monkeypatch):
+    from ajrasakha.agents import planner_rules
+    from ajrasakha.agents.lgd_location import LgdLookup, UNAVAILABLE
+
+    monkeypatch.setattr(
+        planner_rules,
+        "lookup_location",
+        lambda s, d: LgdLookup(UNAVAILABLE, state=s, district=d, reason="directory not loaded"),
+    )
+    # The state is never a sub-place; the district is left for the geocoder to judge.
+    assert resolve_weather_mandi_places("Bihar", "Patna", ["Bihar", "Patna"]) == ("Bihar", "Patna", ["Patna"])
+    assert resolve_weather_mandi_places("Bihar", "Gandhi Ghat", ["Bihar", "Gandhi Ghat"]) == (
+        "Bihar",
+        "Gandhi Ghat",
+        ["Gandhi Ghat"],
+    )
+
+
 def test_weather_never_asks_for_an_unverified_place_and_keeps_the_profile():
     out = apply_planner_completeness_rules(
         _weather_plan(district="Xyzabad", places=["Xyzabad"]),
@@ -454,6 +472,149 @@ async def test_a_found_sub_place_gets_coordinates_searched_in_the_plan_state(geo
     assert out["entities"]["district"] == "all"  # the plan's own state/district stay as they were
     assert out["is_complete"] is True
     assert geocoder == [("Kharar", "Punjab", "all")]  # only sub_places[0]
+
+
+@pytest.mark.asyncio
+async def test_a_named_district_without_a_sub_place_becomes_the_sub_place_location(monkeypatch):
+    from ajrasakha.agents import location_extractor
+
+    calls = []
+
+    async def fake(**kwargs):
+        calls.append(kwargs)
+        return 25.59, 85.13, "Patna, Bihar"
+
+    monkeypatch.setattr(location_extractor, "get_lat_long", fake)
+    plan = _sub_place_plan([], state="Bihar", district="Patna")
+    plan["places"] = ["Patna", "Bihar"]
+    out = await apply_sub_place_coordinates(plan)
+    assert out["sub_place_location"] == {"latitude": 25.59, "longitude": 85.13, "state": "Bihar", "district": "Patna"}
+    assert calls == [{"district": "Patna", "state": "Bihar"}]
+
+
+@pytest.mark.asyncio
+async def test_no_named_place_leaves_the_sub_place_location_empty(geocoder):
+    out = await apply_sub_place_coordinates(_sub_place_plan([], state="Bihar", district="Patna"))
+    assert out["sub_place_location"] is None
+
+
+@pytest.mark.asyncio
+async def test_sub_place_without_geocoder_state_uses_the_query_state(monkeypatch):
+    from ajrasakha.agents import location_extractor
+
+    async def fake(place, **_):
+        return {"latitude": 1.0, "longitude": 2.0, "state": None, "district": None, "name": place}
+
+    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
+    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Ghat"], state="Bihar", district="Patna"))
+    assert out["sub_place_location"] == {"latitude": 1.0, "longitude": 2.0, "state": "Bihar", "district": "Patna"}
+
+
+@pytest.mark.asyncio
+async def test_town_in_the_district_field_gets_the_geocoders_district(monkeypatch):
+    from ajrasakha.agents import location_extractor
+
+    async def fake(place, **_):
+        return {"latitude": 25.62, "longitude": 85.17, "state": "Bihar", "district": "Patna", "name": place}
+
+    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
+    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Ghat"], state="Bihar", district="Gandhi Ghat"))
+    assert out["sub_places"] == ["Gandhi Ghat"]
+    assert out["entities"]["district"] == "Patna"
+    assert out["sub_place_location"]["district"] == "Patna"
+
+
+@pytest.mark.asyncio
+async def test_a_place_that_is_the_geocoded_district_is_not_a_sub_place(monkeypatch):
+    from ajrasakha.agents import location_extractor
+
+    async def fake(place, **_):
+        return {"latitude": 25.59, "longitude": 85.13, "state": "Bihar", "district": "Patna", "name": place}
+
+    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
+    out = await apply_sub_place_coordinates(_sub_place_plan(["Patna"], state="Bihar", district="Patna"))
+    assert out["sub_places"] == []
+    assert out["sub_place_location"]["district"] == "Patna"
+
+
+GANDHI_NAGAR = {
+    "latitude": 12.9, "longitude": 77.5, "state": "Karnataka", "district": "Ballari", "name": "Gandhi Nagar, Ballari",
+    "alternatives": [
+        {"latitude": 28.6, "longitude": 77.2, "state": "Delhi", "district": "East Delhi", "name": "Gandhi Nagar, Delhi"},
+        {"latitude": 13.0, "longitude": 80.2, "state": "Tamil Nadu", "district": "Chennai", "name": "Gandhi Nagar, Chennai"},
+    ],
+}
+
+
+@pytest.fixture
+def ambiguous_geocoder(monkeypatch):
+    from ajrasakha.agents import location_extractor
+
+    async def fake(place, **_):
+        return GANDHI_NAGAR
+
+    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
+
+
+@pytest.mark.asyncio
+async def test_a_place_in_several_districts_asks_which_one(ambiguous_geocoder):
+    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Nagar"], state="all", district="all"))
+    assert out["is_complete"] is False
+    assert out["missing_info"] == ["location"]
+    for option in ("Ballari, Karnataka", "East Delhi, Delhi", "Chennai, Tamil Nadu"):
+        assert option in out["follow_up_question"]
+    assert out["ambiguous_places"] == ["Gandhi Nagar"]
+    assert out["sub_place_location"] is None
+
+
+@pytest.mark.asyncio
+async def test_an_ambiguous_place_is_asked_only_once(ambiguous_geocoder):
+    prev = {"ambiguous_places": ["Gandhi Nagar"]}
+    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Nagar"]), prev)
+    assert out["is_complete"] is True
+    assert out["sub_place_location"]["district"] == "Ballari"
+    assert out["ambiguous_places"] == []
+
+
+@pytest.fixture
+def ballari_geocoder(monkeypatch):
+    from ajrasakha.agents import location_extractor
+
+    async def fake(place, **_):
+        return {"latitude": 15.14, "longitude": 76.92, "state": "Karnataka", "district": "Ballari", "name": place}
+
+    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
+
+
+def _delhi_ballari_plan():
+    plan = _sub_place_plan(["Ballari"], state="Delhi", district="Ballari")
+    plan["places"] = ["Delhi", "Ballari"]
+    return plan
+
+
+@pytest.mark.asyncio
+async def test_a_place_outside_the_state_the_farmer_named_asks_first(ballari_geocoder):
+    out = await apply_sub_place_coordinates(_delhi_ballari_plan())
+    assert out["is_complete"] is False
+    assert "Ballari in Delhi" in out["follow_up_question"]
+    assert "Ballari, Karnataka" in out["follow_up_question"]
+    assert out["ambiguous_places"] == ["Ballari"]
+
+
+@pytest.mark.asyncio
+async def test_the_state_conflict_is_asked_only_once(ballari_geocoder):
+    out = await apply_sub_place_coordinates(_delhi_ballari_plan(), {"ambiguous_places": ["Ballari"]})
+    assert out["is_complete"] is True
+    assert (out["entities"]["state"], out["entities"]["district"]) == ("Karnataka", "Ballari")
+    assert out["sub_place_location"]["state"] == "Karnataka"
+
+
+@pytest.mark.asyncio
+async def test_a_profile_state_never_triggers_the_state_conflict_question(ballari_geocoder):
+    plan = _delhi_ballari_plan()
+    plan["places"] = ["Ballari"]  # the state came from the farmer profile, not the query
+    out = await apply_sub_place_coordinates(plan)
+    assert out["is_complete"] is True
 
 
 @pytest.mark.asyncio

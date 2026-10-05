@@ -1041,7 +1041,7 @@ async def planner_node(
             sources_out=location_sources,
         )
         plan = await apply_sub_place_coordinates(plan, prev_plan)
-        if plan.get("rejected_places"):
+        if plan.get("rejected_places") or plan.get("ambiguous_places"):
             # "Could not find <place>" names the place, so it cannot come from
             # the fixed catalog like the other location questions: translate it.
             script, vocal = language_pair_from_plan(plan)

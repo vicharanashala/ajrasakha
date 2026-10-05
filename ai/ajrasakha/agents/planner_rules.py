@@ -600,7 +600,11 @@ def resolve_weather_mandi_places(
                 lookup = state_lookup
         if lookup.status == LGD_RESOLVED:
             take(lookup.state, lookup.district, place)
-        else:
+        elif place.lower() != (chosen_state or "").lower():
+            # Not LGD-verified. A state is never a sub-place (LGD unavailable keeps
+            # it as-is, so it lands here). The district may really be a town the
+            # LLM put in the district field, so the geocoder decides in
+            # apply_sub_place_coordinates.
             add_sub_place(place)
 
     return chosen_state, chosen_district, sub_places
@@ -610,6 +614,17 @@ SUB_PLACE_NOT_FOUND = (
     "I could not find {place}. Could you tell me the place name again, "
     "with its district or state?"
 )
+
+
+SUB_PLACE_AMBIGUOUS = (
+    "I found more than one place named {place}: {options}. "
+    "Which one do you mean? Please reply with its district or state."
+)
+SUB_PLACE_WRONG_STATE = (
+    "I could not find {place} in {state}, but there is a {place} in {where}. "
+    "Did you mean that one? Please reply with the correct district or state."
+)
+MAX_PLACE_OPTIONS = 4
 
 
 async def apply_sub_place_coordinates(
@@ -628,17 +643,37 @@ async def apply_sub_place_coordinates(
     out["sub_place_location"] = None
     rejected = [p.casefold() for p in (prev_plan or {}).get("rejected_places") or []]
     out["rejected_places"] = []
+    out["ambiguous_places"] = []
     if not is_weather_or_mandi_plan(out):
         return out
     sub_places = [p for p in out.get("sub_places") or [] if p.casefold() not in rejected]
     out["sub_places"] = sub_places
+    entities = out.get("entities") or {}
+
+    def named(value: object) -> Optional[str]:
+        value = (value or "").strip() if isinstance(value, str) else ""
+        return None if not value or is_unspecified_place(value, "district") else value
+
     if not sub_places:
+        # The query names a state/district but no finer place: that state/district
+        # is the sub-place location, pinned at the district (or state) centre.
+        if out.get("places"):
+            from ajrasakha.agents.location_extractor import get_lat_long
+
+            state, district = named(entities.get("state")), named(entities.get("district"))
+            if state or district:
+                lat, lon, _ = await get_lat_long(district=district, state=state)
+                out["sub_place_location"] = {
+                    "latitude": lat,
+                    "longitude": lon,
+                    "state": state,
+                    "district": district,
+                }
         return out
 
-    from ajrasakha.agents.location_extractor import geocode_sub_place
+    from ajrasakha.agents.location_extractor import _same_state, geocode_sub_place
 
     place = sub_places[0]
-    entities = out.get("entities") or {}
     found = await geocode_sub_place(
         place, state=entities.get("state"), district=entities.get("district")
     )
@@ -653,10 +688,54 @@ async def apply_sub_place_coordinates(
         longitude=lon,
         lat_long_source=f"geocode_sub_place({place!r}) -> {found or 'not found'}",
     )
+    asked_before = [p.casefold() for p in (prev_plan or {}).get("ambiguous_places") or []]
+    if found and found.get("alternatives") and place.casefold() not in asked_before:
+        # The name matches places in several districts/states: ask which one,
+        # once. The reply names a district/state that narrows the next lookup.
+        options = [found, *found["alternatives"]][:MAX_PLACE_OPTIONS]
+        labels = [", ".join(p for p in (o.get("district"), o.get("state")) if p) or o["name"] for o in options]
+        out["is_complete"] = False
+        out["missing_info"] = ["location"]
+        out["follow_up_question"] = SUB_PLACE_AMBIGUOUS.format(place=place, options="; ".join(labels))
+        out["ambiguous_places"] = [*((prev_plan or {}).get("ambiguous_places") or []), place]
+        return out
+    query_state = named(entities.get("state"))
+    state_in_query = bool(query_state) and any(
+        (p or "").strip().casefold() == query_state.casefold() for p in out.get("places") or []
+    )
+    conflict = bool(
+        found and state_in_query and found.get("state") and not _same_state(query_state, found["state"])
+    )
+    if conflict and place.casefold() not in asked_before:
+        # The farmer named a state, but the place only exists in another one
+        # ("Delhi, Ballari"): ask once rather than guess which half is wrong.
+        where = ", ".join(p for p in (found.get("district"), found["state"]) if p)
+        out["is_complete"] = False
+        out["missing_info"] = ["location"]
+        out["follow_up_question"] = SUB_PLACE_WRONG_STATE.format(place=place, state=query_state, where=where)
+        out["ambiguous_places"] = [*((prev_plan or {}).get("ambiguous_places") or []), place]
+        return out
+    if conflict:
+        # Asked already: the place is real, the stated state is not where it is.
+        out["entities"] = {**entities, "state": found["state"], "district": found.get("district") or "all"}
+        entities = out["entities"]
     if found:
-        # The geocoder's own state/district for the sub-place, passed to the
-        # tools as-is; the plan's state/district are left unchanged.
-        out["sub_place_location"] = {k: found[k] for k in ("latitude", "longitude", "state", "district")}
+        # The geocoder's own state/district for the sub-place (the query's when
+        # it names none), passed to the tools; the plan's state/district are
+        # left unchanged.
+        out["sub_place_location"] = {
+            "latitude": found["latitude"],
+            "longitude": found["longitude"],
+            "state": found.get("state") or named(entities.get("state")),
+            "district": found.get("district") or named(entities.get("district")),
+        }
+        geocoded_district = found.get("district")
+        if geocoded_district and geocoded_district.casefold() == place.casefold():
+            # The "place" is the district itself (LGD was unavailable to say so).
+            out["sub_places"] = sub_places[1:]
+        elif geocoded_district and (entities.get("district") or "").casefold() == place.casefold():
+            # The LLM put the town in the district field; the district is the geocoder's.
+            out["entities"] = {**entities, "district": geocoded_district}
         return out
 
     out["is_complete"] = False
