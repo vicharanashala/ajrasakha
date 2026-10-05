@@ -53,6 +53,7 @@ _TEXT_FIELDS = (
     "weather_unavailable_for_dynamic_weather_queries",
     "crop_price_not_available_in_selected_mandi",
     "mandi_not_available",
+    "abusive_word_disclaimer",
 )
 
 # The legacy loader stripped surrounding whitespace from these fields. Preserve
@@ -83,6 +84,7 @@ class CatalogRow:
     weather_unavailable_for_dynamic_weather_queries: str
     crop_price_not_available_in_selected_mandi: str
     mandi_not_available: str
+    abusive_word_disclaimer: str
 
 
 def _normalize_lang(name: str) -> str:
@@ -188,6 +190,7 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
                 "crop_price_not_available_in_selected_mandi"
             ),
             mandi_not_available=text("mandi_not_available"),
+            abusive_word_disclaimer=text("abusive_word_disclaimer"),
         )
 
     if _lang_key(_DEFAULT_SCRIPT, _DEFAULT_VOCAL) not in catalog:
@@ -301,6 +304,12 @@ def get_crop_price_unavailable_reply(script_language: str, vocal_language: str) 
     return get_catalog_row(
         script_language, vocal_language
     ).crop_price_not_available_in_selected_mandi
+
+
+def get_abusive_word_disclaimer(script_language: str, vocal_language: str) -> str:
+    """Return localized abusive word disclaimer."""
+    row = get_catalog_row(script_language, vocal_language)
+    return row.abusive_word_disclaimer
 
 
 def get_mandi_unavailable_reply(script_language: str, vocal_language: str) -> str:
