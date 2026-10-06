@@ -321,7 +321,7 @@ export const GateKeeperAuditorDashboard = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {targetUserId && (
+            {targetUserId && (currentUser?.role === "admin" || currentUser?.role === "gate_keeper") && (
               <UserActivityReportControl
                 userId={targetUserId}
                 userName={

@@ -497,7 +497,7 @@ const [dateRange, setDateRange] = useState<
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {userId && (
+            {userId && (user?.role === "admin" || user?.role === "gate_keeper") && (
               <UserActivityReportControl
                 userId={userId}
                 userName={
