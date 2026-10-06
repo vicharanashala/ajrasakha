@@ -214,9 +214,11 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                                     <DetailRow label="WhatsApp Response Time" value={entry.waResponseTimeMins} />
                                     <DetailRow label="Web SLA Status" value={entry.slaStatus} />
                                     <DetailRow label="WhatsApp SLA Status" value={entry.waSlaStatus} />
+                                    <DetailRow label="Web Voice Input Issue Description" value={entry.voiceInputIssueDescription} />
+                                    <DetailRow label="WhatsApp Voice Input Issue Description" value={entry.waVoiceInputIssueDescription} />
                                     <DetailRow label="Web App Test Status" value={entry.webOverallTestStatus} />
                                     <DetailRow label="WhatsApp Test Status" value={entry.waOverallTestStatus} />
-                                    <DetailRow label="WhatsApp vs Web Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
+                                    <DetailRow label="WhatsApp vs Web Application Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
                                     <DetailRow label="Discrepancy Notes" value={entry.crossPlatformDiscrepancyNotes} />
                                 </div>
                             </div>
@@ -233,34 +235,43 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                             <DetailRow label="Time Answer Received" value={entry.timeAnswerReceived} />
                             <DetailRow label="Response Time [Auto]" value={entry.responseTimeMins} />
                             <DetailRow label="SLA Status" value={entry.slaStatus} />
-                            <DetailRow label="Question in Review Model?" value={entry.questionInReviewModel} />
-                            <DetailRow label="Question Correctly Framed?" value={entry.questionCorrectlyFramed} />
+                            <DetailRow label="Question Appeared in Review Model?" value={entry.questionInReviewModel} />
+                            <DetailRow label="Question Framed Correctly?" value={entry.questionCorrectlyFramed} />
                             <DetailRow label="Original Language" value={entry.originalLanguage} />
                             <DetailRow label="Translated Language" value={entry.translatedLanguage} />
                             <DetailRow label="Translation Quality" value={entry.translationQuality} />
                             <DetailRow label="Translation Error Type" value={entry.translationErrorType} />
                             <DetailRow label="Tagging" value={entry.tagging} />
-                            <DetailRow label="Allocated to Reviewer?" value={entry.allocatedToReviewer} />
+                            <DetailRow label="Allocated to Author?" value={entry.allocatedToReviewer} />
                             <DetailRow label="Author Name" value={entry.authorsName} />
                             <DetailRow label="Author TAT" value={entry.authorTatMins} />
                             <DetailRow label="Reviewer1 Name" value={entry.reviewer1Name} />
                             <DetailRow label="Review1 TAT" value={entry.review1TatMins} />
                             <DetailRow label="Follow-up Q in Review Model?" value={entry.followUpQInReviewModel} />
-                            <DetailRow label="Answer Scientifically Correct?" value={entry.answerScientificallyCorrect} />
+                            <DetailRow label="Scientific Accuracy" value={entry.answerScientificallyCorrect} />
+                            <DetailRow label="Retrieval Accuracy" value={entry.retrievalAccuracy} />
                             <DetailRow label="Expert Name Displayed?" value={entry.expertNameDisplayed} />
-                            <DetailRow label="Correct Expert Name Displayed?" value={entry.correctExpertNameDisplayed} />
                             <DetailRow label="Correct Source Links Provided?" value={entry.correctSourceLinksProvided} />
-                            <DetailRow label="120-min Msg Shown?" value={entry.msg120MinShownToUser} />
+                            <DetailRow label="120-min Disclaimer Received?" value={entry.msg120MinShownToUser} />
                             <DetailRow label="Notification Received?" value={entry.notificationReceived} />
+                            <DetailRow label="Notification on Same Thread?" value={entry.notificationOnSameThread} />
+                            <DetailRow label="Notification Linked to Correct Q-ID?" value={entry.notificationLinkedCorrectQId} />
                             <DetailRow label="Voice Input Working?" value={entry.voiceInputWorking} />
                             <DetailRow label="Voice Output Working?" value={entry.voiceOutputWorking} />
-                            <DetailRow label="Voice Issue Description" value={entry.voiceIssueDescription} />
-                            <DetailRow label="Question Saved in DB?" value={entry.questionSavedInDb} />
-                            <DetailRow label="Answer Saved in DB?" value={entry.answerSavedInDb} />
+                            <DetailRow label="Voice Input Quality" value={entry.voiceInputQuality} />
+                            <DetailRow label="Voice Input Issue Description" value={entry.voiceInputIssueDescription} />
+                            <DetailRow label="Voice Output Quality" value={entry.voiceOutputQuality} />
+                            <DetailRow label="Voice Output Issue Description" value={entry.voiceIssueDescription} />
+                            <DetailRow label="Weather Q Answered Correctly?" value={entry.weatherQAnsweredCorrectly} />
+                            <DetailRow label="Mandi Price Q Correct?" value={entry.mandiPriceQCorrect} />
+                            <DetailRow label="Scheme Q Correct?" value={entry.schemeQCorrect} />
+                            <DetailRow label="WhatsApp vs Web Application Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
                             <DetailRow label="Defect Severity" value={entry.defectSeverity} />
                             <DetailRow label="Defect ID / Bug Ref" value={entry.defectIdBugRef} />
-                            <DetailRow label="Reviewer Remarks" value={entry.reviewerRemarks} />
                             <DetailRow label="Tester Remarks" value={entry.testerRemarks} />
+                            {entry.testerRemarksNotes && (
+                                <DetailRow label="Remarks Details" value={entry.testerRemarksNotes} />
+                            )}
                         </div>
                     </td>
                 </tr>
@@ -1222,15 +1233,17 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         </span>
                                     </div>
 
-                                    <div className="flex justify-between items-center">
-                                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                                            <Database className="h-3.5 w-3.5 text-emerald-500" />
-                                            Saved in Database:
-                                        </span>
-                                        <span className="font-semibold text-foreground">
-                                            {summaryData.dbPersistence.rate}% ({summaryData.dbPersistence.saved}{summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved > 0 ? ` / ${summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved}` : ""})
-                                        </span>
-                                    </div>
+                                    {summaryData.dbPersistence && (summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved > 0) && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                                                <Database className="h-3.5 w-3.5 text-emerald-500" />
+                                                Saved in Database:
+                                            </span>
+                                            <span className="font-semibold text-foreground">
+                                                {summaryData.dbPersistence.rate}% ({summaryData.dbPersistence.saved} / {summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved})
+                                            </span>
+                                        </div>
+                                    )}
 
                                     <div className="flex justify-between items-center">
                                         <span className="flex items-center gap-1.5 text-muted-foreground">

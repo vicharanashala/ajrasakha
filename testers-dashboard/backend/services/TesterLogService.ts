@@ -156,7 +156,10 @@ const EXPORT_COLUMNS: { key: keyof TesterLogEntry; header: string }[] = [
     { key: 'status', header: 'Status' },
 ];
 
-function formatExportValue(key: keyof TesterLogEntry, value: unknown): string {
+function formatExportValue(key: keyof TesterLogEntry, value: unknown, entry?: TesterLogEntry): string {
+    if (key === 'testerRemarks' && entry?.testerRemarksNotes) {
+        return entry.testerRemarks ? `${entry.testerRemarks} - ${entry.testerRemarksNotes}` : entry.testerRemarksNotes;
+    }
     if (value === undefined || value === null) return '';
     if (value instanceof Date) return value.toISOString();
     return String(value);
@@ -929,7 +932,7 @@ export class TesterLogService implements ITesterLogService {
         const rows = entries.map((e: any) => {
             const row: Record<string, string> = {};
             for (const col of EXPORT_COLUMNS) {
-                row[col.header] = formatExportValue(col.key, e[col.key]);
+                row[col.header] = formatExportValue(col.key, e[col.key], e);
             }
             return row;
         });

@@ -36,6 +36,7 @@ export interface TesterLogEntry {
     translationQuality?: string;
     translationErrorType?: string;
     tagging?: string;
+    retrievalAccuracy?: string;
 
     // Section 4: Reviewer Workflow
     allocatedToReviewer?: string;
@@ -89,6 +90,7 @@ export interface TesterLogEntry {
     voiceInputWorking?: string;
     voiceOutputWorking?: string;
     voiceInputQuality?: string;
+    voiceInputIssueDescription?: string;
     voiceOutputQuality?: string;
     voiceIssueDescription?: string;
 
@@ -107,6 +109,7 @@ export interface TesterLogEntry {
     defectIdBugRef?: string;
     reviewerRemarks?: string;
     testerRemarks?: string;
+    testerRemarksNotes?: string;
     status?: string;
 
     // Cross-Platform Dual-Channel Fields (Used when channelTested === 'Both')
@@ -119,6 +122,7 @@ export interface TesterLogEntry {
     waVoiceInputWorking?: string;
     waVoiceOutputWorking?: string;
     waVoiceInputQuality?: string;
+    waVoiceInputIssueDescription?: string;
     waVoiceOutputQuality?: string;
     waVoiceIssueDescription?: string;
     waNotificationReceived?: string;

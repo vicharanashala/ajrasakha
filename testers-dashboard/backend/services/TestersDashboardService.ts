@@ -159,6 +159,7 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
         'Translation Quality': entry.translationQuality || '',
         'Translation Error Type': entry.translationErrorType || '',
         'Tagging': entry.tagging || '',
+        'Retrieval Accuracy': entry.retrievalAccuracy || '',
         'Allocated to Reviewer?': entry.allocatedToReviewer || '',
         "Author's Name": entry.authorsName || '',
         'Author Assignment Time': entry.authorAssignmentTime || '',
@@ -200,6 +201,7 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
         'Voice Input Working?': entry.voiceInputWorking || '',
         'Voice Output Working?': entry.voiceOutputWorking || '',
         'Voice Input Quality': entry.voiceInputQuality || '',
+        'Voice Input Issue Description': entry.voiceInputIssueDescription || entry.waVoiceInputIssueDescription || '',
         'Voice Output Quality': entry.voiceOutputQuality || '',
         'Voice Issue Description': entry.voiceIssueDescription || '',
         'Weather Q Answered Correctly?': entry.weatherQAnsweredCorrectly || '',
@@ -213,7 +215,9 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
         'Defect Severity': entry.defectSeverity || '',
         "Defect ID / Bug Ref\nZoho Desk Ticketing": entry.defectIdBugRef || '',
         'Reviewer Remarks': entry.reviewerRemarks || '',
-        'Tester Remarks': entry.testerRemarks || '',
+        'Tester Remarks': entry.testerRemarksNotes
+            ? (entry.testerRemarks ? `${entry.testerRemarks} - ${entry.testerRemarksNotes}` : entry.testerRemarksNotes)
+            : (entry.testerRemarks || ''),
         'Status': entry.status || '',
     };
 }

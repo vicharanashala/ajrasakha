@@ -13,7 +13,8 @@ import { hmsDiff, isTimeEarlier, isTimeInFuture, getLocalDatetimeMax } from "../
 import type { ITesterLogEntry } from "../types";
 import {
     TYPE_OF_QUESTION_OPTIONS,
-    isDynamicQuestionType,
+    isDynamicTagging,
+    isDuplicateTagging,
     isCrossPlatform,
     synthesizeOverallTestStatus,
     CHANNEL_OPTIONS,
@@ -21,23 +22,28 @@ import {
     SLA_STATUS_OPTIONS,
     REVIEW_MODEL_OPTIONS,
     QUESTION_FRAMED_OPTIONS,
-    ALLOCATED_TO_REVIEWER_OPTIONS,
+    ALLOCATED_TO_AUTHOR_OPTIONS,
     FOLLOW_UP_MODEL_OPTIONS,
     ANSWER_CORRECT_OPTIONS,
     EXPERT_DISPLAYED_OPTIONS,
-    YES_NO_NA_DUP_OPTIONS,
-    MSG_120_OPTIONS,
-    NOTIFICATION_OPTIONS,
-    YES_NO_PARTIAL_NA_OPTIONS,
-    DB_SAVE_OPTIONS,
-    QID_CONSISTENT_OPTIONS,
+    SOURCE_LINKS_OPTIONS,
+    DISCLAIMER_120_OPTIONS,
+    NOTIFICATION_RECEIVED_OPTIONS,
+    NOTIFICATION_SAME_THREAD_OPTIONS,
+    NOTIFICATION_LINKED_QID_OPTIONS,
+    YES_NO_NA_OPTIONS,
     OVERALL_STATUS_OPTIONS,
-    STATUS_OPTIONS,
     TRANSLATION_QUALITY_OPTIONS,
+    TRANSLATION_ERROR_TYPE_OPTIONS,
     DEFECT_SEVERITY_OPTIONS,
     INDIAN_LANGUAGES_OPTIONS,
-    VOICE_QUALITY_OPTIONS,
+    VOICE_ISSUE_OPTIONS,
+    VOICE_INPUT_QUALITY_OPTIONS,
+    VOICE_OUTPUT_QUALITY_OPTIONS,
+    WHATSAPP_VS_WEB_MATCH_OPTIONS,
     TAGGING_OPTIONS,
+    RETRIEVAL_ACCURACY_OPTIONS,
+    TESTER_REMARKS_OPTIONS,
 } from "../types";
 
 type FormValues = Omit<ITesterLogEntry, "_id" | "submittedByUserId" | "submittedByEmail" | "testerName" | "createdAt" | "updatedAt">;
@@ -366,89 +372,6 @@ function DefectIdBugRefInput({
     );
 }
 
-function TaggingInput({
-    value,
-    onChange,
-    required,
-    error,
-}: {
-    value?: string;
-    onChange: (val: string) => void;
-    required?: boolean;
-    error?: string;
-}) {
-    const [selectedOption, setSelectedOption] = useState<string>(() => {
-        if (value === "Tagged as Duplicate") return "Tagged as Duplicate";
-        if (value) return "Other";
-        return "";
-    });
-    const [customTag, setCustomTag] = useState<string>(() => {
-        return value && value !== "Tagged as Duplicate" ? value : "";
-    });
-
-    useEffect(() => {
-        if (value === "Tagged as Duplicate") {
-            setSelectedOption("Tagged as Duplicate");
-        } else if (value && value !== customTag) {
-            setSelectedOption("Other");
-            setCustomTag(value);
-        } else if (!value && (selectedOption === "Tagged as Duplicate" || customTag !== "")) {
-            setSelectedOption("");
-            setCustomTag("");
-        }
-    }, [value]);
-
-    const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const sel = e.target.value;
-        setSelectedOption(sel);
-        if (sel === "Tagged as Duplicate") {
-            onChange("Tagged as Duplicate");
-        } else if (sel === "Other") {
-            onChange(customTag);
-        } else {
-            onChange("");
-        }
-    };
-
-    const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const text = e.target.value;
-        setCustomTag(text);
-        onChange(text);
-    };
-
-    return (
-        <div className="flex flex-col gap-1">
-            <label className={labelClass}>
-                Tagging
-                {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
-            </label>
-            <select
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
-                value={selectedOption}
-                onChange={handleSelectChange}
-            >
-                <option value="">-- Select --</option>
-                {TAGGING_OPTIONS.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                ))}
-            </select>
-            {selectedOption === "Other" && (
-                <div className="mt-1.5">
-                    <input
-                        type="text"
-                        className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
-                        placeholder="Enter tag..."
-                        value={customTag}
-                        onChange={handleCustomChange}
-                        autoFocus
-                    />
-                </div>
-            )}
-            {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
-        </div>
-    );
-}
-
 function validateTesterLogForm(
     data: FormValues,
     flags: { isCross: boolean; excludeReviewerWorkflow: boolean }
@@ -510,8 +433,8 @@ function validateTesterLogForm(
     }
 
     // Section 3: Question Quality
-    checkRequired("questionInReviewModel", "Question in Review Model");
-    checkRequired("questionCorrectlyFramed", "Question Correctly Framed");
+    checkRequired("questionInReviewModel", "Question Appeared in Review Model?");
+    checkRequired("questionCorrectlyFramed", "Question Framed Correctly?");
 
     const origLang = data.originalLanguage?.trim();
     if (!origLang || origLang === "Others") {
@@ -524,16 +447,12 @@ function validateTesterLogForm(
     }
 
     checkRequired("translationQuality", "Translation Quality");
-    checkRequired("translationErrorType", "Translation Error Type (enter NA if none)");
-
-    const tagging = data.tagging?.trim();
-    if (!tagging || tagging === "Other") {
-        errors.tagging = "Tagging is required";
-    }
+    checkRequired("translationErrorType", "Translation Error Type");
+    checkRequired("tagging", "Tagging");
 
     // Section 4: Reviewer Workflow
     if (!flags.excludeReviewerWorkflow) {
-        checkRequired("allocatedToReviewer", "Allocated to Reviewer");
+        checkRequired("allocatedToReviewer", "Allocated to Author?");
         if (data.allocatedToReviewer === "Yes") {
             checkRequired("authorsName", "Author Name");
             checkRequired("authorAssignmentTime", "Author Assignment Time");
@@ -571,46 +490,48 @@ function validateTesterLogForm(
 
     // Section 5: Answer Quality
     checkRequired("followUpQInReviewModel", "Follow-up Q in Review Model");
-    checkRequired("answerScientificallyCorrect", "Answer Scientifically Correct");
+    checkRequired("answerScientificallyCorrect", "Scientific Accuracy");
+    checkRequired("retrievalAccuracy", "Retrieval Accuracy");
     checkRequired("expertNameDisplayed", "Expert Name Displayed");
-    checkRequired("correctExpertNameDisplayed", "Correct Expert Name Displayed");
     checkRequired("correctSourceLinksProvided", "Correct Source Links Provided");
 
     // Section 6: Notifications & Voice
-    checkRequired("msg120MinShownToUser", "120-min Msg Shown to User");
+    checkRequired("msg120MinShownToUser", "120-min Disclaimer Received by the User?");
     checkRequired("notificationReceived", flags.isCross ? "Web Notification Received" : "Notification Received");
-    checkRequired("voiceInputWorking", flags.isCross ? "Web Voice Input Working" : "Voice Input Working");
-    checkRequired("voiceOutputWorking", flags.isCross ? "Web Voice Output Working" : "Voice Output Working");
-
     if (flags.isCross) {
         checkRequired("waNotificationReceived", "WhatsApp Notification Received");
+    }
+    checkRequired("notificationOnSameThread", "Notification on Same Thread");
+    checkRequired("notificationLinkedCorrectQId", "Notification Linked to Correct Q-ID");
+
+    checkRequired("voiceInputWorking", flags.isCross ? "Web Voice Input Working" : "Voice Input Working");
+    checkRequired("voiceOutputWorking", flags.isCross ? "Web Voice Output Working" : "Voice Output Working");
+    checkRequired("voiceInputIssueDescription", flags.isCross ? "Web Voice Input Issue Description" : "Voice Input Issue Description");
+    if (flags.isCross) {
         checkRequired("waVoiceInputWorking", "WhatsApp Voice Input Working");
         checkRequired("waVoiceOutputWorking", "WhatsApp Voice Output Working");
+        checkRequired("waVoiceInputIssueDescription", "WhatsApp Voice Input Issue Description");
     }
-
-    checkRequired("notificationOnSameThread", "Notification on Same Thread");
-    checkRequired("notificationLinkedCorrectQId", "Notification Linked Correct Q-ID");
     checkRequired("voiceInputQuality", "Voice Input Quality");
     checkRequired("voiceOutputQuality", "Voice Output Quality");
-    checkRequired("voiceIssueDescription", "Voice Issue Description (enter NA if none)");
+    checkRequired("voiceIssueDescription", "Voice Output Issue Description");
 
     // Section 7: Domain Checks & Parity
+    checkRequired("whatsappVsWebAnswerMatch", "WhatsApp vs Web Application Answer Match?");
     if (flags.isCross) {
-        checkRequired("whatsappVsWebAnswerMatch", "WhatsApp vs Web Answer Match");
-        checkRequired("qIdConsistentAcrossSystems", "Q-ID Consistent Across Systems");
-        if (data.whatsappVsWebAnswerMatch === "No" || data.whatsappVsWebAnswerMatch === "Partial") {
+        if (
+            data.whatsappVsWebAnswerMatch === "Partial Match" ||
+            data.whatsappVsWebAnswerMatch === "Mismatch" ||
+            data.whatsappVsWebAnswerMatch === "Partial" ||
+            data.whatsappVsWebAnswerMatch === "No"
+        ) {
             checkRequired("crossPlatformDiscrepancyNotes", "Discrepancy Notes");
         }
-    } else {
-        checkRequired("qIdConsistentAcrossSystems", "Q-ID Consistent Across Systems");
-        checkRequired("whatsappVsWebAnswerMatch", "WhatsApp vs Web Answer Match");
     }
 
     checkRequired("weatherQAnsweredCorrectly", "Weather Q Answered Correctly");
     checkRequired("mandiPriceQCorrect", "Mandi Price Q Correct");
     checkRequired("schemeQCorrect", "Scheme Q Correct");
-    checkRequired("questionSavedInDb", "Question Saved in DB");
-    checkRequired("answerSavedInDb", "Answer Saved in DB");
 
     // Section 8: Defects & Remarks
     if (flags.isCross) {
@@ -627,9 +548,10 @@ function validateTesterLogForm(
         errors.defectIdBugRef = "Please enter the Zoho Ticket URL";
     }
 
-    checkRequired("reviewerRemarks", "Reviewer Remarks (enter NA if none)");
     checkRequired("testerRemarks", "Tester Remarks");
-    checkRequired("status", "Status");
+    if (data.testerRemarks && data.testerRemarks !== "No Action Required") {
+        checkRequired("testerRemarksNotes", "Remarks Details");
+    }
 
     return errors;
 }
@@ -713,7 +635,6 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     // Watch fields for dynamic workflow and TAT auto-computations
     const [
         testDate,
-        typeOfQuestion,
         channelTested,
         timeQuestionAsked, timeAnswerReceived,
         waTimeQuestionAsked, waTimeAnswerReceived,
@@ -727,7 +648,6 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         webOverallTestStatus, waOverallTestStatus,
     ] = watch([
         "testDate",
-        "typeOfQuestion",
         "channelTested",
         "timeQuestionAsked", "timeAnswerReceived",
         "waTimeQuestionAsked", "waTimeAnswerReceived",
@@ -774,16 +694,17 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const review5TatMins = watch("review5TatMins");
     const moderatorTatMins = watch("moderatorTatMins");
 
-    const [languageTested, originalLanguage, translatedLanguage, defectIdBugRef, tagging] = watch([
+    const [languageTested, originalLanguage, translatedLanguage, defectIdBugRef, tagging, testerRemarks] = watch([
         "languageTested",
         "originalLanguage",
         "translatedLanguage",
         "defectIdBugRef",
         "tagging",
+        "testerRemarks",
     ]);
 
-    const isDynamic = isDynamicQuestionType(typeOfQuestion);
-    const isDuplicate = tagging === "Tagged as Duplicate";
+    const isDynamic = isDynamicTagging(tagging);
+    const isDuplicate = isDuplicateTagging(tagging);
     const excludeReviewerWorkflow = isDynamic || isDuplicate;
 
     const handleReset = (showToast = true) => {
@@ -818,6 +739,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             translationQuality: "",
             translationErrorType: "",
             tagging: "",
+            retrievalAccuracy: "",
             allocatedToReviewer: "",
             authorsName: "",
             authorAssignmentTime: "",
@@ -850,7 +772,6 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             followUpQInReviewModel: "",
             answerScientificallyCorrect: "",
             expertNameDisplayed: "",
-            correctExpertNameDisplayed: "",
             correctSourceLinksProvided: "",
             msg120MinShownToUser: "",
             notificationReceived: "",
@@ -862,14 +783,13 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             notificationOnSameThread: "",
             notificationLinkedCorrectQId: "",
             voiceInputQuality: "",
+            voiceInputIssueDescription: "",
+            waVoiceInputIssueDescription: "",
             voiceOutputQuality: "",
             voiceIssueDescription: "",
             weatherQAnsweredCorrectly: "",
             mandiPriceQCorrect: "",
             schemeQCorrect: "",
-            questionSavedInDb: "",
-            answerSavedInDb: "",
-            qIdConsistentAcrossSystems: "",
             whatsappVsWebAnswerMatch: "",
             crossPlatformDiscrepancyNotes: "",
             webOverallTestStatus: "",
@@ -877,9 +797,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             overallTestStatus: "",
             defectSeverity: "",
             defectIdBugRef: "",
-            reviewerRemarks: "",
             testerRemarks: "",
-            status: "",
+            testerRemarksNotes: "",
         });
         setFormErrors({});
         refetchNextId();
@@ -980,10 +899,10 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const s3Errors = ["questionInReviewModel", "questionCorrectlyFramed", "originalLanguage", "translatedLanguage", "translationQuality", "translationErrorType", "tagging"].filter(k => formErrors[k]).length;
     const s4Errors = ["allocatedToReviewer", "authorsName", "authorAssignmentTime", "authorCompletionTime"].filter(k => formErrors[k]).length
         + ((isAuthorAssignedInFuture || isAuthorCompletedInFuture || isAuthorTimingInvalid) && !formErrors.authorCompletionTime && !formErrors.authorAssignmentTime ? 1 : 0);
-    const s5Errors = ["followUpQInReviewModel", "answerScientificallyCorrect", "expertNameDisplayed", "correctExpertNameDisplayed", "correctSourceLinksProvided"].filter(k => formErrors[k]).length;
-    const s6Errors = ["msg120MinShownToUser", "notificationReceived", "voiceInputWorking", "voiceOutputWorking", "waNotificationReceived", "waVoiceInputWorking", "waVoiceOutputWorking", "notificationOnSameThread", "notificationLinkedCorrectQId", "voiceInputQuality", "voiceOutputQuality", "voiceIssueDescription"].filter(k => formErrors[k]).length;
-    const s7Errors = ["weatherQAnsweredCorrectly", "mandiPriceQCorrect", "schemeQCorrect", "questionSavedInDb", "answerSavedInDb", "qIdConsistentAcrossSystems", "whatsappVsWebAnswerMatch", "crossPlatformDiscrepancyNotes"].filter(k => formErrors[k]).length;
-    const s8Errors = ["webOverallTestStatus", "waOverallTestStatus", "overallTestStatus", "defectSeverity", "defectIdBugRef", "reviewerRemarks", "testerRemarks", "status"].filter(k => formErrors[k]).length;
+    const s5Errors = ["followUpQInReviewModel", "answerScientificallyCorrect", "retrievalAccuracy", "expertNameDisplayed", "correctSourceLinksProvided"].filter(k => formErrors[k]).length;
+    const s6Errors = ["msg120MinShownToUser", "notificationReceived", "waNotificationReceived", "notificationOnSameThread", "notificationLinkedCorrectQId", "voiceInputWorking", "voiceOutputWorking", "waVoiceInputWorking", "waVoiceOutputWorking", "voiceInputIssueDescription", "waVoiceInputIssueDescription", "voiceInputQuality", "voiceOutputQuality", "voiceIssueDescription"].filter(k => formErrors[k]).length;
+    const s7Errors = ["weatherQAnsweredCorrectly", "mandiPriceQCorrect", "schemeQCorrect", "whatsappVsWebAnswerMatch", "crossPlatformDiscrepancyNotes"].filter(k => formErrors[k]).length;
+    const s8Errors = ["webOverallTestStatus", "waOverallTestStatus", "overallTestStatus", "defectSeverity", "defectIdBugRef", "testerRemarks", "testerRemarksNotes"].filter(k => formErrors[k]).length;
 
     return (
         <>
@@ -1225,14 +1144,14 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             {/* Section 3 */}
             <FormSection title="3. Question Quality" errorCount={s3Errors}>
                 <SelectInput
-                    label="Question in Review Model?"
+                    label="Question Appeared in Review Model?"
                     options={REVIEW_MODEL_OPTIONS}
                     required
                     error={formErrors.questionInReviewModel}
                     {...register("questionInReviewModel", { onChange: () => clearError("questionInReviewModel") })}
                 />
                 <SelectInput
-                    label="Question Correctly Framed?"
+                    label="Question Framed Correctly?"
                     options={QUESTION_FRAMED_OPTIONS}
                     required
                     error={formErrors.questionCorrectlyFramed}
@@ -1265,21 +1184,19 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     error={formErrors.translationQuality}
                     {...register("translationQuality", { onChange: () => clearError("translationQuality") })}
                 />
-                <TextInput
+                <SelectInput
                     label="Translation Error Type"
-                    placeholder="Describe error type (or enter NA)"
+                    options={TRANSLATION_ERROR_TYPE_OPTIONS}
                     required
                     error={formErrors.translationErrorType}
                     {...register("translationErrorType", { onChange: () => clearError("translationErrorType") })}
                 />
-                <TaggingInput
-                    value={tagging}
+                <SelectInput
+                    label="Tagging"
+                    options={TAGGING_OPTIONS}
                     required
                     error={formErrors.tagging}
-                    onChange={val => {
-                        setValue("tagging", val);
-                        clearError("tagging");
-                    }}
+                    {...register("tagging", { onChange: () => clearError("tagging") })}
                 />
             </FormSection>
 
@@ -1287,8 +1204,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             {!excludeReviewerWorkflow && (
                 <FormSection title="4. Reviewer Workflow" defaultOpen={true} errorCount={s4Errors}>
                     <SelectInput
-                        label="Allocated to Reviewer?"
-                        options={ALLOCATED_TO_REVIEWER_OPTIONS}
+                        label="Allocated to Author?"
+                        options={ALLOCATED_TO_AUTHOR_OPTIONS}
                         required
                         error={formErrors.allocatedToReviewer}
                         {...register("allocatedToReviewer", { onChange: () => clearError("allocatedToReviewer") })}
@@ -1367,11 +1284,18 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     {...register("followUpQInReviewModel", { onChange: () => clearError("followUpQInReviewModel") })}
                 />
                 <SelectInput
-                    label="Answer Scientifically Correct?"
+                    label="Scientific Accuracy"
                     options={ANSWER_CORRECT_OPTIONS}
                     required
                     error={formErrors.answerScientificallyCorrect}
                     {...register("answerScientificallyCorrect", { onChange: () => clearError("answerScientificallyCorrect") })}
+                />
+                <SelectInput
+                    label="Retrieval Accuracy"
+                    options={RETRIEVAL_ACCURACY_OPTIONS}
+                    required
+                    error={formErrors.retrievalAccuracy}
+                    {...register("retrievalAccuracy", { onChange: () => clearError("retrievalAccuracy") })}
                 />
                 <SelectInput
                     label="Expert Name Displayed?"
@@ -1381,15 +1305,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     {...register("expertNameDisplayed", { onChange: () => clearError("expertNameDisplayed") })}
                 />
                 <SelectInput
-                    label="Correct Expert Name Displayed?"
-                    options={YES_NO_NA_DUP_OPTIONS}
-                    required
-                    error={formErrors.correctExpertNameDisplayed}
-                    {...register("correctExpertNameDisplayed", { onChange: () => clearError("correctExpertNameDisplayed") })}
-                />
-                <SelectInput
                     label="Correct Source Links Provided?"
-                    options={YES_NO_NA_DUP_OPTIONS}
+                    options={SOURCE_LINKS_OPTIONS}
                     required
                     error={formErrors.correctSourceLinksProvided}
                     {...register("correctSourceLinksProvided", { onChange: () => clearError("correctSourceLinksProvided") })}
@@ -1398,124 +1315,153 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
 
             {/* Section 6 (or 5 if dynamic/duplicate) */}
             <FormSection title={`${excludeReviewerWorkflow ? 5 : 6}. Notifications & Voice`} defaultOpen={true} errorCount={s6Errors}>
+                {/* Notification Inputs */}
                 <SelectInput
-                    label="120-min Msg Shown to User?"
-                    options={MSG_120_OPTIONS}
+                    label="120-min Disclaimer Received by the User?"
+                    options={DISCLAIMER_120_OPTIONS}
                     required
                     error={formErrors.msg120MinShownToUser}
                     {...register("msg120MinShownToUser", { onChange: () => clearError("msg120MinShownToUser") })}
                 />
                 {isCross ? (
+                    <div className="sm:col-span-2 lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <SelectInput
+                            label="Web Notification Received?"
+                            options={NOTIFICATION_RECEIVED_OPTIONS}
+                            required
+                            error={formErrors.notificationReceived}
+                            {...register("notificationReceived", { onChange: () => clearError("notificationReceived") })}
+                        />
+                        <SelectInput
+                            label="WhatsApp Notification Received?"
+                            options={NOTIFICATION_RECEIVED_OPTIONS}
+                            required
+                            error={formErrors.waNotificationReceived}
+                            {...register("waNotificationReceived", { onChange: () => clearError("waNotificationReceived") })}
+                        />
+                    </div>
+                ) : (
+                    <SelectInput
+                        label="Notification Received?"
+                        options={NOTIFICATION_RECEIVED_OPTIONS}
+                        required
+                        error={formErrors.notificationReceived}
+                        {...register("notificationReceived", { onChange: () => clearError("notificationReceived") })}
+                    />
+                )}
+                <SelectInput
+                    label="Notification on Same Thread?"
+                    options={NOTIFICATION_SAME_THREAD_OPTIONS}
+                    required
+                    error={formErrors.notificationOnSameThread}
+                    {...register("notificationOnSameThread", { onChange: () => clearError("notificationOnSameThread") })}
+                />
+                <SelectInput
+                    label="Notification Linked to Correct Q-ID?"
+                    options={NOTIFICATION_LINKED_QID_OPTIONS}
+                    required
+                    error={formErrors.notificationLinkedCorrectQId}
+                    {...register("notificationLinkedCorrectQId", { onChange: () => clearError("notificationLinkedCorrectQId") })}
+                />
+
+                {/* Voice Inputs */}
+                {isCross ? (
                     <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="p-3.5 rounded-lg border border-border bg-card space-y-3">
                             <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
-                                <Laptop className="h-3.5 w-3.5" /> Web App Channel
+                                <Laptop className="h-3.5 w-3.5" /> Web App Voice
                             </p>
                             <SelectInput
-                                label="Web Notification Received?"
-                                options={NOTIFICATION_OPTIONS}
-                                required
-                                error={formErrors.notificationReceived}
-                                {...register("notificationReceived", { onChange: () => clearError("notificationReceived") })}
-                            />
-                            <SelectInput
                                 label="Web Voice Input Working?"
-                                options={NOTIFICATION_OPTIONS}
+                                options={YES_NO_NA_OPTIONS}
                                 required
                                 error={formErrors.voiceInputWorking}
                                 {...register("voiceInputWorking", { onChange: () => clearError("voiceInputWorking") })}
                             />
                             <SelectInput
                                 label="Web Voice Output Working?"
-                                options={NOTIFICATION_OPTIONS}
+                                options={YES_NO_NA_OPTIONS}
                                 required
                                 error={formErrors.voiceOutputWorking}
                                 {...register("voiceOutputWorking", { onChange: () => clearError("voiceOutputWorking") })}
                             />
+                            <SelectInput
+                                label="Web Voice Input Issue Description"
+                                options={VOICE_ISSUE_OPTIONS}
+                                required
+                                error={formErrors.voiceInputIssueDescription}
+                                {...register("voiceInputIssueDescription", { onChange: () => clearError("voiceInputIssueDescription") })}
+                            />
                         </div>
                         <div className="p-3.5 rounded-lg border border-border bg-card space-y-3">
                             <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
-                                <Smartphone className="h-3.5 w-3.5" /> WhatsApp Channel
+                                <Smartphone className="h-3.5 w-3.5" /> WhatsApp Voice
                             </p>
                             <SelectInput
-                                label="WhatsApp Notification Received?"
-                                options={NOTIFICATION_OPTIONS}
-                                required
-                                error={formErrors.waNotificationReceived}
-                                {...register("waNotificationReceived", { onChange: () => clearError("waNotificationReceived") })}
-                            />
-                            <SelectInput
                                 label="WhatsApp Voice Input Working?"
-                                options={NOTIFICATION_OPTIONS}
+                                options={YES_NO_NA_OPTIONS}
                                 required
                                 error={formErrors.waVoiceInputWorking}
                                 {...register("waVoiceInputWorking", { onChange: () => clearError("waVoiceInputWorking") })}
                             />
                             <SelectInput
                                 label="WhatsApp Voice Output Working?"
-                                options={NOTIFICATION_OPTIONS}
+                                options={YES_NO_NA_OPTIONS}
                                 required
                                 error={formErrors.waVoiceOutputWorking}
                                 {...register("waVoiceOutputWorking", { onChange: () => clearError("waVoiceOutputWorking") })}
+                            />
+                            <SelectInput
+                                label="WhatsApp Voice Input Issue Description"
+                                options={VOICE_ISSUE_OPTIONS}
+                                required
+                                error={formErrors.waVoiceInputIssueDescription}
+                                {...register("waVoiceInputIssueDescription", { onChange: () => clearError("waVoiceInputIssueDescription") })}
                             />
                         </div>
                     </div>
                 ) : (
                     <>
                         <SelectInput
-                            label="Notification Received?"
-                            options={NOTIFICATION_OPTIONS}
-                            required
-                            error={formErrors.notificationReceived}
-                            {...register("notificationReceived", { onChange: () => clearError("notificationReceived") })}
-                        />
-                        <SelectInput
                             label="Voice Input Working?"
-                            options={NOTIFICATION_OPTIONS}
+                            options={YES_NO_NA_OPTIONS}
                             required
                             error={formErrors.voiceInputWorking}
                             {...register("voiceInputWorking", { onChange: () => clearError("voiceInputWorking") })}
                         />
                         <SelectInput
                             label="Voice Output Working?"
-                            options={NOTIFICATION_OPTIONS}
+                            options={YES_NO_NA_OPTIONS}
                             required
                             error={formErrors.voiceOutputWorking}
                             {...register("voiceOutputWorking", { onChange: () => clearError("voiceOutputWorking") })}
                         />
+                        <SelectInput
+                            label="Voice Input Issue Description"
+                            options={VOICE_ISSUE_OPTIONS}
+                            required
+                            error={formErrors.voiceInputIssueDescription}
+                            {...register("voiceInputIssueDescription", { onChange: () => clearError("voiceInputIssueDescription") })}
+                        />
                     </>
                 )}
                 <SelectInput
-                    label="Notification on Same Thread?"
-                    options={NOTIFICATION_OPTIONS}
-                    required
-                    error={formErrors.notificationOnSameThread}
-                    {...register("notificationOnSameThread", { onChange: () => clearError("notificationOnSameThread") })}
-                />
-                <SelectInput
-                    label="Notification Linked Correct Q-ID?"
-                    options={NOTIFICATION_OPTIONS}
-                    required
-                    error={formErrors.notificationLinkedCorrectQId}
-                    {...register("notificationLinkedCorrectQId", { onChange: () => clearError("notificationLinkedCorrectQId") })}
-                />
-                <SelectInput
                     label="Voice Input Quality"
-                    options={VOICE_QUALITY_OPTIONS}
+                    options={VOICE_INPUT_QUALITY_OPTIONS}
                     required
                     error={formErrors.voiceInputQuality}
                     {...register("voiceInputQuality", { onChange: () => clearError("voiceInputQuality") })}
                 />
                 <SelectInput
                     label="Voice Output Quality"
-                    options={VOICE_QUALITY_OPTIONS}
+                    options={VOICE_OUTPUT_QUALITY_OPTIONS}
                     required
                     error={formErrors.voiceOutputQuality}
                     {...register("voiceOutputQuality", { onChange: () => clearError("voiceOutputQuality") })}
                 />
-                <TextInput
-                    label="Voice Issue Description"
-                    placeholder="Describe any voice issue (or enter NA)"
+                <SelectInput
+                    label="Voice Output Issue Description"
+                    options={VOICE_ISSUE_OPTIONS}
                     required
                     error={formErrors.voiceIssueDescription}
                     {...register("voiceIssueDescription", { onChange: () => clearError("voiceIssueDescription") })}
@@ -1524,7 +1470,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
 
             {/* Section 7 (or 6 if dynamic/duplicate) */}
             <FormSection title={`${excludeReviewerWorkflow ? 6 : 7}. Domain Checks & Parity`} defaultOpen={true} errorCount={s7Errors}>
-                {isCross && (
+                {isCross ? (
                     <div className="sm:col-span-2 lg:col-span-3 p-3.5 rounded-lg border border-purple-500/30 bg-purple-500/5 mb-1 space-y-3">
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
@@ -1534,81 +1480,50 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <SelectInput
-                                label="WhatsApp vs Web Answer Match?"
-                                options={YES_NO_PARTIAL_NA_OPTIONS}
+                                label="WhatsApp vs Web Application Answer Match?"
+                                options={WHATSAPP_VS_WEB_MATCH_OPTIONS}
                                 required
                                 error={formErrors.whatsappVsWebAnswerMatch}
                                 {...register("whatsappVsWebAnswerMatch", { onChange: () => clearError("whatsappVsWebAnswerMatch") })}
                             />
-                            <SelectInput
-                                label="Q-ID Consistent Across Systems?"
-                                options={QID_CONSISTENT_OPTIONS}
-                                required
-                                error={formErrors.qIdConsistentAcrossSystems}
-                                {...register("qIdConsistentAcrossSystems", { onChange: () => clearError("qIdConsistentAcrossSystems") })}
+                            <TextInput
+                                label="Discrepancy Notes (if answers differ)"
+                                placeholder="e.g. WebApp provided detailed tables, WhatsApp returned summary text"
+                                error={formErrors.crossPlatformDiscrepancyNotes}
+                                {...register("crossPlatformDiscrepancyNotes", { onChange: () => clearError("crossPlatformDiscrepancyNotes") })}
                             />
                         </div>
-                        <TextInput
-                            label="Discrepancy Notes (if answers differ)"
-                            placeholder="e.g. WebApp provided detailed tables, WhatsApp returned summary text"
-                            error={formErrors.crossPlatformDiscrepancyNotes}
-                            {...register("crossPlatformDiscrepancyNotes", { onChange: () => clearError("crossPlatformDiscrepancyNotes") })}
-                        />
                     </div>
+                ) : (
+                    <SelectInput
+                        label="WhatsApp vs Web Application Answer Match?"
+                        options={WHATSAPP_VS_WEB_MATCH_OPTIONS}
+                        required
+                        error={formErrors.whatsappVsWebAnswerMatch}
+                        {...register("whatsappVsWebAnswerMatch", { onChange: () => clearError("whatsappVsWebAnswerMatch") })}
+                    />
                 )}
                 <SelectInput
                     label="Weather Q Answered Correctly?"
-                    options={YES_NO_PARTIAL_NA_OPTIONS}
+                    options={YES_NO_NA_OPTIONS}
                     required
                     error={formErrors.weatherQAnsweredCorrectly}
                     {...register("weatherQAnsweredCorrectly", { onChange: () => clearError("weatherQAnsweredCorrectly") })}
                 />
                 <SelectInput
                     label="Mandi Price Q Correct?"
-                    options={YES_NO_PARTIAL_NA_OPTIONS}
+                    options={YES_NO_NA_OPTIONS}
                     required
                     error={formErrors.mandiPriceQCorrect}
                     {...register("mandiPriceQCorrect", { onChange: () => clearError("mandiPriceQCorrect") })}
                 />
                 <SelectInput
                     label="Scheme Q Correct?"
-                    options={YES_NO_PARTIAL_NA_OPTIONS}
+                    options={YES_NO_NA_OPTIONS}
                     required
                     error={formErrors.schemeQCorrect}
                     {...register("schemeQCorrect", { onChange: () => clearError("schemeQCorrect") })}
                 />
-                <SelectInput
-                    label="Question Saved in DB?"
-                    options={DB_SAVE_OPTIONS}
-                    required
-                    error={formErrors.questionSavedInDb}
-                    {...register("questionSavedInDb", { onChange: () => clearError("questionSavedInDb") })}
-                />
-                <SelectInput
-                    label="Answer Saved in DB?"
-                    options={DB_SAVE_OPTIONS}
-                    required
-                    error={formErrors.answerSavedInDb}
-                    {...register("answerSavedInDb", { onChange: () => clearError("answerSavedInDb") })}
-                />
-                {!isCross && (
-                    <>
-                        <SelectInput
-                            label="Q-ID Consistent Across Systems?"
-                            options={QID_CONSISTENT_OPTIONS}
-                            required
-                            error={formErrors.qIdConsistentAcrossSystems}
-                            {...register("qIdConsistentAcrossSystems", { onChange: () => clearError("qIdConsistentAcrossSystems") })}
-                        />
-                        <SelectInput
-                            label="WhatsApp vs Web Answer Match?"
-                            options={YES_NO_PARTIAL_NA_OPTIONS}
-                            required
-                            error={formErrors.whatsappVsWebAnswerMatch}
-                            {...register("whatsappVsWebAnswerMatch", { onChange: () => clearError("whatsappVsWebAnswerMatch") })}
-                        />
-                    </>
-                )}
             </FormSection>
 
             {/* Section 8 (or 7 if dynamic/duplicate) */}
@@ -1664,27 +1579,30 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     onOpenCreateModal={() => setIsTicketModalOpen(true)}
                     zohoStatuses={zohoStatuses}
                 />
-                <TextareaInput
-                    label="Reviewer Remarks"
-                    placeholder="Reviewer remarks (or enter NA)..."
-                    required
-                    error={formErrors.reviewerRemarks}
-                    {...register("reviewerRemarks", { onChange: () => clearError("reviewerRemarks") })}
-                />
-                <TextareaInput
+                <SelectInput
                     label="Tester Remarks"
-                    placeholder="Your remarks..."
+                    options={TESTER_REMARKS_OPTIONS}
                     required
                     error={formErrors.testerRemarks}
-                    {...register("testerRemarks", { onChange: () => clearError("testerRemarks") })}
+                    {...register("testerRemarks", {
+                        onChange: (e) => {
+                            clearError("testerRemarks");
+                            if (e.target.value === "No Action Required") {
+                                setValue("testerRemarksNotes", "");
+                                clearError("testerRemarksNotes");
+                            }
+                        },
+                    })}
                 />
-                <SelectInput
-                    label="Status"
-                    options={STATUS_OPTIONS}
-                    required
-                    error={formErrors.status}
-                    {...register("status", { onChange: () => clearError("status") })}
-                />
+                {testerRemarks && testerRemarks !== "No Action Required" && (
+                    <TextareaInput
+                        label="Remarks Details"
+                        placeholder="Write down your detailed remarks..."
+                        required
+                        error={formErrors.testerRemarksNotes}
+                        {...register("testerRemarksNotes", { onChange: () => clearError("testerRemarksNotes") })}
+                    />
+                )}
             </FormSection>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -1723,6 +1641,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 buildVersion: watch("buildVersion"),
                 defectSeverity: watch("defectSeverity"),
                 testerRemarks: watch("testerRemarks"),
+                testerRemarksNotes: watch("testerRemarksNotes"),
                 overallTestStatus: watch("overallTestStatus"),
                 testerName,
                 userEmail,

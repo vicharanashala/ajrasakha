@@ -74,6 +74,7 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() translationQuality?: string;
     @IsString() @IsOptional() translationErrorType?: string;
     @IsString() @IsOptional() tagging?: string;
+    @IsString() @IsOptional() retrievalAccuracy?: string;
 
     @IsString() @IsOptional() allocatedToReviewer?: string;
     @IsString() @IsOptional() authorsName?: string;
@@ -117,6 +118,7 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() voiceInputWorking?: string;
     @IsString() @IsOptional() voiceOutputWorking?: string;
     @IsString() @IsOptional() voiceInputQuality?: string;
+    @IsString() @IsOptional() voiceInputIssueDescription?: string;
     @IsString() @IsOptional() voiceOutputQuality?: string;
     @IsString() @IsOptional() voiceIssueDescription?: string;
 
@@ -133,6 +135,7 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() defectIdBugRef?: string;
     @IsString() @IsOptional() reviewerRemarks?: string;
     @IsString() @IsOptional() testerRemarks?: string;
+    @IsString() @IsOptional() testerRemarksNotes?: string;
     @IsString() @IsOptional() status?: string;
 
     // Cross-Platform Dual-Channel Fields
@@ -145,6 +148,7 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() waVoiceInputWorking?: string;
     @IsString() @IsOptional() waVoiceOutputWorking?: string;
     @IsString() @IsOptional() waVoiceInputQuality?: string;
+    @IsString() @IsOptional() waVoiceInputIssueDescription?: string;
     @IsString() @IsOptional() waVoiceOutputQuality?: string;
     @IsString() @IsOptional() waVoiceIssueDescription?: string;
     @IsString() @IsOptional() waNotificationReceived?: string;

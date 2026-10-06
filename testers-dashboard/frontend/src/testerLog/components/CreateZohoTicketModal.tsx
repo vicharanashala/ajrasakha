@@ -27,6 +27,7 @@ interface CreateZohoTicketModalProps {
         buildVersion?: string;
         defectSeverity?: string;
         testerRemarks?: string;
+        testerRemarksNotes?: string;
         overallTestStatus?: string;
         testerName?: string;
         userEmail?: string;
@@ -256,7 +257,9 @@ export function CreateZohoTicketModal({
                 `• Overall Test Status: ${initialData.overallTestStatus || "N/A"}`,
                 "",
                 "Tester Remarks / Steps to Reproduce:",
-                initialData.testerRemarks || "No additional remarks provided.",
+                initialData.testerRemarksNotes
+                    ? `${initialData.testerRemarks || "Remarks"}: ${initialData.testerRemarksNotes}`
+                    : initialData.testerRemarks || "No additional remarks provided.",
                 "",
                 `Reported By: ${initialData.testerName || "QA Tester"} (${initialData.userEmail || "tester@annamai.org"})`,
             ];
