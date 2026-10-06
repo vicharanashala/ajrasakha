@@ -2,9 +2,9 @@ services:
   api:
     build: .
     ports:
-      - "8002:8002"
+      - "8002:8002"   # host:container - hit it locally at localhost:8002
     env_file:
-      - .env
+      - .env   # CHEMICAL_DB_URL etc, not committed - copy .env.example to .env first
     volumes:
-      - .:/app
+      - .:/app   # mounts the code in so you don't have to rebuild on every change
     restart: always
