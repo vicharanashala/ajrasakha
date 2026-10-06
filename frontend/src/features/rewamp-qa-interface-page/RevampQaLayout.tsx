@@ -250,7 +250,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                       language: selectedQuestionData.language || "English",
                       askedOn: selectedQuestionData.createdAt || (selectedQuestionData as any).askedOn || "",
                       priority: (selectedQuestionData.priority as any) || "Medium",
-                      commentsCount: selectedQuestionData.commentsCount || 0,
+                      commentsCount: selectedQuestionData.totalAnswersCount || 0,
                       queueIndex:
                         questions.findIndex(
                           (q) => (q.id || q._id) === selectedQuestionId
