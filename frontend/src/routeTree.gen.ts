@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatsappHistoryRouteImport } from './routes/whatsapp-history'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WeatherDashboardIndexRouteImport } from './routes/weather-dashboard/index'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
@@ -33,6 +34,11 @@ const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WeatherDashboardIndexRoute = WeatherDashboardIndexRouteImport.update({
+  id: '/weather-dashboard/',
+  path: '/weather-dashboard/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileIndexRoute = ProfileIndexRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
+  '/weather-dashboard': typeof WeatherDashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
+  '/weather-dashboard': typeof WeatherDashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/notifications/': typeof NotificationsIndexRoute
   '/pae-expert/': typeof PaeExpertIndexRoute
   '/profile/': typeof ProfileIndexRoute
+  '/weather-dashboard/': typeof WeatherDashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/pae-expert'
     | '/profile'
+    | '/weather-dashboard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/pae-expert'
     | '/profile'
+    | '/weather-dashboard'
   id:
     | '__root__'
     | '/'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/pae-expert/'
     | '/profile/'
+    | '/weather-dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -223,6 +235,7 @@ export interface RootRouteChildren {
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   PaeExpertIndexRoute: typeof PaeExpertIndexRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
+  WeatherDashboardIndexRoute: typeof WeatherDashboardIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/weather-dashboard/': {
+      id: '/weather-dashboard/'
+      path: '/weather-dashboard'
+      fullPath: '/weather-dashboard'
+      preLoaderRoute: typeof WeatherDashboardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile/': {
@@ -351,6 +371,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsIndexRoute: NotificationsIndexRoute,
   PaeExpertIndexRoute: PaeExpertIndexRoute,
   ProfileIndexRoute: ProfileIndexRoute,
+  WeatherDashboardIndexRoute: WeatherDashboardIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

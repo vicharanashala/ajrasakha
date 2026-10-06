@@ -119,5 +119,11 @@
     "workerDirectory": [
       "public"
     ]
+  },
+  "pnpm": {
+    "allow-build": [
+      "core-js",
+      "wasm-pack"
+    ]
   }
 }
