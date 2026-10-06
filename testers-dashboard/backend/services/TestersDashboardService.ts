@@ -334,7 +334,9 @@ export class TestersDashboardService implements ITestersDashboardService {
             const allRecords = dbData.records;
             const lastSyncedAt = dbData.lastSyncedAt;
             const filters = this.buildFiltersFromQuery(query);
-            const excludeFailures = query.excludeFailures === 'true';
+            // Exclude Failures is a Google Sheet-only control - DB analytics
+            // never applies it, even if a stale client still sends the param.
+            const excludeFailures = false;
 
             const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
             const kpis = calculateKpis(filteredRows, filters.typeBranch);

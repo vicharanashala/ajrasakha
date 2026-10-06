@@ -48,7 +48,8 @@ export const useTestersDashboardSummary = (
         tester: filters.tester !== "all" ? filters.tester : undefined,
         status: filters.status !== "all" ? filters.status : undefined,
         severity: filters.severity !== "all" ? filters.severity : undefined,
-        excludeFailures: excludeFailures || undefined,
+        // Exclude Failures is Google Sheet-only - never sent for the DB source.
+        excludeFailures: (source === 'sheet' && excludeFailures) || undefined,
         customStart: customStart || undefined,
         customEnd: customEnd || undefined,
         dynamicSubTypes: dynamicSubTypes.length > 0 ? dynamicSubTypes.join(",") : undefined,

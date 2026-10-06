@@ -361,6 +361,32 @@ describe('TestersDashboardService.getSummary', () => {
             expect(summaryResult.diagnostics.openTickets).toEqual([]);
             expect(summaryResult.diagnostics.allTickets).toEqual([]);
         });
+
+        it('ignores excludeFailures - Exclude Failures is a Google Sheet-only control', async () => {
+            // mock-2 is Critical severity, which the sheet-side Exclude
+            // Failures filter would drop - DB analytics must keep it.
+            const mockEntries = [
+                { _id: 'mock-1', testDate: '2026-06-10', typeOfQuestion: 'GDB', overallTestStatus: 'Pass', defectSeverity: 'Low' },
+                { _id: 'mock-2', testDate: '2026-06-10', typeOfQuestion: 'GDB', overallTestStatus: 'Fail', defectSeverity: 'Critical' },
+            ];
+            const mockDb = {
+                getCollection: vi.fn().mockResolvedValue({
+                    find: vi.fn().mockReturnValue({
+                        sort: vi.fn().mockReturnValue({
+                            toArray: vi.fn().mockResolvedValue(mockEntries),
+                        }),
+                    }),
+                }),
+            };
+            const dbService = new TestersDashboardService(mockDb as any);
+
+            const withoutParam = await dbService.getSummary({ source: 'db' });
+            const withParam = await dbService.getSummary({ source: 'db', excludeFailures: 'true' });
+
+            expect(withoutParam.kpis.N).toBe(2);
+            expect(withParam.kpis.N).toBe(2);
+            expect(withParam.kpis).toEqual(withoutParam.kpis);
+        });
     });
 });
 
