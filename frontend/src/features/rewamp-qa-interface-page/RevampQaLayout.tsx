@@ -72,6 +72,35 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     }
   }, [questions, selectedQuestionId]);
 
+  // Auto-select next question when current question is no longer in the list
+  // This handles the case when a question is accepted/rejected/answered
+  useEffect(() => {
+    if (questions.length === 0) {
+      setSelectedQuestionId(null);
+      return;
+    }
+
+    const currentId = selectedQuestionId;
+    if (!currentId) return;
+
+    const currentExists = questions.some(
+      (q) => (q.id || q._id) === currentId
+    );
+
+    if (!currentExists) {
+      // Current question is no longer in the list, select the first available
+      const timebound = questions.find(
+        (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+      );
+      if (timebound) {
+        setSelectedQuestionId(timebound.id || timebound._id);
+      } else {
+        const first = questions[0];
+        setSelectedQuestionId(first?.id || first?._id);
+      }
+    }
+  }, [questions]);
+
   // Fetch full details of the selected question
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestionId, actionType);
