@@ -28,6 +28,7 @@ import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import type { IUser } from "@/types";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { format } from "date-fns";
+import { UserActivityReportControl } from "./UserActivityReportControl";
 import type { DateRange } from "react-day-picker";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
@@ -305,7 +306,7 @@ export const GateKeeperAuditorDashboard = ({
       ) : null}
 
       <div className="mx-auto p-6">
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
               {nounTitle} {viewingOther ? "Performance" : "Dashboard"}
@@ -319,7 +320,18 @@ export const GateKeeperAuditorDashboard = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {targetUserId && (
+              <UserActivityReportControl
+                userId={targetUserId}
+                userName={
+                  viewingOther
+                    ? userName ?? "User"
+                    : `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() || "User"
+                }
+                userRole={role}
+              />
+            )}
             <GateKeeperAuditorCheckInControl user={currentUser} />
           </div>
         </div>
