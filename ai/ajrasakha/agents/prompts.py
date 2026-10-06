@@ -656,17 +656,23 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
     - How to USE weather forecasting for [crop] (strategies)
     - Weather forecasting strategies for [crop] (general)
     - Any question asking about weather info for cultivation (not current conditions)
+  - **CRITICAL: Weather mentions as CONTEXT vs. Weather as QUESTION:**
+    - If the query asks "what pests/diseases/problems occur during [weather condition]", that weather is just context describing when problems happen → weather=false
+    - If the query asks about actual weather data (current, forecast, rainfall, temperature), that IS the question → weather=true
+    - Do NOT confuse "mentions weather in the question" with "needs weather data to answer"
   - Examples (follow these patterns):
     - "Will it rain tomorrow?" → weather=true
-    - "What weather info is important for okra?" → weather=false
-    - "What weather information is important for okra cultivation in Uttar Pradesh?" → weather=false
+    - "What is the current weather in Ludhiana?" → weather=true
     - "Current temperature in Punjab" → weather=true
+    - "What crops are best for current weather in Pathankot?" → weather=true
+    - "Based on current weather which crop will best to grow?" → weather=true
+    - "What pest or disease problems can occur in paddy during cold weather conditions in Tamil Nadu?" → weather=false
+    - "Problems in rice during rainy season in West Bengal" → weather=false
+    - "What problems occur in tomato during hot weather?" → weather=false
+    - "How does humidity affect crops in Karnataka?" → weather=false
+    - "What weather info is important for okra?" → weather=false
     - "Best weather conditions for wheat sowing" → weather=false
     - "How can weather forecasting be utilized to optimize rubber cultivation and management practices in Kerala?" → weather=false
-    - "Weather forecasting strategies for rice in West Bengal" → weather=false
-    - "What crops are best for current weather in Pathankot?" → weather=true
-    - "What is the current weather in Ludhiana?" → weather=true
-    - "Based on current weather which crop will best to grow?" → weather=true
 - Tool flags (`mandi`, `soil`, `schemes`, `knowledge_base`) are derived server-side from `domains`; leave them false in your output.
 
 **Translation & Rephrasing Rules (CRITICAL — fidelity over fluency):**
