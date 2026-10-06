@@ -2,10 +2,9 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { RevampQaLayout } from "@/features/rewamp-qa-interface-page";
 import { useAuthStore } from "@/stores/auth-store";
 import { useEffect } from "react";
-import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Badge } from "@/components/atoms/badge";
 
@@ -16,7 +15,6 @@ export const Route = createFileRoute("/revamp-qa/")({
 function RouteComponent() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const { data: currentUser } = useGetCurrentUser({});
 
   useEffect(() => {
     if (!user) {

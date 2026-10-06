@@ -20,21 +20,27 @@ import {
   CheckCircle2,
   Wand2,
   FileCheck,
-  RefreshCw,
   ArrowDownToLine,
   FileText,
   Send,
   Loader2,
   History,
-  XCircle,
   Pencil,
-  CheckCircle,
+  XCircle,
+  ExternalLink,
 } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/atoms/card";
+import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
 import { Label } from "@/components/atoms/label";
 import { Textarea } from "@/components/atoms/textarea";
 import { Badge } from "@/components/atoms/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/select";
 import { SourceUrlManager } from "@/components/source-url-manager";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { toast } from "sonner";
@@ -42,17 +48,11 @@ import type { IQuestion, IReviewParmeters, SourceItem } from "@/types";
 import type { AiAssistActionType } from "../types";
 import { RevampReviewHistoryTimeline } from "./RevampReviewHistoryTimeline";
 import { ReviewResponseDialog } from "@/features/qa-interface-page/ReviewResponseDialog";
-import { AcceptReviewDialog } from "@/features/qa-interface-page/AcceptReviewDialog";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
-import { useReRouteRejectQuestion } from "@/hooks/api/question/useReRouteRejectQuestion";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/atoms/dialog";
+import { useFetchAnswer } from "@/hooks/api/answer/useGetAiInitialAnswer";
+import { useGetStates } from "@/hooks/api/location/useLocations";
+import type { ILocationState } from "@/hooks/services/locationService";
 
 interface AnswerReviewDraftPanelProps {
   selectedQuestionData?: IQuestion | null;
@@ -78,6 +78,21 @@ interface AnswerReviewDraftPanelProps {
   onToggleCollapse?: () => void;
 }
 
+const normalizeAiAnswerSources = (result: any): SourceItem[] => {
+  const apiSources = result?.sources?.length
+    ? result.sources
+    : result?.contexts?.map((context: any) => context.meta_data).filter(Boolean);
+
+  return (apiSources || [])
+    .map((source: any) => ({
+      sourceType: "other" as const,
+      sourceName: source?.source_name?.trim(),
+      source: source?.source_url || source?.source || "",
+      page: source?.page_no ?? source?.page,
+    }))
+    .filter((source: any) => source.source);
+};
+
 export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   selectedQuestionData,
   isLoading = false,
@@ -97,20 +112,32 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   const history = selectedQuestionData?.history || [];
   const isReviewPhase = Boolean(history && history.length > 0);
 
-  // Tab State - AI Generated tab is first and active by default
-  const [activeTab, setActiveTab] = useState<"ai_answer" | "response_review" | "reviewer_draft" | "ai_assist">("ai_answer");
+  // Tab State - Review phase defaults to "response_review", Author phase defaults to "ai_answer"
+  const [activeTab, setActiveTab] = useState<"ai_answer" | "response_review" | "reviewer_draft" | "ai_assist">(
+    isReviewPhase ? "response_review" : "ai_answer"
+  );
 
-  // Always default to AI Generated Answer when a new question is selected
+  // Default tab based on question phase
   useEffect(() => {
-    setActiveTab("ai_answer");
-  }, [selectedQuestionData?.id, (selectedQuestionData as any)?._id]);
+    setActiveTab(isReviewPhase ? "response_review" : "ai_answer");
+  }, [selectedQuestionData?.id, (selectedQuestionData as any)?._id, isReviewPhase]);
 
-  const aiAnswerText =
+  // On-demand generated AI Answer & sources state
+  const [generatedAiAnswer, setGeneratedAiAnswer] = useState<string>("");
+  const [generatedAiSources, setGeneratedAiSources] = useState<SourceItem[]>([]);
+
+  const baseAiAnswer =
     selectedQuestionData?.source === "AJRASAKHA"
       ? selectedQuestionData.aiApprovedAnswer || selectedQuestionData.aiInitialAnswer || initialAiAnswer || ""
       : selectedQuestionData?.aiInitialAnswer || initialAiAnswer || "";
 
+  const aiAnswerText = generatedAiAnswer || baseAiAnswer;
   const hasAiAnswer = Boolean(aiAnswerText && aiAnswerText.trim().length > 0);
+
+  const aiSourcesList: SourceItem[] =
+    generatedAiSources.length > 0
+      ? generatedAiSources
+      : selectedQuestionData?.aiApprovedSources || [];
 
   const [draftAnswer, setDraftAnswer] = useState<string>(initialDraft);
   const [remarks, setRemarks] = useState<string>(initialRemarks);
@@ -127,8 +154,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
   const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
-  const [rerouteModal, setRerouteModal] = useState(false);
-  const [rejectReRouteReason, setRejectReRouteReason] = useState("");
+  const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
 
   const [checklist, setChecklist] = useState<IReviewParmeters>({
     contextRelevance: false,
@@ -155,16 +181,109 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
           )?.answer
       : null;
 
-  // Pre-fill answer & sources when reviewing
+  // Pre-fill answer & sources when reviewing (Review Phase)
   useEffect(() => {
-    if (currentReviewingAnswer?.answer && currentReviewingAnswer?.sources) {
+    if (isReviewPhase && currentReviewingAnswer?.answer) {
       setDraftAnswer(currentReviewingAnswer.answer);
-      setSources(currentReviewingAnswer.sources);
+      setSources(currentReviewingAnswer.sources || []);
       if (currentReviewingAnswer.remarks) {
         setRemarks(currentReviewingAnswer.remarks);
       }
     }
-  }, [currentReviewingAnswer]);
+  }, [currentReviewingAnswer, isReviewPhase]);
+
+  // Pre-fill answer & sources when authoring (Author Phase)
+  useEffect(() => {
+    if (!selectedQuestionData || isReviewPhase) return;
+
+    // Reset temporary generated AI state on question switch
+    setGeneratedAiAnswer("");
+    setGeneratedAiSources([]);
+
+    const prefill =
+      selectedQuestionData.source === "AJRASAKHA"
+        ? selectedQuestionData.aiApprovedAnswer || selectedQuestionData.aiInitialAnswer || ""
+        : selectedQuestionData.aiInitialAnswer || "";
+
+    if (prefill) {
+      setDraftAnswer(prefill);
+      setRemarks("AI Generated Answer");
+      if (
+        selectedQuestionData.source === "AJRASAKHA" &&
+        selectedQuestionData.aiApprovedSources?.length
+      ) {
+        setSources(selectedQuestionData.aiApprovedSources);
+      } else {
+        setSources([]);
+      }
+    } else {
+      setDraftAnswer("");
+      setRemarks("");
+      setSources([]);
+    }
+  }, [selectedQuestionData?.id, (selectedQuestionData as any)?._id, isReviewPhase]);
+
+  // Hook for on-demand AI answer generation
+  const { mutate: fetchAnswer, isPending: isFetchingAiAnswer } = useFetchAnswer();
+  const { data: statesResponse = [] } = useGetStates();
+  const statesList: string[] =
+    (statesResponse as ILocationState[])?.map((s) => s.stateNameEnglish) || [];
+  const [selectedGenState, setSelectedGenState] = useState<string>(
+    selectedQuestionData?.details?.state || (selectedQuestionData as any)?.state || ""
+  );
+
+  useEffect(() => {
+    if (selectedQuestionData?.details?.state || (selectedQuestionData as any)?.state) {
+      setSelectedGenState(
+        selectedQuestionData?.details?.state || (selectedQuestionData as any).state
+      );
+    }
+  }, [selectedQuestionData]);
+
+  const handleGenerateAiInitialAnswer = () => {
+    if (!selectedQuestionData?.text) {
+      toast.error("Question text is required to generate AI answer.");
+      return;
+    }
+
+    const crop =
+      selectedQuestionData?.details?.crop ||
+      (selectedQuestionData as any)?.crop ||
+      "";
+    const state =
+      selectedGenState ||
+      selectedQuestionData?.details?.state ||
+      (selectedQuestionData as any)?.state ||
+      "";
+
+    fetchAnswer(
+      {
+        query: selectedQuestionData.text,
+        crop,
+        state,
+      },
+      {
+        onSuccess: (result: any) => {
+          if (!result?.answer) {
+            toast.error("AI answer was not returned.");
+            return;
+          }
+          const normSources = normalizeAiAnswerSources(result);
+          setGeneratedAiAnswer(result.answer);
+          setGeneratedAiSources(normSources);
+          setDraftAnswer(result.answer);
+          if (normSources.length > 0) {
+            setSources(normSources);
+          }
+          setRemarks("AI Generated Answer");
+          toast.success("AI initial answer generated and loaded into draft!");
+        },
+        onError: () => {
+          toast.error("Failed to generate AI answer. Please try again.");
+        },
+      }
+    );
+  };
 
   // Tab horizontal scroll handling
   const tabScrollRef = useRef<HTMLDivElement>(null);
@@ -319,44 +438,6 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     setIsModifyDialogOpen(false);
   };
 
-  const { rejectReRoute, isRejecting: isRejectingReRoute } = useReRouteRejectQuestion();
-
-  const handleRejectReRouteAnswer = async (reason: string) => {
-    if (reason.trim() === "") {
-      toast.error("No reason provided for rejection");
-      return;
-    }
-    if (reason.length < 8) {
-      toast.error("Rejection reason must be at least 8 characters");
-      return;
-    }
-
-    const h = selectedQuestionData?.history?.[0];
-    if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.reroutedTo) {
-      console.error("Required data is missing for rejectReRoute");
-      toast.error("Missing required metadata to reject re-route.");
-      return;
-    }
-
-    try {
-      await rejectReRoute({
-        reason,
-        rerouteId: h.rerouteId,
-        questionId: h.question._id,
-        moderatorId: h.moderator._id,
-        expertId: h.reroute.reroutedTo,
-        role: "expert",
-      });
-
-      onQuestionSelect?.(null);
-      refetchQuestions?.();
-      toast.success("Successfully rejected the Re-Route Question");
-    } catch (error) {
-      console.error("Failed to reject reroute question:", error);
-      toast.error("Failed to reject reroute question");
-    }
-  };
-
   if (isCollapsed) {
     return (
       <div className="h-full flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12 min-h-[300px]">
@@ -404,21 +485,23 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
               onScroll={checkTabScroll}
               className="flex items-end gap-0.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pt-1"
             >
-              {/* TAB 1: AI Generated Answer (Always First) */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("ai_answer")}
-                className={`h-8 px-3.5 inline-flex items-center justify-center text-xs rounded-t-md border-t-2 border-x border-b-0 transition-colors whitespace-nowrap relative -mb-px select-none cursor-pointer ${
-                  activeTab === "ai_answer"
-                    ? "border-t-blue-500 border-x-blue-500/80 bg-background text-blue-900 dark:text-blue-300 font-bold z-10 shadow-xs"
-                    : "border-t-transparent border-x-transparent bg-slate-100/90 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-200/80 dark:hover:bg-slate-700/70 hover:text-foreground"
-                }`}
-              >
-                <Bot className="w-3 h-3 mr-1 text-blue-500" />
-                AI Generated Answer
-              </button>
+              {/* For Author Phase: TAB 1 is AI Generated Answer */}
+              {!isReviewPhase && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("ai_answer")}
+                  className={`h-8 px-3.5 inline-flex items-center justify-center text-xs rounded-t-md border-t-2 border-x border-b-0 transition-colors whitespace-nowrap relative -mb-px select-none cursor-pointer ${
+                    activeTab === "ai_answer"
+                      ? "border-t-blue-500 border-x-blue-500/80 bg-background text-blue-900 dark:text-blue-300 font-bold z-10 shadow-xs"
+                      : "border-t-transparent border-x-transparent bg-slate-100/90 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-200/80 dark:hover:bg-slate-700/70 hover:text-foreground"
+                  }`}
+                >
+                  <Bot className="w-3 h-3 mr-1 text-blue-500" />
+                  AI Generated Answer
+                </button>
+              )}
 
-              {/* TAB 2: Response & Review (if review phase) or Reviewer Draft (if author phase) */}
+              {/* TAB 2 (or TAB 1 in Review Phase): Response & Review or Reviewer Draft */}
               {isReviewPhase ? (
                 <button
                   type="button"
@@ -447,7 +530,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 </button>
               )}
 
-              {/* TAB 3: AI Assist */}
+              {/* TAB: AI Assist */}
               <button
                 type="button"
                 onClick={() => setActiveTab("ai_assist")}
@@ -533,6 +616,17 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
               <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <FileCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Reviewer Draft / Edit Answer</span>
+                {aiAnswerText &&
+                  draftAnswer &&
+                  draftAnswer.trim() === aiAnswerText.trim() && (
+                    <Badge
+                      variant="outline"
+                      className="ml-1 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-800 gap-1 font-medium"
+                    >
+                      <Bot className="w-2.5 h-2.5" />
+                      AI Suggested
+                    </Badge>
+                  )}
               </label>
 
               {/* Action Buttons: Reset / Clear Draft + Use AI Answer */}
@@ -548,14 +642,18 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                   Reset
                 </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleUseAiAnswerInDraft}
-                  className="h-6 px-2 text-[11px] text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900 hover:bg-blue-50/60 transition-colors"
-                >
-                  Use AI Answer
-                </Button>
+                {hasAiAnswer && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUseAiAnswerInDraft}
+                    className="h-6 px-2 text-[11px] text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900 hover:bg-blue-50/60 transition-colors"
+                    title="Insert AI generated answer into draft"
+                  >
+                    <Bot className="w-3 h-3 mr-1" />
+                    Use AI Answer
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -672,15 +770,36 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
             </div>
 
             {/* Answer Draft Textarea */}
-            <Textarea
-              value={translatedDraftText || draftAnswer}
-              onChange={(e) => {
-                setTranslatedDraftText("");
-                setDraftAnswer(e.target.value);
-              }}
-              placeholder="Type or review the expert response here..."
-              className="flex-1 min-h-[160px] p-3 text-xs leading-relaxed resize-none rounded-lg bg-background border-border/80 focus-visible:ring-1 focus-visible:ring-primary"
-            />
+            <div className="relative flex-1 flex flex-col">
+              <Textarea
+                value={translatedDraftText || draftAnswer}
+                onChange={(e) => {
+                  setTranslatedDraftText("");
+                  setDraftAnswer(e.target.value);
+                }}
+                placeholder="Type or review the expert response here..."
+                className={`flex-1 min-h-[160px] p-3 text-xs leading-relaxed resize-none rounded-lg focus-visible:ring-1 focus-visible:ring-primary ${
+                  aiAnswerText &&
+                  draftAnswer &&
+                  draftAnswer.trim() === aiAnswerText.trim()
+                    ? "border-blue-400/80 bg-blue-50/25 dark:bg-blue-950/20 italic"
+                    : "border-border/80 bg-background"
+                }`}
+              />
+              {aiAnswerText &&
+                draftAnswer &&
+                draftAnswer.trim() === aiAnswerText.trim() && (
+                  <div className="absolute right-3 bottom-3 pointer-events-none">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-400/40 gap-1 font-medium backdrop-blur-xs"
+                    >
+                      <Bot className="w-3 h-3" />
+                      AI Pre-filled
+                    </Badge>
+                  </div>
+                )}
+            </div>
 
             {/* Remarks Section */}
             <div className="space-y-1">
@@ -738,15 +857,15 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
 
         {/* ============================================================ */}
         {/* ============================================================ */}
-        {/* TAB: AI GENERATED ANSWER (Read Only)                         */}
+        {/* TAB: AI GENERATED ANSWER (Read Only / Reference)             */}
         {/* ============================================================ */}
-        {!isLoading && activeTab === "ai_answer" && (
-          <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2.5">
+        {!isLoading && !isReviewPhase && activeTab === "ai_answer" && (
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                 <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>AI Suggested Answer</span>
-                <span className="text-[10px] font-normal text-muted-foreground">(Read Only)</span>
+                <span className="text-[10px] font-normal text-muted-foreground">(Reference)</span>
               </div>
 
               {hasAiAnswer && (
@@ -772,18 +891,103 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
             </div>
 
             {hasAiAnswer ? (
-              <div className="p-3 rounded-lg bg-background border border-border/60 text-xs font-normal text-foreground/90 whitespace-pre-wrap leading-relaxed min-h-[200px] max-h-[360px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                {translatedAiText || aiAnswerText}
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-lg bg-background border border-border/60 text-xs font-normal text-foreground/90 whitespace-pre-wrap leading-relaxed min-h-[160px] max-h-[320px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  {translatedAiText || aiAnswerText}
+                </div>
+
+                {/* AI Reference Sources if present */}
+                {aiSourcesList.length > 0 && (
+                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 space-y-2">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      <Link2 className="w-3 h-3 text-primary" />
+                      <span>Referenced Sources ({aiSourcesList.length})</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aiSourcesList.map((src, idx) => (
+                        <div
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] bg-muted/60 border border-border/70 text-foreground"
+                        >
+                          <span className="font-medium text-primary">
+                            {src.sourceName || src.sourceType || "Source"}
+                          </span>
+                          {src.page && (
+                            <span className="text-muted-foreground">p. {src.page}</span>
+                          )}
+                          {src.source && (
+                            <a
+                              href={src.source}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-500 hover:underline inline-flex items-center ml-0.5"
+                              title={src.source}
+                            >
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border/80 bg-background/50 p-8 flex flex-col items-center justify-center text-center space-y-2 min-h-[200px]">
-                <div className="w-10 h-10 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground mb-1">
-                  <Bot className="w-5 h-5 opacity-60" />
+              <div className="rounded-lg border border-dashed border-border/80 bg-background/50 p-6 flex flex-col items-center justify-center text-center space-y-3 min-h-[220px]">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Bot className="w-5 h-5" />
                 </div>
-                <p className="text-xs sm:text-sm font-semibold text-foreground">No AI Generated Answer</p>
-                <p className="text-xs text-muted-foreground max-w-sm">
-                  There is no AI-generated answer available for this question. You can write your response in the Reviewer Draft or use the AI Assist tools.
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs sm:text-sm font-semibold text-foreground">
+                    {isReviewPhase
+                      ? "No AI Generated Answer Recorded"
+                      : "No AI Generated Answer Available"}
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    {isReviewPhase
+                      ? "This question is in review mode. AI initial answers are created during initial authoring before human submissions."
+                      : "No initial AI response was found. You can generate one on-demand using agricultural context or write directly in the draft."}
+                  </p>
+                </div>
+
+                {!isReviewPhase && (
+                  <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
+                    <Select
+                      value={selectedGenState}
+                      onValueChange={setSelectedGenState}
+                    >
+                      <SelectTrigger className="h-8 w-[160px] text-xs">
+                        <SelectValue placeholder="Select State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statesList.map((st) => (
+                          <SelectItem key={st} value={st} className="text-xs">
+                            {st}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      size="sm"
+                      onClick={handleGenerateAiInitialAnswer}
+                      disabled={isFetchingAiAnswer}
+                      className="h-8 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 shadow-xs"
+                    >
+                      {isFetchingAiAnswer ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Generating AI Answer...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Generate AI Answer</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -955,8 +1159,8 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
         onChecklistChange={setChecklist}
         rejectionReason={rejectionReason}
         setRejectionReason={setRejectionReason}
-        isStageSubmitted={false}
-        setIsStageSubmitted={() => {}}
+        isStageSubmitted={isRejectionSubmitted}
+        setIsStageSubmitted={setIsRejectionSubmitted}
         newAnswer={draftAnswer}
         setNewAnswer={setDraftAnswer}
         selectedQuestionData={selectedQuestionData}
@@ -983,8 +1187,8 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
         onChecklistChange={setChecklist}
         rejectionReason={rejectionReason}
         setRejectionReason={setRejectionReason}
-        isStageSubmitted={false}
-        setIsStageSubmitted={() => {}}
+        isStageSubmitted={isRejectionSubmitted}
+        setIsStageSubmitted={setIsRejectionSubmitted}
         newAnswer={draftAnswer}
         setNewAnswer={setDraftAnswer}
         selectedQuestionData={selectedQuestionData}
@@ -998,37 +1202,6 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
         remarks={remarks}
         setRemarks={setRemarks}
       />
-
-      {/* REROUTE REJECT DIALOG */}
-      <Dialog open={rerouteModal} onOpenChange={setRerouteModal}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Rejection Reason *</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            value={rejectReRouteReason}
-            onChange={(e) => setRejectReRouteReason(e.target.value)}
-            rows={6}
-            className="mt-2 h-[30vh]"
-            placeholder="Write your reason..."
-          />
-
-          <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setRerouteModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={rejectReRouteReason.length < 8 || isRejectingReRoute}
-              onClick={() => {
-                handleRejectReRouteAnswer(rejectReRouteReason);
-                setRerouteModal(false);
-              }}
-            >
-              {isRejectingReRoute ? "Submitting..." : "Submit"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 };
