@@ -33,7 +33,8 @@ export class AgentAssignmentService {
       agent: assignedAgent,
       isCallAgentActive: true,
       isBusy: false,
-      currentCallUuid: null
+      currentCallUuid: null,
+      currentCallPhoneNumber: null
     }, session);
 
     return assignedAgent;
@@ -44,7 +45,8 @@ export class AgentAssignmentService {
       agent: 'not_available',
       isCallAgentActive: false,
       isBusy: false,
-      currentCallUuid: null
+      currentCallUuid: null,
+      currentCallPhoneNumber: null
     }, session);
   }
 
@@ -72,22 +74,24 @@ export class AgentAssignmentService {
     return availableAgents[0];
   }
 
-  async markAgentAsBusy(userId: string, callUuid: string, session?: ClientSession): Promise<void> {
+  async markAgentAsBusy(userId: string, callUuid: string, phoneNumber?: string, session?: ClientSession): Promise<void> {
     await this.userRepository.edit(userId, { 
       isBusy: true,
-      currentCallUuid: callUuid
+      currentCallUuid: callUuid,
+      currentCallPhoneNumber: phoneNumber || null
     }, session);
   }
 
   async markAgentAsAvailable(userId: string, session?: ClientSession): Promise<void> {
     await this.userRepository.edit(userId, {
       isBusy: false,
-      currentCallUuid: null
+      currentCallUuid: null,
+      currentCallPhoneNumber: null
     }, session);
   }
 
-  async findAndMarkAvailableAgent(callUuid: string, session?: ClientSession): Promise<IUser | null> {
-    return await this.userRepository.findAndMarkAvailableAgent(callUuid, session);
+  async findAndMarkAvailableAgent(callUuid: string, phoneNumber?: string, session?: ClientSession): Promise<IUser | null> {
+    return await this.userRepository.findAndMarkAvailableAgent(callUuid, phoneNumber, session);
   }
 
   async getAgentCredentials(agentNumber: string): Promise<{ username: string }> {

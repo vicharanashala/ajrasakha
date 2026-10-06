@@ -26,6 +26,7 @@ export interface IUser {
   agent?: string;
   isBusy?: boolean;
   currentCallUuid?: string | null;
+  currentCallPhoneNumber?: string | null;
   lastAgentActiveAt?: string | Date;
   avatar?: string;
   mobile?: string;

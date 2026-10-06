@@ -10,6 +10,6 @@ export interface IUserRepository {
   findActiveCallAgents(session?: ClientSession): Promise<IUser[]>;
   findCallCentreManagers(session?: ClientSession): Promise<IUser[]>;
   findAllAdmins(session?: ClientSession): Promise<IUser[]>;
-  findAndMarkAvailableAgent(callUuid: string, session?: ClientSession): Promise<IUser | null>;
+  findAndMarkAvailableAgent(callUuid: string, phoneNumber?: string, session?: ClientSession): Promise<IUser | null>;
   findAllUsers(page?: number, limit?: number, search?: string, session?: ClientSession): Promise<{ users: IUser[]; total: number }>;
 }

@@ -103,6 +103,7 @@ export class UserService extends BaseService {
         updatePayload.agent = 'not_available';
         updatePayload.isBusy = false;
         updatePayload.currentCallUuid = null;
+        updatePayload.currentCallPhoneNumber = null;
       }
 
       const updatedUser = await this.userRepo.edit(userId, updatePayload, session);
@@ -183,6 +184,7 @@ export class UserService extends BaseService {
         isCallAgentActive: true,
         isBusy: false,
         currentCallUuid: null,
+        currentCallPhoneNumber: null,
         lastAgentActiveAt: new Date()
       }, session);
 
@@ -205,7 +207,8 @@ export class UserService extends BaseService {
         agent: 'not_available',
         isCallAgentActive: false,
         isBusy: false,
-        currentCallUuid: null
+        currentCallUuid: null,
+        currentCallPhoneNumber: null
       }, session);
 
       return updatedUser;
@@ -254,7 +257,7 @@ export class UserService extends BaseService {
     }
   }
 
-  async setAgentBusy(userId: string, callUuid: string): Promise<IUser> {
+  async setAgentBusy(userId: string, callUuid: string, phoneNumber?: string): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -263,7 +266,8 @@ export class UserService extends BaseService {
 
       const updatedUser = await this.userRepo.edit(userId, {
         isBusy: true,
-        currentCallUuid: callUuid
+        currentCallUuid: callUuid,
+        currentCallPhoneNumber: phoneNumber || null
       }, session);
 
       return updatedUser;
@@ -279,7 +283,8 @@ export class UserService extends BaseService {
 
       const updatedUser = await this.userRepo.edit(userId, {
         isBusy: false,
-        currentCallUuid: null
+        currentCallUuid: null,
+        currentCallPhoneNumber: null
       }, session);
 
       return updatedUser;
@@ -311,8 +316,8 @@ export class UserService extends BaseService {
     });
   }
 
-  async findAndMarkAvailableAgent(callUuid: string): Promise<IUser | null> {
-    return await this.userRepo.findAndMarkAvailableAgent(callUuid);
+  async findAndMarkAvailableAgent(callUuid: string, phoneNumber?: string): Promise<IUser | null> {
+    return await this.userRepo.findAndMarkAvailableAgent(callUuid, phoneNumber);
   }
 
   async getUserById(userId: string): Promise<IUser | null> {

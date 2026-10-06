@@ -178,7 +178,7 @@ export class PlivoController {
         const effectiveCallerId = myPlivoNumber && !myPlivoNumber.includes('+1555') ? myPlivoNumber : '+918031150392';
 
         availableAgent = agentUser;
-        await this.agentAssignmentService.markAgentAsBusy(agentUser._id.toString(), callUuid);
+        await this.agentAssignmentService.markAgentAsBusy(agentUser._id.toString(), callUuid, destination);
 
         this.plivoService.registerCall(callUuid, {
           from: effectiveCallerId,
@@ -205,7 +205,7 @@ export class PlivoController {
       }
 
       // --- Inbound Call Flow ---
-      availableAgent = await this.agentAssignmentService.findAndMarkAvailableAgent(callUuid);
+      availableAgent = await this.agentAssignmentService.findAndMarkAvailableAgent(callUuid, callerNumber);
 
       let endpointUser: string;
       let fallbackMessage: string;

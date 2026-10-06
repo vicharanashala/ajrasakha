@@ -443,10 +443,11 @@ export const ManageCallAgents = () => {
                         </span>
                       )}
 
-                      {/* Current Call UUID */}
-                      {agent.currentCallUuid && typeof agent.currentCallUuid === "string" && (
-                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-secondary-accent/15 text-secondary-accent font-mono border border-secondary-accent/40">
-                          UUID: {agent.currentCallUuid.length > 8 ? `${agent.currentCallUuid.slice(0, 8)}...` : agent.currentCallUuid}
+                      {/* Active Call Phone Number */}
+                      {agent.isBusy && agent.currentCallPhoneNumber && (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono font-medium border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 shadow-sm">
+                          <PhoneCall className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                          <span>{agent.currentCallPhoneNumber}</span>
                         </span>
                       )}
                     </div>

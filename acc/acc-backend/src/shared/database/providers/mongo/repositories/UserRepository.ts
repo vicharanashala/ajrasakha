@@ -167,6 +167,7 @@ export class UserRepository implements IUserRepository {
 
   async findAndMarkAvailableAgent(
     callUuid: string,
+    phoneNumber?: string,
     session?: ClientSession,
   ): Promise<IUser | null> {
     await this.init();
@@ -186,6 +187,7 @@ export class UserRepository implements IUserRepository {
         $set: {
           isBusy: true,
           currentCallUuid: callUuid,
+          currentCallPhoneNumber: phoneNumber || null,
           lastCallAssignedAt: now,
           updatedAt: now,
         },
@@ -210,6 +212,7 @@ export class UserRepository implements IUserRepository {
           $set: {
             isBusy: true,
             currentCallUuid: callUuid,
+            currentCallPhoneNumber: phoneNumber || null,
             lastCallAssignedAt: now,
             updatedAt: now,
           },
