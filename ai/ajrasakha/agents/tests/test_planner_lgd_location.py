@@ -670,3 +670,41 @@ async def test_sub_place_search_goes_state_then_india_then_openstreetmap(monkeyp
         monkeypatch.setattr(lx, "_nominatim_place", fake("osm", hit_on))
         assert await lx.geocode_sub_place("Kharar", state="Punjab") == {"latitude": 1.0}
         assert calls == expected
+
+
+# --- answer only for the profile location ---------------------------
+
+from ajrasakha.agents.planner_rules import ask_to_change_profile_location
+
+_PROFILE = {"state": "Andhra Pradesh", "district": "Visakhapatnam", "block": "seethammadhara", "village": "chinnawaltair"}
+
+
+def _weather_plan_naming(*places):
+    plan = _plan(state="Andhra Pradesh", district="Visakhapatnam", weather=True, knowledge_base=False)
+    plan.update(is_complete=True, missing_info=[], follow_up_question=None, places=list(places))
+    return plan
+
+
+def test_weather_naming_another_place_asks_to_change_the_profile_location():
+    out = ask_to_change_profile_location(_weather_plan_naming("Kharar"), _PROFILE)
+    assert out["is_complete"] is False
+    assert out["missing_info"] == []  # the next message is a new question
+    assert "Kharar" in out["follow_up_question"] and "profile" in out["follow_up_question"]
+
+
+def test_weather_naming_no_place_or_the_profile_places_goes_ahead():
+    for places in ([], ["Visakhapatnam"], ["Chinnawaltair"]):
+        out = ask_to_change_profile_location(_weather_plan_naming(*places), _PROFILE)
+        assert out["is_complete"] is True and out["places_outside_profile"] == [], places
+
+
+def test_any_question_naming_another_place_asks_to_change_the_profile_location():
+    plan = _weather_plan_naming("Kharar")
+    plan.update(weather=False, domain="Crop Protection", domains=["Crop Protection"])
+    out = ask_to_change_profile_location(plan, _PROFILE)
+    assert out["is_complete"] is False and out["places_outside_profile"] == ["Kharar"]
+
+
+def test_a_farmer_without_a_profile_location_can_still_name_a_place():
+    out = ask_to_change_profile_location(_weather_plan_naming("Kharar"), None)
+    assert out["is_complete"] is True and out["places_outside_profile"] == []

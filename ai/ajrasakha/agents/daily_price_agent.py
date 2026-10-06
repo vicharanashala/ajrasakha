@@ -1262,6 +1262,8 @@ class DailyPriceInput(BaseModel):
     sub_place_longitude: Optional[float] = None
     sub_place_state: Optional[str] = None  # state of sub_places[0], from the planner's geocoder
     sub_place_district: Optional[str] = None  # district of sub_places[0], from the planner's geocoder
+    village: Optional[str] = None  # village name from the farmer profile
+    block: Optional[str] = None  # block name from the farmer profile
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1278,6 +1280,8 @@ async def daily_price(
     sub_place_longitude: Optional[float] = None,
     sub_place_state: Optional[str] = None,
     sub_place_district: Optional[str] = None,
+    village: Optional[str] = None,
+    block: Optional[str] = None,
     config: RunnableConfig = None,
 ) -> str:
     """

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
@@ -625,6 +625,45 @@ SUB_PLACE_WRONG_STATE = (
     "Did you mean that one? Please reply with the correct district or state."
 )
 MAX_PLACE_OPTIONS = 4
+
+CHANGE_PROFILE_LOCATION = (
+    "Answers are given for the location in your profile. "
+    "To ask about {place}, please change the location in your profile and ask the question again."
+)
+
+
+def ask_to_change_profile_location(
+    plan: PlannerPlan,
+    stored_location: Optional[dict[str, Any]] = None,
+) -> PlannerPlan:
+    """Answer only for the farmer profile location.
+
+    A question that names any other place ends the turn with a message asking
+    the farmer to change the profile location and ask again; nothing else runs.
+    Places that are the profile's own state/district/block/village are fine.
+    A farmer with no profile location keeps the location named in the question.
+    """
+    out: PlannerPlan = dict(plan)
+    out["places_outside_profile"] = []
+    if not stored_location:
+        return out
+    profile_places = {
+        str(v).strip().casefold()
+        for k, v in (stored_location or {}).items()
+        if k in ("state", "district", "block", "village") and v
+    }
+    outside = [
+        p for p in out.get("places") or []
+        if not is_unspecified_place(p, "district") and p.strip().casefold() not in profile_places
+    ]
+    if not outside:
+        return out
+    out["is_complete"] = False
+    # No missing_info: the next message is a new question, not a reply to merge.
+    out["missing_info"] = []
+    out["follow_up_question"] = CHANGE_PROFILE_LOCATION.format(place=", ".join(outside))
+    out["places_outside_profile"] = outside
+    return out
 
 
 async def apply_sub_place_coordinates(

@@ -58,7 +58,7 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
-    apply_sub_place_coordinates,
+    ask_to_change_profile_location,
     is_weather_or_mandi_plan,
     classify_follow_up_heuristic,
     crop_slot_satisfied,
@@ -337,6 +337,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "follow_up_type": output.follow_up_type,
         "main_question": output.main_question,
         "is_multiple_crops": bool(output.is_multiple_crops),
+        "places": [p.strip() for p in output.entities.places if p and p.strip()],
         "has_inappropriate_content": output.has_inappropriate_content,
     }
 
@@ -1049,10 +1050,10 @@ async def planner_node(
             stored_location=stored_location,
             sources_out=location_sources,
         )
-        plan = await apply_sub_place_coordinates(plan, prev_plan)
-        if plan.get("rejected_places") or plan.get("ambiguous_places"):
-            # "Could not find <place>" names the place, so it cannot come from
-            # the fixed catalog like the other location questions: translate it.
+        plan = ask_to_change_profile_location(plan, stored_location)
+        if plan.get("places_outside_profile"):
+            # The message names the place, so it cannot come from the fixed
+            # catalog like the other location questions: translate it.
             script, vocal = language_pair_from_plan(plan)
             if needs_translation(script, vocal):
                 from ajrasakha.agents.translate_answer import _translate_body
@@ -1060,11 +1061,11 @@ async def planner_node(
                 plan["follow_up_question"] = await _translate_body(
                     plan["follow_up_question"], vocal, script, config
                 )
-        # True when the question names no place, so the farmer profile lat/long
-        # belong to the place asked about.
-        plan["location_from_profile"] = not plan.get("places")
+        # Weather/mandi always answer for the farmer profile location (a question
+        # naming another place ended above); other questions only when they name no place.
+        plan["location_from_profile"] = is_weather_or_mandi_plan(plan) or not plan.get("places")
         plan["profile_coordinates"] = (
-            {"latitude": stored_location["latitude"], "longitude": stored_location["longitude"]}
+            {k: stored_location.get(k) for k in ("latitude", "longitude", "village", "block")}
             if stored_location
             # Weather/mandi always get the profile coordinates; they use them
             # only when location_from_profile is true.
