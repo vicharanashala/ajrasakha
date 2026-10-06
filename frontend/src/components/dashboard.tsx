@@ -361,9 +361,12 @@ export const Dashboard = () => {
                 overviewData?.moderatorApprovalRate ?? {
                   approved: 0,
                   pending: 0,
+                  pendingTraining: 0,
+                  pendingOther: 0,
                   approvalRate: 0,
                 }
               }
+              isAdmin={isAdmin}
             />
           </LoadingWrapper>
         </div>

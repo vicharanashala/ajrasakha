@@ -83,9 +83,9 @@ const STATIC_SUB_TYPES = new Set(['GDB', 'Unique', 'Outreach']);
 // typeBranch/dynamicSubTypes/staticSubTypes are multi-value or tree
 // selections, not single-select exact-match dimensions, so they have no
 // place in a per-field dropdown-options record.
-type NonDateFilterKey = Exclude<keyof TestersDashboardFilters, 'dateRange' | 'dynamicSubTypes' | 'typeBranch' | 'staticSubTypes'>;
+export type NonDateFilterKey = Exclude<keyof TestersDashboardFilters, 'dateRange' | 'dynamicSubTypes' | 'typeBranch' | 'staticSubTypes'>;
 
-interface FilterFieldConfig {
+export interface FilterFieldConfig {
     key: NonDateFilterKey;
     csvKey: string;
     normalize?: (value?: string) => string;

@@ -321,10 +321,36 @@ export function incrementTestId(lastId?: string | null): string {
 
 @injectable()
 export class TesterLogService implements ITesterLogService {
+    private indexesEnsured = false;
+
     constructor(
         @inject(DATABASE_TOKEN)
         private readonly db: DatabaseProvider,
     ) {}
+
+    private async ensureIndexes(): Promise<void> {
+        if (this.indexesEnsured) return;
+        try {
+            const collection = await this.db.getCollection(COLLECTION);
+            if (collection && typeof collection.createIndex === 'function') {
+                await Promise.all([
+                    collection.createIndex({ createdAt: -1 }),
+                    collection.createIndex({ submittedByUserId: 1, createdAt: -1 }),
+                    collection.createIndex({ testDate: -1, createdAt: -1 }),
+                    collection.createIndex({ testId: 1 }),
+                    collection.createIndex({ submittedByUserId: 1, testDate: -1 }),
+                    collection.createIndex({ overallTestStatus: 1, testDate: -1 }),
+                ]);
+            }
+            const auditCollection = await this.db.getCollection(AUDIT_COLLECTION);
+            if (auditCollection && typeof auditCollection.createIndex === 'function') {
+                await auditCollection.createIndex({ entryId: 1, createdAt: -1 });
+            }
+            this.indexesEnsured = true;
+        } catch (err) {
+            console.error('[TesterLogService] Error creating MongoDB indexes:', err);
+        }
+    }
 
     private async ensureCounterInitialized(): Promise<void> {
         try {
@@ -572,6 +598,7 @@ export class TesterLogService implements ITesterLogService {
         endDate?: string,
         dateField?: string,
     ): Promise<PaginatedTesterLogEntries> {
+        await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const filter: Record<string, any> = { submittedByUserId: userId };
         const dateFilter = buildDateFilter(startDate, endDate, dateField);
@@ -637,6 +664,7 @@ export class TesterLogService implements ITesterLogService {
         overallTestStatus?: string,
         defectSeverity?: string,
     ): Promise<PaginatedTesterLogEntries> {
+        await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const filter = this.buildEntryFilter(
             testerId, startDate, endDate, dateField,
@@ -667,6 +695,7 @@ export class TesterLogService implements ITesterLogService {
     // dropdown - each labeled with that tester's most recently used
     // testerName (sorted by createdAt desc so $first picks the latest one).
     async getTesterOptions(): Promise<TesterOption[]> {
+        await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const results = await collection
             .aggregate([
@@ -688,6 +717,7 @@ export class TesterLogService implements ITesterLogService {
         overallTestStatus?: string,
         defectSeverity?: string,
     ): Promise<TesterLogSummary> {
+        await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
 
         const totalFilter: Record<string, any> = testerId ? { submittedByUserId: testerId } : {};
@@ -720,6 +750,7 @@ export class TesterLogService implements ITesterLogService {
     // whatever the admin currently has the review table filtered to, so the
     // on-screen filters can never silently leave rows out of the file.
     async exportEntries(): Promise<TesterLogExportResult> {
+        await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const entries = await collection.find({}).sort({ createdAt: -1 }).toArray();
 

@@ -189,6 +189,15 @@ class PlannerOutput(BaseModel):
             "'rabi crops', 'all crops', or 'any crop'."
         ),
     )
+    has_inappropriate_content: bool = Field(
+        default=False,
+        description=(
+            "True if the farmer's message contains abusive, profane, offensive, or inappropriate language. "
+            "Check carefully for swear words, slurs, vulgar terms, or disrespectful language in ANY language "
+            "(English, Hindi, or any other Indian language). "
+            "If ANY inappropriate content is detected, set this to true."
+        ),
+    )
     original_query_en: Optional[str] = Field(
         None,
         description=(
@@ -328,7 +337,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "follow_up_type": output.follow_up_type,
         "main_question": output.main_question,
         "is_multiple_crops": bool(output.is_multiple_crops),
-        "places": [p.strip() for p in output.entities.places if p and p.strip()],
+        "has_inappropriate_content": output.has_inappropriate_content,
     }
 
 
@@ -1179,6 +1188,9 @@ def clarify_node(state: AjraSakhaState) -> dict:
 
 def route_after_planner(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
+    # Check for inappropriate content first - fail fast
+    if plan.get("has_inappropriate_content"):
+        return "abusive_word_reply"
     if plan.get("is_follow_up"):
         return "follow_up"
     if not plan.get("is_complete", True):

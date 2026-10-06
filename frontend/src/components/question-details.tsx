@@ -367,7 +367,7 @@ export const QuestionDetails = ({
                 )}
               </Button>
 
-              {currentUser.role !== "expert" && (
+              {/* {currentUser.role !== "expert" && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -376,7 +376,7 @@ export const QuestionDetails = ({
                 >
                   Manage History
                 </Button>
-              )}
+              )} */}
             </div>
           </div>
           {question.status !== "pass" && (

@@ -1,0 +1,2902 @@
+{
+  "disease": {
+    "source_sheet": "Disease",
+    "required_sections": [
+      "description",
+      "identification_symptoms",
+      "severity",
+      "control",
+      "chemical_control",
+      "biological_control",
+      "cultural_practices"
+    ],
+    "optional_sections": [
+      "irrigation",
+      "crop_rotation",
+      "seed_treatment"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Small descriptions about the disease",
+        "example": "Sheath Blight is a fungal disease, and it is very common in paddy cultivation. It can be managable if you follow proper IDM (Integrated Disease Management) practices. It occurs due to relative humidity from 96 to 100%, temperature from 28-32 °C, high levels of nitrogen fertilizer, and frequent..."
+      },
+      {
+        "step_number": "2",
+        "title": "Identification indicators of that particular disease",
+        "example": "Symptoms are noticed on leaf sheaths near water level. On the leaf sheath oval or elliptical or irregular greenish grey spots are formed. As the spots enlarge, the centre becomes greyish white with an irregular blackish brown or purple brown border. Lesions on the upper parts of plants extend...",
+        "guidance": [
+          "Better to ensure the disease from an expert"
+        ]
+      },
+      {
+        "step_number": "3",
+        "title": "How devastating it is",
+        "example": "The severity of the sheath blight is based on progress of the disease. \n- Early Stage\n- Mid stage\n- Severe stage\n- Terminal stage(to avoid further spreading the disease, it is suggested to destroy the affected plants as advised by the local advisory)\n\n 1. Initial symptoms are noticed on leaf..."
+      },
+      {
+        "step_number": "4",
+        "title": "Control",
+        "example": "For effective control of this disease, follow an Integrated Disease Management (IDM) approach that combines cultural, biological, and chemical methods. This integrated strategy helps reduce disease incidence, minimizes reliance on chemicals, and ensures sustainable crop protection."
+      },
+      {
+        "step_number": "4.1",
+        "title": "If the disease is severe"
+      },
+      {
+        "step_number": "4.1.1",
+        "title": "Immediate chemical control",
+        "example": "Spray Hexaconazole 5 EC @ 400 ml per acre in 200 litres of water(PHI 40 days) twice, first at the appearance of symptoms and again 10 days after the first spraying. Alternatively you can use other chemical fungicides such as Propiconazole 25% EC @ 200 ml per acre in 200 litres of water(PHI 30...",
+        "guidance": [
+          "To prevent the resistance to the single chemical, prescribe atleast top 3 chemicals with different mode of action. Please check the prescribed chemical is not banned by central Government, or of the...",
+          "At least 3 chemicals need to prescribe, so that the particular disease cant able to develop resistance against the same chemical. If only chemical is applied then after sometimes the disease may..."
+        ]
+      },
+      {
+        "step_number": "4.1.2",
+        "title": "PHI(Pre-Harvest Interval) period for safe consumption",
+        "example": "Already mentioned in above point.",
+        "guidance": [
+          "PHI period is need to follow for safe consumption of the produce. If some fungicide have 21 days PHI period then it is recommended not to harvest that product within 21 days of application, otherwise..."
+        ]
+      },
+      {
+        "step_number": "4.2",
+        "title": "If the disease is on in initial stage"
+      },
+      {
+        "step_number": "4.2.1",
+        "title": "Biological",
+        "example": "Treat seed with Pseudomonas fluorscens @ of 10g/kg of seed before sowing. You can use a foliar spray of Trichoderma viride 1.0% WP @ 5-10 grams per litre of water. For one acre, mix 1 kg of Trichoderma viride 1.0% WP in 200 litres of water. Spray three times at 15-day intervals uniformly over one...",
+        "guidance": [
+          "Seed Treatment and Foliar Spray with Pseudomonas fluorescens, Trichoderma viride, or Bacillus subtilis"
+        ]
+      },
+      {
+        "step_number": "4.2.2",
+        "title": "Cultural Practices:"
+      },
+      {
+        "step_number": "a",
+        "title": "Crop Rotation",
+        "example": "Rotate the crop in your field with non-host crops(legumes, vegetables) for 2–3 cropping year. This breaks the life cycle of the fungus and reduces pathogen buildup in the soil."
+      },
+      {
+        "step_number": "b",
+        "title": "Resistant Varieties",
+        "example": "If your area suffering of particular kind of disease select disease tolearnt or resistance varieties beforehand based on your region.",
+        "guidance": [
+          "There are state specific disease resistant varieties are there, pick from the following reference (https://rice-garud.icar-web.com/varieties.php)"
+        ]
+      },
+      {
+        "step_number": "c",
+        "title": "Seed Treatment and Quality",
+        "example": "Seed treatment before sowing is necessary to prevent the plants from sheath blight. You can use both chemical or biological option. \n- For biological option, treat seed with Pseudomonas fluorscens @ of 10g/kg of seed. \n- For chemical treatment, treat seeds with Thiram 75 WP @ 2.5-3 g/kg of seed...",
+        "guidance": [
+          "Please check the prescribed chemical is not banned by central Government, or of the particular State Government is going to recommended for."
+        ]
+      },
+      {
+        "step_number": "d",
+        "title": "Sanitation Practices",
+        "example": "Keep the field clean by removing plant debris, weeds, and leftover straw that can harbor the fungus."
+      },
+      {
+        "step_number": "e",
+        "title": "Tillage Management",
+        "example": "Proper preparation and levelling of soil through ploughing, harrowing before planting to create good conditions for seed germination, root growth, and crop establishment.",
+        "guidance": [
+          "This is an optional advice, can be given based on the prompt."
+        ]
+      },
+      {
+        "step_number": "f",
+        "title": "Irrigation and Water Management",
+        "example": "Maintain proper field drainage and avoid prolonged water stagnation. Provide timely irrigation to prevent drought stress.",
+        "guidance": [
+          "This is an optional advice, can be given based on the prompt."
+        ]
+      },
+      {
+        "step_number": "g",
+        "title": "Mulching",
+        "example": "Covering the soil surface with materials like straw, leaves, or plastic to conserve moisture, regulate temperature, and suppress weeds.",
+        "guidance": [
+          "This is an optional advice, can be given based on the prompt."
+        ]
+      },
+      {
+        "step_number": "h",
+        "title": "Intercropping",
+        "example": "Intercropping is specificly required for the pest management.",
+        "guidance": [
+          "Crop specific advices can be customized"
+        ]
+      },
+      {
+        "step_number": "i",
+        "title": "Planting Density and Spacing",
+        "example": "Maintain optimum planting density and proper spacing between plants to ensure good air circulation and sunlight penetration. This reduces humidity around plants and helps prevent the spread of disease."
+      },
+      {
+        "step_number": "j",
+        "title": "Fertilizer and Nutrient Management",
+        "example": "Apply balanced fertilizers based on soil test results, avoiding excess nitrogen(apply it at 2-3 split doses) that promotes disease. Ensure adequate phosphorus and potassium to improve plant vigor and resistance against brown spot infection."
+      },
+      {
+        "step_number": "k",
+        "title": "Time of Planting",
+        "example": "Follow the recommended planting time for your region to ensure crops avoid conditions favorable for disease. Early or timely planting helps the crop establish before peak periods of the disease.",
+        "guidance": [
+          "This is an optional advice, can be given based on the prompt."
+        ]
+      },
+      {
+        "step_number": "l",
+        "title": "Site Selection",
+        "example": "Select well-drained fields with good air circulation and avoid low-lying or waterlogged areas.",
+        "guidance": [
+          "This is an optional advice, can be given based on the prompt."
+        ]
+      },
+      {
+        "step_number": "m",
+        "title": "Roguing and Plant Removal",
+        "example": "Regularly inspect the field and remove infected plants or leaves showing disease symptoms. Destroy the removed plant parts away from the field to prevent disease spread."
+      },
+      {
+        "step_number": "n",
+        "title": "Raised Bed Planting",
+        "example": "Raised bed planting improves soil drainage and reduces water stagnation around plant roots. It lowers humidity levels, helping to minimize the incidence of fungal diseases.",
+        "guidance": [
+          "This is an optional advice, can be given based on the prompt."
+        ]
+      },
+      {
+        "step_number": "o",
+        "title": "Crop Residue Management",
+        "example": "Properly handling leftover plant materials after harvest. Removing or ploughing under infected residues helps reduce the survival of disease-causing fungi and prevents infection in the next crop.",
+        "guidance": [
+          "This is an optional advice, can be given based on the prompt."
+        ]
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the disease is severe",
+        "ordered_steps": [
+          {
+            "step_number": "4.1.1",
+            "title": "Immediate chemical control",
+            "example": "Spray Hexaconazole 5 EC @ 400 ml per acre in 200 litres of water(PHI 40 days) twice, first at the appearance of symptoms and again 10 days after the first spraying. Alternatively you can use other chemical fungicides such as Propiconazole 25% EC @ 200 ml per acre in 200 litres of water(PHI 30...",
+            "guidance": [
+              "To prevent the resistance to the single chemical, prescribe atleast top 3 chemicals with different mode of action. Please check the prescribed chemical is not banned by central Government, or of the...",
+              "At least 3 chemicals need to prescribe, so that the particular disease cant able to develop resistance against the same chemical. If only chemical is applied then after sometimes the disease may..."
+            ]
+          },
+          {
+            "step_number": "4.1.2",
+            "title": "PHI(Pre-Harvest Interval) period for safe consumption",
+            "example": "Already mentioned in above point.",
+            "guidance": [
+              "PHI period is need to follow for safe consumption of the produce. If some fungicide have 21 days PHI period then it is recommended not to harvest that product within 21 days of application, otherwise..."
+            ]
+          }
+        ]
+      },
+      {
+        "condition_step": "If the disease is on in initial stage",
+        "ordered_steps": [
+          {
+            "step_number": "4.2.1",
+            "title": "Biological",
+            "example": "Treat seed with Pseudomonas fluorscens @ of 10g/kg of seed before sowing. You can use a foliar spray of Trichoderma viride 1.0% WP @ 5-10 grams per litre of water. For one acre, mix 1 kg of Trichoderma viride 1.0% WP in 200 litres of water. Spray three times at 15-day intervals uniformly over one...",
+            "guidance": [
+              "Seed Treatment and Foliar Spray with Pseudomonas fluorescens, Trichoderma viride, or Bacillus subtilis"
+            ]
+          },
+          {
+            "step_number": "4.2.2",
+            "title": "Cultural Practices:"
+          },
+          {
+            "step_number": "a",
+            "title": "Crop Rotation",
+            "example": "Rotate the crop in your field with non-host crops(legumes, vegetables) for 2–3 cropping year. This breaks the life cycle of the fungus and reduces pathogen buildup in the soil."
+          },
+          {
+            "step_number": "b",
+            "title": "Resistant Varieties",
+            "example": "If your area suffering of particular kind of disease select disease tolearnt or resistance varieties beforehand based on your region.",
+            "guidance": [
+              "There are state specific disease resistant varieties are there, pick from the following reference (https://rice-garud.icar-web.com/varieties.php)"
+            ]
+          },
+          {
+            "step_number": "c",
+            "title": "Seed Treatment and Quality",
+            "example": "Seed treatment before sowing is necessary to prevent the plants from sheath blight. You can use both chemical or biological option. \n- For biological option, treat seed with Pseudomonas fluorscens @ of 10g/kg of seed. \n- For chemical treatment, treat seeds with Thiram 75 WP @ 2.5-3 g/kg of seed...",
+            "guidance": [
+              "Please check the prescribed chemical is not banned by central Government, or of the particular State Government is going to recommended for."
+            ]
+          },
+          {
+            "step_number": "d",
+            "title": "Sanitation Practices",
+            "example": "Keep the field clean by removing plant debris, weeds, and leftover straw that can harbor the fungus."
+          },
+          {
+            "step_number": "e",
+            "title": "Tillage Management",
+            "example": "Proper preparation and levelling of soil through ploughing, harrowing before planting to create good conditions for seed germination, root growth, and crop establishment.",
+            "guidance": [
+              "This is an optional advice, can be given based on the prompt."
+            ]
+          },
+          {
+            "step_number": "f",
+            "title": "Irrigation and Water Management",
+            "example": "Maintain proper field drainage and avoid prolonged water stagnation. Provide timely irrigation to prevent drought stress.",
+            "guidance": [
+              "This is an optional advice, can be given based on the prompt."
+            ]
+          },
+          {
+            "step_number": "g",
+            "title": "Mulching",
+            "example": "Covering the soil surface with materials like straw, leaves, or plastic to conserve moisture, regulate temperature, and suppress weeds.",
+            "guidance": [
+              "This is an optional advice, can be given based on the prompt."
+            ]
+          },
+          {
+            "step_number": "h",
+            "title": "Intercropping",
+            "example": "Intercropping is specificly required for the pest management.",
+            "guidance": [
+              "Crop specific advices can be customized"
+            ]
+          },
+          {
+            "step_number": "i",
+            "title": "Planting Density and Spacing",
+            "example": "Maintain optimum planting density and proper spacing between plants to ensure good air circulation and sunlight penetration. This reduces humidity around plants and helps prevent the spread of disease."
+          },
+          {
+            "step_number": "j",
+            "title": "Fertilizer and Nutrient Management",
+            "example": "Apply balanced fertilizers based on soil test results, avoiding excess nitrogen(apply it at 2-3 split doses) that promotes disease. Ensure adequate phosphorus and potassium to improve plant vigor and resistance against brown spot infection."
+          },
+          {
+            "step_number": "k",
+            "title": "Time of Planting",
+            "example": "Follow the recommended planting time for your region to ensure crops avoid conditions favorable for disease. Early or timely planting helps the crop establish before peak periods of the disease.",
+            "guidance": [
+              "This is an optional advice, can be given based on the prompt."
+            ]
+          },
+          {
+            "step_number": "l",
+            "title": "Site Selection",
+            "example": "Select well-drained fields with good air circulation and avoid low-lying or waterlogged areas.",
+            "guidance": [
+              "This is an optional advice, can be given based on the prompt."
+            ]
+          },
+          {
+            "step_number": "m",
+            "title": "Roguing and Plant Removal",
+            "example": "Regularly inspect the field and remove infected plants or leaves showing disease symptoms. Destroy the removed plant parts away from the field to prevent disease spread."
+          },
+          {
+            "step_number": "n",
+            "title": "Raised Bed Planting",
+            "example": "Raised bed planting improves soil drainage and reduces water stagnation around plant roots. It lowers humidity levels, helping to minimize the incidence of fungal diseases.",
+            "guidance": [
+              "This is an optional advice, can be given based on the prompt."
+            ]
+          },
+          {
+            "step_number": "o",
+            "title": "Crop Residue Management",
+            "example": "Properly handling leftover plant materials after harvest. Removing or ploughing under infected residues helps reduce the survival of disease-causing fungi and prevents infection in the next crop.",
+            "guidance": [
+              "This is an optional advice, can be given based on the prompt."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "pest": {
+    "source_sheet": "Pest",
+    "required_sections": [
+      "description",
+      "identification_symptoms",
+      "severity",
+      "control",
+      "chemical_control",
+      "biological_control",
+      "cultural_practices"
+    ],
+    "optional_sections": [
+      "mechanical_control",
+      "intercropping"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Small descriptions about the Pest",
+        "example": "Yellow stem borer is a major pest in paddy, and it is very common in paddy cultivation. It can be control if you follow proper IPM (Integrated Pest Management) practices. It attack paddy in both vegetative and reproducative stage, and drastically reduces yield due to poor grain filling and loss of..."
+      },
+      {
+        "step_number": "2",
+        "title": "Identification indicators of that particular pest damage symptoms",
+        "example": "Presence of dead hearts during the vegetative stage and white ears at the grain filling stage. Larva bores into central shoot of paddy seedling and tiller, causing drying of the central shoot known as “dead heart” If infestation occurs in grown up plant, the whole panicle becomes dried and known as...",
+        "guidance": [
+          "Better to ensure the disease from an expert"
+        ]
+      },
+      {
+        "step_number": "3",
+        "title": "How devastating it is",
+        "example": "Stem borer infestation in paddy can cause significant yield reduction, depending on the severity of the infestation and the crop growth stage. Severe attacks during the active tillering and panicle initiation stages are especially damaging, often leading to deadheart(drying of the central shoot)..."
+      },
+      {
+        "step_number": "4",
+        "title": "Control",
+        "example": "For effective control of this disease, follow an Integrated Pest Management (IPM) approach that combines cultural, biological, and chemical methods. This integrated strategy helps reduce disease incidence, minimizes reliance on chemicals, and ensures sustainable crop protection."
+      },
+      {
+        "step_number": "4.1",
+        "title": "If the pest is severe",
+        "example": "Adopt chemical control measures when the pest population cross the Economic Threshold Level. ETL (Economic Threshold Level) is the point at which pest or disease damage becomes high enough to cause economic loss. It indicate when control measures should be applied to prevent serious yield..."
+      },
+      {
+        "step_number": "4.1.1",
+        "title": "Immediate chemical control",
+        "example": "The recommended insecticides for controlling stem borer are Chlorantraniliprole 18.5 SC at 60 ml/acre in 200 L water (PHI 47 days), or Fipronil 5% SC at 400–600 ml/acre in 200 L water (PHI 32 days), or Flubendiamide 39.35% SC at 20 ml per acre in 200 liters of water (PHI 40 days). You can also use...",
+        "guidance": [
+          "To prevent the resistance to the single chemical, prescribe atleast top 3 chemicals with different mode of action. Please check the prescribed chemical is not banned by central Government, or of the...",
+          "At least 3 chemicals need to prescribe, so that the particular disease cant able to develop resistance against the same chemical. If only chemical is applied then after sometimes the disease may..."
+        ]
+      },
+      {
+        "step_number": "4.1.2",
+        "title": "PHI(Pre-Harvest Interval) period for safe consumption",
+        "example": "Already mentioned in above point.",
+        "guidance": [
+          "PHI period is need to follow for safe consumption of the produce. If some fungicide have 21 days PHI period then it is recommended not to harvest that product within 21 days of application, otherwise..."
+        ]
+      },
+      {
+        "step_number": "4.2",
+        "title": "If the disease is on in initial stage"
+      },
+      {
+        "step_number": "4.2.1",
+        "title": "Biological",
+        "example": "Release Trichogramma japonicum and T chilonis  @ 40000/acre on appearance of egg masses / moth of yellow stem borer in the field. Paddy fields also host many beneficial insects like spiders, ladybird beetles, water bugs, mirid bugs, damsel flies, dragonflies, and predatory beetles that feed on..."
+      },
+      {
+        "step_number": "4.2.2",
+        "title": "Cultural Practices:"
+      },
+      {
+        "step_number": "a",
+        "title": "Crop Rotation",
+        "example": "Don't grow the same crop (or crops from the same plant family) in the same spot for consecutive cropping years. his breaks the pest's life cycle."
+      },
+      {
+        "step_number": "b",
+        "title": "Resistant Varieties",
+        "example": "Select paddy(crop)varieties that are naturally resistant or tolerant to specific pests so that the plant can either repel the pest or withstand the damage without a significant loss in yield. Short-statured and early-maturing rice varieties usually suffer less stem borer damage than long-duration...",
+        "guidance": [
+          "State specific pest resistant  or tolerant varieties are there, pick from the following reference (https://rice-garud.icar-web.com/varieties.php)"
+        ]
+      },
+      {
+        "step_number": "c",
+        "title": "Seed Treatment and Quality",
+        "example": "Use certified seeds from reliable sources for healthy crop establishment.\nSeed treatment with Thiamethoxam 30 WS helps protect against early-season sucking pests like aphids, jassids, and thrips in crops such as cotton and maize. However, it is generally less critical for pest management compared...",
+        "guidance": [
+          "Please check the prescribed chemical is not banned by central Government, or of the particular State Government is going to recommended for."
+        ]
+      },
+      {
+        "step_number": "d",
+        "title": "Sanitation Practices",
+        "example": "Removing infested plant parts, crop residues, weeds, and fallen fruit(for fruit pests) prevents pests from breeding."
+      },
+      {
+        "step_number": "e",
+        "title": "Tillage Management",
+        "example": "Tillage management is effective against soil-dwelling and stem-borer pests (e.g., yellow stem borer, root grub, cutworm, army worms, termites). Deep ploughing during summer after harvest exposes and kills eggs, larvae, and pupae, reducing pest buildup for the next crop."
+      },
+      {
+        "step_number": "f",
+        "title": "Irrigation and Water Management",
+        "example": "Draining of fields for 5-7 days kills different rice pests like caseworm larvae, Whorl maggot, Gall midge, Brown plant hopper, and other pests."
+      },
+      {
+        "step_number": "g",
+        "title": "Mulching",
+        "example": "Covering the soil surface with materials like straw, leaves, or plastic to conserve moisture, regulate temperature, and suppress soil dwelling pests."
+      },
+      {
+        "step_number": "h",
+        "title": "Intercropping/Trap cropping",
+        "example": "Intercropping: Growing two or more crops in close proximity. This increases plant diversity, which can confuse pests.                                                                                                                                                                 Trap cropping..."
+      },
+      {
+        "step_number": "i",
+        "title": "Planting Density and Spacing",
+        "example": "Rice fields with wider hill spacing (30 × 20 cm) generally experience less stemborer damage due to better aeration and light penetration. For other crops, it is extremely imporatnt to maintain proper plant spacing.",
+        "guidance": [
+          "Maintain optimum planting density and proper spacing between plants to ensure good air circulation and sunlight penetration. This reduces humidity around plants and helps prevent the spread of..."
+        ]
+      },
+      {
+        "step_number": "j",
+        "title": "Fertilizer and Nutrient Management",
+        "example": "Excessive use of nitrogen fertilizers should be avoided, and nitrogen should be applied in split doses only."
+      },
+      {
+        "step_number": "k",
+        "title": "Time of Planting",
+        "example": "Adjusting when you plant or harvest can help crops avoid peak pest infestation periods. Planting early or late can allow the crop to reach a less-susceptible, more mature stage when the pest population in peak level."
+      },
+      {
+        "step_number": "l",
+        "title": "Mechanical control",
+        "example": "Clip the rice seedlings tips at the time of transplanting to minimize carryover of stem borer(it is also effective for Hispa, caseworm) infestation from seed bed to the transplanted fields. Use of coir rope in rice crop for dislodging other paddy pests like case worm, cut worm  and swarming..."
+      },
+      {
+        "step_number": "m",
+        "title": "Roguing and Plant Removal",
+        "example": "Regularly inspect the field and remove infected plants or leaves showing pest symptoms. Destroy the removed plant parts away from the field to prevent further pest infestation."
+      },
+      {
+        "step_number": "n",
+        "title": "Raised Bed Planting"
+      },
+      {
+        "step_number": "o",
+        "title": "Crop Residue Management",
+        "example": "Properly handling leftover plant materials after harvest. Removing or ploughing under infected residues helps reduce the survival of disease-causing fungi and prevents infection in the next crop."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the pest is severe",
+        "ordered_steps": [
+          {
+            "step_number": "4.1.1",
+            "title": "Immediate chemical control",
+            "example": "The recommended insecticides for controlling stem borer are Chlorantraniliprole 18.5 SC at 60 ml/acre in 200 L water (PHI 47 days), or Fipronil 5% SC at 400–600 ml/acre in 200 L water (PHI 32 days), or Flubendiamide 39.35% SC at 20 ml per acre in 200 liters of water (PHI 40 days). You can also use...",
+            "guidance": [
+              "To prevent the resistance to the single chemical, prescribe atleast top 3 chemicals with different mode of action. Please check the prescribed chemical is not banned by central Government, or of the...",
+              "At least 3 chemicals need to prescribe, so that the particular disease cant able to develop resistance against the same chemical. If only chemical is applied then after sometimes the disease may..."
+            ]
+          },
+          {
+            "step_number": "4.1.2",
+            "title": "PHI(Pre-Harvest Interval) period for safe consumption",
+            "example": "Already mentioned in above point.",
+            "guidance": [
+              "PHI period is need to follow for safe consumption of the produce. If some fungicide have 21 days PHI period then it is recommended not to harvest that product within 21 days of application, otherwise..."
+            ]
+          }
+        ]
+      },
+      {
+        "condition_step": "If the disease is on in initial stage",
+        "ordered_steps": [
+          {
+            "step_number": "4.2.1",
+            "title": "Biological",
+            "example": "Release Trichogramma japonicum and T chilonis  @ 40000/acre on appearance of egg masses / moth of yellow stem borer in the field. Paddy fields also host many beneficial insects like spiders, ladybird beetles, water bugs, mirid bugs, damsel flies, dragonflies, and predatory beetles that feed on..."
+          },
+          {
+            "step_number": "4.2.2",
+            "title": "Cultural Practices:"
+          },
+          {
+            "step_number": "a",
+            "title": "Crop Rotation",
+            "example": "Don't grow the same crop (or crops from the same plant family) in the same spot for consecutive cropping years. his breaks the pest's life cycle."
+          },
+          {
+            "step_number": "b",
+            "title": "Resistant Varieties",
+            "example": "Select paddy(crop)varieties that are naturally resistant or tolerant to specific pests so that the plant can either repel the pest or withstand the damage without a significant loss in yield. Short-statured and early-maturing rice varieties usually suffer less stem borer damage than long-duration...",
+            "guidance": [
+              "State specific pest resistant  or tolerant varieties are there, pick from the following reference (https://rice-garud.icar-web.com/varieties.php)"
+            ]
+          },
+          {
+            "step_number": "c",
+            "title": "Seed Treatment and Quality",
+            "example": "Use certified seeds from reliable sources for healthy crop establishment.\nSeed treatment with Thiamethoxam 30 WS helps protect against early-season sucking pests like aphids, jassids, and thrips in crops such as cotton and maize. However, it is generally less critical for pest management compared...",
+            "guidance": [
+              "Please check the prescribed chemical is not banned by central Government, or of the particular State Government is going to recommended for."
+            ]
+          },
+          {
+            "step_number": "d",
+            "title": "Sanitation Practices",
+            "example": "Removing infested plant parts, crop residues, weeds, and fallen fruit(for fruit pests) prevents pests from breeding."
+          },
+          {
+            "step_number": "e",
+            "title": "Tillage Management",
+            "example": "Tillage management is effective against soil-dwelling and stem-borer pests (e.g., yellow stem borer, root grub, cutworm, army worms, termites). Deep ploughing during summer after harvest exposes and kills eggs, larvae, and pupae, reducing pest buildup for the next crop."
+          },
+          {
+            "step_number": "f",
+            "title": "Irrigation and Water Management",
+            "example": "Draining of fields for 5-7 days kills different rice pests like caseworm larvae, Whorl maggot, Gall midge, Brown plant hopper, and other pests."
+          },
+          {
+            "step_number": "g",
+            "title": "Mulching",
+            "example": "Covering the soil surface with materials like straw, leaves, or plastic to conserve moisture, regulate temperature, and suppress soil dwelling pests."
+          },
+          {
+            "step_number": "h",
+            "title": "Intercropping/Trap cropping",
+            "example": "Intercropping: Growing two or more crops in close proximity. This increases plant diversity, which can confuse pests.                                                                                                                                                                 Trap cropping..."
+          },
+          {
+            "step_number": "i",
+            "title": "Planting Density and Spacing",
+            "example": "Rice fields with wider hill spacing (30 × 20 cm) generally experience less stemborer damage due to better aeration and light penetration. For other crops, it is extremely imporatnt to maintain proper plant spacing.",
+            "guidance": [
+              "Maintain optimum planting density and proper spacing between plants to ensure good air circulation and sunlight penetration. This reduces humidity around plants and helps prevent the spread of..."
+            ]
+          },
+          {
+            "step_number": "j",
+            "title": "Fertilizer and Nutrient Management",
+            "example": "Excessive use of nitrogen fertilizers should be avoided, and nitrogen should be applied in split doses only."
+          },
+          {
+            "step_number": "k",
+            "title": "Time of Planting",
+            "example": "Adjusting when you plant or harvest can help crops avoid peak pest infestation periods. Planting early or late can allow the crop to reach a less-susceptible, more mature stage when the pest population in peak level."
+          },
+          {
+            "step_number": "l",
+            "title": "Mechanical control",
+            "example": "Clip the rice seedlings tips at the time of transplanting to minimize carryover of stem borer(it is also effective for Hispa, caseworm) infestation from seed bed to the transplanted fields. Use of coir rope in rice crop for dislodging other paddy pests like case worm, cut worm  and swarming..."
+          },
+          {
+            "step_number": "m",
+            "title": "Roguing and Plant Removal",
+            "example": "Regularly inspect the field and remove infected plants or leaves showing pest symptoms. Destroy the removed plant parts away from the field to prevent further pest infestation."
+          },
+          {
+            "step_number": "n",
+            "title": "Raised Bed Planting"
+          },
+          {
+            "step_number": "o",
+            "title": "Crop Residue Management",
+            "example": "Properly handling leftover plant materials after harvest. Removing or ploughing under infected residues helps reduce the survival of disease-causing fungi and prevents infection in the next crop."
+          }
+        ]
+      }
+    ]
+  },
+  "fertilizer": {
+    "source_sheet": "Fertilizer and Nutrient",
+    "required_sections": [
+      "soil_test",
+      "organic_matter",
+      "npk_recommendation",
+      "application_method"
+    ],
+    "optional_sections": [
+      "micronutrients",
+      "local_practices"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "\"The recommended fertilizer application follows a balanced approach, combining both organic and inorganic fertilizers to ensure optimal crop nutrition and soil health.\nBelow is a practical guideline to follow:\""
+      },
+      {
+        "step_number": "2",
+        "title": "Suggest soil test",
+        "example": "Soil testing helps determine the nutrient status and fertility level of the soil. It guides farmers in applying the right type and amount of fertilizers for each crop. This ensures balanced nutrient use, improves yield, and prevents soil degradation."
+      },
+      {
+        "step_number": "3",
+        "title": "Application of organic matter like FYM/vermicompost/green manure",
+        "example": "Incorporate farmyard manure (4 t/acre) or green manure such as dhaincha before transplanting during field preparation",
+        "guidance": [
+          "Application of organic matter like FYM, vermicompost, or green manure (e.g., dhaincha, sunhemp) improves soil structure and fertility."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Recommended NPK dose",
+        "example": "For semidwarf varieties, the recommended NPK dose in medium fertile soil is Nitrogen (N) 24 kg/acre, Phosphorus (P₂O₅) 8 kg per acre, and Potash (K₂O) 16 kg per acre. For tall varieties, the recommended NPK dose in medium fertile soil is Nitrogen (N) 8 kg/acre, Phosphorus (P₂O₅) 4 kg per acre, and...",
+        "guidance": [
+          "Apply the recommended NPK dose based on crop and soil test results for balanced nutrition.\nInclude other essential nutrients like zinc, sulphur, and iron as per requirement to ensure healthy growth..."
+        ]
+      },
+      {
+        "step_number": "4.1",
+        "title": "Nitrogen",
+        "example": "For semidwarf varieties, to supply 24 kg of Nitrogen (N) per acre, apply approximately 52 kg of Urea per acre. For tall varieties, to supply 8 kg of Nitrogen (N), apply approximately 17 kg of Urea per acre. In poor fertile soil, to supply 24 kg of Nitrogen (N), apply approximately 52 kg urea. For...",
+        "guidance": [
+          "1. Source of Fertilizer\n2. Time of Application\n3. Method of Application"
+        ]
+      },
+      {
+        "step_number": "4.2",
+        "title": "Phosphorous",
+        "example": "For semidwarf varieties, to supply 8 kg of Phosphorus (P₂O₅) per acre, apply approximately 52 kg of SSP per acre. For tall varieties, to supply 4 kg of  Phosphorus (P₂O₅), apply approximately 25 kg of SSP per acre. In poor fertile soil, to supply 12 kg of  Phosphorus (P₂O₅), apply approximately 75...",
+        "guidance": [
+          "1. Source of Fertilizer\n2. Time of Application\n3. Method of Application"
+        ]
+      },
+      {
+        "step_number": "4.3",
+        "title": "Potash",
+        "example": "For semidwarf varieties, to supply 16 kg of Potassium (K₂O)  per acre, apply approximately 27 kg of MOP per acre. For tall varieties, to supply 4 kg of Potassium (K₂O), apply approximately 7 kg of MOP per MOP. In poor fertile soil, to supply 12 kg of Potassium (K₂O), apply approximately 20 kg MOP...",
+        "guidance": [
+          "1. Source of Fertilizer\n2. Time of Application\n3. Method of Application"
+        ]
+      },
+      {
+        "step_number": "5",
+        "title": "Essential micronutrients",
+        "example": "Zinc (Zn) is important for enzyme activation, chlorophyll synthesis, and overall plant growth.​\nIron (Fe) is crucial for chlorophyll production, photosynthesis, and oxidation-reduction reactions.​\nBoron (B) is needed for cell wall formation, reproductive growth, and carbohydrate metabolism.​",
+        "guidance": [
+          "Micronutrient management is also necessary for balanced crop growth and maximum yield. So, include it in fertilizer management."
+        ]
+      },
+      {
+        "step_number": "5.1",
+        "title": "Zinc",
+        "example": "Zinc deficiency causes Khaira disease, showing rusty-brown or reddish patches on lower leaves. To prevent zinc deficiency, apply 8-10 kg zinc sulphate per acre as basal along with NPK fertilizer based on soil test recommendation. If zinc deficiency appear in standing crop, apply 0.5% zinc sulphate...",
+        "guidance": [
+          "Write deficiency symptoms in standing crop"
+        ]
+      },
+      {
+        "step_number": "5.2",
+        "title": "Boron",
+        "example": "Boron deficiency symptoms include white and rolled leaf tips on the youngest leaves, reduced plant height, and poor panicle formation. Boron deficiency occurs in acidic soil, leached soil, soil with high organic matter content, and in calcareous soils. To prevent Boron deficiency, first apply 2 kg...",
+        "guidance": [
+          "Write deficiency symptoms in standing crop"
+        ]
+      },
+      {
+        "step_number": "6",
+        "title": "Local Practices",
+        "guidance": [
+          "Many farmers in the region use green manures and cover crops to naturally improve soil fertility and organic matter content.\nYou may consider integrating these practices into your routine if not..."
+        ]
+      },
+      {
+        "step_number": "7",
+        "title": "Safety Precautions",
+        "guidance": [
+          "When handling fertilizers, always wear protective gear such as gloves and a mask to prevent inhalation or direct skin contact.\nEnsure you follow local safety guidelines, and overdose and recommended..."
+        ]
+      }
+    ],
+    "conditional_branches": []
+  },
+  "variety": {
+    "source_sheet": "Variety",
+    "required_sections": [
+      "region",
+      "season",
+      "suggested_varieties",
+      "seed_rate",
+      "yield_expectation"
+    ],
+    "optional_sections": [
+      "special_traits",
+      "limitations",
+      "economics"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Identify region / agro-climatic zone",
+        "example": "District: Cuttack, Odisha; agro-climatic zone: Eastern Coastal Plain.",
+        "guidance": [
+          "Confirm district/zone and dominant soil type first because regional fit drives variety performance and local recommendations are usually more reliable than national lists.",
+          "If the farmer is unsure of the zone, check the nearest KVK or state extension list for local zone information."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Identify season of cultivation",
+        "example": "Season: Kharif (main rainy season, June–September).",
+        "guidance": [
+          "Decide season next because varieties are released for specific seasons; giving a Kharif or Rabi list avoids recommending varieties that will fail.",
+          "If staggered planting is planned, offer an early and a medium option to cover seed availability and weather risk."
+        ]
+      },
+      {
+        "step_number": "3",
+        "title": "Identify land type and water availability",
+        "example": "Field type: lowland with reliable irrigation; soil: clay loam.",
+        "guidance": [
+          "Clarify lowland/medium/upland and irrigation level so the suggested varieties match water regime and topography.",
+          "Note any salinity, waterlogging or drainage issues that may disqualify common varieties."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Suggested varieties",
+        "example": "Suggested — Swarna: suited to irrigated lowlands and gives steady yields; Sahbhagi Dhan: short-duration and performs well under moisture stress; Pusa Basmati 1509: aromatic grain with strong market demand.",
+        "guidance": [
+          "Always give at least two alternatives so farmers have fallbacks if seed is unavailable or conditions change.",
+          "Mention a recently state-released variety when it has local trial evidence of advantage."
+        ]
+      },
+      {
+        "step_number": "5",
+        "title": "Maturity / duration (days)",
+        "example": "Swarna: 140–150 days; Sahbhagi Dhan: 90–100 days.",
+        "guidance": [
+          "Provide duration in days and explain whether that duration fits the available growing season or irrigation plan.",
+          "Give a last-sowing date or sowing window for the local zone where useful."
+        ]
+      },
+      {
+        "step_number": "6",
+        "title": "Seed rate (by planting method)",
+        "example": "Seed rate: transplanting 25 kg/ha; direct seeding (DSR) 80–100 kg/ha; SRI nursery seed 5–8 kg/ha for small tray nursery.",
+        "guidance": [
+          "State seed rate clearly and tie it to the planting method so farmers can plan seed purchases and nursery size.",
+          "Provide seed quantity per 0.1 ha for easy household calculation when requested."
+        ]
+      },
+      {
+        "step_number": "7",
+        "title": "Spacing & planting method",
+        "example": "Transplant spacing: 20×15 cm for transplant; SRI spacing: 25×25 cm single seedlings.",
+        "guidance": [
+          "Give the exact spacing and recommended planting method to match the variety’s ideal plant population.",
+          "Mention adjustments for mechanical planters if mechanization is available."
+        ]
+      },
+      {
+        "step_number": "8",
+        "title": "Yield expectation (realistic farmer-field range)",
+        "example": "Expected farmer-field yield: 4–6 t/ha; on research trials can go up to 6.5–7.0 t/ha under ideal management.",
+        "guidance": [
+          "Provide realistic farmer-field yield ranges rather than only trial maxima so expectations match likely results.",
+          "If higher yields require extra inputs, mention that as a short note (for example: better yield with balanced fertilizer and proper weed control)."
+        ]
+      },
+      {
+        "step_number": "9",
+        "title": "Special traits — comprehensive sub-steps",
+        "example": "See 9a–9g for trait descriptions below.",
+        "guidance": [
+          "Break special traits into short subpoints so strengths and limits are clear for farmers and advisors.",
+          "When a special trait drove a local success story, include that short example for credibility."
+        ]
+      },
+      {
+        "step_number": "9.1",
+        "title": "Yield stability",
+        "example": "This variety maintains steady yields across both good and below-average monsoon years.",
+        "guidance": [
+          "Describe whether yield is stable under variable seasons so farmers can weigh risk.",
+          "Mention seasons or conditions where stability is reduced if known."
+        ]
+      },
+      {
+        "step_number": "9.2",
+        "title": "Disease and pest tolerance",
+        "example": "Rated resistant to blast and moderately tolerant to brown planthopper.",
+        "guidance": [
+          "List resistance/tolerance for major disorders in plain terms so farmers can match variety to local pest history.",
+          "Offer simple scouting cues (e.g., check flag leaf for spots at booting) if a problem is locally common."
+        ]
+      },
+      {
+        "step_number": "9.3",
+        "title": "Abiotic stress tolerance",
+        "example": "Tolerates up to ten days of transient submergence and moderate salinity up to ~4 dS/m.",
+        "guidance": [
+          "State the type of abiotic stress and the practical limit (days or salinity level) so farmers know the trait boundary.",
+          "If a mitigation is needed (drainage, raised beds), mention that in one line."
+        ]
+      },
+      {
+        "step_number": "9.4",
+        "title": "Grain quality and market traits",
+        "example": "Long slender grain with intermediate amylose content, preferred by local premium rice traders.",
+        "guidance": [
+          "Explain how grain quality affects price and buyer preference so farmers can make market-oriented choices.",
+          "Suggest basic post-harvest handling to preserve quality (dry to 12% moisture before storage)."
+        ]
+      },
+      {
+        "step_number": "9.5",
+        "title": "Maturity uniformity and harvest labor",
+        "example": "Matures uniformly allowing single-pass harvest and reduced peak labor demand.",
+        "guidance": [
+          "Mention whether harvest is uniform or staggered because that affects labor planning and combine suitability.",
+          "If combine harvesting is likely, provide a short note on stem strength and lodging tolerance."
+        ]
+      },
+      {
+        "step_number": "9.6",
+        "title": "Storage and milling behaviour",
+        "example": "Low breakage on milling and stores well when dried to 12% moisture.",
+        "guidance": [
+          "Note storage and milling traits for farmers who sell to processors or store for later sale.",
+          "Provide simple storage hygiene tips (dry, clean shed, protect from rodents)."
+        ]
+      },
+      {
+        "step_number": "9.7",
+        "title": "Mechanization suitability",
+        "example": "Strong stems and erect plant type make this variety suitable for combine harvesting.",
+        "guidance": [
+          "Include mechanization suitability where relevant to modern farms and rental-equipment decisions.",
+          "If known, mention any machine adjustments that improve harvest quality."
+        ]
+      },
+      {
+        "step_number": "10",
+        "title": "Disease & pest quick note",
+        "example": "If major disease outbreaks occurred locally last season, prefer varieties rated resistant to that disease.",
+        "guidance": [
+          "Ask about last season’s major problems and avoid varieties known to be susceptible under similar pressure.",
+          "Give a one-line immediate IPM starter (for example: scout weekly at key stages; install pheromone traps if stem borer present)."
+        ]
+      },
+      {
+        "step_number": "11",
+        "title": "Water guidance (critical stages)",
+        "example": "Maintain adequate moisture during tillering and panicle initiation; drought-tolerant varieties allow reduced flooding during vegetative stages.",
+        "guidance": [
+          "Highlight the crop’s critical water stages in simple terms so watering priorities are clear.",
+          "Offer alternate wetting and drying guidelines for water saving when irrigation is limited."
+        ]
+      },
+      {
+        "step_number": "12",
+        "title": "Seed source and certification",
+        "example": "Certified seed from State Seed Corporation or KVK guarantees varietal purity and good germination, which reduces the risk of mixed plant stands and lost yield.",
+        "guidance": [
+          "Explain why certified seed matters in farmer language: true-to-type seed gives expected performance and better germination.",
+          "If certified seed is not available locally, recommend sourcing from nearest KVK, state seed store, or verified local dealers."
+        ]
+      },
+      {
+        "step_number": "13",
+        "title": "Economics and market note",
+        "example": "Aromatic or specialty varieties tend to fetch a price premium but come with higher seed cost and management requirements.",
+        "guidance": [
+          "Provide a concise cost–benefit pointer so farmers can decide based on market access and seed budgets.",
+          "Suggest testing the variety on a small plot before full-scale adoption to check local economics."
+        ]
+      },
+      {
+        "step_number": "14",
+        "title": "Limitations and final caution",
+        "example": "Not recommended for saline or heavily waterlogged soils unless a salinity or flood-tolerant line is specified.",
+        "guidance": [
+          "End with a clear one-line “do not use if…” warning to avoid major mismatches that lead to crop failure.",
+          "Offer one immediate alternative variety or practice when a limitation is present."
+        ]
+      },
+      {
+        "step_number": "15",
+        "title": "Local verification and follow-up",
+        "example": "Verify performance with the local KVK or the State Variety Release list and request foundation or certified seed for the first season.",
+        "guidance": [
+          "Direct farmers to local verification sources (KVK, State Seed Corporation) for seed access and localized trial information.",
+          "Recommend a small demonstration plot (0.1–0.5 ha) before full adoption when adopting a new variety."
+        ]
+      },
+      {
+        "step_number": "P1",
+        "title": "Identify region and water regime",
+        "example": "Coastal Andhra Pradesh, low-lying delta soils with tidal influence and seasonal salinity.",
+        "guidance": [
+          "Start by confirming whether the field is permanently flooded, intermittently flooded, or upland since that determines lowland vs upland variety choice.",
+          "Note any salinity or tidal risk so salinity-tolerant lines can be prioritized where needed."
+        ]
+      },
+      {
+        "step_number": "P2",
+        "title": "Identify season (Kharif/Boro/Rabi)",
+        "example": "Season: Boro (irrigated winter crop) with transplanting in November and harvest in April.",
+        "guidance": [
+          "Use the season to select the appropriate variety list because Boro and Kharif varieties differ in photoperiod and irrigation needs.",
+          "Provide the recommended planting window (weeks) for the local zone if available."
+        ]
+      },
+      {
+        "step_number": "P3",
+        "title": "Identify planting method intended (Transplant / DSR / SRI)",
+        "example": "Method: direct-seeded rice (DSR) on a laser-levelled field to save water and labour.",
+        "guidance": [
+          "Confirm planting method because seed rate, spacing, and weed control differ substantially by method.",
+          "If method undecided, explain pros and cons briefly and recommend a suitable method for the field and labour situation."
+        ]
+      },
+      {
+        "step_number": "P4",
+        "title": "Suggested varieties (2–3 with reason)",
+        "example": "Swarna — high yield in lowland transplant systems; Sahbhagi Dhan — short duration and suitable for DSR in upland conditions; Pusa Basmati 1509 — aromatic variety for premium markets under irrigated conditions.",
+        "guidance": [
+          "Offer alternatives so the farmer can choose based on seed availability and market aim.",
+          "Highlight the best method beside each variety (for example: Swarna — best for transplant; Sahbhagi Dhan — works well in DSR)."
+        ]
+      },
+      {
+        "step_number": "P5",
+        "title": "Maturity / duration (days)",
+        "example": "Swarna: 140–150 days; Sahbhagi Dhan: 90–100 days.",
+        "guidance": [
+          "State maturity in days and match it to the seasonal water availability and labour calendar.",
+          "Suggest last safe sowing dates for the local agro-zone when possible."
+        ]
+      },
+      {
+        "step_number": "P6",
+        "title": "Seed rate by method (explicit)",
+        "example": "Seed rate: Transplant nursery 25 kg/ha; DSR drill 80–100 kg/ha; SRI tray nursery 5–8 kg/ha nursery seed for small areas.",
+        "guidance": [
+          "Provide exact seed rates that correspond to the chosen planting method so seed purchases are accurate.",
+          "Offer seed quantity per 0.1 ha for easier household planning."
+        ]
+      },
+      {
+        "step_number": "P7",
+        "title": "Spacing and seedling age (method-specific)",
+        "example": "Transplant: 20×15 cm with 18–22 day seedlings; SRI: 25×25 cm with 8–12 day single seedlings; DSR: 20 cm rows for drill seeding.",
+        "guidance": [
+          "Give exact spacing and seedling ages by method to optimize plant population and tillering.",
+          "Note small adjustments for high temperature or cool weather at planting."
+        ]
+      },
+      {
+        "step_number": "P8",
+        "title": "Water regime by method (simple rules)",
+        "example": "Transplant: maintain 2–5 cm standing water until panicle initiation; SRI: keep soil moist but avoid continuous flooding; DSR: intermittent wetting with good leveling and drainage.",
+        "guidance": [
+          "Tie simple water rules to the method and emphasize critical stages such as tillering and panicle initiation.",
+          "Offer alternate wetting and drying guidance for water conservation in transplant systems."
+        ]
+      },
+      {
+        "step_number": "P9",
+        "title": "Weed management by method",
+        "example": "DSR requires pre-emergent herbicide and prompt row weeding; SRI requires 1–2 early mechanical weedings; transplant systems need timely hand or mechanical weeding.",
+        "guidance": [
+          "Give the primary weed control approach per method because weeds are the main yield limiter in DSR.",
+          "Warn about herbicide timing and safe use instructions."
+        ]
+      },
+      {
+        "step_number": "P10",
+        "title": "Fertiliser guidance (method note)",
+        "example": "For SRI split N in smaller doses more frequently; for DSR give a larger basal and timely topdresses based on growth.",
+        "guidance": [
+          "Provide a simple N split guideline by method and suggest following the local nutrient package for exact doses.",
+          "Recommend soil testing where available to refine NPK rates."
+        ]
+      },
+      {
+        "step_number": "P11",
+        "title": "Pest and disease quick notes (method risks)",
+        "example": "DSR fields often face heavier weed pressure and may attract stem borers early; SRI reduces some disease incidence due to better soil aeration.",
+        "guidance": [
+          "Mention method-specific pest/disease tendencies so farmers can prioritize scouting and preventive steps.",
+          "Give a short IPM starter (regular scouting, pheromone traps, remove infected hills) when a problem is likely."
+        ]
+      },
+      {
+        "step_number": "P12",
+        "title": "Expected yield and harvest timing (method differences)",
+        "example": "Typical Swarna yield in transplant: 4–6 t/ha; in DSR under good weed control yield may be 3.5–5 t/ha.",
+        "guidance": [
+          "Provide realistic yield ranges and explain any yield trade-offs by method so farmers have correct expectations.",
+          "Give harvest moisture and drying targets (dry to ~14% then further to 12% for storage)."
+        ]
+      },
+      {
+        "step_number": "P13",
+        "title": "Seed availability and simple certification explanation",
+        "example": "Certified paddy seed from State Seed Corporation or KVK is true to variety and gives reliable germination, reducing mixed stands and low yields.",
+        "guidance": [
+          "Explain certification plainly so farmers understand that certified seed reduces risk and gives consistent crop stands.",
+          "If certified seed is unavailable locally, recommend verified sellers or community seed banks and suggest testing a small plot."
+        ]
+      },
+      {
+        "step_number": "P14",
+        "title": "Method-specific limitations and quick mitigation",
+        "example": "DSR requires excellent land leveling and aggressive weed control; SRI needs careful nursery management and labor for early weeding.",
+        "guidance": [
+          "State primary constraint for each method and propose the practical alternative (for example: switch to transplant if weed control is not possible).",
+          "Recommend a small trial plot to test the method with the selected variety."
+        ]
+      },
+      {
+        "step_number": "P15",
+        "title": "Final short caution and verification",
+        "example": "If soil salinity exceeds local tolerance levels, select a salinity-tolerant line and verify with the KVK or state seed agency.",
+        "guidance": [
+          "Finish with a single clear “do not use if” or “prefer alternative if” sentence to prevent major mismatches.",
+          "Point farmers to local KVK or seed agency for foundation seed and localized performance reports."
+        ]
+      },
+      {
+        "step_number": "H1",
+        "title": "Identify region and season fit for the hybrid",
+        "example": "Maize hybrid DKC 9108 performs well in Kharif under irrigated conditions in the Indo-Gangetic Plains.",
+        "guidance": [
+          "Confirm region and season first because hybrids show strong zone-specific performance differences and seed availability varies by area.",
+          "If the hybrid is new to the zone, recommend a small trial plot or demo before scaling up."
+        ]
+      },
+      {
+        "step_number": "H2",
+        "title": "Provide 2–3 hybrid options with short reason",
+        "example": "DKC 9108 — high yield under irrigation; HQPM-1 — better pest tolerance for rainfed maize; Pioneer XYZ — early maturing for early market sale.",
+        "guidance": [
+          "Offer multiple hybrid choices to allow for seed availability and risk management.",
+          "Mention the brand or seed company to ease seed sourcing."
+        ]
+      },
+      {
+        "step_number": "H3",
+        "title": "Duration / maturity",
+        "example": "DKC 9108: ~90 days to physiological maturity under normal Kharif conditions.",
+        "guidance": [
+          "State maturity so planting fits the rainy season length and harvest schedule.",
+          "Note that maturity can vary by planting date and local climate."
+        ]
+      },
+      {
+        "step_number": "H4",
+        "title": "Seed rate and spacing",
+        "example": "Maize hybrid seed rate: 20–25 kg/ha at 60×20 cm spacing; adjust spacing for higher plant populations if desired.",
+        "guidance": [
+          "Provide seed rate and spacing to achieve target plant populations needed for hybrid yield expression.",
+          "Give seed quantity per 0.1 ha for small-plot planning."
+        ]
+      },
+      {
+        "step_number": "H5",
+        "title": "Yield and economic trade-off",
+        "example": "Hybrid seed costs more (often 3–5× OPV seed) but can give 15–30% higher grain yield; farmers should compare extra seed cost with expected increased gross income.",
+        "guidance": [
+          "Give a concise cost–benefit note so farmers can judge whether the hybrid investment makes sense locally.",
+          "Recommend testing the hybrid on 0.1–0.5 ha before purchasing large quantities of seed."
+        ]
+      },
+      {
+        "step_number": "H6",
+        "title": "Seed saving warning (plain language)",
+        "example": "Seed saved from hybrids will not reliably maintain the same yield and vigor in the next season; hybrid seed normally needs to be purchased each season.",
+        "guidance": [
+          "Warn plainly about seed saving so farmers understand the ongoing seed cost implication of hybrids.",
+          "Explain briefly that OPV varieties are the ones where seed saving keeps similar performance."
+        ]
+      },
+      {
+        "step_number": "H7",
+        "title": "Pest, disease and management notes",
+        "example": "This hybrid shows strong tolerance to stem borer but is susceptible to fall armyworm, so early scouting is recommended.",
+        "guidance": [
+          "State the major resistance and vulnerability so farmers can prioritize scouting and early action.",
+          "Provide a short IPM starter: scouting schedule and first cultural or trapping measures."
+        ]
+      },
+      {
+        "step_number": "H8",
+        "title": "Seed availability and authenticity check",
+        "example": "Purchase hybrid seed from authorised dealers or company outlets and verify lot number and company seal on the packet to ensure authenticity.",
+        "guidance": [
+          "Explain how to check genuine seed packets (authorized dealer, lot number, seal) to avoid fake seed.",
+          "Suggest contacting the seed company or state seed office if authenticity is in doubt."
+        ]
+      },
+      {
+        "step_number": "H9",
+        "title": "Mechanization and market suitability",
+        "example": "Many hybrids are bred for combine harvest and uniform maturity; check if the hybrid packet states combine suitability.",
+        "guidance": [
+          "Mention mechanization suitability and market timing where relevant for medium and large growers.",
+          "Note any special harvest or drying recommendations that maximize market returns."
+        ]
+      },
+      {
+        "step_number": "H10",
+        "title": "Final verification and caution",
+        "example": "For first-time hybrid use, try a small plot and buy seed from verified sources; hybrids often require better management to reach full potential.",
+        "guidance": [
+          "End with a practical trial-and-verify recommendation so farmers minimize risk with a new hybrid.",
+          "If seed costs are prohibitive, present OPV alternatives and their expected performance difference."
+        ]
+      }
+    ],
+    "conditional_branches": [
+      {
+        "step_prefix": "P",
+        "ordered_steps": [
+          {
+            "step_number": "P1",
+            "title": "Identify region and water regime",
+            "example": "Coastal Andhra Pradesh, low-lying delta soils with tidal influence and seasonal salinity.",
+            "guidance": [
+              "Start by confirming whether the field is permanently flooded, intermittently flooded, or upland since that determines lowland vs upland variety choice.",
+              "Note any salinity or tidal risk so salinity-tolerant lines can be prioritized where needed."
+            ]
+          },
+          {
+            "step_number": "P2",
+            "title": "Identify season (Kharif/Boro/Rabi)",
+            "example": "Season: Boro (irrigated winter crop) with transplanting in November and harvest in April.",
+            "guidance": [
+              "Use the season to select the appropriate variety list because Boro and Kharif varieties differ in photoperiod and irrigation needs.",
+              "Provide the recommended planting window (weeks) for the local zone if available."
+            ]
+          },
+          {
+            "step_number": "P3",
+            "title": "Identify planting method intended (Transplant / DSR / SRI)",
+            "example": "Method: direct-seeded rice (DSR) on a laser-levelled field to save water and labour.",
+            "guidance": [
+              "Confirm planting method because seed rate, spacing, and weed control differ substantially by method.",
+              "If method undecided, explain pros and cons briefly and recommend a suitable method for the field and labour situation."
+            ]
+          },
+          {
+            "step_number": "P4",
+            "title": "Suggested varieties (2–3 with reason)",
+            "example": "Swarna — high yield in lowland transplant systems; Sahbhagi Dhan — short duration and suitable for DSR in upland conditions; Pusa Basmati 1509 — aromatic variety for premium markets under irrigated conditions.",
+            "guidance": [
+              "Offer alternatives so the farmer can choose based on seed availability and market aim.",
+              "Highlight the best method beside each variety (for example: Swarna — best for transplant; Sahbhagi Dhan — works well in DSR)."
+            ]
+          },
+          {
+            "step_number": "P5",
+            "title": "Maturity / duration (days)",
+            "example": "Swarna: 140–150 days; Sahbhagi Dhan: 90–100 days.",
+            "guidance": [
+              "State maturity in days and match it to the seasonal water availability and labour calendar.",
+              "Suggest last safe sowing dates for the local agro-zone when possible."
+            ]
+          },
+          {
+            "step_number": "P6",
+            "title": "Seed rate by method (explicit)",
+            "example": "Seed rate: Transplant nursery 25 kg/ha; DSR drill 80–100 kg/ha; SRI tray nursery 5–8 kg/ha nursery seed for small areas.",
+            "guidance": [
+              "Provide exact seed rates that correspond to the chosen planting method so seed purchases are accurate.",
+              "Offer seed quantity per 0.1 ha for easier household planning."
+            ]
+          },
+          {
+            "step_number": "P7",
+            "title": "Spacing and seedling age (method-specific)",
+            "example": "Transplant: 20×15 cm with 18–22 day seedlings; SRI: 25×25 cm with 8–12 day single seedlings; DSR: 20 cm rows for drill seeding.",
+            "guidance": [
+              "Give exact spacing and seedling ages by method to optimize plant population and tillering.",
+              "Note small adjustments for high temperature or cool weather at planting."
+            ]
+          },
+          {
+            "step_number": "P8",
+            "title": "Water regime by method (simple rules)",
+            "example": "Transplant: maintain 2–5 cm standing water until panicle initiation; SRI: keep soil moist but avoid continuous flooding; DSR: intermittent wetting with good leveling and drainage.",
+            "guidance": [
+              "Tie simple water rules to the method and emphasize critical stages such as tillering and panicle initiation.",
+              "Offer alternate wetting and drying guidance for water conservation in transplant systems."
+            ]
+          },
+          {
+            "step_number": "P9",
+            "title": "Weed management by method",
+            "example": "DSR requires pre-emergent herbicide and prompt row weeding; SRI requires 1–2 early mechanical weedings; transplant systems need timely hand or mechanical weeding.",
+            "guidance": [
+              "Give the primary weed control approach per method because weeds are the main yield limiter in DSR.",
+              "Warn about herbicide timing and safe use instructions."
+            ]
+          },
+          {
+            "step_number": "P10",
+            "title": "Fertiliser guidance (method note)",
+            "example": "For SRI split N in smaller doses more frequently; for DSR give a larger basal and timely topdresses based on growth.",
+            "guidance": [
+              "Provide a simple N split guideline by method and suggest following the local nutrient package for exact doses.",
+              "Recommend soil testing where available to refine NPK rates."
+            ]
+          },
+          {
+            "step_number": "P11",
+            "title": "Pest and disease quick notes (method risks)",
+            "example": "DSR fields often face heavier weed pressure and may attract stem borers early; SRI reduces some disease incidence due to better soil aeration.",
+            "guidance": [
+              "Mention method-specific pest/disease tendencies so farmers can prioritize scouting and preventive steps.",
+              "Give a short IPM starter (regular scouting, pheromone traps, remove infected hills) when a problem is likely."
+            ]
+          },
+          {
+            "step_number": "P12",
+            "title": "Expected yield and harvest timing (method differences)",
+            "example": "Typical Swarna yield in transplant: 4–6 t/ha; in DSR under good weed control yield may be 3.5–5 t/ha.",
+            "guidance": [
+              "Provide realistic yield ranges and explain any yield trade-offs by method so farmers have correct expectations.",
+              "Give harvest moisture and drying targets (dry to ~14% then further to 12% for storage)."
+            ]
+          },
+          {
+            "step_number": "P13",
+            "title": "Seed availability and simple certification explanation",
+            "example": "Certified paddy seed from State Seed Corporation or KVK is true to variety and gives reliable germination, reducing mixed stands and low yields.",
+            "guidance": [
+              "Explain certification plainly so farmers understand that certified seed reduces risk and gives consistent crop stands.",
+              "If certified seed is unavailable locally, recommend verified sellers or community seed banks and suggest testing a small plot."
+            ]
+          },
+          {
+            "step_number": "P14",
+            "title": "Method-specific limitations and quick mitigation",
+            "example": "DSR requires excellent land leveling and aggressive weed control; SRI needs careful nursery management and labor for early weeding.",
+            "guidance": [
+              "State primary constraint for each method and propose the practical alternative (for example: switch to transplant if weed control is not possible).",
+              "Recommend a small trial plot to test the method with the selected variety."
+            ]
+          },
+          {
+            "step_number": "P15",
+            "title": "Final short caution and verification",
+            "example": "If soil salinity exceeds local tolerance levels, select a salinity-tolerant line and verify with the KVK or state seed agency.",
+            "guidance": [
+              "Finish with a single clear “do not use if” or “prefer alternative if” sentence to prevent major mismatches.",
+              "Point farmers to local KVK or seed agency for foundation seed and localized performance reports."
+            ]
+          }
+        ]
+      },
+      {
+        "step_prefix": "H",
+        "ordered_steps": [
+          {
+            "step_number": "H1",
+            "title": "Identify region and season fit for the hybrid",
+            "example": "Maize hybrid DKC 9108 performs well in Kharif under irrigated conditions in the Indo-Gangetic Plains.",
+            "guidance": [
+              "Confirm region and season first because hybrids show strong zone-specific performance differences and seed availability varies by area.",
+              "If the hybrid is new to the zone, recommend a small trial plot or demo before scaling up."
+            ]
+          },
+          {
+            "step_number": "H2",
+            "title": "Provide 2–3 hybrid options with short reason",
+            "example": "DKC 9108 — high yield under irrigation; HQPM-1 — better pest tolerance for rainfed maize; Pioneer XYZ — early maturing for early market sale.",
+            "guidance": [
+              "Offer multiple hybrid choices to allow for seed availability and risk management.",
+              "Mention the brand or seed company to ease seed sourcing."
+            ]
+          },
+          {
+            "step_number": "H3",
+            "title": "Duration / maturity",
+            "example": "DKC 9108: ~90 days to physiological maturity under normal Kharif conditions.",
+            "guidance": [
+              "State maturity so planting fits the rainy season length and harvest schedule.",
+              "Note that maturity can vary by planting date and local climate."
+            ]
+          },
+          {
+            "step_number": "H4",
+            "title": "Seed rate and spacing",
+            "example": "Maize hybrid seed rate: 20–25 kg/ha at 60×20 cm spacing; adjust spacing for higher plant populations if desired.",
+            "guidance": [
+              "Provide seed rate and spacing to achieve target plant populations needed for hybrid yield expression.",
+              "Give seed quantity per 0.1 ha for small-plot planning."
+            ]
+          },
+          {
+            "step_number": "H5",
+            "title": "Yield and economic trade-off",
+            "example": "Hybrid seed costs more (often 3–5× OPV seed) but can give 15–30% higher grain yield; farmers should compare extra seed cost with expected increased gross income.",
+            "guidance": [
+              "Give a concise cost–benefit note so farmers can judge whether the hybrid investment makes sense locally.",
+              "Recommend testing the hybrid on 0.1–0.5 ha before purchasing large quantities of seed."
+            ]
+          },
+          {
+            "step_number": "H6",
+            "title": "Seed saving warning (plain language)",
+            "example": "Seed saved from hybrids will not reliably maintain the same yield and vigor in the next season; hybrid seed normally needs to be purchased each season.",
+            "guidance": [
+              "Warn plainly about seed saving so farmers understand the ongoing seed cost implication of hybrids.",
+              "Explain briefly that OPV varieties are the ones where seed saving keeps similar performance."
+            ]
+          },
+          {
+            "step_number": "H7",
+            "title": "Pest, disease and management notes",
+            "example": "This hybrid shows strong tolerance to stem borer but is susceptible to fall armyworm, so early scouting is recommended.",
+            "guidance": [
+              "State the major resistance and vulnerability so farmers can prioritize scouting and early action.",
+              "Provide a short IPM starter: scouting schedule and first cultural or trapping measures."
+            ]
+          },
+          {
+            "step_number": "H8",
+            "title": "Seed availability and authenticity check",
+            "example": "Purchase hybrid seed from authorised dealers or company outlets and verify lot number and company seal on the packet to ensure authenticity.",
+            "guidance": [
+              "Explain how to check genuine seed packets (authorized dealer, lot number, seal) to avoid fake seed.",
+              "Suggest contacting the seed company or state seed office if authenticity is in doubt."
+            ]
+          },
+          {
+            "step_number": "H9",
+            "title": "Mechanization and market suitability",
+            "example": "Many hybrids are bred for combine harvest and uniform maturity; check if the hybrid packet states combine suitability.",
+            "guidance": [
+              "Mention mechanization suitability and market timing where relevant for medium and large growers.",
+              "Note any special harvest or drying recommendations that maximize market returns."
+            ]
+          },
+          {
+            "step_number": "H10",
+            "title": "Final verification and caution",
+            "example": "For first-time hybrid use, try a small plot and buy seed from verified sources; hybrids often require better management to reach full potential.",
+            "guidance": [
+              "End with a practical trial-and-verify recommendation so farmers minimize risk with a new hybrid.",
+              "If seed costs are prohibitive, present OPV alternatives and their expected performance difference."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "general": {
+    "source_sheet": "General Advisory (fallback -- no specific domain category matched this question)",
+    "required_sections": [
+      "problem_context",
+      "recommendation",
+      "precautions"
+    ],
+    "optional_sections": [
+      "quantity_or_dose",
+      "timing"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Identify or restate the problem/context the question is actually about",
+        "guidance": [
+          "A complete answer should make clear what specific issue, crop, or situation the recommendation addresses before giving the recommendation itself."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Give the core recommendation that actually answers what was asked",
+        "guidance": [
+          "This is the substantive advice: what to do, use, or decide."
+        ]
+      },
+      {
+        "step_number": "3",
+        "title": "Specify quantity, dose, or rate, only if the question or recommendation genuinely involves one",
+        "guidance": [
+          "Applicable only when a measurable quantity is relevant (e.g. chemical dose, seed rate, water volume) -- do not require this for questions that never involve a quantity."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Specify timing or growth stage, only if relevant to the recommendation",
+        "guidance": [
+          "Applicable only when timing or growth stage affects whether the recommendation is followed correctly."
+        ]
+      },
+      {
+        "step_number": "5",
+        "title": "Note precautions, safety, or follow-up considerations where applicable",
+        "guidance": [
+          "e.g. re-application intervals, safety precautions, or when to seek further expert help."
+        ]
+      }
+    ],
+    "conditional_branches": []
+  },
+  "weed": {
+    "source_sheet": "Domain-wise Answer Structures — Weed Management",
+    "required_sections": [
+      "why_this_timing_matters",
+      "identify_the_dominant_weed_type_first",
+      "mechanical_manual_control",
+      "chemical_control",
+      "preventing_recurrence_next_season"
+    ],
+    "optional_sections": [],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct urgency",
+        "example": "Weeds at 3 weeks after sowing fall inside soybean's critical weed-competition window (roughly 30-45 days after sowing) - act now rather than delay, using hand/mechanical weeding or a timed post-emergence herbicide.",
+        "guidance": [
+          "Flag the time-criticality immediately since that changes the urgency of the answer compared to a general weed question."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Why this timing matters",
+        "example": "Weeds uncontrolled during the critical period cause yield loss that isn't fully recovered even if the weeds are removed later."
+      },
+      {
+        "step_number": "3",
+        "title": "Identify the dominant weed type first",
+        "example": "Check whether grassy weeds, broadleaf weeds, or sedges (e.g. Cyperus) dominate - herbicide choice, if used, depends on this.",
+        "guidance": [
+          "This is the decision-branch step: herbicide recommendation cannot be given usefully without knowing weed type."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Mechanical/manual control",
+        "example": "Hand weeding or inter-row hoeing at this stage is effective and avoids herbicide risk, though labour-intensive; often combined with one herbicide pass for larger areas."
+      },
+      {
+        "step_number": "5",
+        "title": "Chemical control",
+        "example": "An early post-emergence herbicide matched to the dominant weed type, applied at the recommended dose/water volume/growth-stage window from the current registered label for soybean.",
+        "guidance": [
+          "Never name a fixed product/dose without matching it to the weed type identified in step 3."
+        ]
+      },
+      {
+        "step_number": "6",
+        "title": "Preventing recurrence next season",
+        "example": "Stale seed-bed technique, clean bunds/channels, and crop rotation reduce the weed seed bank over successive seasons."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion",
+        "example": "Act within the critical period using weed-type-matched mechanical or chemical control at the correct dose and timing; manage the seed bank going forward to reduce recurrence."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question (e.g. product/dose/rotational or safety concerns), not a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct answer",
+            "example": "Herbicide choice depends on the dominant weed type and timing window (pre- vs. post-emergence); some soybean herbicides also carry soil-residual risk to a following wheat crop if dose or timing to wheat sowing isn't respected.",
+            "guidance": [
+              "Answer all parts of the compound question together since they are linked by the same label check."
+            ]
+          },
+          {
+            "step_number": "2",
+            "title": "Herbicide choice by timing window and weed type",
+            "example": "Pre-emergence (0-3 days after sowing, before weeds emerge - the more reliable option where grass-weed pressure is heavy, forms a soil-surface barrier) versus post-emergence (broadleaf-targeted, grassy-targeted, or broader-spectrum, used once weeds are already up); since this field is 3+ weeks past sowing, post-emergence is the relevant option now, but pre-emergence is worth planning for the next sowing.",
+            "guidance": [
+              "Always present pre-emergence as the first-line option in principle, even when the farmer's specific timing has already passed it by - this is what lets the answer also serve the next season's planning, not just this one."
+            ]
+          },
+          {
+            "step_number": "3",
+            "title": "Herbicide mode-of-action rotation",
+            "example": "Rotate between different herbicide modes of action across seasons rather than repeating the same product, since repeated use of the same mode of action speeds up resistance build-up in the weed population."
+          },
+          {
+            "step_number": "4",
+            "title": "PHI for this soybean crop (distinct from the wheat-carryover concern)",
+            "example": "Check the product's own pre-harvest interval (PHI) - the minimum wait before harvesting THIS soybean crop, so any residue decays to a safe level before the grain is eaten or sold.",
+            "guidance": [
+              "This is a genuinely separate figure from the wheat-rotation interval in step 5 - do not conflate the two even though both appear on the same product label."
+            ]
+          },
+          {
+            "step_number": "5",
+            "title": "Carryover risk to wheat - what decides it (a rotational-crop restriction, not PHI)",
+            "example": "Certain herbicide groups, particularly the imidazolinone group (e.g. imazethapyr-type actives), have documented soil-residual activity that can injure wheat if dose was exceeded, a longer-persistence product was used, or the gap to wheat sowing was too short; breakdown is slower in dry weather and in alkaline/high-pH soil.",
+            "guidance": [
+              "This is the specific compliance point this narrow question is really asking about - treat it as central content, and name it correctly as a rotational crop restriction/plant-back interval rather than calling it PHI, since PHI and this are different concepts on the same label."
+            ]
+          },
+          {
+            "step_number": "6",
+            "title": "How to check for this specific product",
+            "example": "Read the product's current label for any stated rotational-crop restriction or minimum waiting period before sowing wheat; this varies by active ingredient, and caution should increase (wait longer than the label's baseline) after an unusually dry spell.",
+            "guidance": [
+              "Never state \"it is safe\" or \"it is not safe\" generically - route to the specific product's label every time."
+            ]
+          },
+          {
+            "step_number": "7",
+            "title": "Reducing the risk",
+            "example": "Never exceed labelled dose, prefer a product without a flagged wheat-rotation restriction if wheat follows, and respect the minimum interval to next-crop sowing."
+          },
+          {
+            "step_number": "8",
+            "title": "Safety precautions while spraying",
+            "example": "Protective clothing, gloves and a mask while spraying, since skin contact with or inhalation of the herbicide can cause poisoning; avoid drift onto neighbouring susceptible crops; wash hands, face and equipment thoroughly afterward.",
+            "guidance": [
+              "This was previously the one entry in the sheet with no PPE/spray-safety guidance despite being a herbicide-application answer - always include this step for any spray recommendation."
+            ]
+          },
+          {
+            "step_number": "9",
+            "title": "Alternative sustainable methods - non-chemical control",
+            "example": "Hand-weeding or inter-row mechanical cultivation controls weeds effectively without any herbicide-residue carryover risk to a following sensitive crop like wheat.",
+            "guidance": [
+              "This is the mandatory Alternative Sustainable Methods slot, and it doubles as a way to sidestep the carryover risk this question is centrally about."
+            ]
+          },
+          {
+            "step_number": "10",
+            "title": "Conclusion",
+            "example": "Match herbicide timing/type to the weed situation at label dose, separately confirm this product's own PHI (for this soybean harvest) and its distinct wheat-rotation restriction (for next season) on the same label, follow spray safety precautions and mode-of-action rotation, and consider hand-weeding as a carryover-free alternative."
+          }
+        ]
+      }
+    ]
+  },
+  "irrigation": {
+    "source_sheet": "Domain-wise Answer Structures — Irrigation and Water Management",
+    "required_sections": [
+      "why_this_stage_is_critical",
+      "alternative_sustainable_methods"
+    ],
+    "optional_sections": [
+      "drip_specific_scheduling_logic",
+      "monitoring_instead_of_a_fixed_calendar"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct schedule",
+        "example": "Irrigate Bt cotton under drip every 2-3 days through the flowering-to-boll stage rather than on a fixed weekly schedule.",
+        "guidance": [
+          "Give the frequency answer immediately since that is the literal question asked."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Why this stage is critical",
+        "example": "Flowering through boll development is cotton's most water-sensitive window; both moisture stress and waterlogging at this stage cause flower/boll shedding and directly cut final yield."
+      },
+      {
+        "step_number": "3",
+        "title": "Drip-specific scheduling logic",
+        "example": "Drip should run more frequently in smaller amounts than flood irrigation, to hold a steady root-zone moisture level rather than a wet-dry cycle; adjust frequency for soil type (sandy = more frequent/shorter, heavy = longer intervals)."
+      },
+      {
+        "step_number": "4",
+        "title": "Monitoring instead of a fixed calendar",
+        "example": "Checking soil moisture at root depth where feasible is more reliable than a rigid schedule, since local weather and canopy stage shift actual demand day to day."
+      },
+      {
+        "step_number": "5",
+        "title": "Alternative sustainable methods",
+        "example": "Inter-row mulching conserves soil moisture and reduces irrigation frequency; skip irrigation immediately after a good rainfall event.",
+        "guidance": [
+          "This is the mandatory Alternative Sustainable Methods slot before the conclusion."
+        ]
+      },
+      {
+        "step_number": "6",
+        "title": "Conclusion",
+        "example": "2-3 day drip cycles through flowering-boll stage, adjusted for soil and weather, protect yield at cotton's most decisive growth window."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question (e.g. product/dose/rotational or safety concerns), not a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct cause",
+            "example": "Emitters not releasing water evenly is almost always clogging - physical (sediment), mineral (hard-water deposit) or biological (algae/slime) - and the cleaning method depends on which type is present."
+          },
+          {
+            "step_number": "2",
+            "title": "Diagnostic check",
+            "example": "Inspect the residue type on affected emitters (crusty=mineral, slimy=biological, sandy/debris=physical) and note whether the problem is field-wide (filter issue) or localised (specific lateral/pipe damage).",
+            "guidance": [
+              "This diagnostic step must come before any chemical treatment, since the wrong treatment (e.g. acid on a biological clog) wastes effort."
+            ]
+          },
+          {
+            "step_number": "3",
+            "title": "Flushing procedure",
+            "example": "Open end caps on main, sub-main and then lateral lines and run water until it clears; clean or backwash the filter unit, since a clogged filter is a common field-wide cause."
+          },
+          {
+            "step_number": "4",
+            "title": "Targeted chemical treatment by clog type",
+            "example": "Mild acid flush (manufacturer-recommended dilution) for mineral deposits; low-concentration chlorine flush for biological/algae growth; manually clean or replace emitters still blocked afterward.",
+            "guidance": [
+              "Never mix acid and chlorine treatments in the same flush cycle - flag this explicitly as a safety/compatibility caution."
+            ]
+          },
+          {
+            "step_number": "5",
+            "title": "Alternative sustainable/preventive methods",
+            "example": "Upgrade to finer disc/screen filtration and adopt routine scheduled flushing rather than reactive cleaning only after emitters fail."
+          },
+          {
+            "step_number": "6",
+            "title": "Conclusion",
+            "example": "Identify the clog type first, flush lines and filter, apply the matched acid/chlorine treatment only where needed, and maintain filtration/flushing as ongoing prevention."
+          }
+        ]
+      }
+    ]
+  },
+  "cultural": {
+    "source_sheet": "Domain-wise Answer Structures - Cultural and Crop Management Practices",
+    "required_sections": [],
+    "optional_sections": [
+      "why_spacing_matters",
+      "why_sowing_depth_matters",
+      "recommended_practice_with_adjustment_fac",
+      "supporting_practices_for_a_uniform_stand"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct figures",
+        "example": "About 60 cm row spacing, 20-25 cm plant-to-plant spacing, and 4-5 cm sowing depth are the general starting figures for a good maize stand.",
+        "guidance": [
+          "Give the numeric answer immediately since that's the literal ask, before explaining the reasoning."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Why spacing matters",
+        "example": "Spacing sets plant population, which decides how much light/water/nutrient each plant gets; too dense weakens plants and cob filling, too sparse wastes yield potential."
+      },
+      {
+        "step_number": "3",
+        "title": "Why sowing depth matters",
+        "example": "Too shallow exposes seed to moisture stress and bird/rodent loss; too deep delays or reduces emergence."
+      },
+      {
+        "step_number": "4",
+        "title": "Recommended practice with adjustment factors",
+        "example": "60 cm x 20-25 cm as the default, tightened for hybrids specifically bred for high density or widened under rainfed/lower fertility; 4-5 cm depth, deeper only if surface soil is dry.",
+        "guidance": [
+          "This is the compression point where a narrower question (e.g. \"gap-filling\" question below) pulls just the establishment-check step."
+        ]
+      },
+      {
+        "step_number": "5",
+        "title": "Supporting practices for a uniform stand",
+        "example": "Good-quality treated seed at the recommended seed rate, fine well-prepared seedbed with adequate (not excess) moisture, and early post-emergence inspection for gaps."
+      },
+      {
+        "step_number": "6",
+        "title": "Conclusion",
+        "example": "60 cm x 20-25 cm spacing at 4-5 cm depth is the default; fine-tune for the specific hybrid's recommended density and field moisture at sowing."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct fix",
+            "example": "Gap-fill promptly with pre-germinated seed of the same variety; patchy germination is usually caused by uneven sowing depth, poor seed quality, soil crusting, or moisture/pest problems at sowing."
+          },
+          {
+            "step_number": "2",
+            "title": "Diagnose the likely cause",
+            "example": "Uneven depth, poor germination %, soil crusting after rain, waterlogged/dry patches, or pest damage to germinating seed - check which applies before deciding if gap-filling alone is enough."
+          },
+          {
+            "step_number": "3",
+            "title": "Gap-filling method",
+            "example": "Pre-soak fresh seed of the same variety to pre-germinate it, then sow into the gaps as soon as possible (ideally within 1-2 weeks of original sowing) so the new seedlings can compete with the established crop.",
+            "guidance": [
+              "Timing is the critical variable here - flag that late gap-filling produces plants that add little to final yield."
+            ]
+          },
+          {
+            "step_number": "4",
+            "title": "Preventing recurrence next time",
+            "example": "Use a seed drill or careful manual spacing for uniform depth, use seed with confirmed high germination %, and avoid sowing right before/during heavy expected rainfall."
+          },
+          {
+            "step_number": "5",
+            "title": "Conclusion",
+            "example": "Act quickly with pre-germinated same-variety seed to fill gaps while the main crop is still young, and address whichever underlying cause (depth, seed, crusting, moisture, pest) applies for next season."
+          }
+        ]
+      }
+    ]
+  },
+  "organic": {
+    "source_sheet": "Domain-wise Answer Structures - Organic and Natural Farming",
+    "required_sections": [],
+    "optional_sections": [
+      "the_actual_distinction",
+      "decision_point_which_path_fits_the_farme",
+      "organic_farming_path_soil_building_and_c",
+      "natural_farming_path_on_farm_only_inputs",
+      "managing_pests_disease_and_weeds_common_"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction - clarify which system is actually meant",
+        "example": "\"Organic\" and \"natural inputs\" point to two distinct, differently-regulated Indian systems (Organic Farming under NPOP/PGS-India vs. Natural Farming/BPKP under the National Mission on Natural Farming); clarify which one fits the farmer's actual goal before recommending inputs.",
+        "guidance": [
+          "Do not silently treat \"organic\" and \"natural farming\" as interchangeable - conflating them is a common and consequential mistake, since the permitted-input rules and the supporting government scheme differ between the two."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "The actual distinction",
+        "example": "Organic Farming: certification-driven (NPOP/PGS-India), permits external inputs like FYM/compost/vermicompost/certified biofertilisers, aimed at premium/certified markets. Natural Farming (BPKP/ZBNF): zero external input of any kind (chemical or organic), on-farm-only inputs from desi cow resources and local biomass, aimed at near-zero input cost.",
+        "guidance": [
+          "This is the core fact the whole answer hinges on; state it plainly rather than letting the farmer infer it."
+        ]
+      },
+      {
+        "step_number": "3",
+        "title": "Decision point - which path fits the farmer's goal",
+        "example": "Premium/certified market access -> Organic Farming path; lowest possible input cost and self-reliance -> Natural Farming path.",
+        "guidance": [
+          "Let the farmer's own goal (stated or implied) decide the branch, rather than defaulting to one path."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Organic Farming path - soil-building and certification",
+        "example": "FYM/compost/vermicompost/green manure (e.g. dhaincha) during land preparation; PGS-India group certification (more accessible for 2 acres than individual NPOP certification); certified external biofertilisers/biopesticides permitted."
+      },
+      {
+        "step_number": "5",
+        "title": "Natural Farming path - on-farm-only inputs",
+        "example": "Jeevamrit (soil microbial activity) and beejamrit (seed treatment) made from desi cow dung/urine, jaggery, pulse flour and local soil; mulching and whapasa (correct soil moisture management) as core practices; no external input of any kind, connects to the state's BPKP/Natural Farming mission rather than organic certification."
+      },
+      {
+        "step_number": "6",
+        "title": "Managing pests, disease and weeds (common to both paths)",
+        "example": "Crop rotation, resistant variety choice, field sanitation, biological control agents, and mechanical/cultural weeding replace synthetic pesticide/herbicide use under either system."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion",
+        "example": "Choose Organic Farming (external permitted inputs + PGS-India certification) for certified/premium market access, or Natural Farming/BPKP (on-farm-only inputs, no external input at all) for near-zero cost; pest/disease/weed management is shared across both, and both need a multi-season transition."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct method",
+            "example": "Jeevamrit is a fermented cow-dung, cow-urine, jaggery and pulse-flour preparation, fermented 5-7 days and then applied to soil or as a foliar spray to support soil biology."
+          },
+          {
+            "step_number": "2",
+            "title": "Ingredients and mixing",
+            "example": "~10 kg fresh cow dung, 5-10 litres aged cow urine, ~2 kg jaggery (or ripe banana), ~2 kg pulse flour, a handful of undisturbed field soil, in ~200 litres of water."
+          },
+          {
+            "step_number": "3",
+            "title": "Fermentation process",
+            "example": "Stir thoroughly twice daily, ferment in the shade for 5-7 days; ready when it develops a pleasant fermented smell and visible microbial activity."
+          },
+          {
+            "step_number": "4",
+            "title": "Application method and frequency",
+            "example": "Apply via irrigation water or as a soil drench around the root zone, or diluted as a foliar spray, at roughly 15-20 day intervals through the season; one ~200-litre batch typically covers about one acre per application."
+          },
+          {
+            "step_number": "5",
+            "title": "Related preparation - the genuine alternative (Ghana Jeevamrit, not beejamrit)",
+            "example": "Ghana Jeevamrit (solid/dried jeevamrit): ~100 kg desi cow dung + ~1 kg jaggery + ~1 kg pulse flour + a handful of field soil, moistened with desi cow urine into balls/cake, shade-fermented 48 hours, then sun-dried, broken up and sieved into a powder that stores up to a year and is broadcast onto soil - this is the actual field/soil-application alternative to liquid jeevamrit; beejamrit is a different, seed-treatment-only preparation and is not a substitute here.",
+            "guidance": [
+              "Correcting this matters because beejamrit and jeevamrit serve different purposes (seed treatment vs. ongoing soil application) - a farmer asking specifically about jeevamrit needs a jeevamrit-family alternative, not an unrelated seed-treatment product."
+            ]
+          },
+          {
+            "step_number": "6",
+            "title": "Conclusion",
+            "example": "Prepare and ferment the liquid mixture for 5-7 days and apply roughly every 15-20 days through the season, or prepare Ghana Jeevamrit (solid form) when a storable, transportable version is more practical."
+          }
+        ]
+      }
+    ]
+  },
+  "climate": {
+    "source_sheet": "Domain-wise Answer Structures - Climate, Weather & Stress Management",
+    "required_sections": [],
+    "optional_sections": [
+      "assess_the_extent_of_damage",
+      "watch_for_secondary_fungal_infection",
+      "harvest_timing_decision",
+      "insurance_and_documentation"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / immediate priorities",
+        "example": "Right after hail damage this close to harvest: assess salvageable yield, watch for secondary fungal infection at wound sites, and report the loss for insurance promptly.",
+        "guidance": [
+          "Post-event recovery questions need an action-priority list up front, not a general explanation of hail damage."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Assess the extent of damage",
+        "example": "Distinguish structurally intact plants (partial harvest can still recover yield) from badly lodged/shattered areas (may need early harvest)."
+      },
+      {
+        "step_number": "3",
+        "title": "Watch for secondary fungal infection",
+        "example": "Hail wounds are entry points for fungal disease, especially in humid post-storm weather; inspect over following days and be ready with a protectant fungicide if lesions appear."
+      },
+      {
+        "step_number": "4",
+        "title": "Harvest timing decision",
+        "example": "Harvest badly damaged areas early to recover remaining grain rather than risk further loss; continue normal timing for less-affected areas."
+      },
+      {
+        "step_number": "5",
+        "title": "Insurance and documentation",
+        "example": "Report the loss to the insurer/bank within the scheme's stipulated time window (e.g. under PMFBY) since delayed reporting can affect claim eligibility; photograph the damage as evidence.",
+        "guidance": [
+          "Route insurance procedure specifics to the Credit/Loan & Insurance domain if the farmer's question shifts fully to the claim process itself."
+        ]
+      },
+      {
+        "step_number": "6",
+        "title": "Conclusion",
+        "example": "Triage the field by damage severity, guard against wound-site disease, adjust harvest timing accordingly, and file an insurance report promptly if covered."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct guidance",
+            "example": "Hold off irrigating now if soil moisture isn't critically low and substantial rain is genuinely expected within two days; irrigating right before rain risks waterlogging and wasted water."
+          },
+          {
+            "step_number": "2",
+            "title": "Wheat's critical-stage irrigation calendar",
+            "example": "CRI (~20-25 DAS, most critical of all), Tillering (~40-45 DAS), Late Jointing (~60-65 DAS), Flowering/heading (~80-90 DAS, second most critical), Milk stage (~100-105 DAS), Dough stage (~115-120 DAS, least critical/skippable); under limited water, prioritise CRI, flowering, then tillering/jointing, treating milk/dough as skippable first.",
+            "guidance": [
+              "This is the concrete schedule that lets the farmer self-locate on the calendar and judge urgency, rather than only being told \"it depends on growth stage\" in the abstract - always give the actual day-ranges and priority order, not just the stage names."
+            ]
+          },
+          {
+            "step_number": "3",
+            "title": "When to hold off",
+            "example": "Crop not at a critical stage (or at a low-priority one like late jointing/dough), and forecast rain expected to be substantial - skip irrigation to avoid the double-watering waterlogging effect."
+          },
+          {
+            "step_number": "4",
+            "title": "When to irrigate anyway",
+            "example": "Crop currently at or near CRI or flowering (wheat's two most critical stages) with visible moisture stress, or forecast is light/uncertain for the specific location - irrigate now rather than risk the critical stage.",
+            "guidance": [
+              "This decision fork is the actual content of the question - always present both branches, not just one default answer."
+            ]
+          },
+          {
+            "step_number": "5",
+            "title": "Using a reliable, local forecast source",
+            "example": "Check IMD forecast and local agromet advisory for the specific district rather than a general regional forecast, since local rainfall can vary significantly."
+          },
+          {
+            "step_number": "6",
+            "title": "Conclusion",
+            "example": "Base the decision on which stage of the irrigation calendar the crop is actually at, plus the forecast's specificity/reliability for the exact location, not the forecast headline alone; confirm the exact locally recommended schedule via KVK/state package of practices."
+          }
+        ]
+      }
+    ]
+  },
+  "mechanisation": {
+    "source_sheet": "Domain-wise Answer Structures - Farm Tools & Mechanisation",
+    "required_sections": [],
+    "optional_sections": [
+      "deciding_factor_soil_type_and_tillage_de",
+      "deciding_factor_which_crop_is_going_into",
+      "deciding_factor_turnaround_time",
+      "deciding_factor_cost_comparison",
+      "practical_decision_rule"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct guidance",
+        "example": "For a straightforward 2-acre job, a power tiller is generally the more cost-effective choice; a tractor-rotavator combination becomes worthwhile for speed, heavier soil, a tillage-intensive crop, or larger-scale needs."
+      },
+      {
+        "step_number": "2",
+        "title": "Deciding factor - soil type and tillage depth",
+        "example": "Power tiller suits lighter/medium soils and shallower tillage typical of small-holding preparation; tractor-rotavator handles heavier soil and deeper tillage more efficiently."
+      },
+      {
+        "step_number": "3",
+        "title": "Deciding factor - which crop is going into the field",
+        "example": "Paddy needs multiple puddling passes under standing water (to seal the soil and control weeds), which favours a tractor-rotavator even at 2 acres; vegetables and other fine-seedbed crops need shallower, finer tilth, which a power tiller handles well without paying for unneeded tractor-scale capacity.",
+        "guidance": [
+          "This factor is as decisive as soil type but easy to overlook when the question is framed purely as tiller-vs-tractor economics - always ask what crop is going in before answering."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Deciding factor - turnaround time",
+        "example": "At 2 acres, power tiller timing is usually adequate unless working under a tight window between two crops, where the tractor-rotavator's greater speed can justify its higher cost."
+      },
+      {
+        "step_number": "5",
+        "title": "Deciding factor - cost comparison",
+        "example": "Compare local per-acre/per-hour hiring rates at the Custom Hiring Centre (CHC) or Farm Machinery Bank, including fuel and operator cost, since rates vary by location."
+      },
+      {
+        "step_number": "6",
+        "title": "Practical decision rule",
+        "example": "Light-to-medium soil, vegetable/fine-seedbed crop, no time pressure -> power tiller; heavier soil, a tillage-intensive crop like paddy, urgent turnaround, or combinable with other tractor operations -> tractor-rotavator."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion",
+        "example": "Default to the power tiller for a routine 2-acre job on light-medium soil going into a vegetable or similar crop; switch to tractor-rotavator when speed, soil type, a tillage-intensive crop like paddy, or combined operations change the economics."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct answer",
+            "example": "Apply through the state's farm mechanisation subsidy scheme (e.g. under SMAM), via the state portal, local CSC, or Block Agriculture Office, using Aadhaar, land record and bank details; approval typically must come before purchase."
+          },
+          {
+            "step_number": "2",
+            "title": "Eligibility and category-based subsidy",
+            "example": "Open to individual farmers, with small/marginal, women, or SC/ST categories often eligible for a higher subsidy percentage than the general category."
+          },
+          {
+            "step_number": "3",
+            "title": "Documents required",
+            "example": "Aadhaar card, land ownership/tenancy record, bank account for DBT of the subsidy amount."
+          },
+          {
+            "step_number": "4",
+            "title": "How and where to apply",
+            "example": "State agricultural mechanisation/DBT Agriculture portal, in person at Block/District Agriculture Office, or via a Common Service Centre (CSC); exact portal/process varies by state.",
+            "guidance": [
+              "Never give one fixed portal name/URL as universal - route to the state's current scheme page since this varies by state and changes over time."
+            ]
+          },
+          {
+            "step_number": "5",
+            "title": "Approval and purchase sequencing",
+            "example": "Wait for application approval and confirmed subsidy percentage/empanelled dealer list before purchasing, since a pre-approval purchase may not be honoured for subsidy."
+          },
+          {
+            "step_number": "6",
+            "title": "Conclusion",
+            "example": "Apply via the state portal/CSC/Block office with the standard documents, and purchase only after approval to ensure the subsidy is honoured."
+          }
+        ]
+      }
+    ]
+  },
+  "postharvest": {
+    "source_sheet": "Domain-wise Answer Structures - Post-Harvest Management & Storage",
+    "required_sections": [],
+    "optional_sections": [
+      "harvest_at_the_correct_maturity_stage",
+      "curing_before_storage",
+      "storage_structure",
+      "keeping_storage_elevated_and_dry",
+      "ongoing_monitoring",
+      "alternative_traditional_low_cost_method"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct answer",
+        "example": "Good onion storage starts at harvest, not just at the storage structure; onion monsoon rot is mainly a moisture/ventilation problem, fixed with correct harvest timing, proper curing, a raised well-ventilated storage structure, and regular inspection."
+      },
+      {
+        "step_number": "2",
+        "title": "Harvest at the correct maturity stage",
+        "example": "Harvest at neck fall (roughly 50-70% of plants' tops naturally falling over and starting to dry/yellow); too-early harvest (upright green tops) gives high-moisture, poorly-sealed-neck bulbs prone to rot, too-late harvest risks splitting/sunburn/re-sprouting - both shorten storage life regardless of how good the storage structure is afterward.",
+        "guidance": [
+          "This is the step most farmers skip when they think of \"storage\" as starting only after the crop leaves the field - good storage outcomes are decided partly at harvest."
+        ]
+      },
+      {
+        "step_number": "3",
+        "title": "Curing before storage",
+        "example": "Field-cure for about 1-2 weeks in shade with full neck drying before storing; inadequately cured bulbs carry excess moisture that promotes rot."
+      },
+      {
+        "step_number": "4",
+        "title": "Storage structure",
+        "example": "Ventilated shed/mesh-wall structure or slatted racks rather than closed rooms or plastic sacks; store in thin layers, not thick heaps, since heaps trap heat and moisture centrally."
+      },
+      {
+        "step_number": "5",
+        "title": "Keeping storage elevated and dry",
+        "example": "Raised off the ground, away from direct rain and dampness, since monsoon humidity is the main driver of onion storage rot."
+      },
+      {
+        "step_number": "6",
+        "title": "Ongoing monitoring",
+        "example": "Inspect every 1-2 weeks during monsoon and remove rotting/sprouting/softening bulbs immediately to stop spread to neighbouring bulbs."
+      },
+      {
+        "step_number": "7",
+        "title": "Alternative/traditional low-cost method",
+        "example": "Traditional raised bamboo/mesh-slat ventilated onion storage structures used in onion-growing regions are purpose-built for this exact monsoon problem.",
+        "guidance": [
+          "This is the Alternative Sustainable Methods slot - a low-cost, non-mechanical option before the conclusion."
+        ]
+      },
+      {
+        "step_number": "8",
+        "title": "Conclusion",
+        "example": "Correct harvest-stage timing, full curing, thin-layer storage in a raised ventilated structure, and regular inspection together control monsoon rot in stored onions."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct answer",
+            "example": "Small beetles in stored wheat are typically Rice Weevil or a similar storage pest; the current infestation needs a direct answer, but almost all real control of this problem is preventive/structural, not a reach-for-chemical response - the same preventive steps also stop recurrence.",
+            "guidance": [
+              "Lead with the fact that prevention, not cure, is the primary defence, even while answering the farmer's immediate \"how do I get rid of them\" question directly."
+            ]
+          },
+          {
+            "step_number": "2",
+            "title": "Confirming the cause",
+            "example": "Storage insects multiply fastest above ~10-12% grain moisture or in a previously infested, dirty storage structure with entry gaps - check all three before deciding on treatment."
+          },
+          {
+            "step_number": "3",
+            "title": "Prevention - treat the structure, seal entry points, ensure ventilation",
+            "example": "Clean and, where there is a pest history, treat the empty storage room/bin (floor, walls, cracks) before every storage cycle; seal cracks and rodent holes that let pests (and rodents) in; ensure proper ventilation to avoid damp pockets that favour both mould and insects; use any grain-protectant treatment prophylactically (on clean grain at bagging, or on the empty structure) rather than only after an infestation is visible.",
+            "guidance": [
+              "This is the step the farmer's question doesn't explicitly ask for but most needs to see - present it as the foundation, not an afterthought, since a farmer who only treats this one infestation without fixing the structure will see it recur."
+            ]
+          },
+          {
+            "step_number": "4",
+            "title": "Non-chemical corrective steps for the current infestation",
+            "example": "Sun-dry grain to below the safe moisture level (weevils/borers can't multiply below ~10% moisture); empty and clean the storage structure, sweeping out dust/residue that harbours insects; apply the structural treatment/crack-sealing from step 3 before restocking."
+          },
+          {
+            "step_number": "5",
+            "title": "Chemical treatment (only if needed)",
+            "example": "A registered grain-protectant treatment or fumigation (by trained, licensed personnel for fumigants, since an improperly used fumigant releases a toxic gas that can cause poisoning if inhaled) only if infestation persists after drying/cleaning, strictly per label dose and required aeration period before use.",
+            "guidance": [
+              "Never apply insecticide directly onto grain meant for near-term consumption without confirming it's approved for stored-grain use at that dose - this is a food-safety-adjacent caution worth its own line."
+            ]
+          },
+          {
+            "step_number": "6",
+            "title": "Alternative sustainable methods",
+            "example": "Clean dry neem leaves/neem oil mixed into grain, or hermetically sealed storage that suffocates insects by oxygen depletion - effective chemical-free options for smaller household quantities."
+          },
+          {
+            "step_number": "7",
+            "title": "Conclusion",
+            "example": "Handle the current batch by correcting moisture and cleaning the structure first, reserving chemical treatment/fumigation for persistent infestation only; for every cycle after this, structural prevention (clean, sealed, ventilated storage, used prophylactically) is the primary defence, not chemical control."
+          }
+        ]
+      }
+    ]
+  },
+  "market": {
+    "source_sheet": "Domain-wise Answer Structures - Market Prices, MSP & Marketing",
+    "required_sections": [],
+    "optional_sections": [
+      "registration_requirement",
+      "where_to_sell",
+      "quality_norms_and_process_at_the_centre",
+      "payment_process",
+      "alternative_channels_if_msp_procurement_"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct process",
+        "example": "Register as a farmer-seller with the state's procurement system, bring quality-compliant paddy to your nearest notified procurement centre, and get paid via direct bank transfer for MSP sale."
+      },
+      {
+        "step_number": "2",
+        "title": "Registration requirement",
+        "example": "Advance registration (online portal or at the centre) with Aadhaar, land records/crop-area declaration, and bank account details is typically required before selling."
+      },
+      {
+        "step_number": "3",
+        "title": "Where to sell",
+        "example": "Sell at the notified procurement centre nearest you (state civil supplies corporation, cooperative federation, or FCI depending on the state); confirm the current season's active centre list for your district.",
+        "guidance": [
+          "Never assume the same centre/agency applies across all states - this varies by state's procurement arrangement."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Quality norms and process at the centre",
+        "example": "Produce must meet Fair Average Quality (FAQ) norms for moisture and foreign matter; dry grain properly before bringing it to avoid rejection or a discounted rate."
+      },
+      {
+        "step_number": "5",
+        "title": "Payment process",
+        "example": "Weighing and quality check at the centre, with payment credited directly to the registered bank account within the scheme's stated timeline."
+      },
+      {
+        "step_number": "6",
+        "title": "Alternative channels if MSP procurement isn't convenient",
+        "example": "Local APMC mandi at prevailing price, e-NAM if the mandi is linked, or an FPO for collective marketing and potentially better price realisation."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion",
+        "example": "Register ahead, meet quality norms, sell at the nearest active procurement centre for MSP, or use mandi/e-NAM/FPO channels as alternatives."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct answer",
+            "example": "Check the Agmarknet portal or the e-NAM portal/app for your district and commodity for today's mandi-wise price; call the mandi office directly as a backup if internet access is limited."
+          },
+          {
+            "step_number": "2",
+            "title": "Using Agmarknet",
+            "example": "Publishes daily modal/min/max prices by state, district and commodity across notified mandis, useful for comparing prices across nearby mandis before transporting produce."
+          },
+          {
+            "step_number": "3",
+            "title": "Using e-NAM",
+            "example": "If the local mandi is e-NAM-linked, the portal/app shows live bidding prices and arrivals, and may allow online bidding for better price transparency and reach."
+          },
+          {
+            "step_number": "4",
+            "title": "Other accessible sources",
+            "example": "Kisan Suvidha app, local KVK or Block Agriculture Office, or a direct call to the mandi office are simple backups if internet access is inconvenient."
+          },
+          {
+            "step_number": "5",
+            "title": "Conclusion",
+            "example": "Use Agmarknet/e-NAM as the primary current-price check, cross-check with a direct mandi call, and compare across nearby mandis before deciding to sell."
+          }
+        ]
+      }
+    ]
+  },
+  "schemes": {
+    "source_sheet": "Domain-wise Answer Structures - Agricultural Schemes & Subsidies",
+    "required_sections": [],
+    "optional_sections": [
+      "what_is_actually_being_grown_also_decide",
+      "direct_income_and_credit_support",
+      "input_and_infrastructure_support",
+      "insurance",
+      "category_based_and_state_specific_add_on"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct list",
+        "example": "Core relevant schemes for a small 1.5-acre farmer: PM-KISAN (income support), Kisan Credit Card (credit), PMFBY (insurance), plus PMKSY/SMAM/Soil Health Card for input support.",
+        "guidance": [
+          "Name the actual schemes immediately rather than saying \"several schemes are available\" without naming them, per the no-vague-recommendation rule."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "What is actually being grown also decides the scheme list",
+        "example": "1.5 acres confirms small/marginal-farmer status, but whether the land is under agricultural (cereals/pulses/oilseeds/cotton, Dept. of Agriculture) or horticultural (fruits/vegetables/spices/flowers/plantation, Dept. of Horticulture, MIDH) classification determines a partly different scheme catalogue, department, and often a different subsidy percentage for a similar input.",
+        "guidance": [
+          "This is easy to miss since \"1.5 acres\" sounds like it fully defines the farmer's situation, but commodity/land classification is an independent, equally decisive variable - ask or confirm it rather than assuming field-crop schemes are the complete list."
+        ]
+      },
+      {
+        "step_number": "3",
+        "title": "Direct income and credit support",
+        "example": "PM-KISAN direct annual income support via DBT; Kisan Credit Card for subsidised-interest crop credit, extendable to allied activities."
+      },
+      {
+        "step_number": "4",
+        "title": "Input and infrastructure support",
+        "example": "PMKSY/Per Drop More Crop for micro-irrigation, SMAM for machinery subsidy suited to a small holding, Soil Health Card for soil-test-based nutrient recommendations."
+      },
+      {
+        "step_number": "5",
+        "title": "Insurance",
+        "example": "PMFBY crop insurance at a low farmer premium share, particularly valuable for a small holding's risk exposure."
+      },
+      {
+        "step_number": "6",
+        "title": "Category-based and state-specific add-ons",
+        "example": "Woman/SC-ST/other category farmers may get a higher subsidy percentage on some schemes; states often run additional top-up schemes - confirm which schemes are actually active in the farmer's specific state before applying.",
+        "guidance": [
+          "Never claim state-specific scheme details without prompting confirmation of the actual state and whether that scheme runs there, per the state-specific-scheme rule."
+        ]
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion and standing scheme-question note",
+        "example": "PM-KISAN, KCC and PMFBY as core support, layered with PMKSY/SMAM/Soil Health Card for inputs and cross-checked against agricultural-vs-horticultural classification; scheme rules change over time and by state, so confirm current, local details with the Block Agriculture Office or Horticulture Office rather than treating this list as final.",
+        "guidance": [
+          "Apply this closing pattern (confirm state availability + route to the local Block Agriculture/Horticulture office for the latest update) to every government-scheme-related answer, not only this one."
+        ]
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct answer",
+            "example": "Apply through the state's PMKSY micro-irrigation subsidy portal or Block/District Horticulture Office, with approval and empanelled-vendor selection required before installation."
+          },
+          {
+            "step_number": "2",
+            "title": "Eligibility and documents",
+            "example": "Open to individual farmers, often a higher subsidy percentage for small/marginal farmers; Aadhaar, land record, bank account for DBT."
+          },
+          {
+            "step_number": "3",
+            "title": "Application process and vendor requirement",
+            "example": "Apply via state portal or Block/District Horticulture Office; select from the empanelled/approved drip-vendor list, since subsidy is usually tied to an approved supplier.",
+            "guidance": [
+              "This empanelled-vendor requirement is the detail most likely to trip up a farmer who installs first through a local, non-approved installer - flag it clearly."
+            ]
+          },
+          {
+            "step_number": "4",
+            "title": "Sequencing - approval before installation",
+            "example": "Apply and receive approval before installing; installing ahead of approval or via a non-empanelled vendor risks losing subsidy eligibility."
+          },
+          {
+            "step_number": "5",
+            "title": "Conclusion and standing scheme-question note",
+            "example": "Apply through the state portal/office with standard documents, choose an empanelled vendor, and install only after approval; confirm the scheme is currently active in the farmer's specific state, and check with the local Block Agriculture/Horticulture Office for the latest position.",
+            "guidance": [
+              "Apply this same closing pattern (confirm state-specific availability + route to local office for the latest update) to every government-scheme-related answer."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "credit": {
+    "source_sheet": "Domain-wise Answer Structures - Credit, Loan & Insurance",
+    "required_sections": [],
+    "optional_sections": [
+      "eligibility",
+      "documents_required",
+      "how_to_apply",
+      "how_the_credit_limit_and_interest_rate_a",
+      "renewal_requirement"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct process and rate",
+        "example": "Apply at a bank branch (commercial/cooperative/RRB) or online; base interest rate is typically ~7% per annum on the eligible limit, reduced further with prompt repayment under interest subvention.",
+        "guidance": [
+          "Name the actual current rate range directly rather than saying \"a subsidised rate applies\" without a figure, then flag that it should be confirmed with the bank since rates are periodically revised."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Eligibility",
+        "example": "Owner-cultivators, tenant farmers, oral lessees/sharecroppers in many states, and farmers in animal husbandry/fisheries under the KCC extension to those sectors."
+      },
+      {
+        "step_number": "3",
+        "title": "Documents required",
+        "example": "Identity/address proof (Aadhaar), land ownership/tenancy record, passport-size photographs."
+      },
+      {
+        "step_number": "4",
+        "title": "How to apply",
+        "example": "Apply at the nearest bank branch or online via the bank's KCC portal; PM-KISAN beneficiaries can use a simplified linked application process in many cases."
+      },
+      {
+        "step_number": "5",
+        "title": "How the credit limit and interest rate are set",
+        "example": "Credit limit based on landholding, cropping pattern and scale of finance; base rate ~7% p.a. up to the scheme limit (commonly ₹3 lakh), with subvention reducing the effective rate further for prompt repayment."
+      },
+      {
+        "step_number": "6",
+        "title": "Renewal requirement",
+        "example": "KCC needs periodic review/renewal with the issuing bank to keep the limit active and retain the subvented rate."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion and standing scheme-question note",
+        "example": "Apply at a bank branch or online with standard documents; expect ~7% base rate reduced by subvention for prompt repayment, confirmed exactly by the bank since rate/subvention terms are revised periodically."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct process",
+            "example": "Confirm your cotton crop/area is notified and enrolled under PMFBY; a widespread drought loss is typically assessed via area-level yield data (Crop Cutting Experiments) rather than an individual claim form, with payout at the block/area level."
+          },
+          {
+            "step_number": "2",
+            "title": "Confirming coverage first",
+            "example": "Check notification status of your crop/village for this season and your enrollment status (often automatic if loanee, separate application if non-loanee) before assuming a claim can proceed.",
+            "guidance": [
+              "This is the essential gating step - a farmer cannot claim for a crop/area that isn't notified/enrolled, so it must come before any process explanation."
+            ]
+          },
+          {
+            "step_number": "3",
+            "title": "How a drought-type (area) loss is actually assessed",
+            "example": "Area-based yield assessment through Crop Cutting Experiments (CCEs) at the notified area level, comparing actual average yield against the threshold yield for that crop/area - different from an individual per-farmer damage report.",
+            "guidance": [
+              "This distinction (area-yield-based vs individual-loss-based) is the core misconception to correct for this specific question."
+            ]
+          },
+          {
+            "step_number": "4",
+            "title": "Reporting an individual/localised event alongside",
+            "example": "If there's also specific localised damage to report individually, intimate via the insurer's helpline/app, your bank, or local agriculture/insurance office within the scheme's stated time window (commonly 72 hours for such events); the official Krishi Rakshak Helpline (toll-free 14447) can guide on the correct next step.",
+            "guidance": [
+              "Give the actual, current official helpline number directly rather than a vague \"contact the insurer\" - a farmer in an active drought/loss situation needs an actionable number now."
+            ]
+          },
+          {
+            "step_number": "5",
+            "title": "Payment process",
+            "example": "Payout is disbursed to the bank account once area-level yield shortfall is confirmed, generally without individual field inspection for an area-yield-based scheme."
+          },
+          {
+            "step_number": "6",
+            "title": "If delayed or rejected",
+            "example": "Escalate through the bank/insurer's grievance mechanism, the Krishi Rakshak Helpline (14447), or the local Agriculture Department/District Collector's office."
+          },
+          {
+            "step_number": "7",
+            "title": "Conclusion and standing scheme-question note",
+            "example": "Confirm notification/enrollment, understand the area-yield-based assessment mechanism for a drought loss, use 14447 or the grievance channel if payment is delayed or disputed; PMFBY's notified-crop list and terms are reviewed each season, so confirm the current, area-specific position with the local Block Agriculture Office.",
+            "guidance": [
+              "Apply this same closing pattern (confirm state/season-specific availability + route to local Block Agriculture Office for the latest update) to every government-scheme-related answer."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "extension": {
+    "source_sheet": "Domain-wise Answer Structures - Capacity Building, Extension and Communication",
+    "required_sections": [],
+    "optional_sections": [
+      "krishi_vigyan_kendra_kvk",
+      "block_district_agriculture_or_horticultu",
+      "kisan_call_centre",
+      "other_advisory_channels"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct contacts",
+        "example": "Contact the Kisan Call Centre (1800-180-1551), your Block/District Agriculture Officer, or your nearest KVK; KVK is the strongest option for in-person diagnosis of a genuinely unfamiliar pest.",
+        "guidance": [
+          "Name the actual toll-free number directly, per the rule against vague \"contact your local officer\" answers without specifics."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Krishi Vigyan Kendra (KVK)",
+        "example": "District KVK plant-protection specialists can identify the pest via field visit/sample inspection and give tailored management guidance - the strongest option for a genuinely novel problem."
+      },
+      {
+        "step_number": "3",
+        "title": "Block/District Agriculture or Horticulture Officer",
+        "example": "Locally accessible extension staff who can help with identification and immediate guidance, and connect to relevant schemes if the issue is area-wide."
+      },
+      {
+        "step_number": "4",
+        "title": "Kisan Call Centre",
+        "example": "Toll-free 1800-180-1551, staffed by subject-matter experts, useful as a quick first opinion before deciding if an in-person visit is needed."
+      },
+      {
+        "step_number": "5",
+        "title": "Other advisory channels",
+        "example": "Kisan Suvidha app and state SMS agro-advisories for a quick photo-based query or general advisory, though in-person expert confirmation is best for a genuinely novel pest."
+      },
+      {
+        "step_number": "6",
+        "title": "Conclusion",
+        "example": "Start with a phone-based first opinion (Kisan Call Centre or Block office), then follow up with an in-person KVK visit if the pest remains unclear, since correct identification must come before any control recommendation."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct answer",
+            "example": "Contact your district KVK directly by phone or in person to check their current training calendar and register for their next organic farming batch - registration is arranged locally by the KVK, not through a central portal."
+          },
+          {
+            "step_number": "2",
+            "title": "Finding the schedule",
+            "example": "Each KVK maintains its own season/year training calendar including organic/natural farming; schedules vary by KVK and update periodically, so a direct enquiry is the reliable method."
+          },
+          {
+            "step_number": "3",
+            "title": "Registration process",
+            "example": "Register directly with the KVK (often free or nominal fee), providing basic details; seats per batch are typically limited."
+          },
+          {
+            "step_number": "4",
+            "title": "What the training typically includes",
+            "example": "Classroom sessions, on-farm demonstrations (composting, vermicomposting, natural input preparation), sometimes an exposure visit to an organic demonstration farm."
+          },
+          {
+            "step_number": "5",
+            "title": "Related opportunity",
+            "example": "Some KVKs can connect interested participants to PGS-India group certification if formal organic certification is a later goal."
+          },
+          {
+            "step_number": "6",
+            "title": "Conclusion",
+            "example": "A direct call or visit to the district KVK is the reliable way to find and register for the next organic farming training batch."
+          }
+        ]
+      }
+    ]
+  },
+  "infrastructure": {
+    "source_sheet": "Domain-wise Answer Structures - Rural Infrastructure",
+    "required_sections": [],
+    "optional_sections": [
+      "application_requirements",
+      "feasibility_and_load_sanction",
+      "costs_timeline_and_asking_about_a_connec",
+      "alternative_solar_pump_under_pm_kusum"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct process",
+        "example": "Apply at the local DISCOM sub-division office or the state electricity board's online portal with land/identity documents and load (pump HP) details; feasibility check and load sanction follow before installation."
+      },
+      {
+        "step_number": "2",
+        "title": "Application requirements",
+        "example": "Land ownership/tenancy documents, identity proof, tubewell pump load (HP) details; many states have a distinct agricultural-connection category and tariff."
+      },
+      {
+        "step_number": "3",
+        "title": "Feasibility and load sanction",
+        "example": "The department checks nearest transformer/feeder capacity; inadequate infrastructure may need an upgrade, with cost-sharing arrangements varying by state policy."
+      },
+      {
+        "step_number": "4",
+        "title": "Costs, timeline, and asking about a connection subsidy",
+        "example": "Security deposit, service line/meter charges, possible infrastructure augmentation charges; DISCOM communicates a target timeline after feasibility confirmation. Actively ask the DISCOM whether the state currently offers a capital subsidy, subsidised augmentation charges, or a concessional agricultural tariff for the new connection itself, since several states have such support and it isn't always volunteered.",
+        "guidance": [
+          "This is the specific gap worth flagging - farmers often only hear about PM-KUSUM (the solar alternative) and don't think to ask whether the grid-connection route itself is separately subsidised in their state."
+        ]
+      },
+      {
+        "step_number": "5",
+        "title": "Alternative - solar pump under PM-KUSUM",
+        "example": "A PM-KUSUM solar pump avoids the grid-connection process entirely and carries a capital subsidy, worth considering if grid connection is slow or costly in the area.",
+        "guidance": [
+          "This is the natural cross-reference to Farm Tools & Mechanisation/Schemes without duplicating that domain's full process here."
+        ]
+      },
+      {
+        "step_number": "6",
+        "title": "Conclusion and standing scheme-question note",
+        "example": "Apply through the DISCOM with standard documents and load details, expect a feasibility-based timeline, ask specifically about any state connection subsidy, and consider PM-KUSUM solar as an alternative; confirm both the connection-subsidy policy and PM-KUSUM terms with the local DISCOM/Block Agriculture Office since these vary by state and change periodically.",
+        "guidance": [
+          "Apply this same closing pattern (confirm state-specific availability + route to local office for the latest update) to every government-scheme-or-subsidy-related answer."
+        ]
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct answer",
+            "example": "Apply through your state's PM-KUSUM implementing agency (renewable energy agency or Agriculture Department) portal, with land/water-source details; subsidy is a central+state+farmer share, and installation must be via an empanelled vendor."
+          },
+          {
+            "step_number": "2",
+            "title": "Eligibility and documents",
+            "example": "Individual farmers with a reliable water source (borewell/well/canal/pond); Aadhaar, land record, bank account details."
+          },
+          {
+            "step_number": "3",
+            "title": "Application process",
+            "example": "Apply via the state's designated implementing agency portal, providing water-source details and required pump capacity based on irrigation area and crop water need."
+          },
+          {
+            "step_number": "4",
+            "title": "Subsidy structure and vendor requirement",
+            "example": "Central + state + farmer-share subsidy structure (farmer share sometimes loan-financed); installation only through an empanelled vendor from the state's approved list."
+          },
+          {
+            "step_number": "5",
+            "title": "Site verification before approval",
+            "example": "Site verification confirms water-source adequacy and installation suitability before final pump capacity and subsidy amount are confirmed; installation follows only after approval."
+          },
+          {
+            "step_number": "6",
+            "title": "Conclusion and standing scheme-question note",
+            "example": "Apply through the state PM-KUSUM agency/portal, complete site verification, and install only via an empanelled vendor after approval; confirm the component is currently active in the farmer's specific state, and check with the local Block Agriculture Office for the latest position.",
+            "guidance": [
+              "Apply this same closing pattern (confirm state-specific availability + route to local office for the latest update) to every government-scheme-related answer."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "livestock": {
+    "source_sheet": "Domain-wise Answer Structures - Animal Husbandry & Livestock",
+    "required_sections": [],
+    "optional_sections": [
+      "check_feed_and_water_first",
+      "check_for_udder_or_general_health_warnin",
+      "check_calving_cycle_timing",
+      "if_management_related_corrective_action",
+      "if_health_related_do_not_self_treat"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / triage framing",
+        "example": "A sudden milk-yield drop usually traces to feed/water change, heat stress, calving-cycle timing, or an early health/udder problem - the response depends on which of these applies, checked systematically.",
+        "guidance": [
+          "Frame this as a triage checklist since the question is diagnostic, not a single fixed answer."
+        ]
+      },
+      {
+        "step_number": "2",
+        "title": "Check feed and water first",
+        "example": "Recent change in feed quantity/quality or a gap in feeding schedule is the most common cause; inadequate water intake also directly cuts yield."
+      },
+      {
+        "step_number": "3",
+        "title": "Check for udder or general health warning signs",
+        "example": "Udder swelling, heat, pain, or abnormal milk (clots, blood, foul smell) points to mastitis/infection; fever, reduced appetite or dullness alongside the yield drop are general-health warning signs.",
+        "guidance": [
+          "This is the decision-branch step - presence of any of these signs should redirect the farmer to veterinary care rather than feed troubleshooting."
+        ]
+      },
+      {
+        "step_number": "4",
+        "title": "Check calving-cycle timing",
+        "example": "Yield naturally changes around the dry period and around recent calving - rule this out as a normal, non-problem explanation before assuming something is wrong."
+      },
+      {
+        "step_number": "5",
+        "title": "If management-related - corrective action",
+        "example": "Correct the feed ration (adequate green/dry fodder, concentrate, mineral mixture), ensure free clean water access, and manage heat stress with shade and cooler-time feeding; recovery expected within a few days."
+      },
+      {
+        "step_number": "6",
+        "title": "If health-related - do not self-treat",
+        "example": "Any udder or general-illness warning sign should prompt a veterinary visit rather than a feed adjustment or home remedy."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion",
+        "example": "Rule out the easy, common causes (feed, water, heat, cycle timing) first; treat any udder or illness warning sign as a veterinary priority rather than a management fix."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct diagnosis",
+            "example": "Swollen, painful udder with clotted milk is mastitis, an udder infection requiring prompt veterinary treatment rather than home management alone.",
+            "guidance": [
+              "Name the condition directly per the direct-answer rule, while being explicit that home treatment alone is not sufficient here - this is a case where the honest answer includes \"see a vet,\" not a home fix."
+            ]
+          },
+          {
+            "step_number": "2",
+            "title": "Confirm it is mastitis, not another problem",
+            "example": "Localised udder swelling/pain plus clotted milk from that specific quarter distinguishes mastitis from a systemic problem like milk fever (general weakness/staggering, no udder-specific signs); report any additional systemic symptoms to the vet too.",
+            "guidance": [
+              "This identification/differential-check gate applies even though the symptoms already point strongly to mastitis - ruling out a systemic condition needing separate treatment is the equivalent of the crop-side \"confirm identification before treating\" gate."
+            ]
+          },
+          {
+            "step_number": "3",
+            "title": "Why veterinary assessment is necessary",
+            "example": "Severity and infection type vary, and the correct antibiotic/route/duration needs direct veterinary assessment - guessing at home risks the infection becoming chronic or spreading to other quarters."
+          },
+          {
+            "step_number": "4",
+            "title": "What to do while arranging veterinary care",
+            "example": "Continue milking out the affected quarter completely and frequently (discard that milk); keep the animal in a clean, dry area; do not mix affected-quarter milk with milk for sale/use."
+          },
+          {
+            "step_number": "5",
+            "title": "Veterinary treatment",
+            "example": "Typically an intramammary antibiotic infusion (sometimes plus injectable antibiotic for severe cases) with anti-inflammatory support as needed; complete the full prescribed course.",
+            "guidance": [
+              "Never suggest a specific antibiotic or dose in the main text - this is a veterinary-prescribed treatment, analogous to the \"confirm with the current registered label\" rule for crop chemicals."
+            ]
+          },
+          {
+            "step_number": "6",
+            "title": "Milk-withholding period",
+            "example": "Observe the veterinarian-specified withholding period after the last treatment dose before using that milk for consumption or sale - the livestock equivalent of a crop PHI.",
+            "guidance": [
+              "Always pair antibiotic treatment with this withholding-period caution, mirroring the mandatory PHI pairing rule used for crop chemicals throughout this project."
+            ]
+          },
+          {
+            "step_number": "7",
+            "title": "Preventing recurrence",
+            "example": "Milking hygiene (clean hands/udder, teat dip if available), clean dry housing, and prompt attention to any future udder injury or early symptom."
+          },
+          {
+            "step_number": "8",
+            "title": "Conclusion",
+            "example": "Confirm it is mastitis and not a systemic issue, treat this as needing prompt veterinary care, maintain milking-out and hygiene in the meantime, complete the full prescribed course, and strictly observe the milk-withholding period."
+          }
+        ]
+      }
+    ]
+  },
+  "fisheries": {
+    "source_sheet": "Domain-wise Answer Structures - Fisheries & Aquaculture",
+    "required_sections": [
+      "alternative_sustainable_methods"
+    ],
+    "optional_sections": [
+      "pond_preparation",
+      "species_selection",
+      "stocking_density_and_sourcing",
+      "feeding_and_water_quality_management"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct starting guidance",
+        "example": "Prepare the pond (liming, manuring, adequate depth), stock a composite Catla-Rohu-Mrigal combination of Indian Major Carps at appropriate density, and maintain feeding/water-quality routines."
+      },
+      {
+        "step_number": "2",
+        "title": "Pond preparation",
+        "example": "Dry pond bed if possible, apply lime then manure about a week before stocking to build natural plankton food; ensure adequate water depth (1.5-2 m) and check for leakage/predator-fish entry."
+      },
+      {
+        "step_number": "3",
+        "title": "Species selection",
+        "example": "Catla (surface), Rohu (column), Mrigal (bottom) composite culture uses different pond zones/feeding niches without direct competition - the standard reliable starting combination for most freshwater ponds in India."
+      },
+      {
+        "step_number": "4",
+        "title": "Stocking density and sourcing",
+        "example": "A few thousand fingerlings per acre total across the combination for semi-intensive management, adjusted to feeding intensity; source healthy fingerlings from a reliable government/certified hatchery, not an unknown source."
+      },
+      {
+        "step_number": "5",
+        "title": "Feeding and water-quality management",
+        "example": "Supplementary feed (rice bran + oil cake mix, or commercial floating feed) alongside natural pond food from manuring; monitor for early-morning gasping at the surface as an oxygen-depletion warning sign."
+      },
+      {
+        "step_number": "6",
+        "title": "Alternative sustainable methods",
+        "example": "Paddy-cum-fish culture or small backyard biofloc systems as alternative or complementary low-cost, space-efficient options."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion",
+        "example": "Proper pond preparation, a composite carp stocking combination from a reliable hatchery, and consistent feeding/water-quality monitoring are the foundation of a half-acre pond fish farming start."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct diagnosis",
+            "example": "Early-morning gasping with mortality is dissolved oxygen depletion, most often from excess organic load (overfeeding, manuring, or an algae bloom) - act with emergency aeration immediately.",
+            "guidance": [
+              "Name the actual mechanism (oxygen depletion) directly, since a farmer facing active fish mortality needs the diagnosis and the emergency action together, not separately."
+            ]
+          },
+          {
+            "step_number": "2",
+            "title": "Why it happens at this specific time",
+            "example": "Oxygen is produced by plankton during the day but consumed by all pond life overnight; a heavy bloom or decomposing organic matter drives oxygen to its lowest point right before sunrise - exactly when gasping/mortality appears."
+          },
+          {
+            "step_number": "3",
+            "title": "Immediate emergency action",
+            "example": "Agitate the water surface for aeration, add fresh water if available to dilute organic load, and stop feeding immediately until stabilised.",
+            "guidance": [
+              "This is time-critical - sequence it before the underlying-cause analysis, since delay costs fish."
+            ]
+          },
+          {
+            "step_number": "4",
+            "title": "Identifying the underlying cause afterward",
+            "example": "Check whether recent feeding/manuring was excessive for the pond's size and biomass, and check water colour/clarity for an overly dense algae bloom needing partial water exchange."
+          },
+          {
+            "step_number": "5",
+            "title": "Preventing recurrence",
+            "example": "Feed only what fish consume in a reasonable time (not a fixed excess), monitor water colour/fish behaviour especially in warm weather, and consider an aerator for ponds with repeat history."
+          },
+          {
+            "step_number": "6",
+            "title": "Conclusion",
+            "example": "Treat this as oxygen depletion - act immediately with aeration and reduced feeding, then correct the feeding/manuring level and monitor going forward to prevent recurrence."
+          }
+        ]
+      }
+    ]
+  },
+  "allied": {
+    "source_sheet": "Domain-wise Answer Structures - Allied Agricultural Activities",
+    "required_sections": [],
+    "optional_sections": [
+      "choosing_the_bee_species",
+      "getting_started_colonies_equipment_site",
+      "basic_seasonal_management",
+      "protecting_bees_during_your_own_crop_spr",
+      "honey_harvesting_and_support_available"
+    ],
+    "ordered_steps": [
+      {
+        "step_number": "1",
+        "title": "Introduction / direct starting guidance",
+        "example": "Choose a suitable bee species (Apis cerana indica or Apis mellifera), start with a modest number of colonies and standard hive equipment, site the apiary well, and learn seasonal management - with crop pollination as a bonus benefit."
+      },
+      {
+        "step_number": "2",
+        "title": "Choosing the bee species",
+        "example": "Apis cerana indica is generally easier for beginners and suited to smaller diversified farms; Apis mellifera gives higher honey yield but needs more intensive management."
+      },
+      {
+        "step_number": "3",
+        "title": "Getting started - colonies, equipment, site",
+        "example": "Start with a handful of colonies from a reliable local beekeeper/KVK/cooperative, standard hive equipment (boxes, frames, smoker, veil, gloves), sited with shade, wind protection, and access to diverse forage."
+      },
+      {
+        "step_number": "4",
+        "title": "Basic seasonal management",
+        "example": "Colony strengthening before the main flow season, sugar-syrup feeding during forage-scarce dearth periods, and monitoring for wax moth, mites and absconding."
+      },
+      {
+        "step_number": "5",
+        "title": "Protecting bees during your own crop spraying",
+        "example": "Avoid insecticide application during active bee foraging hours or flowering periods, since your own crop-protection sprays can harm the very colonies you're keeping.",
+        "guidance": [
+          "This cross-references back to the pest-management domain's pollinator-protection guidance without duplicating it."
+        ]
+      },
+      {
+        "step_number": "6",
+        "title": "Honey harvesting and support available",
+        "example": "Harvest once combs are capped/mature; support and training available through the National Beekeeping and Honey Mission and local KVK."
+      },
+      {
+        "step_number": "7",
+        "title": "Conclusion",
+        "example": "A locally suited species, a modest starter setup from a reliable source, and learning the seasonal management calendar are the basics; honey income plus improved crop pollination are the combined return."
+      }
+    ],
+    "conditional_branches": [
+      {
+        "condition_step": "If the question is a specific compound question rather than a general how-do-I question",
+        "ordered_steps": [
+          {
+            "step_number": "1",
+            "title": "Introduction / direct diagnosis",
+            "example": "Webbing and larvae damaging wax combs is wax moth infestation, one of the most common bee-enemy problems, arising mainly in weak or poorly managed colonies."
+          },
+          {
+            "step_number": "2",
+            "title": "Why it takes hold",
+            "example": "Wax moth larvae feed on wax/pollen/debris and succeed specifically in weak colonies or where empty comb space exceeds what the bee population can actively guard."
+          },
+          {
+            "step_number": "3",
+            "title": "Immediate cleanup",
+            "example": "Remove and destroy heavily webbed/damaged combs, scrape and clean the hive box of larvae/eggs/debris, and reduce hive space to match the current bee population."
+          },
+          {
+            "step_number": "4",
+            "title": "Strengthening the colony (the real long-term fix)",
+            "example": "Identify and address why the colony is weak (queen problem, disease, inadequate feeding), since cleanup alone without strengthening the colony typically leads to reinfestation.",
+            "guidance": [
+              "This is the step that distinguishes a lasting fix from a temporary one - always include it, not just the cleanup steps."
+            ]
+          },
+          {
+            "step_number": "5",
+            "title": "Protecting stored (non-hive) comb",
+            "example": "Store spare comb frames in a well-ventilated, light-exposed area (wax moth prefers dark, undisturbed conditions) and inspect periodically."
+          },
+          {
+            "step_number": "6",
+            "title": "Alternative sustainable methods",
+            "example": "Freezing stored comb briefly, or a bee-safe approved fumigation method specifically for stored comb (never for comb with an active colony present)."
+          },
+          {
+            "step_number": "7",
+            "title": "Conclusion",
+            "example": "Clean out the current wax moth infestation, right-size hive space, and fix the underlying colony weakness, since a strong colony is the best lasting defence."
+          }
+        ]
+      }
+    ]
+  }
+}

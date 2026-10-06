@@ -1,14 +1,13 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { useTestersDashboardData } from "../hooks/useTestersDashboardData";
 import { useTestersDashboardSummary } from "../hooks/useTestersDashboardSummary";
 import { useZohoTicketStatuses } from "../hooks/useZohoTicketStatuses";
-import type { ITestersDashboardRecord } from "../services/testersDashboardService";
 import { TrendChart, buildXAxisTicks, buildRobustRangeSeries, type TrendChartProps } from "./TrendChart";
 import { FilterBar, DYNAMIC_SUB_TYPE_OPTIONS, STATIC_SUB_TYPE_OPTIONS, type IFilterField } from "./FilterBar";
 import { ExecutiveSummary } from "./ExecutiveSummary";
@@ -16,20 +15,13 @@ import { AdditionalMetrics } from "./AdditionalMetrics";
 import { DiagnosticsRow, type IDefectsTab, type ITeamBreakdown } from "./DiagnosticsRow";
 import { InfoPopover } from "./InfoPopover";
 import { channelDisplayLabel, UNASSIGNED_TEAM_LABEL } from "../utils";
+import {
+  parseCsvTextToRecords,
+  saveRecordsToBrowserStorage,
+  clearBrowserStorage,
+  syncAndCacheSheetsFromBackend,
+} from "../analytics/clientSheetAnalytics.js";
 
-function normalize(value?: string): string {
-  return (value || "").trim().toLowerCase();
-}
-
-function matchesAny(value: string | undefined, options: string[]): boolean {
-  const n = normalize(value);
-  return options.includes(n);
-}
-
-function isNAlike(value?: string): boolean {
-  const n = normalize(value);
-  return n === "" || n === "na" || n === "nil" || n === "n/a";
-}
 
 const KNOWN_SEVERITIES: Record<string, string> = {
   CRITICAL: "Critical",
@@ -60,39 +52,6 @@ function toTitleCase(value?: string): string {
 
   return v.toLowerCase().replace(/(^|[\s\-–])([a-z])/g, (_match, sep: string, letter: string) => sep + letter.toUpperCase());
 }
-
-const KNOWN_LEAKED_TESTER_NAMES = new Set(["LAVANYA MATHIALAGAN", "ITHAGANI SHIREESHA"]);
-
-function normalizeTypeOfQuestion(value?: string): string {
-  const upper = (value || "").trim().toUpperCase();
-  if (KNOWN_LEAKED_TESTER_NAMES.has(upper)) return "";
-  if (upper === "GDB" || upper === "GDP") return "GDB";
-  if (upper === "DYNAMIC" || upper === "DYNMIC") return "Dynamic";
-  if (upper === "UNIQUE" || upper === "UNIUQE") return "Unique";
-  return toTitleCase(value);
-}
-
-function moduleGroupFor(typeOfQuestion?: string): "GDB" | "Dynamic" | "Unique Questions" | "Outreach" | null {
-  const t = normalizeTypeOfQuestion(typeOfQuestion);
-  if (t === "GDB") return "GDB";
-  if (t.toLowerCase().includes("static dynamic")) return null;
-  if (t.toLowerCase().includes("dynamic")) return "Dynamic";
-  if (t === "Unique") return "Unique Questions";
-  if (t === "Outreach") return "Outreach";
-  return null;
-}
-
-function dynamicSubBucketFor(category?: string, typeOfQuestion?: string): string | null {
-  if (moduleGroupFor(typeOfQuestion) !== "Dynamic") return null;
-
-  const cat = (category || "").trim().toLowerCase();
-  if (cat.includes("weather")) return "Weather";
-  if (cat.includes("mandi") || cat.includes("market rate") || cat.includes("price")) return "Mandi Prices";
-  if (cat.includes("scheme") || cat.includes("subsidy") || cat.includes("government")) return "Government Schemes";
-  return null;
-}
-
-const STATIC_SUB_TYPES = new Set(["GDB", "Unique", "Outreach"]);
 
 const KNOWN_CATEGORY_WORD_ORDER_SWAPS: Record<string, string> = {
   "BIO–PESTICIDES AND BIO–FERTILIZERS": "Bio–Fertilizers And Bio–Pesticides",
@@ -176,68 +135,6 @@ function formatLastUpdated(isoString: string | null): string {
   });
 }
 
-const MONTH_NAMES: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4,
-  may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9,
-  september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
-};
-
-const KNOWN_DATE_TYPOS: Record<string, string> = {
-  "24-06-26": "2026-06-24",
-  "08-06-26": "2026-06-08",
-  "25-07--2026": "2026-07-25",
-  "24-07--2026": "2026-07-24",
-  "25-06-2-26": "2026-06-25",
-  "14-07-026": "2026-07-14",
-  "10.06.2026": "2026-06-10",
-  "12-06 -2026": "2026-06-12",
-  "14-06-206": "2026-06-14",
-  "17-06-026": "2026-06-17",
-  "19-06-206": "2026-06-19",
-  "25-0-6-2026": "2026-06-25",
-  "15-07-206": "2026-07-15",
-};
-
-function parseTestDateToISO(dateStr?: string): string | null {
-  const s = (dateStr || "").trim();
-  if (!s || isNAlike(s)) return null;
-  if (KNOWN_DATE_TYPOS[s]) return KNOWN_DATE_TYPOS[s];
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const [y, m, d] = s.split("-").map(Number);
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 2020 && y <= 2026) {
-      return s;
-    }
-    return null;
-  }
-
-  const monthNameMatch = s.match(/^(\d{1,2})[-\s]+([A-Za-z]+)[-\s]+(\d{4})$/);
-  if (monthNameMatch) {
-    const day = parseInt(monthNameMatch[1], 10);
-    const month = MONTH_NAMES[monthNameMatch[2].toLowerCase()];
-    const year = parseInt(monthNameMatch[3], 10);
-    if (month && day >= 1 && day <= 31 && year >= 2020 && year <= 2026) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-    return null;
-  }
-
-  const numericMatch = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
-  if (numericMatch) {
-    const day = parseInt(numericMatch[1], 10);
-    const month = parseInt(numericMatch[2], 10);
-    const rawYear = numericMatch[3];
-    if (rawYear.length !== 2 && rawYear.length !== 4) return null;
-    let year = parseInt(rawYear, 10);
-    if (rawYear.length === 2) year += 2000;
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2026) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  return null;
-}
-
 const EMPTY_FILTERS = {
   dateRange: "all",
   category: "all",
@@ -277,7 +174,6 @@ export function TestersDashboardSection({
   description = "Quality Assurance Performance Analytics",
   sourceBadge,
 }: TestersDashboardSectionProps) {
-  const { data, isLoading, isError } = useTestersDashboardData(source);
   const { data: zohoData } = useZohoTicketStatuses();
   const zohoStatuses = zohoData?.statuses ?? {};
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
@@ -331,6 +227,57 @@ export function TestersDashboardSection({
   const [staticSubTypes, setStaticSubTypes] = useState<string[]>([]);
   const [dynamicExpanded, setDynamicExpanded] = useState(false);
   const [staticExpanded, setStaticExpanded] = useState(false);
+
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      setIsUploading(true);
+      setUploadError(null);
+      const text = await file.text();
+      const records = parseCsvTextToRecords(text);
+      if (records.length === 0) {
+        setUploadError("The selected CSV file could not be parsed or contains no test records. Ensure it contains a 'Test ID' column.");
+        setIsUploading(false);
+        return;
+      }
+      await saveRecordsToBrowserStorage(records, new Date().toISOString());
+      await queryClient.invalidateQueries({ queryKey: ["testers-dashboard-summary", "sheet"] });
+      setIsUploading(false);
+    } catch (err: any) {
+      setUploadError(err?.message || "Failed to parse and store CSV file.");
+      setIsUploading(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (confirm("Are you sure you want to remove the cached QA Sheet records from this browser?")) {
+      await clearBrowserStorage();
+      await queryClient.invalidateQueries({ queryKey: ["testers-dashboard-summary", "sheet"] });
+    }
+  };
+
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncLatestData = async () => {
+    try {
+      setIsSyncing(true);
+      setUploadError(null);
+      const res = await syncAndCacheSheetsFromBackend();
+      if (!res) {
+        setUploadError("Could not automatically fetch sheets from backend. Ensure TESTERS_DASHBOARD_SHEETS and SERVICE_ACCOUNT are configured.");
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ["testers-dashboard-summary", "sheet"] });
+      }
+      setIsSyncing(false);
+    } catch (err: any) {
+      setUploadError(err?.message || "Failed to sync sheet data.");
+      setIsSyncing(false);
+    }
+  };
 
   function selectTypeBranch(branch: "Dynamic" | "Static") {
     setTypeBranch((prev) => (prev === branch ? "all" : branch));
@@ -425,67 +372,6 @@ export function TestersDashboardSection({
     source,
   );
 
-  const allRecords = data?.records ?? [];
-
-  const applyNonDateFilters = (rows: ITestersDashboardRecord[]): ITestersDashboardRecord[] => {
-    let out = rows;
-    if (excludeFailures) {
-      out = out.filter(
-        (r) =>
-          !matchesAny(r["Question Saved in DB?"], ["not saved"]) &&
-          !matchesAny(r["Answer Saved in DB?"], ["not saved"]) &&
-          !matchesAny(r["Q-ID Consistent Across Systems?"], ["wrongly identified as duplicate"]) &&
-          normalizeDefectSeverity(r["Defect Severity"]) !== "Critical" &&
-          (dynamicSubBucketFor(r["Question Category"], r["Type of Question"]) !== null ||
-            STATIC_SUB_TYPES.has(normalizeTypeOfQuestion(r["Type of Question"]))),
-      );
-    }
-    for (const field of FILTER_FIELDS) {
-      const value = filters[field.key];
-      if (value !== "all") {
-        if (field.normalize) {
-          out = out.filter((r) => field.normalize!(r[field.csvKey]) === value);
-        } else {
-          out = out.filter((r) => r[field.csvKey] === value);
-        }
-      }
-    }
-    return out;
-  };
-
-  const filtered = useMemo(() => {
-    let rows: ITestersDashboardRecord[] = applyNonDateFilters(allRecords);
-
-    const isCustomWithNoDatesYet = filters.dateRange === "custom" && !customStart && !customEnd;
-
-    if (filters.dateRange !== "all" && !isCustomWithNoDatesYet) {
-      const now = new Date();
-      const todayISO = now.toISOString().slice(0, 10);
-      rows = rows.filter((r) => {
-        const iso = parseTestDateToISO(r["Test Date"]);
-        if (!iso) return false;
-        const rDate = new Date(iso);
-
-        if (filters.dateRange === "today") {
-          return iso === todayISO;
-        } else if (filters.dateRange === "7days") {
-          const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-          return diffDays <= 7;
-        } else if (filters.dateRange === "30days") {
-          const diffDays = Math.ceil(Math.abs(now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-          return diffDays <= 30;
-        } else if (filters.dateRange === "custom") {
-          if (customStart && iso < customStart) return false;
-          if (customEnd && iso > customEnd) return false;
-          return true;
-        }
-        return true;
-      });
-    }
-
-    return rows;
-  }, [allRecords, filters, excludeFailures, customStart, customEnd]);
-
   const getTicketTeam = (ticketId: string): string => zohoStatuses[ticketId]?.team || UNASSIGNED_TEAM_LABEL;
   const matchesTeam = (ticketId: string, team: string | null): boolean => !team || getTicketTeam(ticketId) === team;
   const matchesSelectedTeam = (ticketId: string): boolean => matchesTeam(ticketId, selectedTeam);
@@ -573,14 +459,102 @@ export function TestersDashboardSection({
     ).length,
   ]);
 
-  if (isLoading || summaryQuery.isLoading || !data || !summaryQuery.data) {
+  if (summaryQuery.isLoading || !summaryQuery.data) {
     return <div className="p-6 text-muted-foreground">Loading {title.toLowerCase()} data...</div>;
   }
 
-  if (isError || !data.success || summaryQuery.isError || !summaryQuery.data.success) {
+  if (summaryQuery.data?.syncing) {
+    return (
+      <div className="p-12 flex flex-col items-center justify-center space-y-4 text-center border rounded-lg bg-card shadow-sm my-6">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div>
+          <h3 className="text-base font-semibold">Synchronizing Google Sheet Data...</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md">
+            The initial dataset is being fetched and prepared in the background. The dashboard will automatically update once ready.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (source === 'sheet' && (summaryQuery.data?.needClientData || !summaryQuery.data?.success)) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold">{title}</h2>
+              {sourceBadge && (
+                <span className="px-2 py-0.5 text-xs font-semibold rounded bg-primary/10 text-primary border border-primary/20">
+                  {sourceBadge}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          </div>
+        </div>
+
+        <Card className="border-dashed border-2 p-10 text-center flex flex-col items-center justify-center space-y-4 bg-muted/10 hover:bg-muted/20 transition-colors">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+            }}
+          />
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold">
+            📊
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Google Sheet QA Analytics</h3>
+            <p className="text-sm text-muted-foreground max-w-lg mt-1">
+              Data could not be automatically streamed from Google Sheets. You can retry auto-syncing directly or upload an offline CSV export.
+            </p>
+          </div>
+
+          {uploadError && (
+            <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded max-w-md">
+              {uploadError}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={handleSyncLatestData}
+              className="px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2"
+            >
+              {isSyncing ? "Syncing from Google..." : "🔄 Retry Auto-Sync"}
+            </button>
+            <button
+              type="button"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2.5 border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm font-medium rounded-md shadow-sm transition-colors cursor-pointer"
+            >
+              {isUploading ? "Processing CSV..." : "Upload CSV Manually"}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground pt-1">
+            Data is processed 100% in your browser using 0 server RAM & 0 heap memory.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (summaryQuery.isError || !summaryQuery.data.success) {
+    const errorDetail = summaryQuery.data?.error;
     return (
       <div className="p-6 text-destructive">
-        Failed to load {title.toLowerCase()} data. {source === 'sheet' ? 'Check that the backend CSV source is configured.' : 'Check database connectivity.'}
+        <p className="font-semibold">Failed to load {title.toLowerCase()} data.</p>
+        <p className="text-sm mt-1 text-muted-foreground">
+          {errorDetail || (source === 'sheet' ? 'Check that the client CSV source is loaded.' : 'Check database connectivity.')}
+        </p>
       </div>
     );
   }
@@ -815,12 +789,53 @@ export function TestersDashboardSection({
           <div className="flex flex-col text-left">
             <span className="text-muted-foreground">
               {excludeFailures
-                ? `Showing ${filtered.length} clean of ${allRecords.length} records.`
-                : `Loaded ${allRecords.length} records.`}
+                ? `Showing ${summaryQuery.data.kpis.N} clean of ${summaryQuery.data.totalRecords} records.`
+                : `Loaded ${summaryQuery.data.totalRecords} records.`}
             </span>
             <span className="text-muted-foreground">
-              Last synced: {formatLastUpdated(data?.lastSyncedAt ?? null)}
+              Last synced: {formatLastUpdated(summaryQuery.data.lastSyncedAt ?? null)}
             </span>
+            {source === 'sheet' && (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={isSyncing}
+                  onClick={handleSyncLatestData}
+                  className="text-xs text-primary hover:underline font-medium cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                  title="Stream freshest live data directly from Google Sheets (0 server RAM used)"
+                >
+                  {isSyncing ? "Syncing..." : "🔄 Sync Live Data"}
+                </button>
+                <span className="text-xs text-muted-foreground">•</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                  title="Upload an updated QA CSV export manually"
+                >
+                  Upload CSV
+                </button>
+                <span className="text-xs text-muted-foreground">•</span>
+                <button
+                  type="button"
+                  onClick={handleClearCache}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                  title="Clear locally cached CSV data"
+                >
+                  Clear Cache
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

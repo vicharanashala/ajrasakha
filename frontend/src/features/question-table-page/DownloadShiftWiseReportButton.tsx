@@ -52,7 +52,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import { TopRightBadge } from "@/components/NewBadge";
 
 type Source = 'annam' | 'whatsapp' | 'agri_expert';
 

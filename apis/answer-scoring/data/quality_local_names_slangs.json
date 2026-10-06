@@ -1,0 +1,3054 @@
+[
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Gulli Danda",
+    "scientific_name": "Phalaris minor",
+    "category": "Weed",
+    "description": "Mimic weed of wheat; seed head looks like a game stick."
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Khaira",
+    "scientific_name": "Zinc Deficiency",
+    "category": "Disease",
+    "description": "Physiological disorder; rusty brown spots resembling Catechu (Khair)."
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Gundhi Kira",
+    "scientific_name": "Leptocorisa acuta",
+    "category": "Pest",
+    "description": "Rice Earhead Bug; emits foul smell (Gandh)."
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Sainik Keet",
+    "scientific_name": "Spodoptera / Mythimna",
+    "category": "Pest",
+    "description": "Armyworm; marches in lines like soldiers."
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Haldia",
+    "scientific_name": "Yellowing of the leaf or Xanthomonas oryzae pv. oryzae",
+    "category": "Disease",
+    "description": "Leaf Blight/Yellow Rust; Haldi means Turmeric (yellowing)."
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Mandusi",
+    "scientific_name": "Phalaris minor",
+    "category": "Weed",
+    "description": "Little Seed Canary Grass; resistant to many herbicides."
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Kanki",
+    "scientific_name": "Phalaris minor",
+    "category": "Weed",
+    "description": "Refers to broken grains/contamination by the weed."
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Gulabi Sundi",
+    "scientific_name": "Pectinophora gossypiella",
+    "category": "Pest",
+    "description": "Pink Bollworm (Cotton); Gulabi = Pink."
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Sitte Booti",
+    "scientific_name": "Phalaris minor",
+    "category": "Weed",
+    "description": "Refers to the prominent cob/ear (Sitta)."
+  },
+  {
+    "state": "Haryana",
+    "local_name": "Bathua",
+    "scientific_name": "Chenopodium album",
+    "category": "Weed",
+    "description": "Lamb's Quarters; also consumed as a vegetable."
+  },
+  {
+    "state": "Haryana",
+    "local_name": "Jangli Jai",
+    "scientific_name": "Avena fatua",
+    "category": "Weed",
+    "description": "Wild Oat; Jangli = Wild."
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Satyanaashi",
+    "scientific_name": "Argemone mexicana",
+    "category": "Weed",
+    "description": "Mexican Prickly Poppy; \"The Destroyer\" (Toxic)."
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Bhurat",
+    "scientific_name": "Cenchrus biflorus",
+    "category": "Weed",
+    "description": "Burr grass; spines stick to clothes/skin."
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Pili Kateri",
+    "scientific_name": "Argemone mexicana",
+    "category": "Weed",
+    "description": "Yellow prickly plant."
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Motha",
+    "scientific_name": "Cyperus rotundus",
+    "category": "Weed",
+    "description": "Purple Nut Sedge; Motha = Fat/Tuberous."
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Jhulsa",
+    "scientific_name": "Phytophthora infectans",
+    "category": "Disease",
+    "description": "Late Blight (Potato); \"Scorched/Burnt\"."
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Bakanae",
+    "scientific_name": "Gibberella fujikuroi",
+    "category": "Disease",
+    "description": "Foot Rot; stems grow abnormally tall (Foolish Seedling)."
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Majra Poka",
+    "scientific_name": "Scirpophaga incertulas",
+    "category": "Pest",
+    "description": "Stem Borer; causes Dead Heart/White Ear."
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Gandhi Poka",
+    "scientific_name": "Leptocorisa acuta",
+    "category": "Pest",
+    "description": "Rice Bug; emits foul odor."
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Pamri Poka",
+    "scientific_name": "Dicladispa armigera",
+    "category": "Pest",
+    "description": "Rice Hispa; spiny beetle that scrapes leaves."
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Jhulsa Rog",
+    "scientific_name": "Phytophthora / Alternaria",
+    "category": "Disease",
+    "description": "Burning Disease; Blight."
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Dhosa",
+    "scientific_name": "Phytophthora",
+    "category": "Disease",
+    "description": "Rotting/Blight (often in Potato/Vegetables)."
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Mutha Ghas",
+    "scientific_name": "Cyperus rotundus",
+    "category": "Weed",
+    "description": "Nut Sedge."
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Shama Ghas",
+    "scientific_name": "Echinochloa crus-galli",
+    "category": "Weed",
+    "description": "Barnyard Grass."
+  },
+  {
+    "state": "Odisha",
+    "local_name": "Chakada",
+    "scientific_name": "BPH Damage",
+    "category": "Pest",
+    "description": "Hopper burn (Circular patches of damage)."
+  },
+  {
+    "state": "Odisha",
+    "local_name": "Nali",
+    "scientific_name": "Sogatella furcifera",
+    "category": "Pest",
+    "description": "White Backed Plant Hopper."
+  },
+  {
+    "state": "Odisha",
+    "local_name": "Pokasunga",
+    "scientific_name": "Blumea lacera",
+    "category": "Weed",
+    "description": "Strong smelling weed used ethnomedicinally."
+  },
+  {
+    "state": "Odisha",
+    "local_name": "Panikundi",
+    "scientific_name": "Bacopa monnieri",
+    "category": "Weed",
+    "description": "\"Water earring\"; grows in wet fields."
+  },
+  {
+    "state": "Assam",
+    "local_name": "Banra",
+    "scientific_name": "Oryza rufipogon",
+    "category": "Weed",
+    "description": "Wild Rice; mimics crop but shatters seeds."
+  },
+  {
+    "state": "Assam",
+    "local_name": "Tari / Gandhi Puk",
+    "scientific_name": "Coridius spp.",
+    "category": "Pest",
+    "description": "Stink bug (also consumed as food by some tribes)."
+  },
+  {
+    "state": "Assam",
+    "local_name": "Pani-Kachu",
+    "scientific_name": "Colocasia esculenta",
+    "category": "Weed",
+    "description": "Wild Taro; grows in waterlogged fields."
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Tikka",
+    "scientific_name": "Cercospora spp.",
+    "category": "Disease",
+    "description": "Leaf Spot (Groundnut); \"Spot/Mark\"."
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Gajar Gavat",
+    "scientific_name": "Parthenium hysterophorus",
+    "category": "Weed",
+    "description": "Carrot Grass; invasive, causes allergies."
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Khod Kida",
+    "scientific_name": "Stem Borer",
+    "category": "Pest",
+    "description": "Khod = Stem, Kida = Insect."
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Aghada",
+    "scientific_name": "Achyranthes aspera",
+    "category": "Weed",
+    "description": "Prickly Chaff Flower; seeds stick to clothes."
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Pivala Dhotra",
+    "scientific_name": "Argemone mexicana",
+    "category": "Weed",
+    "description": "Yellow Datura; toxic weed."
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Mava",
+    "scientific_name": "Aphids",
+    "category": "Pest",
+    "description": "Sucking pests."
+  },
+  {
+    "state": "Gujarat",
+    "local_name": "Molo",
+    "scientific_name": "Aphids (Aphis gossypii)",
+    "category": "Pest",
+    "description": "Soft-bodied sucking pest."
+  },
+  {
+    "state": "Gujarat",
+    "local_name": "Mashi",
+    "scientific_name": "Jassids / Whiteflies",
+    "category": "Pest",
+    "description": "Sucking pest complex."
+  },
+  {
+    "state": "Gujarat",
+    "local_name": "Ghaburi",
+    "scientific_name": "Tridax procumbens",
+    "category": "Weed",
+    "description": "Coat Buttons; persistent weed."
+  },
+  {
+    "state": "Gujarat",
+    "local_name": "Samo",
+    "scientific_name": "Echinochloa colona",
+    "category": "Weed",
+    "description": "Jungle Rice; seeds used as fasting food."
+  },
+  {
+    "state": "Gujarat",
+    "local_name": "Daro",
+    "scientific_name": "Cynodon dactylon",
+    "category": "Weed",
+    "description": "Bermuda Grass; sacred but weedy."
+  },
+  {
+    "state": "Gujarat",
+    "local_name": "Eyal",
+    "scientific_name": "Lepidoptera larvae",
+    "category": "Pest",
+    "description": "General term for caterpillars/worms."
+  },
+  {
+    "state": "Tamil Nadu",
+    "local_name": "Pugaiyan",
+    "scientific_name": "Nilaparvata lugens (BPH)",
+    "category": "Pest",
+    "description": "Brown Plant Hopper; Pugai = Smoke (Hopper burn)."
+  },
+  {
+    "state": "Tamil Nadu",
+    "local_name": "Vettukaaya poondu",
+    "scientific_name": "Tridax procumbens",
+    "category": "Weed",
+    "description": "\"Cut-wound herb\"; medicinal weed."
+  },
+  {
+    "state": "Tamil Nadu",
+    "local_name": "Arukampul",
+    "scientific_name": "Cynodon dactylon",
+    "category": "Weed",
+    "description": "Bermuda Grass."
+  },
+  {
+    "state": "Tamil Nadu",
+    "local_name": "Tukra",
+    "scientific_name": "Maconellicoccus hirsutus",
+    "category": "Pest",
+    "description": "Pink Mealybug (Mulberry); causes crinkling."
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Sudi Doma",
+    "scientific_name": "Nilaparvata lugens (BPH)",
+    "category": "Pest",
+    "description": "Needle Mosquito (BPH)."
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Aggi Tegulu",
+    "scientific_name": "Magnaporthe oryzae",
+    "category": "Disease",
+    "description": "Rice Blast; Aggi = Fire."
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kandam toluchu purugu",
+    "scientific_name": "Scirpophaga incertulas",
+    "category": "Pest",
+    "description": "Stem boring worm."
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Guntha Nakka",
+    "scientific_name": "Dinebra arabica",
+    "category": "Weed",
+    "description": "\"Fox\" grass; difficult to pull out."
+  },
+  {
+    "state": "Karnataka",
+    "local_name": "Katte",
+    "scientific_name": "Cardamom Mosaic Virus",
+    "category": "Disease",
+    "description": "\"Disorder\"; causes fading/stunting."
+  },
+  {
+    "state": "Karnataka",
+    "local_name": "Kokke Kandu",
+    "scientific_name": "Cardamom Vein Clearing",
+    "category": "Disease",
+    "description": "\"Hooked Tiller\"; viral symptom."
+  },
+  {
+    "state": "Karnataka",
+    "local_name": "Benne akki hullu",
+    "scientific_name": "Brachiaria ramosa",
+    "category": "Weed",
+    "description": "\"Butter rice grass\"."
+  },
+  {
+    "state": "Karnataka",
+    "local_name": "Hanchi harak hullu",
+    "scientific_name": "Brachiaria eruciformis",
+    "category": "Weed",
+    "description": "Grass weed affecting millets."
+  },
+  {
+    "state": "Kerala",
+    "local_name": "Munja",
+    "scientific_name": "Nilaparvata lugens",
+    "category": "Pest",
+    "description": "BPH."
+  },
+  {
+    "state": "Kerala",
+    "local_name": "Mahali",
+    "scientific_name": "Phytophthora spp.",
+    "category": "Disease",
+    "description": "Fruit rot (Arecanut/Nutmeg)."
+  },
+  {
+    "state": "Kerala",
+    "local_name": "Kurikootticheera",
+    "scientific_name": "Tridax procumbens",
+    "category": "Weed",
+    "description": "Medicinal weed."
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Pamu Podi Tegulu",
+    "scientific_name": "Rhizoctonia solani",
+    "category": "Disease",
+    "description": "Sheath Blight"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kullu Tegulu",
+    "scientific_name": "Sarocladium oryzae",
+    "category": "Disease",
+    "description": "Sheath Rot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Godhumarangu aaku maccha Tegulu",
+    "scientific_name": "Heminthosporium oryzae",
+    "category": "Disease",
+    "description": "Brown spot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Bacterial aakuendu Tegulu",
+    "scientific_name": "Xanthomonas oryzae",
+    "category": "Disease",
+    "description": "Bacterial Blight"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Aaku mudatha purugu",
+    "scientific_name": "Cnaphalocrosis medinalis",
+    "category": "Pest",
+    "description": "Leaf folder"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Hispa purugu",
+    "scientific_name": "Dicladispa armigera",
+    "category": "Pest",
+    "description": "Hispa"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kaniki nalli",
+    "scientific_name": "Leptocorisa oratorius",
+    "category": "Pest",
+    "description": "Panicle mite"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Pindi nalli",
+    "scientific_name": "Brevennia rehi",
+    "category": "Pest",
+    "description": "Mealy bug"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Potta kullu",
+    "scientific_name": "Sclerotium oryzae",
+    "category": "Disease",
+    "description": "Stem rot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Tungro (Green leaf hopper)",
+    "scientific_name": "Nephotettix virescens",
+    "category": "Disease",
+    "description": "These viruses are transmitted by the green leafhopper"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Vayyaribhama/Mukkupudaka",
+    "scientific_name": "Parthenium histinophorus",
+    "category": "Weed",
+    "description": "Congress weed"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Aaku macha tegulu",
+    "scientific_name": "Cercospora sps",
+    "category": "Disease",
+    "description": "Leaf spot"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Komma kullu",
+    "scientific_name": "Choenophora sps",
+    "category": "Disease",
+    "description": "horticultural crops"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Veru kullu",
+    "scientific_name": "Root rot",
+    "category": "Disease",
+    "description": "Root rot"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Veru purugu",
+    "scientific_name": "Root bore",
+    "category": "Pest",
+    "description": "Root borer"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Bacteria Aaku amcha tegulu",
+    "scientific_name": "Xanthomonas spp",
+    "category": "Disease",
+    "description": "Bacteria leaf spot"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Tamara purugu",
+    "scientific_name": "Thrips dorsalis",
+    "category": "pest",
+    "description": "thrips"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Nalla Tamara purugu",
+    "scientific_name": "Frankilina sps",
+    "category": "Pest",
+    "description": "Black thrips"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "pacha nalli",
+    "scientific_name": "polyphagotarsenomus latus",
+    "category": "pest",
+    "description": "yellomite"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Narukullu",
+    "scientific_name": "pythium sps",
+    "category": "Disease",
+    "description": "Damping off"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "endu tegulu",
+    "scientific_name": "Fusarium sps",
+    "category": "disease",
+    "description": "wilt"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Aaku mudatha",
+    "scientific_name": "viral diseases",
+    "category": "disease",
+    "description": "viral diseases"
+  },
+  {
+    "state": "Maharashtra, Telangana, Gujarat",
+    "local_name": "Gulabi Sundi",
+    "scientific_name": "Pectinophora gossypiella",
+    "category": "Pest",
+    "description": "Pink bollworm"
+  },
+  {
+    "state": "All cotton states",
+    "local_name": "Safed Makhi",
+    "scientific_name": "Bemisia tabaci",
+    "category": "Pest",
+    "description": "Whitefly"
+  },
+  {
+    "state": "Punjab,Harayana, Uttar pradesh and Madya pradesh",
+    "local_name": "Hara Tella",
+    "scientific_name": "Amrasca biguttula",
+    "category": "Pest",
+    "description": "Jassid"
+  },
+  {
+    "state": "Maharashtra, UP, Karnataka",
+    "local_name": "Tobacco Sundi",
+    "scientific_name": "Spodoptera litura",
+    "category": "Pest",
+    "description": "Leaf-eating caterpillar"
+  },
+  {
+    "state": "MP, Telangana, UP",
+    "local_name": "Chhota Sundi",
+    "scientific_name": "Helicoverpa armigera",
+    "category": "Pest",
+    "description": "Pod borer"
+  },
+  {
+    "state": "Gujarat, UP",
+    "local_name": "Phudka",
+    "scientific_name": "Amrasca biguttula",
+    "category": "Pest",
+    "description": "Leaf hopper"
+  },
+  {
+    "state": "MP, UP",
+    "local_name": "Kala Rog",
+    "scientific_name": "Puccinia graminis",
+    "category": "disease",
+    "description": "Black Rust"
+  },
+  {
+    "state": "Punjab, Haryana, UP",
+    "local_name": "Pili Rog / Kangiyari",
+    "scientific_name": "Puccinia striiformis",
+    "category": "disease",
+    "description": "Yellow Rust"
+  },
+  {
+    "state": "Rajasthan, UP, MP",
+    "local_name": "Tancha keet",
+    "scientific_name": "Chilo partellus",
+    "category": "Pest",
+    "description": "Stem borer"
+  },
+  {
+    "state": "All rice-growing states",
+    "local_name": "Sundi / Tancha keet",
+    "scientific_name": "Scirpophaga incertulas",
+    "category": "Pest",
+    "description": "Yellow stem borer"
+  },
+  {
+    "state": "UP, Bihar, Jharkhand, Odisha",
+    "local_name": "Udbatta",
+    "scientific_name": "Ustilaginoidea virens",
+    "category": "Disease",
+    "description": "Panicle not opening / distorted"
+  },
+  {
+    "state": "UP, MP, Rajasthan, Maharashtra",
+    "local_name": "Jhulsa / Jhulsan",
+    "scientific_name": "Magnaporthe oryzae",
+    "category": "Disease",
+    "description": "Leaf blast / burning"
+  },
+  {
+    "state": "Punjab, Haryana, UP",
+    "local_name": "Bakani",
+    "scientific_name": "Gibberella fujikuroi",
+    "category": "Disease",
+    "description": "Foolish seedling"
+  },
+  {
+    "state": "All rice-growing states",
+    "local_name": "Sundi / Tancha keet",
+    "scientific_name": "Scirpophaga incertulas",
+    "category": "Pest",
+    "description": "Yellow stem borer"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Tancha",
+    "scientific_name": "Scirpophaga incertulas",
+    "category": "Pest",
+    "description": "Stem borer"
+  },
+  {
+    "state": "Punjab, Uttar pradesh ,Harayana and Madya pradesh",
+    "local_name": "Bhura Rog",
+    "scientific_name": "Puccinia triticina",
+    "category": "Disease",
+    "description": "Brown rust"
+  },
+  {
+    "state": "Rajasthan, MP",
+    "local_name": "Sundi",
+    "scientific_name": "Odontotermes spp.",
+    "category": "Disease",
+    "description": "Termite"
+  },
+  {
+    "state": "MP, UP, Telangana",
+    "local_name": "Chhota sundi",
+    "scientific_name": "Helicoverpa armigera",
+    "category": "Pest",
+    "description": "Pod borer"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Shanagapacha purugu",
+    "scientific_name": "Helicoverpa armigera",
+    "category": "pest",
+    "description": "Gram pod borer"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Kathera Purugu",
+    "scientific_name": "spodoptera frugiperda",
+    "category": "pest",
+    "description": "Fall army worm -maize"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Pogaku ladde purugu",
+    "scientific_name": "Spodoptera sps",
+    "category": "pest",
+    "description": "tobacco caterpillar"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Tataku tegulu",
+    "scientific_name": "Dicladispa armigera",
+    "category": "pest",
+    "description": "Hispa"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Ulli kodu",
+    "scientific_name": "Orseolia oryzae",
+    "category": "Pest",
+    "description": "Gall midge"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "pindi nalli",
+    "scientific_name": "Brevennia rehi",
+    "category": "pest",
+    "description": "mealybug"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Aku chuttu purugu",
+    "scientific_name": "Nymphula depunctalis",
+    "category": "pest",
+    "description": "caseworm"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "kampu nalli",
+    "scientific_name": "Leptocorisa acuta",
+    "category": "pest",
+    "description": "gundibug"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Pamupoda tegalu",
+    "scientific_name": "Rijoctina solani",
+    "category": "disease",
+    "description": "sheath blight"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Ginja macha tegulu",
+    "scientific_name": "-",
+    "category": "disease",
+    "description": "Grain disocolouration"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "kandam kullu tegulu",
+    "scientific_name": "Sclerotium oryzae",
+    "category": "disease",
+    "description": "Stem rot"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "penu banka",
+    "scientific_name": "Aphis-",
+    "category": "pest",
+    "description": "aphids"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Thamara purugu",
+    "scientific_name": "Stenchaetothrips biformis",
+    "category": "pest",
+    "description": "Thrips"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Rella Raalchu Purugu",
+    "scientific_name": "Spodoptera litura",
+    "category": "pest",
+    "description": "Cutworm"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kattela purugu",
+    "scientific_name": "Mythimna unipuncta",
+    "category": "pest",
+    "description": "Army worm"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Thunga",
+    "scientific_name": "Cyperus rotundus",
+    "category": "Weed",
+    "description": "Purple Nut Sedge"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Adivi vari",
+    "scientific_name": "Echinochloa crus-galli",
+    "category": "Weed",
+    "description": "Rice/Barnyard Grass"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Vayarri bamma",
+    "scientific_name": "Parthenium hysterophorus",
+    "category": "Weed",
+    "description": "Congress Grass"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kandam tholuchu purugu",
+    "scientific_name": "Scirpophaga incertulas",
+    "category": "pest",
+    "description": "Stem borer"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Budidhi Tegulu",
+    "scientific_name": "Ramularia gossypii",
+    "category": "disease",
+    "description": "Powdery mildew in cotton"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Yerra nalli",
+    "scientific_name": "Tetranychus neocaledonicus",
+    "category": "pest",
+    "description": "Mites"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Aaku chuttu purugu",
+    "scientific_name": "Sylepta derogata",
+    "category": "disease",
+    "description": "Leaf Roller"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Thella dhomma",
+    "scientific_name": "Bemisia tabaci",
+    "category": "pest",
+    "description": "Whitefly"
+  },
+  {
+    "state": "UP, Bihar",
+    "local_name": "Mahua keet",
+    "scientific_name": "Melanagromyza obtusa",
+    "category": "Pest",
+    "description": "Pod fly"
+  },
+  {
+    "state": "All pulse states",
+    "local_name": "Ukatha",
+    "scientific_name": "Fusarium oxysporum",
+    "category": "Disease",
+    "description": "Plant drying"
+  },
+  {
+    "state": "Gujarat, AP",
+    "local_name": "Tikka Rog",
+    "scientific_name": "Cercospora spp.",
+    "category": "Disease",
+    "description": "Leaf spot"
+  },
+  {
+    "state": "UP, Bihar",
+    "local_name": "Reh / Usar",
+    "scientific_name": "High EC & Na",
+    "category": "Salinity of soil",
+    "description": "Saline soil"
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Bhura mitti",
+    "scientific_name": "Low organic carbon",
+    "category": "Soil nature",
+    "description": "Sandy soil"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Peeli mitti",
+    "scientific_name": "Nutrient poor",
+    "category": "Fertility of soil",
+    "description": "Low fertility soil"
+  },
+  {
+    "state": "Odisha, WB",
+    "local_name": "Kharif jhulsa",
+    "scientific_name": "Helminthosporium oryzae",
+    "category": "Disease",
+    "description": "Early leaf drying"
+  },
+  {
+    "state": "Assam, Odisha",
+    "local_name": "Bhura dhabba",
+    "scientific_name": "Bipolaris oryzae",
+    "category": "Disease",
+    "description": "Brown spot"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Ladde purugu",
+    "scientific_name": "helicoverpa.spodoptera",
+    "category": "disease",
+    "description": "Lepidopteran pest"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Baswaram",
+    "scientific_name": null,
+    "category": "Nutrient",
+    "description": "phosphorous"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Natrajan",
+    "scientific_name": null,
+    "category": "Nutrient",
+    "description": "NItrogen"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Inumu",
+    "scientific_name": null,
+    "category": "Nutrient",
+    "description": "Iron"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Pacha doma",
+    "scientific_name": null,
+    "category": "pest",
+    "description": "Jassid"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "rekka ralchu purugu",
+    "scientific_name": "Exelastis atomosa",
+    "category": "pest",
+    "description": "plumemoth"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Veru kullu",
+    "scientific_name": "Rhizoctonia bataticola",
+    "category": "disease",
+    "description": "root rot-redgram"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Budidha tegulu",
+    "scientific_name": "Leveillula taurica",
+    "category": "disease",
+    "description": "powdery mildew"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Panadaku tegulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Diseases/Nutrient deficiency"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "Tella doma",
+    "scientific_name": "Bemiscia tabaci",
+    "category": "pest",
+    "description": "white fly"
+  },
+  {
+    "state": "Ap/Ts",
+    "local_name": "pakshi kannu tegulu",
+    "scientific_name": "colletotrichum",
+    "category": "disease",
+    "description": "fruit rot/anthracnose"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Katika Tegulu",
+    "scientific_name": "Ustilaginoidea virens",
+    "category": "disease",
+    "description": "False smut"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kaya tholuchu purugu",
+    "scientific_name": "Helicoverpa armigera",
+    "category": "pest",
+    "description": "Fruit borer"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kandi vadi tegulu",
+    "scientific_name": "Fusarium udum",
+    "category": "disease",
+    "description": "Wilt in Redgram"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Booju tegulu",
+    "scientific_name": "Peronospora pisi",
+    "category": "disease",
+    "description": "Downy mildew in peas"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Naarukullu Tegulu",
+    "scientific_name": "Pythium aphanidermatum",
+    "category": "disease",
+    "description": "Damping off in tomato"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "(Maagudu Tegulu)",
+    "scientific_name": "Fusarium solani f. sp. cucurbitae",
+    "category": "disease",
+    "description": "Wilting/Rotting like maize, sorghum, or bottle gourd"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "penu banka",
+    "scientific_name": "Aphidoidea",
+    "category": "disease",
+    "description": "Aphids"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Yerra Saliḍu purugu",
+    "scientific_name": "Tetranychus urticae or Tetranychus cinnabarinus",
+    "category": "pest",
+    "description": "Spider mites in vegetables"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Root-Knot Nematodes",
+    "scientific_name": "Meloidogyne (spp.)",
+    "category": "pest",
+    "description": "Root-Knot Nematodes"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Pakshi Kannu Tegulu",
+    "scientific_name": "Colletotrichum  gloeosporioides",
+    "category": "disease",
+    "description": "Anthracnose in mango"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Maamidi Vaikalyam",
+    "scientific_name": "Fusarium moliliforme var. subglutinans",
+    "category": "disease",
+    "description": "Mango Malformation"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Masi Tegulu",
+    "scientific_name": "Capnodium mangiferae",
+    "category": "disease",
+    "description": "Sooty Mold"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kommalu Endipovadam/Dieback Vyadhi",
+    "scientific_name": "Lasiodiplodia theobromae",
+    "category": "disease",
+    "description": "Dieback"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Bacterial Canker",
+    "scientific_name": "Xanthomonas campestris pv",
+    "category": "disease",
+    "description": "Bacterial Canker"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Mamidi scab vyadhi",
+    "scientific_name": "Elsinoe mangiferae",
+    "category": "disease",
+    "description": "Scab"
+  },
+  {
+    "state": "UP, Bihar",
+    "local_name": "Peeli bal",
+    "scientific_name": "Sterile ear",
+    "category": "Disease",
+    "description": "Zinc deficiency"
+  },
+  {
+    "state": "MP, Chhattisgarh",
+    "local_name": "Laal rog",
+    "scientific_name": "Reddish leaves",
+    "category": "Disease",
+    "description": "Phosphorus deficiency"
+  },
+  {
+    "state": "Karnataka",
+    "local_name": "Sugga roga",
+    "scientific_name": "Fusarium spp.",
+    "category": "Disease",
+    "description": "Grain mold"
+  },
+  {
+    "state": "UP, Punjab",
+    "local_name": "Sundari keet",
+    "scientific_name": "Spodoptera litura",
+    "category": "Pest",
+    "description": "Caterpillar"
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Sukha rog",
+    "scientific_name": "Ralstonia solanacearum",
+    "category": "Disease",
+    "description": "Wilt"
+  },
+  {
+    "state": "UP, Bihar",
+    "local_name": "Murjha rog",
+    "scientific_name": "Fusarium oxysporum",
+    "category": "Disease",
+    "description": "WIlt"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Kala dhabba",
+    "scientific_name": "Alternaria solani",
+    "category": "Disease",
+    "description": "Early blight disease"
+  },
+  {
+    "state": "East India",
+    "local_name": "Chapai",
+    "scientific_name": "Root anoxia",
+    "category": "Injury",
+    "description": "Waterlogging injury"
+  },
+  {
+    "state": "North India",
+    "local_name": "Thandi maar",
+    "scientific_name": "Cold injury",
+    "category": "Injury",
+    "description": "Low temperature stress"
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Garmi jhulsa",
+    "scientific_name": "Heat scorch",
+    "category": "Injury",
+    "description": "Heat stress"
+  },
+  {
+    "state": "North India",
+    "local_name": "Pala maar",
+    "scientific_name": "Freezing damage",
+    "category": "Injury",
+    "description": "Frost injury"
+  },
+  {
+    "state": "UP, Bihar",
+    "local_name": "Galna / Galans",
+    "scientific_name": "Pythium, Rhizoctonia",
+    "category": "Disease",
+    "description": "Seedling rotting"
+  },
+  {
+    "state": "MP, Chhattisgarh",
+    "local_name": "Ukatha",
+    "scientific_name": "Fusarium spp.",
+    "category": "Disease",
+    "description": "Sudden drying"
+  },
+  {
+    "state": "WB, Assam",
+    "local_name": "Jad galan",
+    "scientific_name": "Phytophthora spp.",
+    "category": "Disease",
+    "description": "Root rot"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Sadna",
+    "scientific_name": "Fungal complex",
+    "category": "Disease",
+    "description": "Seed decay"
+  },
+  {
+    "state": "North India",
+    "local_name": "Jhulsa",
+    "scientific_name": "Excess urea / fungi",
+    "category": "Disease",
+    "description": "Seedling burn"
+  },
+  {
+    "state": "AP, TN",
+    "local_name": "Chitti rog",
+    "scientific_name": "Xanthomonas oryzae pv. oryzicola",
+    "category": "Disease",
+    "description": "Leaf streaks"
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Kala churan",
+    "scientific_name": "Fungal growth on honeydew",
+    "category": "Disease",
+    "description": "Sooty mold"
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Mata rog",
+    "scientific_name": "Sporisorium reilianum",
+    "category": "Disease",
+    "description": "Head smut"
+  },
+  {
+    "state": "Madya pradesh",
+    "local_name": "Sukha padna",
+    "scientific_name": "Macrophomina phaseolina",
+    "category": "Disease",
+    "description": "Drying after flowering"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Laal pancha",
+    "scientific_name": "Potassium deficiency",
+    "category": "Injury",
+    "description": "Red leaves"
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Ganj pancha",
+    "scientific_name": "Moisture stress",
+    "category": "Injury",
+    "description": "Leaf drop"
+  },
+  {
+    "state": "UP, Bihar",
+    "local_name": "Chitkabri",
+    "scientific_name": "Viral disease",
+    "category": "Disease",
+    "description": "Mosaic"
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Chakwa rog",
+    "scientific_name": "Alternaria brassicae",
+    "category": "Disease",
+    "description": "Alternaria blight"
+  },
+  {
+    "state": "Gujarat",
+    "local_name": "Sukha tan",
+    "scientific_name": "Sclerotium rolfsii",
+    "category": "Disease",
+    "description": "Stem rot"
+  },
+  {
+    "state": "Odhisa",
+    "local_name": "Telia pancha",
+    "scientific_name": "Virus",
+    "category": "DIsease",
+    "description": "Leaf curl"
+  },
+  {
+    "state": "UP,Bihar, MP and Punjab",
+    "local_name": "Chipchipa pancha",
+    "scientific_name": "Whitefly / aphid",
+    "category": "Pest",
+    "description": "Sticky leaves"
+  },
+  {
+    "state": "Telangana",
+    "local_name": "Sukha phal",
+    "scientific_name": "Moisture + thrips",
+    "category": "Pest",
+    "description": "Fruit drop"
+  },
+  {
+    "state": "Madya pradesh",
+    "local_name": "Kala gala",
+    "scientific_name": "Sclerotium rolfsii",
+    "category": "DIsease",
+    "description": "Collar rot"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Tedha pancha",
+    "scientific_name": "Virus",
+    "category": "DIsease",
+    "description": "Leaf curl"
+  },
+  {
+    "state": "Himachal Pradesh",
+    "local_name": "Bungla rog",
+    "scientific_name": "Venturia inaequalis",
+    "category": "DIsease",
+    "description": "Scab"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Gola girna",
+    "scientific_name": "Nutrient imbalance",
+    "category": "Disease",
+    "description": "Fruit drop"
+  },
+  {
+    "state": "South India",
+    "local_name": "Kala pancha",
+    "scientific_name": "Mycosphaerella spp.",
+    "category": "Disease",
+    "description": "Sigatoka"
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Chhal phatna",
+    "scientific_name": "Boron deficiency",
+    "category": "Disease",
+    "description": "Fruit cracking"
+  },
+  {
+    "state": "Assam",
+    "local_name": "Wilt padna",
+    "scientific_name": "Fusarium spp.",
+    "category": "Disease",
+    "description": "Bush drying"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Deemak",
+    "scientific_name": "Odontotermes spp.",
+    "category": "Pest",
+    "description": "Termite"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Kira lagna",
+    "scientific_name": "Sitophilus oryzae",
+    "category": "Pest",
+    "description": "Stored grain pest"
+  },
+  {
+    "state": "Madya pradesh",
+    "local_name": "Ghub lagna",
+    "scientific_name": "Callosobruchus spp.",
+    "category": "Pest",
+    "description": "Pulse beetle"
+  },
+  {
+    "state": "Maharasthra",
+    "local_name": "Chhedi keet",
+    "scientific_name": "Holotrichia spp.",
+    "category": "Pest",
+    "description": "Root grub"
+  },
+  {
+    "state": "Eastern UP, Bihar",
+    "local_name": "Peeli sookh",
+    "scientific_name": "Potassium deficiency",
+    "category": "Deficiency",
+    "description": "Yellow + drying"
+  },
+  {
+    "state": "Chhattisgarh",
+    "local_name": "Hari sookh",
+    "scientific_name": "Root damage / water stress",
+    "category": "Disease",
+    "description": "Green but drying"
+  },
+  {
+    "state": "UP, Uttarakhand",
+    "local_name": "Bal bandh jana",
+    "scientific_name": "Cold injury at booting",
+    "category": "Injury",
+    "description": "Panicle tight"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Dana baithna",
+    "scientific_name": "Moisture stress at flowering",
+    "category": "Injury",
+    "description": "Empty grains"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Tuppu tegulu",
+    "scientific_name": "Puccina sps",
+    "category": "disease",
+    "description": "Rust"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "kandam kullu",
+    "scientific_name": "Aspergillus sps",
+    "category": "disease",
+    "description": "collar rot"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "podi tegulu",
+    "scientific_name": "ustilago sps",
+    "category": "disease",
+    "description": "sumt"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "pasupu macha tegulu",
+    "scientific_name": "Viral diseases",
+    "category": "disease",
+    "description": "ymv"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "tikka macha tegulu",
+    "scientific_name": "Cercospora sps",
+    "category": "disease",
+    "description": "tikka disease-ground nut"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Movvu kullu tegulu",
+    "scientific_name": "viral diseases by thrips",
+    "category": "disease",
+    "description": "bud necrosis"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Tellatuppu tegulu",
+    "scientific_name": "Albugo candida",
+    "category": "disease",
+    "description": "white rust"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "chinna akula tegulu",
+    "scientific_name": "phytoplasma",
+    "category": "disease",
+    "description": "little leaf"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Moggala gumpu",
+    "scientific_name": "viral disease",
+    "category": "disease",
+    "description": "Bunchy top"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "komma endu",
+    "scientific_name": "Lasiodiplodia",
+    "category": "disease",
+    "description": "die back"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Gulabi ranhu purugu",
+    "scientific_name": "Pectinophora",
+    "category": "pest",
+    "description": "Pink bollworm"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "verticillium vadalu tegulu",
+    "scientific_name": "Verticillium wilt",
+    "category": "disease",
+    "description": "wilt"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Erra kullu tegulu",
+    "scientific_name": "glomorella sps",
+    "category": "disease",
+    "description": "redrot-suagrcane"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "erra nelalu",
+    "scientific_name": null,
+    "category": "soil type",
+    "description": "red soils"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "regadi nelalu",
+    "scientific_name": null,
+    "category": "soil type",
+    "description": "black solils"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "tatastha",
+    "scientific_name": null,
+    "category": "soil ph",
+    "description": "nuetral -ph"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "amla",
+    "scientific_name": null,
+    "category": "soil ph",
+    "description": "acidic-ph"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "kshara",
+    "scientific_name": null,
+    "category": "soil ph",
+    "description": "alkaline -ph"
+  },
+  {
+    "state": "WB, Odisha",
+    "local_name": "Bal girna",
+    "scientific_name": "Neck blast",
+    "category": "Disease",
+    "description": "Panicle fall"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Safaid bal",
+    "scientific_name": "Stem borer",
+    "category": "Pest",
+    "description": "White ear"
+  },
+  {
+    "state": "Eastern India",
+    "local_name": "Chipchipa paani",
+    "scientific_name": "Algal bloom",
+    "category": "Pest",
+    "description": "Sticky water"
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Hari jhulsa",
+    "scientific_name": "Heat stress",
+    "category": "Injury",
+    "description": "Green leaf scorch"
+  },
+  {
+    "state": "Uttar pradesh",
+    "local_name": "Peela jhadna",
+    "scientific_name": "Nitrogen deficiency",
+    "category": "Deficiency",
+    "description": "Leaf shedding"
+  },
+  {
+    "state": "Madya Pradesh",
+    "local_name": "Bal sookhna",
+    "scientific_name": "Terminal heat stress",
+    "category": "Injury",
+    "description": "Ear drying"
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Dana patla",
+    "scientific_name": "Zinc deficiency",
+    "category": "Deficiency",
+    "description": "Thin grain"
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Kala mail",
+    "scientific_name": "Sooty mold",
+    "category": "Disease",
+    "description": "Black coating"
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Bhutta sadna",
+    "scientific_name": "Fusarium spp.",
+    "category": "Disease",
+    "description": "Cob rot"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Bhutta aadha bharna",
+    "scientific_name": "Poor pollination",
+    "category": "Disease",
+    "description": "Partial grain"
+  },
+  {
+    "state": "Madya Pradesh",
+    "local_name": "Peela bhutta",
+    "scientific_name": "Nitrogen deficiency",
+    "category": "Deficiency",
+    "description": "Yellowing plant"
+  },
+  {
+    "state": "Karnataka",
+    "local_name": "Whorl galna",
+    "scientific_name": "Fall armyworm damage",
+    "category": "Disease",
+    "description": "Central rot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Movvu Kullu Tegulu",
+    "scientific_name": "Phytophthora palmivora",
+    "category": "Disease",
+    "description": "Bud Rot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kommu Purugu",
+    "scientific_name": "Oryctes rhinoceros",
+    "category": "Pest",
+    "description": "Rhinoceros Beetle"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Erramukku Purugu",
+    "scientific_name": "Rhynchophorus ferrugineus",
+    "category": "Pest",
+    "description": "Red Palm Weevi"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Veru purugu",
+    "scientific_name": "Leucopholis coneophora",
+    "category": "Pest",
+    "description": "White grub"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Sigatoka aakumacha tegulu",
+    "scientific_name": "Mycosphaerella musicola",
+    "category": "Disease",
+    "description": "Yellow Sigatoka leaf spot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Arati Chara Virus Tegulu",
+    "scientific_name": null,
+    "category": "Disease",
+    "description": "Banana Streak Virus (BSV)"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Arati Endu Tegulu",
+    "scientific_name": "Fusarium oxysporum",
+    "category": "Disease",
+    "description": "Panama wilt"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Gubhuru tegulu",
+    "scientific_name": "Pentalonia nigronervosa",
+    "category": "Disease",
+    "description": "Bunchy Top virus (BBTV)"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Sigatoka aakumacha tegulu",
+    "scientific_name": "Mycosphaerella fijiensis",
+    "category": "Disease",
+    "description": "Black Sigatoka leaf spot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Yerra kullu tegulu",
+    "scientific_name": "Colletotrichum falcatum",
+    "category": "Disease",
+    "description": "Red Rot"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Gaddi Molakala Tegulu",
+    "scientific_name": "Candidatus Phytoplasma sacchari",
+    "category": "Disease",
+    "description": "Sugarcane Grassy Shoot Disease (SCGS)"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "4840 Chedharapu jaggalu",
+    "scientific_name": null,
+    "category": "Land",
+    "description": "1 acre"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "100 centulu",
+    "scientific_name": null,
+    "category": "Land",
+    "description": "1 acre"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Dunnadam",
+    "scientific_name": null,
+    "category": "soil preparation",
+    "description": "Ploughing"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Dhammu cheydam",
+    "scientific_name": null,
+    "category": "soil preparation",
+    "description": "Puddling"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Sendriya eruvu",
+    "scientific_name": null,
+    "category": "Manures",
+    "description": "Organic manure"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Vaanapaamula Eruvu",
+    "scientific_name": null,
+    "category": "Manures",
+    "description": "Earthworm manure"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "(Panta Avasheshalu)",
+    "scientific_name": null,
+    "category": "Manures",
+    "description": "Crop residues"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Garika Gaddi",
+    "scientific_name": "Cynodon dactylon",
+    "category": "weed",
+    "description": "(Bermuda grass)"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Chedapurugulu",
+    "scientific_name": "Odontotermes obesus",
+    "category": "Pest",
+    "description": "Termites in coconut"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Collar rot",
+    "scientific_name": "Aspergillus niger",
+    "category": "Disease",
+    "description": "Collar Rot"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Thunga jathi",
+    "scientific_name": "small sedges",
+    "category": "weed",
+    "description": "sedges"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "garaika",
+    "scientific_name": "cynodon",
+    "category": "weed",
+    "description": "grassy weed"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "molaka",
+    "scientific_name": null,
+    "category": "crop stage",
+    "description": "germination"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "natu",
+    "scientific_name": null,
+    "category": "crop stage",
+    "description": "transplantation"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "pakka moggalu",
+    "scientific_name": null,
+    "category": "crop stage",
+    "description": "tillers"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "palu dasha",
+    "scientific_name": null,
+    "category": "crop stage",
+    "description": "miky stage"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "ginja dasha",
+    "scientific_name": null,
+    "category": "crop stage",
+    "description": "grain stage"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "putha dasha",
+    "scientific_name": null,
+    "category": "crop stage",
+    "description": "flowering stage"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Kotha",
+    "scientific_name": null,
+    "category": "crop stage",
+    "description": "Harvest"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "neeti yajamanyam",
+    "scientific_name": null,
+    "category": null,
+    "description": "water management"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Juttu puurgu",
+    "scientific_name": null,
+    "category": "pest",
+    "description": "Hairy cater pillar"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "pashuvula yeruvu",
+    "scientific_name": null,
+    "category": "compost",
+    "description": "Farm Yard manure"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Pachi rotte yeruvu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Green manure"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Putha purgu/gandu putha",
+    "scientific_name": "Contarinia sps",
+    "category": "pest",
+    "description": "Midge fly"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "choudu nelalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "salien soils"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "poshakalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "nutrients"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "sthula poshkalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "macro nutrients"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "smuskha poshaklu",
+    "scientific_name": null,
+    "category": null,
+    "description": "micro nutrients"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "rakalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "varities"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Vithana sudhi",
+    "scientific_name": null,
+    "category": null,
+    "description": "seed treatment"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Narumadi tayari",
+    "scientific_name": null,
+    "category": null,
+    "description": "Nursery preparation"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "pradhana polam",
+    "scientific_name": null,
+    "category": null,
+    "description": "main feild"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Jeevana eruvulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Biofertilizers"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "kalupu nivarana",
+    "scientific_name": null,
+    "category": null,
+    "description": "Weed management"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "cheeda peedalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "pest and diseases"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Phool jhadna",
+    "scientific_name": "Boron deficiency",
+    "category": "Deficiency",
+    "description": "Flower drop"
+  },
+  {
+    "state": "Haryana",
+    "local_name": "Dana na bharna",
+    "scientific_name": "Frost injury",
+    "category": "Injury",
+    "description": "Empty siliqua"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Chipchipa tan",
+    "scientific_name": "Aphid honeydew",
+    "category": "Pest",
+    "description": "Sticky stem"
+  },
+  {
+    "state": "Madya Pradesh",
+    "local_name": "Sukhi phalli",
+    "scientific_name": "Moisture stress",
+    "category": "Injury",
+    "description": "Dry pods"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Phool jalna",
+    "scientific_name": "High temperature",
+    "category": "Injury",
+    "description": "Flower burn"
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Dana galna",
+    "scientific_name": "Rhizoctonia",
+    "category": "Disease",
+    "description": "Seed rot"
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Hari murjha",
+    "scientific_name": "Ralstonia",
+    "category": "Disease",
+    "description": "Green wilt"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Jad kamzor",
+    "scientific_name": "Nematodes",
+    "category": "Disease",
+    "description": "Weak roots"
+  },
+  {
+    "state": "North India",
+    "local_name": "Kachha phal girna",
+    "scientific_name": "Boron deficiency",
+    "category": "Deficiency",
+    "description": "Immature fruit drop"
+  },
+  {
+    "state": "North India",
+    "local_name": "Phal phatna",
+    "scientific_name": "Irregular irrigation",
+    "category": "Injury",
+    "description": "Fruit cracking"
+  },
+  {
+    "state": "North India",
+    "local_name": "Chamak kam",
+    "scientific_name": "Calcium deficiency",
+    "category": "Deficiency",
+    "description": "Poor shine"
+  },
+  {
+    "state": "North India",
+    "local_name": "Tedha phal",
+    "scientific_name": "Pollination issue",
+    "category": "Injury",
+    "description": "Misshapen fruit"
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Bhookhi mitti",
+    "scientific_name": "Low organic matter",
+    "category": "Deficiency",
+    "description": "Hungry soil"
+  },
+  {
+    "state": "Kerala",
+    "local_name": "Zehri mitti",
+    "scientific_name": "Iron toxicity",
+    "category": "Injury",
+    "description": "Toxic soil"
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Chipchipi mitti",
+    "scientific_name": "Clayey texture",
+    "category": "Injury",
+    "description": "Sticky soil"
+  },
+  {
+    "state": "Eastern state",
+    "local_name": "Thandi mitti",
+    "scientific_name": "Low microbial activity",
+    "category": "Injury",
+    "description": "Cold soil"
+  },
+  {
+    "state": "North India",
+    "local_name": "Katarne wali sundi",
+    "scientific_name": "Spodoptera spp.",
+    "category": "Pest",
+    "description": "Leaf cutter"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Chusne wala keet",
+    "scientific_name": "Aphids / Jassids",
+    "category": "Pest",
+    "description": "Sap sucker"
+  },
+  {
+    "state": "North India",
+    "local_name": "Chhed karne wala keet",
+    "scientific_name": "Stem / fruit borer",
+    "category": "Pest",
+    "description": "Borer"
+  },
+  {
+    "state": "North India",
+    "local_name": "Mail jamana",
+    "scientific_name": "Sooty mold",
+    "category": "Pest",
+    "description": "Black coating"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Sookha hawa",
+    "scientific_name": "Hot air",
+    "category": "Climate",
+    "description": "Hot dry wind"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Chipchipi garmi",
+    "scientific_name": "Humid heat",
+    "category": "Climate",
+    "description": "More humid in air"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Achaanak thand",
+    "scientific_name": "Cold shock",
+    "category": "Climate",
+    "description": "Sudden cold climate"
+  },
+  {
+    "state": "Pan-India",
+    "local_name": "Barish ka jhatka",
+    "scientific_name": "Sudden rain stress",
+    "category": "Climate",
+    "description": "Suddeing rainfall"
+  },
+  {
+    "state": "UP, Bihar",
+    "local_name": "Hari peela pancha",
+    "scientific_name": "Nitrogen imbalance",
+    "category": "Injury",
+    "description": "Green + yellow leaves"
+  },
+  {
+    "state": "Madya Pradesh",
+    "local_name": "Bal ruk jana",
+    "scientific_name": "Moisture stress",
+    "category": "Injury",
+    "description": "Panicle stopped growing"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Jonna Movvu Eega",
+    "scientific_name": "Atherigona soccata",
+    "category": "pest",
+    "description": "Shoot fly in sorghum"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Vethana shudhi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Seed treatment"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kothakoyadam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Harvesting time"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Sendriya vyavasayam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Organic farming"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Sahaja/jeeva vyavasayam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Natural/biological farming"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Sampradaya paddhatulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Traditional methods"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Yantrika paddhatulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Mechanical methods"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Rasayana paddhatulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Chemical methods"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Bangaladumpalo prarambha muḍata",
+    "scientific_name": "Alternaria solani",
+    "category": "disease",
+    "description": "Early Blight"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Chivara mudatha",
+    "scientific_name": "Phytophthora infestans",
+    "category": "disease",
+    "description": "Late blight"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Tella vennu Doma",
+    "scientific_name": "Sogatella furcifera",
+    "category": "pest",
+    "description": "White backed plant hopper"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Vaari panta",
+    "scientific_name": null,
+    "category": "Crop",
+    "description": "rice crop"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Jonna panta",
+    "scientific_name": null,
+    "category": "Crop",
+    "description": "Sorghum crop"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Pathi panta",
+    "scientific_name": null,
+    "category": "Crop",
+    "description": "Cotton crop"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Mokkajonna",
+    "scientific_name": null,
+    "category": "Crop",
+    "description": "Maize crop"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Cheruku panta",
+    "scientific_name": null,
+    "category": "Crop",
+    "description": "Sugarcane crop"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Yerra mati",
+    "scientific_name": null,
+    "category": "Soil",
+    "description": "Red soils"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Banka mati",
+    "scientific_name": null,
+    "category": "Soil",
+    "description": "Clayey soil"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Nurpidi",
+    "scientific_name": null,
+    "category": "Agronomical practices",
+    "description": "Threshing"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "kappadam",
+    "scientific_name": null,
+    "category": "Agronomical practices",
+    "description": "Mulching"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Chetta chedaram",
+    "scientific_name": null,
+    "category": "Agronomical practices",
+    "description": "Detrashing"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Aakulatho chuttadam",
+    "scientific_name": null,
+    "category": "Agronomical practices",
+    "description": "Propping"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Mirapakaya",
+    "scientific_name": null,
+    "category": "crop",
+    "description": "Mirchi / chilli crop"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Masaalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Seasons"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Polam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Field"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Vepa pindi",
+    "scientific_name": null,
+    "category": "Fertilizer",
+    "description": "Neem cake"
+  },
+  {
+    "state": "Odisha",
+    "local_name": "Dana baith ke sookhna",
+    "scientific_name": "Heat stress",
+    "category": "Injury",
+    "description": "Grain filled then dried"
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Jad katna",
+    "scientific_name": "Root nematode",
+    "category": "Disease",
+    "description": "Roots damaged"
+  },
+  {
+    "state": "Assam",
+    "local_name": "Paani ka zehar",
+    "scientific_name": "Iron toxicity",
+    "category": "Deficiency",
+    "description": "Crop dying after flood"
+  },
+  {
+    "state": "East India",
+    "local_name": "Bal chipakna",
+    "scientific_name": "Honeydew + fungi",
+    "category": "Disease",
+    "description": "Sticky panicle"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Dana kamjor",
+    "scientific_name": "Nitrogen shortage",
+    "category": "Deficiency",
+    "description": "Light grain"
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Bal ka muh band",
+    "scientific_name": "Cold stress",
+    "category": "Injury",
+    "description": "Poor grain opening"
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Hari peeli jhad",
+    "scientific_name": "Nutrient stress",
+    "category": "Injury",
+    "description": "Mixed leaf fall"
+  },
+  {
+    "state": "West Bengal",
+    "local_name": "Patti par mail",
+    "scientific_name": "Sooty mold",
+    "category": "Disease",
+    "description": "Black coating"
+  },
+  {
+    "state": "Rajasthan",
+    "local_name": "Gandhak ki kami",
+    "scientific_name": "Sulphur deficiency",
+    "category": "Deficiency",
+    "description": "Pale leaves"
+  },
+  {
+    "state": "Madya Pradesh",
+    "local_name": "Bhutta bhara nahi",
+    "scientific_name": "Boron deficiency",
+    "category": "Deficiency",
+    "description": "Poor cob filling"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Bhutta sikudna",
+    "scientific_name": "Moisture stress",
+    "category": "Injury",
+    "description": "Shrunken cob"
+  },
+  {
+    "state": "Karnataka",
+    "local_name": "Beech ka sookhna",
+    "scientific_name": "Borer / FAW",
+    "category": "Pest",
+    "description": "Central whorl dry"
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Peeli dhaari",
+    "scientific_name": "Zinc deficiency",
+    "category": "Deficiency",
+    "description": "Yellow striping"
+  },
+  {
+    "state": "North India",
+    "local_name": "Phalli patli",
+    "scientific_name": "Potassium deficiency",
+    "category": "Deficiency",
+    "description": "Thin siliqua"
+  },
+  {
+    "state": "North India",
+    "local_name": "Dana jhad jana",
+    "scientific_name": "Heat stress",
+    "category": "Injury",
+    "description": "Seed shedding"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Lingakarshak buttalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Pheremon traps"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "jiguru attalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "sticky traps"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "thema",
+    "scientific_name": null,
+    "category": null,
+    "description": "Moisture"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Pakkam",
+    "scientific_name": null,
+    "category": null,
+    "description": "mature/ripen"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "pichikari",
+    "scientific_name": null,
+    "category": null,
+    "description": "spraying"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "deergakalika panta",
+    "scientific_name": null,
+    "category": null,
+    "description": "long duration crops"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "madhyakalika panta",
+    "scientific_name": null,
+    "category": null,
+    "description": "medium duration crops"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Salpa kalika panta",
+    "scientific_name": null,
+    "category": null,
+    "description": "short duration crops"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "vithe kalamu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Sowing time"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "vithu paddathi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Sowing type"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Anthar krishi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Inter cultural operations"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "jallulu thesiveyuta",
+    "scientific_name": null,
+    "category": null,
+    "description": "Detassiling -maize"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "guliklu",
+    "scientific_name": null,
+    "category": null,
+    "description": "granules"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "shilindhran",
+    "scientific_name": null,
+    "category": null,
+    "description": "fungus"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "yasangi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Rabi season"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Vanakala panta",
+    "scientific_name": null,
+    "category": null,
+    "description": "Kharif crop"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "varshadara pantalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Rainfed crops"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "tegulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "diseasess"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "ragi",
+    "scientific_name": null,
+    "category": null,
+    "description": "copper"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "bhusaram",
+    "scientific_name": null,
+    "category": null,
+    "description": "soil fertility"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "bindhu sedhyam",
+    "scientific_name": null,
+    "category": null,
+    "description": "drip irrigation"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Haritha gruham",
+    "scientific_name": null,
+    "category": null,
+    "description": "Green House"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Anthar pantalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Intercrops"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Tenemanchu pururgu",
+    "scientific_name": null,
+    "category": "pest",
+    "description": "Mango hopper"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Mosimangu",
+    "scientific_name": null,
+    "category": "disease",
+    "description": "sooty mould"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "vepa pindi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Neem cake"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Nooli purugulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Nemantodes"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Majjiga tegulu",
+    "scientific_name": null,
+    "category": "disease",
+    "description": "Downy mildew"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "uchu panta /akarshana panta",
+    "scientific_name": null,
+    "category": null,
+    "description": "Trap crops"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "gongali purugu",
+    "scientific_name": null,
+    "category": "pest",
+    "description": "Leaf eating cater pillar"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Pandu ega",
+    "scientific_name": null,
+    "category": "pest",
+    "description": "Fruit fly"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Kathirimpulu",
+    "scientific_name": null,
+    "category": null,
+    "description": "trimming/pruning"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "T-doma/Teyaku doma",
+    "scientific_name": null,
+    "category": "pest",
+    "description": "Tea Mosquito bug-cashew"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "dathu lopam",
+    "scientific_name": null,
+    "category": null,
+    "description": "deficiency"
+  },
+  {
+    "state": "AP/TS",
+    "local_name": "Dhunnadam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Ploughing"
+  },
+  {
+    "state": "Pan -India",
+    "local_name": "Tel kam banna",
+    "scientific_name": "Sulphur deficiency",
+    "category": "Deficiency",
+    "description": "Low oil"
+  },
+  {
+    "state": "Pan -India",
+    "local_name": "Dana khokhla",
+    "scientific_name": "Calcium deficiency",
+    "category": "Deficiency",
+    "description": "Hollow kernel"
+  },
+  {
+    "state": "Pan -India",
+    "local_name": "Jad pe gaath",
+    "scientific_name": "Nematode",
+    "category": "Disease",
+    "description": "Root knots"
+  },
+  {
+    "state": "Telangana",
+    "local_name": "Phool baithna",
+    "scientific_name": "Heat stress",
+    "category": "Injury",
+    "description": "Flowers drop"
+  },
+  {
+    "state": "Madya Pradesh",
+    "local_name": "Dana kala",
+    "scientific_name": "Fungal infection",
+    "category": "Disease",
+    "description": "Black seed"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Tan patla",
+    "scientific_name": "Nitrogen deficiency",
+    "category": "Deficiency",
+    "description": "Thin stem"
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Jad sukhna",
+    "scientific_name": "Root rot",
+    "category": "Disease",
+    "description": "Root drying"
+  },
+  {
+    "state": "North India",
+    "local_name": "Phal ka muh kala",
+    "scientific_name": "Calcium deficiency",
+    "category": "Deficiency",
+    "description": "Blossom end rot"
+  },
+  {
+    "state": "North India",
+    "local_name": "Patta chamkila",
+    "scientific_name": "Whitefly",
+    "category": "Pest",
+    "description": "Whitefly"
+  },
+  {
+    "state": "North India",
+    "local_name": "Patta sikudna",
+    "scientific_name": "Virus",
+    "category": "Disease",
+    "description": "Curl virus"
+  },
+  {
+    "state": "North India",
+    "local_name": "Phal tedha-medha",
+    "scientific_name": "Poor pollination",
+    "category": "Injury",
+    "description": "Deformity"
+  },
+  {
+    "state": "North India",
+    "local_name": "Phal chhilka patla",
+    "scientific_name": "Potassium deficiency",
+    "category": "Deficiency",
+    "description": "Thin peel"
+  },
+  {
+    "state": "North India",
+    "local_name": "Phal jhad lagatar",
+    "scientific_name": "Moisture stress",
+    "category": "Injury",
+    "description": "Continuous drop"
+  },
+  {
+    "state": "North India",
+    "local_name": "Dana sukhna",
+    "scientific_name": "Heat stress",
+    "category": "Injury",
+    "description": "Aril drying"
+  },
+  {
+    "state": "North India",
+    "local_name": "Phal par daag",
+    "scientific_name": "Xanthomonas",
+    "category": "Disease",
+    "description": "Bacterial spot"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Top ka marna",
+    "scientific_name": "Early shoot borer",
+    "category": "Pest",
+    "description": "Whorl death"
+  },
+  {
+    "state": "Bihar",
+    "local_name": "Ganna patla",
+    "scientific_name": "Nitrogen deficiency",
+    "category": "Deficiency",
+    "description": "Thin cane"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Jemadam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Broadcasting"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Vaari natadam/ vudupu veyadam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Transplanting"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Molakallu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Sprouting"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Daram tho natadam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Line sowing"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kalupu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Weeds"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Rasayanalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Fungicides"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Rasayanalu pichukari cheyadam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Chemical spraying"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Pilakalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Tillers"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Mokkala perugudala niyantrakam",
+    "scientific_name": null,
+    "category": null,
+    "description": "plant growth regulator"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kodavali",
+    "scientific_name": null,
+    "category": null,
+    "description": "Sickle uses in harvesting time"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Veruchenaga",
+    "scientific_name": null,
+    "category": null,
+    "description": "Ground nut"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "vividha rakala vittanalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Seed varieties"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kalupu mandhu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Herbicides"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Lingakarshika battalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Phermone traps"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Jeguru attalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Sticky pads"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Metta bhummi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Dryland"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Yendi gaddi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Straw"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Raithu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Farmer"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Saravantamaina matti",
+    "scientific_name": null,
+    "category": null,
+    "description": "Fertile soils"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Thavudu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Bran"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Nathrajin",
+    "scientific_name": null,
+    "category": null,
+    "description": "Nitrogen"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Bhaasvaram",
+    "scientific_name": null,
+    "category": null,
+    "description": "Phosphorus"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Lopalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Deficiency"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Ooka",
+    "scientific_name": null,
+    "category": null,
+    "description": "Husk"
+  },
+  {
+    "state": "Maharashtra",
+    "local_name": "Ras kam banna",
+    "scientific_name": "Potassium deficiency",
+    "category": "Deficiency",
+    "description": "Low juice"
+  },
+  {
+    "state": "Uttar Pradesh",
+    "local_name": "Andar se lal",
+    "scientific_name": "Red rot",
+    "category": "Disease",
+    "description": "Internal reddening"
+  },
+  {
+    "state": "Pan- India",
+    "local_name": "Jad ka dushman",
+    "scientific_name": "White grub",
+    "category": "Pest",
+    "description": "Root eater"
+  },
+  {
+    "state": "Pan- India",
+    "local_name": "Zameen ke keede",
+    "scientific_name": "Termites",
+    "category": "Pest",
+    "description": "Soil insects"
+  },
+  {
+    "state": "Pan- India",
+    "local_name": "Gaath wali jad",
+    "scientific_name": "Nematodes",
+    "category": "Pest",
+    "description": "Knotted roots"
+  },
+  {
+    "state": "Pan- India",
+    "local_name": "Surang banana",
+    "scientific_name": "Root borer",
+    "category": "Pest",
+    "description": "Tunneling"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Neruga Vittukovadam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Direct sowing"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Niyantratha vathavaranamlo pantalu saggu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Polyhouse"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Bindhu sedhyam, Chukkala sagu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Drip irrigation"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Tema",
+    "scientific_name": null,
+    "category": null,
+    "description": "Moisture"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Bhummi priksha",
+    "scientific_name": null,
+    "category": null,
+    "description": "Soil testing"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Jingalu",
+    "scientific_name": null,
+    "category": null,
+    "description": "Grains"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Tuppa tegulu",
+    "scientific_name": "Puccinia triticina",
+    "category": "disease",
+    "description": "Leaf rust in wheat"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Kandam thupa tegulu",
+    "scientific_name": "Puccinia graminis",
+    "category": "disease",
+    "description": "Stem rust in wheat"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Panta marpidi",
+    "scientific_name": null,
+    "category": null,
+    "description": "Crop rotation"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Pantaala Namoona",
+    "scientific_name": null,
+    "category": null,
+    "description": "Crooping pattern"
+  },
+  {
+    "state": "Andhra / TS",
+    "local_name": "Karshi Cheraku Yajamanyam",
+    "scientific_name": null,
+    "category": null,
+    "description": "Ratoon cropping"
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Kanak",
+    "scientific_name": "Wheat",
+    "category": "Crop",
+    "description": null
+  },
+  {
+    "state": "Punjab",
+    "local_name": "Chona/Dhaan",
+    "scientific_name": "Paddy",
+    "category": "Crop",
+    "description": null
+  }
+]

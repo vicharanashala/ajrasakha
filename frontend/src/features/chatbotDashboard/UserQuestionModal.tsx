@@ -100,10 +100,11 @@ const UserQuestionsModal = ({
   const { mutate: notifyUser, isPending } = useNotifyUser();
 
   const latestMessageId = fullData?.messages?.items?.[0]?.messageId;
-  const activeData = useMemo(
-    () => (viewType === "questions" ? fullData?.questions : fullData?.messages),
-    [fullData, viewType],
-  );
+  const activeData = useMemo(() => {
+    if (viewType === "questions") return fullData?.questions;
+    if (viewType === "non_agri") return fullData?.nonAgriQuestions;
+    return fullData?.messages;
+  }, [fullData, viewType]);
   const items = useMemo(
     () => (activeData?.items || []) as QuestionActivityItem[],
     [activeData],
@@ -111,7 +112,11 @@ const UserQuestionsModal = ({
   const totalCount =
     viewType === "questions"
       ? (fullData?.questions?.total ?? 0)
-      : (user?.totalQuestions?.toLocaleString() ?? 0);
+      : viewType === "non_agri"
+        ? (fullData?.nonAgriQuestions?.total ?? 0)
+        : `${fullData?.messages?.totalRaw ?? fullData?.messages?.total ?? 0} (${
+            fullData?.messages?.total ?? 0
+          } unique)`;
 
   const handleRefresh = async () => {
     await queryClient.refetchQueries({ queryKey: ["user-questions-data"] });
