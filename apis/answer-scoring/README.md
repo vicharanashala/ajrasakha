@@ -19,6 +19,9 @@ python main.py
 
 Runs on `http://localhost:8010`. Interactive docs at `/docs`.
 
+**Deployed (staging):** `http://100.100.108.44:8011` -- external port
+assigned during deployment, see apiGuide.md.
+
 ## Docker
 
 ```bash
@@ -32,6 +35,24 @@ Run with the pipeline's origin project's test suite (`checker/api.py`
 and `checker/scoring.py` are ported from there) -- offline, mocked LLM,
 no real network/model calls, so it's fast and repeatable. If this
 service's own test suite isn't included in this PR yet, ask for it.
+
+## Checking a deployment from its logs
+
+On every start the service logs its configuration and makes one tiny real
+model call. Look for these lines (the key itself is never logged):
+
+```
+MINIMAX_API_KEY: set                      <- or "NOT SET -- every model-based check will fail"
+startup model check OK (attempt 1, 1.8s)  <- the server can reach the model with its key
+startup model check FAILED 3/3            <- it cannot; the lines just above give the reason
+```
+
+Each scored answer logs `job <id> submitted ...` and
+`job <id> finished in Ns: score=.. complete=.. notEvaluated=..` (sizes
+only, never the answer text). `complete=False` / a non-empty
+`notEvaluated` means model calls failed for that job; the first failure of
+each call is logged as a WARNING with its error type. `LOG_LEVEL` (default
+`INFO`) controls verbosity.
 
 ## Known limitations (be honest with reviewers before this gates anything)
 

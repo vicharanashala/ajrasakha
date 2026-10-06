@@ -1,20 +1,9 @@
-"""Check whether an answer's chemical/dose/formulation claims are actually
-supported by its cited source document(s).
+"""Check that the chemical, dose and formulation in an answer match its cited source.
 
-Fetches each cited source via the team's own Zoho WorkDrive workspace,
-extracts text with pypdf, and asks MiniMax whether the answer's specific
-claims are supported, contradicted, or simply not covered by the source.
-When the answer's own citation is missing or unreadable, falls back to
-(or tops up with) the pilot document index -- other real answers' most-cited
-documents for the same crop -- rather than going straight to
-NOT_APPLICABLE. See build_source_document_index.py.
-
-Scope, deliberately: only chemical names, doses, units, and formulation
-codes are checked -- not general factual correctness beyond what the
-compared document(s) say. A source that is a scanned image (no extractable
-text) is NOT_EVALUATED, not guessed at -- OCR support is a separate, larger
-piece of work, out of scope here. Nothing downloaded here is kept beyond
-this call; only the pilot index (built separately, offline) persists.
+Downloads the cited PDF from Zoho WorkDrive, reads the cited pages and asks
+the model whether the source supports the answer's claims. Only chemical
+names, doses, units and formulations are checked. Scanned PDFs (no text)
+are not evaluated.
 """
 
 from __future__ import annotations
@@ -40,10 +29,7 @@ from uniformity_checker import extract_chemical_doses
 
 ZOHO_API_BASE = "https://workdrive.zohoexternal.in/public/api/v1"
 MIN_TEXT_CHARS = 200  # below this, treat the source as scanned/unusable
-# Larger prompts round-trip through the MiniMax proxy far less reliably
-# (observed directly during this project's reliability work). Keep both the
-# per-source excerpt and the number of sources bounded rather than sending
-# full documents.
+# bigger prompts fail more often through the proxy, so keep these small
 MAX_SOURCE_CHARS_FOR_PROMPT = 4500
 MAX_SOURCES_PER_CHECK = 2
 FILE_ID_PATTERN = re.compile(r"/file/([A-Za-z0-9]+)")
@@ -51,12 +37,7 @@ USE_MOCK_LLM = os.getenv("USE_MOCK_LLM", "false").strip().casefold() in {
     "1", "true", "yes", "on"
 }
 
-# Pilot document index (Track B): a small cache of the most-cited real
-# source documents, tagged by which crops actually cite them. Lets this
-# check fall back to a relevant authoritative document when the answer's
-# own citation is missing or unreadable, instead of going straight to
-# NOT_APPLICABLE -- built by build_source_document_index.py, not fetched
-# live here. Optional: an empty/missing index just means no fallback.
+# optional index of common source documents (built by build_source_document_index.py)
 SOURCE_DOCUMENT_INDEX_PATH = Path(__file__).resolve().parent.parent / "data" / "source_document_index.json"
 if SOURCE_DOCUMENT_INDEX_PATH.exists():
     with SOURCE_DOCUMENT_INDEX_PATH.open(encoding="utf-8") as index_source:
@@ -79,14 +60,7 @@ _STATE_LOCAL_SOURCE_KEYWORDS = (
 
 
 def _document_hierarchy_rank(source_name: str) -> int:
-    """0 = state/local POP, 1 = central/national body, 2 = other -- per the
-    team's stated document-preference order (state/local first, then
-    central, then anything else) for when more than one relevant document
-    exists for a crop. Central bodies are checked first and explicitly,
-    since several of them (NIPHM, PPQS) also name a city in their own
-    address ("NIPHM, Hyderabad") which must not be mistaken for a
-    state-specific document.
-    """
+    """0 = state/local document, 1 = central body, 2 = other."""
     lowered = source_name.casefold()
     if any(keyword in lowered for keyword in _CENTRAL_SOURCE_KEYWORDS):
         return 1
@@ -95,18 +69,13 @@ def _document_hierarchy_rank(source_name: str) -> int:
     if any(keyword in lowered for keyword in _STATE_LOCAL_SOURCE_KEYWORDS):
         return 0
     if "government of" in lowered:
-        # Already ruled out "government of india" above, so this is a
-        # state government department (e.g. "Government of Madhya Pradesh").
+        # a state government department
         return 0
     return 2
 
 
 def _indexed_documents_for_crop(crop: str) -> list[dict[str, str]]:
-    """Indexed documents whose citing answers actually covered this crop,
-    state/local sources first, then central, then other, most-cited
-    within each tier -- a real cross-check pool, not the answer's own
-    self-reported citation.
-    """
+    """Indexed documents for this crop, state/local first, then most cited."""
     normalized_crop = (crop or "").strip().casefold()
     if not normalized_crop:
         return []
@@ -122,18 +91,9 @@ def _indexed_documents_for_crop(crop: str) -> list[dict[str, str]]:
 
 
 def _cross_check_dose_values(answer_text: str, source_texts: list[dict[str, str]]) -> str | None:
-    """Deterministic, advisory cross-check: for a chemical mentioned with a
-    dose in both the answer and the compared source text, do the numbers
-    actually match? A real numeric disagreement is worth flagging
-    alongside the LLM's own qualitative judgment, not left to it alone.
-    Reuses uniformity_checker's own dose-extraction regex rather than
-    re-deriving one -- same extraction, same known limitations.
+    """Compare doses for the same chemical and unit in the answer and the source.
 
-    Advisory only, like the other deterministic cross-checks added
-    tonight: only compares same-chemical, same-unit pairs (no unit
-    conversion attempted, to avoid guessing), and returns None (no flag)
-    whenever there's nothing directly comparable -- never invents a
-    mismatch from incomplete data.
+    Returns a note on a mismatch, otherwise None. No unit conversion.
     """
     answer_doses = extract_chemical_doses({"answer_text": answer_text})
     if not answer_doses:
@@ -170,19 +130,13 @@ def _extract_zoho_file_id(url: str) -> str | None:
     return match.group(1) if match else None
 
 
-# --- Reading only the pages an answer cites ---------------------------------
-#
-# This check used to download each whole document, extract text from every
-# page (minutes of CPU on a large package of practices) and keep the first
-# 4,000 characters -- which is usually the cover and table of contents. A
-# measured 12-answer run spent 94% of its time there, and the model kept
-# reporting that the source held only front matter. The answer already says
-# which pages it relies on, so read those instead.
+# read only the pages the answer cites, not the whole document
 
-PAGE_SEARCH_BEFORE = 2   # a printed page number can sit a little below or
-PAGE_SEARCH_AFTER = 8    # above the PDF page index because of front matter
-MAX_CITED_PAGES = 12     # never look at more than this many cited pages
-MIN_OVERLAP_TOKENS = 3   # shared distinctive words needed to trust a page match
+# printed page numbers can be a few pages off from the PDF page index
+PAGE_SEARCH_BEFORE = 2
+PAGE_SEARCH_AFTER = 8
+MAX_CITED_PAGES = 12
+MIN_OVERLAP_TOKENS = 3   # shared words needed to trust a page match
 
 _FORMULATION_CLAIM = re.compile(
     r"\d+(?:\.\d+)?\s*%?\s*(?:WP|EC|CG|SC|WG|WDG|GR|SL|DS|SP|FS)\b", re.IGNORECASE
@@ -190,8 +144,7 @@ _FORMULATION_CLAIM = re.compile(
 
 
 def parse_page_spec(spec: Any) -> list[int]:
-    """'5,6,7' -> [5, 6, 7]; '20-24' -> 20..24; '75,76....95' -> 75, 76 and
-    then 78..95 style ranges (an ellipsis between numbers means "through")."""
+    """'5,6,7' -> [5, 6, 7]; '20-24' -> 20..24; '..' between numbers means "through"."""
     text = str(spec or "").replace("\u2013", "-").replace("\u2014", "-")
     text = re.sub(r"\.{2,}|\u2026", "-", text)
     pages: list[int] = []
@@ -210,12 +163,10 @@ def _distinctive_tokens(text: str) -> set[str]:
 
 
 def _cited_pages_text(reader: Any, cited_pages: list[int], answer_tokens: set[str]) -> str | None:
-    """Text of the cited pages, or None when they can't be located.
+    """Text of the cited pages, or None if they can't be found.
 
-    Printed page numbers rarely equal the PDF's page index (front matter),
-    so pick the single offset that makes the cited pages share the most
-    distinctive words with the answer, then keep the best-matching pages
-    within the prompt budget.
+    Tries a few page offsets and keeps the one whose pages share the most
+    words with the answer.
     """
     total = len(reader.pages)
     cited = cited_pages[:MAX_CITED_PAGES]
@@ -285,12 +236,7 @@ def _download_pdf(file_id: str, timeout: int) -> bytes | None:
 def fetch_source_text(
     url: str, page_spec: Any = "", answer_text: str = "", timeout: int = 30
 ) -> str | None:
-    """Text of the pages an answer cites in a Zoho-hosted PDF.
-
-    Returns None if the URL isn't a Zoho file link, no page is cited, the
-    download or parse fails, or the cited pages can't be located. Timed, so
-    a run can report how much wall-clock time went to fetching documents.
-    """
+    """Text of the cited pages of a Zoho-hosted PDF, or None if anything fails."""
     file_id = _extract_zoho_file_id(url)
     cited = parse_page_spec(page_spec)
     if not file_id or not cited:
@@ -300,8 +246,7 @@ def fetch_source_text(
         body = _download_pdf(file_id, timeout)
         if body is None:
             return None
-        # In memory, not a temp file named after the document: two threads
-        # checking answers that cite the same document would collide.
+        # in memory, no temp files (threads would collide)
         reader = PdfReader(io.BytesIO(body))
         text = _cited_pages_text(reader, cited, _distinctive_tokens(answer_text))
     except Exception:
@@ -314,9 +259,7 @@ def fetch_source_text(
 
 
 def fetch_document_opening_text(url: str, timeout: int = 30) -> str | None:
-    """First ~4,000 characters of a document -- only for the index builder,
-    stopping as soon as enough text has been read instead of parsing every
-    page. Not used by the check itself (front matter is not evidence)."""
+    """First ~4,000 characters of a document. Only used by the index builder."""
     file_id = _extract_zoho_file_id(url)
     if not file_id:
         return None
@@ -336,9 +279,7 @@ def fetch_document_opening_text(url: str, timeout: int = 30) -> str | None:
     return text[:MAX_SOURCE_CHARS_FOR_PROMPT] if len(text) >= MIN_TEXT_CHARS else None
 
 
-# Just above the p99 answer length (15,741 chars) measured across all real
-# labeled answers -- same prompt-size-vs-reliability tradeoff already
-# applied to source text below.
+# same cap as in llm_checker
 MAX_ANSWER_CHARS_FOR_PROMPT = 16000
 
 
@@ -390,17 +331,12 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
     if not (context.get("answer_text") or "").strip():
         return not_applicable_result("Answer text is empty; nothing to verify against a source")
     if USE_MOCK_LLM:
-        # Skip the real document fetch entirely in mock mode, not just the
-        # LLM call -- otherwise every mock run still hits the live Zoho API
-        # for every sourced answer, defeating the point of mock mode being
-        # fast and network-free.
+        # mock mode also skips the document download
         return check_result(PASS, "Mock LLM check passed", checked_claims=[], unsupported_claims=[])
 
     answer_text = context["answer_text"]
     if not (extract_chemical_doses({"answer_text": answer_text}) or _FORMULATION_CLAIM.search(answer_text)):
-        # The check only verifies chemical names, doses and formulations.
-        # With none stated there is nothing to compare, so skip the document
-        # download and the model call entirely.
+        # nothing to compare, so skip the download and the model call
         return not_applicable_result("The answer states no chemical dose or formulation to verify against a source")
 
     sources = context.get("sources") or []
@@ -445,14 +381,9 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
     if result["status"] == PASS:
         dose_conflict = _cross_check_dose_values(context["answer_text"], source_texts)
         if dose_conflict:
-            # Deterministic disagreement, not an override -- same pattern
-            # as the sequence/contextuality cross-checks: the model's PASS
-            # stands, but a reviewer gets pointed at a real, auditable
-            # numeric discrepancy the LLM's qualitative judgment missed.
+            # keep the model's PASS, add a note about the dose mismatch
             detail += f" (Flagged for review: {dose_conflict}.)"
     if result["status"] == NOT_EVALUATED:
-        # The model itself is saying the source doesn't cover the relevant
-        # topic -- permanent given this source's content, not a transient
-        # failure, so it belongs in the same bucket as "no extractable text".
+        # the source doesn't cover the topic, retrying won't change that
         return not_applicable_result(detail, **extra_fields)
     return check_result(result["status"], detail, **extra_fields)

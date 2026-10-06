@@ -1,37 +1,20 @@
-"""Scoring endpoint for the Answer Creation module (Anveshan / Question
-Collection app).
+"""Scoring API for the Question Collection app.
 
-Why this is a job/poll API instead of one request-response call: a single
-answer needs 2-3 LLM calls (coverage, context, and source_fidelity when a
-dose is present), and the upstream MiniMax proxy currently fails roughly
-15-60% of individual calls with a truncated response (see llm_client.py's
-comment on MAX_RETRIES). With up to 9 retries per call that means a single
-answer can legitimately take anywhere from ~5 seconds to over a minute.
-Making the author's browser hold one HTTP request open for that long is
-fragile (proxies/load balancers time out well before a minute), so the
-author submits an answer, gets a job id back immediately, and polls (or the
-Answer Creation module polls on their behalf) for the score.
+POST /score takes one answer and returns a job id. GET /score/{job_id}
+returns the score once it's done. Scoring can take a minute (several model
+calls, some fail and retry), so it runs in the background instead of
+holding the request open.
 
-This is a starting point, not a production deployment: jobs live in an
-in-memory dict, so they are lost on restart and this only works behind a
-single process (no horizontal scaling). That is fine for local testing and
-for deciding the contract with the Anveshan team; before this is relied on
-in production, jobs should move to a shared store (e.g. the same MongoDB
-already referenced in .env) and the process should run under a real host
-(see the "how can I create an endpoint when nothing is hosted" question --
-this code is the endpoint; it still needs to be deployed somewhere the
-Answer Creation module can reach).
-
-Run locally with:
-    uvicorn checker.api:app --reload --port 8000
-Then:
-    curl -X POST http://localhost:8000/score -H "Content-Type: application/json" -d "{...}"
-    curl http://localhost:8000/score/<job_id>
+Jobs are kept in memory, so they are lost on restart.
 """
 
 from __future__ import annotations
 
+import contextlib
+import logging
+import os
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -40,15 +23,75 @@ from typing import Any, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+import llm_checker
+from llm_client import MINIMAX_URL, api_key_is_set, call_llm_once
 from result_state import NOT_APPLICABLE, not_applicable_result
 from run_checker import run_until_complete
 from scoring import score_answer
 
-app = FastAPI(title="GDB Answer Quality Scoring API")
+# send every module's logs to the container log
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+)
+logger = logging.getLogger("answer_scoring")
 
-# One shared pool for background scoring work. Sized small on purpose: each
-# job itself does its own internal parallel model calls, so this is about
-# how many *answers* are scored at once, not how many model calls happen.
+STARTUP_CHECK_ATTEMPTS = 3
+
+
+def _log_startup_config() -> None:
+    """Log the config at boot (whether the key is set, never the key)."""
+    logger.info("answer-scoring starting")
+    logger.info("MINIMAX_API_KEY: %s", "set" if api_key_is_set() else "NOT SET -- every model-based check will fail")
+    logger.info("USE_MOCK_LLM: %s", llm_checker.USE_MOCK_LLM)
+    logger.info("model endpoint: %s", MINIMAX_URL)
+    logger.info(
+        "PIPELINE_WORKERS=%s PIPELINE_RETRY_ROUNDS=%s",
+        os.getenv("PIPELINE_WORKERS", "(default 8)"),
+        os.getenv("PIPELINE_RETRY_ROUNDS", "(default 5)"),
+    )
+
+
+def _startup_model_check() -> None:
+    """Make one small model call at boot and log whether it worked (3 tries)."""
+    if llm_checker.USE_MOCK_LLM:
+        logger.info("startup model check skipped: USE_MOCK_LLM is on")
+        return
+    if not api_key_is_set():
+        logger.error("startup model check skipped: MINIMAX_API_KEY is not set")
+        return
+    for attempt in range(1, STARTUP_CHECK_ATTEMPTS + 1):
+        started = time.time()
+        try:
+            call_llm_once('Reply with exactly: {"ok": true}', max_completion_tokens=32)
+        except Exception as exc:
+            logger.warning(
+                "startup model check attempt %d/%d failed: %s: %s",
+                attempt, STARTUP_CHECK_ATTEMPTS, type(exc).__name__, str(exc)[:200],
+            )
+            continue
+        logger.info(
+            "startup model check OK (attempt %d, %.1fs): model API reachable with the configured key",
+            attempt, time.time() - started,
+        )
+        return
+    logger.error(
+        "startup model check FAILED %d/%d -- model-based checks will fail until this is fixed",
+        STARTUP_CHECK_ATTEMPTS, STARTUP_CHECK_ATTEMPTS,
+    )
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_app: FastAPI):
+    _log_startup_config()
+    # in a thread so a slow model doesn't delay startup
+    threading.Thread(target=_startup_model_check, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="GDB Answer Quality Scoring API", lifespan=lifespan)
+
+# how many answers are scored at the same time
 _EXECUTOR = ThreadPoolExecutor(max_workers=4)
 _JOBS: dict[str, dict[str, Any]] = {}
 _JOBS_LOCK = threading.Lock()
@@ -62,9 +105,7 @@ class SourceIn(BaseModel):
 
 
 class AnswerIn(BaseModel):
-    """Matches the Question Collection app's submission shape. crop/state
-    are not part of that shape yet -- see the comment in score_answer_job()
-    on why several checks are weaker without them."""
+    """Request body. crop and state are optional."""
     answer_id: Optional[str] = Field(default=None, description="Optional; a random id is assigned if omitted.")
     question: str
     answer: str
@@ -89,20 +130,10 @@ def _to_camel(check: dict[str, Any]) -> dict[str, Any]:
 
 
 def _resolve_uniformity_of_dose_for_single_answer(result: dict[str, Any]) -> None:
-    """uniformity_of_dose compares a dose against OTHER answers in the same
-    batch (uniformity_checker.py). This endpoint always scores a batch of
-    exactly one answer, so whenever a dose IS present, the check comes
-    back DEFERRED ("no peer to compare against yet") rather than
-    NOT_APPLICABLE -- DEFERRED means "retry may resolve this," which is
-    true in the full batch pipeline as more answers accumulate, but never
-    true here: there will never be a second answer in this batch. Left
-    alone, that DEFERRED status permanently triggers needs_human_review on
-    every dose-bearing answer with a review reason claiming a model call
-    failed, when no call was ever attempted -- caught by
-    tests/test_api.py's uniformity_of_dose test. Rewritten to
-    NOT_APPLICABLE here, specific to this single-answer endpoint, not in
-    scoring.py or uniformity_checker.py, since the DEFERRED semantics are
-    correct everywhere else.
+    """Mark dose uniformity as not applicable.
+
+    It compares a dose with other answers in the same batch, and here the
+    batch is always one answer, so it can never be checked.
     """
     check = (result.get("parameters", {}).get("chemical") or {}).get("uniformity_of_dose")
     if check and check.get("execution") == "DEFERRED":
@@ -114,22 +145,27 @@ def _resolve_uniformity_of_dose_for_single_answer(result: dict[str, Any]) -> Non
 
 
 def _run_job(job_id: str, raw_answer: dict[str, Any]) -> None:
+    started = time.time()
     try:
-        # retry_rounds=5, not the pipeline default of 5+9-per-call: this is
-        # already a single answer, so the full per-call retry budget in
-        # llm_client.py applies; retry_rounds here only covers checks that
-        # errored for a reason retry_failed() can address (e.g. a whole
-        # check group raising), which is rare once call-level retries exist.
         results = run_until_complete([raw_answer], max_workers=4, retry_rounds=5)
         result = results[0]
         _resolve_uniformity_of_dose_for_single_answer(result)
         scored = score_answer(result)
+        logger.log(
+            logging.INFO if scored["complete"] else logging.WARNING,
+            "job %s finished in %.0fs: status=%s score=%s/%s (%s%%) complete=%s notEvaluated=%s",
+            job_id, time.time() - started,
+            "failed" if result.get("status") == "FAILED" else "completed",
+            scored["score"], scored["out_of"], scored["percentage"],
+            scored["complete"], scored["not_evaluated"] or "none",
+        )
         with _JOBS_LOCK:
             _JOBS[job_id] = {
                 "status": "failed" if result.get("status") == "FAILED" else "completed",
                 "systemScore": scored["score"],
                 "maxScore": scored["out_of"],
                 "percentage": scored["percentage"],
+                "complete": scored["complete"],
                 "needsHumanReview": scored["needs_human_review"],
                 "reviewReasons": scored["review_reasons"],
                 "checks": [_to_camel(c) for c in scored["checks"]],
@@ -137,7 +173,8 @@ def _run_job(job_id: str, raw_answer: dict[str, Any]) -> None:
                 "notEvaluated": scored["not_evaluated"],
                 "checkedAt": result.get("checked_at"),
             }
-    except Exception as exc:  # the job must never vanish silently
+    except Exception as exc:
+        logger.exception("job %s crashed after %.0fs", job_id, time.time() - started)
         with _JOBS_LOCK:
             _JOBS[job_id] = {
                 "status": "failed",
@@ -153,10 +190,7 @@ def submit_score(answer: AnswerIn) -> ScoreSummary:
         "answer_id": answer.answer_id or job_id,
         "question_text": answer.question,
         "answer_text": answer.answer,
-        # crop/state are not in the Question Collection app's submission
-        # shape yet. Defaulting to "Unknown" degrades restricted_chemical,
-        # contextuality, and local_name_mismatch, all of which need one or
-        # both -- flagged to the team; not silently assumed to be fine.
+        # several checks work less well without crop and state
         "crop": answer.crop or "Unknown",
         "state": answer.state or "Unknown",
         "sources": [
@@ -164,6 +198,11 @@ def submit_score(answer: AnswerIn) -> ScoreSummary:
             for s in answer.sources
         ],
     }
+    logger.info(
+        "job %s submitted (question %d chars, answer %d chars, %d source(s), crop=%s state=%s)",
+        job_id, len(answer.question), len(answer.answer), len(answer.sources),
+        raw_answer["crop"], raw_answer["state"],
+    )
     with _JOBS_LOCK:
         _JOBS[job_id] = {"status": "processing", "submittedAt": datetime.now(timezone.utc).isoformat()}
     _EXECUTOR.submit(_run_job, job_id, raw_answer)
