@@ -981,7 +981,7 @@ describe('TesterLogService date filtering', () => {
 
         const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
         await expect(
-            service.updateEntry(ID, { timeQuestionAsked: '2030-01-01T10:00:00' }, actor),
+            service.updateEntry(ID, { timeQuestionAsked: '2030-01-01T10:00:00', timeAnswerReceived: '2030-01-01T10:05:00' }, actor),
         ).rejects.toThrow('Time Question Asked cannot be in the future');
     });
 

@@ -269,6 +269,16 @@ export function validateTimingPair(
 }
 
 export function validateAllTimingPairs(e: Partial<TesterLogEntry>, testDate?: string, nowMs: number = Date.now()): void {
+    validateTimingPair(e.timeQuestionAsked, e.timeAnswerReceived, 'Time Question Asked', 'Time Answer Received', testDate);
+    validateTimingPair(e.waTimeQuestionAsked, e.waTimeAnswerReceived, 'WhatsApp Time Asked', 'WhatsApp Time Received', testDate);
+    validateTimingPair(e.authorAssignmentTime, e.authorCompletionTime, 'Author Assignment Time', 'Author Completion Time', testDate);
+    validateTimingPair(e.reviewer1AssignmentTime, e.reviewer1CompletionTime, 'Reviewer 1 Assignment Time', 'Reviewer 1 Completion Time', testDate);
+    validateTimingPair(e.reviewer2AssignmentTime, e.reviewer2CompletionTime, 'Reviewer 2 Assignment Time', 'Reviewer 2 Completion Time', testDate);
+    validateTimingPair(e.reviewer3AssignmentTime, e.reviewer3CompletionTime, 'Reviewer 3 Assignment Time', 'Reviewer 3 Completion Time', testDate);
+    validateTimingPair(e.reviewer4AssignmentTime, e.reviewer4CompletionTime, 'Reviewer 4 Assignment Time', 'Reviewer 4 Completion Time', testDate);
+    validateTimingPair(e.reviewer5AssignmentTime, e.reviewer5CompletionTime, 'Reviewer 5 Assignment Time', 'Reviewer 5 Completion Time', testDate);
+    validateTimingPair(e.moderatorAssignmentTime, e.moderatorCompletionTime, 'Moderator Assignment Time', 'Moderator Completion Time', testDate);
+
     validateNotFuture(e.timeQuestionAsked, 'Time Question Asked', testDate, nowMs);
     validateNotFuture(e.timeAnswerReceived, 'Time Answer Received', testDate, nowMs);
     validateNotFuture(e.waTimeQuestionAsked, 'WhatsApp Time Asked', testDate, nowMs);
@@ -287,16 +297,6 @@ export function validateAllTimingPairs(e: Partial<TesterLogEntry>, testDate?: st
     validateNotFuture(e.reviewer5CompletionTime, 'Reviewer 5 Completion Time', testDate, nowMs);
     validateNotFuture(e.moderatorAssignmentTime, 'Moderator Assignment Time', testDate, nowMs);
     validateNotFuture(e.moderatorCompletionTime, 'Moderator Completion Time', testDate, nowMs);
-
-    validateTimingPair(e.timeQuestionAsked, e.timeAnswerReceived, 'Time Question Asked', 'Time Answer Received', testDate);
-    validateTimingPair(e.waTimeQuestionAsked, e.waTimeAnswerReceived, 'WhatsApp Time Asked', 'WhatsApp Time Received', testDate);
-    validateTimingPair(e.authorAssignmentTime, e.authorCompletionTime, 'Author Assignment Time', 'Author Completion Time', testDate);
-    validateTimingPair(e.reviewer1AssignmentTime, e.reviewer1CompletionTime, 'Reviewer 1 Assignment Time', 'Reviewer 1 Completion Time', testDate);
-    validateTimingPair(e.reviewer2AssignmentTime, e.reviewer2CompletionTime, 'Reviewer 2 Assignment Time', 'Reviewer 2 Completion Time', testDate);
-    validateTimingPair(e.reviewer3AssignmentTime, e.reviewer3CompletionTime, 'Reviewer 3 Assignment Time', 'Reviewer 3 Completion Time', testDate);
-    validateTimingPair(e.reviewer4AssignmentTime, e.reviewer4CompletionTime, 'Reviewer 4 Assignment Time', 'Reviewer 4 Completion Time', testDate);
-    validateTimingPair(e.reviewer5AssignmentTime, e.reviewer5CompletionTime, 'Reviewer 5 Assignment Time', 'Reviewer 5 Completion Time', testDate);
-    validateTimingPair(e.moderatorAssignmentTime, e.moderatorCompletionTime, 'Moderator Assignment Time', 'Moderator Completion Time', testDate);
 }
 
 // The [Auto] duration fields - computed here from their start/end pair
