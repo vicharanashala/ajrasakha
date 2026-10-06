@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,8 +27,15 @@ CHEMICAL_DB_URL = os.getenv("CHEMICAL_DB_URL")
 CHEMICAL_DB_NAME = os.getenv("CHEMICAL_DB_NAME", "agriai")
 CHEMICAL_COLLECTION_NAME = os.getenv("CHEMICAL_COLLECTION_NAME", "crop_master")
 
-client = MongoClient(CHEMICAL_DB_URL)
-collection = client[CHEMICAL_DB_NAME][CHEMICAL_COLLECTION_NAME]
+# mongodb+srv:// URIs resolve DNS at client construction time, so a bad host/
+# unreachable DNS would otherwise crash the whole process before any request
+# is served. Catch that here so the app still boots and reports 503 instead.
+try:
+    client = MongoClient(CHEMICAL_DB_URL)
+    collection = client[CHEMICAL_DB_NAME][CHEMICAL_COLLECTION_NAME]
+except PyMongoError as e:
+    log.error("[chemical_detector] failed to initialize MongoDB client: %s", e)
+    collection = None
 
 SIMILARITY_CUTOFF = 0.85
 _MIN_TOKEN_LEN = 3
@@ -43,8 +51,21 @@ def _ensure_loaded() -> None:
     global _CANDIDATES, _CANDIDATE_TERMS, _LOADED
     if _LOADED:
         return
+    if collection is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Chemical database is currently unavailable. Please try again later.",
+        )
     candidates: dict[str, tuple[str, str]] = {}
-    for doc in collection.find({"type": "chemical"}):
+    try:
+        docs = list(collection.find({"type": "chemical"}))
+    except PyMongoError as e:
+        log.error("[chemical_detector] chemical DB query failed: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="Chemical database is currently unavailable. Please try again later.",
+        )
+    for doc in docs:
         name = (doc.get("name") or "").strip()
         status = (doc.get("status") or "").strip()
         if not name or not status:
