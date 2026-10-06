@@ -49,6 +49,7 @@ from ajrasakha.agents.prompts import (
 from ajrasakha.agents.state import AjraSakhaState, Location
 from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
 from ajrasakha.agents.non_agriculture_reply import non_agriculture_reply_node
+from ajrasakha.agents.abusive_word_reply import abusive_word_reply_node
 from ajrasakha.agents.weather_unavailable_reply import weather_unavailable_reply_node
 from ajrasakha.agents.mandi_unavailable_reply import mandi_unavailable_reply_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
@@ -428,7 +429,11 @@ def _build_graph():
         builder.add_conditional_edges(
             "planner",
             route_after_planner,
-            {"clarify": "clarify", "ensure_location": "ensure_location"},
+            {
+                "clarify": "clarify",
+                "ensure_location": "ensure_location",
+                "abusive_word_reply": "abusive_word_reply",
+            },
         )
         builder.add_edge("clarify", END)
         builder.add_conditional_edges(
@@ -441,6 +446,8 @@ def _build_graph():
         )
         builder.add_edge("upload_reviewer_only", "non_agriculture_reply")
         builder.add_edge("non_agriculture_reply", END)
+        builder.add_node("abusive_word_reply", with_thread_logging(abusive_word_reply_node))
+        builder.add_edge("abusive_word_reply", END)
         builder.add_conditional_edges(
             "execute_plan",
             route_after_tools_planner,
