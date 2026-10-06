@@ -1,14 +1,13 @@
 # Banned/Restricted Chemical Detector API
 
-Standalone FastAPI endpoint that scans author-provided text for banned or
-restricted chemical names (and their known aliases), using 1/2/3-word
-tokenization plus fuzzy matching (similarity cutoff `0.85`) against the
-chemical records in MongoDB (`type: "chemical"` documents in the
-`crop_master` collection).
+Checks author-submitted text for banned/restricted chemical names (including
+known aliases). Splits the text into 1/2/3-word chunks and fuzzy-matches each
+one against the chemical list pulled from Mongo (`type: "chemical"` docs in
+the `crop_master` collection), so it still catches close misspellings.
 
-**Server:** FastAPI + Uvicorn on port `8002`
+Port `8002`.
 
-## Config
+## Setup
 
 Copy `.env.example` to `.env` and fill in:
 
@@ -18,19 +17,16 @@ Copy `.env.example` to `.env` and fill in:
 | `CHEMICAL_DB_NAME` | `agriai` | Database name |
 | `CHEMICAL_COLLECTION_NAME` | `crop_master` | Collection holding chemical records (`type: "chemical"`) |
 
-This is intentionally separate from the main app's `DB_URL` — it points at a
-different, external, read-only MongoDB cluster.
-
 ## Endpoints
 
 ### `POST /detect-chemicals`
 
-**Request**
+Request:
 ```json
 { "text": "The farmer sprayed lasso and quinalphos on the field." }
 ```
 
-**Response (match found)**
+Response if something's found:
 ```json
 {
   "matches": [
@@ -40,12 +36,13 @@ different, external, read-only MongoDB cluster.
 }
 ```
 
-**Response (no match)**
+Response if nothing's found:
 ```json
 { "message": "No banned or restricted chemical detected" }
 ```
 
-`text` missing/empty returns `400`.
+Errors: empty/whitespace `text` -> `400`, missing or wrong-type `text` -> `422`,
+DB unreachable -> `503`.
 
 ### `GET /health`
 
@@ -53,7 +50,7 @@ different, external, read-only MongoDB cluster.
 { "status": "ok", "chemicals_loaded": 90 }
 ```
 
-## Run locally
+## Running it locally
 
 ```bash
 docker compose up --build
@@ -61,3 +58,5 @@ curl -X POST http://127.0.0.1:8002/detect-chemicals \
   -H "Content-Type: application/json" \
   -d '{"text": "sprayed some lasso on the crop"}'
 ```
+
+Or just open `http://127.0.0.1:8002/docs` in a browser for the interactive Swagger UI.
