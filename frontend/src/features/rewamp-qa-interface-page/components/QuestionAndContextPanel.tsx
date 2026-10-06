@@ -339,13 +339,9 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   Domain
                 </span>
-                <span className="font-medium text-foreground text-right">
+                <span className="font-medium text-foreground max-w-[200px] text-right">
                   {displayQuestion.details?.domain?.length
-                    ? displayQuestion.details.domain.map((d, i) => (
-                        <span key={i} className="inline-block bg-muted px-1.5 py-0.5 rounded text-[10px] mr-1">
-                          {d}
-                        </span>
-                      ))
+                    ? displayQuestion.details.domain.join(", ")
                     : "—"}
                 </span>
               </div>
