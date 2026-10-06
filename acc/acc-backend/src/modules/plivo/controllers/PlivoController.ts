@@ -195,7 +195,7 @@ export class PlivoController {
 <Response>
   <Stream contentType="audio/x-l16;rate=16000" noiseCancellation="true" audioTrack="both" noiseCancellationLevel="95">${streamUrl}</Stream>
   <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
-  <Dial timeout="40" callerId="${effectiveCallerId}">
+  <Dial timeout="60" callerId="${effectiveCallerId}">
     <Number>${destination}</Number>
   </Dial>
 </Response>`;
@@ -247,11 +247,11 @@ export class PlivoController {
           >${streamUrl}</Stream>
                               <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
-                              <Dial timeout="40" callerId="${myPlivoNumber}">
+                              <Dial timeout="60" callerId="${myPlivoNumber}">
                                         <User sipHeaders="X-PH-parentCallUuid=${callUuid};parentCallUuid=${callUuid}">${endpointUser}</User>
                               </Dial>
                               <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre</Speak>
-                              <Wait length="5" />
+                              <Wait length="2" />
                               <Hangup />
                     </Response>`;
       } else {
