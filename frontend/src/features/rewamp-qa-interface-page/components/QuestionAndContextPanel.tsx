@@ -69,51 +69,15 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   const [activeTab, setActiveTab] = useState<"current" | "queue">("current");
   const [showAllMetadata, setShowAllMetadata] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [selectedQueueQuestion, setSelectedQueueQuestion] = useState<IQuestionContextData | null>(null);
-
-  // Fallback / Sample data when no question is passed
-  const defaultQuestion: IQuestionContextData = {
-    id: "q-1",
-    text: "Information about control of sucking pest in crop brinjal in Uttar Pradesh?",
-    priority: "critical",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    totalAnswersCount: 0,
-    status: "open",
-    source: "AJRASAKHA",
-    assignedAt: null,
-    review_level_number: "Author",
-    details: {
-      state: "Uttar Pradesh",
-      district: "Basti",
-      crop: "Brinjal",
-      normalised_crop: "Brinjal",
-      season: "Kharif",
-      domain: ["Pest Management"],
-    },
-  };
-
-  const currentQuestion = question || defaultQuestion;
-
-  // Sample questions for queue (fallback when no questions prop provided)
-  const sampleQueueQuestions: IQuestionContextData[] = questions.length > 0 ? questions : [
-    { id: "q-2", text: "What are the best practices for tomato cultivation in summer?", priority: "high", createdAt: new Date().toISOString(), source: "WHATSAPP", details: { state: "Maharashtra", district: "Pune", crop: "Tomato", season: "Summer", domain: ["Cultivation Practices"] } },
-    { id: "q-3", text: "How to control leaf curl virus in chilli plants?", priority: "critical", createdAt: new Date().toISOString(), source: "AJRASAKHA", details: { state: "Karnataka", district: "Dharwad", crop: "Chilli", season: "Kharif", domain: ["Disease Management"] } },
-    { id: "q-4", text: "Recommended fertilizer schedule for wheat crop?", priority: "medium", createdAt: new Date().toISOString(), source: "AGRI_EXPERT", details: { state: "Punjab", district: "Ludhiana", crop: "Wheat", season: "Rabi", domain: ["Nutrient Management"] } },
-    { id: "q-5", text: "Management of powdery mildew in mango trees", priority: "high", createdAt: new Date().toISOString(), source: "OUTREACH", details: { state: "Uttar Pradesh", district: "Aligarh", crop: "Mango", season: "Summer", domain: ["Disease Management"] } },
-  ];
 
   // Filter out current question from queue list
-  const queueQuestions = sampleQueueQuestions.filter(
-    (q) => (q.id || (q as any)._id) !== (currentQuestion.id || (currentQuestion as any)._id)
+  const queueQuestions = (questions || []).filter(
+    (q) => (q.id || (q as any)._id) !== (question?.id || (question as any)?._id)
   );
 
-  // Determine which question to display - selected from queue or current question
-  const displayQuestion = question || selectedQueueQuestion || defaultQuestion;
-  console.log("display question ",displayQuestion)
   const handleCopyQuestion = () => {
-    if (displayQuestion?.text) {
-      navigator.clipboard.writeText(displayQuestion.text);
+    if (question?.text) {
+      navigator.clipboard.writeText(question.text);
       setCopied(true);
       toast.success("Question copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
@@ -125,9 +89,8 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
     const qId = q.id || (q as any)._id;
     const isSelected = selectedQuestionId === qId;
     const handleSelect = () => {
-      // Switch to current tab and set the selected question to display
+      // Switch to current tab and notify parent to select question
       setActiveTab("current");
-      setSelectedQueueQuestion(q);
       onQuestionSelect?.(qId);
     };
     console.log("q 1 ",q)
@@ -241,7 +204,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
               }`}
             >
               Current 
-              {/* ({displayQuestion.queueIndex || queueQuestions.findIndex(q => q.id === displayQuestion.id)}/{queueQuestions.length}) */}
+              {/* ({question.queueIndex || queueQuestions.findIndex(q => q.id === question.id)}/{queueQuestions.length}) */}
             </button>
             <button
               type="button"
@@ -279,26 +242,26 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   <Badge
                     variant="destructive"
                     className={`text-[11px] px-2 py-0.2 font-semibold rounded-md ${
-                      displayQuestion.priority === 'critical' ? 'bg-rose-500' :
-                      displayQuestion.priority === 'high' ? 'bg-orange-500' :
-                      displayQuestion.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                      question?.priority === 'critical' ? 'bg-rose-500' :
+                      question?.priority === 'high' ? 'bg-orange-500' :
+                      question?.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
                     }`}
                   >
-                    {displayQuestion.priority ? displayQuestion.priority.charAt(0).toUpperCase() + displayQuestion.priority.slice(1) : "Medium"}
+                    {question?.priority ? question.priority.charAt(0).toUpperCase() + question.priority.slice(1) : "Medium"}
                   </Badge>
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    {displayQuestion.createdAt ? formatDate(new Date(displayQuestion.createdAt)) : "—"}
+                    {question?.createdAt ? formatDate(new Date(question.createdAt)) : "—"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{displayQuestion.totalAnswersCount || 0}</span>
+                  <span>{question?.totalAnswersCount || 0}</span>
                 </div>
               </div>
 
               <p className="text-sm font-medium text-foreground leading-relaxed">
-                {displayQuestion.text}
+                {question?.text || "—"}
               </p>
             </div>
 
@@ -310,7 +273,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   Crop
                 </span>
                 <span className="font-semibold text-foreground">
-                  {displayQuestion.details?.crop || displayQuestion.details?.normalised_crop || "—"}
+                  {question?.details?.crop || question?.details?.normalised_crop || "—"}
                 </span>
               </div>
 
@@ -320,7 +283,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   State
                 </span>
                 <span className="font-semibold text-foreground">
-                  {displayQuestion.details?.state || "—"}
+                  {question?.details?.state || "—"}
                 </span>
               </div>
 
@@ -330,7 +293,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   Source
                 </span>
                 <span className="font-medium text-foreground">
-                  {displayQuestion.source || "—"}
+                  {question?.source || "—"}
                 </span>
               </div>
 
@@ -340,10 +303,10 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   Domain
                 </span>
                 <span className="font-medium text-foreground max-w-[200px] text-right">
-                  {displayQuestion.details?.domain
-                    ? Array.isArray(displayQuestion.details.domain)
-                      ? displayQuestion.details.domain.join(", ")
-                      : displayQuestion.details.domain
+                  {question?.details?.domain
+                    ? Array.isArray(question.details.domain)
+                      ? question.details.domain.join(", ")
+                      : question.details.domain
                     : "—"}
                 </span>
               </div>
@@ -364,98 +327,98 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
               {showAllMetadata && (
                 <div className="mt-2.5 p-3 rounded-lg bg-muted/40 border border-border/60 text-xs space-y-1.5 animate-in fade-in-50 duration-200">
                   {/* Question ID */}
-                  {displayQuestion.id && (
+                  {question?.id && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">id:</span>
-                      <span className="font-medium text-foreground text-[10px] truncate max-w-[180px]" title={displayQuestion.id}>
-                        {displayQuestion.id}
+                      <span className="font-medium text-foreground text-[10px] truncate max-w-[180px]" title={question.id}>
+                        {question.id}
                       </span>
                     </div>
                   )}
                   
                   {/* District */}
-                  {displayQuestion.details?.district && (
+                  {question?.details?.district && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">District:</span>
-                      <span className="font-medium text-foreground">{displayQuestion.details.district}</span>
+                      <span className="font-medium text-foreground">{question.details.district}</span>
                     </div>
                   )}
                   
                   {/* Season */}
-                  {displayQuestion.details?.season && (
+                  {question?.details?.season && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Season:</span>
-                      <span className="font-medium text-foreground">{displayQuestion.details.season}</span>
+                      <span className="font-medium text-foreground">{question.details.season}</span>
                     </div>
                   )}
                   
                   {/* Normalised Crop */}
-                  {displayQuestion.details?.normalised_crop && (
+                  {question?.details?.normalised_crop && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Normalised Crop:</span>
-                      <span className="font-medium text-foreground">{displayQuestion.details.normalised_crop}</span>
+                      <span className="font-medium text-foreground">{question.details.normalised_crop}</span>
                     </div>
                   )}
                   
                   {/* Priority */}
-                  {displayQuestion.priority && (
+                  {question?.priority && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Priority:</span>
                       <span className={`font-medium ${
-                        displayQuestion.priority === 'critical' ? 'text-red-600' :
-                        displayQuestion.priority === 'high' ? 'text-orange-600' :
-                        displayQuestion.priority === 'medium' ? 'text-yellow-600' : 'text-green-600'
+                        question.priority === 'critical' ? 'text-red-600' :
+                        question.priority === 'high' ? 'text-orange-600' :
+                        question.priority === 'medium' ? 'text-yellow-600' : 'text-green-600'
                       }`}>
-                        {displayQuestion.priority.charAt(0).toUpperCase() + displayQuestion.priority.slice(1)}
+                        {question.priority.charAt(0).toUpperCase() + question.priority.slice(1)}
                       </span>
                     </div>
                   )}
                   
                   {/* Status */}
-                  {displayQuestion.status && (
+                  {question?.status && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Status:</span>
-                      <span className="font-medium text-foreground">{displayQuestion.status}</span>
+                      <span className="font-medium text-foreground">{question.status}</span>
                     </div>
                   )}
                   
                   {/* Review Level */}
-                  {displayQuestion.review_level_number && (
+                  {question?.review_level_number && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Review Level:</span>
-                      <span className="font-medium text-foreground">{displayQuestion.review_level_number}</span>
+                      <span className="font-medium text-foreground">{question.review_level_number}</span>
                     </div>
                   )}
                   
                   {/* Total Answers Count */}
-                  {displayQuestion.totalAnswersCount !== undefined && (
+                  {question?.totalAnswersCount !== undefined && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Answers:</span>
-                      <span className="font-medium text-foreground">{displayQuestion.totalAnswersCount}</span>
+                      <span className="font-medium text-foreground">{question.totalAnswersCount}</span>
                     </div>
                   )}
                   
                   {/* Created At */}
-                  {displayQuestion.createdAt && (
+                  {question?.createdAt && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Created:</span>
-                      <span className="font-medium text-foreground">{formatDate(new Date(displayQuestion.createdAt))}</span>
+                      <span className="font-medium text-foreground">{formatDate(new Date(question.createdAt))}</span>
                     </div>
                   )}
                   
                   {/* Updated At */}
-                  {displayQuestion.updatedAt && (
+                  {question?.updatedAt && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Updated:</span>
-                      <span className="font-medium text-foreground">{formatDate(new Date(displayQuestion.updatedAt))}</span>
+                      <span className="font-medium text-foreground">{formatDate(new Date(question.updatedAt))}</span>
                     </div>
                   )}
                   
                   {/* Assigned At */}
-                  {displayQuestion.assignedAt && (
+                  {question?.assignedAt && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Assigned:</span>
-                      <span className="font-medium text-foreground">{formatDate(new Date(displayQuestion.assignedAt))}</span>
+                      <span className="font-medium text-foreground">{formatDate(new Date(question.assignedAt))}</span>
                     </div>
                   )}
                 </div>
