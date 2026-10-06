@@ -141,8 +141,8 @@ const DOWNLOAD_PREVIEW_COLUMNS: {
   { key: "email", label: "Email", getValue: (u) => u.email || "" },
   { key: "userRole", label: "User Role", getValue: (u) => u.userRole || u.role || "" },
   { key: "isVerified", label: "Verified", getValue: (u) => yesNo(u.isVerified) },
-  { key: "questions", label: "Questions", getValue: (u) => u.totalQuestionsCount ?? 0 },
-  { key: "messages", label: "Messages", getValue: (u) => u.totalMessagesCount ?? u.totalQuestions ?? 0 },
+  { key: "questions", label: "Agri Queries", getValue: (u) => u.totalQuestionsCount ?? 0 },
+  { key: "messages", label: "All", getValue: (u) => u.totalMessagesCount ?? u.totalQuestions ?? 0 },
   { key: "farmerName", label: "Farmer Name", getValue: (u) => u.farmerProfile?.farmerName || "" },
   { key: "age", label: "Age", getValue: (u) => u.farmerProfile?.age ?? "" },
   { key: "gender", label: "Gender", getValue: (u) => u.farmerProfile?.gender || "" },
@@ -702,15 +702,21 @@ export function UserDetailsView({
                               Total queries asked
                             </p>
                             <div className="flex justify-between items-center text-sm">
-                              <span>Messages:</span>
+                              <span>All:</span>
                               <span className="font-medium">
                                 {data.totalMessagesCount ?? 0}
                               </span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                              <span>Questions:</span>
+                              <span>Agri Queries:</span>
                               <span className="font-medium">
                                 {data.totalQuestionsCount ?? 0}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span>Non Agri Queries:</span>
+                              <span className="font-medium">
+                                {data.totalNonAgriQuestionsCount ?? 0}
                               </span>
                             </div>
                           </div>
@@ -1054,12 +1060,16 @@ export function UserDetailsView({
                                       <div className="space-y-1.5 min-w-[140px]">
                                         <p className="text-xs font-semibold text-muted-foreground border-b pb-1 mb-1">Queries Breakdown</p>
                                         <div className="flex justify-between items-center text-sm">
-                                          <span>Messages:</span>
+                                          <span>All:</span>
                                           <span className="font-medium">{user.totalMessagesCount ?? user.totalQuestions ?? 0}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-sm">
-                                          <span>Questions:</span>
+                                          <span>Agri Queries:</span>
                                           <span className="font-medium">{user.totalQuestionsCount ?? 0}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span>Non Agri Queries:</span>
+                                          <span className="font-medium">{user.totalNonAgriQuestionsCount ?? 0}</span>
                                         </div>
                                       </div>
                                     </TooltipContent>

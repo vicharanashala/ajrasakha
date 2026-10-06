@@ -56,60 +56,109 @@ const FILTER_FIELDS: FilterFieldConfig[] = [
     { key: 'severity', csvKey: 'Defect Severity', normalize: normalizeDefectSeverity },
 ];
 
+const INTERNED_STRINGS: Record<string, string> = {
+    '': '',
+    'NA': 'NA',
+    'NIL': 'NIL',
+    'N/A': 'NA',
+    'Pass': 'Pass',
+    'Fail': 'Fail',
+    'Partial': 'Partial',
+    'Critical': 'Critical',
+    'High': 'High',
+    'Medium': 'Medium',
+    'Low': 'Low',
+    'Yes': 'Yes',
+    'No': 'No',
+    'Web App': 'Web App',
+    'WhatsApp': 'WhatsApp',
+    'Both': 'Both',
+    'English': 'English',
+    'Telugu': 'Telugu',
+    'Hindi': 'Hindi',
+    'Bengali': 'Bengali',
+    'Marathi': 'Marathi',
+    'Tamil': 'Tamil',
+    'Malayalam': 'Malayalam',
+    'Kannada': 'Kannada',
+    'Punjabi': 'Punjabi',
+    'GDB': 'GDB',
+    'Unique': 'Unique',
+    'Outreach': 'Outreach',
+    'Dynamic': 'Dynamic',
+    'Within SLA': 'Within SLA',
+    'Exceeded SLA': 'Exceeded SLA',
+    '1.0': '1.0',
+    '2.0': '2.0',
+    '3.0': '3.0',
+    'saved': 'saved',
+    'not saved': 'not saved',
+    'Good': 'Good',
+    'Average': 'Average',
+    'Poor': 'Poor',
+    'General': 'General',
+};
+
+function intern(str: string | undefined): string {
+    if (!str) return '';
+    const trimmed = str.trim();
+    return INTERNED_STRINGS[trimmed] ?? trimmed;
+}
+
 export function toSlimRecord(data: Record<string, string>): TestersDashboardRecord {
     return {
-        'Test ID': (data['Test ID'] || '').trim(),
-        'Test Date': (data['Test Date'] || '').trim(),
-        'Type of Question': (data['Type of Question'] || '').trim(),
-        'Question Category': (data['Question Category'] || '').trim(),
-        'Build / Version': (data['Build / Version'] || '').trim(),
-        'Channel Tested': (data['Channel Tested'] || '').trim(),
-        'Language Tested': (data['Language Tested'] || '').trim(),
-        'Tester Name': (data['Tester Name'] || '').trim(),
-        'Overall Test Status': (data['Overall Test Status'] || '').trim(),
-        'Defect Severity': (data['Defect Severity'] || '').trim(),
-        'SLA Status': (data['SLA Status'] || '').trim(),
-        'Question in Review Model?': (data['Question in Review Model?'] || '').trim(),
-        'Question Correctly Framed?': (data['Question Correctly Framed?'] || '').trim(),
-        'Translation Quality': (data['Translation Quality'] || '').trim(),
-        'Author TAT (mins) [Auto]': (data['Author TAT (mins) [Auto]'] || '').trim(),
-        'Review1 TAT (mins) [Auto]': (data['Review1 TAT (mins) [Auto]'] || '').trim(),
-        'Review2 TAT (mins) [Auto]': (data['Review2 TAT (mins) [Auto]'] || '').trim(),
-        'Review3 TAT (mins) [Auto]': (data['Review3 TAT (mins) [Auto]'] || '').trim(),
-        'Review4 TAT (mins) [Auto]': (data['Review4 TAT (mins) [Auto]'] || '').trim(),
-        'Review5 TAT (mins) [Auto]': (data['Review5 TAT (mins) [Auto]'] || '').trim(),
-        'Moderator TAT (mins) [Auto]': (data['Moderator TAT (mins) [Auto]'] || '').trim(),
-        'Follow-up Q in Review Model?': (data['Follow-up Q in Review Model?'] || '').trim(),
-        'Answer Scientifically Correct?': (data['Answer Scientifically Correct?'] || '').trim(),
-        'Expert Name Displayed?': (data['Expert Name Displayed?'] || '').trim(),
-        'Correct Expert Name displayed?': (data['Correct Expert Name displayed?'] || '').trim(),
-        'Correct Source Links Provided?': (data['Correct Source Links Provided?'] || '').trim(),
-        '120-min Msg Shown to User?': (data['120-min Msg Shown to User?'] || '').trim(),
-        'Notification Received?': (data['Notification Received?'] || '').trim(),
-        'Notification on Same Thread?': (data['Notification on Same Thread?'] || '').trim(),
-        'Notification Linked Correct Q-ID?': (data['Notification Linked Correct Q-ID?'] || '').trim(),
-        'Voice Input Working?': (data['Voice Input Working?'] || '').trim(),
-        'Voice Output Working?': (data['Voice Output Working?'] || '').trim(),
-        'Voice Input Quality': (data['Voice Input Quality'] || '').trim(),
-        'Voice Output Quality': (data['Voice Output Quality'] || '').trim(),
-        'Weather Q Answered Correctly?': (data['Weather Q Answered Correctly?'] || '').trim(),
-        'Mandi Price Q Correct?': (data['Mandi Price Q Correct?'] || '').trim(),
-        'Scheme Q Correct?': (data['Scheme Q Correct?'] || '').trim(),
-        'Question Saved in DB?': (data['Question Saved in DB?'] || '').trim(),
-        'Answer Saved in DB?': (data['Answer Saved in DB?'] || '').trim(),
-        'Q-ID Consistent Across Systems?': (data['Q-ID Consistent Across Systems?'] || '').trim(),
-        'WhatsApp vs Web Answer Match?': (data['WhatsApp vs Web Answer Match?'] || '').trim(),
-        'Defect ID / Bug Ref\nZoho Desk Ticketing': (
+        'Test ID': intern(data['Test ID']),
+        'Test Date': intern(data['Test Date']),
+        'Type of Question': intern(data['Type of Question']),
+        'Question Category': intern(data['Question Category']),
+        'Build / Version': intern(data['Build / Version']),
+        'Channel Tested': intern(data['Channel Tested']),
+        'Language Tested': intern(data['Language Tested']),
+        'Tester Name': intern(data['Tester Name']),
+        'Overall Test Status': intern(data['Overall Test Status']),
+        'Defect Severity': intern(data['Defect Severity']),
+        'SLA Status': intern(data['SLA Status']),
+        'Question in Review Model?': intern(data['Question in Review Model?']),
+        'Question Correctly Framed?': intern(data['Question Correctly Framed?']),
+        'Translation Quality': intern(data['Translation Quality']),
+        'Author TAT (mins) [Auto]': intern(data['Author TAT (mins) [Auto]']),
+        'Review1 TAT (mins) [Auto]': intern(data['Review1 TAT (mins) [Auto]']),
+        'Review2 TAT (mins) [Auto]': intern(data['Review2 TAT (mins) [Auto]']),
+        'Review3 TAT (mins) [Auto]': intern(data['Review3 TAT (mins) [Auto]']),
+        'Review4 TAT (mins) [Auto]': intern(data['Review4 TAT (mins) [Auto]']),
+        'Review5 TAT (mins) [Auto]': intern(data['Review5 TAT (mins) [Auto]']),
+        'Moderator TAT (mins) [Auto]': intern(data['Moderator TAT (mins) [Auto]']),
+        'Follow-up Q in Review Model?': intern(data['Follow-up Q in Review Model?']),
+        'Answer Scientifically Correct?': intern(data['Answer Scientifically Correct?']),
+        'Expert Name Displayed?': intern(data['Expert Name Displayed?']),
+        'Correct Expert Name displayed?': intern(data['Correct Expert Name displayed?']),
+        'Correct Source Links Provided?': intern(data['Correct Source Links Provided?']),
+        '120-min Msg Shown to User?': intern(data['120-min Msg Shown to User?']),
+        'Notification Received?': intern(data['Notification Received?']),
+        'Notification on Same Thread?': intern(data['Notification on Same Thread?']),
+        'Notification Linked Correct Q-ID?': intern(data['Notification Linked Correct Q-ID?']),
+        'Voice Input Working?': intern(data['Voice Input Working?']),
+        'Voice Output Working?': intern(data['Voice Output Working?']),
+        'Voice Input Quality': intern(data['Voice Input Quality']),
+        'Voice Output Quality': intern(data['Voice Output Quality']),
+        'Weather Q Answered Correctly?': intern(data['Weather Q Answered Correctly?']),
+        'Mandi Price Q Correct?': intern(data['Mandi Price Q Correct?']),
+        'Scheme Q Correct?': intern(data['Scheme Q Correct?']),
+        'Question Saved in DB?': intern(data['Question Saved in DB?']),
+        'Answer Saved in DB?': intern(data['Answer Saved in DB?']),
+        'Q-ID Consistent Across Systems?': intern(data['Q-ID Consistent Across Systems?']),
+        'WhatsApp vs Web Answer Match?': intern(data['WhatsApp vs Web Answer Match?']),
+        'Defect ID / Bug Ref\nZoho Desk Ticketing': intern(
             data['Defect ID / Bug Ref\nZoho Desk Ticketing'] ||
             data['Defect ID / Bug Ref'] ||
-            ''
-        ).trim(),
-        'Response Time (mins) [Auto] (HH:MM:SS)': (
-            data['Response Time (mins) [Auto] (HH:MM:SS)'] || ''
-        ).trim(),
-        'Time Answer Received (HH:MM:SS)': (
-            data['Time Answer Received (HH:MM:SS)'] || ''
-        ).trim(),
+            '',
+        ),
+        'Response Time (mins) [Auto] (HH:MM:SS)': intern(
+            data['Response Time (mins) [Auto] (HH:MM:SS)'] || '',
+        ),
+        'Time Answer Received (HH:MM:SS)': intern(
+            data['Time Answer Received (HH:MM:SS)'] || '',
+        ),
     };
 }
 
@@ -241,7 +290,7 @@ export function calculatePreviousPeriodFromRows(
     };
 }
 
-export function streamAggregateSummary(
+export async function streamAggregateSummary(
     csvPath: string,
     filters: TestersDashboardFilters,
     excludeFailures: boolean,
@@ -249,14 +298,16 @@ export function streamAggregateSummary(
     customEnd: string | undefined,
     zohoTickets: Record<string, ZohoTicketStatus>,
     now: Date = new Date(),
+    cachedFilterOptions?: Record<NonDateFilterKey, string[]>,
 ): Promise<TestersDashboardSummaryResponse> {
-    return new Promise((resolve, reject) => {
-        const todayISO = getTodayIST(now);
-        const last7StartISO = addDaysISO(todayISO, -6);
-        const last30StartISO = addDaysISO(todayISO, -29);
-        const prevWindow = getPreviousPeriodWindow(filters.dateRange, customStart, customEnd, now);
+    const todayISO = getTodayIST(now);
+    const last7StartISO = addDaysISO(todayISO, -6);
+    const last30StartISO = addDaysISO(todayISO, -29);
+    const prevWindow = getPreviousPeriodWindow(filters.dateRange, customStart, customEnd, now);
 
-        const filterOptionSets = {
+    const filterOptionSets = cachedFilterOptions
+        ? null
+        : ({
             type: new Set<string>(),
             category: new Set<string>(),
             build: new Set<string>(),
@@ -265,83 +316,93 @@ export function streamAggregateSummary(
             tester: new Set<string>(),
             status: new Set<string>(),
             severity: new Set<string>(),
-        } as Record<NonDateFilterKey, Set<string>>;
+        } as Record<NonDateFilterKey, Set<string>>);
 
-        const currentPeriodRows: TestersDashboardRecord[] = [];
-        const prevPeriodRows: TestersDashboardRecord[] = [];
-        let totalRecords = 0;
+    const currentPeriodRows: TestersDashboardRecord[] = [];
+    const prevPeriodRows: TestersDashboardRecord[] = [];
+    let totalRecords = 0;
+    let rowCount = 0;
 
-        fs.createReadStream(csvPath)
-            .pipe(csv())
-            .on('data', (raw: Record<string, string>) => {
-                const testId = raw['Test ID'] ? raw['Test ID'].trim() : '';
-                if (!testId || testId.startsWith('Project:') || testId.startsWith('Test ID') || isFutureTestDate(raw['Test Date'])) {
-                    return;
-                }
+    const stream = fs.createReadStream(csvPath, { highWaterMark: 64 * 1024 }).pipe(csv());
 
-                totalRecords++;
-                const r = toSlimRecord(raw);
+    for await (const raw of stream) {
+        const testId = raw['Test ID'] ? raw['Test ID'].trim() : '';
+        if (!testId || testId.startsWith('Project:') || testId.startsWith('Test ID') || isFutureTestDate(raw['Test Date'])) {
+            continue;
+        }
 
-                // Collect filter options from all valid rows on the fly
-                for (const field of FILTER_FIELDS) {
-                    const rawVal = r[field.csvKey];
-                    if (rawVal) {
-                        const norm = field.normalize ? field.normalize(rawVal) : rawVal;
-                        if (norm && norm !== 'NIL' && (field.keepNA || norm !== 'NA')) {
-                            filterOptionSets[field.key].add(norm);
-                        }
+        totalRecords++;
+        rowCount++;
+        if (rowCount % 1000 === 0) {
+            // Yield to event loop every 1000 rows to ensure other backend requests remain fast and responsive
+            await new Promise((resolve) => setImmediate(resolve));
+        }
+
+        const r = toSlimRecord(raw);
+
+        // Collect filter options only if not already provided by cache
+        if (filterOptionSets) {
+            for (const field of FILTER_FIELDS) {
+                const rawVal = r[field.csvKey];
+                if (rawVal) {
+                    const norm = field.normalize ? field.normalize(rawVal) : rawVal;
+                    if (norm && norm !== 'NIL' && (field.keepNA || norm !== 'NA')) {
+                        filterOptionSets[field.key].add(norm);
                     }
                 }
+            }
+        }
 
-                const nonDateMatch = rowMatchesNonDateFilters(r, filters, excludeFailures);
-                if (nonDateMatch) {
-                    const iso = parseTestDateToISO(r['Test Date'], now);
-                    if (rowMatchesDateRange(iso, filters.dateRange, customStart, customEnd, todayISO, last7StartISO, last30StartISO)) {
-                        currentPeriodRows.push(r);
-                    }
-                    if (prevWindow && iso && iso >= prevWindow.prevStart && iso <= prevWindow.prevEnd) {
-                        prevPeriodRows.push(r);
-                    }
-                }
-            })
-            .on('end', () => {
-                // Build filter options output
-                const filterOptions = {} as Record<NonDateFilterKey, string[]>;
-                for (const field of FILTER_FIELDS) {
-                    let unique = Array.from(filterOptionSets[field.key]).sort((a, b) => a.localeCompare(b));
-                    if (field.key === 'type') {
-                        unique = ['GDB', 'Unique', 'Outreach', 'Dynamic'];
-                    } else if (field.key === 'category') {
-                        unique = unique.filter((v) => v !== 'General');
-                    } else if (field.key === 'channel') {
-                        const KNOWN_CHANNEL_VALUES = new Set(['Web App', 'WhatsApp', 'Both']);
-                        unique = unique.filter((v) => KNOWN_CHANNEL_VALUES.has(v));
-                    }
-                    filterOptions[field.key] = unique;
-                }
+        const nonDateMatch = rowMatchesNonDateFilters(r, filters, excludeFailures);
+        if (nonDateMatch) {
+            const iso = parseTestDateToISO(r['Test Date'], now);
+            if (rowMatchesDateRange(iso, filters.dateRange, customStart, customEnd, todayISO, last7StartISO, last30StartISO)) {
+                currentPeriodRows.push(r);
+            }
+            if (prevWindow && iso && iso >= prevWindow.prevStart && iso <= prevWindow.prevEnd) {
+                prevPeriodRows.push(r);
+            }
+        }
+    }
 
-                const kpis = calculateKpis(currentPeriodRows, filters.typeBranch);
-                const diagnostics = calculateDiagnostics(currentPeriodRows, zohoTickets);
-                const chartData = calculateChartData(currentPeriodRows, undefined, filters.typeBranch);
-                const channelStats = calculateChannelStats(currentPeriodRows);
-                const languageStats = calculateLanguageStats(currentPeriodRows);
-                const previousPeriodStats = prevWindow ? calculatePreviousPeriodFromRows(prevPeriodRows, prevWindow) : null;
+    let filterOptions: Record<NonDateFilterKey, string[]>;
+    if (cachedFilterOptions) {
+        filterOptions = cachedFilterOptions;
+    } else {
+        filterOptions = {} as Record<NonDateFilterKey, string[]>;
+        for (const field of FILTER_FIELDS) {
+            let unique = Array.from(filterOptionSets![field.key]).sort((a, b) => a.localeCompare(b));
+            if (field.key === 'type') {
+                unique = ['GDB', 'Unique', 'Outreach', 'Dynamic'];
+            } else if (field.key === 'category') {
+                unique = unique.filter((v) => v !== 'General');
+            } else if (field.key === 'channel') {
+                const KNOWN_CHANNEL_VALUES = new Set(['Web App', 'WhatsApp', 'Both']);
+                unique = unique.filter((v) => KNOWN_CHANNEL_VALUES.has(v));
+            }
+            filterOptions[field.key] = unique;
+        }
+    }
 
-                const stats = fs.statSync(csvPath);
+    const kpis = calculateKpis(currentPeriodRows, filters.typeBranch);
+    const diagnostics = calculateDiagnostics(currentPeriodRows, zohoTickets);
+    const chartData = calculateChartData(currentPeriodRows, undefined, filters.typeBranch);
+    const channelStats = calculateChannelStats(currentPeriodRows);
+    const languageStats = calculateLanguageStats(currentPeriodRows);
+    const previousPeriodStats = prevWindow ? calculatePreviousPeriodFromRows(prevPeriodRows, prevWindow) : null;
 
-                resolve({
-                    success: true,
-                    totalRecords,
-                    kpis,
-                    diagnostics,
-                    chartData,
-                    previousPeriodStats,
-                    filterOptions,
-                    lastSyncedAt: stats.mtime.toISOString(),
-                    channelStats,
-                    languageStats,
-                });
-            })
-            .on('error', reject);
-    });
+    const stats = fs.statSync(csvPath);
+
+    return {
+        success: true,
+        totalRecords,
+        kpis,
+        diagnostics,
+        chartData,
+        previousPeriodStats,
+        filterOptions,
+        lastSyncedAt: stats.mtime.toISOString(),
+        channelStats,
+        languageStats,
+    };
 }

@@ -16,7 +16,7 @@ import {
   MapPin,
   Sprout,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
 interface QuestionDetailsCardProps {
@@ -74,6 +74,23 @@ export const QuestionDetailsCard = ({
   const metrics = question.metrics;
   const context = question.context;
 
+  const domains = useMemo(() => {
+    const rawDomain = question.details?.domain;
+    if (Array.isArray(rawDomain)) {
+      return rawDomain
+        .flatMap((d) => (typeof d === "string" ? d.split(",") : []))
+        .map((d) => d.trim())
+        .filter(Boolean);
+    }
+    if (typeof rawDomain === "string" && rawDomain.trim()) {
+      return rawDomain
+        .split(",")
+        .map((d) => d.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }, [question.details?.domain]);
+
   return (
     <Card className="p-4 grid gap-4">
       <p className="text-sm font-medium">Details</p>
@@ -124,33 +141,24 @@ export const QuestionDetailsCard = ({
           </div>
         </div>
 
-        <div className="flex items-start gap-2 overflow-hidden">
+        <div className="flex items-start gap-2">
           <Layers className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-          <div className="flex flex-col min-w-0">
+          <div className="flex flex-col min-w-0 flex-1">
             <span className="text-muted-foreground">Domain</span>
-            <span
-              className="truncate"
-              title={
-                (Array.isArray(question.details?.domain)
-                  ? question.details.domain
-                  : typeof question.details?.domain === "string" && question.details.domain.trim()
-                    ? [question.details.domain]
-                    : []
-                ).join(", ")
-              }
-            >
-              {(Array.isArray(question.details?.domain)
-                ? question.details.domain
-                : typeof question.details?.domain === "string" && question.details.domain.trim()
-                  ? [question.details.domain]
-                  : []
-              ).length > 0
-                ? (Array.isArray(question.details?.domain)
-                  ? question.details.domain
-                  : [question.details.domain]
-                ).join(", ")
-                : "-"}
-            </span>
+            {domains.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {domains.map((dom, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-xs font-medium text-foreground break-words"
+                  >
+                    {dom}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span>-</span>
+            )}
           </div>
         </div>
       </div>

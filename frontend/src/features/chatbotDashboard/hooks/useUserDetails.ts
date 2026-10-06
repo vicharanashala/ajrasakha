@@ -40,6 +40,7 @@ export interface UserDetail {
   totalQueries?: number;
   totalMessagesCount?: number;
   totalQuestionsCount?: number;
+  totalNonAgriQuestionsCount?: number;
   activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt?: string;
@@ -57,6 +58,7 @@ export interface PaginatedUserDetailsResponse {
   totalQueries?: number;
   totalMessagesCount?: number;
   totalQuestionsCount?: number;
+  totalNonAgriQuestionsCount?: number;
 }
 
 export function useUserDetails(

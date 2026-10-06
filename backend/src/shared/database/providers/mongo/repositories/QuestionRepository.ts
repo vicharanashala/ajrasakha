@@ -6068,38 +6068,58 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
-      const pending = await this.QuestionCollection.countDocuments(
-        {
-          status: 'in-review',
-          ...(
-            !isAdmin &&
-            (isTrainingUser
-              ? { isTrainingQuestion: true }
-              : { isTrainingQuestion: { $ne: true } })
-          ),
-        },
-        { session },
-      );
+      let pendingTraining = 0;
+      let pendingOther = 0;
+      let approvedTraining = 0;
+      let approvedOther = 0;
 
-      const approved = await this.QuestionCollection.countDocuments(
-        {
-          status: 'closed',
-          ...(
-            !isAdmin &&
-            (isTrainingUser
-              ? { isTrainingQuestion: true }
-              : { isTrainingQuestion: { $ne: true } })
+      if (isAdmin) {
+        [pendingTraining, pendingOther, approvedTraining, approvedOther] =
+          await Promise.all([
+            this.QuestionCollection.countDocuments(
+              { status: 'in-review', isTrainingQuestion: true },
+              { session },
+            ),
+            this.QuestionCollection.countDocuments(
+              { status: 'in-review', isTrainingQuestion: { $ne: true } },
+              { session },
+            ),
+            this.QuestionCollection.countDocuments(
+              { status: 'closed', isTrainingQuestion: true },
+              { session },
+            ),
+            this.QuestionCollection.countDocuments(
+              { status: 'closed', isTrainingQuestion: { $ne: true } },
+              { session },
+            ),
+          ]);
+      } else if (isTrainingUser) {
+        [pendingTraining, approvedTraining] = await Promise.all([
+          this.QuestionCollection.countDocuments(
+            { status: 'in-review', isTrainingQuestion: true },
+            { session },
           ),
-        },
-        { session },
-      );
+          this.QuestionCollection.countDocuments(
+            { status: 'closed', isTrainingQuestion: true },
+            { session },
+          ),
+        ]);
+      } else {
+        [pendingOther, approvedOther] = await Promise.all([
+          this.QuestionCollection.countDocuments(
+            { status: 'in-review', isTrainingQuestion: { $ne: true } },
+            { session },
+          ),
+          this.QuestionCollection.countDocuments(
+            { status: 'closed', isTrainingQuestion: { $ne: true } },
+            { session },
+          ),
+        ]);
+      }
 
+      const pending = pendingTraining + pendingOther;
+      const approved = approvedTraining + approvedOther;
       const totalReviews = pending + approved || 0;
-
-      // const approvedCount = await this.QuestionCollection.countDocuments(
-      //   {status: 'closed'},
-      //   {session},
-      // );
 
       const approvalRate =
         totalReviews > 0
@@ -6109,6 +6129,10 @@ export class QuestionRepository implements IQuestionRepository {
       return {
         approved,
         pending,
+        pendingTraining,
+        pendingOther,
+        approvedTraining,
+        approvedOther,
         approvalRate,
       };
     } catch (error) {

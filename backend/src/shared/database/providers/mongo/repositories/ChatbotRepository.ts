@@ -8079,6 +8079,11 @@ export class ChatbotRepository implements IChatbotRepository {
         );
       }
 
+      
+      finalList.sort(
+        (a, b) => (b.isVerified ? 1 : 0) - (a.isVerified ? 1 : 0),
+      );
+
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
       const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
@@ -8132,8 +8137,47 @@ export class ChatbotRepository implements IChatbotRepository {
            }
          }
       ];
-      
-      const questionCountsRes = await this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray();
+
+      // Same match as the Agri count above, except we want status
+      // 'non_agri' exactly instead of excluding it — mirrors the logic
+      // used for the user-activity modal's Non Agri tab.
+      const nonAgriQuestionMatchQuery: any = {
+        ...questionMatchQuery,
+        $and: (questionMatchQuery.$and || []).filter(
+          (condition: any) => !('status' in condition),
+        ),
+        status: 'non_agri',
+      };
+
+      const nonAgriQuestionCountsPipeline = [
+         { $match: nonAgriQuestionMatchQuery },
+         {
+           $group: {
+             _id: {
+               userId: "$userId",
+               question: {
+                 $toLower: {
+                   $trim: {
+                     input: "$question",
+                   },
+                 },
+               },
+             }
+           }
+         },
+         {
+           $group: {
+             _id: "$_id.userId",
+             total: { $sum: 1 }
+           }
+         }
+      ];
+
+      const [questionCountsRes, nonAgriQuestionCountsRes] = await Promise.all([
+        this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray(),
+        this.QuestionCollection.aggregate(nonAgriQuestionCountsPipeline, { session }).toArray(),
+      ]);
+
       const questionCountMap = new Map();
       let totalQuestionsCount = 0;
       for (const res of questionCountsRes) {
@@ -8141,7 +8185,15 @@ export class ChatbotRepository implements IChatbotRepository {
         questionCountMap.set(idStr, res.total);
         totalQuestionsCount += res.total;
       }
-      
+
+      const nonAgriQuestionCountMap = new Map();
+      let totalNonAgriQuestionsCount = 0;
+      for (const res of nonAgriQuestionCountsRes) {
+        const idStr = String(res._id);
+        nonAgriQuestionCountMap.set(idStr, res.total);
+        totalNonAgriQuestionsCount += res.total;
+      }
+
       const totalQueries = totalMessagesCount + totalQuestionsCount;
 
       // Update finalList users with their specific counts
@@ -8150,6 +8202,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const qCount = questionCountMap.get(uId) || 0;
         u.totalMessagesCount = u.totalQuestions || 0;
         u.totalQuestionsCount = qCount;
+        u.totalNonAgriQuestionsCount = nonAgriQuestionCountMap.get(uId) || 0;
         u.totalQueries = u.totalMessagesCount + u.totalQuestionsCount;
       }
 
@@ -8173,6 +8226,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalQueries,
         totalMessagesCount,
         totalQuestionsCount,
+        totalNonAgriQuestionsCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);
@@ -8435,6 +8489,65 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate?: string,
     endDate?: string,
   ) {
+    return this.queryUserQuestionsByStatus(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+      'agri',
+    );
+  }
+
+  async getUserNonAgriQuestionsData(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 12,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    return this.queryUserQuestionsByStatus(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+      'non_agri',
+    );
+  }
+
+  /**
+   * Shared query behind both the Agri and Non-Agri tabs on the user-activity
+   * modal. Both tabs use identical threadId/messageId/userId matching,
+   * source and userType filtering, and date-range handling — the only
+   * difference is the status clause:
+   *  - 'agri'     -> the normal base match, which excludes status 'non_agri'
+   *  - 'non_agri' -> the same base match, but requiring status 'non_agri' exactly
+   */
+  private async queryUserQuestionsByStatus(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 12,
+    startDate: string | undefined,
+    endDate: string | undefined,
+    statusMode: 'agri' | 'non_agri',
+  ) {
     try {
       await this.initReviewSystem();
 
@@ -8486,6 +8599,15 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       const matchQuery: any = buildBaseQuestionMatch(sourceType);
+
+      if (statusMode === 'non_agri') {
+        // Same base match as the Agri tab, except we want status
+        // 'non_agri' exactly instead of excluding it.
+        matchQuery.$and = (matchQuery.$and || []).filter(
+          (condition: any) => !('status' in condition),
+        );
+        matchQuery.status = 'non_agri';
+      }
 
       if (startDate || endDate) {
   matchQuery.createdAt = {};
@@ -8669,7 +8791,9 @@ export class ChatbotRepository implements IChatbotRepository {
         items: questions,
       };
     } catch (err) {
-      throw new InternalServerError(`Failed to get question data: ${err}`);
+      throw new InternalServerError(
+        `Failed to get ${statusMode === 'non_agri' ? 'non-agri ' : ''}question data: ${err}`,
+      );
     }
   }
 
@@ -8714,8 +8838,8 @@ if (endDate) {
       ? { createdAt: dateFilter }
       : {}),
 
-            // sender: 'User',
-            // isCreatedByUser: true,
+            isCreatedByUser: true,
+            isDeleted: {$ne: true},
           },
           // ...userTypeLookupStages
         },
@@ -8866,33 +8990,43 @@ if (endDate) {
       //   ])
       //   .toArray();
 
-      const result = await this.messagesCollection
-        .aggregate([
-          ...pipeline,
+      const [result, rawCountResult] = await Promise.all([
+        this.messagesCollection
+          .aggregate([
+            ...pipeline,
 
-          {
-            $facet: {
-              metadata: [
-                {
-                  $count: 'total',
-                },
-              ],
+            {
+              $facet: {
+                metadata: [
+                  {
+                    $count: 'total',
+                  },
+                ],
 
-              data: [
-                {
-                  $skip: skip,
-                },
+                data: [
+                  {
+                    $skip: skip,
+                  },
 
-                {
-                  $limit: limit,
-                },
-              ],
+                  {
+                    $limit: limit,
+                  },
+                ],
+              },
             },
-          },
-        ])
-        .toArray();
+          ])
+          .toArray(),
+
+        // Raw count before the repeated-text dedup above, so the UI can show
+        // both the actual message count and the deduplicated one.
+        this.messagesCollection
+          .aggregate([{$match: pipeline[0].$match}, {$count: 'total'}])
+          .toArray(),
+      ]);
 
       const totalMessages = result[0]?.metadata?.[0]?.total || 0;
+
+      const totalRawMessages = rawCountResult[0]?.total || 0;
 
       const messages = result[0]?.data || [];
 
@@ -8926,9 +9060,9 @@ if (endDate) {
         delete msg.messageIds;
       });
 
-      const filteredMessages = messages.filter(
-        (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
-      );
+      // isCreatedByUser/isDeleted are already enforced in the $match stage above,
+      // so every doc here already qualifies; just strip the now-unneeded fields.
+      const filteredMessages = messages;
 
       filteredMessages.forEach((msg: any) => {
         delete msg.messageIds;
@@ -8938,6 +9072,8 @@ if (endDate) {
 
       return {
         total: totalMessages,
+
+        totalRaw: totalRawMessages,
 
         totalPages,
 

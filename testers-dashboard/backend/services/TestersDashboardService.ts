@@ -1,37 +1,36 @@
 import { injectable, inject, optional } from 'inversify';
 import fs from 'fs';
-import path from 'path';
 import { Readable } from 'stream';
-import csv from 'csv-parser';
 import { google } from 'googleapis';
 import {
     ITestersDashboardService,
+    SheetSourceInfo,
     TestersDashboardDataResponse,
     TestersDashboardRecord,
     TestersDashboardSummaryResponse,
 } from '../interfaces/ITestersDashboardService.js';
 import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
 import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
-import { isFutureTestDate } from '../testersDashboard/normalize.js';
 import { calculateKpis, calculatePreviousPeriodStats, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
-import {
-    mergeSheetSources,
-    type SheetFetchResult,
-    type SheetSourceConfig,
-} from '../testersDashboard/sheetMerge.js';
 import { DASHBOARD_TYPES } from '../types.js';
 import type { IZohoTicketStatusService } from '../interfaces/IZohoTicketStatusService.js';
-import { streamAggregateSummary } from '../testersDashboard/streamAggregator.js';
 
-// Configurable via env so this doesn't hardcode a path that only exists on one machine.
-const CSV_PATH =
-    process.env.TESTERS_DASHBOARD_CSV_PATH ||
-    path.join(process.cwd(), 'data', 'testers-dashboard', 'updated.csv');
+// Standard CSV field escaping. Exported for reuse by TesterLogService's own CSV export.
+export function escapeCsvField(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+}
 
-const SERVICE_ACCOUNT_PATH =
-    process.env.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH || '';
+const DB_COLLECTION = 'tester_test_cases';
+const DATABASE_TOKEN = Symbol.for('Database');
+
+interface DatabaseProvider {
+    getCollection<T>(name: string): Promise<any>;
+}
 
 function cleanJsonString(raw: string): string {
     let str = raw.trim();
@@ -58,86 +57,82 @@ function tryParseJson(raw: string): any {
     }
 }
 
-function getGoogleAuth(): InstanceType<typeof google.auth.GoogleAuth> | null {
-    const raw = (process.env.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH || '').trim();
-    if (!raw) {
-        console.warn('[TestersDashboard] TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH is not configured.');
-        return null;
-    }
+interface SheetSourceConfig {
+    id: string;
+    tab: string;
+    label: string;
+}
 
+function parseSheetSources(): SheetSourceConfig[] {
+    const raw = (process.env.TESTERS_DASHBOARD_SHEETS || '').trim();
+    if (!raw) return [];
+    let parsed: unknown = tryParseJson(raw);
+    if (typeof parsed === 'string') {
+        parsed = tryParseJson(parsed);
+    }
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((s): s is SheetSourceConfig => {
+        return (
+            typeof s?.id === 'string' && s.id.trim() !== '' &&
+            typeof s?.tab === 'string' && s.tab.trim() !== '' &&
+            typeof s?.label === 'string' && s.label.trim() !== ''
+        );
+    });
+}
+
+let cachedAuth: InstanceType<typeof google.auth.GoogleAuth> | null = null;
+let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+
+function getGoogleAuth(): InstanceType<typeof google.auth.GoogleAuth> | null {
+    if (cachedAuth) return cachedAuth;
+    const raw = (process.env.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH || '').trim();
+    if (!raw) return null;
     const parsed = tryParseJson(raw);
     if (parsed && typeof parsed === 'object') {
         const credentials = parsed as Record<string, any>;
         if (credentials.client_email || credentials.private_key || credentials.type === 'service_account') {
             try {
-                return new google.auth.GoogleAuth({
+                cachedAuth = new google.auth.GoogleAuth({
                     credentials,
                     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
                 });
+                return cachedAuth;
             } catch (err: any) {
-                console.error('[TestersDashboard] Failed to initialize GoogleAuth from credentials:', err?.message || err);
+                console.error('[TestersDashboard] Failed to initialize GoogleAuth:', err?.message || err);
                 return null;
             }
         }
     }
-
     if (fs.existsSync(raw)) {
-        return new google.auth.GoogleAuth({
+        cachedAuth = new google.auth.GoogleAuth({
             keyFile: raw,
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
+        return cachedAuth;
     }
-
-    console.error(
-        `[TestersDashboard] TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH is neither valid credentials JSON/Base64 nor an existing file on disk. Length: ${raw.length}, Preview: ${raw.substring(0, 30)}...`,
-    );
     return null;
 }
 
-function parseSheetSources(): SheetSourceConfig[] {
-    const raw = (process.env.TESTERS_DASHBOARD_SHEETS || '').trim();
-    if (!raw) {
-        console.warn('[TestersDashboard] TESTERS_DASHBOARD_SHEETS is not configured.');
-        return [];
+async function getValidAccessToken(): Promise<string | null> {
+    const now = Date.now();
+    if (cachedAccessToken && cachedAccessToken.expiresAt > now + 60 * 1000) {
+        return cachedAccessToken.token;
     }
-
-    let parsed: unknown = tryParseJson(raw);
-    if (typeof parsed === 'string') {
-        parsed = tryParseJson(parsed);
-    }
-
-    if (!Array.isArray(parsed)) {
-        console.error(
-            `[TestersDashboard] TESTERS_DASHBOARD_SHEETS could not be parsed as a JSON array. Length: ${raw.length}, Preview: ${raw.substring(0, 40)}...`,
-        );
-        return [];
-    }
-
-    return parsed.filter((s): s is SheetSourceConfig => {
-        const valid =
-            typeof s?.id === 'string' && s.id.trim() !== '' &&
-            typeof s?.tab === 'string' && s.tab.trim() !== '' &&
-            typeof s?.label === 'string' && s.label.trim() !== '';
-        if (!valid) {
-            console.error('[TestersDashboard] Skipping malformed entry in TESTERS_DASHBOARD_SHEETS (needs id/tab/label):', s);
+    const auth = getGoogleAuth();
+    if (!auth) return null;
+    try {
+        const client = await auth.getClient();
+        const tokenResponse = await client.getAccessToken();
+        const token = tokenResponse.token || null;
+        if (token) {
+            // Google tokens expire in ~1 hour (3600 seconds); refresh after 50 minutes
+            cachedAccessToken = { token, expiresAt: now + 50 * 60 * 1000 };
         }
-        return valid;
-    });
-}
-
-// Standard CSV field escaping. Exported for reuse by TesterLogService's own CSV export.
-export function escapeCsvField(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-        return `"${value.replace(/"/g, '""')}"`;
+        return token;
+    } catch (err: any) {
+        console.error('[TestersDashboard] Error obtaining Google access token:', err?.message || err);
+        return null;
     }
-    return value;
-}
-
-const DB_COLLECTION = 'tester_test_cases';
-const DATABASE_TOKEN = Symbol.for('Database');
-
-interface DatabaseProvider {
-    getCollection<T>(name: string): Promise<any>;
 }
 
 export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
@@ -225,69 +220,19 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
 
 @injectable()
 export class TestersDashboardService implements ITestersDashboardService {
-    private cachedRecords: TestersDashboardRecord[] | null = null;
     private cachedDbRecords: TestersDashboardRecord[] | null = null;
     private cachedDbRecordsTimestamp: number = 0;
     private cachedDbLastSyncedAt: string | null = null;
-    private lastSyncError: string | null = null;
     private readonly DB_CACHE_TTL_MS = 30 * 1000; // 30 seconds
-    private summaryCache: Map<string, { mtimeMs: number; response: TestersDashboardSummaryResponse }> = new Map();
 
     constructor(
         @optional()
         @inject(DATABASE_TOKEN)
         private readonly db?: DatabaseProvider,
-        // Optional so every existing `new TestersDashboardService()`/
-        // `new TestersDashboardService(db)` call (tests included) keeps
-        // working unchanged - when absent, the ticket card's Zoho-sourced
-        // openTickets/allTickets just come back empty (see getSummary
-        // below) rather than throwing.
-        // Optional for backward compatibility with existing call sites; when absent, the
-        // ticket card's Zoho-sourced openTickets/allTickets just come back empty (see
-        // getSummary below) rather than throwing.
         @optional()
         @inject(DASHBOARD_TYPES.ZohoTicketStatusService)
         private readonly zohoTicketStatusService?: IZohoTicketStatusService,
     ) { }
-
-    private parseCSV(filePath: string): Promise<TestersDashboardRecord[]> {
-        return new Promise((resolve, reject) => {
-            let fileContent: string;
-            try {
-                fileContent = fs.readFileSync(filePath, 'utf8');
-            } catch (err) {
-                return reject(err);
-            }
-
-            // The real header row starts with "Test ID," further down the
-            // file, past some boilerplate rows.
-            const headerIndex = fileContent.indexOf('Test ID,');
-            if (headerIndex !== -1) {
-                fileContent = fileContent.substring(headerIndex);
-            }
-
-            const results: TestersDashboardRecord[] = [];
-            Readable.from([fileContent])
-                .pipe(csv())
-                .on('data', (data: TestersDashboardRecord) => {
-                    const testId = data['Test ID'] ? data['Test ID'].trim() : '';
-                    if (
-                        testId &&
-                        !testId.startsWith('Project:') &&
-                        !testId.startsWith('Test ID') &&
-                        // Future-dated rows (Test Date after today, IST) are dropped before any
-                        // filter/calculation sees them - these are data-entry mistakes, not real
-                        // results. Unparseable dates are kept (isFutureTestDate only returns true
-                        // for a row that parses AND is in the future).
-                        !isFutureTestDate(data['Test Date'])
-                    ) {
-                        results.push(data);
-                    }
-                })
-                .on('end', () => resolve(results))
-                .on('error', reject);
-        });
-    }
 
     private async getDbRecords(): Promise<{ records: TestersDashboardRecord[]; lastSyncedAt: string | null }> {
         const now = Date.now();
@@ -340,67 +285,17 @@ export class TestersDashboardService implements ITestersDashboardService {
             };
         }
 
-        if (!fs.existsSync(CSV_PATH)) {
-            const sources = parseSheetSources();
-            const auth = getGoogleAuth();
-            if (sources.length > 0 && auth) {
-                console.log('[TestersDashboard] CSV missing on request - attempting initial sheet sync...');
-                await this.syncFromSheet();
-            }
-        }
-
-        if (!fs.existsSync(CSV_PATH)) {
-            return {
-                success: false,
-                totalRecords: 0,
-                records: [],
-                lastSyncedAt: null,
-                error: this.lastSyncError || 'CSV source file not found on disk and Google Sheet sync failed or is not configured.',
-            };
-        }
-
-        const records = await this.parseCSV(CSV_PATH);
-        this.cachedRecords = records;
-
-        // File's last-modified time is when the sync cron (syncFromSheet) last overwrote it -
-        // genuinely "when did we last sync," not just "when did the browser last ask."
-        const stats = fs.statSync(CSV_PATH);
-
         return {
-            success: true,
-            totalRecords: records.length,
-            records,
-            lastSyncedAt: stats.mtime.toISOString(),
+            success: false,
+            totalRecords: 0,
+            records: [],
+            lastSyncedAt: null,
+            error: 'Google Sheet data is streamed and processed client-side to ensure 0 server RAM & heap usage.',
         };
-    }
-
-    // Serves cachedRecords when populated instead of re-parsing the whole CSV on every
-    // filter change. getData() (the raw /data route) always re-reads from disk since that
-    // route's contract is "freshest possible data." Cache is invalidated in syncFromSheet().
-    private async getRecordsForSummary(): Promise<TestersDashboardRecord[]> {
-        if (this.cachedRecords) {
-            return this.cachedRecords;
-        }
-        if (!fs.existsSync(CSV_PATH)) {
-            const sources = parseSheetSources();
-            const auth = getGoogleAuth();
-            if (sources.length > 0 && auth) {
-                console.log('[TestersDashboard] CSV missing for summary - attempting initial sheet sync...');
-                await this.syncFromSheet();
-            }
-        }
-        if (!fs.existsSync(CSV_PATH)) {
-            return [];
-        }
-        const records = await this.parseCSV(CSV_PATH);
-        this.cachedRecords = records;
-        return records;
     }
 
     private buildFiltersFromQuery(query: GetTestersDashboardQuery): TestersDashboardFilters {
         return {
-            // query.dateRange is typed as plain `string` (see TestersDashboardValidators.ts),
-            // but @IsIn(...) already guarantees it's one of the valid values, so the cast is safe.
             dateRange: (query.dateRange ?? EMPTY_FILTERS.dateRange) as TestersDashboardFilters['dateRange'],
             type: query.type ?? EMPTY_FILTERS.type,
             category: query.category ?? EMPTY_FILTERS.category,
@@ -410,17 +305,13 @@ export class TestersDashboardService implements ITestersDashboardService {
             tester: query.tester ?? EMPTY_FILTERS.tester,
             status: query.status ?? EMPTY_FILTERS.status,
             severity: query.severity ?? EMPTY_FILTERS.severity,
-            // Wire format is a comma-separated string (see TestersDashboardValidators.ts),
-            // parsed into a string[] here once so every downstream consumer sees a plain array.
             dynamicSubTypes: query.dynamicSubTypes
                 ? query.dynamicSubTypes
                       .split(',')
                       .map((s) => s.trim())
                       .filter(Boolean)
                 : EMPTY_FILTERS.dynamicSubTypes,
-            // Same cast rationale as dateRange above.
             typeBranch: (query.typeBranch ?? EMPTY_FILTERS.typeBranch) as TestersDashboardFilters['typeBranch'],
-            // Same comma-separated wire format as dynamicSubTypes above.
             staticSubTypes: query.staticSubTypes
                 ? query.staticSubTypes
                       .split(',')
@@ -432,9 +323,6 @@ export class TestersDashboardService implements ITestersDashboardService {
 
     async getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse> {
         const isDb = query.source === 'db';
-
-        // Ticket card's Critical Defect Tickets / All Tickets lists come from this cache
-        // (see calculateDiagnostics's zohoTickets param) - independent of source/filters.
         const zohoTickets = this.zohoTicketStatusService?.getCachedStatuses() ?? {};
 
         if (isDb) {
@@ -473,168 +361,94 @@ export class TestersDashboardService implements ITestersDashboardService {
             };
         }
 
-        if (!fs.existsSync(CSV_PATH)) {
-            const sources = parseSheetSources();
-            const auth = getGoogleAuth();
-            if (sources.length > 0 && auth) {
-                console.log('[TestersDashboard] CSV missing for summary - attempting initial sheet sync...');
-                await this.syncFromSheet();
-            }
-        }
-
-        if (!fs.existsSync(CSV_PATH)) {
-            return {
-                success: false,
-                totalRecords: 0,
-                kpis: calculateKpis([]),
-                diagnostics: calculateDiagnostics([], zohoTickets),
-                chartData: calculateChartData([]),
-                previousPeriodStats: null,
-                filterOptions: buildFilterOptions([]),
-                lastSyncedAt: null,
-                channelStats: calculateChannelStats([]),
-                languageStats: calculateLanguageStats([]),
-                error: this.lastSyncError || 'CSV source file not found on disk and Google Sheet sync failed or is not configured.',
-            };
-        }
-
-        const stats = fs.statSync(CSV_PATH);
-        const cacheKey = JSON.stringify({
-            ...query,
-            zohoKeys: Object.keys(zohoTickets).length,
-        });
-        const cached = this.summaryCache.get(cacheKey);
-        if (cached && cached.mtimeMs === stats.mtimeMs) {
-            return cached.response;
-        }
-
-        const filters = this.buildFiltersFromQuery(query);
-        const excludeFailures = query.excludeFailures === 'true';
-
-        const response = await streamAggregateSummary(
-            CSV_PATH,
-            filters,
-            excludeFailures,
-            query.customStart,
-            query.customEnd,
-            zohoTickets,
-        );
-
-        this.summaryCache.set(cacheKey, { mtimeMs: stats.mtimeMs, response });
-        if (this.summaryCache.size > 50) {
-            const firstKey = this.summaryCache.keys().next().value;
-            if (firstKey) this.summaryCache.delete(firstKey);
-        }
-
-        return response;
+        return {
+            success: false,
+            needClientData: true,
+            message: 'Google Sheet analytics is processed directly in the client browser with 0 server memory.',
+            totalRecords: 0,
+            kpis: calculateKpis([]),
+            diagnostics: calculateDiagnostics([], zohoTickets),
+            chartData: calculateChartData([]),
+            previousPeriodStats: null,
+            filterOptions: buildFilterOptions([]),
+            lastSyncedAt: null,
+            channelStats: calculateChannelStats([]),
+            languageStats: calculateLanguageStats([]),
+        };
     }
-
-    // Fetches one sheet's raw rows via the Sheets API. Returns null (not throws) on missing
-    // config or an empty result, so the caller can skip that source without failing the sync.
-    private async fetchSheetRows(
-        auth: InstanceType<typeof google.auth.GoogleAuth>,
-        sheetId: string,
-        sheetTab: string,
-        label: string,
-    ): Promise<string[][] | null> {
-        if (!sheetId) return null;
-
-        const sheets = google.sheets({ version: 'v4', auth });
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: sheetId,
-            range: sheetTab,
-        });
-
-        const rows = response.data.values || [];
-        if (rows.length === 0) {
-            console.warn(`[TestersDashboard] ${label} returned no rows, skipping.`);
-            return null;
-        }
-        return rows as string[][];
-    }
-
-    private activeSyncPromise: Promise<void> | null = null;
 
     async syncFromSheet(): Promise<void> {
-        if (this.activeSyncPromise) {
-            return this.activeSyncPromise;
-        }
-        this.activeSyncPromise = this.performSyncFromSheet().finally(() => {
-            this.activeSyncPromise = null;
-        });
-        return this.activeSyncPromise;
+        return Promise.resolve();
     }
 
-    private async performSyncFromSheet(): Promise<void> {
-        const auth = getGoogleAuth();
+    getSheetSources(): SheetSourceInfo[] {
         const sources = parseSheetSources();
-        if (sources.length === 0 || !auth) {
-            const msg = `[TestersDashboard] Sheet sync skipped - TESTERS_DASHBOARD_SHEETS (sources found: ${sources.length}) or TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH (valid credentials: ${Boolean(auth)}) not configured or invalid.`;
-            console.warn(msg);
-            this.lastSyncError = msg;
+        return sources.map((s, index) => ({
+            index,
+            label: s.label,
+            tab: s.tab,
+        }));
+    }
+
+    async streamSheet(index: number, res: any): Promise<void> {
+        const sources = parseSheetSources();
+        if (index < 0 || index >= sources.length) {
+            res.status(400).json({ success: false, error: `Invalid sheet index: ${index}` });
             return;
         }
 
-        console.log(`[TestersDashboard] Starting Google Sheet sync for ${sources.length} sources...`);
-        const fetchResults: SheetFetchResult[] = [];
-        const errorsOccurred: string[] = [];
+        const source = sources[index];
+        const token = await getValidAccessToken();
+        if (!token) {
+            res.status(500).json({
+                success: false,
+                error: 'Could not obtain Google Service Account access token. Verify TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH.',
+            });
+            return;
+        }
 
-        for (const source of sources) {
-            try {
-                const rawRows = await this.fetchSheetRows(auth, source.id, source.tab, source.label);
-                fetchResults.push({ label: source.label, rawRows });
-                console.log(`[TestersDashboard] Successfully fetched ${rawRows?.length || 0} rows from ${source.label}`);
-            } catch (err: any) {
-                const errDetail = err?.message || String(err);
-                console.error(
-                    `[TestersDashboard] Error fetching ${source.label} (${source.id} / ${source.tab}):`,
-                    errDetail,
-                );
-                errorsOccurred.push(`${source.label}: ${errDetail}`);
-                fetchResults.push({ label: source.label, rawRows: null });
+        const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(source.id)}/values/${encodeURIComponent(source.tab)}`;
+
+        try {
+            const googleRes = await fetch(sheetsUrl, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!googleRes.ok) {
+                const errText = await googleRes.text();
+                res.status(googleRes.status).json({
+                    success: false,
+                    error: `Google Sheets API returned ${googleRes.status}: ${errText}`,
+                });
+                return;
+            }
+
+            if (!googleRes.body) {
+                res.status(500).json({ success: false, error: 'Google Sheets API returned empty response body.' });
+                return;
+            }
+
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-cache');
+
+            await new Promise<void>((resolve, reject) => {
+                const readable = Readable.fromWeb(googleRes.body as any);
+                readable.pipe(res);
+                readable.on('error', (err) => {
+                    console.error('[TestersDashboard] Stream read error:', err);
+                    if (!res.headersSent) res.status(500).end();
+                    reject(err);
+                });
+                res.on('finish', () => resolve());
+                res.on('close', () => resolve());
+            });
+        } catch (err: any) {
+            console.error(`[TestersDashboard] Error streaming sheet ${source.label}:`, err);
+            if (!res.headersSent) {
+                res.status(500).json({ success: false, error: err?.message || 'Error streaming sheet data.' });
             }
         }
-
-        const { header, rows, merged, skipped } = mergeSheetSources(fetchResults);
-
-        for (const s of skipped) {
-            console.error(`[TestersDashboard] ${s.label}: ${s.reason} - skipped, other sheets still merged.`);
-        }
-
-        if (!header || merged.length === 0) {
-            const warnMsg = `[TestersDashboard] No configured sheet returned usable, header-matching rows. ` +
-                (errorsOccurred.length > 0 ? `Errors: ${errorsOccurred.join('; ')}` : '');
-            console.warn(warnMsg);
-            this.lastSyncError = warnMsg;
-            return;
-        }
-
-        const dir = path.dirname(CSV_PATH);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-
-        const writeStream = fs.createWriteStream(CSV_PATH, { encoding: 'utf8' });
-        writeStream.write(header.map(escapeCsvField).join(',') + '\n');
-        for (let i = 0; i < rows.length; i++) {
-            writeStream.write(rows[i].map((cell) => escapeCsvField(String(cell ?? ''))).join(',') + '\n');
-        }
-        await new Promise<void>((resolve, reject) => {
-            writeStream.end();
-            writeStream.on('finish', () => resolve());
-            writeStream.on('error', reject);
-        });
-
-        // Invalidate the cache so the next /summary request re-reads from disk instead of
-        // serving stale pre-sync data.
-        this.cachedRecords = null;
-        this.summaryCache.clear();
-        this.lastSyncError = null;
-
-        const summary = merged.map((m) => `${m.count} rows from ${m.label}`).join(' + ');
-        console.log(
-            `[TestersDashboard] Synced ${summary} into updated.csv ` +
-            `(${merged.length}/${sources.length} sheets merged successfully)`,
-        );
     }
 }

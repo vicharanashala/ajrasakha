@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -14,6 +15,12 @@ import { AdditionalMetrics } from "./AdditionalMetrics";
 import { DiagnosticsRow, type IDefectsTab, type ITeamBreakdown } from "./DiagnosticsRow";
 import { InfoPopover } from "./InfoPopover";
 import { channelDisplayLabel, UNASSIGNED_TEAM_LABEL } from "../utils";
+import {
+  parseCsvTextToRecords,
+  saveRecordsToBrowserStorage,
+  clearBrowserStorage,
+  syncAndCacheSheetsFromBackend,
+} from "../analytics/clientSheetAnalytics.js";
 
 
 const KNOWN_SEVERITIES: Record<string, string> = {
@@ -221,6 +228,57 @@ export function TestersDashboardSection({
   const [dynamicExpanded, setDynamicExpanded] = useState(false);
   const [staticExpanded, setStaticExpanded] = useState(false);
 
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      setIsUploading(true);
+      setUploadError(null);
+      const text = await file.text();
+      const records = parseCsvTextToRecords(text);
+      if (records.length === 0) {
+        setUploadError("The selected CSV file could not be parsed or contains no test records. Ensure it contains a 'Test ID' column.");
+        setIsUploading(false);
+        return;
+      }
+      await saveRecordsToBrowserStorage(records, new Date().toISOString());
+      await queryClient.invalidateQueries({ queryKey: ["testers-dashboard-summary", "sheet"] });
+      setIsUploading(false);
+    } catch (err: any) {
+      setUploadError(err?.message || "Failed to parse and store CSV file.");
+      setIsUploading(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (confirm("Are you sure you want to remove the cached QA Sheet records from this browser?")) {
+      await clearBrowserStorage();
+      await queryClient.invalidateQueries({ queryKey: ["testers-dashboard-summary", "sheet"] });
+    }
+  };
+
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncLatestData = async () => {
+    try {
+      setIsSyncing(true);
+      setUploadError(null);
+      const res = await syncAndCacheSheetsFromBackend();
+      if (!res) {
+        setUploadError("Could not automatically fetch sheets from backend. Ensure TESTERS_DASHBOARD_SHEETS and SERVICE_ACCOUNT are configured.");
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ["testers-dashboard-summary", "sheet"] });
+      }
+      setIsSyncing(false);
+    } catch (err: any) {
+      setUploadError(err?.message || "Failed to sync sheet data.");
+      setIsSyncing(false);
+    }
+  };
+
   function selectTypeBranch(branch: "Dynamic" | "Static") {
     setTypeBranch((prev) => (prev === branch ? "all" : branch));
     setDynamicSubTypes([]);
@@ -405,13 +463,97 @@ export function TestersDashboardSection({
     return <div className="p-6 text-muted-foreground">Loading {title.toLowerCase()} data...</div>;
   }
 
+  if (summaryQuery.data?.syncing) {
+    return (
+      <div className="p-12 flex flex-col items-center justify-center space-y-4 text-center border rounded-lg bg-card shadow-sm my-6">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div>
+          <h3 className="text-base font-semibold">Synchronizing Google Sheet Data...</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md">
+            The initial dataset is being fetched and prepared in the background. The dashboard will automatically update once ready.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (source === 'sheet' && (summaryQuery.data?.needClientData || !summaryQuery.data?.success)) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold">{title}</h2>
+              {sourceBadge && (
+                <span className="px-2 py-0.5 text-xs font-semibold rounded bg-primary/10 text-primary border border-primary/20">
+                  {sourceBadge}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          </div>
+        </div>
+
+        <Card className="border-dashed border-2 p-10 text-center flex flex-col items-center justify-center space-y-4 bg-muted/10 hover:bg-muted/20 transition-colors">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+            }}
+          />
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold">
+            📊
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Google Sheet QA Analytics</h3>
+            <p className="text-sm text-muted-foreground max-w-lg mt-1">
+              Data could not be automatically streamed from Google Sheets. You can retry auto-syncing directly or upload an offline CSV export.
+            </p>
+          </div>
+
+          {uploadError && (
+            <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded max-w-md">
+              {uploadError}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={handleSyncLatestData}
+              className="px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2"
+            >
+              {isSyncing ? "Syncing from Google..." : "🔄 Retry Auto-Sync"}
+            </button>
+            <button
+              type="button"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2.5 border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm font-medium rounded-md shadow-sm transition-colors cursor-pointer"
+            >
+              {isUploading ? "Processing CSV..." : "Upload CSV Manually"}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground pt-1">
+            Data is processed 100% in your browser using 0 server RAM & 0 heap memory.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   if (summaryQuery.isError || !summaryQuery.data.success) {
     const errorDetail = summaryQuery.data?.error;
     return (
       <div className="p-6 text-destructive">
         <p className="font-semibold">Failed to load {title.toLowerCase()} data.</p>
         <p className="text-sm mt-1 text-muted-foreground">
-          {errorDetail || (source === 'sheet' ? 'Check that the backend CSV source is configured.' : 'Check database connectivity.')}
+          {errorDetail || (source === 'sheet' ? 'Check that the client CSV source is loaded.' : 'Check database connectivity.')}
         </p>
       </div>
     );
@@ -653,6 +795,47 @@ export function TestersDashboardSection({
             <span className="text-muted-foreground">
               Last synced: {formatLastUpdated(summaryQuery.data.lastSyncedAt ?? null)}
             </span>
+            {source === 'sheet' && (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={isSyncing}
+                  onClick={handleSyncLatestData}
+                  className="text-xs text-primary hover:underline font-medium cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                  title="Stream freshest live data directly from Google Sheets (0 server RAM used)"
+                >
+                  {isSyncing ? "Syncing..." : "🔄 Sync Live Data"}
+                </button>
+                <span className="text-xs text-muted-foreground">•</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                  title="Upload an updated QA CSV export manually"
+                >
+                  Upload CSV
+                </button>
+                <span className="text-xs text-muted-foreground">•</span>
+                <button
+                  type="button"
+                  onClick={handleClearCache}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                  title="Clear locally cached CSV data"
+                >
+                  Clear Cache
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

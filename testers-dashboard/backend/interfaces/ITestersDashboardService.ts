@@ -17,6 +17,9 @@ export interface TestersDashboardDataResponse {
 
 export interface TestersDashboardSummaryResponse {
     success: boolean;
+    syncing?: boolean;
+    needClientData?: boolean;
+    message?: string;
     totalRecords: number;
     kpis: KpiSummary;
     diagnostics: DiagnosticsResult;
@@ -30,6 +33,12 @@ export interface TestersDashboardSummaryResponse {
     channelStats: ChannelPerformanceStat[];
     languageStats: LanguagePerformanceStat[];
     error?: string;
+}
+
+export interface SheetSourceInfo {
+    index: number;
+    label: string;
+    tab: string;
 }
 
 export interface ITestersDashboardService {
@@ -48,8 +57,18 @@ export interface ITestersDashboardService {
     getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse>;
 
     /**
-     * Fetches the latest data from the live Google Sheet and overwrites
-     * updated.csv with it, so getData() picks up fresh data on next call.
+     * No-op on server to ensure 0 server RAM & heap usage.
      */
     syncFromSheet(): Promise<void>;
+
+    /**
+     * Returns the list of configured Google Sheet sources (index, label, tab).
+     */
+    getSheetSources(): SheetSourceInfo[];
+
+    /**
+     * Zero-buffer streaming pipe: connects Google Sheets API response stream directly
+     * to the Express client response socket, using ~16 KB transient buffer and 0 disk/heap.
+     */
+    streamSheet(index: number, res: any): Promise<void>;
 }
