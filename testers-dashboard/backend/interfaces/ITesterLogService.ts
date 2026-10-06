@@ -380,6 +380,8 @@ export interface ITesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries>;
 
     getAllEntries(
@@ -393,6 +395,8 @@ export interface ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries>;
 
     getTesterOptions(): Promise<TesterOption[]>;

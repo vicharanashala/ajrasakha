@@ -203,6 +203,16 @@ export class GetTesterLogQuery {
     @IsString()
     @IsOptional()
     defectSeverity?: string;
+
+    @JSONSchema({ description: 'Free-text search across thread ID, query text, test ID, defect ID, etc.' })
+    @IsString()
+    @IsOptional()
+    search?: string;
+
+    @JSONSchema({ description: 'Status filter: all, pass, fail, partial, defects' })
+    @IsString()
+    @IsOptional()
+    status?: string;
 }
 
 export class CreateZohoTicketDto {

@@ -1,5 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { ObjectId } from 'mongodb';
+import { BadRequestError } from 'routing-controllers';
 import * as XLSX from 'xlsx';
 import {
     ITesterLogService,
@@ -202,6 +203,100 @@ function computeHmsDiff(start?: string, end?: string, defaultDate?: string): str
     const mm = String(m).padStart(2, '0');
     const ss = String(sec).padStart(2, '0');
     return `${hh}:${mm}:${ss}`;
+}
+
+export function parseEpochMs(str?: string, defaultDate?: string): number | null {
+    if (!str || !str.trim()) return null;
+    const s = str.trim();
+
+    let fullStr: string | null = null;
+    if (s.includes('-') || s.includes('/')) {
+        fullStr = s.includes('T') ? s : s.replace(' ', 'T');
+    } else {
+        const parts = s.split(':').map(Number);
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            const dateStr = defaultDate?.trim();
+            if (dateStr && (dateStr.includes('-') || dateStr.includes('/'))) {
+                const timeStr = `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}:${String(parts[2] || 0).padStart(2, '0')}`;
+                fullStr = `${dateStr}T${timeStr}`;
+            }
+        }
+    }
+
+    if (!fullStr) return null;
+
+    const hasTz = /([zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(fullStr);
+    const withTz = hasTz ? fullStr : `${fullStr}+05:30`;
+    const parsed = Date.parse(withTz);
+    return isNaN(parsed) ? null : parsed;
+}
+
+export function validateNotFuture(
+    time?: string,
+    label: string = 'Time',
+    defaultDate?: string,
+    nowMs: number = Date.now(),
+    graceMs: number = 5 * 60 * 1000,
+): void {
+    if (!time || !time.trim()) return;
+    const ms = parseEpochMs(time, defaultDate);
+    if (ms !== null && ms > nowMs + graceMs) {
+        throw new BadRequestError(`${label} cannot be in the future`);
+    }
+}
+
+export function validateTestDateNotFuture(testDate?: string, now: Date = new Date()): void {
+    if (!testDate || !testDate.trim()) return;
+    const todayIST = getTodayIST(now);
+    if (testDate.trim() > todayIST) {
+        throw new BadRequestError('Test date cannot be in the future');
+    }
+}
+
+export function validateTimingPair(
+    start?: string,
+    end?: string,
+    startLabel: string = 'Time Question Asked',
+    endLabel: string = 'Time Answer Received',
+    defaultDate?: string,
+): void {
+    if (!start || !end) return;
+    const sMs = parseToMs(start, defaultDate);
+    const eMs = parseToMs(end, defaultDate);
+    if (sMs !== null && eMs !== null && eMs < sMs) {
+        throw new BadRequestError(`${endLabel} cannot be earlier than ${startLabel}`);
+    }
+}
+
+export function validateAllTimingPairs(e: Partial<TesterLogEntry>, testDate?: string, nowMs: number = Date.now()): void {
+    validateNotFuture(e.timeQuestionAsked, 'Time Question Asked', testDate, nowMs);
+    validateNotFuture(e.timeAnswerReceived, 'Time Answer Received', testDate, nowMs);
+    validateNotFuture(e.waTimeQuestionAsked, 'WhatsApp Time Asked', testDate, nowMs);
+    validateNotFuture(e.waTimeAnswerReceived, 'WhatsApp Time Received', testDate, nowMs);
+    validateNotFuture(e.authorAssignmentTime, 'Author Assignment Time', testDate, nowMs);
+    validateNotFuture(e.authorCompletionTime, 'Author Completion Time', testDate, nowMs);
+    validateNotFuture(e.reviewer1AssignmentTime, 'Reviewer 1 Assignment Time', testDate, nowMs);
+    validateNotFuture(e.reviewer1CompletionTime, 'Reviewer 1 Completion Time', testDate, nowMs);
+    validateNotFuture(e.reviewer2AssignmentTime, 'Reviewer 2 Assignment Time', testDate, nowMs);
+    validateNotFuture(e.reviewer2CompletionTime, 'Reviewer 2 Completion Time', testDate, nowMs);
+    validateNotFuture(e.reviewer3AssignmentTime, 'Reviewer 3 Assignment Time', testDate, nowMs);
+    validateNotFuture(e.reviewer3CompletionTime, 'Reviewer 3 Completion Time', testDate, nowMs);
+    validateNotFuture(e.reviewer4AssignmentTime, 'Reviewer 4 Assignment Time', testDate, nowMs);
+    validateNotFuture(e.reviewer4CompletionTime, 'Reviewer 4 Completion Time', testDate, nowMs);
+    validateNotFuture(e.reviewer5AssignmentTime, 'Reviewer 5 Assignment Time', testDate, nowMs);
+    validateNotFuture(e.reviewer5CompletionTime, 'Reviewer 5 Completion Time', testDate, nowMs);
+    validateNotFuture(e.moderatorAssignmentTime, 'Moderator Assignment Time', testDate, nowMs);
+    validateNotFuture(e.moderatorCompletionTime, 'Moderator Completion Time', testDate, nowMs);
+
+    validateTimingPair(e.timeQuestionAsked, e.timeAnswerReceived, 'Time Question Asked', 'Time Answer Received', testDate);
+    validateTimingPair(e.waTimeQuestionAsked, e.waTimeAnswerReceived, 'WhatsApp Time Asked', 'WhatsApp Time Received', testDate);
+    validateTimingPair(e.authorAssignmentTime, e.authorCompletionTime, 'Author Assignment Time', 'Author Completion Time', testDate);
+    validateTimingPair(e.reviewer1AssignmentTime, e.reviewer1CompletionTime, 'Reviewer 1 Assignment Time', 'Reviewer 1 Completion Time', testDate);
+    validateTimingPair(e.reviewer2AssignmentTime, e.reviewer2CompletionTime, 'Reviewer 2 Assignment Time', 'Reviewer 2 Completion Time', testDate);
+    validateTimingPair(e.reviewer3AssignmentTime, e.reviewer3CompletionTime, 'Reviewer 3 Assignment Time', 'Reviewer 3 Completion Time', testDate);
+    validateTimingPair(e.reviewer4AssignmentTime, e.reviewer4CompletionTime, 'Reviewer 4 Assignment Time', 'Reviewer 4 Completion Time', testDate);
+    validateTimingPair(e.reviewer5AssignmentTime, e.reviewer5CompletionTime, 'Reviewer 5 Assignment Time', 'Reviewer 5 Completion Time', testDate);
+    validateTimingPair(e.moderatorAssignmentTime, e.moderatorCompletionTime, 'Moderator Assignment Time', 'Moderator Completion Time', testDate);
 }
 
 // The [Auto] duration fields - computed here from their start/end pair
@@ -487,7 +582,12 @@ export class TesterLogService implements ITesterLogService {
         body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt' | 'testDate'> & { testDate?: string },
     ): Promise<CreateTesterLogEntryResponse> {
         const now = new Date();
-        const testDate = getTodayIST(now);
+        const todayIST = getTodayIST(now);
+        const testDate = body.testDate?.trim() || todayIST;
+        validateTestDateNotFuture(testDate, now);
+
+        // Reject inverted or future timestamps
+        validateAllTimingPairs(body, testDate, now.getTime());
 
         let testId = body.testId?.trim();
         if (!testId) {
@@ -547,6 +647,9 @@ export class TesterLogService implements ITesterLogService {
             if (body[key] !== undefined) (changes as any)[key] = body[key];
         }
         const merged = { ...before, ...changes };
+        validateTestDateNotFuture(merged.testDate);
+        validateAllTimingPairs(merged, merged.testDate);
+
         const $set: Partial<TesterLogEntry> = {
             ...changes,
             ...computeDurations(merged, merged.testDate),
@@ -597,14 +700,23 @@ export class TesterLogService implements ITesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries> {
         await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
-        const filter: Record<string, any> = { submittedByUserId: userId };
-        const dateFilter = buildDateFilter(startDate, endDate, dateField);
-        if (dateFilter) {
-            Object.assign(filter, dateFilter);
-        }
+        const filter = this.buildEntryFilter(
+            userId,
+            startDate,
+            endDate,
+            dateField,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            search,
+            status,
+        );
 
         const [entries, total] = await Promise.all([
             collection
@@ -626,10 +738,8 @@ export class TesterLogService implements ITesterLogService {
         };
     }
 
-    // Shared by getAllEntries/getSummary/exportEntries - equality match on
-    // each of the 4 dropdown-backed fields (typed selections in the tester
-    // form, not free text, so exact match is correct here - no sheet-style
-    // normalization needed) plus the existing testerId/date filtering.
+    // Shared by getMyEntries/getAllEntries/getSummary/exportEntries - equality match on
+    // each of the 4 dropdown-backed fields plus date filtering, free-text search, and status.
     private buildEntryFilter(
         testerId?: string,
         startDate?: string,
@@ -639,6 +749,8 @@ export class TesterLogService implements ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        search?: string,
+        status?: string,
     ): Record<string, any> {
         const filter: Record<string, any> = testerId ? { submittedByUserId: testerId } : {};
         const dateFilter = buildDateFilter(startDate, endDate, dateField);
@@ -649,6 +761,56 @@ export class TesterLogService implements ITesterLogService {
         if (channelTested) filter.channelTested = channelTested;
         if (overallTestStatus) filter.overallTestStatus = overallTestStatus;
         if (defectSeverity) filter.defectSeverity = defectSeverity;
+
+        const extraConditions: any[] = [];
+        if (status && status !== 'all') {
+            const s = status.trim().toLowerCase();
+            if (s === 'pass') {
+                extraConditions.push({
+                    $or: [
+                        { overallTestStatus: { $regex: /^pass$/i } },
+                        { overallTestStatus: { $regex: /^expected output$/i } },
+                    ],
+                });
+            } else if (s === 'fail') {
+                extraConditions.push({
+                    $or: [
+                        { overallTestStatus: { $regex: /^fail$/i } },
+                        { overallTestStatus: { $regex: /anomaly/i } },
+                    ],
+                });
+            } else if (s === 'partial') {
+                extraConditions.push({ overallTestStatus: { $regex: /^partial$/i } });
+            } else if (s === 'defects') {
+                extraConditions.push({
+                    $or: [
+                        { defectSeverity: { $nin: [null, '', 'NA', 'na', 'nil', 'Nil', 'no defect', 'none', 'None'] } },
+                        { defectIdBugRef: { $nin: [null, '', 'NA', 'na', 'nil', 'Nil', 'none', 'None'] } },
+                    ],
+                });
+            }
+        }
+
+        if (search && search.trim()) {
+            const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const sRegex = new RegExp(escaped, 'i');
+            extraConditions.push({
+                $or: [
+                    { queryText: sRegex },
+                    { threadId: sRegex },
+                    { webThreadId: sRegex },
+                    { waThreadId: sRegex },
+                    { testId: sRegex },
+                    { typeOfQuestion: sRegex },
+                    { defectIdBugRef: sRegex },
+                ],
+            });
+        }
+
+        if (extraConditions.length > 0) {
+            filter.$and = extraConditions;
+        }
+
         return filter;
     }
 
@@ -663,12 +825,22 @@ export class TesterLogService implements ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries> {
         await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const filter = this.buildEntryFilter(
-            testerId, startDate, endDate, dateField,
-            typeOfQuestion, channelTested, overallTestStatus, defectSeverity,
+            testerId,
+            startDate,
+            endDate,
+            dateField,
+            typeOfQuestion,
+            channelTested,
+            overallTestStatus,
+            defectSeverity,
+            search,
+            status,
         );
 
         const [entries, total] = await Promise.all([
@@ -970,11 +1142,22 @@ export class TesterLogService implements ITesterLogService {
                 otherStatus++;
             }
 
-            const sla = (entry.slaStatus || '').trim().toLowerCase();
-            if (sla === 'met' || sla === 'within sla' || sla === 'pass') {
-                slaMet++;
-            } else if (sla === 'breached' || sla === 'fail') {
-                slaBreached++;
+            const checkSla = (statusStr?: string) => {
+                const s = (statusStr || '').trim().toLowerCase();
+                if (s === 'met' || s === 'within sla' || s === 'pass' || s.includes('within')) {
+                    slaMet++;
+                } else if (s === 'breached' || s === 'fail' || s.includes('breach')) {
+                    slaBreached++;
+                }
+            };
+
+            const chSla = (entry.channelTested || '').trim().toLowerCase();
+            const isBothSla = chSla.includes('both') || chSla.includes('cross');
+            if (isBothSla) {
+                checkSla(entry.slaStatus);
+                checkSla(entry.waSlaStatus);
+            } else {
+                checkSla(entry.slaStatus || entry.waSlaStatus);
             }
 
             if (entry.responseTimeMins) {
@@ -1047,12 +1230,15 @@ export class TesterLogService implements ITesterLogService {
                 sciIncorrect++;
             }
 
+            const isSaved = (v: string) => v === 'saved' || v === 'yes';
+            const isNotSaved = (v: string) => v === 'not saved' || v === 'no' || v === 'partial save';
+
             const qSaved = (entry.questionSavedInDb || '').trim().toLowerCase();
             const aSaved = (entry.answerSavedInDb || '').trim().toLowerCase();
-            if (qSaved === 'yes' || aSaved === 'yes') {
-                dbSaved++;
-            } else if (qSaved === 'no' || aSaved === 'no') {
+            if (isNotSaved(qSaved) || isNotSaved(aSaved)) {
                 dbNotSaved++;
+            } else if (isSaved(qSaved) || isSaved(aSaved)) {
+                dbSaved++;
             }
 
             const vIn = (entry.voiceInputWorking || '').trim().toLowerCase();

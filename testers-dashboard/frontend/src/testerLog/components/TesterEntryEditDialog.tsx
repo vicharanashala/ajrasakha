@@ -1,5 +1,6 @@
 import { Fragment, useState, type FormEvent } from "react";
 import { CalendarDays, Hash, Loader2, StickyNote, User } from "lucide-react";
+import { toast } from "sonner";
 import {
     Dialog,
     DialogContent,
@@ -45,6 +46,7 @@ import {
     type IEntryDetailField,
 } from "../entryDetailFields";
 import { formatDateTimeIST } from "../utils/formatIST";
+import { isTimeEarlier, isTimeInFuture, getLocalDatetimeMax } from "../utils/timingUtils";
 import { useUpdateTesterLogEntry } from "../hooks/useTesterLogAdminActions";
 import { CrossPlatformComparison, EntryDetailSection } from "./CrossPlatformComparison";
 
@@ -173,12 +175,12 @@ function FieldInput({ fieldKey, isDateTime, value, disabled, onChange }: {
     }
     if (fieldKey === "testDate") {
         return (
-            <input id={id} type="date" required className={INPUT_CLASS} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+            <input id={id} type="date" required max={new Date().toISOString().slice(0, 10)} className={INPUT_CLASS} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
         );
     }
     if (isDateTime && (!value || DATETIME_LOCAL_RE.test(value))) {
         return (
-            <input id={id} type="datetime-local" step="1" className={INPUT_CLASS} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+            <input id={id} type="datetime-local" step="1" max={getLocalDatetimeMax()} className={INPUT_CLASS} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
         );
     }
     if (TEXTAREA_KEYS.has(fieldKey)) {
@@ -284,6 +286,94 @@ function EditForm({ entry, onDone, mutation }: {
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
         if (!entry._id || !hasChanges) return;
+
+        const effectiveDate = values.testDate || entry.testDate;
+        if (effectiveDate && effectiveDate > new Date().toISOString().slice(0, 10)) {
+            toast.error("Test Date cannot be in the future");
+            return;
+        }
+
+        const asked = values.timeQuestionAsked !== undefined ? values.timeQuestionAsked : entry.timeQuestionAsked;
+        const answered = values.timeAnswerReceived !== undefined ? values.timeAnswerReceived : entry.timeAnswerReceived;
+        if (isTimeInFuture(asked, effectiveDate)) {
+            toast.error("Time Question Asked cannot be in the future");
+            return;
+        }
+        if (isTimeInFuture(answered, effectiveDate)) {
+            toast.error("Time Answer Received cannot be in the future");
+            return;
+        }
+        if (isTimeEarlier(answered, asked, effectiveDate)) {
+            toast.error("Time Answer Received cannot be earlier than Time Question Asked");
+            return;
+        }
+
+        if (isCross) {
+            const waAsked = values.waTimeQuestionAsked !== undefined ? values.waTimeQuestionAsked : entry.waTimeQuestionAsked;
+            const waAnswered = values.waTimeAnswerReceived !== undefined ? values.waTimeAnswerReceived : entry.waTimeAnswerReceived;
+            if (isTimeInFuture(waAsked, effectiveDate)) {
+                toast.error("WhatsApp Time Question Asked cannot be in the future");
+                return;
+            }
+            if (isTimeInFuture(waAnswered, effectiveDate)) {
+                toast.error("WhatsApp Time Answer Received cannot be in the future");
+                return;
+            }
+            if (isTimeEarlier(waAnswered, waAsked, effectiveDate)) {
+                toast.error("WhatsApp Time Answer Received cannot be earlier than WhatsApp Time Asked");
+                return;
+            }
+        }
+
+        const authorAssigned = values.authorAssignmentTime !== undefined ? values.authorAssignmentTime : entry.authorAssignmentTime;
+        const authorCompleted = values.authorCompletionTime !== undefined ? values.authorCompletionTime : entry.authorCompletionTime;
+        if (isTimeInFuture(authorAssigned, effectiveDate)) {
+            toast.error("Author Assignment Time cannot be in the future");
+            return;
+        }
+        if (isTimeInFuture(authorCompleted, effectiveDate)) {
+            toast.error("Author Completion Time cannot be in the future");
+            return;
+        }
+        if (isTimeEarlier(authorCompleted, authorAssigned, effectiveDate)) {
+            toast.error("Author Completion Time cannot be earlier than Author Assignment Time");
+            return;
+        }
+
+        for (let i = 1; i <= 5; i++) {
+            const aKey = `reviewer${i}AssignmentTime` as EntryKey;
+            const cKey = `reviewer${i}CompletionTime` as EntryKey;
+            const rAssigned = (values[aKey] !== undefined ? values[aKey] : entry[aKey]) as string | undefined;
+            const rCompleted = (values[cKey] !== undefined ? values[cKey] : entry[cKey]) as string | undefined;
+            if (isTimeInFuture(rAssigned, effectiveDate)) {
+                toast.error(`Reviewer ${i} Assignment Time cannot be in the future`);
+                return;
+            }
+            if (isTimeInFuture(rCompleted, effectiveDate)) {
+                toast.error(`Reviewer ${i} Completion Time cannot be in the future`);
+                return;
+            }
+            if (isTimeEarlier(rCompleted, rAssigned, effectiveDate)) {
+                toast.error(`Reviewer ${i} Completion Time cannot be earlier than Assignment Time`);
+                return;
+            }
+        }
+
+        const modAssigned = values.moderatorAssignmentTime !== undefined ? values.moderatorAssignmentTime : entry.moderatorAssignmentTime;
+        const modCompleted = values.moderatorCompletionTime !== undefined ? values.moderatorCompletionTime : entry.moderatorCompletionTime;
+        if (isTimeInFuture(modAssigned, effectiveDate)) {
+            toast.error("Moderator Assignment Time cannot be in the future");
+            return;
+        }
+        if (isTimeInFuture(modCompleted, effectiveDate)) {
+            toast.error("Moderator Completion Time cannot be in the future");
+            return;
+        }
+        if (isTimeEarlier(modCompleted, modAssigned, effectiveDate)) {
+            toast.error("Moderator Completion Time cannot be earlier than Assignment Time");
+            return;
+        }
+
         mutate({ id: entry._id, changes }, { onSuccess: onDone });
     }
 

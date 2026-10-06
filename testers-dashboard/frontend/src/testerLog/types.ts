@@ -151,6 +151,8 @@ export interface ITesterLogAdminFilters {
     channelTested?: string;
     overallTestStatus?: string;
     defectSeverity?: string;
+    search?: string;
+    status?: string;
 }
 
 export interface ICreateTesterLogEntryResponse {

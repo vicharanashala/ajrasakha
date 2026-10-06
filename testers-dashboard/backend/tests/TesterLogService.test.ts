@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as XLSX from 'xlsx';
-import { TesterLogService, incrementTestId } from '../services/TesterLogService.js';
+import { TesterLogService, incrementTestId, validateNotFuture, validateTestDateNotFuture, parseEpochMs } from '../services/TesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
 
 describe('TesterLogService date filtering', () => {
@@ -116,6 +116,27 @@ describe('TesterLogService date filtering', () => {
 
         expect(mockFind).toHaveBeenCalledWith(expectedFilter);
         expect(mockCountDocuments).toHaveBeenCalledWith(expectedFilter);
+    });
+
+    it('applies free-text search across multiple fields in getMyEntries', async () => {
+        await service.getMyEntries('user-1', 1, 20, undefined, undefined, undefined, 'tl-0054');
+
+        const callArg = mockFind.mock.calls[mockFind.mock.calls.length - 1][0];
+        expect(callArg.submittedByUserId).toBe('user-1');
+        expect(callArg.$and).toBeDefined();
+        const searchCondition = callArg.$and[0];
+        expect(searchCondition.$or).toBeDefined();
+        expect(searchCondition.$or.length).toBe(7); // queryText, threadId, webThreadId, waThreadId, testId, typeOfQuestion, defectIdBugRef
+    });
+
+    it('applies status filter in getMyEntries', async () => {
+        await service.getMyEntries('user-1', 1, 20, undefined, undefined, undefined, undefined, 'fail');
+
+        const callArg = mockFind.mock.calls[mockFind.mock.calls.length - 1][0];
+        expect(callArg.submittedByUserId).toBe('user-1');
+        expect(callArg.$and).toBeDefined();
+        const statusCondition = callArg.$and[0];
+        expect(statusCondition.$or).toBeDefined(); // Fail or Anomaly
     });
 
     it('applies date filter in getAllEntries as well', async () => {
@@ -745,6 +766,9 @@ describe('TesterLogService date filtering', () => {
         expect(summary.byChannel['WhatsApp']).toBe(2);
         expect(summary.byLanguage['Hindi']).toBe(2);
         expect(summary.dailyStats.length).toBe(2);
+        expect(summary.dbPersistence.saved).toBe(2);
+        expect(summary.dbPersistence.notSaved).toBe(1);
+        expect(summary.dbPersistence.rate).toBe(66.7);
 
         // Target vs. Achieved assertions
         expect(summary.targetVsAchieved).toBeDefined();
@@ -754,6 +778,89 @@ describe('TesterLogService date filtering', () => {
         expect(summary.targetVsAchieved.total.targetWebApp).toBe(54); // 27 * 2 days
         expect(summary.targetVsAchieved.total.targetWhatsApp).toBe(54); // 27 * 2 days
         expect(summary.targetVsAchieved.total.achievedTotal).toBe(3);
+    });
+
+    it('computes dbPersistence correctly with form dropdown values ("Saved", "Not Saved", "Partial Save")', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Saved',
+                answerSavedInDb: 'Saved',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Saved',
+                answerSavedInDb: 'Not Saved',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Partial Save',
+                answerSavedInDb: 'Saved',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Saved',
+                answerSavedInDb: 'NA',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Fail',
+                questionSavedInDb: 'Not Saved',
+                answerSavedInDb: 'Not Saved',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-05', '2026-10-05');
+
+        expect(summary.success).toBe(true);
+        expect(summary.dbPersistence.saved).toBe(2);
+        expect(summary.dbPersistence.notSaved).toBe(3);
+        expect(summary.dbPersistence.rate).toBe(40.0);
+    });
+
+    it('computes SLA status correctly with dropdown values ("Within SLA", "SLA Breached") and cross-platform', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WhatsApp',
+                slaStatus: 'SLA Breached',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'Web',
+                slaStatus: 'Within SLA',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'Both',
+                slaStatus: 'Within SLA',
+                waSlaStatus: 'SLA Breached',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WhatsApp',
+                slaStatus: 'Not Applicable',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-05', '2026-10-05');
+
+        expect(summary.success).toBe(true);
+        // Entry 1: 1 breached
+        // Entry 2: 1 met
+        // Entry 3 (Both): 1 met + 1 breached
+        // Entry 4: Not Applicable (ignored)
+        expect(summary.slaMet).toBe(2);
+        expect(summary.slaBreached).toBe(2);
+        expect(summary.slaMetRate).toBe(50.0);
     });
 
     it('computes both Web App and WhatsApp response times in createEntry for cross-platform tests', async () => {
@@ -775,6 +882,122 @@ describe('TesterLogService date filtering', () => {
         expect(result.entry.responseTimeMins).toBe('00:00:15');
         expect(result.entry.waResponseTimeMins).toBe('00:00:45');
         expect(result.entry.channelTested).toBe('Both');
+    });
+
+    it('rejects createEntry when timeAnswerReceived is earlier than timeQuestionAsked', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '12:00:00',
+                timeAnswerReceived: '11:00:00',
+            } as any),
+        ).rejects.toThrow('Time Answer Received cannot be earlier than Time Question Asked');
+    });
+
+    it('rejects createEntry when waTimeAnswerReceived is earlier than waTimeQuestionAsked', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'Both',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '10:00:00',
+                timeAnswerReceived: '10:05:00',
+                waTimeQuestionAsked: '10:10:00',
+                waTimeAnswerReceived: '10:00:00',
+            } as any),
+        ).rejects.toThrow('WhatsApp Time Received cannot be earlier than WhatsApp Time Asked');
+    });
+
+    it('rejects createEntry when authorCompletionTime is earlier than authorAssignmentTime', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '10:00:00',
+                timeAnswerReceived: '10:05:00',
+                authorAssignmentTime: '11:00:00',
+                authorCompletionTime: '10:30:00',
+            } as any),
+        ).rejects.toThrow('Author Completion Time cannot be earlier than Author Assignment Time');
+    });
+
+    it('rejects updateEntry when answer time is updated to be earlier than question asked', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '12:00:00',
+            timeAnswerReceived: '12:05:00',
+        });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        await expect(
+            service.updateEntry(ID, { timeAnswerReceived: '11:50:00' }, actor),
+        ).rejects.toThrow('Time Answer Received cannot be earlier than Time Question Asked');
+    });
+
+    it('rejects createEntry when timeQuestionAsked is set to the future (e.g. TL-0058 set to 2030)', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '2030-01-01T10:00:00',
+                timeAnswerReceived: '2030-01-01T10:05:00',
+            } as any),
+        ).rejects.toThrow('Time Question Asked cannot be in the future');
+    });
+
+    it('rejects createEntry when timeAnswerReceived is set to the future', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '2026-09-01T10:00:00',
+                timeAnswerReceived: '2030-01-01T10:05:00',
+            } as any),
+        ).rejects.toThrow('Time Answer Received cannot be in the future');
+    });
+
+    it('rejects createEntry when testDate is set to the future', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                testDate: '2030-01-01',
+                timeQuestionAsked: '10:00:00',
+                timeAnswerReceived: '10:05:00',
+            } as any),
+        ).rejects.toThrow('Test date cannot be in the future');
+    });
+
+    it('rejects updateEntry when timestamp is updated to the future', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '2026-09-20T12:00:00',
+            timeAnswerReceived: '2026-09-20T12:05:00',
+        });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        await expect(
+            service.updateEntry(ID, { timeQuestionAsked: '2030-01-01T10:00:00' }, actor),
+        ).rejects.toThrow('Time Question Asked cannot be in the future');
+    });
+
+    it('rejects updateEntry when testDate is updated to the future', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '2026-09-20T12:00:00',
+            timeAnswerReceived: '2026-09-20T12:05:00',
+        });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        await expect(
+            service.updateEntry(ID, { testDate: '2030-01-01' }, actor),
+        ).rejects.toThrow('Test date cannot be in the future');
     });
 
     it('aggregates cross-platform stats and credits both platforms in getMySummary', async () => {
@@ -1028,6 +1251,49 @@ describe('incrementTestId', () => {
 
     it('appends -0001 when string does not end with digits', () => {
         expect(incrementTestId('TL-ABC')).toBe('TL-ABC-0001');
+    });
+});
+
+describe('validateNotFuture and validateTestDateNotFuture', () => {
+    const fixedNow = new Date('2026-10-05T12:00:00Z').getTime();
+
+    it('parseEpochMs parses datetime with or without defaultDate and assumes IST when no offset', () => {
+        expect(parseEpochMs('')).toBeNull();
+        expect(parseEpochMs(undefined)).toBeNull();
+        const istEpoch = parseEpochMs('2026-10-05T17:30:00');
+        expect(istEpoch).toBe(new Date('2026-10-05T12:00:00Z').getTime());
+        const timeWithDate = parseEpochMs('17:30:00', '2026-10-05');
+        expect(timeWithDate).toBe(new Date('2026-10-05T12:00:00Z').getTime());
+    });
+
+    it('validateNotFuture does not throw for past timestamps', () => {
+        expect(() => validateNotFuture('2026-10-01T10:00:00', 'Time', undefined, fixedNow)).not.toThrow();
+        expect(() => validateNotFuture('10:00:00', 'Time', '2026-10-01', fixedNow)).not.toThrow();
+    });
+
+    it('validateNotFuture allows timestamps within the 5-minute grace period', () => {
+        // 2 minutes in the future (within 5-min grace)
+        const twoMinsAhead = new Date(fixedNow + 2 * 60 * 1000).toISOString();
+        expect(() => validateNotFuture(twoMinsAhead, 'Time', undefined, fixedNow)).not.toThrow();
+    });
+
+    it('validateNotFuture throws BadRequestError for future timestamps beyond grace period (e.g. 2030)', () => {
+        expect(() => validateNotFuture('2030-01-01T10:00:00', 'Time Question Asked', undefined, fixedNow))
+            .toThrow('Time Question Asked cannot be in the future');
+        expect(() => validateNotFuture('10:00:00', 'Time Answer Received', '2030-01-01', fixedNow))
+            .toThrow('Time Answer Received cannot be in the future');
+    });
+
+    it('validateTestDateNotFuture throws BadRequestError for future testDate', () => {
+        const today = new Date('2026-10-05T12:00:00Z');
+        expect(() => validateTestDateNotFuture('2030-01-01', today)).toThrow('Test date cannot be in the future');
+        expect(() => validateTestDateNotFuture('2026-10-06', today)).toThrow('Test date cannot be in the future');
+    });
+
+    it('validateTestDateNotFuture passes for today or past testDate', () => {
+        const today = new Date('2026-10-05T12:00:00Z');
+        expect(() => validateTestDateNotFuture('2026-10-05', today)).not.toThrow();
+        expect(() => validateTestDateNotFuture('2026-09-01', today)).not.toThrow();
     });
 });
 

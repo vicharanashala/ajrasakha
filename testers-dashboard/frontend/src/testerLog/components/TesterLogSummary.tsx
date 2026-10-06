@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTesterLogSummary } from "../hooks/useTesterLogSummary";
 import { useTesterLogHistory } from "../hooks/useTesterLogHistory";
 import type { ITesterLogEntry } from "../types";
@@ -290,10 +290,22 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
 
     // Table search & status filter state
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [targetViewMode, setTargetViewMode] = useState<"period" | "daily">("period");
     const [page, setPage] = useState(1);
     const LIMIT = 15;
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, statusFilter, preset, customStart, customEnd]);
 
     const { startDate, endDate } = useMemo(() => {
         const now = new Date();
@@ -327,12 +339,20 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         isError: summaryError,
     } = useTesterLogSummary(startDate, endDate, dateField);
 
-    // Fetch individual test history records for this tester and date filter
+    // Fetch individual test history records for this tester and date filter with search & status filters applied server-side
     const {
         data: historyData,
         isLoading: historyLoading,
         isError: historyError,
-    } = useTesterLogHistory(page, LIMIT, startDate, endDate, dateField);
+    } = useTesterLogHistory(
+        page,
+        LIMIT,
+        startDate,
+        endDate,
+        dateField,
+        debouncedSearch,
+        statusFilter !== "all" ? statusFilter : undefined
+    );
 
     const clearFilter = () => {
         setPreset("all");
@@ -344,46 +364,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         setStatusFilter("all");
     };
 
-    // Filter individual entries locally by search query and status filter tab
-    const filteredEntries = useMemo(() => {
-        if (!historyData?.entries) return [];
-        let list = historyData.entries;
-
-        if (statusFilter === "pass") {
-            list = list.filter(e => {
-                const s = (e.overallTestStatus || "").toLowerCase();
-                return s === "pass" || s === "expected output";
-            });
-        } else if (statusFilter === "fail") {
-            list = list.filter(e => {
-                const s = (e.overallTestStatus || "").toLowerCase();
-                return s === "fail" || s.includes("anomaly");
-            });
-        } else if (statusFilter === "partial") {
-            list = list.filter(e => (e.overallTestStatus || "").toLowerCase() === "partial");
-        } else if (statusFilter === "defects") {
-            list = list.filter(e => {
-                const sev = (e.defectSeverity || "").trim().toLowerCase();
-                return Boolean(
-                    (sev && !["na", "nil", "no defect", "none"].includes(sev)) ||
-                    (e.defectIdBugRef && e.defectIdBugRef.trim() && !["na", "nil", "none"].includes(e.defectIdBugRef.trim().toLowerCase()))
-                );
-            });
-        }
-
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            list = list.filter(e =>
-                (e.queryText || "").toLowerCase().includes(q) ||
-                (e.threadId || "").toLowerCase().includes(q) ||
-                (e.testId || "").toLowerCase().includes(q) ||
-                (e.typeOfQuestion || "").toLowerCase().includes(q) ||
-                (e.defectIdBugRef || "").toLowerCase().includes(q)
-            );
-        }
-
-        return list;
-    }, [historyData?.entries, statusFilter, searchQuery]);
+    const filteredEntries = historyData?.entries ?? [];
 
     const daysCount = useMemo(() => {
         if (summaryData?.targetVsAchieved?.daysCount) {
@@ -1247,7 +1228,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             Saved in Database:
                                         </span>
                                         <span className="font-semibold text-foreground">
-                                            {summaryData.dbPersistence.rate}% ({summaryData.dbPersistence.saved})
+                                            {summaryData.dbPersistence.rate}% ({summaryData.dbPersistence.saved}{summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved > 0 ? ` / ${summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved}` : ""})
                                         </span>
                                     </div>
 
@@ -1398,6 +1379,10 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                     )}
                                 </div>
                             </div>
+                        ) : historyLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
                         ) : filteredEntries.length === 0 ? (
                             <div className="text-center py-10 bg-muted/20 rounded-lg border border-dashed border-border text-sm text-muted-foreground">
                                 {searchQuery || statusFilter !== "all"
@@ -1441,31 +1426,33 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                         )}
 
                         {/* Pagination */}
-                        {historyData && historyData.totalPages > 1 && (
+                        {historyData && historyData.total > 0 && (
                             <div className="flex items-center justify-between pt-2">
                                 <p className="text-xs text-muted-foreground">
                                     Showing {filteredEntries.length} of {historyData.total} entries
-                                    {hasActiveFilter ? " (filtered)" : ""}
+                                    {hasActiveFilter || searchQuery || statusFilter !== "all" ? " (filtered)" : ""}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
-                                    >
-                                        ← Previous
-                                    </button>
-                                    <span className="text-xs text-muted-foreground">
-                                        Page {page} of {historyData.totalPages}
-                                    </span>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(historyData.totalPages, p + 1))}
-                                        disabled={page === historyData.totalPages}
-                                        className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
-                                    >
-                                        Next →
-                                    </button>
-                                </div>
+                                {historyData.totalPages > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                            className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                                        >
+                                            ← Previous
+                                        </button>
+                                        <span className="text-xs text-muted-foreground">
+                                            Page {page} of {historyData.totalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => setPage(p => Math.min(historyData.totalPages, p + 1))}
+                                            disabled={page === historyData.totalPages}
+                                            className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                                        >
+                                            Next →
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

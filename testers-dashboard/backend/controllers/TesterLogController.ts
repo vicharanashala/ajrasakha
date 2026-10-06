@@ -20,6 +20,7 @@ import { inject, injectable } from 'inversify';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { DASHBOARD_TYPES } from '../types.js';
 import { ITesterLogService, TesterLogActor } from '../interfaces/ITesterLogService.js';
+import { getTodayIST } from '../testersDashboard/normalize.js';
 import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto } from '../validators/TesterLogValidators.js';
 
 interface AuthenticatedUser {
@@ -101,6 +102,8 @@ export class TesterLogController {
             query.startDate,
             query.endDate,
             query.dateField,
+            query.search,
+            query.status,
         );
     }
 
@@ -157,6 +160,8 @@ export class TesterLogController {
             query.channelTested,
             query.overallTestStatus,
             query.defectSeverity,
+            query.search,
+            query.status,
         );
     }
 
@@ -234,8 +239,13 @@ export class TesterLogController {
         @Body() body: UpdateTesterLogDto,
     ) {
         const actor = requireAdmin(currentUser);
-        if (body.testDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(body.testDate)) {
-            throw new BadRequestError('testDate must be formatted as YYYY-MM-DD');
+        if (body.testDate !== undefined) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(body.testDate)) {
+                throw new BadRequestError('testDate must be formatted as YYYY-MM-DD');
+            }
+            if (body.testDate > getTodayIST(new Date())) {
+                throw new BadRequestError('Test date cannot be in the future');
+            }
         }
         const result = await this.testerLogService.updateEntry(id, body, actor);
         if (!result) throw new NotFoundError('Tester entry not found');

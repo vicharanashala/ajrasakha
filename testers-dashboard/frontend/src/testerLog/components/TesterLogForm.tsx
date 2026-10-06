@@ -9,6 +9,7 @@ import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { hmsDiff, isTimeEarlier, isTimeInFuture, getLocalDatetimeMax } from "../utils/timingUtils";
 import type { ITesterLogEntry } from "../types";
 import {
     TYPE_OF_QUESTION_OPTIONS,
@@ -55,46 +56,6 @@ function getTodayDateString(): string {
         const istShifted = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
         return istShifted.toISOString().slice(0, 10);
     }
-}
-
-function parseToMs(str?: string, defaultDate?: string): number | null {
-    if (!str || !str.trim()) return null;
-    const s = str.trim();
-
-    if (s.includes("-") || s.includes("/")) {
-        const parsed = Date.parse(s.includes("T") ? s : s.replace(" ", "T"));
-        if (!isNaN(parsed)) return parsed;
-    }
-
-    const parts = s.split(":").map(Number);
-    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        if (defaultDate && (defaultDate.includes("-") || defaultDate.includes("/"))) {
-            const dateStr = defaultDate.trim();
-            const timeStr = `${String(parts[0]).padStart(2, "0")}:${String(parts[1]).padStart(2, "0")}:${String(parts[2] || 0).padStart(2, "0")}`;
-            const combined = Date.parse(`${dateStr}T${timeStr}`);
-            if (!isNaN(combined)) return combined;
-        }
-        const secs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
-        return secs * 1000;
-    }
-
-    return null;
-}
-
-function hmsDiff(start?: string, end?: string, defaultDate?: string): string {
-    const sMs = parseToMs(start, defaultDate);
-    const eMs = parseToMs(end, defaultDate);
-    if (sMs === null || eMs === null || eMs < sMs) return "";
-
-    const diffSecs = Math.floor((eMs - sMs) / 1000);
-    const h = Math.floor(diffSecs / 3600);
-    const m = Math.floor((diffSecs % 3600) / 60);
-    const s = diffSecs % 60;
-
-    const hh = String(h).padStart(2, "0");
-    const mm = String(m).padStart(2, "0");
-    const ss = String(s).padStart(2, "0");
-    return `${hh}:${mm}:${ss}`;
 }
 
 const inputClass =
@@ -524,10 +485,28 @@ function validateTesterLogForm(
     checkRequired("timeAnswerReceived", flags.isCross ? "Web Time Received" : "Time Answer Received");
     checkRequired("slaStatus", flags.isCross ? "Web SLA Status" : "SLA Status");
 
+    if (isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
+        errors.timeQuestionAsked = "Time Question Asked cannot be in the future";
+    }
+    if (isTimeInFuture(data.timeAnswerReceived, data.testDate)) {
+        errors.timeAnswerReceived = "Time Answer Received cannot be in the future";
+    } else if (isTimeEarlier(data.timeAnswerReceived, data.timeQuestionAsked, data.testDate)) {
+        errors.timeAnswerReceived = "Time Answer Received cannot be earlier than Time Question Asked";
+    }
+
     if (flags.isCross) {
         checkRequired("waTimeQuestionAsked", "WhatsApp Time Asked");
         checkRequired("waTimeAnswerReceived", "WhatsApp Time Received");
         checkRequired("waSlaStatus", "WhatsApp SLA Status");
+
+        if (isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
+            errors.waTimeQuestionAsked = "WhatsApp Time Asked cannot be in the future";
+        }
+        if (isTimeInFuture(data.waTimeAnswerReceived, data.testDate)) {
+            errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be in the future";
+        } else if (isTimeEarlier(data.waTimeAnswerReceived, data.waTimeQuestionAsked, data.testDate)) {
+            errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be earlier than WhatsApp Time Asked";
+        }
     }
 
     // Section 3: Question Quality
@@ -559,6 +538,34 @@ function validateTesterLogForm(
             checkRequired("authorsName", "Author Name");
             checkRequired("authorAssignmentTime", "Author Assignment Time");
             checkRequired("authorCompletionTime", "Author Completion Time");
+            if (isTimeInFuture(data.authorAssignmentTime, data.testDate)) {
+                errors.authorAssignmentTime = "Author Assignment Time cannot be in the future";
+            }
+            if (isTimeInFuture(data.authorCompletionTime, data.testDate)) {
+                errors.authorCompletionTime = "Author Completion Time cannot be in the future";
+            } else if (isTimeEarlier(data.authorCompletionTime, data.authorAssignmentTime, data.testDate)) {
+                errors.authorCompletionTime = "Author Completion Time cannot be earlier than Author Assignment Time";
+            }
+        }
+        for (let i = 1; i <= 5; i++) {
+            const aKey = `reviewer${i}AssignmentTime` as keyof FormValues;
+            const cKey = `reviewer${i}CompletionTime` as keyof FormValues;
+            if (isTimeInFuture(data[aKey] as string, data.testDate)) {
+                errors[aKey] = `Reviewer ${i} Assignment Time cannot be in the future`;
+            }
+            if (isTimeInFuture(data[cKey] as string, data.testDate)) {
+                errors[cKey] = `Reviewer ${i} Completion Time cannot be in the future`;
+            } else if (isTimeEarlier(data[cKey] as string, data[aKey] as string, data.testDate)) {
+                errors[cKey] = `Reviewer ${i} Completion Time cannot be earlier than Assignment Time`;
+            }
+        }
+        if (isTimeInFuture(data.moderatorAssignmentTime, data.testDate)) {
+            errors.moderatorAssignmentTime = "Moderator Assignment Time cannot be in the future";
+        }
+        if (isTimeInFuture(data.moderatorCompletionTime, data.testDate)) {
+            errors.moderatorCompletionTime = "Moderator Completion Time cannot be in the future";
+        } else if (isTimeEarlier(data.moderatorCompletionTime, data.moderatorAssignmentTime, data.testDate)) {
+            errors.moderatorCompletionTime = "Moderator Completion Time cannot be earlier than Assignment Time";
         }
     }
 
@@ -888,11 +895,34 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         }
     }, [isSuccess]);
 
+    const isAskedInFuture = isTimeInFuture(timeQuestionAsked, testDate);
+    const isAnsweredInFuture = isTimeInFuture(timeAnswerReceived, testDate);
+    const isWebTimingInvalid = isTimeEarlier(timeAnswerReceived, timeQuestionAsked, testDate);
+
+    const isWaAskedInFuture = isCross && isTimeInFuture(waTimeQuestionAsked, testDate);
+    const isWaAnsweredInFuture = isCross && isTimeInFuture(waTimeAnswerReceived, testDate);
+    const isWaTimingInvalid = isCross && isTimeEarlier(waTimeAnswerReceived, waTimeQuestionAsked, testDate);
+
+    const isAuthorAssignedInFuture = !excludeReviewerWorkflow && isTimeInFuture(authorAssignmentTime, testDate);
+    const isAuthorCompletedInFuture = !excludeReviewerWorkflow && isTimeInFuture(authorCompletionTime, testDate);
+    const isAuthorTimingInvalid = !excludeReviewerWorkflow && isTimeEarlier(authorCompletionTime, authorAssignmentTime, testDate);
+
     const onSubmit = (data: FormValues) => {
         const errors = validateTesterLogForm(data, { isCross, excludeReviewerWorkflow });
         if (Object.keys(errors).length > 0) {
             setFormErrors(errors);
-            toast.error("Please fill in all required fields before submitting.");
+            const firstTimingError =
+                errors.timeQuestionAsked ||
+                errors.timeAnswerReceived ||
+                errors.waTimeQuestionAsked ||
+                errors.waTimeAnswerReceived ||
+                errors.authorAssignmentTime ||
+                errors.authorCompletionTime;
+            if (firstTimingError) {
+                toast.error(firstTimingError);
+            } else {
+                toast.error("Please fill in all required fields before submitting.");
+            }
             const firstKey = Object.keys(errors)[0];
             const el = document.querySelector(`[name="${firstKey}"]`);
             if (el) {
@@ -944,9 +974,12 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
 
     // Calculate error counts per section to display badges and auto-expand
     const s1Errors = ["typeOfQuestion", "buildVersion", "channelTested", "languageTested", "threadId", "waThreadId", "questionCategory", "queryText"].filter(k => formErrors[k]).length;
-    const s2Errors = ["timeQuestionAsked", "timeAnswerReceived", "slaStatus", "waTimeQuestionAsked", "waTimeAnswerReceived", "waSlaStatus"].filter(k => formErrors[k]).length;
+    const s2Errors = ["timeQuestionAsked", "timeAnswerReceived", "slaStatus", "waTimeQuestionAsked", "waTimeAnswerReceived", "waSlaStatus"].filter(k => formErrors[k]).length
+        + ((isAskedInFuture || isAnsweredInFuture || isWebTimingInvalid) && !formErrors.timeAnswerReceived && !formErrors.timeQuestionAsked ? 1 : 0)
+        + ((isWaAskedInFuture || isWaAnsweredInFuture || isWaTimingInvalid) && !formErrors.waTimeAnswerReceived && !formErrors.waTimeQuestionAsked ? 1 : 0);
     const s3Errors = ["questionInReviewModel", "questionCorrectlyFramed", "originalLanguage", "translatedLanguage", "translationQuality", "translationErrorType", "tagging"].filter(k => formErrors[k]).length;
-    const s4Errors = ["allocatedToReviewer", "authorsName", "authorAssignmentTime", "authorCompletionTime"].filter(k => formErrors[k]).length;
+    const s4Errors = ["allocatedToReviewer", "authorsName", "authorAssignmentTime", "authorCompletionTime"].filter(k => formErrors[k]).length
+        + ((isAuthorAssignedInFuture || isAuthorCompletedInFuture || isAuthorTimingInvalid) && !formErrors.authorCompletionTime && !formErrors.authorAssignmentTime ? 1 : 0);
     const s5Errors = ["followUpQInReviewModel", "answerScientificallyCorrect", "expertNameDisplayed", "correctExpertNameDisplayed", "correctSourceLinksProvided"].filter(k => formErrors[k]).length;
     const s6Errors = ["msg120MinShownToUser", "notificationReceived", "voiceInputWorking", "voiceOutputWorking", "waNotificationReceived", "waVoiceInputWorking", "waVoiceOutputWorking", "notificationOnSameThread", "notificationLinkedCorrectQId", "voiceInputQuality", "voiceOutputQuality", "voiceIssueDescription"].filter(k => formErrors[k]).length;
     const s7Errors = ["weatherQAnsweredCorrectly", "mandiPriceQCorrect", "schemeQCorrect", "questionSavedInDb", "answerSavedInDb", "qIdConsistentAcrossSystems", "whatsappVsWebAnswerMatch", "crossPlatformDiscrepancyNotes"].filter(k => formErrors[k]).length;
@@ -1071,16 +1104,30 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                                 <TimeInput
                                     label="Time Question Asked (Web)"
                                     required
-                                    error={formErrors.timeQuestionAsked}
-                                    {...register("timeQuestionAsked", { onChange: () => clearError("timeQuestionAsked") })}
+                                    max={getLocalDatetimeMax()}
+                                    error={formErrors.timeQuestionAsked || (isAskedInFuture ? "Time Question Asked cannot be in the future" : undefined)}
+                                    {...register("timeQuestionAsked", {
+                                        onChange: () => {
+                                            clearError("timeQuestionAsked");
+                                            clearError("timeAnswerReceived");
+                                        },
+                                    })}
                                 />
                                 <TimeInput
                                     label="Time Answer Received (Web)"
                                     required
-                                    error={formErrors.timeAnswerReceived}
+                                    max={getLocalDatetimeMax()}
+                                    error={formErrors.timeAnswerReceived || (isAnsweredInFuture ? "Time Answer Received cannot be in the future" : isWebTimingInvalid ? "Answer received time cannot be earlier than question asked time" : undefined)}
                                     {...register("timeAnswerReceived", { onChange: () => clearError("timeAnswerReceived") })}
                                 />
-                                <TimeInput label="Web Response Time [Auto]" readOnly value={responseTimeMins ?? ""} onChange={() => {}} />
+                                <TimeInput
+                                    label="Web Response Time [Auto]"
+                                    readOnly
+                                    value={isAskedInFuture || isAnsweredInFuture ? "Invalid: Time is in the future" : isWebTimingInvalid ? "Invalid: Answer time < Question time" : (responseTimeMins ?? "")}
+                                    error={isAskedInFuture || isAnsweredInFuture ? "Time cannot be in the future" : isWebTimingInvalid ? "Response time cannot be negative" : undefined}
+                                    className={(isAskedInFuture || isAnsweredInFuture || isWebTimingInvalid) ? "border-destructive text-destructive font-medium bg-destructive/5" : undefined}
+                                    onChange={() => {}}
+                                />
                                 <SelectInput
                                     label="Web SLA Status"
                                     options={SLA_STATUS_OPTIONS}
@@ -1101,16 +1148,30 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                                 <TimeInput
                                     label="Time Question Asked (WA)"
                                     required
-                                    error={formErrors.waTimeQuestionAsked}
-                                    {...register("waTimeQuestionAsked", { onChange: () => clearError("waTimeQuestionAsked") })}
+                                    max={getLocalDatetimeMax()}
+                                    error={formErrors.waTimeQuestionAsked || (isWaAskedInFuture ? "WhatsApp Time Asked cannot be in the future" : undefined)}
+                                    {...register("waTimeQuestionAsked", {
+                                        onChange: () => {
+                                            clearError("waTimeQuestionAsked");
+                                            clearError("waTimeAnswerReceived");
+                                        },
+                                    })}
                                 />
                                 <TimeInput
                                     label="Time Answer Received (WA)"
                                     required
-                                    error={formErrors.waTimeAnswerReceived}
+                                    max={getLocalDatetimeMax()}
+                                    error={formErrors.waTimeAnswerReceived || (isWaAnsweredInFuture ? "WhatsApp Time Received cannot be in the future" : isWaTimingInvalid ? "WhatsApp answer received time cannot be earlier than question asked time" : undefined)}
                                     {...register("waTimeAnswerReceived", { onChange: () => clearError("waTimeAnswerReceived") })}
                                 />
-                                <TimeInput label="WhatsApp Response Time [Auto]" readOnly value={waResponseTimeMins ?? ""} onChange={() => {}} />
+                                <TimeInput
+                                    label="WhatsApp Response Time [Auto]"
+                                    readOnly
+                                    value={isWaAskedInFuture || isWaAnsweredInFuture ? "Invalid: Time is in the future" : isWaTimingInvalid ? "Invalid: Answer time < Question time" : (waResponseTimeMins ?? "")}
+                                    error={isWaAskedInFuture || isWaAnsweredInFuture ? "Time cannot be in the future" : isWaTimingInvalid ? "Response time cannot be negative" : undefined}
+                                    className={(isWaAskedInFuture || isWaAnsweredInFuture || isWaTimingInvalid) ? "border-destructive text-destructive font-medium bg-destructive/5" : undefined}
+                                    onChange={() => {}}
+                                />
                                 <SelectInput
                                     label="WhatsApp SLA Status"
                                     options={SLA_STATUS_OPTIONS}
@@ -1127,16 +1188,30 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     <TimeInput
                         label="Time Question Asked"
                         required
-                        error={formErrors.timeQuestionAsked}
-                        {...register("timeQuestionAsked", { onChange: () => clearError("timeQuestionAsked") })}
+                        max={getLocalDatetimeMax()}
+                        error={formErrors.timeQuestionAsked || (isAskedInFuture ? "Time Question Asked cannot be in the future" : undefined)}
+                        {...register("timeQuestionAsked", {
+                            onChange: () => {
+                                clearError("timeQuestionAsked");
+                                clearError("timeAnswerReceived");
+                            },
+                        })}
                     />
                     <TimeInput
                         label="Time Answer Received"
                         required
-                        error={formErrors.timeAnswerReceived}
+                        max={getLocalDatetimeMax()}
+                        error={formErrors.timeAnswerReceived || (isAnsweredInFuture ? "Time Answer Received cannot be in the future" : isWebTimingInvalid ? "Answer received time cannot be earlier than question asked time" : undefined)}
                         {...register("timeAnswerReceived", { onChange: () => clearError("timeAnswerReceived") })}
                     />
-                    <TimeInput label="Response Time [Auto]" readOnly value={responseTimeMins ?? ""} onChange={() => {}} />
+                    <TimeInput
+                        label="Response Time [Auto]"
+                        readOnly
+                        value={isAskedInFuture || isAnsweredInFuture ? "Invalid: Time is in the future" : isWebTimingInvalid ? "Invalid: Answer time < Question time" : (responseTimeMins ?? "")}
+                        error={isAskedInFuture || isAnsweredInFuture ? "Time cannot be in the future" : isWebTimingInvalid ? "Response time cannot be negative" : undefined}
+                        className={(isAskedInFuture || isAnsweredInFuture || isWebTimingInvalid) ? "border-destructive text-destructive font-medium bg-destructive/5" : undefined}
+                        onChange={() => {}}
+                    />
                     <SelectInput
                         label="SLA Status"
                         options={SLA_STATUS_OPTIONS}
@@ -1231,16 +1306,30 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                             <TimeInput
                                 label="Author Assignment Time"
                                 required={watch("allocatedToReviewer") === "Yes"}
-                                error={formErrors.authorAssignmentTime}
-                                {...register("authorAssignmentTime", { onChange: () => clearError("authorAssignmentTime") })}
+                                max={getLocalDatetimeMax()}
+                                error={formErrors.authorAssignmentTime || (isAuthorAssignedInFuture ? "Author Assignment Time cannot be in the future" : undefined)}
+                                {...register("authorAssignmentTime", {
+                                    onChange: () => {
+                                        clearError("authorAssignmentTime");
+                                        clearError("authorCompletionTime");
+                                    },
+                                })}
                             />
                             <TimeInput
                                 label="Author Completion Time"
                                 required={watch("allocatedToReviewer") === "Yes"}
-                                error={formErrors.authorCompletionTime}
+                                max={getLocalDatetimeMax()}
+                                error={formErrors.authorCompletionTime || (isAuthorCompletedInFuture ? "Author Completion Time cannot be in the future" : isAuthorTimingInvalid ? "Author completion time cannot be earlier than assignment time" : undefined)}
                                 {...register("authorCompletionTime", { onChange: () => clearError("authorCompletionTime") })}
                             />
-                            <TimeInput label="Author TAT [Auto]" readOnly value={authorTatMins ?? ""} onChange={() => {}} />
+                            <TimeInput
+                                label="Author TAT [Auto]"
+                                readOnly
+                                value={isAuthorAssignedInFuture || isAuthorCompletedInFuture ? "Invalid: Time is in the future" : isAuthorTimingInvalid ? "Invalid: Completion < Assignment" : (authorTatMins ?? "")}
+                                error={isAuthorAssignedInFuture || isAuthorCompletedInFuture ? "Time cannot be in the future" : isAuthorTimingInvalid ? "TAT cannot be negative" : undefined}
+                                className={(isAuthorAssignedInFuture || isAuthorCompletedInFuture || isAuthorTimingInvalid) ? "border-destructive text-destructive font-medium bg-destructive/5" : undefined}
+                                onChange={() => {}}
+                            />
                         </div>
                     </div>
 
@@ -1249,8 +1338,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Reviewer {n}</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <TextInput label={`Reviewer ${n} Name`} {...register(`reviewer${n}Name` as any)} />
-                                <TimeInput label={`Reviewer ${n} Assignment Time`} {...register(`reviewer${n}AssignmentTime` as any)} />
-                                <TimeInput label={`Reviewer ${n} Completion Time`} {...register(`reviewer${n}CompletionTime` as any)} />
+                                <TimeInput label={`Reviewer ${n} Assignment Time`} max={getLocalDatetimeMax()} error={formErrors[`reviewer${n}AssignmentTime`]} {...register(`reviewer${n}AssignmentTime` as any)} />
+                                <TimeInput label={`Reviewer ${n} Completion Time`} max={getLocalDatetimeMax()} error={formErrors[`reviewer${n}CompletionTime`]} {...register(`reviewer${n}CompletionTime` as any)} />
                                 <TimeInput label={`Review ${n} TAT [Auto]`} readOnly value={[review1TatMins, review2TatMins, review3TatMins, review4TatMins, review5TatMins][n - 1] ?? ""} onChange={() => {}} />
                             </div>
                         </div>
@@ -1260,8 +1349,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Moderator</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <TextInput label="Moderator Name" {...register("moderatorName")} />
-                            <TimeInput label="Moderator Assignment Time" {...register("moderatorAssignmentTime")} />
-                            <TimeInput label="Moderator Completion Time" {...register("moderatorCompletionTime")} />
+                            <TimeInput label="Moderator Assignment Time" max={getLocalDatetimeMax()} error={formErrors.moderatorAssignmentTime} {...register("moderatorAssignmentTime")} />
+                            <TimeInput label="Moderator Completion Time" max={getLocalDatetimeMax()} error={formErrors.moderatorCompletionTime} {...register("moderatorCompletionTime")} />
                             <TimeInput label="Moderator TAT [Auto]" readOnly value={moderatorTatMins ?? ""} onChange={() => {}} />
                         </div>
                     </div>
