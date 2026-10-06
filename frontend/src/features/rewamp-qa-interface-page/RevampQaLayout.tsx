@@ -243,22 +243,24 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                   ? ({
                       id: selectedQuestionData.id || (selectedQuestionData as any)._id || "",
                       text: selectedQuestionData.text || "",
-                      crop: selectedQuestionData.details?.crop || (selectedQuestionData as any).crop || "",
-                      state: selectedQuestionData.details?.state || (selectedQuestionData as any).state || "",
-                      district: selectedQuestionData.details?.district || (selectedQuestionData as any).district || "",
-                      block: selectedQuestionData.details?.block || (selectedQuestionData as any).block || "",
-                      language: selectedQuestionData.language || "English",
-                      askedOn: selectedQuestionData.createdAt || (selectedQuestionData as any).askedOn || "",
-                      priority: (selectedQuestionData.priority as any) || "Medium",
-                      commentsCount: selectedQuestionData.totalAnswersCount || 0,
-                      queueIndex:
-                        questions.findIndex(
-                          (q) => (q.id || q._id) === selectedQuestionId
-                        ) + 1 || 1,
-                      totalInQueue: questions.length,
+                      priority: selectedQuestionData.priority || "medium",
+                      createdAt: selectedQuestionData.createdAt,
+                      updatedAt: selectedQuestionData.updatedAt,
+                      totalAnswersCount: selectedQuestionData.totalAnswersCount || 0,
+                      status: selectedQuestionData.status,
+                      source: selectedQuestionData.source,
+                      assignedAt: selectedQuestionData.assignedAt,
+                      review_level_number: selectedQuestionData.review_level_number,
                       aiInitialAnswer: selectedQuestionData.aiInitialAnswer,
                       aiApprovedAnswer: selectedQuestionData.aiApprovedAnswer,
-                      metadata: (selectedQuestionData as any).metadata,
+                      details: selectedQuestionData.details ? {
+                        state: selectedQuestionData.details.state,
+                        district: selectedQuestionData.details.district,
+                        crop: selectedQuestionData.details.crop,
+                        normalised_crop: selectedQuestionData.details.normalised_crop,
+                        season: selectedQuestionData.details.season,
+                        domain: selectedQuestionData.details.domain,
+                      } : undefined,
                     } as IQuestionContextData)
                   : questionData
               }

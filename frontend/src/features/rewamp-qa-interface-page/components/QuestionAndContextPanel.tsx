@@ -6,13 +6,13 @@ import {
   ExternalLink,
   MapPin,
   Building2,
-  Languages,
   Calendar,
   Sprout,
   MessageSquare,
   Info,
   Check,
   RefreshCw,
+  Layers,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import type { IQuestionContextData } from "../types";
 import { QaPreferencesDialog } from "./QaPreferencesDialog";
+import { formatDate } from "@/utils/formatDate";
 
 interface QuestionAndContextPanelProps {
   question?: IQuestionContextData | null;
@@ -46,7 +47,6 @@ interface QuestionAndContextPanelProps {
   onFilterChange?: (key: string, value: any) => void;
   onRefresh?: () => void;
 }
-
 export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = ({
   question,
   questions = [],
@@ -65,6 +65,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   onFilterChange,
   onRefresh,
 }) => {
+  console.log("questiond revienve ",questions)
   const [activeTab, setActiveTab] = useState<"current" | "queue">("current");
   const [showAllMetadata, setShowAllMetadata] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -74,21 +75,21 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   const defaultQuestion: IQuestionContextData = {
     id: "q-1",
     text: "Information about control of sucking pest in crop brinjal in Uttar Pradesh?",
-    crop: "Brinjal",
-    state: "Uttar Pradesh",
-    district: "Basti",
-    block: "Harraiya",
-    language: "English",
-    askedOn: "Aug 25, 2026, 12:35 PM",
-    priority: "Critical",
-    commentsCount: 0,
-    queueIndex: 1,
-    totalInQueue: 20,
-    metadata: {
-      Season: "Kharif",
-      SoilType: "Alluvial / Loamy",
-      FarmSize: "2.5 Acres",
-      PreviousPesticides: "Imidacloprid 17.8% SL",
+    priority: "critical",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    totalAnswersCount: 0,
+    status: "open",
+    source: "AJRASAKHA",
+    assignedAt: null,
+    review_level_number: "Author",
+    details: {
+      state: "Uttar Pradesh",
+      district: "Basti",
+      crop: "Brinjal",
+      normalised_crop: "Brinjal",
+      season: "Kharif",
+      domain: ["Pest Management"],
     },
   };
 
@@ -96,10 +97,10 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
 
   // Sample questions for queue (fallback when no questions prop provided)
   const sampleQueueQuestions: IQuestionContextData[] = questions.length > 0 ? questions : [
-    { id: "q-2", text: "What are the best practices for tomato cultivation in summer?", crop: "Tomato", state: "Maharashtra", district: "Pune", block: "Haveli", language: "English", askedOn: "Aug 25, 2026, 11:20 AM", priority: "High", commentsCount: 3, queueIndex: 2, totalInQueue: 20 },
-    { id: "q-3", text: "How to control leaf curl virus in chilli plants?", crop: "Chilli", state: "Karnataka", district: "Dharwad", block: "Hubli", language: "English", askedOn: "Aug 25, 2026, 10:45 AM", priority: "Critical", commentsCount: 1, queueIndex: 3, totalInQueue: 20 },
-    { id: "q-4", text: "Recommended fertilizer schedule for wheat crop?", crop: "Wheat", state: "Punjab", district: "Ludhiana", block: "Samrala", language: "English", askedOn: "Aug 25, 2026, 10:15 AM", priority: "Medium", commentsCount: 0, queueIndex: 4, totalInQueue: 20 },
-    { id: "q-5", text: "Management of powdery mildew in mango trees", crop: "Mango", state: "Uttar Pradesh", district: "Aligarh", block: "Koil", language: "English", askedOn: "Aug 25, 2026, 09:30 AM", priority: "High", commentsCount: 2, queueIndex: 5, totalInQueue: 20 },
+    { id: "q-2", text: "What are the best practices for tomato cultivation in summer?", priority: "high", createdAt: new Date().toISOString(), source: "WHATSAPP", details: { state: "Maharashtra", district: "Pune", crop: "Tomato", season: "Summer", domain: ["Cultivation Practices"] } },
+    { id: "q-3", text: "How to control leaf curl virus in chilli plants?", priority: "critical", createdAt: new Date().toISOString(), source: "AJRASAKHA", details: { state: "Karnataka", district: "Dharwad", crop: "Chilli", season: "Kharif", domain: ["Disease Management"] } },
+    { id: "q-4", text: "Recommended fertilizer schedule for wheat crop?", priority: "medium", createdAt: new Date().toISOString(), source: "AGRI_EXPERT", details: { state: "Punjab", district: "Ludhiana", crop: "Wheat", season: "Rabi", domain: ["Nutrient Management"] } },
+    { id: "q-5", text: "Management of powdery mildew in mango trees", priority: "high", createdAt: new Date().toISOString(), source: "OUTREACH", details: { state: "Uttar Pradesh", district: "Aligarh", crop: "Mango", season: "Summer", domain: ["Disease Management"] } },
   ];
 
   // Filter out current question from queue list
@@ -109,7 +110,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
 
   // Determine which question to display - selected from queue or current question
   const displayQuestion = question || selectedQueueQuestion || defaultQuestion;
-
+  console.log("display question ",displayQuestion)
   const handleCopyQuestion = () => {
     if (displayQuestion?.text) {
       navigator.clipboard.writeText(displayQuestion.text);
@@ -129,6 +130,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
       setSelectedQueueQuestion(q);
       onQuestionSelect?.(qId);
     };
+    console.log("q 1 ",q)
     return (
       <button
         type="button"
@@ -143,20 +145,22 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
           <div className="flex items-center gap-2">
             <Badge
               variant="destructive"
-              className={`text-[11px] px-2 py-0.2 font-semibold ${
-                q.priority === "Critical" ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-amber-500 hover:bg-amber-600 text-white"
-              } rounded-md`}
+              className={`text-[11px] px-2 py-0.2 font-semibold rounded-md ${
+                q.priority === 'critical' ? 'bg-rose-500' :
+                q.priority === 'high' ? 'bg-orange-500' :
+                q.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+              }`}
             >
-              {q.priority || "Medium"}
+              {q.priority ? q.priority.charAt(0).toUpperCase() + q.priority.slice(1) : "Medium"}
             </Badge>
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {q.askedOn || "Aug 25, 2026"}
+              {q.createdAt ? formatDate(new Date(q.createdAt)) : "—"}
             </span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>{q.commentsCount || 0}</span>
+            <span>{q.totalAnswersCount || 0}</span>
           </div>
         </div>
         <p className="text-sm font-medium text-foreground leading-relaxed line-clamp-2">
@@ -274,18 +278,22 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="destructive"
-                    className="text-[11px] px-2 py-0.2 font-semibold bg-rose-500 hover:bg-rose-600 text-white rounded-md"
+                    className={`text-[11px] px-2 py-0.2 font-semibold rounded-md ${
+                      displayQuestion.priority === 'critical' ? 'bg-rose-500' :
+                      displayQuestion.priority === 'high' ? 'bg-orange-500' :
+                      displayQuestion.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
                   >
-                    {displayQuestion.priority || "Critical"}
+                    {displayQuestion.priority ? displayQuestion.priority.charAt(0).toUpperCase() + displayQuestion.priority.slice(1) : "Medium"}
                   </Badge>
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    {displayQuestion.askedOn || "Aug 25, 2026, 12:35 PM"}
+                    {displayQuestion.createdAt ? formatDate(new Date(displayQuestion.createdAt)) : "—"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{displayQuestion.commentsCount || 0}</span>
+                  <span>{displayQuestion.totalAnswersCount || 0}</span>
                 </div>
               </div>
 
@@ -294,7 +302,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
               </p>
             </div>
 
-            {/* Metadata Properties Grid - Only show in current tab */}
+            {/* Metadata Properties Grid - Default visible fields */}
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1.5 border-b border-border/40">
                 <span className="flex items-center gap-2 text-muted-foreground">
@@ -302,7 +310,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   Crop
                 </span>
                 <span className="font-semibold text-foreground">
-                  {displayQuestion.crop || "Brinjal"}
+                  {displayQuestion.details?.crop || displayQuestion.details?.normalised_crop || "—"}
                 </span>
               </div>
 
@@ -312,37 +320,33 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                   State
                 </span>
                 <span className="font-semibold text-foreground">
-                  {displayQuestion.state || "Uttar Pradesh"}
+                  {displayQuestion.details?.state || "—"}
                 </span>
               </div>
 
               <div className="flex items-center justify-between py-1.5 border-b border-border/40">
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <Building2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                  District
+                  Source
                 </span>
-                <span className="font-semibold text-foreground">
-                  {displayQuestion.district || "Basti"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-1.5 border-b border-border/40">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Building2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  Block
-                </span>
-                <span className="font-semibold text-foreground">
-                  {displayQuestion.block || "Harraiya"}
+                <span className="font-medium text-foreground">
+                  {displayQuestion.source || "—"}
                 </span>
               </div>
 
               <div className="flex items-center justify-between py-1.5 border-b border-border/40">
                 <span className="flex items-center gap-2 text-muted-foreground">
-                  <Languages className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  Language
+                  <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  Domain
                 </span>
-                <span className="font-semibold text-foreground">
-                  {displayQuestion.language || "English"}
+                <span className="font-medium text-foreground text-right">
+                  {displayQuestion.details?.domain?.length
+                    ? displayQuestion.details.domain.map((d, i) => (
+                        <span key={i} className="inline-block bg-muted px-1.5 py-0.5 rounded text-[10px] mr-1">
+                          {d}
+                        </span>
+                      ))
+                    : "—"}
                 </span>
               </div>
             </div>
@@ -359,19 +363,104 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                 {showAllMetadata ? "Hide Additional Metadata" : "View All Metadata"}
               </Button>
 
-              {showAllMetadata && displayQuestion.metadata && Object.keys(displayQuestion.metadata).length > 0 ? (
+              {showAllMetadata && (
                 <div className="mt-2.5 p-3 rounded-lg bg-muted/40 border border-border/60 text-xs space-y-1.5 animate-in fade-in-50 duration-200">
-                  {Object.entries(displayQuestion.metadata).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <span className="text-muted-foreground">{key}:</span>
-                      <span className="font-medium text-foreground">{String(value)}</span>
+                  {/* Question ID */}
+                  {displayQuestion.id && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">id:</span>
+                      <span className="font-medium text-foreground text-[10px] truncate max-w-[180px]" title={displayQuestion.id}>
+                        {displayQuestion.id}
+                      </span>
                     </div>
-                  ))}
+                  )}
+                  
+                  {/* District */}
+                  {displayQuestion.details?.district && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">District:</span>
+                      <span className="font-medium text-foreground">{displayQuestion.details.district}</span>
+                    </div>
+                  )}
+                  
+                  {/* Season */}
+                  {displayQuestion.details?.season && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Season:</span>
+                      <span className="font-medium text-foreground">{displayQuestion.details.season}</span>
+                    </div>
+                  )}
+                  
+                  {/* Normalised Crop */}
+                  {displayQuestion.details?.normalised_crop && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Normalised Crop:</span>
+                      <span className="font-medium text-foreground">{displayQuestion.details.normalised_crop}</span>
+                    </div>
+                  )}
+                  
+                  {/* Priority */}
+                  {displayQuestion.priority && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Priority:</span>
+                      <span className={`font-medium ${
+                        displayQuestion.priority === 'critical' ? 'text-red-600' :
+                        displayQuestion.priority === 'high' ? 'text-orange-600' :
+                        displayQuestion.priority === 'medium' ? 'text-yellow-600' : 'text-green-600'
+                      }`}>
+                        {displayQuestion.priority.charAt(0).toUpperCase() + displayQuestion.priority.slice(1)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Status */}
+                  {displayQuestion.status && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="font-medium text-foreground">{displayQuestion.status}</span>
+                    </div>
+                  )}
+                  
+                  {/* Review Level */}
+                  {displayQuestion.review_level_number && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Review Level:</span>
+                      <span className="font-medium text-foreground">{displayQuestion.review_level_number}</span>
+                    </div>
+                  )}
+                  
+                  {/* Total Answers Count */}
+                  {displayQuestion.totalAnswersCount !== undefined && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Answers:</span>
+                      <span className="font-medium text-foreground">{displayQuestion.totalAnswersCount}</span>
+                    </div>
+                  )}
+                  
+                  {/* Created At */}
+                  {displayQuestion.createdAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Created:</span>
+                      <span className="font-medium text-foreground">{formatDate(new Date(displayQuestion.createdAt))}</span>
+                    </div>
+                  )}
+                  
+                  {/* Updated At */}
+                  {displayQuestion.updatedAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Updated:</span>
+                      <span className="font-medium text-foreground">{formatDate(new Date(displayQuestion.updatedAt))}</span>
+                    </div>
+                  )}
+                  
+                  {/* Assigned At */}
+                  {displayQuestion.assignedAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Assigned:</span>
+                      <span className="font-medium text-foreground">{formatDate(new Date(displayQuestion.assignedAt))}</span>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                showAllMetadata && (
-                  <p className="mt-2.5 text-xs text-muted-foreground text-center py-2">No additional metadata available</p>
-                )
               )}
             </div>
           </>

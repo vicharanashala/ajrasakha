@@ -2,19 +2,24 @@ export interface IQuestionContextData {
   id: string;
   text: string;
   originalText?: string;
-  crop?: string;
-  state?: string;
-  district?: string;
-  block?: string;
-  language?: string;
-  askedOn?: string;
-  priority?: "Critical" | "High" | "Medium" | "Low";
-  commentsCount?: number;
-  queueIndex?: number;
-  totalInQueue?: number;
+  priority?: "critical" | "high" | "medium" | "low";
+  createdAt?: string;
+  updatedAt?: string;
+  totalAnswersCount?: number;
+  status?: string;
+  source?: string;
+  assignedAt?: string | null;
+  review_level_number?: string;
   aiInitialAnswer?: string;
   aiApprovedAnswer?: string;
-  metadata?: Record<string, any>;
+  details?: {
+    state?: string;
+    district?: string;
+    crop?: string;
+    normalised_crop?: string;
+    season?: string;
+    domain?: string[];
+  };
 }
 
 export interface IPanelCollapseState {
