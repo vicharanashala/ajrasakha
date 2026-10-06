@@ -818,15 +818,9 @@ class NewWeatherInput(BaseModel):
     query: str = Field(..., description="The user's weather query text.")
     district: Optional[str] = Field(None, description="District name (e.g. Ernakulam, Karnal).")
     state: Optional[str] = Field(None, description="State name (e.g. Kerala, Haryana).")
-    location: Optional[str] = Field(None, description="Block, village, or specific sub-location name.")
-    sub_places: list[str] = Field(default_factory=list, description="Places the farmer named that are not the verified state/district (towns, villages, blocks, or other districts).")
-    location_from_profile: Optional[bool] = Field(None, description="False when the question names a place: use sub_place_latitude/longitude, not latitude/longitude (farmer profile).")
-    sub_place_latitude: Optional[float] = Field(None, description="Latitude of sub_places[0], geocoded by the planner.")
-    sub_place_longitude: Optional[float] = Field(None, description="Longitude of sub_places[0], geocoded by the planner.")
-    sub_place_state: Optional[str] = Field(None, description="State of sub_places[0] as returned by the planner's geocoder.")
-    sub_place_district: Optional[str] = Field(None, description="District of sub_places[0] as returned by the planner's geocoder.")
-    latitude: Optional[float] = Field(None, description="Optional latitude float.")
-    longitude: Optional[float] = Field(None, description="Optional longitude float.")
+    location_from_profile: Optional[bool] = Field(None, description="True when state/district/latitude/longitude are the farmer's profile location; the answer then notes that the location can be changed in the profile section.")
+    latitude: Optional[float] = Field(None, description="Farmer profile latitude, when known.")
+    longitude: Optional[float] = Field(None, description="Farmer profile longitude, when known.")
     address: Optional[str] = Field(None, description="Optional full location address string.")
     target_date: Optional[str] = Field(None, description="Target date in YYYY-MM-DD format if querying a specific date.")
     from_date: Optional[str] = Field(None, description="Start date in YYYY-MM-DD format for historical date ranges.")
@@ -988,7 +982,7 @@ _INDIAN_STATES = {
 }
 
 
-from ajrasakha.agents.location_context import extract_location_from_query as _extract_location_from_query
+from ajrasakha.agents.location_context import profile_location_note
 
 
 
@@ -997,13 +991,7 @@ async def new_weather(
     query: str,
     district: Optional[str] = None,
     state: Optional[str] = None,
-    location: Optional[str] = None,
-    sub_places: Optional[list[str]] = None,
     location_from_profile: Optional[bool] = None,
-    sub_place_latitude: Optional[float] = None,
-    sub_place_longitude: Optional[float] = None,
-    sub_place_state: Optional[str] = None,
-    sub_place_district: Optional[str] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
     address: Optional[str] = None,
@@ -1016,51 +1004,24 @@ async def new_weather(
     Query the cluster-based weather agent (Tools 1 to 7).
     """
     try:
-        # The planner sets location_from_profile=False when the question names a
-        # place: then the planner-geocoded sub_places[0], else none (the
-        # district/state names are used below). Otherwise the given lat/long
-        # (the farmer profile's).
-        if location_from_profile is False:
-            lat, lon = sub_place_latitude, sub_place_longitude
-        else:
-            lat, lon = latitude, longitude
+        # The location is always the farmer's profile location (state, district,
+        # lat/long) passed in by the planner; nothing is read from the query.
+        lat, lon = latitude, longitude
         place_district = district
         place_state = state
-        place_location = location
-        if location_from_profile is False and lat is not None and lon is not None:
-            # The coordinates are the planner-geocoded sub-place's: keep the
-            # state/district consistent with them.
-            place_state = sub_place_state or place_state
-            place_district = sub_place_district or place_district
-
-        # If location parameters were omitted from tool call args, extract from query
-        if not place_district and not place_location and not place_state and (lat is None or lon is None):
-            ext_place, ext_state = _extract_location_from_query(query)
-            if ext_state:
-                place_state = ext_state
-            if ext_place:
-                place_location = ext_place
+        place_location = None
 
         # Clean placeholder district values
         if place_district and place_district.lower().strip() in {"all", "not specified", "unknown", "none", "null"}:
             place_district = None
-        if place_location and place_location.lower().strip() in {"all", "not specified", "unknown", "none", "null"}:
-            place_location = None
 
-        # Handle State-level queries (e.g. "Kerala", "Punjab")
+        # Handle State-level locations (e.g. "Kerala", "Punjab")
         if place_district and place_district.lower().strip() in _INDIAN_STATES:
             place_state = place_district.strip().title()
             place_district = None
-            place_location = None
             lat = None
             lon = None
-        elif place_location and place_location.lower().strip() in _INDIAN_STATES:
-            place_state = place_location.strip().title()
-            place_location = None
-            place_district = None
-            lat = None
-            lon = None
-        elif place_state and place_state.lower().strip() in _INDIAN_STATES and not place_district and not place_location:
+        elif place_state and place_state.lower().strip() in _INDIAN_STATES and not place_district:
             lat = None
             lon = None
 
@@ -1090,47 +1051,22 @@ async def new_weather(
             ext_qt = ext_qt or "previous"
 
         # Geocode if coordinates omitted (district/location/state)
-        if (lat is None or lon is None) and (place_district or place_location or place_state):
+        if (lat is None or lon is None) and (place_district or place_state):
             try:
                 from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
 
-                # sub_places from the planner: try each as subdistrict for more precise geocoding.
-                # Fall back to place_location, then district-only.
-                candidates = list(sub_places or [])
-                if place_location and place_location not in candidates:
-                    candidates.insert(0, place_location)
-
-                _lat, _lon, _resolved_name = None, None, None
-                if candidates:
-                    for sp in candidates:
-                        _lat, _lon, _resolved_name = await _get_lat_long(
-                            district=place_district,
-                            subdistrict=sp.strip(),
-                            state=place_state,
-                        )
-                        if _lat is not None and _lon is not None:
-                            break
-
-                # Final fallback: district/state only (no subdistrict)
-                if _lat is None or _lon is None:
-                    _lat, _lon, _resolved_name = await _get_lat_long(
-                        district=place_district,
-                        subdistrict=None,
-                        state=place_state,
-                    )
-
+                _lat, _lon, _resolved_name = await _get_lat_long(
+                    district=place_district,
+                    subdistrict=None,
+                    state=place_state,
+                )
                 if _lat is not None and _lon is not None:
                     lat = _lat
                     lon = _lon
-                    if place_district is None and _resolved_name:
-                        # If only state was given, don't overwrite district with state name
-                        pass
                     logger.info(
-                        "new_weather_agent: geocoded location=%r district=%r state=%r sub_places=%r -> lat=%s, lon=%s (%s)",
-                        place_location,
+                        "new_weather_agent: geocoded district=%r state=%r -> lat=%s, lon=%s (%s)",
                         place_district,
                         place_state,
-                        sub_places,
                         lat,
                         lon,
                         _resolved_name,
@@ -1371,6 +1307,8 @@ async def new_weather(
             json.dumps(result, ensure_ascii=False, default=str)[:8000],
         )
         answer = await synthesize_weather_answer(query, result)
+        if answer and location_from_profile and _weather_tool_has_usable_data(result):
+            answer = f"{answer}\n\n{profile_location_note('weather', state, district)}"
         # Top-level "success" is what plan_executor reads to route to the
         # weather-unavailable reply; tool_data alone is not inspected there.
         return json.dumps(

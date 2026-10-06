@@ -1,4 +1,4 @@
-"""LGD validation of the place a farmer names, and the profile location fallback."""
+﻿"""LGD validation of the place a farmer names, and the profile location fallback."""
 
 import pytest
 from langchain_core.messages import HumanMessage
@@ -22,8 +22,6 @@ from ajrasakha.agents.plan_executor import (
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
     merge_entities_from_rephrased_query,
-    apply_sub_place_coordinates,
-    resolve_weather_mandi_places,
 )
 from ajrasakha.agents.translation_catalog import (
     get_invalid_location_follow_up,
@@ -285,7 +283,7 @@ async def test_weather_and_mandi_get_the_planner_location_and_profile_coordinate
     calls, _ = await build_specialist_tool_calls_from_plan(plan, "How do I control fruit borer in brinjal?", {})
     weather, mandi = _args(calls, "new_weather"), _args(calls, "daily_price")
     # "in brinjal" is a crop, not a place: nothing from the query text overrides the planner.
-    assert (weather["state"], weather["district"], weather["location"]) == ("Andhra Pradesh", "Visakhapatnam", None)
+    assert (weather["state"], weather["district"]) == ("Andhra Pradesh", "Visakhapatnam")
     assert (weather["latitude"], weather["longitude"]) == (17.7, 83.3)
     assert (mandi["state"], mandi["district"]) == ("Andhra Pradesh", "Visakhapatnam")
     assert (mandi["latitude"], mandi["longitude"]) == (17.7, 83.3)
@@ -308,10 +306,11 @@ async def test_ensure_location_never_rewrites_the_plan_location():
     assert await ensure_location_node(state, RunnableConfig()) == {}
 
 
-# --- weather / mandi places ----------------------------------------------------
+
+# --- weather / mandi use the profile location only ------------------------------
 
 
-def _weather_plan(state=None, district=None, places=()):
+def _weather_plan(state=None, district=None):
     return _plan(
         state=state,
         district=district,
@@ -319,354 +318,71 @@ def _weather_plan(state=None, district=None, places=()):
         domains=["Weather"],
         weather=True,
         crop_required=False,
-        places=list(places),
-        rephrased_query="Will it rain tomorrow?",
+        rephrased_query="Will it rain tomorrow in Kharar?",
     )
 
 
-def test_first_verified_place_is_the_location_and_the_rest_are_sub_places():
-    assert resolve_weather_mandi_places(None, None, ["Kharar", "Mohali"]) == (
-        "Punjab",
-        "S.A.S Nagar",
-        ["Kharar"],
-    )
-    assert resolve_weather_mandi_places(None, None, ["Ludhiana", "Allahabad"]) == (
-        "Punjab",
-        "Ludhiana",
-        ["Allahabad"],
-    )
+_PROFILE = {"state": "Uttar Pradesh", "district": "Prayagraj"}
 
 
-def test_town_inside_a_state_keeps_the_state_and_becomes_a_sub_place():
-    assert resolve_weather_mandi_places("Punjab", "Kharar", ["Kharar", "Punjab"]) == ("Punjab", "all", ["Kharar"])
-
-
-def test_state_and_district_are_not_sub_places_when_lgd_is_unavailable(monkeypatch):
-    from ajrasakha.agents import planner_rules
-    from ajrasakha.agents.lgd_location import LgdLookup, UNAVAILABLE
-
-    monkeypatch.setattr(
-        planner_rules,
-        "lookup_location",
-        lambda s, d: LgdLookup(UNAVAILABLE, state=s, district=d, reason="directory not loaded"),
-    )
-    # The state is never a sub-place; the district is left for the geocoder to judge.
-    assert resolve_weather_mandi_places("Bihar", "Patna", ["Bihar", "Patna"]) == ("Bihar", "Patna", ["Patna"])
-    assert resolve_weather_mandi_places("Bihar", "Gandhi Ghat", ["Bihar", "Gandhi Ghat"]) == (
-        "Bihar",
-        "Gandhi Ghat",
-        ["Gandhi Ghat"],
-    )
-
-
-def test_weather_never_asks_for_an_unverified_place_and_keeps_the_profile():
+def test_weather_ignores_a_place_named_in_the_query_and_uses_the_profile():
+    sources = {}
     out = apply_planner_completeness_rules(
-        _weather_plan(district="Xyzabad", places=["Xyzabad"]),
+        _weather_plan(state="Punjab", district="Ludhiana"),
         _messages(),
         None,
         None,
-        stored_location={"state": "Uttar Pradesh", "district": "Prayagraj"},
+        stored_location=_PROFILE,
+        sources_out=sources,
     )
     assert out["is_complete"] is True
-    assert out["follow_up_question"] is None
     assert (out["entities"]["state"], out["entities"]["district"]) == ("Uttar Pradesh", "Prayagraj")
-    assert out["sub_places"] == ["Xyzabad"]
+    assert sources["state_source"] == "stored_user_location"
 
 
-def test_ambiguous_district_on_weather_is_a_sub_place_not_a_question():
+def test_weather_does_not_reject_an_unknown_place_when_the_profile_has_a_location():
     out = apply_planner_completeness_rules(
-        _weather_plan(district="Aurangabad", places=["Aurangabad"]), _messages(), None, None
-    )
-    assert out["is_complete"] is True
-    assert out["sub_places"] == ["Aurangabad"]
-
-
-def test_weather_without_any_location_still_runs():
-    out = apply_planner_completeness_rules(_weather_plan(), _messages(), None, None)
-    assert out["is_complete"] is True
-    assert out["missing_info"] == []
-
-
-def test_verified_place_overrides_the_profile_on_weather():
-    out = apply_planner_completeness_rules(
-        _weather_plan(district="Mohali", places=["Mohali", "Kharar"]),
+        _weather_plan(district="Xyzabad"),
         _messages(),
         None,
         None,
-        stored_location={"state": "Uttar Pradesh", "district": "Prayagraj"},
+        stored_location=_PROFILE,
     )
-    assert (out["entities"]["state"], out["entities"]["district"]) == ("Punjab", "S.A.S Nagar")
-    assert out["sub_places"] == ["Kharar"]
+    assert out["is_complete"] is True
+    assert out.get("location_check") is None
+    assert out["entities"]["district"] == "Prayagraj"
 
 
-@pytest.mark.asyncio
-async def test_sub_places_reach_the_weather_and_mandi_tools():
-    plan = _tool_plan(sub_places=["Kharar", "Mohali"], profile_coordinates={"latitude": 17.7, "longitude": 83.3})
-    calls, _ = await build_specialist_tool_calls_from_plan(plan, "Rain and tomato price in Kharar and Mohali?", {})
-    weather, mandi = _args(calls, "new_weather"), _args(calls, "daily_price")
-    assert weather["sub_places"] == ["Kharar", "Mohali"]
-    assert weather["location"] == "Kharar"
-    assert mandi["sub_places"] == ["Kharar", "Mohali"]
-    assert (weather["latitude"], mandi["latitude"]) == (17.7, 17.7)
+def test_weather_without_a_profile_location_asks_for_the_location():
+    out = apply_planner_completeness_rules(_weather_plan(), _messages(), None, None)
+    assert out["is_complete"] is False
+    assert out["missing_info"] == ["location"]
+    assert out["follow_up_question"] == get_state_follow_up("English", "English")
 
 
-@pytest.mark.asyncio
-async def test_state_only_location_never_borrows_the_profile_district():
-    plan = _tool_plan(sub_places=["Kharar"])
-    plan["entities"].update(state="Punjab", district="all")
-    thread_location = {"state": "Andhra Pradesh", "district": "Visakhapatnam"}
-    calls, resolved = await build_specialist_tool_calls_from_plan(plan, "Will it rain in Kharar?", thread_location)
-    assert (resolved.state, resolved.district) == ("Punjab", "all")
-    assert _args(calls, "new_weather")["district"] is None
-
-
-@pytest.mark.asyncio
-async def test_tools_get_the_profile_flag_and_the_sub_place_coordinates():
-    plan = _tool_plan(
-        location_from_profile=False,
-        sub_places=["Kharar"],
-        sub_place_location={"latitude": 30.75, "longitude": 76.64, "state": "Punjab", "district": "Sahibzada Ajit Singh Nagar"},
-        profile_coordinates={"latitude": 17.7, "longitude": 83.3},
+def test_weather_without_a_profile_location_accepts_a_location_reply():
+    out = apply_planner_completeness_rules(
+        _weather_plan(state="Punjab", district="Ludhiana"), _messages(), None, None
     )
+    assert out["is_complete"] is True
+    assert (out["entities"]["state"], out["entities"]["district"]) == ("Punjab", "Ludhiana")
+
+
+@pytest.mark.asyncio
+async def test_weather_and_mandi_tools_get_the_profile_flag_and_no_sub_place_args():
+    plan = _tool_plan(location_from_profile=True, profile_coordinates={"latitude": 17.7, "longitude": 83.3})
     calls, _ = await build_specialist_tool_calls_from_plan(plan, "Will it rain in Kharar?", {})
     for name in ("new_weather", "daily_price"):
         args = _args(calls, name)
-        assert args["location_from_profile"] is False
-        assert (args["sub_place_latitude"], args["sub_place_longitude"]) == (30.75, 76.64)
-        assert (args["sub_place_state"], args["sub_place_district"]) == ("Punjab", "Sahibzada Ajit Singh Nagar")
+        assert args["location_from_profile"] is True
         assert (args["latitude"], args["longitude"]) == (17.7, 83.3)
+        assert not any(k.startswith("sub_place") or k == "location" for k in args)
 
 
-# --- sub-place lookup in the planner --------------------------------------------
+def test_profile_location_note_names_the_place_and_points_to_the_profile():
+    from ajrasakha.agents.location_context import profile_location_note
 
-
-KHARAR = {"latitude": 30.75, "longitude": 76.64, "state": "Punjab", "district": "Sahibzada Ajit Singh Nagar", "name": "Kharar, Punjab"}
-KHARAR_LOCATION = {k: KHARAR[k] for k in ("latitude", "longitude", "state", "district")}
-
-
-@pytest.fixture
-def geocoder(monkeypatch):
-    """Fake geocode_sub_place: knows Kharar; records every lookup."""
-    from ajrasakha.agents import location_extractor
-
-    lookups = []
-
-    async def fake(place, *, state=None, district=None, **_):
-        lookups.append((place, state, district))
-        return KHARAR if place == "Kharar" else None
-
-    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
-    return lookups
-
-
-def _sub_place_plan(sub_places, state="Punjab", district="all"):
-    plan = _plan(state=state, district=district, weather=True, knowledge_base=False)
-    plan.update(is_complete=True, missing_info=[], follow_up_question=None, sub_places=sub_places)
-    return plan
-
-
-@pytest.mark.asyncio
-async def test_a_found_sub_place_gets_coordinates_searched_in_the_plan_state(geocoder):
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Kharar", "Mohali"]))
-    assert out["sub_place_location"] == KHARAR_LOCATION
-    assert out["entities"]["district"] == "all"  # the plan's own state/district stay as they were
-    assert out["is_complete"] is True
-    assert geocoder == [("Kharar", "Punjab", "all")]  # only sub_places[0]
-
-
-@pytest.mark.asyncio
-async def test_a_named_district_without_a_sub_place_becomes_the_sub_place_location(monkeypatch):
-    from ajrasakha.agents import location_extractor
-
-    calls = []
-
-    async def fake(**kwargs):
-        calls.append(kwargs)
-        return 25.59, 85.13, "Patna, Bihar"
-
-    monkeypatch.setattr(location_extractor, "get_lat_long", fake)
-    plan = _sub_place_plan([], state="Bihar", district="Patna")
-    plan["places"] = ["Patna", "Bihar"]
-    out = await apply_sub_place_coordinates(plan)
-    assert out["sub_place_location"] == {"latitude": 25.59, "longitude": 85.13, "state": "Bihar", "district": "Patna"}
-    assert calls == [{"district": "Patna", "state": "Bihar"}]
-
-
-@pytest.mark.asyncio
-async def test_no_named_place_leaves_the_sub_place_location_empty(geocoder):
-    out = await apply_sub_place_coordinates(_sub_place_plan([], state="Bihar", district="Patna"))
-    assert out["sub_place_location"] is None
-
-
-@pytest.mark.asyncio
-async def test_sub_place_without_geocoder_state_uses_the_query_state(monkeypatch):
-    from ajrasakha.agents import location_extractor
-
-    async def fake(place, **_):
-        return {"latitude": 1.0, "longitude": 2.0, "state": None, "district": None, "name": place}
-
-    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Ghat"], state="Bihar", district="Patna"))
-    assert out["sub_place_location"] == {"latitude": 1.0, "longitude": 2.0, "state": "Bihar", "district": "Patna"}
-
-
-@pytest.mark.asyncio
-async def test_town_in_the_district_field_gets_the_geocoders_district(monkeypatch):
-    from ajrasakha.agents import location_extractor
-
-    async def fake(place, **_):
-        return {"latitude": 25.62, "longitude": 85.17, "state": "Bihar", "district": "Patna", "name": place}
-
-    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Ghat"], state="Bihar", district="Gandhi Ghat"))
-    assert out["sub_places"] == ["Gandhi Ghat"]
-    assert out["entities"]["district"] == "Patna"
-    assert out["sub_place_location"]["district"] == "Patna"
-
-
-@pytest.mark.asyncio
-async def test_a_place_that_is_the_geocoded_district_is_not_a_sub_place(monkeypatch):
-    from ajrasakha.agents import location_extractor
-
-    async def fake(place, **_):
-        return {"latitude": 25.59, "longitude": 85.13, "state": "Bihar", "district": "Patna", "name": place}
-
-    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Patna"], state="Bihar", district="Patna"))
-    assert out["sub_places"] == []
-    assert out["sub_place_location"]["district"] == "Patna"
-
-
-GANDHI_NAGAR = {
-    "latitude": 12.9, "longitude": 77.5, "state": "Karnataka", "district": "Ballari", "name": "Gandhi Nagar, Ballari",
-    "alternatives": [
-        {"latitude": 28.6, "longitude": 77.2, "state": "Delhi", "district": "East Delhi", "name": "Gandhi Nagar, Delhi"},
-        {"latitude": 13.0, "longitude": 80.2, "state": "Tamil Nadu", "district": "Chennai", "name": "Gandhi Nagar, Chennai"},
-    ],
-}
-
-
-@pytest.fixture
-def ambiguous_geocoder(monkeypatch):
-    from ajrasakha.agents import location_extractor
-
-    async def fake(place, **_):
-        return GANDHI_NAGAR
-
-    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
-
-
-@pytest.mark.asyncio
-async def test_a_place_in_several_districts_asks_which_one(ambiguous_geocoder):
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Nagar"], state="all", district="all"))
-    assert out["is_complete"] is False
-    assert out["missing_info"] == ["location"]
-    for option in ("Ballari, Karnataka", "East Delhi, Delhi", "Chennai, Tamil Nadu"):
-        assert option in out["follow_up_question"]
-    assert out["ambiguous_places"] == ["Gandhi Nagar"]
-    assert out["sub_place_location"] is None
-
-
-@pytest.mark.asyncio
-async def test_an_ambiguous_place_is_asked_only_once(ambiguous_geocoder):
-    prev = {"ambiguous_places": ["Gandhi Nagar"]}
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Gandhi Nagar"]), prev)
-    assert out["is_complete"] is True
-    assert out["sub_place_location"]["district"] == "Ballari"
-    assert out["ambiguous_places"] == []
-
-
-@pytest.fixture
-def ballari_geocoder(monkeypatch):
-    from ajrasakha.agents import location_extractor
-
-    async def fake(place, **_):
-        return {"latitude": 15.14, "longitude": 76.92, "state": "Karnataka", "district": "Ballari", "name": place}
-
-    monkeypatch.setattr(location_extractor, "geocode_sub_place", fake)
-
-
-def _delhi_ballari_plan():
-    plan = _sub_place_plan(["Ballari"], state="Delhi", district="Ballari")
-    plan["places"] = ["Delhi", "Ballari"]
-    return plan
-
-
-@pytest.mark.asyncio
-async def test_a_place_outside_the_state_the_farmer_named_asks_first(ballari_geocoder):
-    out = await apply_sub_place_coordinates(_delhi_ballari_plan())
-    assert out["is_complete"] is False
-    assert "Ballari in Delhi" in out["follow_up_question"]
-    assert "Ballari, Karnataka" in out["follow_up_question"]
-    assert out["ambiguous_places"] == ["Ballari"]
-
-
-@pytest.mark.asyncio
-async def test_the_state_conflict_is_asked_only_once(ballari_geocoder):
-    out = await apply_sub_place_coordinates(_delhi_ballari_plan(), {"ambiguous_places": ["Ballari"]})
-    assert out["is_complete"] is True
-    assert (out["entities"]["state"], out["entities"]["district"]) == ("Karnataka", "Ballari")
-    assert out["sub_place_location"]["state"] == "Karnataka"
-
-
-@pytest.mark.asyncio
-async def test_a_profile_state_never_triggers_the_state_conflict_question(ballari_geocoder):
-    plan = _delhi_ballari_plan()
-    plan["places"] = ["Ballari"]  # the state came from the farmer profile, not the query
-    out = await apply_sub_place_coordinates(plan)
-    assert out["is_complete"] is True
-
-
-@pytest.mark.asyncio
-async def test_a_sub_place_found_nowhere_asks_the_farmer_again(geocoder):
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Xyzabad"]))
-    assert out["is_complete"] is False
-    assert out["missing_info"] == ["location"]
-    assert "Xyzabad" in out["follow_up_question"]
-    assert out["rejected_places"] == ["Xyzabad"]
-    assert out["sub_place_location"] is None
-
-
-@pytest.mark.asyncio
-async def test_the_reply_turn_skips_the_place_already_not_found(geocoder):
-    # The reply is merged onto "...in Xyzabad", so Xyzabad is still named.
-    prev = {"rejected_places": ["Xyzabad"]}
-    out = await apply_sub_place_coordinates(_sub_place_plan(["Xyzabad", "Kharar"]), prev)
-    assert out["sub_places"] == ["Kharar"]
-    assert out["sub_place_location"] == KHARAR_LOCATION
-    assert out["rejected_places"] == []
-
-
-@pytest.mark.asyncio
-async def test_questions_other_than_weather_or_mandi_are_never_geocoded(geocoder):
-    plan = _sub_place_plan(["Xyzabad"])
-    plan.update(weather=False, domain="Crop Protection", domains=["Crop Protection"])
-    out = await apply_sub_place_coordinates(plan)
-    assert out["is_complete"] is True and geocoder == []
-
-
-# --- the geocoder's search order -------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_sub_place_search_goes_state_then_india_then_openstreetmap(monkeypatch):
-    from ajrasakha.agents import location_extractor as lx
-
-    calls = []
-
-    def fake(source, hit_on):
-        async def _f(place, *, state=None, **_):
-            calls.append((source, state))
-            return {"latitude": 1.0} if (source, state) == hit_on else None
-        return _f
-
-    for hit_on, expected in [
-        (("google", "Punjab"), [("google", "Punjab")]),
-        (("google", None), [("google", "Punjab"), ("google", None)]),
-        (("osm", None), [("google", "Punjab"), ("google", None), ("osm", "Punjab"), ("osm", None)]),
-    ]:
-        calls.clear()
-        monkeypatch.setattr(lx, "_google_place", fake("google", hit_on))
-        monkeypatch.setattr(lx, "_nominatim_place", fake("osm", hit_on))
-        assert await lx.geocode_sub_place("Kharar", state="Punjab") == {"latitude": 1.0}
-        assert calls == expected
+    note = profile_location_note("weather", "Uttar Pradesh", "Prayagraj")
+    assert "Prayagraj, Uttar Pradesh" in note
+    assert "profile section" in note
+    assert "Mandi price details" in profile_location_note("mandi price", "Punjab", "all")

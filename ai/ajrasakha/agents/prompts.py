@@ -722,7 +722,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
    - [STRICT] Never take state or district from earlier turns of the conversation. Only the
      current message counts; an empty location is the correct answer when it names no place.
    - [STRICT] If the user mentions a specific district/city in the LATEST message (e.g. "Varanasi"), you MUST put that location in your `entities` JSON output.
-   - [STRICT] List every place name the current message mentions (state, district, city, town, block, or village) in `entities.places`, in English (Latin) script — transliterate a name written in another script, e.g. "rain in Kharar and Mohali" → `["Kharar", "Mohali"]`, "खरड़" → `["Kharar"]`. Include places you do not recognize; the server checks each one. Crops and pests are not places.
+   - For weather and mandi/market-price questions the server always uses the farmer's saved profile location and ignores any place named in the message, so do not try to resolve block, village or sub-district names.
    - [STRICT] If state was found in the current message but district was NOT mentioned → district = "all".
 
 3. **When to block execution**:

@@ -758,21 +758,18 @@ async def build_specialist_tool_calls_from_plan(
     district = resolved.district
     crop = resolved.crop
 
-    # The planner's LGD-checked state/district are the only location the tools get.
-    # Coordinates come from the farmer profile when the location is the profile's;
-    # otherwise the weather and mandi tools look up the district/state themselves.
+    # The planner's state/district are the only location the tools get (the
+    # farmer profile's for weather/mandi). Coordinates come from the farmer
+    # profile when available; otherwise the weather and mandi tools look up the
+    # district/state themselves.
     coords = plan.get("profile_coordinates") or {}
     lat: Optional[float] = coords.get("latitude")
     lon: Optional[float] = coords.get("longitude")
     addr: Optional[str] = None
     lat_source: str = "farmer_profile" if lat is not None and lon is not None else "unset"
-    # Weather/mandi only: places the farmer named that LGD did not verify.
-    sub_places: list[str] = list(plan.get("sub_places") or [])
-    curr_sub_loc: Optional[str] = sub_places[0] if sub_places else None
-    # Weather/mandi: lat/long above are the farmer profile's; the tools use them
-    # only when the question names no place, else the planner-geocoded sub-place.
+    # Weather/mandi always use the farmer profile location; the agents append a
+    # note saying so when location_from_profile is true.
     location_from_profile = bool(plan.get("location_from_profile"))
-    sub_loc = plan.get("sub_place_location") or {}
 
     if out_transient_location is not None and lat is not None and lon is not None:
         out_transient_location["state"] = state_name
@@ -818,13 +815,7 @@ async def build_specialist_tool_calls_from_plan(
                 "query": weather_query,
                 "district": eff_district,
                 "state": state_name if state_name and state_name.lower() not in {"not specified", "unknown"} else None,
-                "location": curr_sub_loc,
-                "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
-                "sub_place_latitude": sub_loc.get("latitude"),
-                "sub_place_longitude": sub_loc.get("longitude"),
-                "sub_place_state": sub_loc.get("state"),
-                "sub_place_district": sub_loc.get("district"),
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -849,12 +840,7 @@ async def build_specialist_tool_calls_from_plan(
                 "crop": crop if crop != "General" else "all",
                 "state": state_name if state_name != "Not specified" else None,
                 "district": eff_district,
-                "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
-                "sub_place_latitude": sub_loc.get("latitude"),
-                "sub_place_longitude": sub_loc.get("longitude"),
-                "sub_place_state": sub_loc.get("state"),
-                "sub_place_district": sub_loc.get("district"),
             },
             "id": _new_tool_call_id(),
             "type": "tool_call",

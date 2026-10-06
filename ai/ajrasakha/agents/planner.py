@@ -58,7 +58,6 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
-    apply_sub_place_coordinates,
     is_weather_or_mandi_plan,
     classify_follow_up_heuristic,
     crop_slot_satisfied,
@@ -97,14 +96,6 @@ class PlannerEntitiesOutput(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     chemicals: list[str] = Field(default_factory=list)
-    places: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Every place name the current message mentions (state, district, city, town, "
-            "block, or village), in English (Latin) script: transliterate names written "
-            "in another script (e.g. खरड़ -> Kharar). Empty when it names none."
-        ),
-    )
 
 
 class PlannerOutput(BaseModel):
@@ -328,7 +319,6 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "follow_up_type": output.follow_up_type,
         "main_question": output.main_question,
         "is_multiple_crops": bool(output.is_multiple_crops),
-        "places": [p.strip() for p in output.entities.places if p and p.strip()],
     }
 
 
@@ -614,9 +604,7 @@ def _check_question_completeness(
     script, vocal = language_pair_from_plan(plan)
     missing: list[str] = []
     follow_up: Optional[str] = None
-    # Weather/mandi never ask for location: the agents get whatever places were named.
-    has_state = bool(state_resolved) or is_weather_or_mandi_plan(plan)
-    if not has_state:
+    if not state_resolved:
         missing.append("location")
         follow_up = location_follow_up_for_plan(plan, script, vocal)
         trace_resolution(
@@ -1040,26 +1028,18 @@ async def planner_node(
             stored_location=stored_location,
             sources_out=location_sources,
         )
-        plan = await apply_sub_place_coordinates(plan, prev_plan)
-        if plan.get("rejected_places") or plan.get("ambiguous_places"):
-            # "Could not find <place>" names the place, so it cannot come from
-            # the fixed catalog like the other location questions: translate it.
-            script, vocal = language_pair_from_plan(plan)
-            if needs_translation(script, vocal):
-                from ajrasakha.agents.translate_answer import _translate_body
-
-                plan["follow_up_question"] = await _translate_body(
-                    plan["follow_up_question"], vocal, script, config
-                )
-        # True when the question names no place, so the farmer profile lat/long
-        # belong to the place asked about.
-        plan["location_from_profile"] = not plan.get("places")
+        # Weather/mandi take their location from the farmer profile, never from
+        # the query. location_from_profile drives the "change it in your profile"
+        # note the two agents append to their answer.
+        plan["location_from_profile"] = bool(
+            is_weather_or_mandi_plan(plan)
+            and stored_location
+            and stored_location.get("state")
+            and location_sources.get("state_source") == "stored_user_location"
+        )
         plan["profile_coordinates"] = (
             {"latitude": stored_location["latitude"], "longitude": stored_location["longitude"]}
-            if stored_location
-            # Weather/mandi always get the profile coordinates; they use them
-            # only when location_from_profile is true.
-            and (is_weather_or_mandi_plan(plan) or plan["location_from_profile"])
+            if plan["location_from_profile"]
             and stored_location.get("latitude") is not None
             and stored_location.get("longitude") is not None
             else None

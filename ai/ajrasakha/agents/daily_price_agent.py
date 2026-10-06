@@ -37,6 +37,7 @@ from ajrasakha.agents.daily_price_support import (
     message_for,
     status_for,
 )
+from ajrasakha.agents.location_context import profile_location_note
 from ajrasakha.agents.prompts import DAILY_PRICE_INTENT_PROMPT, DAILY_PRICE_SUMMARY_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -300,15 +301,8 @@ def _extract_market_name_from_query(query: str) -> str | None:
             if name:
                 return name
 
-    # 2. General location pattern: "in <City>, <State>" when not a discovery query
-    if not _is_market_discovery_query(query):
-        match_loc = _LOCATION_QUERY.search(query)
-        if match_loc:
-            name = match_loc.group(1).strip()
-            name_lower = name.lower()
-            if not any(w in name_lower for w in _INVALID_MARKET_SUBSTRINGS) and not any(name_lower == st for st in _INDIAN_STATES):
-                return name
-
+    # A plain place in the query ("in <City>") is not a mandi: location comes
+    # from the farmer profile, so it is not extracted here.
     return None
 
 
@@ -1075,7 +1069,8 @@ def _build_tool_args(
     actions = intent.get("actions") or [intent["action"]]
     tool_action: str | list[str] = actions[0] if len(actions) == 1 else actions
     args: dict[str, Any] = {"action": tool_action}
-    tool_state = intent.get("state") or state
+    # The profile state wins; a state named in the query is only a fallback.
+    tool_state = state or intent.get("state")
     if tool_state and str(tool_state).strip().lower() not in {"all", "not specified", "unknown"}:
         args["state"] = str(tool_state).strip()
 
@@ -1095,7 +1090,9 @@ def _build_tool_args(
         args["nearest_market"] = bool(intent.get("nearest_market", True))
         if intent.get("radius_km") is not None:
             args["radius_km"] = intent["radius_km"]
-        if intent.get("market_name"):
+        # Only a named mandi/APMC is passed on; a city or district named in the
+        # query is a location, which always comes from the farmer profile.
+        if intent.get("market_name") and intent.get("search_by_apmc"):
             args["market_name"] = intent["market_name"]
 
     # Clean up market_name: strip trailing 'district', never treat crop as mandi name
@@ -1256,12 +1253,7 @@ class DailyPriceInput(BaseModel):
     crop: str
     state: Optional[str] = None
     district: Optional[str] = None
-    sub_places: list[str] = []  # places the farmer named that are not the verified state/district
-    location_from_profile: Optional[bool] = None  # False when the question names a place: use sub_place_latitude/longitude, not latitude/longitude (farmer profile)
-    sub_place_latitude: Optional[float] = None  # sub_places[0], geocoded by the planner
-    sub_place_longitude: Optional[float] = None
-    sub_place_state: Optional[str] = None  # state of sub_places[0], from the planner's geocoder
-    sub_place_district: Optional[str] = None  # district of sub_places[0], from the planner's geocoder
+    location_from_profile: Optional[bool] = None  # True when state/district/latitude/longitude are the farmer's profile location (answer adds a "change it in the profile section" note)
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1272,12 +1264,7 @@ async def daily_price(
     crop: str = "all",
     state: Optional[str] = None,
     district: Optional[str] = None,
-    sub_places: Optional[list[str]] = None,
     location_from_profile: Optional[bool] = None,
-    sub_place_latitude: Optional[float] = None,
-    sub_place_longitude: Optional[float] = None,
-    sub_place_state: Optional[str] = None,
-    sub_place_district: Optional[str] = None,
     config: RunnableConfig = None,
 ) -> str:
     """
@@ -1292,55 +1279,24 @@ async def daily_price(
             logger.info("daily_price_agent: declining query (reason=%s): %s", declined, query)
             return _decline_envelope(declined)
 
-        # The planner sets location_from_profile=False when the question names a
-        # place: then the planner-geocoded sub_places[0], else none (the
-        # district/state names are used below). Otherwise the given lat/long
-        # (the farmer profile's).
-        if location_from_profile is False:
-            lat, lon = sub_place_latitude, sub_place_longitude
-        else:
-            lat, lon = latitude, longitude
-        if location_from_profile is False and lat is not None and lon is not None:
-            # The coordinates are the planner-geocoded sub-place's: keep the
-            # state/district consistent with them.
-            state = sub_place_state or state
-            district = sub_place_district or district
+        # The location is always the farmer's profile location (state, district,
+        # lat/long) passed in by the planner; nothing is read from the query.
+        lat, lon = latitude, longitude
         if lat is None or lon is None:
             from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
 
-            # Use district from parameter (preferred) or extract from query as fallback
-            district_val = district
-            if not district_val:
-                m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
-                if m_dist:
-                    district_val = m_dist.group(1).strip()
-
-            # sub_places provided by the planner: try each sub-place as subdistrict
-            # until geocoding succeeds, then fall back to district-only.
-            subdistrict_val = (sub_places[0].strip() if sub_places else None)
             _lat, _lon, _resolved_name = await _get_lat_long(
-                district=district_val,
-                subdistrict=subdistrict_val,
+                district=district,
+                subdistrict=None,
                 state=state,
             )
-            # If first sub_place failed and there are more, iterate through the rest
-            if (_lat is None or _lon is None) and sub_places and len(sub_places) > 1:
-                for sp in sub_places[1:]:
-                    _lat, _lon, _resolved_name = await _get_lat_long(
-                        district=district_val,
-                        subdistrict=sp.strip(),
-                        state=state,
-                    )
-                    if _lat is not None and _lon is not None:
-                        break
             if _lat is not None and _lon is not None:
                 lat = _lat
                 lon = _lon
                 logger.info(
-                    "daily_price_agent: geocoded state=%r district=%r sub_places=%r -> lat=%s, lon=%s (%s)",
+                    "daily_price_agent: geocoded state=%r district=%r -> lat=%s, lon=%s (%s)",
                     state,
-                    district_val,
-                    sub_places,
+                    district,
                     lat,
                     lon,
                     _resolved_name,
@@ -1407,6 +1363,8 @@ async def daily_price(
             config=config,
         )
         answer = answer or ""
+        if answer and location_from_profile and not _tool_result_is_empty(tool_payload):
+            answer += f"\n\n{profile_location_note('mandi price', state, district)}"
         if answer and intent.get("dropped_actions"):
             answer += (
                 f"\n\nNote: I answered the first {MAX_INTENT_ACTIONS} parts of your question. "
