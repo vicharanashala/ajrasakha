@@ -41,6 +41,10 @@ export const appConfig = {
   GCP_MEDIA_BUCKET: env('GCP_MEDIA_BUCKET') || null,
   ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
   ENABLE_AI_SERVER: env('ENABLE_AI_SERVER') == 'true' || false,
+  // AjraVerify deterministic safety gate on AI answers (M1.5) — verifies the
+  // initial answer before the question enters the pipeline; never blocks
+  // ingestion, verdict + receipt ride along for the review system.
+  ENABLE_AJRAVERIFY: env('ENABLE_AJRAVERIFY') == 'true' || false,
   WA_WEBHOOK_API_KEY: env('WA_WEBHOOK_API_KEY') || "",
   WA_WEBHOOK_API_URL: env("WA_WEBHOOK_API_URL") || null,
   WA_SEND_MESSAGE_WEBHOOK_API_URL: env("WA_SEND_MESSAGE_WEBHOOK_API_URL") || null,

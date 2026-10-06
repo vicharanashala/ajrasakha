@@ -42,11 +42,19 @@ export class MongoDatabase implements IDatabase<Db> {
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
 
+    // TLS is required for Atlas/SRV URIs, but a local standalone mongod (mongodb://)
+    // rejects TLS handshakes. Enable it only when the URI calls for it.
+    const wantsTls = uri.startsWith('mongodb+srv://') || /[?&](ssl|tls)=true/i.test(uri);
+
     this.client = new MongoClient(uri, {
-      ssl: true,
-      tls: true,
-      tlsAllowInvalidCertificates: false,
-      tlsAllowInvalidHostnames: false,
+      ...(wantsTls
+        ? {
+            ssl: true,
+            tls: true,
+            tlsAllowInvalidCertificates: false,
+            tlsAllowInvalidHostnames: false,
+          }
+        : {}),
       retryWrites: true,
       connectTimeoutMS: 30000,
       socketTimeoutMS: 30000
