@@ -103,10 +103,12 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   ];
 
   // Filter out current question from queue list
-  const queueQuestions = sampleQueueQuestions.filter(q => q.id !== currentQuestion.id);
+  const queueQuestions = sampleQueueQuestions.filter(
+    (q) => (q.id || (q as any)._id) !== (currentQuestion.id || (currentQuestion as any)._id)
+  );
 
   // Determine which question to display - selected from queue or current question
-  const displayQuestion = selectedQueueQuestion || currentQuestion;
+  const displayQuestion = question || selectedQueueQuestion || defaultQuestion;
 
   const handleCopyQuestion = () => {
     if (displayQuestion?.text) {
@@ -119,12 +121,13 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
 
   // Question card component for queue items
   const QuestionCard = ({ q }: { q: IQuestionContextData }) => {
-    const isSelected = selectedQuestionId === q.id;
+    const qId = q.id || (q as any)._id;
+    const isSelected = selectedQuestionId === qId;
     const handleSelect = () => {
       // Switch to current tab and set the selected question to display
       setActiveTab("current");
       setSelectedQueueQuestion(q);
-      onQuestionSelect?.(q.id);
+      onQuestionSelect?.(qId);
     };
     return (
       <button

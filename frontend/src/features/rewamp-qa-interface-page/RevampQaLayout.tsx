@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { QuestionAndContextPanel } from "./components/QuestionAndContextPanel";
 import { AnswerReviewDraftPanel } from "./components/AnswerReviewDraftPanel";
 import { SourceReferencePanel } from "./components/SourceReferencePanel";
@@ -9,6 +9,11 @@ import type { IQuestionContextData, IPanelCollapseState } from "./types";
 import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
+import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
+import { useReviewAnswer, type IReviewAnswerPayload } from "@/hooks/api/answer/useReviewAnswer";
+import { QuestionService } from "@/hooks/services/questionService";
+import { toast } from "sonner";
+import type { IReviewParmeters, SourceItem } from "@/types";
 
 interface RevampQaLayoutProps {
   questionData?: IQuestionContextData | null;
@@ -31,6 +36,9 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   // Action type state for the question filter (allocated vs reroute)
   const [actionType, setActionType] = useState<"allocated" | "reroute">("allocated");
 
+  // Selected question ID tracking
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
+
   // Preferences state
   const [reviewLevel, setReviewLevel] = useState<string>("all");
   const [source, setSource] = useState<string>("all");
@@ -47,8 +55,132 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, null, reviewLevel);
 
-  // Console log the questions
-  console.log("Questions from API:", questionPages?.pages);
+  const questions = (questionPages?.pages?.flat() || []) as any[];
+
+  // Auto-select first question or timebound question with priority
+  useEffect(() => {
+    if (questions.length > 0 && !selectedQuestionId) {
+      const timebound = questions.find(
+        (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+      );
+      if (timebound) {
+        setSelectedQuestionId(timebound.id || timebound._id);
+      } else {
+        const first = questions[0];
+        setSelectedQuestionId(first?.id || first?._id);
+      }
+    }
+  }, [questions, selectedQuestionId]);
+
+  // Fetch full details of the selected question
+  const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
+    useGetQuestionById(selectedQuestionId, actionType);
+
+  // Time-bound question opened tracking
+  const questionServiceRef = useRef(new QuestionService());
+  const pendingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastOpenedTimeBoundRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedQuestionId || actionType !== "allocated") return;
+
+    const q = questions.find((item) => (item.id || item._id) === selectedQuestionId);
+    const isCurrentTimeBound = q?.source === "AJRASAKHA" || q?.source === "WHATSAPP";
+
+    if (isCurrentTimeBound && selectedQuestionId === lastOpenedTimeBoundRef.current) {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+        pendingClearTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (isCurrentTimeBound) {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+        pendingClearTimerRef.current = null;
+      }
+      questionServiceRef.current.markQuestionOpened(selectedQuestionId);
+      lastOpenedTimeBoundRef.current = selectedQuestionId;
+      return;
+    }
+
+    if (lastOpenedTimeBoundRef.current && !pendingClearTimerRef.current) {
+      pendingClearTimerRef.current = setTimeout(() => {
+        questionServiceRef.current.markQuestionOpened(selectedQuestionId);
+        lastOpenedTimeBoundRef.current = null;
+        pendingClearTimerRef.current = null;
+      }, 5 * 60 * 1000);
+    }
+  }, [selectedQuestionId, actionType, questions]);
+
+  // Cleanup timebound timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Review answer mutation
+  const { mutateAsync: respondQuestion, isPending: isResponding } = useReviewAnswer();
+
+  const handleSubmitResponse = async (
+    status?: "accepted" | "rejected" | "modified",
+    parameters?: IReviewParmeters,
+    currentReviewingAnswerId?: string,
+    rejectionReason?: string,
+    answerText?: string,
+    sourcesList?: SourceItem[],
+    remarksText?: string
+  ) => {
+    if (!selectedQuestionId || isResponding) return;
+
+    const payload: IReviewAnswerPayload = {
+      questionId: selectedQuestionId,
+      parameters: parameters || ({} as any),
+      remarks: remarksText || "",
+      type: actionType,
+    };
+
+    const requiresSources = !status || status === "rejected" || status === "modified";
+    if (requiresSources && (!sourcesList || sourcesList.length === 0)) {
+      toast.error("At least one source is required!");
+      return;
+    }
+
+    if (!status) {
+      // Author phase submission
+      payload.answer = answerText;
+      payload.sources = sourcesList;
+      payload.remarks = remarksText || "";
+    } else if (status === "accepted") {
+      payload.status = "accepted";
+      payload.approvedAnswer = currentReviewingAnswerId;
+    } else if (status === "rejected") {
+      payload.status = "rejected";
+      payload.rejectedAnswer = currentReviewingAnswerId;
+      payload.reasonForRejection = rejectionReason;
+      payload.answer = answerText;
+      payload.sources = sourcesList;
+      payload.remarks = remarksText || "";
+    } else if (status === "modified") {
+      payload.status = "modified";
+      payload.modifiedAnswer = currentReviewingAnswerId;
+      payload.reasonForModification = rejectionReason;
+      payload.answer = answerText;
+      payload.sources = sourcesList;
+    }
+
+    try {
+      await respondQuestion(payload);
+      toast.success("Your response has been submitted. Thank you!");
+      refetch();
+    } catch (error) {
+      console.error("Failed to submit:", error);
+    }
+  };
 
   const handleFilterChange = (key: string, value: any) => {
     switch (key) {
@@ -68,8 +200,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   };
 
   const handleRefresh = () => {
-    // Refresh logic - could trigger a refetch or refresh the page
-    window.location.reload();
+    refetch();
   };
 
   const togglePanel = (panel: keyof IPanelCollapseState) => {
@@ -107,9 +238,34 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
             }`}
           >
             <QuestionAndContextPanel
-              question={questionData}
-              questions={questionPages?.pages?.flat() || []}
-              isLoading={isQuestionsLoading}
+              question={
+                selectedQuestionData
+                  ? ({
+                      id: selectedQuestionData.id || (selectedQuestionData as any)._id || "",
+                      text: selectedQuestionData.text || "",
+                      crop: selectedQuestionData.details?.crop || (selectedQuestionData as any).crop || "",
+                      state: selectedQuestionData.details?.state || (selectedQuestionData as any).state || "",
+                      district: selectedQuestionData.details?.district || (selectedQuestionData as any).district || "",
+                      block: selectedQuestionData.details?.block || (selectedQuestionData as any).block || "",
+                      language: selectedQuestionData.language || "English",
+                      askedOn: selectedQuestionData.createdAt || (selectedQuestionData as any).askedOn || "",
+                      priority: (selectedQuestionData.priority as any) || "Medium",
+                      commentsCount: selectedQuestionData.commentsCount || 0,
+                      queueIndex:
+                        questions.findIndex(
+                          (q) => (q.id || q._id) === selectedQuestionId
+                        ) + 1 || 1,
+                      totalInQueue: questions.length,
+                      aiInitialAnswer: selectedQuestionData.aiInitialAnswer,
+                      aiApprovedAnswer: selectedQuestionData.aiApprovedAnswer,
+                      metadata: (selectedQuestionData as any).metadata,
+                    } as IQuestionContextData)
+                  : questionData
+              }
+              questions={questions}
+              isLoading={isQuestionsLoading || isSelectedQuestionLoading}
+              selectedQuestionId={selectedQuestionId}
+              onQuestionSelect={setSelectedQuestionId}
               isCollapsed={collapsed.questionContext}
               onToggleCollapse={() => togglePanel("questionContext")}
               progressPercent={15}
@@ -152,7 +308,19 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               }`}
             >
               <AnswerReviewDraftPanel
-                initialAiAnswer={questionData?.aiInitialAnswer}
+                selectedQuestionData={selectedQuestionData}
+                isLoading={isSelectedQuestionLoading}
+                actionType={actionType}
+                initialAiAnswer={
+                  selectedQuestionData?.source === "AJRASAKHA"
+                    ? selectedQuestionData.aiInitialAnswer ||
+                      selectedQuestionData.aiApprovedAnswer
+                    : selectedQuestionData?.aiInitialAnswer
+                }
+                isSubmitting={isResponding}
+                onSubmitResponse={handleSubmitResponse}
+                onQuestionSelect={setSelectedQuestionId}
+                refetchQuestions={refetch}
                 isCollapsed={collapsed.answerDraft}
                 onToggleCollapse={() => togglePanel("answerDraft")}
               />
