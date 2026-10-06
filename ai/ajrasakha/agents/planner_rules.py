@@ -736,6 +736,15 @@ async def apply_sub_place_coordinates(
         elif geocoded_district and (entities.get("district") or "").casefold() == place.casefold():
             # The LLM put the town in the district field; the district is the geocoder's.
             out["entities"] = {**entities, "district": geocoded_district}
+        # The district/state are never sub-places; only finer places stay.
+        entities = out.get("entities") or entities
+        containing = {
+            v.casefold()
+            for v in (geocoded_district, found.get("state"), named(entities.get("district")), named(entities.get("state")))
+            if v
+        }
+        current = out["sub_places"]
+        out["sub_places"] = current[:1] + [p for p in current[1:] if p.casefold() not in containing]
         return out
 
     out["is_complete"] = False
