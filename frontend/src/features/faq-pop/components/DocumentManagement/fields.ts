@@ -153,13 +153,16 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
 // document changes what those download as. `language` is PATCH-able on the document (validated
 // against GET /languages, 400 on an unknown code) and setting it stamps
 // language_source: "manual", so it always needs the dropdown, never free text.
-// district_id/kvk_id (2026-10-01) — placement-level fields, same as state/crop, added here so
-// UniqueDocumentEditForm's generic save loop picks them up: blank sends null (clears), a picked id
-// sends that id, same as every other non-"language" field in this list. They're assumed-pending on
-// PATCH /unique-documents/{id} — see the backend thread; harmless until it lands since an
-// unrecognized field is a no-op. Rendered manually in UniqueDocumentEditForm (not via
-// MetadataFieldInput) since their options are fetched dynamically, scoped to the document's current
-// state — same reason `language` is rendered manually there too.
+// district_id/kvk_id — DOCUMENT-level fields (moved off the placement 2026-10-06; every placement
+// of a document now reports the same pair, derived from this one stored value). Added here so
+// UniqueDocumentEditForm's generic save loop picks them up: an explicit "" sends "" (clears), a
+// picked id sends that id, omitted (untouched) is left out of the payload entirely — same as every
+// other non-"language" field in this list. Confirmed live on PATCH /unique-documents/{id}.
+// `PATCH /dashboard/documents/{row_id}` (the placement-level route) no longer accepts either field
+// — Pydantic silently drops unknown fields, so sending them there 200s and changes nothing; only
+// send them via updateDashboardUniqueDocument. Rendered manually in UniqueDocumentEditForm (not via
+// MetadataFieldInput) since their options are fetched dynamically, scoped to the document's anchor
+// placement's state — same reason `language` is rendered manually there too.
 export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
   { key: "shareable_name", label: "Document Name", type: "text", group: "Identity" },
   { key: "language", label: "Language", type: "select", optionsSource: "language", group: "Language" },

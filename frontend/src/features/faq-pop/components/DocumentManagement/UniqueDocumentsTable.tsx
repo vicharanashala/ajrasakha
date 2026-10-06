@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Eye, RefreshCw, Trash2, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Eye, Pencil, RefreshCw, Trash2, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
 import {
   getDashboardUniqueDocuments,
@@ -28,6 +28,7 @@ import ServerPagination from "./ServerPagination";
 import TopScrollbar from "./TopScrollbar";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
+import UniqueDocumentEditForm from "./UniqueDocumentEditForm";
 import {
   ADVISORY_TYPE_OPTIONS,
   ADVISORY_SCOPE_OPTIONS,
@@ -53,19 +54,23 @@ const PAGE_SIZE = 100;
 // month_of_release, date_of_collection, month_of_collection, advisory_org_address,
 // edition_revision_volume and live_source_link were confirmed added to the filter whitelist —
 // all filterable now.
-// `state`/`crop`/`district`/`kvk` aren't real fields on a unique-document row (a document can
-// have many placements) — derived client-side from `duplicate_links`/`representative_row_id`, the
-// anchor placement's own values, same one Translation acts on. `duplicate_links` entries carry all
-// four server-resolved already (confirmed by the backend, 2026-09-29), so this needs no extra
-// request. `vocab` picks which filter/dropdown-option state below backs the column's filter
-// control — filtering these now matches on ANY of the document's placements (not just the
-// anchor), per the backend: a document with placements in two states can show one state here
-// while matching a filter for the other. Sorting, unlike filtering, does go by the anchor.
+// `state`/`crop` aren't real fields on a unique-document row (a document can have many
+// placements) — derived client-side from `duplicate_links`/`representative_file_id`, the anchor
+// placement's own values, same one Translation acts on (see withAnchorPlacement below).
+// `district`/`kvk`, unlike state/crop, ARE real fields directly on the document now (2026-10-06
+// backend change — a PoP is written for one place, so district/kvk moved off the placement onto
+// the document; every placement reports the same pair). `vocab` picks which filter/dropdown-option
+// state below backs the column's filter control — filtering state/crop here matches on ANY of the
+// document's placements (not just the anchor), per the backend: a document with placements in two
+// states can show one state here while matching a filter for the other. District/KVK filtering
+// matches the one stored value directly, same as any other document field. Sorting, unlike
+// state/crop filtering, does go by the anchor for those two; district/kvk sort by the document
+// field itself either way since there's only one value.
 const DERIVED_COLUMNS = [
   { key: "_anchor_state", label: "State", sortKey: "state", vocab: "state" },
   { key: "_anchor_crop", label: "Folder", sortKey: "crop", vocab: "folder" },
-  { key: "_anchor_district", label: "District", sortKey: "district", vocab: "district" },
-  { key: "_anchor_kvk", label: "KVK", sortKey: "kvk", vocab: "kvk" },
+  { key: "district", label: "District", vocab: "district" },
+  { key: "kvk", label: "KVK", vocab: "kvk" },
 ];
 
 const FIELD_COLUMNS = [
@@ -218,17 +223,18 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
       .catch(() => {});
   }, [districtFilterId]);
 
-  // The anchor placement — same one `representative_file_id`/Translation act on — named by
-  // `representative_row_id` inside the document's own `duplicate_links` (see DERIVED_COLUMNS
-  // above). Missing on a document with no placements at all, which shouldn't happen in practice.
+  // The anchor placement — same one `representative_file_id`/Translation act on — found by
+  // matching `duplicate_links[].zoho_file_id` against the document's own `representative_file_id`
+  // (2026-10-06: `representative_row_id` is gone — it named a field that could point at a deleted
+  // placement; this is the same fact, derived instead of stored). Missing on a document with no
+  // placements at all, which shouldn't happen in practice. District/KVK no longer come from the
+  // anchor — they're plain fields on `item` itself now (see DERIVED_COLUMNS above).
   function withAnchorPlacement(item) {
-    const anchor = item.duplicate_links?.find((l) => l.row_id === item.representative_row_id);
+    const anchor = item.duplicate_links?.find((l) => l.zoho_file_id === item.representative_file_id);
     return {
       ...item,
       _anchor_state: anchor?.state,
       _anchor_crop: anchor?.crop,
-      _anchor_district: anchor?.district,
-      _anchor_kvk: anchor?.kvk,
     };
   }
 
@@ -313,6 +319,13 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   function patchRow(id, patch) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
+
+  // Edit pencil (next to the Eye/View button) opens UniqueDocumentEditForm directly on this row,
+  // skipping DocumentDetailModal entirely — the row object from the list response already carries
+  // every field the edit form reads (duplicate_links, representative_file_id, district/kvk,
+  // placement_count, all of DOCUMENT_METADATA_FIELDS/EDITABLE_DOCUMENT_ONLY_FIELDS/
+  // DISPLAY_ONLY_FIELDS), so no extra fetch is needed before opening it.
+  const [editingRow, setEditingRow] = useState(null);
 
   // A document row here has no placement id on hand (unlike Main Table rows, which ARE
   // placements) — review-upload and delete-translation both need one, so fetch this document's
@@ -685,6 +698,13 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                             >
                               <Eye size={11} />
                             </button>
+                            <button
+                              className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                              onClick={() => setEditingRow(row)}
+                              title="Edit document"
+                            >
+                              <Pencil size={11} />
+                            </button>
                           </div>
                         </td>
                       );
@@ -753,6 +773,20 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
       </div>
 
       <ServerPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+
+      {editingRow && (
+        <UniqueDocumentEditForm
+          key={editingRow.id}
+          doc={editingRow}
+          open={!!editingRow}
+          onOpenChange={(v) => !v && setEditingRow(null)}
+          onSaved={(updated) => {
+            patchRow(editingRow.id, updated);
+            onDataChanged?.();
+            setEditingRow(null);
+          }}
+        />
+      )}
     </div>
   );
 }

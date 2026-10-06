@@ -195,7 +195,8 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
   async function saveEdit(row) {
     setSaving(true);
     try {
-      const payload = { state: editState };
+      const editStateId = stateOptions.find((s) => s.name === editState)?.id || "";
+      const payload = { state_id: editStateId };
       const opt = editFolderOptions.find((f) => (f.name || "(no folder)") === editFolder);
       // Only sent when the folder was actually resolved against a loaded option (has both a name
       // match and its id/kind) — if it wasn't touched or the fetch hasn't landed yet, leaving it

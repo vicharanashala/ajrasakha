@@ -54,15 +54,14 @@ const GROUP_ORDER = [
 // shifts focus in a way that sets off a fight between the two FocusScopes and hangs the tab
 // (reported: page freezes after picking a language, console full of "Blocked aria-hidden on an
 // element because its descendant retained focus"). Nesting a `Dialog` inside a `Dialog` is the
-// pattern Radix actually supports. `onPointerDownOutside` is overridden below to reproduce
-// AlertDialog's one behavior we still want — no accidental close (and lost edits) from a stray
-// outside click — since `Dialog`, unlike `AlertDialog`, leaves that handler overridable.
+// pattern Radix actually supports. No `onPointerDownOutside` override here — per the user, an
+// outside click should close this modal (and the View modal, DocumentDetailModal.tsx) same as
+// any other dialog, so this relies on Dialog's own default dismiss-on-outside-click behavior.
 //
-// Every editable field here is document-level — PATCH /unique-documents/{id} changes the
-// document, so a save here changes every one of its placements at once, EXCEPT District/KVK,
-// which are placement fields written to the document's anchor placement only (see the comment
-// above the district/kvk effects below). Warn up front when placement_count > 1 (doc.placement_
-// count is already on the fetched document, no extra request needed).
+// Every editable field here is document-level, including District/KVK (moved off the placement
+// 2026-10-06) — PATCH /unique-documents/{id} changes the document, so a save here changes every
+// one of its placements at once. Warn up front when placement_count > 1 (doc.placement_count is
+// already on the fetched document, no extra request needed).
 export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSaved }) {
   const [values, setValues] = useState(() => {
     const v = {};
@@ -94,12 +93,6 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
       return next;
     });
   }
-  // Used by the one-shot prefill effects below ONLY — resolves the document's own current
-  // district/kvk name into a dropdown id without that resolution itself counting as a user edit.
-  function setValueSilent(key, val) {
-    setValues((prev) => ({ ...prev, [key]: val }));
-  }
-
   const [languageOptions, setLanguageOptions] = useState([]);
   useEffect(() => {
     getDashboardLanguages()
@@ -107,14 +100,15 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
       .catch(() => {});
   }, []);
 
-  // District/KVK are placement-level (like state/crop), so this document-level form has no
-  // `state` field of its own to scope them by — it borrows the anchor placement's state (same
-  // placement Translation/download act on) the same way UniqueDocumentsTable derives State/Folder
-  // for display. `duplicate_links` entries only carry the anchor's district/kvk as plain NAMES, not
-  // ids, so pre-selecting the right dropdown option means resolving that name against the fetched
-  // id-based options once they load (see the prefill effects below) — mirrors how MainTable's own
-  // inline edit resolves a folder name back to an id before saving.
-  const anchor = doc?.duplicate_links?.find((l) => l.row_id === doc.representative_row_id);
+  // District/KVK are document-level fields now (moved off the placement 2026-10-06), and the
+  // document carries `district_id`/`kvk_id` directly — so `values.district_id`/`values.kvk_id`
+  // (set from `doc` in the initial useState above) are already the right ids, no name-matching
+  // prefill needed. This form still has no `state` field of its own though, so District's dropdown
+  // borrows the anchor placement's state (same placement Translation/download act on, found by
+  // matching `duplicate_links[].zoho_file_id` against `representative_file_id` — `representative_
+  // row_id` is gone, see UniqueDocumentsTable.tsx's withAnchorPlacement for the same lookup) the
+  // same way UniqueDocumentsTable derives State/Folder for display.
+  const anchor = doc?.duplicate_links?.find((l) => l.zoho_file_id === doc.representative_file_id);
   const [stateOptions, setStateOptions] = useState([]);
   useEffect(() => {
     getDashboardStates()
@@ -124,11 +118,9 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
   const anchorStateId = stateOptions.find((s) => s.name === anchor?.state)?.id || "";
 
   // District narrows by the anchor's state; KVK narrows by the district actually SELECTED in this
-  // form (values.district_id) — a KVK belongs to one district, not directly to a state — so once
-  // the district prefill (below) resolves, this effect re-fires and fetches the right KVK list on
-  // its own. Each list carries exactly ONE "All" row (2026-10-05 backend change — one shared row
-  // per vocabulary, not per-parent) — a real selectable value kept in the list, distinct from the
-  // dropdown's own blank "— none —" option (sends nothing / clears, see handleSave).
+  // form (values.district_id). Each list carries exactly ONE "All" row (2026-10-05 backend change
+  // — one shared row per vocabulary, not per-parent) — a real selectable value kept in the list,
+  // distinct from the dropdown's own blank "— none —" option (sends "" / clears, see handleSave).
   const [districtOptions, setDistrictOptions] = useState([]);
   useEffect(() => {
     if (!anchorStateId) {
@@ -150,26 +142,6 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
       .then((d) => setKvkOptions(d || []))
       .catch(() => {});
   }, [values.district_id]);
-
-  // One-shot prefill once each option list lands — doesn't re-run after that, so it never
-  // clobbers a value the user has since picked (or cleared) by hand. Uses setValueSilent so this
-  // resolution step itself never marks district_id/kvk_id as touched.
-  const [districtPrefilled, setDistrictPrefilled] = useState(false);
-  useEffect(() => {
-    if (districtPrefilled || !anchor?.district || districtOptions.length === 0) return;
-    const match = districtOptions.find((d) => d.name === anchor.district);
-    if (match) setValueSilent("district_id", match.id);
-    setDistrictPrefilled(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [districtOptions, districtPrefilled]);
-  const [kvkPrefilled, setKvkPrefilled] = useState(false);
-  useEffect(() => {
-    if (kvkPrefilled || !anchor?.kvk || kvkOptions.length === 0) return;
-    const match = kvkOptions.find((k) => k.name === anchor.kvk);
-    if (match) setValueSilent("kvk_id", match.id);
-    setKvkPrefilled(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kvkOptions, kvkPrefilled]);
 
   async function handleSave() {
     // Only touched fields are sent — an untouched field is omitted, which PATCH treats as "leave
@@ -225,8 +197,6 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
       onSaved?.(updated);
       onOpenChange(false);
     } catch (err) {
-      // District/KVK only live on the document's anchor placement — a document with no anchor
-      // (no placements at all, shouldn't normally happen) 409s here rather than silently no-op-ing.
       toast.error(err.message || "Update failed");
     } finally {
       setSaving(false);
@@ -235,18 +205,14 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-3xl max-h-[85vh] overflow-y-auto"
-        onPointerDownOutside={(e) => e.preventDefault()}
-      >
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Document — {doc?.document_id}</DialogTitle>
         </DialogHeader>
         {doc?.placement_count > 1 && (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-            This document is filed in {doc.placement_count} places. Every field below (except
-            District/KVK, which belong to the anchor placement only) changes the document itself,
-            so saving updates all {doc.placement_count} placements at once.
+            This document is filed in {doc.placement_count} places. Every field below belongs to
+            the document itself, so saving updates all {doc.placement_count} placements at once.
           </div>
         )}
         <div className="flex flex-col gap-5 py-2">
