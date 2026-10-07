@@ -27,6 +27,7 @@ interface CreateZohoTicketModalProps {
         buildVersion?: string;
         defectSeverity?: string;
         testerRemarks?: string;
+        testerRemarksNotes?: string;
         overallTestStatus?: string;
         testerName?: string;
         userEmail?: string;
@@ -142,7 +143,7 @@ export function CreateZohoTicketModal({
     const [teamId, setTeamId] = useState("");
     const [teams, setTeams] = useState<ZohoTeam[]>([]);
     const [isLoadingTeams, setIsLoadingTeams] = useState(false);
-    const [appName, setAppName] = useState("Whatsapp Bot");
+    const [appName, setAppName] = useState("");
     const [issueReoccurredBefore, setIssueReoccurredBefore] = useState(false);
     const [dueDate, setDueDate] = useState("");
     const [description, setDescription] = useState("");
@@ -154,6 +155,7 @@ export function CreateZohoTicketModal({
     const [successInfo, setSuccessInfo] = useState<{ ticketNumber: string | null; url: string; attachmentsCount?: number } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const wasOpenRef = useRef(false);
+    const isSubmittingRef = useRef(false);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -191,6 +193,7 @@ export function CreateZohoTicketModal({
             setErrorMsg(null);
             setScopeUpgradeNeeded(false);
             setAttachments([]);
+            setAppName("");
             wasOpenRef.current = false;
             return;
         }
@@ -214,20 +217,11 @@ export function CreateZohoTicketModal({
             }
             setPriority(defaultPriority);
 
-            // Auto-detect App Name from channel tested
             const ch = (initialData.channelTested || "").toLowerCase();
             const isCross = ch.includes("both") || ch.includes("cross");
-            if (isCross) {
-                setAppName("Cross-Platform Sync");
-            } else if (ch.includes("web")) {
-                setAppName("Web App");
-            } else if (ch.includes("reviewer")) {
-                setAppName("Reviewer System");
-            } else if (ch.includes("call") || ch.includes("center")) {
-                setAppName("Agent Call Center");
-            } else {
-                setAppName("Whatsapp Bot");
-            }
+
+            // Keep App Name unselected by default unless tester selects one
+            setAppName("");
             setIssueReoccurredBefore(false);
             setDueDate("");
             const cat = initialData.questionCategory ? ` [${initialData.questionCategory}]` : "";
@@ -263,7 +257,9 @@ export function CreateZohoTicketModal({
                 `• Overall Test Status: ${initialData.overallTestStatus || "N/A"}`,
                 "",
                 "Tester Remarks / Steps to Reproduce:",
-                initialData.testerRemarks || "No additional remarks provided.",
+                initialData.testerRemarksNotes
+                    ? `${initialData.testerRemarks || "Remarks"}: ${initialData.testerRemarksNotes}`
+                    : initialData.testerRemarks || "No additional remarks provided.",
                 "",
                 `Reported By: ${initialData.testerName || "QA Tester"} (${initialData.userEmail || "tester@annamai.org"})`,
             ];
@@ -386,8 +382,14 @@ export function CreateZohoTicketModal({
     };
 
     const handleCreateTicket = async () => {
+        if (isSubmittingRef.current) return;
+
         if (!subject.trim()) {
             setErrorMsg("Please enter a ticket subject.");
+            return;
+        }
+        if (!appName) {
+            setErrorMsg("Please select an App Name.");
             return;
         }
         if (!description.trim()) {
@@ -395,6 +397,7 @@ export function CreateZohoTicketModal({
             return;
         }
 
+        isSubmittingRef.current = true;
         setIsSubmitting(true);
         setErrorMsg(null);
         setScopeUpgradeNeeded(false);
@@ -437,6 +440,7 @@ export function CreateZohoTicketModal({
         } catch (err: any) {
             setErrorMsg(err?.message || "An unexpected error occurred while communicating with Zoho Desk.");
         } finally {
+            isSubmittingRef.current = false;
             setIsSubmitting(false);
         }
     };
@@ -559,7 +563,7 @@ export function CreateZohoTicketModal({
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                             <div className="sm:col-span-6 flex flex-col gap-1">
                                 <label className="text-xs font-semibold text-foreground">
-                                    Ticket Subject <span className="text-destructive">*</span>
+                                    Ticket Subject <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -610,13 +614,14 @@ export function CreateZohoTicketModal({
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                             <div className="sm:col-span-5 flex flex-col gap-1">
                                 <label className="text-xs font-semibold text-foreground">
-                                    App Name <span className="text-destructive">*</span>
+                                    App Name <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
                                 </label>
                                 <select
                                     value={appName}
                                     onChange={(e) => setAppName(e.target.value)}
                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 >
+                                    <option value="">-- Select App Name --</option>
                                     {APP_NAME_OPTIONS.map((opt) => (
                                         <option key={opt} value={opt}>
                                             {opt}
@@ -655,7 +660,7 @@ export function CreateZohoTicketModal({
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-semibold text-foreground">
-                                    Bug Description & Test Context <span className="text-destructive">*</span>
+                                    Bug Description & Test Context <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
                                 </label>
                                 <button
                                     type="button"

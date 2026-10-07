@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTesterLogSummary } from "../hooks/useTesterLogSummary";
 import { useTesterLogHistory } from "../hooks/useTesterLogHistory";
 import type { ITesterLogEntry } from "../types";
@@ -214,9 +214,11 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                                     <DetailRow label="WhatsApp Response Time" value={entry.waResponseTimeMins} />
                                     <DetailRow label="Web SLA Status" value={entry.slaStatus} />
                                     <DetailRow label="WhatsApp SLA Status" value={entry.waSlaStatus} />
+                                    <DetailRow label="Web Voice Input Issue Description" value={entry.voiceInputIssueDescription} />
+                                    <DetailRow label="WhatsApp Voice Input Issue Description" value={entry.waVoiceInputIssueDescription} />
                                     <DetailRow label="Web App Test Status" value={entry.webOverallTestStatus} />
                                     <DetailRow label="WhatsApp Test Status" value={entry.waOverallTestStatus} />
-                                    <DetailRow label="WhatsApp vs Web Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
+                                    <DetailRow label="WhatsApp vs Web Application Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
                                     <DetailRow label="Discrepancy Notes" value={entry.crossPlatformDiscrepancyNotes} />
                                 </div>
                             </div>
@@ -233,34 +235,43 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                             <DetailRow label="Time Answer Received" value={entry.timeAnswerReceived} />
                             <DetailRow label="Response Time [Auto]" value={entry.responseTimeMins} />
                             <DetailRow label="SLA Status" value={entry.slaStatus} />
-                            <DetailRow label="Question in Review Model?" value={entry.questionInReviewModel} />
-                            <DetailRow label="Question Correctly Framed?" value={entry.questionCorrectlyFramed} />
+                            <DetailRow label="Question Appeared in Review Model?" value={entry.questionInReviewModel} />
+                            <DetailRow label="Question Framed Correctly?" value={entry.questionCorrectlyFramed} />
                             <DetailRow label="Original Language" value={entry.originalLanguage} />
                             <DetailRow label="Translated Language" value={entry.translatedLanguage} />
                             <DetailRow label="Translation Quality" value={entry.translationQuality} />
                             <DetailRow label="Translation Error Type" value={entry.translationErrorType} />
                             <DetailRow label="Tagging" value={entry.tagging} />
-                            <DetailRow label="Allocated to Reviewer?" value={entry.allocatedToReviewer} />
+                            <DetailRow label="Allocated to Author?" value={entry.allocatedToReviewer} />
                             <DetailRow label="Author Name" value={entry.authorsName} />
                             <DetailRow label="Author TAT" value={entry.authorTatMins} />
                             <DetailRow label="Reviewer1 Name" value={entry.reviewer1Name} />
                             <DetailRow label="Review1 TAT" value={entry.review1TatMins} />
                             <DetailRow label="Follow-up Q in Review Model?" value={entry.followUpQInReviewModel} />
-                            <DetailRow label="Answer Scientifically Correct?" value={entry.answerScientificallyCorrect} />
+                            <DetailRow label="Scientific Accuracy" value={entry.answerScientificallyCorrect} />
+                            <DetailRow label="Retrieval Accuracy" value={entry.retrievalAccuracy} />
                             <DetailRow label="Expert Name Displayed?" value={entry.expertNameDisplayed} />
-                            <DetailRow label="Correct Expert Name Displayed?" value={entry.correctExpertNameDisplayed} />
                             <DetailRow label="Correct Source Links Provided?" value={entry.correctSourceLinksProvided} />
-                            <DetailRow label="120-min Msg Shown?" value={entry.msg120MinShownToUser} />
+                            <DetailRow label="120-min Disclaimer Received?" value={entry.msg120MinShownToUser} />
                             <DetailRow label="Notification Received?" value={entry.notificationReceived} />
+                            <DetailRow label="Notification on Same Thread?" value={entry.notificationOnSameThread} />
+                            <DetailRow label="Notification Linked to Correct Q-ID?" value={entry.notificationLinkedCorrectQId} />
                             <DetailRow label="Voice Input Working?" value={entry.voiceInputWorking} />
                             <DetailRow label="Voice Output Working?" value={entry.voiceOutputWorking} />
-                            <DetailRow label="Voice Issue Description" value={entry.voiceIssueDescription} />
-                            <DetailRow label="Question Saved in DB?" value={entry.questionSavedInDb} />
-                            <DetailRow label="Answer Saved in DB?" value={entry.answerSavedInDb} />
+                            <DetailRow label="Voice Input Quality" value={entry.voiceInputQuality} />
+                            <DetailRow label="Voice Input Issue Description" value={entry.voiceInputIssueDescription} />
+                            <DetailRow label="Voice Output Quality" value={entry.voiceOutputQuality} />
+                            <DetailRow label="Voice Output Issue Description" value={entry.voiceIssueDescription} />
+                            <DetailRow label="Weather Q Answered Correctly?" value={entry.weatherQAnsweredCorrectly} />
+                            <DetailRow label="Mandi Price Q Correct?" value={entry.mandiPriceQCorrect} />
+                            <DetailRow label="Scheme Q Correct?" value={entry.schemeQCorrect} />
+                            <DetailRow label="WhatsApp vs Web Application Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
                             <DetailRow label="Defect Severity" value={entry.defectSeverity} />
                             <DetailRow label="Defect ID / Bug Ref" value={entry.defectIdBugRef} />
-                            <DetailRow label="Reviewer Remarks" value={entry.reviewerRemarks} />
                             <DetailRow label="Tester Remarks" value={entry.testerRemarks} />
+                            {entry.testerRemarksNotes && (
+                                <DetailRow label="Remarks Details" value={entry.testerRemarksNotes} />
+                            )}
                         </div>
                     </td>
                 </tr>
@@ -290,10 +301,22 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
 
     // Table search & status filter state
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [targetViewMode, setTargetViewMode] = useState<"period" | "daily">("period");
     const [page, setPage] = useState(1);
     const LIMIT = 15;
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, statusFilter, preset, customStart, customEnd]);
 
     const { startDate, endDate } = useMemo(() => {
         const now = new Date();
@@ -327,12 +350,20 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         isError: summaryError,
     } = useTesterLogSummary(startDate, endDate, dateField);
 
-    // Fetch individual test history records for this tester and date filter
+    // Fetch individual test history records for this tester and date filter with search & status filters applied server-side
     const {
         data: historyData,
         isLoading: historyLoading,
         isError: historyError,
-    } = useTesterLogHistory(page, LIMIT, startDate, endDate, dateField);
+    } = useTesterLogHistory(
+        page,
+        LIMIT,
+        startDate,
+        endDate,
+        dateField,
+        debouncedSearch,
+        statusFilter !== "all" ? statusFilter : undefined
+    );
 
     const clearFilter = () => {
         setPreset("all");
@@ -344,46 +375,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         setStatusFilter("all");
     };
 
-    // Filter individual entries locally by search query and status filter tab
-    const filteredEntries = useMemo(() => {
-        if (!historyData?.entries) return [];
-        let list = historyData.entries;
-
-        if (statusFilter === "pass") {
-            list = list.filter(e => {
-                const s = (e.overallTestStatus || "").toLowerCase();
-                return s === "pass" || s === "expected output";
-            });
-        } else if (statusFilter === "fail") {
-            list = list.filter(e => {
-                const s = (e.overallTestStatus || "").toLowerCase();
-                return s === "fail" || s.includes("anomaly");
-            });
-        } else if (statusFilter === "partial") {
-            list = list.filter(e => (e.overallTestStatus || "").toLowerCase() === "partial");
-        } else if (statusFilter === "defects") {
-            list = list.filter(e => {
-                const sev = (e.defectSeverity || "").trim().toLowerCase();
-                return Boolean(
-                    (sev && !["na", "nil", "no defect", "none"].includes(sev)) ||
-                    (e.defectIdBugRef && e.defectIdBugRef.trim() && !["na", "nil", "none"].includes(e.defectIdBugRef.trim().toLowerCase()))
-                );
-            });
-        }
-
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            list = list.filter(e =>
-                (e.queryText || "").toLowerCase().includes(q) ||
-                (e.threadId || "").toLowerCase().includes(q) ||
-                (e.testId || "").toLowerCase().includes(q) ||
-                (e.typeOfQuestion || "").toLowerCase().includes(q) ||
-                (e.defectIdBugRef || "").toLowerCase().includes(q)
-            );
-        }
-
-        return list;
-    }, [historyData?.entries, statusFilter, searchQuery]);
+    const filteredEntries = historyData?.entries ?? [];
 
     const daysCount = useMemo(() => {
         if (summaryData?.targetVsAchieved?.daysCount) {
@@ -1241,15 +1233,17 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         </span>
                                     </div>
 
-                                    <div className="flex justify-between items-center">
-                                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                                            <Database className="h-3.5 w-3.5 text-emerald-500" />
-                                            Saved in Database:
-                                        </span>
-                                        <span className="font-semibold text-foreground">
-                                            {summaryData.dbPersistence.rate}% ({summaryData.dbPersistence.saved})
-                                        </span>
-                                    </div>
+                                    {summaryData.dbPersistence && (summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved > 0) && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                                                <Database className="h-3.5 w-3.5 text-emerald-500" />
+                                                Saved in Database:
+                                            </span>
+                                            <span className="font-semibold text-foreground">
+                                                {summaryData.dbPersistence.rate}% ({summaryData.dbPersistence.saved} / {summaryData.dbPersistence.saved + summaryData.dbPersistence.notSaved})
+                                            </span>
+                                        </div>
+                                    )}
 
                                     <div className="flex justify-between items-center">
                                         <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -1398,6 +1392,10 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                     )}
                                 </div>
                             </div>
+                        ) : historyLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
                         ) : filteredEntries.length === 0 ? (
                             <div className="text-center py-10 bg-muted/20 rounded-lg border border-dashed border-border text-sm text-muted-foreground">
                                 {searchQuery || statusFilter !== "all"
@@ -1441,31 +1439,33 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                         )}
 
                         {/* Pagination */}
-                        {historyData && historyData.totalPages > 1 && (
+                        {historyData && historyData.total > 0 && (
                             <div className="flex items-center justify-between pt-2">
                                 <p className="text-xs text-muted-foreground">
                                     Showing {filteredEntries.length} of {historyData.total} entries
-                                    {hasActiveFilter ? " (filtered)" : ""}
+                                    {hasActiveFilter || searchQuery || statusFilter !== "all" ? " (filtered)" : ""}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
-                                    >
-                                        ← Previous
-                                    </button>
-                                    <span className="text-xs text-muted-foreground">
-                                        Page {page} of {historyData.totalPages}
-                                    </span>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(historyData.totalPages, p + 1))}
-                                        disabled={page === historyData.totalPages}
-                                        className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
-                                    >
-                                        Next →
-                                    </button>
-                                </div>
+                                {historyData.totalPages > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                            className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                                        >
+                                            ← Previous
+                                        </button>
+                                        <span className="text-xs text-muted-foreground">
+                                            Page {page} of {historyData.totalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => setPage(p => Math.min(historyData.totalPages, p + 1))}
+                                            disabled={page === historyData.totalPages}
+                                            className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                                        >
+                                            Next →
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

@@ -21,7 +21,7 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(
                 {label && (
                     <label className="text-sm font-medium text-foreground">
                         {label}
-                        {required && <span className="text-destructive ml-0.5">*</span>}
+                        {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
                         {readOnly && (
                             <span className="ml-1 text-xs text-muted-foreground">(auto)</span>
                         )}

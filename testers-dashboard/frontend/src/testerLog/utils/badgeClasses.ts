@@ -43,17 +43,26 @@ export type OutcomeTone = "good" | "problem" | "partial" | "notApplicable";
 const GOOD_VALUES = new Set([
     "pass", "yes", "within sla", "well framed", "correct", "displayed", "saved",
     "received on time", "good", "clear", "expected output", "successfully identified as duplicate",
+    "correct retrieval", "correct link provided", "received", "recieved", "yes - on same thread",
+    "proper match", "acceptable", "no error", "no action required",
 ]);
 const PROBLEM_VALUES = new Set([
     "fail", "no", "sla breached", "incorrectly framed", "incorrect", "not displayed", "wrong expert",
     "not saved", "not received", "poor", "distorted", "no output", "anomaly found in output",
-    "wrongly identified as duplicate",
+    "wrongly identified as duplicate", "incorrect retrieval", "no retrieval",
+    "incorrect link provided", "link not provided", "link not accessible", "not recieved",
+    "notification not received", "notification not recieved", "incorrect q-id", "q-id missing",
+    "not acceptable", "intent error", "word error", "grammar error", "expert name mismatch",
+    "error displayed", "mismatch", "major modification", "speech not recognized",
+    "incorrect transcription", "words missing", "wrong/extra words",
+    "local language/dialect not recognized", "background noise",
 ]);
 const PARTIAL_VALUES = new Set([
     "partial", "partially correct", "partial save", "ambiguous", "received late", "fair",
-    "low volume", "high volume", "pending",
+    "low volume", "high volume", "pending", "partial translation", "no - on different thread",
+    "partial match", "minor modification", "needs review", "unclear",
 ]);
-const NOT_APPLICABLE_VALUES = new Set(["na", "not applicable", "duplicate", "nil"]);
+const NOT_APPLICABLE_VALUES = new Set(["na", "not applicable", "duplicate", "nil", "n/a"]);
 
 export function outcomeTone(value?: string): OutcomeTone | null {
     const v = (value || "").trim().toLowerCase();

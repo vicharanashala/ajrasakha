@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, IsBooleanString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 
 // Query params for the server-side-filtered Testers Dashboard summary endpoint, matching
@@ -119,14 +119,7 @@ export class GetTestersDashboardQuery {
   @IsString()
   staticSubTypes?: string;
 
-  @JSONSchema({
-    example: 'true',
-    description: 'Exclude rows with a DB-save failure, a wrongly-flagged duplicate, or a Critical defect - "true" or "false"',
-  })
-  // Query params always arrive as strings and this app doesn't enable implicit type
-  // conversion, so @IsBoolean() would reject every real request. The consumer compares
-  // against the literal string "true".
-  @IsOptional()
-  @IsBooleanString()
-  excludeFailures?: string;
+  // No excludeFailures param: Exclude Failures is a Google Sheet-only control, applied
+  // client-side (frontend/src/analytics/clientSheetAnalytics.ts). This endpoint only
+  // computes Database Logs Analytics, which never applies the sheet's failure filter.
 }

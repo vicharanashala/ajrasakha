@@ -10,12 +10,21 @@ import {
     TestersDashboardSummaryResponse,
 } from '../interfaces/ITestersDashboardService.js';
 import { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
-import { EMPTY_FILTERS, applyFilters, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
+import { EMPTY_FILTERS, buildFilterOptions, type TestersDashboardFilters } from '../testersDashboard/filters.js';
 import { calculateKpis, calculatePreviousPeriodStats, calculateChannelStats, calculateLanguageStats } from '../testersDashboard/kpis.js';
 import { calculateDiagnostics } from '../testersDashboard/diagnostics.js';
 import { calculateChartData } from '../testersDashboard/chartData.js';
 import { DASHBOARD_TYPES } from '../types.js';
 import type { IZohoTicketStatusService } from '../interfaces/IZohoTicketStatusService.js';
+import type { TesterLogEntry } from '../interfaces/ITesterLogService.js';
+import {
+    applyDbDateFilter,
+    applyDbNonDateFilters,
+    buildDbFilterOptions,
+    dbFilterOptionValues,
+    type DbTesterIdentity,
+} from './dbFilterOptions.js';
+import { loadActiveTesterRoster } from './TestersDbAnalyticsService.js';
 
 // Standard CSV field escaping. Exported for reuse by TesterLogService's own CSV export.
 export function escapeCsvField(value: string): string {
@@ -159,6 +168,7 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
         'Translation Quality': entry.translationQuality || '',
         'Translation Error Type': entry.translationErrorType || '',
         'Tagging': entry.tagging || '',
+        'Retrieval Accuracy': entry.retrievalAccuracy || '',
         'Allocated to Reviewer?': entry.allocatedToReviewer || '',
         "Author's Name": entry.authorsName || '',
         'Author Assignment Time': entry.authorAssignmentTime || '',
@@ -200,6 +210,7 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
         'Voice Input Working?': entry.voiceInputWorking || '',
         'Voice Output Working?': entry.voiceOutputWorking || '',
         'Voice Input Quality': entry.voiceInputQuality || '',
+        'Voice Input Issue Description': entry.voiceInputIssueDescription || entry.waVoiceInputIssueDescription || '',
         'Voice Output Quality': entry.voiceOutputQuality || '',
         'Voice Issue Description': entry.voiceIssueDescription || '',
         'Weather Q Answered Correctly?': entry.weatherQAnsweredCorrectly || '',
@@ -213,7 +224,9 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
         'Defect Severity': entry.defectSeverity || '',
         "Defect ID / Bug Ref\nZoho Desk Ticketing": entry.defectIdBugRef || '',
         'Reviewer Remarks': entry.reviewerRemarks || '',
-        'Tester Remarks': entry.testerRemarks || '',
+        'Tester Remarks': entry.testerRemarksNotes
+            ? (entry.testerRemarks ? `${entry.testerRemarks} - ${entry.testerRemarksNotes}` : entry.testerRemarksNotes)
+            : (entry.testerRemarks || ''),
         'Status': entry.status || '',
     };
 }
@@ -221,6 +234,9 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
 @injectable()
 export class TestersDashboardService implements ITestersDashboardService {
     private cachedDbRecords: TestersDashboardRecord[] | null = null;
+    // The stored entries behind cachedDbRecords, index-aligned with it - DB
+    // filter options/filtering read these directly, never the Sheet-shaped rows.
+    private cachedDbEntries: TesterLogEntry[] = [];
     private cachedDbRecordsTimestamp: number = 0;
     private cachedDbLastSyncedAt: string | null = null;
     private readonly DB_CACHE_TTL_MS = 30 * 1000; // 30 seconds
@@ -234,18 +250,23 @@ export class TestersDashboardService implements ITestersDashboardService {
         private readonly zohoTicketStatusService?: IZohoTicketStatusService,
     ) { }
 
-    private async getDbRecords(): Promise<{ records: TestersDashboardRecord[]; lastSyncedAt: string | null }> {
+    private async getDbRecords(): Promise<{
+        records: TestersDashboardRecord[];
+        entries: TesterLogEntry[];
+        lastSyncedAt: string | null;
+    }> {
         const now = Date.now();
         if (this.cachedDbRecords && now - this.cachedDbRecordsTimestamp < this.DB_CACHE_TTL_MS) {
             return {
                 records: this.cachedDbRecords,
+                entries: this.cachedDbEntries,
                 lastSyncedAt: this.cachedDbLastSyncedAt,
             };
         }
 
         if (!this.db) {
             console.warn('[TestersDashboard] Database provider is not available for db source.');
-            return { records: [], lastSyncedAt: null };
+            return { records: [], entries: [], lastSyncedAt: null };
         }
 
         try {
@@ -264,14 +285,20 @@ export class TestersDashboardService implements ITestersDashboardService {
             const lastSyncedAt = latestDate ? latestDate.toISOString() : (records.length > 0 ? new Date().toISOString() : null);
 
             this.cachedDbRecords = records;
+            this.cachedDbEntries = docs;
             this.cachedDbRecordsTimestamp = now;
             this.cachedDbLastSyncedAt = lastSyncedAt;
 
-            return { records, lastSyncedAt };
+            return { records, entries: docs, lastSyncedAt };
         } catch (err) {
             console.error('[TestersDashboard] Error fetching tester_test_cases from database:', err);
-            return { records: [], lastSyncedAt: null };
+            return { records: [], entries: [], lastSyncedAt: null };
         }
+    }
+
+    // Shared with the DB-native path (TestersDbAnalyticsService).
+    private getActiveTesterRoster(): Promise<DbTesterIdentity[]> {
+        return loadActiveTesterRoster(this.db);
     }
 
     async getData(source: 'sheet' | 'db' = 'sheet'): Promise<TestersDashboardDataResponse> {
@@ -323,29 +350,47 @@ export class TestersDashboardService implements ITestersDashboardService {
 
     async getSummary(query: GetTestersDashboardQuery): Promise<TestersDashboardSummaryResponse> {
         const isDb = query.source === 'db';
-        const zohoTickets = this.zohoTicketStatusService?.getCachedStatuses() ?? {};
+        // Zoho tickets fetched directly from Zoho for this request (no cron).
+        const zohoTickets = (await this.zohoTicketStatusService?.getTicketStatuses())?.statuses ?? {};
 
         if (isDb) {
             const dbData = await this.getDbRecords();
             const allRecords = dbData.records;
             const lastSyncedAt = dbData.lastSyncedAt;
             const filters = this.buildFiltersFromQuery(query);
-            const excludeFailures = query.excludeFailures === 'true';
+            // Exclude Failures is a Google Sheet-only control and is not part
+            // of this endpoint's query contract (see GetTestersDashboardQuery).
+            // Always false here, so the sheet's failure classification in
+            // applyNonDateFilters never runs for DB analytics - even if a
+            // stale client still sends the param.
+            const excludeFailures = false;
 
-            const filteredRows = applyFilters(allRecords, filters, excludeFailures, query.customStart, query.customEnd);
+            // Filters are matched on the stored entries (dbFilterOptions.ts),
+            // not through the Sheet's normalization; the matching mapped rows
+            // then go through the existing calculations unchanged.
+            const indexed = dbData.entries.map((entry, i) => ({ ...entry, __row: i }));
+            const nonDateMatches = applyDbNonDateFilters(indexed, filters);
+            const nonDateRows = nonDateMatches.map((e) => allRecords[e.__row]);
+            const filteredRows = applyDbDateFilter(nonDateMatches, filters.dateRange, query.customStart, query.customEnd).map(
+                (e) => allRecords[e.__row],
+            );
+
             const kpis = calculateKpis(filteredRows, filters.typeBranch);
             const diagnostics = calculateDiagnostics(filteredRows, zohoTickets);
             const chartData = calculateChartData(filteredRows, undefined, filters.typeBranch);
             const channelStats = calculateChannelStats(filteredRows);
             const languageStats = calculateLanguageStats(filteredRows);
+            // nonDateRows are already narrowed by the DB filters above, so the
+            // previous-period calculation is given no further non-date
+            // filters - only the date range, for its comparison window.
             const previousPeriodStats = calculatePreviousPeriodStats(
-                allRecords,
-                filters,
+                nonDateRows,
+                { ...EMPTY_FILTERS, dateRange: filters.dateRange },
                 excludeFailures,
                 query.customStart,
                 query.customEnd,
             );
-            const filterOptions = buildFilterOptions(allRecords);
+            const dbFilterOptions = buildDbFilterOptions(dbData.entries, await this.getActiveTesterRoster());
 
             return {
                 success: true,
@@ -354,7 +399,8 @@ export class TestersDashboardService implements ITestersDashboardService {
                 diagnostics,
                 chartData,
                 previousPeriodStats,
-                filterOptions,
+                filterOptions: dbFilterOptionValues(dbFilterOptions),
+                dbFilterOptions,
                 lastSyncedAt,
                 channelStats,
                 languageStats,

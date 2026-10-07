@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { TestersDashboardSection } from "./components/TestersDashboardSection";
+import { SheetAnalyticsSection } from "./components/SheetAnalyticsSection";
+import { DbAnalyticsSection } from "./components/DbAnalyticsSection";
 import { TesterDataView } from "./testerLog/components/TesterDataView";
 import { TesterQuestionTypeSummaryView } from "./testerLog/components/TesterQuestionTypeSummaryView";
 import { FileSpreadsheet, Database } from "lucide-react";
@@ -54,9 +55,8 @@ export function TestersDashboard() {
       </div>
 
       {viewMode === "sheet" && (
-        <TestersDashboardSection
+        <SheetAnalyticsSection
           key="sheet-section"
-          source="sheet"
           title="Google Sheet Analytics"
           description="Analytics derived from Google Sheet test records (updated.csv)"
           sourceBadge="Source: Google Sheet"
@@ -102,9 +102,8 @@ export function TestersDashboard() {
           </div>
 
           {dbSubTab === "analytics" ? (
-            <TestersDashboardSection
+            <DbAnalyticsSection
               key="db-section"
-              source="db"
               title="Database Logs Analytics"
               description="Analytics computed live from tester_test_cases collection in database"
               sourceBadge="Source: MongoDB (tester_test_cases)"
