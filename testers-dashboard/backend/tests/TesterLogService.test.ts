@@ -1000,6 +1000,37 @@ describe('TesterLogService date filtering', () => {
         ).rejects.toThrow('Test date cannot be in the future');
     });
 
+    it('allows updateEntry to update remarks on legacy records with existing inverted or future times without failing', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '12:00:00',
+            timeAnswerReceived: '11:00:00', // legacy reversed time
+            reviewer3AssignmentTime: '2030-01-01T10:00:00', // legacy future time
+            reviewerRemarks: 'Old remarks',
+        });
+        mockCollection.updateOne = vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        const result = await service.updateEntry(ID, { reviewerRemarks: 'Updated remarks without touching times' }, actor);
+        expect(result).not.toBeNull();
+        expect(result?.entry.reviewerRemarks).toBe('Updated remarks without touching times');
+    });
+
+    it('supports times that cross midnight (e.g. 23:55 to 00:04) in createEntry without rejection', async () => {
+        mockCollection.insertOne = vi.fn().mockResolvedValue({ insertedId: 'entry-midnight-1' });
+        const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+            channelTested: 'WebApp',
+            typeOfQuestion: 'Unique',
+            timeQuestionAsked: '23:55:00',
+            timeAnswerReceived: '00:04:00',
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.entry.responseTimeMins).toBe('00:09:00');
+    });
+
     it('aggregates cross-platform stats and credits both platforms in getMySummary', async () => {
         const mockEntries = [
             {
@@ -1294,6 +1325,12 @@ describe('validateNotFuture and validateTestDateNotFuture', () => {
         const today = new Date('2026-10-05T12:00:00Z');
         expect(() => validateTestDateNotFuture('2026-10-05', today)).not.toThrow();
         expect(() => validateTestDateNotFuture('2026-09-01', today)).not.toThrow();
+    });
+
+    it('validateTestDateNotFuture throws BadRequestError for invalid date format (e.g. DD/MM/YYYY)', () => {
+        const today = new Date('2026-10-05T12:00:00Z');
+        expect(() => validateTestDateNotFuture('05/10/2030', today)).toThrow('Test date must be formatted as YYYY-MM-DD');
+        expect(() => validateTestDateNotFuture('not-a-date', today)).toThrow('Test date must be formatted as YYYY-MM-DD');
     });
 });
 

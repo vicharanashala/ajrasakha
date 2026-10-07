@@ -169,45 +169,6 @@ function formatExportValue(key: keyof TesterLogEntry, value: unknown, entry?: Te
  * Compute HH:MM:SS difference between two HH:MM:SS strings.
  * Returns '' if either value is missing or result is negative.
  */
-function parseToMs(str?: string, defaultDate?: string): number | null {
-    if (!str || !str.trim()) return null;
-    const s = str.trim();
-
-    if (s.includes('-') || s.includes('/')) {
-        const parsed = Date.parse(s.includes('T') ? s : s.replace(' ', 'T'));
-        if (!isNaN(parsed)) return parsed;
-    }
-
-    const parts = s.split(':').map(Number);
-    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        if (defaultDate && (defaultDate.includes('-') || defaultDate.includes('/'))) {
-            const dateStr = defaultDate.trim();
-            const timeStr = `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}:${String(parts[2] || 0).padStart(2, '0')}`;
-            const combined = Date.parse(`${dateStr}T${timeStr}`);
-            if (!isNaN(combined)) return combined;
-        }
-        const secs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
-        return secs * 1000;
-    }
-
-    return null;
-}
-
-function computeHmsDiff(start?: string, end?: string, defaultDate?: string): string {
-    const sMs = parseToMs(start, defaultDate);
-    const eMs = parseToMs(end, defaultDate);
-    if (sMs === null || eMs === null || eMs < sMs) return '';
-
-    const diffSecs = Math.floor((eMs - sMs) / 1000);
-    const h = Math.floor(diffSecs / 3600);
-    const m = Math.floor((diffSecs % 3600) / 60);
-    const sec = diffSecs % 60;
-    const hh = String(h).padStart(2, '0');
-    const mm = String(m).padStart(2, '0');
-    const ss = String(sec).padStart(2, '0');
-    return `${hh}:${mm}:${ss}`;
-}
-
 export function parseEpochMs(str?: string, defaultDate?: string): number | null {
     if (!str || !str.trim()) return null;
     const s = str.trim();
@@ -234,6 +195,56 @@ export function parseEpochMs(str?: string, defaultDate?: string): number | null 
     return isNaN(parsed) ? null : parsed;
 }
 
+/**
+ * Unified parser: returns epoch milliseconds for datetimes (always anchored to IST +05:30),
+ * or milliseconds since midnight for time-only strings without defaultDate.
+ */
+function parseToMs(str?: string, defaultDate?: string): number | null {
+    if (!str || !str.trim()) return null;
+    const s = str.trim();
+
+    // If date is present in string or defaultDate is provided, delegate to IST-aware parseEpochMs
+    if (s.includes('-') || s.includes('/') || (defaultDate && (defaultDate.includes('-') || defaultDate.includes('/')))) {
+        return parseEpochMs(str, defaultDate);
+    }
+
+    // Time-only string (HH:MM:SS or HH:MM) without date: milliseconds of the day
+    const parts = s.split(':').map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        const secs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+        return secs * 1000;
+    }
+
+    return null;
+}
+
+function computeHmsDiff(start?: string, end?: string, defaultDate?: string): string {
+    const sMs = parseToMs(start, defaultDate);
+    const eMs = parseToMs(end, defaultDate);
+    if (sMs === null || eMs === null) return '';
+
+    let diffMs = eMs - sMs;
+    const isTimeOnly = (!start?.includes('-') && !start?.includes('/')) &&
+                       (!end?.includes('-') && !end?.includes('/'));
+    if (diffMs < 0 && isTimeOnly) {
+        const rolloverDiff = diffMs + 24 * 3600 * 1000;
+        if (rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000) {
+            diffMs = rolloverDiff;
+        }
+    }
+
+    if (diffMs < 0) return '';
+
+    const diffSecs = Math.floor(diffMs / 1000);
+    const h = Math.floor(diffSecs / 3600);
+    const m = Math.floor((diffSecs % 3600) / 60);
+    const sec = diffSecs % 60;
+    const hh = String(h).padStart(2, '0');
+    const mm = String(m).padStart(2, '0');
+    const ss = String(sec).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+}
+
 export function validateNotFuture(
     time?: string,
     label: string = 'Time',
@@ -248,10 +259,16 @@ export function validateNotFuture(
     }
 }
 
+const YYYY_MM_DD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export function validateTestDateNotFuture(testDate?: string, now: Date = new Date()): void {
     if (!testDate || !testDate.trim()) return;
+    const trimmed = testDate.trim();
+    if (!YYYY_MM_DD_RE.test(trimmed)) {
+        throw new BadRequestError('Test date must be formatted as YYYY-MM-DD');
+    }
     const todayIST = getTodayIST(now);
-    if (testDate.trim() > todayIST) {
+    if (trimmed > todayIST) {
         throw new BadRequestError('Test date cannot be in the future');
     }
 }
@@ -266,40 +283,100 @@ export function validateTimingPair(
     if (!start || !end) return;
     const sMs = parseToMs(start, defaultDate);
     const eMs = parseToMs(end, defaultDate);
-    if (sMs !== null && eMs !== null && eMs < sMs) {
+    if (sMs === null || eMs === null) return;
+
+    if (eMs < sMs) {
+        const isTimeOnly = (!start.includes('-') && !start.includes('/')) &&
+                           (!end.includes('-') && !end.includes('/'));
+        if (isTimeOnly) {
+            const rolloverDiff = (eMs + 24 * 3600 * 1000) - sMs;
+            if (rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000) {
+                return;
+            }
+        }
         throw new BadRequestError(`${endLabel} cannot be earlier than ${startLabel}`);
     }
 }
 
-export function validateAllTimingPairs(e: Partial<TesterLogEntry>, testDate?: string, nowMs: number = Date.now()): void {
-    validateTimingPair(e.timeQuestionAsked, e.timeAnswerReceived, 'Time Question Asked', 'Time Answer Received', testDate);
-    validateTimingPair(e.waTimeQuestionAsked, e.waTimeAnswerReceived, 'WhatsApp Time Asked', 'WhatsApp Time Received', testDate);
-    validateTimingPair(e.authorAssignmentTime, e.authorCompletionTime, 'Author Assignment Time', 'Author Completion Time', testDate);
-    validateTimingPair(e.reviewer1AssignmentTime, e.reviewer1CompletionTime, 'Reviewer 1 Assignment Time', 'Reviewer 1 Completion Time', testDate);
-    validateTimingPair(e.reviewer2AssignmentTime, e.reviewer2CompletionTime, 'Reviewer 2 Assignment Time', 'Reviewer 2 Completion Time', testDate);
-    validateTimingPair(e.reviewer3AssignmentTime, e.reviewer3CompletionTime, 'Reviewer 3 Assignment Time', 'Reviewer 3 Completion Time', testDate);
-    validateTimingPair(e.reviewer4AssignmentTime, e.reviewer4CompletionTime, 'Reviewer 4 Assignment Time', 'Reviewer 4 Completion Time', testDate);
-    validateTimingPair(e.reviewer5AssignmentTime, e.reviewer5CompletionTime, 'Reviewer 5 Assignment Time', 'Reviewer 5 Completion Time', testDate);
-    validateTimingPair(e.moderatorAssignmentTime, e.moderatorCompletionTime, 'Moderator Assignment Time', 'Moderator Completion Time', testDate);
+export const TIMING_PAIRS: { startKey: keyof TesterLogEntry; endKey: keyof TesterLogEntry; startLabel: string; endLabel: string }[] = [
+    { startKey: 'timeQuestionAsked', endKey: 'timeAnswerReceived', startLabel: 'Time Question Asked', endLabel: 'Time Answer Received' },
+    { startKey: 'waTimeQuestionAsked', endKey: 'waTimeAnswerReceived', startLabel: 'WhatsApp Time Asked', endLabel: 'WhatsApp Time Received' },
+    { startKey: 'authorAssignmentTime', endKey: 'authorCompletionTime', startLabel: 'Author Assignment Time', endLabel: 'Author Completion Time' },
+    { startKey: 'reviewer1AssignmentTime', endKey: 'reviewer1CompletionTime', startLabel: 'Reviewer 1 Assignment Time', endLabel: 'Reviewer 1 Completion Time' },
+    { startKey: 'reviewer2AssignmentTime', endKey: 'reviewer2CompletionTime', startLabel: 'Reviewer 2 Assignment Time', endLabel: 'Reviewer 2 Completion Time' },
+    { startKey: 'reviewer3AssignmentTime', endKey: 'reviewer3CompletionTime', startLabel: 'Reviewer 3 Assignment Time', endLabel: 'Reviewer 3 Completion Time' },
+    { startKey: 'reviewer4AssignmentTime', endKey: 'reviewer4CompletionTime', startLabel: 'Reviewer 4 Assignment Time', endLabel: 'Reviewer 4 Completion Time' },
+    { startKey: 'reviewer5AssignmentTime', endKey: 'reviewer5CompletionTime', startLabel: 'Reviewer 5 Assignment Time', endLabel: 'Reviewer 5 Completion Time' },
+    { startKey: 'moderatorAssignmentTime', endKey: 'moderatorCompletionTime', startLabel: 'Moderator Assignment Time', endLabel: 'Moderator Completion Time' },
+];
 
-    validateNotFuture(e.timeQuestionAsked, 'Time Question Asked', testDate, nowMs);
-    validateNotFuture(e.timeAnswerReceived, 'Time Answer Received', testDate, nowMs);
-    validateNotFuture(e.waTimeQuestionAsked, 'WhatsApp Time Asked', testDate, nowMs);
-    validateNotFuture(e.waTimeAnswerReceived, 'WhatsApp Time Received', testDate, nowMs);
-    validateNotFuture(e.authorAssignmentTime, 'Author Assignment Time', testDate, nowMs);
-    validateNotFuture(e.authorCompletionTime, 'Author Completion Time', testDate, nowMs);
-    validateNotFuture(e.reviewer1AssignmentTime, 'Reviewer 1 Assignment Time', testDate, nowMs);
-    validateNotFuture(e.reviewer1CompletionTime, 'Reviewer 1 Completion Time', testDate, nowMs);
-    validateNotFuture(e.reviewer2AssignmentTime, 'Reviewer 2 Assignment Time', testDate, nowMs);
-    validateNotFuture(e.reviewer2CompletionTime, 'Reviewer 2 Completion Time', testDate, nowMs);
-    validateNotFuture(e.reviewer3AssignmentTime, 'Reviewer 3 Assignment Time', testDate, nowMs);
-    validateNotFuture(e.reviewer3CompletionTime, 'Reviewer 3 Completion Time', testDate, nowMs);
-    validateNotFuture(e.reviewer4AssignmentTime, 'Reviewer 4 Assignment Time', testDate, nowMs);
-    validateNotFuture(e.reviewer4CompletionTime, 'Reviewer 4 Completion Time', testDate, nowMs);
-    validateNotFuture(e.reviewer5AssignmentTime, 'Reviewer 5 Assignment Time', testDate, nowMs);
-    validateNotFuture(e.reviewer5CompletionTime, 'Reviewer 5 Completion Time', testDate, nowMs);
-    validateNotFuture(e.moderatorAssignmentTime, 'Moderator Assignment Time', testDate, nowMs);
-    validateNotFuture(e.moderatorCompletionTime, 'Moderator Completion Time', testDate, nowMs);
+export const TIMING_FIELDS: { key: keyof TesterLogEntry; label: string }[] = [
+    { key: 'timeQuestionAsked', label: 'Time Question Asked' },
+    { key: 'timeAnswerReceived', label: 'Time Answer Received' },
+    { key: 'waTimeQuestionAsked', label: 'WhatsApp Time Asked' },
+    { key: 'waTimeAnswerReceived', label: 'WhatsApp Time Received' },
+    { key: 'authorAssignmentTime', label: 'Author Assignment Time' },
+    { key: 'authorCompletionTime', label: 'Author Completion Time' },
+    { key: 'reviewer1AssignmentTime', label: 'Reviewer 1 Assignment Time' },
+    { key: 'reviewer1CompletionTime', label: 'Reviewer 1 Completion Time' },
+    { key: 'reviewer2AssignmentTime', label: 'Reviewer 2 Assignment Time' },
+    { key: 'reviewer2CompletionTime', label: 'Reviewer 2 Completion Time' },
+    { key: 'reviewer3AssignmentTime', label: 'Reviewer 3 Assignment Time' },
+    { key: 'reviewer3CompletionTime', label: 'Reviewer 3 Completion Time' },
+    { key: 'reviewer4AssignmentTime', label: 'Reviewer 4 Assignment Time' },
+    { key: 'reviewer4CompletionTime', label: 'Reviewer 4 Completion Time' },
+    { key: 'reviewer5AssignmentTime', label: 'Reviewer 5 Assignment Time' },
+    { key: 'reviewer5CompletionTime', label: 'Reviewer 5 Completion Time' },
+    { key: 'moderatorAssignmentTime', label: 'Moderator Assignment Time' },
+    { key: 'moderatorCompletionTime', label: 'Moderator Completion Time' },
+];
+
+export function isMidnightRollover(start?: string, end?: string): boolean {
+    if (!start || !end) return false;
+    const isTimeOnly = (!start.includes('-') && !start.includes('/')) &&
+                       (!end.includes('-') && !end.includes('/'));
+    if (!isTimeOnly) return false;
+    const sMs = parseToMs(start);
+    const eMs = parseToMs(end);
+    if (sMs === null || eMs === null || eMs >= sMs) return false;
+    const rolloverDiff = (eMs + 24 * 3600 * 1000) - sMs;
+    return rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000;
+}
+
+export function validateTimingPairWithFuture(
+    start?: string,
+    end?: string,
+    startLabel: string = 'Time Question Asked',
+    endLabel: string = 'Time Answer Received',
+    defaultDate?: string,
+    nowMs: number = Date.now(),
+): void {
+    const isRollover = isMidnightRollover(start, end);
+
+    if (start && end && !isRollover) {
+        validateTimingPair(start, end, startLabel, endLabel, defaultDate);
+    }
+
+    if (start && !isRollover) {
+        validateNotFuture(start, startLabel, defaultDate, nowMs);
+    }
+
+    if (end) {
+        validateNotFuture(end, endLabel, defaultDate, nowMs);
+    }
+}
+
+export function validateAllTimingPairs(e: Partial<TesterLogEntry>, testDate?: string, nowMs: number = Date.now()): void {
+    for (const pair of TIMING_PAIRS) {
+        validateTimingPairWithFuture(
+            e[pair.startKey] as string | undefined,
+            e[pair.endKey] as string | undefined,
+            pair.startLabel,
+            pair.endLabel,
+            testDate,
+            nowMs,
+        );
+    }
 }
 
 // The [Auto] duration fields - computed here from their start/end pair
@@ -586,8 +663,12 @@ export class TesterLogService implements ITesterLogService {
     ): Promise<CreateTesterLogEntryResponse> {
         const now = new Date();
         const todayIST = getTodayIST(now);
-        const testDate = body.testDate?.trim() || todayIST;
-        validateTestDateNotFuture(testDate, now);
+
+        // Validate client testDate format/future if provided, but server enforces todayIST for new submissions
+        if (body.testDate?.trim()) {
+            validateTestDateNotFuture(body.testDate, now);
+        }
+        const testDate = todayIST;
 
         // Reject inverted or future timestamps
         validateAllTimingPairs(body, testDate, now.getTime());
@@ -650,8 +731,26 @@ export class TesterLogService implements ITesterLogService {
             if (body[key] !== undefined) (changes as any)[key] = body[key];
         }
         const merged = { ...before, ...changes };
-        validateTestDateNotFuture(merged.testDate);
-        validateAllTimingPairs(merged, merged.testDate);
+
+        // Only validate testDate if it was modified
+        if (changes.testDate !== undefined) {
+            validateTestDateNotFuture(changes.testDate);
+        }
+
+        const nowMs = Date.now();
+        // Only validate timing pairs where at least one field of the pair was modified
+        for (const pair of TIMING_PAIRS) {
+            if (changes[pair.startKey] !== undefined || changes[pair.endKey] !== undefined) {
+                validateTimingPairWithFuture(
+                    merged[pair.startKey] as string | undefined,
+                    merged[pair.endKey] as string | undefined,
+                    pair.startLabel,
+                    pair.endLabel,
+                    merged.testDate,
+                    nowMs,
+                );
+            }
+        }
 
         const $set: Partial<TesterLogEntry> = {
             ...changes,

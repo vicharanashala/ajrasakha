@@ -97,8 +97,24 @@ describe("timingUtils", () => {
             expect(hmsDiff("10:00:00", "11:15:45")).toBe("01:15:45");
         });
 
-        it("returns empty string when end is earlier than start", () => {
+        it("returns empty string when end is earlier than start and not a midnight crossing", () => {
             expect(hmsDiff("12:00:00", "11:00:00")).toBe("");
+        });
+
+        it("computes difference correctly when times cross midnight (e.g. 23:55 to 00:04)", () => {
+            expect(hmsDiff("23:55:00", "00:04:00")).toBe("00:09:00");
+            expect(hmsDiff("23:30:00", "00:30:00")).toBe("01:00:00");
+        });
+    });
+
+    describe("isTimeEarlier midnight handling", () => {
+        it("returns false for valid midnight crossing (e.g. asked 23:55, answered 00:04)", () => {
+            expect(isTimeEarlier("00:04:00", "23:55:00")).toBe(false);
+            expect(isTimeEarlier("00:30:00", "23:30:00")).toBe(false);
+        });
+
+        it("returns true for genuinely inverted daytime times (e.g. asked 12:00, answered 11:00)", () => {
+            expect(isTimeEarlier("11:00:00", "12:00:00")).toBe(true);
         });
     });
 });

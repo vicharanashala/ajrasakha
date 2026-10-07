@@ -551,7 +551,7 @@ export function CreateZohoTicketModal({
 
                     {/* Standard Error Notice */}
                     {errorMsg && !scopeUpgradeNeeded && (
-                        <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2">
+                        <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm flex items-start gap-2">
                             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                             <span>{errorMsg}</span>
                         </div>
@@ -563,7 +563,7 @@ export function CreateZohoTicketModal({
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                             <div className="sm:col-span-6 flex flex-col gap-1">
                                 <label className="text-xs font-semibold text-foreground">
-                                    Ticket Subject <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
+                                    Ticket Subject <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -614,7 +614,7 @@ export function CreateZohoTicketModal({
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                             <div className="sm:col-span-5 flex flex-col gap-1">
                                 <label className="text-xs font-semibold text-foreground">
-                                    App Name <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
+                                    App Name <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
                                 </label>
                                 <select
                                     value={appName}
@@ -660,7 +660,7 @@ export function CreateZohoTicketModal({
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-semibold text-foreground">
-                                    Bug Description & Test Context <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
+                                    Bug Description & Test Context <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>
                                 </label>
                                 <button
                                     type="button"

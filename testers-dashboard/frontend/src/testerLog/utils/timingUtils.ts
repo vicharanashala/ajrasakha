@@ -3,7 +3,10 @@ export function parseToMs(str?: string, defaultDate?: string): number | null {
     const s = str.trim();
 
     if (s.includes("-") || s.includes("/")) {
-        const parsed = Date.parse(s.includes("T") ? s : s.replace(" ", "T"));
+        const fullStr = s.includes("T") ? s : s.replace(" ", "T");
+        const hasTz = /([zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(fullStr);
+        const withTz = hasTz ? fullStr : `${fullStr}+05:30`;
+        const parsed = Date.parse(withTz);
         if (!isNaN(parsed)) return parsed;
     }
 
@@ -12,7 +15,10 @@ export function parseToMs(str?: string, defaultDate?: string): number | null {
         if (defaultDate && (defaultDate.includes("-") || defaultDate.includes("/"))) {
             const dateStr = defaultDate.trim();
             const timeStr = `${String(parts[0]).padStart(2, "0")}:${String(parts[1]).padStart(2, "0")}:${String(parts[2] || 0).padStart(2, "0")}`;
-            const combined = Date.parse(`${dateStr}T${timeStr}`);
+            const fullStr = `${dateStr}T${timeStr}`;
+            const hasTz = /([zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(fullStr);
+            const withTz = hasTz ? fullStr : `${fullStr}+05:30`;
+            const combined = Date.parse(withTz);
             if (!isNaN(combined)) return combined;
         }
         const secs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
@@ -25,9 +31,21 @@ export function parseToMs(str?: string, defaultDate?: string): number | null {
 export function hmsDiff(start?: string, end?: string, defaultDate?: string): string {
     const sMs = parseToMs(start, defaultDate);
     const eMs = parseToMs(end, defaultDate);
-    if (sMs === null || eMs === null || eMs < sMs) return "";
+    if (sMs === null || eMs === null) return "";
 
-    const diffSecs = Math.floor((eMs - sMs) / 1000);
+    let diffMs = eMs - sMs;
+    const isTimeOnly = (!start?.includes("-") && !start?.includes("/")) &&
+                       (!end?.includes("-") && !end?.includes("/"));
+    if (diffMs < 0 && isTimeOnly) {
+        const rolloverDiff = diffMs + 24 * 3600 * 1000;
+        if (rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000) {
+            diffMs = rolloverDiff;
+        }
+    }
+
+    if (diffMs < 0) return "";
+
+    const diffSecs = Math.floor(diffMs / 1000);
     const h = Math.floor(diffSecs / 3600);
     const m = Math.floor((diffSecs % 3600) / 60);
     const s = diffSecs % 60;
@@ -38,12 +56,31 @@ export function hmsDiff(start?: string, end?: string, defaultDate?: string): str
     return `${hh}:${mm}:${ss}`;
 }
 
+export function isMidnightRollover(start?: string, end?: string): boolean {
+    if (!start || !end) return false;
+    const isTimeOnly = (!start.includes("-") && !start.includes("/")) &&
+                       (!end.includes("-") && !end.includes("/"));
+    if (!isTimeOnly) return false;
+    const sMs = parseToMs(start);
+    const eMs = parseToMs(end);
+    if (sMs === null || eMs === null || eMs >= sMs) return false;
+    const rolloverDiff = (eMs + 24 * 3600 * 1000) - sMs;
+    return rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000;
+}
+
 export function isTimeEarlier(end?: string, start?: string, defaultDate?: string): boolean {
     if (!start || !end) return false;
     const sMs = parseToMs(start, defaultDate);
     const eMs = parseToMs(end, defaultDate);
     if (sMs === null || eMs === null) return false;
-    return eMs < sMs;
+
+    if (eMs < sMs) {
+        if (isMidnightRollover(start, end)) {
+            return false;
+        }
+        return true;
+    }
+    return false;
 }
 
 export function isTimeInFuture(

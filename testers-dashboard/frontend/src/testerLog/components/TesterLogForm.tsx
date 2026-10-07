@@ -9,7 +9,7 @@ import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { hmsDiff, isTimeEarlier, isTimeInFuture, getLocalDatetimeMax } from "../utils/timingUtils";
+import { hmsDiff, isTimeEarlier, isTimeInFuture, isMidnightRollover, getLocalDatetimeMax } from "../utils/timingUtils";
 import type { ITesterLogEntry } from "../types";
 import {
     TYPE_OF_QUESTION_OPTIONS,
@@ -86,10 +86,10 @@ function Field({
         <div className={cn("flex flex-col gap-1", className)}>
             <label className={labelClass}>
                 {label}
-                {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
+                {required && <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
             </label>
             {children}
-            {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
+            {error && <span className="text-xs text-red-500 dark:text-red-400 mt-0.5">{error}</span>}
         </div>
     );
 }
@@ -105,7 +105,7 @@ function TextInput({
         <Field label={label} required={required} error={error}>
             <input
                 type="text"
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive", className)}
+                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400", className)}
                 {...props}
             />
         </Field>
@@ -123,7 +123,7 @@ function SelectInput({
     return (
         <Field label={label} required={required} error={error}>
             <select
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive", className)}
+                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400", className)}
                 {...props}
             >
                 <option value="">-- Select --</option>
@@ -146,7 +146,7 @@ function TextareaInput({
         <Field label={label} required={required} error={error} className="sm:col-span-2 lg:col-span-3">
             <textarea
                 rows={3}
-                className={cn(inputClass, "h-auto py-2 resize-y", error && "border-destructive focus-visible:ring-destructive", className)}
+                className={cn(inputClass, "h-auto py-2 resize-y", error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400", className)}
                 {...props}
             />
         </Field>
@@ -190,7 +190,7 @@ function LanguageSelectInput({
     return (
         <Field label={label} required={required} error={error}>
             <select
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                 value={selectedOption}
                 onChange={handleSelectChange}
             >
@@ -202,7 +202,7 @@ function LanguageSelectInput({
             {selectedOption === "Others" && (
                 <input
                     type="text"
-                    className={cn(inputClass, "mt-1.5", error && "border-destructive focus-visible:ring-destructive")}
+                    className={cn(inputClass, "mt-1.5", error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                     placeholder="Specify language (e.g. Hinglish, Telugu + English)"
                     value={customText}
                     onChange={handleCustomTextChange}
@@ -281,7 +281,7 @@ function DefectIdBugRefInput({
             <div className="flex items-center justify-between">
                 <label className={labelClass}>
                     Defect ID / Bug Ref
-                    {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
+                    {required && <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
                 </label>
                 {!isValidUrl && (
                     <button
@@ -345,7 +345,7 @@ function DefectIdBugRefInput({
             ) : (
                 <>
                     <select
-                        className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                        className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                         value={selectedOption}
                         onChange={handleSelectChange}
                     >
@@ -358,7 +358,7 @@ function DefectIdBugRefInput({
                         <div className="mt-1.5 flex flex-col gap-2">
                             <input
                                 type="text"
-                                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                                 placeholder="Paste Zoho ticket URL (e.g. https://desk.zoho.in/...)"
                                 value={customUrl}
                                 onChange={handleUrlChange}
@@ -367,7 +367,7 @@ function DefectIdBugRefInput({
                     )}
                 </>
             )}
-            {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
+            {error && <span className="text-xs text-red-500 dark:text-red-400 mt-0.5">{error}</span>}
         </div>
     );
 }
@@ -408,7 +408,8 @@ function validateTesterLogForm(
     checkRequired("timeAnswerReceived", flags.isCross ? "Web Time Received" : "Time Answer Received");
     checkRequired("slaStatus", flags.isCross ? "Web SLA Status" : "SLA Status");
 
-    if (isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
+    const isWebRollover = isMidnightRollover(data.timeQuestionAsked, data.timeAnswerReceived);
+    if (!isWebRollover && isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
         errors.timeQuestionAsked = "Time Question Asked cannot be in the future";
     }
     if (isTimeInFuture(data.timeAnswerReceived, data.testDate)) {
@@ -422,7 +423,8 @@ function validateTesterLogForm(
         checkRequired("waTimeAnswerReceived", "WhatsApp Time Received");
         checkRequired("waSlaStatus", "WhatsApp SLA Status");
 
-        if (isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
+        const isWaRollover = isMidnightRollover(data.waTimeQuestionAsked, data.waTimeAnswerReceived);
+        if (!isWaRollover && isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
             errors.waTimeQuestionAsked = "WhatsApp Time Asked cannot be in the future";
         }
         if (isTimeInFuture(data.waTimeAnswerReceived, data.testDate)) {
@@ -457,7 +459,8 @@ function validateTesterLogForm(
             checkRequired("authorsName", "Author Name");
             checkRequired("authorAssignmentTime", "Author Assignment Time");
             checkRequired("authorCompletionTime", "Author Completion Time");
-            if (isTimeInFuture(data.authorAssignmentTime, data.testDate)) {
+            const isAuthorRollover = isMidnightRollover(data.authorAssignmentTime, data.authorCompletionTime);
+            if (!isAuthorRollover && isTimeInFuture(data.authorAssignmentTime, data.testDate)) {
                 errors.authorAssignmentTime = "Author Assignment Time cannot be in the future";
             }
             if (isTimeInFuture(data.authorCompletionTime, data.testDate)) {
@@ -469,7 +472,8 @@ function validateTesterLogForm(
         for (let i = 1; i <= 5; i++) {
             const aKey = `reviewer${i}AssignmentTime` as keyof FormValues;
             const cKey = `reviewer${i}CompletionTime` as keyof FormValues;
-            if (isTimeInFuture(data[aKey] as string, data.testDate)) {
+            const isRevRollover = isMidnightRollover(data[aKey] as string, data[cKey] as string);
+            if (!isRevRollover && isTimeInFuture(data[aKey] as string, data.testDate)) {
                 errors[aKey] = `Reviewer ${i} Assignment Time cannot be in the future`;
             }
             if (isTimeInFuture(data[cKey] as string, data.testDate)) {
@@ -478,7 +482,8 @@ function validateTesterLogForm(
                 errors[cKey] = `Reviewer ${i} Completion Time cannot be earlier than Assignment Time`;
             }
         }
-        if (isTimeInFuture(data.moderatorAssignmentTime, data.testDate)) {
+        const isModRollover = isMidnightRollover(data.moderatorAssignmentTime, data.moderatorCompletionTime);
+        if (!isModRollover && isTimeInFuture(data.moderatorAssignmentTime, data.testDate)) {
             errors.moderatorAssignmentTime = "Moderator Assignment Time cannot be in the future";
         }
         if (isTimeInFuture(data.moderatorCompletionTime, data.testDate)) {
@@ -573,7 +578,7 @@ function getInitialFormValues(userEmail?: string, todayDate: string = getTodayDa
             if (parsed && typeof parsed === "object") {
                 return {
                     ...parsed,
-                    testDate: parsed.testDate || todayDate,
+                    testDate: todayDate,
                 };
             }
         }
@@ -614,6 +619,11 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         }
     }, [nextTestId, setValue, getValues]);
 
+    // Ensure testDate always reflects today's date even if an existing draft had an older date
+    useEffect(() => {
+        setValue("testDate", todayDate);
+    }, [todayDate, setValue]);
+
     // Auto-save form draft to localStorage whenever fields change
     useEffect(() => {
         const subscription = watch((values) => {
@@ -623,14 +633,14 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     return typeof v === "string" ? v.trim() !== "" : Boolean(v);
                 });
                 if (hasUserInput) {
-                    localStorage.setItem(draftKey, JSON.stringify(values));
+                    localStorage.setItem(draftKey, JSON.stringify({ ...values, testDate: todayDate }));
                 }
             } catch {
                 // ignore storage quota errors
             }
         });
         return () => subscription.unsubscribe();
-    }, [watch, draftKey]);
+    }, [watch, draftKey, todayDate]);
 
     // Watch fields for dynamic workflow and TAT auto-computations
     const [
@@ -814,15 +824,18 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         }
     }, [isSuccess]);
 
-    const isAskedInFuture = isTimeInFuture(timeQuestionAsked, testDate);
+    const isWebRollover = isMidnightRollover(timeQuestionAsked, timeAnswerReceived);
+    const isAskedInFuture = !isWebRollover && isTimeInFuture(timeQuestionAsked, testDate);
     const isAnsweredInFuture = isTimeInFuture(timeAnswerReceived, testDate);
     const isWebTimingInvalid = isTimeEarlier(timeAnswerReceived, timeQuestionAsked, testDate);
 
-    const isWaAskedInFuture = isCross && isTimeInFuture(waTimeQuestionAsked, testDate);
+    const isWaRollover = isCross && isMidnightRollover(waTimeQuestionAsked, waTimeAnswerReceived);
+    const isWaAskedInFuture = isCross && !isWaRollover && isTimeInFuture(waTimeQuestionAsked, testDate);
     const isWaAnsweredInFuture = isCross && isTimeInFuture(waTimeAnswerReceived, testDate);
     const isWaTimingInvalid = isCross && isTimeEarlier(waTimeAnswerReceived, waTimeQuestionAsked, testDate);
 
-    const isAuthorAssignedInFuture = !excludeReviewerWorkflow && isTimeInFuture(authorAssignmentTime, testDate);
+    const isAuthorRollover = !excludeReviewerWorkflow && isMidnightRollover(authorAssignmentTime, authorCompletionTime);
+    const isAuthorAssignedInFuture = !excludeReviewerWorkflow && !isAuthorRollover && isTimeInFuture(authorAssignmentTime, testDate);
     const isAuthorCompletedInFuture = !excludeReviewerWorkflow && isTimeInFuture(authorCompletionTime, testDate);
     const isAuthorTimingInvalid = !excludeReviewerWorkflow && isTimeEarlier(authorCompletionTime, authorAssignmentTime, testDate);
 
