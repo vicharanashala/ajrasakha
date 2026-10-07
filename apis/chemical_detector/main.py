@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
+from wordfreq import zipf_frequency
 
 # basic logging setup so we can see what's happening in the Render logs
 logging.basicConfig(
@@ -51,9 +52,39 @@ except PyMongoError as e:
     log.error("[chemical_detector] failed to initialize MongoDB client: %s", e)
     collection = None
 
-SIMILARITY_CUTOFF = 0.85  # how close a word needs to match a chemical name/alias to count
+SIMILARITY_CUTOFF = 0.85  # how close a multi-word phrase needs to match to count
 _MIN_TOKEN_LEN = 3  # skip tiny words like "a", "ok" - too short to match anything meaningfully
 _WORD_RE = re.compile(r"[A-Za-z0-9'-]+")  # pulls out words, drops punctuation
+
+# a flat similarity cutoff can't tell "real chemical typo" apart from "real
+# English word/phrase that happens to look similar" - both score the same
+# under plain string similarity. Pick one of two cutoffs instead, based on
+# whether it's made of actual, independently-meaningful English words
+# (checked by real-world word frequency, not a hardcoded list - so this
+# protects against any common word/phrase that resembles a chemical name,
+# not just ones we've already seen cause problems):
+#   - common words ("methyl", "ammonium sulphate") must be a near-exact
+#     match to count - typos of chemical names don't happen to also be
+#     common, unrelated words
+#   - a non-word ("akdrin", "quualphos") only makes sense as a misspelling
+#     of something, so a looser match is safe
+#
+# known limitation: this can't catch a word that *isn't* in the frequency
+# data but still coincidentally resembles a chemical name (e.g. "endring",
+# part of a village name, scores 0.0 same as a real typo would, and is only
+# one inserted letter from "Endrin"). Telling those apart needs recognizing
+# it as part of a place name, not just checking word frequency - out of
+# scope here. Accepted as a known gap rather than a hardcoded word list.
+_COMMON_WORD_ZIPF_THRESHOLD = 1.0  # wordfreq scale; real typos score 0.0, "methyl" scores 3.2
+_COMMON_WORD_CUTOFF = 0.95
+_NONWORD_CUTOFF = 0.80
+# the same one-letter difference swings the ratio much further on a short
+# string than a long one, so the lenient cutoff above is only safe to use on
+# longer non-words - below this length, fall back to the normal cutoff.
+# (found empirically: "thion", a fragment "M@l@thion" breaks into, scored
+# 0.833 against an unrelated real alias - lenient enough to wrongly match at
+# 5 characters, but every one of our real target typos is 6+ characters.)
+_NONWORD_LENIENT_MIN_LEN = 6
 
 # a second, wider tokenizer that keeps commas/periods inside a word - needed
 # for chemical codes like "2,4,5-T" or "2,4-D", which _WORD_RE would otherwise
@@ -73,11 +104,13 @@ _RAW_TOKEN_RE = re.compile(r"\S+")
 _LEET_MAP = str.maketrans({"@": "a", "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "$": "s"})
 
 # difflib's ratio is 2*shared/(lenA+lenB), capped by the shorter string's length,
-# so two strings whose lengths are too far apart can NEVER reach SIMILARITY_CUTOFF
+# so two strings whose lengths are too far apart can NEVER reach a given cutoff
 # no matter what they contain. This is the min(lenA,lenB)/max(lenA,lenB) that's
 # just barely still possible - used below to skip candidates that can't match
 # instead of running the full (much more expensive) fuzzy comparison on them.
-_LEN_RATIO_BOUND = SIMILARITY_CUTOFF / (2 - SIMILARITY_CUTOFF)
+# Based on the most lenient cutoff in play (_NONWORD_CUTOFF) so the window is
+# never too narrow for whichever of the two cutoffs actually ends up applying.
+_LEN_RATIO_BOUND = _NONWORD_CUTOFF / (2 - _NONWORD_CUTOFF)
 
 # in-memory lookup table built once from the DB: lowercase name/alias -> (real name, status)
 _CANDIDATES: dict[str, tuple[str, str]] = {}
@@ -213,11 +246,36 @@ def _ngrams_with_pos(words: list[str], n: int) -> list[tuple[int, str]]:
     return [(i, " ".join(words[i : i + n])) for i in range(len(words) - n + 1)]
 
 
+def _is_common_word(word: str) -> bool:
+    """True if `word` is independently meaningful in everyday English (checked
+    via real-world word frequency), not just a near-miss of a chemical name."""
+    return zipf_frequency(word, "en") >= _COMMON_WORD_ZIPF_THRESHOLD
+
+
 def _fuzzy_lookup(term: str) -> tuple[str, str] | None:
     """Fuzzy-match one term against the candidate list (see _candidates_near_length
-    for why we don't scan the whole list). Returns (name, status) or None."""
+    for why we don't scan the whole list). Picks the cutoff based on whether
+    the term is made of real, independently-meaningful English words (see the
+    _COMMON_WORD_CUTOFF/_NONWORD_CUTOFF comment above):
+      - every word in it is a common word (e.g. "ammonium sulphate", both
+        common words on their own) -> near-exact match required
+      - a single word, not common, long enough to be noise-resistant
+        (e.g. "akdrin") -> the lenient cutoff
+      - anything else (a short non-word fragment, or a multi-word phrase
+        that's a mix of common/uncommon words) -> the original flat cutoff
+    Returns (name, status) or None."""
+    words_in_term = term.split()
+    if len(words_in_term) > 1:
+        cutoff = _COMMON_WORD_CUTOFF if all(_is_common_word(w) for w in words_in_term) else SIMILARITY_CUTOFF
+    elif _is_common_word(term):
+        cutoff = _COMMON_WORD_CUTOFF
+    elif len(term) >= _NONWORD_LENIENT_MIN_LEN:
+        cutoff = _NONWORD_CUTOFF
+    else:
+        cutoff = SIMILARITY_CUTOFF
+
     match = difflib.get_close_matches(
-        term, _candidates_near_length(len(term)), n=1, cutoff=SIMILARITY_CUTOFF
+        term, _candidates_near_length(len(term)), n=1, cutoff=cutoff
     )
     return _CANDIDATES[match[0]] if match else None
 
@@ -271,7 +329,12 @@ def detect_chemicals(text: str) -> dict[str, str]:
       1. exact match
       2. same words in a different order (e.g. "Cyanide Calcium" for "Calcium Cyanide")
       3. "ph" written as "f" or vice versa (e.g. "Mevinfos" for "Mevinphos")
-      4. fuzzy match, so small typos still get caught
+      4. fuzzy match - how lenient this is depends on whether the word is a
+         real, independently-meaningful English word or not (see the
+         _COMMON_WORD_CUTOFF/_NONWORD_CUTOFF comment above): "methyl" and
+         "ammonium sulphate" need a near-exact match since they're genuine
+         words with their own meaning, while "akdrin" only makes sense as a
+         misspelling and gets a more lenient match
       5. if still nothing, strip a formulation/dosage suffix and retry 1-4
          (e.g. "Carbaryl50EC" -> "Carbaryl")
     Checking longest chunks first means once "methyl bromide" exact-matches,
