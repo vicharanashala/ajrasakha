@@ -58,6 +58,7 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
+    PROFILE_LOCATION_MESSAGES,
     ask_to_change_profile_location,
     is_weather_or_mandi_plan,
     classify_follow_up_heuristic,
@@ -1051,9 +1052,8 @@ async def planner_node(
             sources_out=location_sources,
         )
         plan = ask_to_change_profile_location(plan, stored_location)
-        if plan.get("places_outside_profile"):
-            # The message names the place, so it cannot come from the fixed
-            # catalog like the other location questions: translate it.
+        if plan.get("follow_up_question") in PROFILE_LOCATION_MESSAGES:
+            # Translated into the farmer's language (not in the fixed catalog).
             script, vocal = language_pair_from_plan(plan)
             if needs_translation(script, vocal):
                 from ajrasakha.agents.translate_answer import _translate_body
@@ -1134,7 +1134,9 @@ async def planner_node(
             plan["schemes"] = False
             plan["chemical_checker"] = False
         else:
-            plan["knowledge_base"] = True
+            # Weather/mandi-only questions are answered by those tools alone: no GDB.
+            domains = {normalize_domain(d) for d in plan.get("domains") or [plan.get("domain") or "General"]}
+            plan["knowledge_base"] = not domains <= {"Weather", "Market Prices"}
             plan["soil"] = False
             plan["schemes"] = False
 

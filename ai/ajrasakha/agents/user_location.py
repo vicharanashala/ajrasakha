@@ -14,7 +14,6 @@ from ajrasakha.agents.location_context import (
     normalize_state_name,
 )
 from ajrasakha.agents.user_location_mongo import (
-    get_user_location,
     save_last_rephrased_query,
     save_user_location,
 )
@@ -117,18 +116,15 @@ def fetch_farmer_profile_location(user_id: str) -> dict[str, Any] | None:
 
 
 def load_user_location(user_id: str | None) -> dict[str, str] | None:
-    """The farmer's own profile location first; the location we learned from past
-    conversations only when the profile has none."""
+    """The farmer profile location from the client API, or None (no fallback:
+    the planner then asks the farmer for the location)."""
     if not user_id:
         return None
     try:
-        profile = sanitize_stored_location(fetch_farmer_profile_location(user_id))
+        return sanitize_stored_location(fetch_farmer_profile_location(user_id))
     except Exception:
         logger.exception("Failed to load farmerProfile location for user_id=%s", user_id)
-        profile = None
-    if profile:
-        return profile
-    return sanitize_stored_location(get_user_location(user_id))
+        return None
 
 
 def is_explicit_location_source(state_source: str | None, district_source: str | None) -> bool:

@@ -689,13 +689,18 @@ def test_weather_naming_another_place_asks_to_change_the_profile_location():
     out = ask_to_change_profile_location(_weather_plan_naming("Kharar"), _PROFILE)
     assert out["is_complete"] is False
     assert out["missing_info"] == []  # the next message is a new question
-    assert "Kharar" in out["follow_up_question"] and "profile" in out["follow_up_question"]
+    assert out["follow_up_question"] == "Please change your location and ask the question again."
 
 
-def test_weather_naming_no_place_or_the_profile_places_goes_ahead():
-    for places in ([], ["Visakhapatnam"], ["Chinnawaltair"]):
-        out = ask_to_change_profile_location(_weather_plan_naming(*places), _PROFILE)
-        assert out["is_complete"] is True and out["places_outside_profile"] == [], places
+def test_naming_no_place_goes_ahead():
+    out = ask_to_change_profile_location(_weather_plan_naming(), _PROFILE)
+    assert out["is_complete"] is True and out["places_outside_profile"] == []
+
+
+def test_naming_even_the_profile_own_place_asks_to_change_the_location():
+    for place in ("Visakhapatnam", "Chinnawaltair"):
+        out = ask_to_change_profile_location(_weather_plan_naming(place), _PROFILE)
+        assert out["is_complete"] is False, place
 
 
 def test_any_question_naming_another_place_asks_to_change_the_profile_location():
@@ -705,6 +710,14 @@ def test_any_question_naming_another_place_asks_to_change_the_profile_location()
     assert out["is_complete"] is False and out["places_outside_profile"] == ["Kharar"]
 
 
-def test_a_farmer_without_a_profile_location_can_still_name_a_place():
-    out = ask_to_change_profile_location(_weather_plan_naming("Kharar"), None)
-    assert out["is_complete"] is True and out["places_outside_profile"] == []
+def test_a_farmer_without_a_profile_location_is_asked_to_set_it():
+    for places in ([], ["Kharar"]):
+        out = ask_to_change_profile_location(_weather_plan_naming(*places), None)
+        assert out["is_complete"] is False and out["missing_info"] == []
+        assert out["follow_up_question"] == "Please set your location."
+
+
+def test_greetings_need_no_location():
+    plan = _weather_plan_naming()
+    plan["is_greeting"] = True
+    assert ask_to_change_profile_location(plan, None)["is_complete"] is True

@@ -159,7 +159,12 @@ def test_maybe_persist_only_on_explicit_source(mock_save):
     )
 
 
-@patch("ajrasakha.agents.user_location.get_user_location")
+@patch("ajrasakha.agents.user_location.fetch_farmer_profile_location")
 def test_load_user_location_sanitizes_invalid(mock_get):
     mock_get.return_value = {"state": "all", "district": "Sirsa"}
+    assert load_user_location("919876543210") is None
+
+
+@patch("ajrasakha.agents.user_location.fetch_farmer_profile_location", return_value=None)
+def test_no_profile_means_no_location_never_a_location_saved_from_old_chats(_mock):
     assert load_user_location("919876543210") is None
