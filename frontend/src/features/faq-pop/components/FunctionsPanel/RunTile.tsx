@@ -104,7 +104,7 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
           onKeyDown={handleKeyDown} />
         {open && filtered.length > 0 && !expanded && dropdownPos && createPortal(
           <div ref={dropdownRef}
-            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-lg"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40">
@@ -119,8 +119,8 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
       </div>
       {expanded && open && filtered.length > 0 && createPortal(
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={closeAll} />
-          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999 }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'auto' }} onMouseDown={closeAll} />
+          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-xl flex flex-col"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40 shrink-0">
@@ -239,7 +239,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
         )}
         {open && filtered.length > 0 && !expanded && dropdownPos && createPortal(
           <div ref={dropdownRef}
-            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-lg"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40">
@@ -254,8 +254,8 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
       </div>
       {expanded && open && filtered.length > 0 && createPortal(
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={closeAll} />
-          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999 }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'auto' }} onMouseDown={closeAll} />
+          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-xl flex flex-col"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40 shrink-0">

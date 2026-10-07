@@ -8,6 +8,8 @@ import {
   deleteDashboardDocument,
   getDashboardStates,
   getDashboardFolders,
+  getDashboardDistricts,
+  getDashboardKvks,
   getDashboardLanguages,
 } from "../../api";
 import ColumnFilter from "../FunctionsPanel/ColumnFilter";
@@ -21,7 +23,10 @@ import { ADVISORY_TYPE_OPTIONS } from "./fields";
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
 const LANGUAGE_SOURCE_OPTIONS = ["detected", "state", "ambiguous", "manual"];
 const PAGE_SIZE = 100;
-const COL_COUNT = 11; // Row ID, Document ID, Document, Advisory Type, State, Folder, Language, Language Source, Translation, Review, actions
+// Sorting was pulled back to numeric columns only (none of which exist on this table — every
+// column here is a name/id/status) per the 2026-10-01 perf pass, so Main Table has no sort UI at
+// all now. See UniqueDocumentsTable.tsx for the numeric columns that kept it.
+const COL_COUNT = 13; // Row ID, Document ID, Document, Advisory Type, State, Folder, District, KVK, Language, Language Source, Translation, Review, actions
 
 // A row of the main table is a PLACEMENT (POP_xxxxx), joined with its document (ANNAM_xxxxx) —
 // see docs/first_render_frontend.md. state/crop are plain strings now (no {id, name} relation
@@ -76,6 +81,30 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       .then((d) => setFolderFilterOptions(d || []))
       .catch(() => {});
   }, [advisoryTypeFilterValue]);
+
+  // District/KVK — placement-level, id-referenced vocabularies like state/crop, synced from the
+  // official LGD registry (2026-10-02). Column filters cascade the same way the forms do —
+  // District narrows by the State filter's value (every district when no state is selected), KVK
+  // narrows by the District filter's value (every KVK when no district is selected). Each list now
+  // carries exactly ONE "All" row (2026-10-05 backend change — was per-parent, 823/1,550 rows, now
+  // one shared row reused across every state/district: 787/728) — it's a real selectable value
+  // (picking it stores that id, same as any other row), not a synonym for "no filter", so it's kept
+  // in the list rather than dropped. `code: null` is still how to spot it, just no longer needed
+  // for filtering it out.
+  const stateFilterId = filters.state_id?.[0] || "";
+  const districtFilterId = filters.district_id?.[0] || "";
+  const [districtFilterOptions, setDistrictFilterOptions] = useState([]);
+  const [kvkFilterOptions, setKvkFilterOptions] = useState([]);
+  useEffect(() => {
+    getDashboardDistricts(stateFilterId)
+      .then((d) => setDistrictFilterOptions(d || []))
+      .catch(() => {});
+  }, [stateFilterId]);
+  useEffect(() => {
+    getDashboardKvks(districtFilterId)
+      .then((d) => setKvkFilterOptions(d || []))
+      .catch(() => {});
+  }, [districtFilterId]);
 
   async function load() {
     setLoading(true);
@@ -166,7 +195,8 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
   async function saveEdit(row) {
     setSaving(true);
     try {
-      const payload = { state: editState };
+      const editStateId = stateOptions.find((s) => s.name === editState)?.id || "";
+      const payload = { state_id: editStateId };
       const opt = editFolderOptions.find((f) => (f.name || "(no folder)") === editFolder);
       // Only sent when the folder was actually resolved against a loaded option (has both a name
       // match and its id/kind) — if it wasn't touched or the fetch hasn't landed yet, leaving it
@@ -192,6 +222,24 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       () => toast.success("Copied"),
       () => toast.error("Failed to copy"),
     );
+  }
+
+  // Row color is click-driven only now (2026-10-01) — hovering a row used to both highlight it and
+  // pop a native `title` tooltip, which was a real perf cost on a wide 100-row table (every
+  // mouseenter forced a re-render). Clicking a row just toggles its highlight; double-click still
+  // opens the Document Detail modal.
+  const [selectedRowId, setSelectedRowId] = useState(null);
+  function handleRowClick(e, row) {
+    if (e.target.closest("button, a, input, select, textarea")) return;
+    setSelectedRowId(row.id);
+  }
+
+  // Double-click anywhere in the row that isn't an interactive control opens the same Document
+  // Detail modal as the Eye button — clicking a button/link/input inside the row (edit, delete,
+  // copy id) should behave as itself, not also open the modal underneath it.
+  function handleRowDoubleClick(e, row) {
+    if (e.target.closest("button, a, input, select, textarea")) return;
+    onOpenDetail(row.unique_document_id);
   }
 
   const [deletingId, setDeletingId] = useState(null);
@@ -255,84 +303,157 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
           <thead>
             <tr className="border-b border-border bg-muted/30">
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <TextFilter
-                  label="Row ID"
-                  value={filters.row_id?.[0] || ""}
-                  onChange={(v) => setFilter("row_id", v ? [v] : [])}
-                  placeholder="POP_00042"
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <TextFilter
+                      label="Row ID"
+                      value={filters.row_id?.[0] || ""}
+                      onChange={(v) => setFilter("row_id", v ? [v] : [])}
+                      placeholder="POP_00042"
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <TextFilter
-                  label="Document"
-                  value={filters.shareable_name?.[0] || ""}
-                  onChange={(v) => setFilter("shareable_name", v ? [v] : [])}
-                  placeholder="Search name…"
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <TextFilter
+                      label="Document"
+                      value={filters.shareable_name?.[0] || ""}
+                      onChange={(v) => setFilter("shareable_name", v ? [v] : [])}
+                      placeholder="Search name…"
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <TextFilter
-                  label="Document ID"
-                  value={filters.document_id?.[0] || ""}
-                  onChange={(v) => setFilter("document_id", v ? [v] : [])}
-                  placeholder="ANNAM_00042"
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <TextFilter
+                      label="Document ID"
+                      value={filters.document_id?.[0] || ""}
+                      onChange={(v) => setFilter("document_id", v ? [v] : [])}
+                      placeholder="ANNAM_00042"
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Advisory Type"
-                  options={ADVISORY_TYPE_OPTIONS}
-                  selected={filters.advisory_type || []}
-                  onChange={(v) => setFilter("advisory_type", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Advisory Type"
+                      options={ADVISORY_TYPE_OPTIONS}
+                      selected={filters.advisory_type || []}
+                      onChange={(v) => setFilter("advisory_type", v)}
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="State"
-                  options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
-                  selected={filters.state_id || []}
-                  onChange={(v) => setFilter("state_id", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="State"
+                      options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
+                      selected={filters.state_id || []}
+                      onChange={(v) => {
+                        // Changing State invalidates whatever District/KVK was selected under the
+                        // old one — clear both downstream filters rather than leave a now-unrelated
+                        // district narrowing a KVK list that no longer has anything to do with it.
+                        setFilters((f) => ({ ...f, state_id: v, district_id: [], kvk_id: [] }));
+                        setPage(1);
+                      }}
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Folder"
-                  options={folderFilterUiOptions}
-                  selected={selectedFolderIds}
-                  onChange={setFolderFilter}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Folder"
+                      options={folderFilterUiOptions}
+                      selected={selectedFolderIds}
+                      onChange={setFolderFilter}
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Language"
-                  options={languageOptions}
-                  selected={filters.language || []}
-                  onChange={(v) => setFilter("language", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="District"
+                      options={districtFilterOptions.map((d) => ({ value: d.id, label: d.name }))}
+                      selected={filters.district_id || []}
+                      onChange={(v) => {
+                        setFilters((f) => ({ ...f, district_id: v, kvk_id: [] }));
+                        setPage(1);
+                      }}
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Language Source"
-                  options={LANGUAGE_SOURCE_OPTIONS}
-                  selected={filters.language_source || []}
-                  onChange={(v) => setFilter("language_source", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="KVK"
+                      options={kvkFilterOptions.map((k) => ({ value: k.id, label: k.name }))}
+                      selected={filters.kvk_id || []}
+                      onChange={(v) => setFilter("kvk_id", v)}
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Translation"
-                  options={STATUS_OPTIONS}
-                  selected={filters.translation_status || []}
-                  onChange={(v) => setFilter("translation_status", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Language"
+                      options={languageOptions}
+                      selected={filters.language || []}
+                      onChange={(v) => setFilter("language", v)}
+                    />
+                  </div>
+                </div>
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
-                <ColumnFilter
-                  label="Review"
-                  options={STATUS_OPTIONS}
-                  selected={filters.review_status || []}
-                  onChange={(v) => setFilter("review_status", v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Language Source"
+                      options={LANGUAGE_SOURCE_OPTIONS}
+                      selected={filters.language_source || []}
+                      onChange={(v) => setFilter("language_source", v)}
+                    />
+                  </div>
+                </div>
+              </th>
+              <th className="text-left px-3 py-2 whitespace-nowrap">
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Translation"
+                      options={STATUS_OPTIONS}
+                      selected={filters.translation_status || []}
+                      onChange={(v) => setFilter("translation_status", v)}
+                    />
+                  </div>
+                </div>
+              </th>
+              <th className="text-left px-3 py-2 whitespace-nowrap">
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <ColumnFilter
+                      label="Review"
+                      options={STATUS_OPTIONS}
+                      selected={filters.review_status || []}
+                      onChange={(v) => setFilter("review_status", v)}
+                    />
+                  </div>
+                </div>
               </th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
@@ -348,7 +469,11 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
               rows.map((row, idx) => (
                 <tr
                   key={row.id}
-                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
+                  onClick={(e) => handleRowClick(e, row)}
+                  onDoubleClick={(e) => handleRowDoubleClick(e, row)}
+                  className={`border-b border-border/50 transition-colors cursor-pointer ${
+                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                  }`}
                 >
                   <td className="px-3 py-2 align-middle font-mono text-[10px] text-muted-foreground">
                     {row.row_id}
@@ -410,6 +535,8 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                       <span className="text-foreground">{row.crop || "(no folder)"}</span>
                     )}
                   </td>
+                  <td className="px-3 py-2 align-middle text-muted-foreground">{row.district || "—"}</td>
+                  <td className="px-3 py-2 align-middle text-muted-foreground">{row.kvk || "—"}</td>
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.language || "—"}</td>
                   <td className="px-3 py-2 align-middle">
                     {row.language_source === "state" ? (

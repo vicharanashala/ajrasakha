@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Eye, RefreshCw, Trash2, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Eye, Pencil, RefreshCw, Trash2, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
 import {
   getDashboardUniqueDocuments,
@@ -14,6 +14,11 @@ import {
   getUniqueDocumentPlacements,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
+  getOriginalDownloadUrl,
+  getDashboardStates,
+  getDashboardFolders,
+  getDashboardDistricts,
+  getDashboardKvks,
 } from "../../api";
 import ColumnFilter from "../FunctionsPanel/ColumnFilter";
 import TextFilter from "./TextFilter";
@@ -23,6 +28,7 @@ import ServerPagination from "./ServerPagination";
 import TopScrollbar from "./TopScrollbar";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
+import UniqueDocumentEditForm from "./UniqueDocumentEditForm";
 import {
   ADVISORY_TYPE_OPTIONS,
   ADVISORY_SCOPE_OPTIONS,
@@ -48,18 +54,38 @@ const PAGE_SIZE = 100;
 // month_of_release, date_of_collection, month_of_collection, advisory_org_address,
 // edition_revision_volume and live_source_link were confirmed added to the filter whitelist —
 // all filterable now.
+// `state`/`crop` aren't real fields on a unique-document row (a document can have many
+// placements) — derived client-side from `duplicate_links`/`representative_file_id`, the anchor
+// placement's own values, same one Translation acts on (see withAnchorPlacement below).
+// `district`/`kvk`, unlike state/crop, ARE real fields directly on the document now (2026-10-06
+// backend change — a PoP is written for one place, so district/kvk moved off the placement onto
+// the document; every placement reports the same pair). `vocab` picks which filter/dropdown-option
+// state below backs the column's filter control — filtering state/crop here matches on ANY of the
+// document's placements (not just the anchor), per the backend: a document with placements in two
+// states can show one state here while matching a filter for the other. District/KVK filtering
+// matches the one stored value directly, same as any other document field. Sorting, unlike
+// state/crop filtering, does go by the anchor for those two; district/kvk sort by the document
+// field itself either way since there's only one value.
+const DERIVED_COLUMNS = [
+  { key: "_anchor_state", label: "State", sortKey: "state", vocab: "state" },
+  { key: "_anchor_crop", label: "Folder", sortKey: "crop", vocab: "folder" },
+  { key: "district", label: "District", vocab: "district" },
+  { key: "kvk", label: "KVK", vocab: "kvk" },
+];
+
 const FIELD_COLUMNS = [
   { key: "document_id", label: "Document ID", filterable: true, mono: true },
   { key: "shareable_name", label: "Shareable Name", filterable: true },
+  ...DERIVED_COLUMNS,
   { key: "advisory_type", label: "Advisory Type", filterable: true, options: ADVISORY_TYPE_OPTIONS },
   { key: "advisory_scope", label: "Advisory Scope", filterable: true, options: ADVISORY_SCOPE_OPTIONS },
   { key: "season", label: "Season", filterable: true, options: SEASON_OPTIONS },
   { key: "edition_revision_volume", label: "Edition/Rev/Vol", filterable: true },
   { key: "date_of_release", label: "Date of Release", filterType: "dateRange" },
-  { key: "month_of_release", label: "Month of Release", filterType: "numberRange", min: 1, max: 12 },
+  { key: "month_of_release", label: "Month of Release", filterType: "numberRange", min: 1, max: 12, unit: "month" },
   { key: "year_of_release", label: "Year of Release", filterType: "numberRange" },
   { key: "date_of_collection", label: "Date of Collection", filterType: "dateRange" },
-  { key: "month_of_collection", label: "Month of Collection", filterType: "numberRange", min: 1, max: 12 },
+  { key: "month_of_collection", label: "Month of Collection", filterType: "numberRange", min: 1, max: 12, unit: "month" },
   { key: "year_of_collection", label: "Year of Collection", filterType: "numberRange" },
   { key: "advisory_name", label: "Advisory Name", filterable: true },
   { key: "advisory_released_org", label: "Advisory Released Org", filterable: true },
@@ -79,14 +105,29 @@ const FIELD_COLUMNS = [
   // translated_by/reviewed_by are the signed-in user's display name, unverified (see
   // TranslateReviewCell.tsx) — null on every document translated/reviewed before 2026-09-16, and
   // cleared when the translation/review is deleted (docs/first_render_frontend.md, "Who
-  // translated / reviewed, and when"). *_at is sortable — the only sortable columns.
+  // translated / reviewed, and when").
   { key: "translated_by", label: "Translated By", filterType: "users" },
-  { key: "translated_at", label: "Translated At", filterType: "dateRange", sortable: true, formatDate: true },
+  { key: "translated_at", label: "Translated At", filterType: "dateRange", formatDate: true },
   { key: "reviewed_by", label: "Reviewed By", filterType: "users" },
-  { key: "reviewed_at", label: "Reviewed At", filterType: "dateRange", sortable: true, formatDate: true },
-  { key: "placement_count", label: "Placements" },
+  { key: "reviewed_at", label: "Reviewed At", filterType: "dateRange", formatDate: true },
+  // Not in the filter whitelist (nothing to filter a count by), and per the backend's "a column
+  // you can filter, you can sort" rule, that means not sortable either.
+  { key: "placement_count", label: "Placements", sortable: false },
 ];
 const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, actions (delete)
+
+// Pulled back (2026-10-01) from "every column sorts" to numeric columns only — num_pages,
+// month_of_release/collection, year_of_release/collection — per the perf pass: that many sort
+// buttons plus the state behind them wasn't worth it for columns a user sorts alphabetically at
+// best. `sortKeyFor` is still here for the numeric columns' own `key`. Re-added (2026-10-02) for
+// the four dateRange columns too — date_of_release, date_of_collection, translated_at, reviewed_at
+// — chronological sort is as meaningful as a numeric one, unlike the alphabetic columns left out.
+function sortKeyFor(col) {
+  return col.sortKey || col.key;
+}
+function isSortable(col) {
+  return col.filterType === "numberRange" || col.filterType === "dateRange";
+}
 
 const MULTI_PLACEMENT_OPTIONS = [
   { key: "", label: "All" },
@@ -98,8 +139,9 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
-  // "" | "translated_at" | "-translated_at" | "reviewed_at" | "-reviewed_at" — "-" is newest
-  // first, the only two sortable fields (docs/first_render_frontend.md).
+  // "" | "<field>" | "-<field>" — "-" prefix means descending. Widened 2026-09-29 from just
+  // translated_at/reviewed_at to every filterable column (see sortKeyFor/isSortable above), one
+  // `sort=` value at a time (the backend only accepts a single sort column).
   const [sort, setSort] = useState("");
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -128,11 +170,79 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     getDashboardReviewedByOptions().then(setReviewedByOptions).catch(() => {});
   }, [refreshKey]);
 
+  // State/Folder/District/KVK filter dropdowns — id-based, same convention as MainTable.tsx's
+  // identical setup (Folder follows the Advisory Type filter's value; District/KVK fetch their full
+  // lists, unnarrowed — see the fetch effect below). Filtering here now matches on any of the
+  // document's placements, not just the anchor shown in the column (see DERIVED_COLUMNS comment
+  // above) — same filter[] keys as the Main Table.
+  const [stateOptions, setStateOptions] = useState([]);
+  useEffect(() => {
+    getDashboardStates()
+      .then((d) => setStateOptions(d || []))
+      .catch(() => {});
+  }, []);
+  const advisoryTypeFilterValue = filters.advisory_type?.[0] || "";
+  const [folderFilterOptions, setFolderFilterOptions] = useState([]);
+  useEffect(() => {
+    getDashboardFolders(advisoryTypeFilterValue || "General")
+      .then((d) => setFolderFilterOptions(d || []))
+      .catch(() => {});
+  }, [advisoryTypeFilterValue]);
+  function setFolderFilter(selectedIds) {
+    const cropIds = folderFilterOptions
+      .filter((f) => f.kind !== "organization" && selectedIds.includes(f.id))
+      .map((f) => f.id);
+    const orgIds = folderFilterOptions
+      .filter((f) => f.kind === "organization" && selectedIds.includes(f.id))
+      .map((f) => f.id);
+    setFilters((f) => ({ ...f, crop_id: cropIds, organization_id: orgIds }));
+    setPage(1);
+  }
+  const selectedFolderIds = [...(filters.crop_id || []), ...(filters.organization_id || [])];
+  const folderFilterUiOptions = folderFilterOptions.map((f) => ({
+    value: f.id,
+    label: f.name || "(no folder)",
+  }));
+
+  // Cascades the same way MainTable.tsx's identical filters do — District narrows by the State
+  // filter, KVK narrows by the District filter. Each list carries exactly ONE "All" row (2026-10-05
+  // backend change — one shared row per vocabulary now, not per-parent) — a real selectable value,
+  // kept in the list rather than dropped.
+  const stateFilterId = filters.state_id?.[0] || "";
+  const districtFilterId = filters.district_id?.[0] || "";
+  const [districtFilterOptions, setDistrictFilterOptions] = useState([]);
+  const [kvkFilterOptions, setKvkFilterOptions] = useState([]);
+  useEffect(() => {
+    getDashboardDistricts(stateFilterId)
+      .then((d) => setDistrictFilterOptions(d || []))
+      .catch(() => {});
+  }, [stateFilterId]);
+  useEffect(() => {
+    getDashboardKvks(districtFilterId)
+      .then((d) => setKvkFilterOptions(d || []))
+      .catch(() => {});
+  }, [districtFilterId]);
+
+  // The anchor placement — same one `representative_file_id`/Translation act on — found by
+  // matching `duplicate_links[].zoho_file_id` against the document's own `representative_file_id`
+  // (2026-10-06: `representative_row_id` is gone — it named a field that could point at a deleted
+  // placement; this is the same fact, derived instead of stored). Missing on a document with no
+  // placements at all, which shouldn't happen in practice. District/KVK no longer come from the
+  // anchor — they're plain fields on `item` itself now (see DERIVED_COLUMNS above).
+  function withAnchorPlacement(item) {
+    const anchor = item.duplicate_links?.find((l) => l.zoho_file_id === item.representative_file_id);
+    return {
+      ...item,
+      _anchor_state: anchor?.state,
+      _anchor_crop: anchor?.crop,
+    };
+  }
+
   async function load() {
     setLoading(true);
     try {
       const data = await getDashboardUniqueDocuments(page, filters, sort);
-      const items = data.items || [];
+      const items = (data.items || []).map(withAnchorPlacement);
       setRows(items);
       setTotal(data.total || 0);
       setError(null);
@@ -189,9 +299,33 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   }
   const multiPlacementValue = filters.multi_placement?.[0] || "";
 
+  // Row color is click-driven only (2026-10-01 perf pass) — no tooltip, no hover handling at all;
+  // a hover-driven tooltip/highlight was re-rendering the whole 100-row table on every mousemove,
+  // which is what made the page feel slow. A click just toggles the row's highlight; double-click
+  // still opens the Document Detail modal.
+  const [selectedRowId, setSelectedRowId] = useState(null);
+  function handleRowClick(e, row) {
+    if (e.target.closest("button, a, input, select, textarea")) return;
+    setSelectedRowId(row.id);
+  }
+
+  // Double-click anywhere in the row that isn't an interactive control opens the same Document
+  // Detail modal as the Eye button.
+  function handleRowDoubleClick(e, row) {
+    if (e.target.closest("button, a, input, select, textarea")) return;
+    onOpenDetail(row.id);
+  }
+
   function patchRow(id, patch) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
+
+  // Edit pencil (next to the Eye/View button) opens UniqueDocumentEditForm directly on this row,
+  // skipping DocumentDetailModal entirely — the row object from the list response already carries
+  // every field the edit form reads (duplicate_links, representative_file_id, district/kvk,
+  // placement_count, all of DOCUMENT_METADATA_FIELDS/EDITABLE_DOCUMENT_ONLY_FIELDS/
+  // DISPLAY_ONLY_FIELDS), so no extra fetch is needed before opening it.
+  const [editingRow, setEditingRow] = useState(null);
 
   // A document row here has no placement id on hand (unlike Main Table rows, which ARE
   // placements) — review-upload and delete-translation both need one, so fetch this document's
@@ -335,9 +469,45 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="border-b border-border bg-muted/30">
-              {FIELD_COLUMNS.map((col) => (
-                <th key={col.key} className="text-left px-3 py-2 whitespace-nowrap align-bottom">
-                  {col.filterType === "language" ? (
+              {FIELD_COLUMNS.map((col) => {
+                const filterControl =
+                  col.vocab === "state" ? (
+                    <ColumnFilter
+                      label="State"
+                      options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
+                      selected={filters.state_id || []}
+                      onChange={(v) => {
+                        // Changing State invalidates whatever District/KVK was selected under the
+                        // old one — clear both downstream filters, same as MainTable.tsx.
+                        setFilters((f) => ({ ...f, state_id: v, district_id: [], kvk_id: [] }));
+                        setPage(1);
+                      }}
+                    />
+                  ) : col.vocab === "folder" ? (
+                    <ColumnFilter
+                      label="Folder"
+                      options={folderFilterUiOptions}
+                      selected={selectedFolderIds}
+                      onChange={setFolderFilter}
+                    />
+                  ) : col.vocab === "district" ? (
+                    <ColumnFilter
+                      label="District"
+                      options={districtFilterOptions.map((d) => ({ value: d.id, label: d.name }))}
+                      selected={filters.district_id || []}
+                      onChange={(v) => {
+                        setFilters((f) => ({ ...f, district_id: v, kvk_id: [] }));
+                        setPage(1);
+                      }}
+                    />
+                  ) : col.vocab === "kvk" ? (
+                    <ColumnFilter
+                      label="KVK"
+                      options={kvkFilterOptions.map((k) => ({ value: k.id, label: k.name }))}
+                      selected={filters.kvk_id || []}
+                      onChange={(v) => setFilter("kvk_id", v)}
+                    />
+                  ) : col.filterType === "language" ? (
                     <ColumnFilter
                       label={col.label}
                       options={languageOptions}
@@ -351,42 +521,16 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       max={filters[`${col.key}_max`]?.[0]}
                       minBound={col.min}
                       maxBound={col.max}
+                      unit={col.unit}
                       onChange={(a, b) => setRange(col.key, "min", "max", a, b)}
                     />
                   ) : col.filterType === "dateRange" ? (
-                    <div className="flex items-center gap-1">
-                      <DateRangeColumnFilter
-                        label={col.label}
-                        from={filters[`${col.key}_from`]?.[0]}
-                        to={filters[`${col.key}_to`]?.[0]}
-                        onChange={(a, b) => setRange(col.key, "from", "to", a, b)}
-                      />
-                      {col.sortable && (
-                        <button
-                          className={`shrink-0 rounded p-0.5 transition-colors cursor-pointer ${
-                            sort === col.key || sort === `-${col.key}`
-                              ? "text-primary"
-                              : "text-muted-foreground/50 hover:text-foreground"
-                          }`}
-                          title={
-                            sort === col.key
-                              ? "Sorted oldest first — click for newest first"
-                              : sort === `-${col.key}`
-                                ? "Sorted newest first — click to stop sorting"
-                                : `Sort by ${col.label}`
-                          }
-                          onClick={() => toggleSort(col.key)}
-                        >
-                          {sort === col.key ? (
-                            <ArrowUp size={11} />
-                          ) : sort === `-${col.key}` ? (
-                            <ArrowDown size={11} />
-                          ) : (
-                            <ArrowUpDown size={11} />
-                          )}
-                        </button>
-                      )}
-                    </div>
+                    <DateRangeColumnFilter
+                      label={col.label}
+                      from={filters[`${col.key}_from`]?.[0]}
+                      to={filters[`${col.key}_to`]?.[0]}
+                      onChange={(a, b) => setRange(col.key, "from", "to", a, b)}
+                    />
                   ) : col.filterType === "users" ? (
                     (() => {
                       // filter[uploaded_by|translated_by|reviewed_by] is a case-insensitive
@@ -435,9 +579,42 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                     <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wide">
                       {col.label}
                     </span>
-                  )}
-                </th>
-              ))}
+                  );
+
+                const key = sortKeyFor(col);
+                return (
+                  <th key={col.key} className="text-left px-3 py-2 whitespace-nowrap align-bottom">
+                    <div className="flex items-center gap-1">
+                      <div className="min-w-0">{filterControl}</div>
+                      {isSortable(col) && (
+                        <button
+                          className={`shrink-0 rounded p-0.5 transition-colors cursor-pointer ${
+                            sort === key || sort === `-${key}`
+                              ? "text-primary"
+                              : "text-muted-foreground/50 hover:text-foreground"
+                          }`}
+                          title={
+                            sort === key
+                              ? "Sorted ascending — click for descending"
+                              : sort === `-${key}`
+                                ? "Sorted descending — click to stop sorting"
+                                : `Sort by ${col.label}`
+                          }
+                          onClick={() => toggleSort(key)}
+                        >
+                          {sort === key ? (
+                            <ArrowUp size={11} />
+                          ) : sort === `-${key}` ? (
+                            <ArrowDown size={11} />
+                          ) : (
+                            <ArrowUpDown size={11} />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
               <th className="text-left px-3 py-2 font-semibold text-muted-foreground text-[11px] uppercase tracking-wide">
                 Original
               </th>
@@ -471,7 +648,11 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
               rows.map((row, idx) => (
                 <tr
                   key={row.id}
-                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
+                  onClick={(e) => handleRowClick(e, row)}
+                  onDoubleClick={(e) => handleRowDoubleClick(e, row)}
+                  className={`border-b border-border/50 transition-colors cursor-pointer ${
+                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                  }`}
                 >
                   {FIELD_COLUMNS.map((col) => {
                     const val = row[col.key];
@@ -517,6 +698,13 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                             >
                               <Eye size={11} />
                             </button>
+                            <button
+                              className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                              onClick={() => setEditingRow(row)}
+                              title="Edit document"
+                            >
+                              <Pencil size={11} />
+                            </button>
                           </div>
                         </td>
                       );
@@ -536,6 +724,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                     <FileActionIcons
                       shareableLink={row.shareable_link}
                       fileId={row.representative_file_id}
+                      downloadUrl={getOriginalDownloadUrl(row.id)}
                       filename={row.shareable_name}
                     />
                   </td>
@@ -584,6 +773,20 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
       </div>
 
       <ServerPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+
+      {editingRow && (
+        <UniqueDocumentEditForm
+          key={editingRow.id}
+          doc={editingRow}
+          open={!!editingRow}
+          onOpenChange={(v) => !v && setEditingRow(null)}
+          onSaved={(updated) => {
+            patchRow(editingRow.id, updated);
+            onDataChanged?.();
+            setEditingRow(null);
+          }}
+        />
+      )}
     </div>
   );
 }
