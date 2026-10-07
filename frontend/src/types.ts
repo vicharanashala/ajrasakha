@@ -1,4 +1,4 @@
-import type { UserCredential } from "firebase/auth";
+﻿import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
 export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent" | "gate_keeper" | "auditor";
@@ -62,7 +62,7 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
-  /** KVKs this user covers — one { state, district, name } entry each.
+  /** KVKs this user covers ΓÇö one { state, district, name } entry each.
    *  (Legacy records may hold string[] or { number, name[] }.) */
   kvkCovered?: IKVKCoveredItem[];
   isVerified?: boolean;
@@ -648,7 +648,7 @@ export interface IQuestionFullData {
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
   authors_history?: IAuthorsHistory[];
-  similarityScore?: number; // percentage (0–100)
+  similarityScore?: number; // percentage (0ΓÇô100)
   referenceQuestionId?: string;
   referenceQuestion?: string;
   referenceSource?: string;
@@ -702,7 +702,7 @@ export interface IQuestionFullData {
   /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
   isAssignedGateKeeper?: boolean;
   isAssignedAuditor?: boolean;
-  /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
+  /** Set when a Gate Keeper pushes to the Auditor (status ΓåÆ 'auditor_review'); records
    *  whether the question was 'dynamic' or 'duplicate' so the Auditor shows the right
    *  action (Notify User vs Push to GDB). */
   auditorReviewType?: "dynamic" | "duplicate";
@@ -822,7 +822,7 @@ export interface IDetailedQuestion {
   pae_review?: boolean;
   is_non_agri?: boolean;
   isTesting?: boolean;
-  similarityScore?: number;        // percentage (0–100)
+  similarityScore?: number;        // percentage (0ΓÇô100)
   referenceQuestionId?: string;
   referenceQuestion?: string
   referenceSource?: string;
@@ -1302,7 +1302,7 @@ export interface ModeratorAuditTrail {
     errorCode?: string;
     errorMessage?: string;
     errorName?: string;
-    errorStack?: string; // truncated (top 3–5 lines)
+    errorStack?: string; // truncated (top 3ΓÇô5 lines)
   };
 
   createdAt?: Date;

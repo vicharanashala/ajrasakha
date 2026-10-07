@@ -20,12 +20,12 @@ import {
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
+import { SourceItemDisplay } from "@/components/source-item-display";
 import type { IQuestionFullData, SourceItem } from "@/types";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { toast } from "sonner";
 import {
   BookOpen,
-  ExternalLink,
   FileText,
   Pencil,
   X,
@@ -212,15 +212,7 @@ export const ClosedFinalAnswerModal = ({
                               </p>
                             )}
                             {src.source && (
-                              <a
-                                href={src.source}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 truncate"
-                              >
-                                {src.source}
-                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                              </a>
+                              <SourceItemDisplay source={src} className="text-xs" />
                             )}
                             {src.sourceType && (
                               <span className="inline-block text-[10px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">

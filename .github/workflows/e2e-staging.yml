@@ -1,0 +1,53 @@
+name: e2e-staging
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 2 * * *" # nightly against staging
+  pull_request:
+    paths: ["e2e/**"]
+  workflow_run:
+    workflows:
+      - "AjraSakha Backend Staging Deployment"
+      - "AjraSakha Frontend Staging Deployment"
+    types:
+      - completed
+    branches:
+      - staging
+
+jobs:
+  e2e:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        working-directory: e2e
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E suite against staging
+        working-directory: e2e
+        run: pnpm test:ci
+        env:
+          E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+          E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MODERATOR_EMAIL: ${{ secrets.E2E_MODERATOR_EMAIL }}
+          E2E_MODERATOR_PASSWORD: ${{ secrets.E2E_MODERATOR_PASSWORD }}
+          E2E_EXPERT_EMAIL: ${{ secrets.E2E_EXPERT_EMAIL }}
+          E2E_EXPERT_PASSWORD: ${{ secrets.E2E_EXPERT_PASSWORD }}
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 14

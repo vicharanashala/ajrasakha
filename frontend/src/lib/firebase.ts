@@ -131,4 +131,4 @@ export const updateUserPassword = async (newPassword: string) => {
   }
 };
 
-export const analytics = getAnalytics(app);
+export const analytics = !isDevelopment ? getAnalytics(app) : undefined;

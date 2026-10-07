@@ -24,6 +24,7 @@ const getSourceBadgeLabel = (source: SourceItem) => {
   }
   return label;
 };
+import { SourceItemDisplay } from "../../components/source-item-display";
 import { Textarea } from "../../components/atoms/textarea";
 import {
   Accordion,
@@ -495,14 +496,9 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                                   )}
 
                                                   {/* Column 2: Link */}
-                                                  <a
-                                                    href={source.source}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-blue-600 dark:text-blue-400 truncate hover:underline text-sm"
-                                                  >
-                                                    {source.source}
-                                                  </a>
+                                                  <SourceItemDisplay
+                                                    source={source}
+                                                  />
 
                                                   {/* Column 3: Page Number */}
                                                   {source.page ? (

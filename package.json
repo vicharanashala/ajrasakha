@@ -1,4 +1,14 @@
 {
+  "name": "ajrasakha-local-dev",
+  "private": true,
+  "scripts": {
+    "dev:infra": "node scripts/start-local-infra.mjs",
+    "seed:local": "node e2e/scripts/seed-local.mjs",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:local": "node scripts/dev-local.mjs",
+    "check:mongodb": "node scripts/check-local-mongo.mjs"
+  },
   "dependencies": {
     "pdfkit": "^0.18.0",
     "plivo": "^4.77.1",

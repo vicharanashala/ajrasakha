@@ -225,8 +225,13 @@ export class AuthController {
   async login(@Body() body: LoginBody) {
     try {
       const { email, password } = body;
+      const apiKey = appConfig.firebase.apiKey || 'dummy-local-key';
+      const identityToolkitBase = appConfig.firebase.authEmulatorHost
+        ? `http://${appConfig.firebase.authEmulatorHost}/identitytoolkit.googleapis.com/v1/accounts`
+        : 'https://identitytoolkit.googleapis.com/v1/accounts';
+
       const data = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
+        `${identityToolkitBase}:signInWithPassword?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -253,7 +258,7 @@ export class AuthController {
 
       // 2️⃣ Verify email status
       const lookup = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
+        `${identityToolkitBase}:lookup?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

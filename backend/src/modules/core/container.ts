@@ -1,4 +1,4 @@
-import {ContainerModule} from 'inversify';
+﻿import {ContainerModule} from 'inversify';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {ContextRepository} from '#root/shared/database/providers/mongo/repositories/ContextRepository.js';
 import {AnswerRepository} from '#root/shared/database/providers/mongo/repositories/AnswerRepository.js';
@@ -16,6 +16,8 @@ import { AnswerApprovalService } from '../answer/services/AnswerApprovalService.
 import { AnswerSubmissionService } from '../answer/services/AnswerSubmissionService.js';
 import { AnswerAiService } from '../answer/services/AnswerAiService.js';
 import { AnswerFaqService } from '../answer/services/AnswerFaqService.js';
+import { AnswerDocumentService } from '../answer/services/AnswerDocumentService.js';
+import { AnswerDocumentRepository } from '#root/shared/database/providers/mongo/repositories/AnswerDocumentRepository.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
 import {
   QuestionController,
@@ -204,4 +206,6 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.OrganizationRepository).to(OrganizationRepository).inSingletonScope()
   options.bind(CORE_TYPES.PopRepository).to(PopRepository).inSingletonScope()
   options.bind(CORE_TYPES.NewSourceRepository).to(NewSourceRepository).inSingletonScope()
+  options.bind(CORE_TYPES.AnswerDocumentService).to(AnswerDocumentService).inSingletonScope()
+  options.bind(CORE_TYPES.AnswerDocumentRepository).to(AnswerDocumentRepository).inSingletonScope()
 });

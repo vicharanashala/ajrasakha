@@ -2,7 +2,7 @@
 import { AuthForm } from "@/features/auth/components/AuthForm";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { isCoordinatorRole } from "@/lib/roles";
 
@@ -14,9 +14,11 @@ function RouteComponent() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { data: currentUser } = useGetCurrentUser({ enabled: !!user });
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || redirectedRef.current) return;
+    redirectedRef.current = true;
     if (isCoordinatorRole(currentUser?.role)) {
       navigate({
         to: "/user/$userId",
