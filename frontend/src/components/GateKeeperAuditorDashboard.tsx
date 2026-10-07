@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/atoms/card";
-import { ListTodo, CheckCircle, Loader2, ClipboardList, Clock } from "lucide-react";
+import { ListTodo, CheckCircle, Loader2, ClipboardList, Clock, History } from "lucide-react";
+import { UserHistoryView } from "@/components/UserHistoryView";
+import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
+import { ReviewerLifecycle } from "./ReviewerTimeline";
+import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
+import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetRoleDashboard } from "@/hooks/api/question/useGetRoleDashboard";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
@@ -24,6 +29,7 @@ import type { IUser } from "@/types";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 /** GateKeeper/Auditor check-in / check-out control. Kept as its own component so its
  *  per-second timer re-render stays isolated here and does NOT re-render the
@@ -212,6 +218,31 @@ export const GateKeeperAuditorDashboard = ({
     refetch: refetchSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId || null);
+
+  // The gate keeper / auditor whose history/lifecycle/hours we show — the viewed user
+  // when a manager opened them, otherwise the logged-in user.
+  const targetUserId = viewingOther ? userId : currentUser?._id;
+
+  // Reviewer lifecycle + history timeline (default: last 1 month).
+  const [lifecycleRange, setLifecycleRange] = useState<DateRange | undefined>(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setMonth(from.getMonth() - 1);
+    return { from, to };
+  });
+  // Memoize on the range only: getISOStringsForDateRange resolves an end time of
+  // "now" (ms-precise) whenever the range ends today, so calling it every render
+  // would churn the reviewer-lifecycle query key and refetch in a tight loop.
+  const lifecycleIso = useMemo(
+    () => getISOStringsForDateRange(lifecycleRange),
+    [lifecycleRange],
+  );
+  const { data: reviewerLifecycleData, isLoading: isReviewerLifecycle } =
+    useReviewerLifecycle(
+      targetUserId ?? "",
+      lifecycleIso.startTime ?? "",
+      lifecycleIso.endTime ?? "",
+    );
 
   const assignedCount = data?.assignedCount ?? 0;
   const submittedCount = data?.submittedCount ?? 0;
@@ -469,7 +500,19 @@ export const GateKeeperAuditorDashboard = ({
                         >
                           {q.source}
                         </TableCell>
-                        <TableCell className="align-top">{q.question}</TableCell>
+                        <TableCell className="align-top">
+                          {(q as any).isFeedbackQuestion ? (
+                            <span className="mr-1.5 font-semibold text-red-500">
+                              (Feed Back)
+                            </span>
+                          ) : q.source === "AJRASAKHA" ||
+                            q.source === "WHATSAPP" ? (
+                            <span className="mr-1.5 font-semibold text-red-500">
+                              
+                            </span>
+                          ) : null}
+                          {q.question}
+                        </TableCell>
                         <TableCell className="align-top text-center">
                           <Badge
                             className={`${statusBadgeClass(q.status)} whitespace-nowrap`}
@@ -509,7 +552,36 @@ export const GateKeeperAuditorDashboard = ({
             />
           </div>
         </Card>
+
+        {/* Reviewer life cycle + history timeline */}
+        {targetUserId && (
+          <div className="mt-8">
+            <ReviewerLifecycle
+              data={reviewerLifecycleData}
+              isLoading={isReviewerLifecycle}
+              dateRange={lifecycleRange}
+              onDateRangeChange={setLifecycleRange}
+            />
+          </div>
+        )}
+
+        {/* User activity history */}
+        {targetUserId && (
+          <div className="mb-6 mt-8 p-6 rounded-xl border border-border bg-card/30 shadow-sm">
+            <div className="flex items-center gap-2 mb-6">
+              <History className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold text-foreground">
+                User Activity History
+              </h2>
+            </div>
+            <UserHistoryView userId={targetUserId} isEmbedded />
+          </div>
+        )}
+
+        {/* Working hours trend */}
+        {targetUserId && <WorkingHoursTrendChart userId={targetUserId} />}
       </div>
+      <ScrollToTopButton />
     </main>
   );
 };

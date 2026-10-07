@@ -1,4 +1,4 @@
-import {ContainerModule} from 'inversify';
+﻿import {ContainerModule} from 'inversify';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {ContextRepository} from '#root/shared/database/providers/mongo/repositories/ContextRepository.js';
 import {AnswerRepository} from '#root/shared/database/providers/mongo/repositories/AnswerRepository.js';
@@ -11,44 +11,165 @@ import { NotificationRepository } from '#root/shared/database/providers/mongo/re
 import { RequestRepository } from '#root/shared/database/providers/mongo/repositories/RequestRepository.js';
 import { ReviewRepository } from '#root/shared/database/providers/mongo/repositories/ReviewRepository.js';
 import { AnswerService } from '../answer/services/AnswerService.js';
+import { AnswerReviewService } from '../answer/services/AnswerReviewService.js';
+import { AnswerApprovalService } from '../answer/services/AnswerApprovalService.js';
+import { AnswerSubmissionService } from '../answer/services/AnswerSubmissionService.js';
+import { AnswerAiService } from '../answer/services/AnswerAiService.js';
+import { AnswerFaqService } from '../answer/services/AnswerFaqService.js';
 import { AnswerDocumentService } from '../answer/services/AnswerDocumentService.js';
+import { AnswerDocumentRepository } from '#root/shared/database/providers/mongo/repositories/AnswerDocumentRepository.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
-import { QuestionController } from '../question/controllers/QuestionController.js';
+import {
+  QuestionController,
+  QuestionIngestionController,
+  QuestionAllocationController,
+  QuestionFeedbackController,
+  QuestionPaeValidationController,
+  QuestionReportController,
+  QuestionAiController,
+  QuestionMaintenanceController,
+} from '../question/controllers/index.js';
 import { QuestionService } from '../question/services/QuestionService.js';
+import { QuestionReportService } from '../question/services/QuestionReportService.js';
+import { PaeValidationService } from '../question/services/PaeValidationService.js';
+import { FeedbackService } from '../question/services/FeedbackService.js';
+import { QuestionAiService } from '../question/services/QuestionAiService.js';
+import { DuplicateService } from '../question/services/DuplicateService.js';
+import { QueueService } from '../question/services/QueueService.js';
+import { RoleAssigneeService } from '../question/services/RoleAssigneeService.js';
+import { AllocationService } from '../question/services/AllocationService.js';
+import { ModeratorQueueService } from '../question/services/ModeratorQueueService.js';
+import { QuestionMaintenanceService } from '../question/services/QuestionMaintenanceService.js';
 import { ContextController } from '../context/controllers/ContextController.js';
 import { ContextService } from '../context/services/ContextService.js';
 import { PerformanceController } from '../performance/controllers/PerformanceController.js';
 import { CORE_TYPES } from './types.js';
 import { GLOBAL_TYPES } from '../../types.js';
 import { PerformanceService } from '../performance/services/PerformanceService.js';
+// Testers Dashboard now lives in testers-dashboard/backend/ - these come
+// from its compiled output, so `pnpm run build:testers-dashboard` must run
+// before this file can be type-checked/compiled (see backend/package.json).
+import { TestersDashboardController } from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js';
+import { TestersDashboardService } from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js';
 import { RequestController } from '../request/controllers/RequestController.js';
+import { ZohoTicketStatusService } from '../../../../testers-dashboard/backend/build/services/ZohoTicketStatusService.js';
+import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
+import { TesterLogController } from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js';
+import { TesterLogService } from '../../../../testers-dashboard/backend/build/services/TesterLogService.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
-import { AnswerDocumentRepository } from '#root/shared/database/providers/mongo/repositories/AnswerDocumentRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
+import { FeedbackRepository } from '#root/shared/database/providers/mongo/repositories/FeedbackRepository.js';
 import { AccAgentService } from '../acc-agent/services/AccAgentService.js';
 import { CheckOverlapsService } from '../question/services/CheckOverlapsService.js';
+import { OrganizationRepository } from '#root/shared/database/providers/mongo/repositories/OrganizationRepository.js';
+import { OrganizationService } from '../organization/services/OrganizationService.js';
+import { OrganizationController } from '../organization/controllers/OrganizationController.js';
+import { PopRepository } from '#root/shared/database/providers/mongo/repositories/PopRepository.js';
+import { PopService } from '../pop/services/PopService.js';
+import { PopController } from '../pop/controllers/PopController.js';
+import { NewSourceRepository } from '#root/shared/database/providers/mongo/repositories/NewSourceRepository.js';
+import { NewSourceService } from '../newSource/services/NewSourceService.js';
+import { NewSourceController } from '../newSource/controllers/NewSourceController.js';
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
+  options.bind(QuestionReportController).toSelf().inSingletonScope();
+  options.bind(QuestionAllocationController).toSelf().inSingletonScope();
+  options.bind(QuestionFeedbackController).toSelf().inSingletonScope();
+  options.bind(QuestionPaeValidationController).toSelf().inSingletonScope();
+  options.bind(QuestionAiController).toSelf().inSingletonScope();
+  options.bind(QuestionIngestionController).toSelf().inSingletonScope();
+  options.bind(QuestionMaintenanceController).toSelf().inSingletonScope();
   options.bind(QuestionController).toSelf().inSingletonScope();
   options.bind(AnswerController).toSelf().inSingletonScope();
   options.bind(ContextController).toSelf().inSingletonScope();
   options.bind(CommentController).toSelf().inSingletonScope();
   options.bind(RequestController).toSelf().inSingletonScope();
-  options.bind(PerformanceController).toSelf().inSingletonScope()
+  options.bind(PerformanceController).toSelf().inSingletonScope();
+  options.bind(TestersDashboardController).toSelf().inSingletonScope();
+  options.bind(ZohoTicketStatusController).toSelf().inSingletonScope();
+  options.bind(TesterLogController).toSelf().inSingletonScope();
+  options.bind(OrganizationController).toSelf().inSingletonScope();
+  options.bind(PopController).toSelf().inSingletonScope();
+  options.bind(NewSourceController).toSelf().inSingletonScope();
   // Services
 
   options
-    .bind(CORE_TYPES.QuestionService) 
+    .bind(CORE_TYPES.QuestionService)
     .to(QuestionService)
     .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.QuestionReportService)
+    .to(QuestionReportService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.PaeValidationService)
+    .to(PaeValidationService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.FeedbackService)
+    .to(FeedbackService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.QuestionAiService)
+    .to(QuestionAiService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.DuplicateService)
+    .to(DuplicateService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.QueueService)
+    .to(QueueService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.RoleAssigneeService)
+    .to(RoleAssigneeService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AllocationService)
+    .to(AllocationService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.ModeratorQueueService)
+    .to(ModeratorQueueService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.QuestionMaintenanceService)
+    .to(QuestionMaintenanceService)
+    .inSingletonScope();
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
-  options.bind(CORE_TYPES.AnswerDocumentService).to(AnswerDocumentService).inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerReviewService)
+    .to(AnswerReviewService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerApprovalService)
+    .to(AnswerApprovalService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerSubmissionService)
+    .to(AnswerSubmissionService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerAiService)
+    .to(AnswerAiService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerFaqService)
+    .to(AnswerFaqService)
+    .inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
   options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
   options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
+  options.bind(CORE_TYPES.ZohoTicketStatusService).to(ZohoTicketStatusService).inSingletonScope();
 
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
+  options.bind(CORE_TYPES.TestersDashboardService).to(TestersDashboardService).inSingletonScope();
+  options.bind(CORE_TYPES.TesterLogService).to(TesterLogService).inSingletonScope();
+  options.bind(CORE_TYPES.OrganizationService).to(OrganizationService).inSingletonScope();
+  options.bind(CORE_TYPES.PopService).to(PopService).inSingletonScope();
+  options.bind(CORE_TYPES.NewSourceService).to(NewSourceService).inSingletonScope();
   options.bind(GLOBAL_TYPES.AccAgentService).to(AccAgentService).inSingletonScope();
   options.bind(CORE_TYPES.CheckOverlapsService).to(CheckOverlapsService).inSingletonScope();
   // Repositories
@@ -63,10 +184,6 @@ export const coreContainerModule = new ContainerModule(options => {
   options
     .bind(CORE_TYPES.AnswerRepository)
     .to(AnswerRepository)
-    .inSingletonScope();
-  options
-    .bind(CORE_TYPES.AnswerDocumentRepository)
-    .to(AnswerDocumentRepository)
     .inSingletonScope();
   options
     .bind(CORE_TYPES.ContextRepository)
@@ -85,4 +202,10 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.ReviewRepository).to(ReviewRepository).inSingletonScope()
   options.bind(CORE_TYPES.UserRepository).to(UserRepository).inSingletonScope()
   options.bind(CORE_TYPES.DuplicateQuestionRepository).to(DuplicateQuestionRepository).inSingletonScope()
+  options.bind(CORE_TYPES.FeedbackRepository).to(FeedbackRepository).inSingletonScope()
+  options.bind(CORE_TYPES.OrganizationRepository).to(OrganizationRepository).inSingletonScope()
+  options.bind(CORE_TYPES.PopRepository).to(PopRepository).inSingletonScope()
+  options.bind(CORE_TYPES.NewSourceRepository).to(NewSourceRepository).inSingletonScope()
+  options.bind(CORE_TYPES.AnswerDocumentService).to(AnswerDocumentService).inSingletonScope()
+  options.bind(CORE_TYPES.AnswerDocumentRepository).to(AnswerDocumentRepository).inSingletonScope()
 });

@@ -19,6 +19,8 @@ interface CropJobStatus {
   finishedAt?: Date;
   logs: string[];
   errors: string[];
+  /** Per-entry outcome for the downloadable results report. */
+  results: { name: string; status: string; reason: string }[];
 }
 
 const cropJobs: Record<string, CropJobStatus> = {};
@@ -28,6 +30,8 @@ export const startCropBulkProcessing = (
   userId: string,
   actor: any,
   auditService: IAuditTrailsService,
+  // Crop-side entry type: 'crop' (default) | 'weed' | 'pest' | 'disease'.
+  type: string = 'crop',
 ): string => {
   const jobId = Date.now().toString();
 
@@ -42,6 +46,7 @@ export const startCropBulkProcessing = (
     startedAt: new Date(),
     logs: [`🚀 Crop bulk job started with ${rows.length} CSV rows`],
     errors: [],
+    results: [],
   };
   cropJobs[jobId] = job;
 
@@ -51,6 +56,7 @@ export const startCropBulkProcessing = (
     workerData: {
       rows,
       userId,
+      type,
       mongoUri: process.env.DB_URL!,
       dbName: process.env.DB_NAME!,
     },
@@ -69,6 +75,7 @@ export const startCropBulkProcessing = (
     if (msg?.success === true) {
       job.created = msg.created ?? 0;
       job.updated = msg.updated ?? 0;
+      job.results = msg.results ?? [];
       job.logs.push(
         `✅ Done: ${msg.created} crops created, ${msg.updated} updated, ${msg.errors?.length ?? 0} errors`,
       );
@@ -134,6 +141,7 @@ export const startChemicalBulkProcessing = (
     startedAt: new Date(),
     logs: [`🚀 Chemical bulk job started with ${rows.length} CSV rows`],
     errors: [],
+    results: [],
   };
   cropJobs[jobId] = job;
 
@@ -155,6 +163,7 @@ export const startChemicalBulkProcessing = (
     if (msg?.success === true) {
       job.created = msg.created ?? 0;
       job.updated = msg.updated ?? 0;
+      job.results = msg.results ?? [];
       job.logs.push(
         `✅ Done: ${msg.created} chemicals created, ${msg.updated} updated, ${msg.errors?.length ?? 0} errors`,
       );

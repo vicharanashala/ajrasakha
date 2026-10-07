@@ -3,8 +3,10 @@ import { getContainer } from '../loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 
-// Run every 2 minutes, all day 
-const ENABLE_INPROCESS_CRON = true;
+// DISABLED: feedback allocation is now handled inside the moderator-queue cron
+// (runModeratorQueueCron's feedback pass), so this standalone cron is no longer
+// needed. Kept for reference; flip the flag only if you intentionally revert.
+const ENABLE_INPROCESS_CRON = false;
 if (ENABLE_INPROCESS_CRON) {
   cron.schedule(
     '0 */1 * * * *',

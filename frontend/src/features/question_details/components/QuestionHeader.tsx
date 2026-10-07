@@ -166,13 +166,11 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     }
   };
 
-  // For compare mode: reference answer (from the original/reference question)
-  const referenceAnswerText = (() => {
-    const text = question.referenceQuestionData?.text;
-    if (!text) return null;
-    const match = text.match(/answer:\s*([\s\S]+)/i);
-    return match ? match[1].trim() : null;
-  })();
+  // Reference answer = the reference question's approved final answer (now provided by
+  // the API). Previously this tried to regex it out of `text`, but `text` is the QUESTION
+  // ("Question: …"), so it never matched and the reference answer never showed.
+  const referenceAnswerText =
+    question.referenceQuestionData?.answer?.trim() || null;
 
   const finalAnswer = question.closedFinalAnswer;
 
@@ -203,12 +201,36 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         new Date(latestHistory.updatedAt ?? "").getTime()
       : null;
 
-  // When moderatorAssignedAt is present, compute a separate TAT using that timestamp
+  // Moderator TAT start time, by precedence for a CLOSED question:
+  //   1) moderatorId  → moderatorAssignedAt
+  //   2) auditorId    → auditorAssignedAt
+  //   3) otherwise    → the final answer's approver (closedFinalAnswer.approvedBy),
+  //                     using that answer's created/updated time.
+  const tatStart =
+    question?.moderatorId && question?.moderatorAssignedAt
+      ? question.moderatorAssignedAt
+      : question?.auditorId && question?.auditorAssignedAt
+        ? question.auditorAssignedAt
+        : question?.closedFinalAnswer?.approvedBy
+          ? question.closedFinalAnswer.createdAt ??
+            question.closedFinalAnswer.updatedAt ??
+            null
+          : null;
+
   const moderatorDiffMs =
-    question?.moderatorAssignedAt && question?.closedAt
-      ? new Date(question.closedAt).getTime() -
-        new Date(question.moderatorAssignedAt).getTime()
+    tatStart && question?.closedAt
+      ? new Date(question.closedAt).getTime() - new Date(tatStart).getTime()
       : null;
+
+  // Label reflects WHO the TAT is for, so moderator vs auditor vs approver is obvious.
+  const tatLabel =
+    question?.moderatorId && question?.moderatorAssignedAt
+      ? "Moderator TAT"
+      : question?.auditorId && question?.auditorAssignedAt
+        ? "Auditor TAT"
+        : question?.closedFinalAnswer?.approvedBy
+          ? "Approver TAT"
+          : "Moderator TAT";
 
   const formatMs = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -248,7 +270,6 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <div className="flex flex-wrap justify-end gap-2">
               {currentUser.role != "expert" &&
                 currentUser.role !== "tester" &&
-                isQuestionAllocatedToExpert &&
                 question.status !== "closed" && (
                   <Button
                     size="sm"
@@ -506,7 +527,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                         <span>{new Date(question.closedAt).toLocaleString()}</span>
                       </div>
                       <div className="text-muted-foreground">
-                        Moderator TAT:{" "}
+                        {tatLabel}:{" "}
                         <span className="font-medium text-foreground">
                           {moderatorFormattedTime}
                         </span>
@@ -514,8 +535,12 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                     </>
                   ) : (
                     <div>
-                      Moderator TAT:{" "}
-                      {latestHistory && diffMs && diffMs > 0 ? formattedTime : "N/A"}
+                      {tatLabel}:{" "}
+                      {moderatorFormattedTime !== "N/A"
+                        ? moderatorFormattedTime
+                        : latestHistory && diffMs && diffMs > 0
+                          ? formattedTime
+                          : "N/A"}
                     </div>
                   )}
                 </div>
@@ -690,7 +715,11 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   <span className="text-muted-foreground font-medium">
                     Domain:{" "}
                   </span>
-                  <span>{question.referenceQuestionData.details?.domain}</span>
+                  <span>
+                    {Array.isArray(question.referenceQuestionData.details?.domain)
+                      ? question.referenceQuestionData.details.domain.join(", ")
+                      : question.referenceQuestionData.details?.domain || "-"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground font-medium">

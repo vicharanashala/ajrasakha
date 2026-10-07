@@ -37,6 +37,7 @@ import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import type { IUser } from "@/types";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -360,9 +361,12 @@ export const Dashboard = () => {
                 overviewData?.moderatorApprovalRate ?? {
                   approved: 0,
                   pending: 0,
+                  pendingTraining: 0,
+                  pendingOther: 0,
                   approvalRate: 0,
                 }
               }
+              isAdmin={isAdmin}
             />
           </LoadingWrapper>
         </div>
@@ -597,6 +601,7 @@ export const Dashboard = () => {
           </button>
         </div>
       )}
+      <ScrollToTopButton />
     </main>
   );
 };

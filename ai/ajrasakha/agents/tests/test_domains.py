@@ -4,7 +4,9 @@ from ajrasakha.agents.domains import (
     ALLOWED_DOMAINS,
     apply_tool_flags_from_domain,
     crop_counts_as_resolved,
+    domain_crop_requirement_mode,
     domain_requires_crop,
+    get_domain_crop_policy,
     normalize_domain,
     reviewer_upload_domain,
 )
@@ -43,11 +45,27 @@ def test_apply_tool_flags_schemes():
     assert flags["knowledge_base"] is False
 
 
+def test_conditional_crop_policy_does_not_change_legacy_tool_routing():
+    flags = apply_tool_flags_from_domain("Infrastructure & Utilities")
+    assert flags["knowledge_base"] is False
+
+
 def test_domain_requires_crop_buckets():
     assert domain_requires_crop("Plant Protection") is True
     assert domain_requires_crop("Market Prices") is True
     assert domain_requires_crop("Government Schemes") is False
     assert domain_requires_crop("General") is False
+
+
+def test_json_backed_crop_policy_modes():
+    assert domain_crop_requirement_mode("Cultural Practices") == "always_required"
+    assert domain_crop_requirement_mode("Weather") == "never_required"
+    assert domain_crop_requirement_mode("Market Prices") == "conditional"
+
+    policy = get_domain_crop_policy("Market Prices")
+    assert policy["default_crop_required"] is True
+    assert policy["remarks"] == "Usually"
+    assert "prices" in policy["description"].lower()
 
 
 def test_crop_counts_as_resolved():

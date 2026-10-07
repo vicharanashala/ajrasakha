@@ -62,7 +62,7 @@ jobs:
           TARGET="${{ inputs.target_image }}"
 
           if [[ "$TARGET" == "all" || "$TARGET" == "backend" ]]; then
-            add_entry "reviewer-api" "./backend" "./backend/Dockerfile.app" "backend"
+            add_entry "reviewer-api" "." "./backend/Dockerfile.app" "backend"
           fi
 
           if [[ "$TARGET" == "all" || "$TARGET" == "frontend" ]]; then

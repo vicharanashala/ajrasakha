@@ -1,25 +1,86 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare } from "lucide-react";
 import { Badge } from "./atoms/badge";
+import { Button } from "./atoms/button";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
 import { useGetQuestionFeedback } from "@/hooks/api/question/useGetQuestionFeedback";
+import { useFeedbackAction } from "@/hooks/api/question/useFeedbackAction";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./atoms/dialog";
+import { Textarea } from "./atoms/textarea";
+import { Label } from "./atoms/label";
 
 interface UserFeedbackDetailProps {
     questionId: string | null;
+    currentUser: {
+        feedbacksAssigned?: string[];
+    } | null;
 }
 
-const UserFeedbackDetail = ({ questionId }: UserFeedbackDetailProps) => {
+const UserFeedbackDetail = ({ questionId, currentUser }: UserFeedbackDetailProps) => {
     const [expanded, setExpanded] = useState(false);
+    
+    // Check if current user is assigned to review this feedback
+    const isAssignedReviewer = !!(
+        currentUser?.feedbacksAssigned &&
+        questionId &&
+        currentUser.feedbacksAssigned.includes(questionId)
+    );
+    
+    // Modal state
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalAction, setModalAction] = useState<'accept' | 'reject' | null>(null);
+    const [reason, setReason] = useState("");
     
     const {
         data: feedbackResponse,
         isLoading,
-        error: isError
+        error: isError,
+        refetch
     } = useGetQuestionFeedback(questionId);
-
+    
+    const { mutate: handleFeedbackAction, isPending: isSubmitting } = useFeedbackAction();
+    
     const feedback = feedbackResponse?.data?.feedback;
+    
+    // Open action modal
+    const openActionModal = (action: 'accept' | 'reject') => {
+        setModalAction(action);
+        setReason("");
+        setIsModalOpen(true);
+    };
+    
+    // Handle submit action
+    const handleSubmit = () => {
+        if (!feedback || !questionId || !reason.trim()) return;
+        
+        handleFeedbackAction({
+            questionId,
+            feedbackId: feedback._id?.toString() || "",
+            action: modalAction!,
+            reason: reason.trim(),
+            source: 'WEB_APPLICATION', // Always send WEB_APPLICATION for this component
+        }, {
+            onSuccess: () => {
+                toast.success(`Feedback ${modalAction}ed successfully`);
+                setIsModalOpen(false);
+                setReason("");
+                refetch?.();
+            },
+            onError: () => {
+                toast.error(`Failed to ${modalAction} feedback`);
+            },
+        });
+    };
 
     // Hide component completely if there is no feedback (and we're not loading/errored)
     if (!isLoading && !isError && !feedback) {
@@ -27,7 +88,8 @@ const UserFeedbackDetail = ({ questionId }: UserFeedbackDetailProps) => {
     }
 
     return (
-        <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
+        <>
+            <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
             {/* Animated border glow */}
             <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-19" />
 
@@ -150,12 +212,80 @@ const UserFeedbackDetail = ({ questionId }: UserFeedbackDetailProps) => {
                                     </div>
                                 )}
                             </div>
+                            
+                            {/* Accept/Reject buttons - only show for open status and assigned reviewer */}
+                            {isAssignedReviewer && (
+                                <div className="flex items-center gap-3 pt-4 mt-4 border-t border-border">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openActionModal('accept')}
+                                        className="flex-1 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800 hover:border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/30 dark:hover:bg-green-500/20"
+                                    >
+                                        <ThumbsUp className="h-4 w-4 mr-1" />
+                                        Accept
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openActionModal('reject')}
+                                        className="flex-1 bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:text-red-800 hover:border-red-300 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30 dark:hover:bg-red-500/20"
+                                    >
+                                        <ThumbsDown className="h-4 w-4 mr-1" />
+                                        Reject
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             )}
         </div>
-    );
+
+        {/* Reason Modal */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>
+                        {modalAction === 'accept' ? 'Accept' : 'Reject'} Feedback
+                    </DialogTitle>
+                    <DialogDescription>
+                        Please provide a reason for {modalAction === 'accept' ? 'accepting' : 'rejecting'} this feedback.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="reason">Reason</Label>
+                        <Textarea
+                            id="reason"
+                            placeholder={`Enter your reason for ${modalAction === 'accept' ? 'accepting' : 'rejecting'} this feedback...`}
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            rows={4}
+                            className="resize-none"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsModalOpen(false)}
+                        disabled={isSubmitting}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting || !reason.trim()}
+                        className={modalAction === 'accept' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                    >
+                        {isSubmitting ? 'Submitting...' : 'Submit'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+            </>
+        );
 };
 
 export default UserFeedbackDetail;

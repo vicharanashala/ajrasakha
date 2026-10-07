@@ -65,6 +65,7 @@ import {
 } from "./AddOrEditQuestionDialog";
 import { useReAllocateLessWorkload, useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
+import { TatReportButton } from "./TatReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
 import { DownloadDuplicateReportButton } from "./DownloadDuplicateReportButton";
@@ -78,17 +79,25 @@ import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
 import { StateDistrictAliasModal } from "./StateDistrictAliasModal";
-import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
+import { QueueDetailsModal, GateKeeperAuditorQueueModal, FeedbackQueueModal, PaeValidationQueueModal } from "./QueueDetailsModal";
+import { ModeratorQueueModal } from "./ModeratorQueueModal";
 import { canViewQueueDetails } from "@/lib/roles";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
+import { useGetCropEntryTypes } from "@/hooks/api/crop/useGetCropEntryTypes";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/atoms/dropdown-menu";
 import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
-import { UserCheck } from "lucide-react";
+import { UserCheck, LayoutDashboard } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
-
-import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
+import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -124,7 +133,7 @@ type QuestionsFiltersProps = {
   onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -134,6 +143,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
+  if (filter.source === "QUESTION_COLLECTION") return "annadatha";
   if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
@@ -144,6 +154,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
+  if (answerMode === "annadatha") return "QUESTION_COLLECTION";
   if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
@@ -203,6 +214,11 @@ export const QuestionsFilters = ({
   );
   const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
   const isTrainingUser = currentUser?.isTrainingUser === true;
+
+  // ── Public dashboard editor (admin-only) ──
+  const isAdmin = userRole === "admin";
+  const [isEditPublicDashboardOpen, setIsEditPublicDashboardOpen] =
+    useState(false);
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -436,19 +452,20 @@ export const QuestionsFilters = ({
   };
 
   const cropService = new CropService();
+  const { data: cropEntryTypes = [] } = useGetCropEntryTypes();
 
-  const handleDownloadCrops = async () => {
+  const handleDownloadAgritech = async (type?: string) => {
     setIsDownloadingCrops(true);
     try {
-      const blob = await cropService.downloadList('crop');
+      const blob = await cropService.downloadList(type || undefined);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "crops_list.xlsx";
+      a.download = type ? `${type}_list.xlsx` : "agritech_management.xlsx";
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Failed to download crops list.");
+      toast.error("Failed to download AgriTech Management list.");
     } finally {
       setIsDownloadingCrops(false);
     }
@@ -511,6 +528,8 @@ export const QuestionsFilters = ({
     } else if (nextAnswerMode === "training") {
       nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "annadatha") {
+      nextFilters = { ...advanceFilter, source: "QUESTION_COLLECTION", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
@@ -587,6 +606,7 @@ export const QuestionsFilters = ({
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       autoAllocateModeratorFilter: advanceFilter?.autoAllocateModeratorFilter,
+      feedbackFilter: advanceFilter?.feedbackFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
@@ -756,6 +776,7 @@ export const QuestionsFilters = ({
         }}
         currentUserIsTrainingUser={isTrainingUser}
         currentUserIsAdmin={userRole === "admin"}
+        canViewTraining={userRole === "auditor" || userRole === "gate_keeper"}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
@@ -1026,6 +1047,25 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
+
+          {/* Section: Public Dashboard (admin-only) */}
+          {isAdmin && (
+            <section>
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                Public Dashboard
+              </h3>
+              <button
+                onClick={() => {
+                  setIsSidebarOpen(false);
+                  setIsEditPublicDashboardOpen(true);
+                }}
+                className="w-full py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 dark:bg-[#0d0d0d] border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
+              >
+                <LayoutDashboard size={14} /> Edit Public Dashboard
+              </button>
+            </section>
+          )}
+
           <section className="hidden md:block">
             <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
               Hide Columns
@@ -1130,7 +1170,6 @@ export const QuestionsFilters = ({
                     setIsSidebarOpen(false);
                   }}
                 >
-                  <TopRightBadge label="new" left={0} />
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
                       <MessageSquare size={20} />
@@ -1256,13 +1295,6 @@ export const QuestionsFilters = ({
                       </p>
                     </div>
                   </div>
-
-                  <Badge
-                    variant="default"
-                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                  >
-                    New
-                  </Badge>
                 </button>
               )}
 
@@ -1288,9 +1320,24 @@ export const QuestionsFilters = ({
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
               )}
 
+              {/* moderator queue — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && (
+                <ModeratorQueueModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
+              )}
+
               {/* gate keeper / auditor queue — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && !isTrainingUser && (
                 <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* feedback queue — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
+                <FeedbackQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* pae queue — admins, moderators */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
+                <PaeValidationQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
             </div>
           </section>
@@ -1345,21 +1392,42 @@ export const QuestionsFilters = ({
                   />
                 </div>
 
-                {/* Download Master Lists — Crops & Chemicals */}
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/5 border border-gray-200 dark:border-gray-800 hover:border-rose-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <TatReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
+                </div>
+
+                {/* Download AgriTech Management — filter by type (all / crop / chemical / category) */}
                 <div className="flex gap-3">
-                  <button
-                    onClick={handleDownloadCrops}
-                    disabled={isDownloadingCrops}
-                    className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
-                  >
-                    {isDownloadingCrops ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Download size={14} />
-                    )}
-                    Crops List
-                    <TopRightBadge label="new" left={0} />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        disabled={isDownloadingCrops}
+                        className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
+                      >
+                        {isDownloadingCrops ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Download size={14} />
+                        )}
+                        AgriTech Management
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 text-xs max-h-72 overflow-y-auto z-[70]">
+                      <DropdownMenuItem onClick={() => handleDownloadAgritech()}>
+                        <Download size={13} className="mr-2" /> All types
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleDownloadAgritech("crop")}>Crop</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownloadAgritech("chemical")}>Chemical</DropdownMenuItem>
+                      {cropEntryTypes.map((t) => (
+                        <DropdownMenuItem key={t} onClick={() => handleDownloadAgritech(t)}>
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <button
                     onClick={handleDownloadChemicals}
                     disabled={isDownloadingChemicals}
@@ -1371,7 +1439,6 @@ export const QuestionsFilters = ({
                       <Download size={14} />
                     )}
                     Chemicals List
-                    <TopRightBadge label="new" left={0} />
                   </button>
                 </div>
               </div>
@@ -1389,7 +1456,6 @@ export const QuestionsFilters = ({
                 onClick={handleClick}
                 className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
               >
-                <TopRightBadge label="new" left={0} />
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
                     <AlertTriangle size={20} />
@@ -1449,7 +1515,6 @@ export const QuestionsFilters = ({
             className="text-green-600 dark:text-green-500 shrink-0"
           />
           <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
-            <TopRightBadge label="new" right={0} />
             Total:{" "}
             <span className="text-gray-900 dark:text-white transition-opacity duration-300">
               {statusSummary?.totalQuestions ?? totalQuestions}
@@ -1590,6 +1655,12 @@ export const QuestionsFilters = ({
         open={isCropModalOpen}
         onOpenChange={setIsCropModalOpen}
       />
+      {isAdmin && (
+        <EditPublicDashboardModal
+          open={isEditPublicDashboardOpen}
+          onOpenChange={setIsEditPublicDashboardOpen}
+        />
+      )}
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}

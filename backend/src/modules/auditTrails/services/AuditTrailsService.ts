@@ -255,4 +255,24 @@ export class AuditTrailsService
       totalDocuments: result.totalDocuments,
     };
   }
+
+  async getAuditTrailsByCropId(
+    cropId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc"
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
+    const result = await this.auditTrailsRepository.getAuditTrailsByCropId(
+      cropId,
+      page,
+      limit,
+      action,
+      order
+    );
+    return {
+      data: result.data.map(audit => this.normalizeAudit(audit)),
+      totalDocuments: result.totalDocuments,
+    };
+  }
 }

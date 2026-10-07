@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X, ChevronLeft, ChevronUp, Lock, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X, ChevronLeft, ChevronUp, Lock, CheckCircle2, XCircle, ClipboardCheck, ExternalLink, LinkIcon } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import { Skeleton } from "./atoms/skeleton";
@@ -43,6 +43,7 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalAction, setModalAction] = useState<'accept' | 'reject' | null>(null);
     const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
+    const [selectedFeedbackSource, setSelectedFeedbackSource] = useState<'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation'>('WEB_APPLICATION');
     const [reason, setReason] = useState("");
     
     const {
@@ -67,9 +68,10 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
         return null;
     }
 
-    const openActionModal = (feedbackId: string, action: 'accept' | 'reject') => {
+    const openActionModal = (feedbackId: string, action: 'accept' | 'reject', source?: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation') => {
         setSelectedFeedbackId(feedbackId);
         setModalAction(action);
+        setSelectedFeedbackSource(source || 'WEB_APPLICATION');
         setReason("");
         setIsModalOpen(true);
     };
@@ -99,17 +101,25 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
         }
 
         handleFeedbackAction(
-            { questionId, feedbackId: selectedFeedbackId, action: modalAction, reason },
+            { questionId, feedbackId: selectedFeedbackId, action: modalAction, reason, source: selectedFeedbackSource },
             { onSuccess: () => onSubmitSuccess(modalAction), onError: onSubmitError }
         );
     };
 
-    const handleAccept = (feedbackId: string) => {
-        openActionModal(feedbackId, 'accept');
+    const handleAccept = (feedbackId: string, type?: string) => {
+        // Map feedback.type to the expected source values
+        // type can be 'thumbs_up', 'thumbs_down', or 'PAE_VALIDATION'
+        const source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation' = 
+            type === 'PAE_VALIDATION' ? 'PAE_Validation' : 'WEB_APPLICATION';
+        openActionModal(feedbackId, 'accept', source);
     };
 
-    const handleReject = (feedbackId: string) => {
-        openActionModal(feedbackId, 'reject');
+    const handleReject = (feedbackId: string, type?: string) => {
+        // Map feedback.type to the expected source values
+        // type can be 'thumbs_up', 'thumbs_down', or 'PAE_VALIDATION'
+        const source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation' = 
+            type === 'PAE_VALIDATION' ? 'PAE_Validation' : 'WEB_APPLICATION';
+        openActionModal(feedbackId, 'reject', source);
     };
 
     const toggleFeedback = (feedbackId: string) => {
@@ -145,9 +155,10 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
 
     const renderFeedbackItem = (feedback: FeedbackData, index: number) => {
         const isPositive = feedback.type === "thumbs_up";
-        const FeedbackIcon = isPositive ? ThumbsUp : ThumbsDown;
-        const iconColor = isPositive ? "text-green-500" : "text-red-500";
-        const bgColor = isPositive ? "bg-green-500/10" : "bg-red-500/10";
+        const isPae = feedback.type === "PAE_VALIDATION";
+        const FeedbackIcon = isPae ? ClipboardCheck:isPositive ? ThumbsUp : ThumbsDown;
+        const iconColor = isPae ? "text-blue-500" :isPositive ? "text-green-500" : "text-red-500";
+        const bgColor = isPae? "bg-blue-500/10" :isPositive ? "bg-green-500/10" : "bg-red-500/10";
         const isExpanded = expandedFeedbackId === feedback._id.$oid;
         const isClosed = feedback.status !== "open";
 
@@ -172,9 +183,9 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                             </span>
                             <Badge
                                 variant="outline"
-                                className={`text-[10px] px-1.5 py-0.5 ${isPositive ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400'}`}
+                                className={`text-[10px] px-1.5 py-0.5 ${isPae ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400' : isPositive ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400'}`}
                             >
-                                {isPositive ? "Thumbs Up" : "Thumbs Down"}
+                                { isPae ? "Pae Suggestion" :isPositive ? "Thumbs Up" : "Thumbs Down"}
                             </Badge>
                             {getStatusBadge(feedback.status)}
                         </div>
@@ -271,6 +282,42 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                             </div>
                         )}
 
+                        {feedback.link && (
+                            <div className="flex flex-col gap-2">
+                                <span className="text-sm font-semibold text-gray-700">
+                                    Attached Link:
+                                </span>
+
+                                { }
+                                <a
+                                    href={feedback.link.source}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                                >
+                                    { }
+                                    <div className="flex-shrink-0 w-8 h-8 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                                        <LinkIcon size={16} />
+                                    </div>
+
+                                    { }
+                                    <div className="flex-col flex overflow-hidden min-w-0 flex-1">
+                                        <span className="text-sm font-medium text-gray-900 truncate">
+                                            {feedback.link.name}
+                                        </span>
+                                        <span className="text-xs text-gray-500 truncate group-hover:text-blue-600 transition-colors">
+                                            {feedback.link.source}
+                                        </span>
+                                    </div>
+
+                                    { }
+                                    <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors">
+                                        <ExternalLink size={16} />
+                                    </div>
+                                </a>
+                            </div>
+                        )}
+
                         {/* Review Note (shown when feedback is closed) */}
                         {feedback.reviewNote && (
                             <div className={`text-sm flex flex-col gap-1 mb-4 p-3 rounded-lg border ${
@@ -299,7 +346,7 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                         {feedback.status === "open" && isAssignedReviewer && (
                             <div className="flex items-center gap-3 pt-2">
                                 <Button
-                                    onClick={() => handleAccept(feedback._id.$oid)}
+                                    onClick={() => handleAccept(feedback._id.$oid, feedback.type)}
                                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
                                     size="sm"
                                 >
@@ -307,7 +354,7 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                                     Accept
                                 </Button>
                                 <Button
-                                    onClick={() => handleReject(feedback._id.$oid)}
+                                    onClick={() => handleReject(feedback._id.$oid, feedback.type)}
                                     variant="outline"
                                     className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-500/30 dark:hover:bg-red-500/10"
                                     size="sm"

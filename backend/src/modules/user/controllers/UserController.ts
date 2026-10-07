@@ -16,13 +16,16 @@ import {
   BadRequestError,
   InternalServerError,
   ForbiddenError,
-  QueryParam
+  QueryParam,
+  ContentType,
+  Res,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserAdminEdit,
   IUserHistory,
   NotificationRetentionType,
   UserRole,
@@ -39,7 +42,8 @@ import {
   UpdateUserDto,
   ToggleUserRoleDto,
   VerifyUserBody,
-  VerificationRequestDto
+  VerificationRequestDto,
+  AdminEditUserDto,
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -56,6 +60,7 @@ import {
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotService } from '#root/modules/chatbot/interfaces/IChatbotService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { IQuestionService } from '#root/modules/question/interfaces/IQuestionService.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -73,6 +78,9 @@ export class UserController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: IQuestionService,
   ) { }
 
   @OpenAPI({
@@ -171,6 +179,123 @@ export class UserController {
   }
 
   @OpenAPI({
+    summary: 'Edit user details (Admin only)',
+    description: 'Allows an admin to edit user details. Admin cannot edit another admin.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'User details updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User not found',
+  })
+  @Put('/admin/:id')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async adminEditUser(
+    @Param('id') userId: string,
+    @Body() body: AdminEditUserDto,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    verifyNotTester(currentUser);
+    if (currentUser.role !== 'admin') {
+      throw new ForbiddenError('Only admin can edit user details');
+    }
+    const targetUser = await this.userService.getUserById(userId);
+    if (!targetUser) {
+      throw new NotFoundError(`User with ID ${userId} not found`);
+    }
+    if (targetUser.role === 'admin') {
+      throw new ForbiddenError('Admin cannot edit details of another admin');
+    }
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.USER_MANAGEMENT,
+      action: AuditAction.EDIT_USER,
+      actor: {
+        id: currentUser._id.toString(),
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        email: currentUser.email,
+        role: currentUser.role,
+        avatar: currentUser?.avatar || '',
+      },
+      context: {
+        userId,
+        name: `${targetUser.firstName} ${targetUser.lastName}`,
+        email: targetUser.email,
+        role: targetUser.role,
+      },
+      changes: {
+        before: {
+          firstName: targetUser.firstName,
+          lastName: targetUser.lastName,
+          mobile: targetUser.mobile,
+          university: targetUser.university,
+          preference: targetUser.preference,
+          kvkCovered: targetUser.kvkCovered,
+          avatar: targetUser.avatar,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      const updatedUser = await this.userService.adminEditUser(
+        currentUser,
+        userId,
+        body as unknown as IUserAdminEdit,
+      );
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          ...auditPayload.changes,
+          after: {
+            firstName: updatedUser.firstName,
+            lastName: updatedUser.lastName,
+            mobile: updatedUser.mobile,
+            university: updatedUser.university,
+            preference: updatedUser.preference,
+            kvkCovered: updatedUser.kvkCovered,
+            avatar: updatedUser.avatar,
+          },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return updatedUser;
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to edit user details',
+          errorName: err?.name || 'Error',
+          errorStack:
+            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      throw err;
+    }
+  }
+
+  @OpenAPI({
     summary: 'Get all users with pagination (Admin)',
     description: 'Retrieves paginated list of all users for admin users with search, sort, and filter capabilities.',
   })
@@ -188,7 +313,7 @@ export class UserController {
   })
   @Get('/admin/all')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async getAllUsers(
     @CurrentUser() user: IUser,
     @QueryParams()
@@ -202,6 +327,7 @@ export class UserController {
       isBlocked?: string;
       isVerified?: string;
       isSTF?: string;
+      isTMU?: string;
     },
 
   ) {
@@ -214,6 +340,7 @@ export class UserController {
     const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
     const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
     const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
+    const isTMU = query.isTMU === 'true' ? true : query.isTMU === 'false' ? false : undefined;
 
     return this.userService.getAllUsers(
       pageNum,
@@ -225,7 +352,69 @@ export class UserController {
       isBlocked,
       isVerified,
       isSTF,
+      isTMU,
     );
+  }
+
+  @OpenAPI({ summary: 'Export all users (matching the current filters) as an Excel sheet' })
+  @Get('/admin/all/export')
+  @Authorized(['admin', 'gate_keeper'])
+  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportAllUsers(
+    @QueryParams()
+    query: {
+      search?: string;
+      sort?: string;
+      filter?: string;
+      role?: string;
+      isBlocked?: string;
+      isVerified?: string;
+      isSTF?: string;
+      isTMU?: string;
+      /** When 'true' AND role is pae_expert, append a "PAE Analytics" sheet. */
+      getAnalytics?: string;
+      /** Optional IST date range (YYYY-MM-DD) for the PAE analytics. */
+      analyticsStartDate?: string;
+      analyticsEndDate?: string;
+    },
+    @Res() response: any,
+  ) {
+    const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
+    const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
+    const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
+    const isTMU = query.isTMU === 'true' ? true : query.isTMU === 'false' ? false : undefined;
+
+    // PAE analytics is only meaningful when the PAE role is selected. Build the per-PAE
+    // analytics rows only then; otherwise the export is the plain users sheet.
+    let paeAnalytics;
+    if (query.getAnalytics === 'true' && query.role === 'pae_expert') {
+      const toDate = (v?: string, endOfDay = false) =>
+        v
+          ? new Date(`${v}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+05:30`)
+          : undefined;
+      paeAnalytics = await this.questionService.getAllPaeAnalytics(
+        toDate(query.analyticsStartDate),
+        toDate(query.analyticsEndDate, true),
+      );
+    }
+
+    const data = await this.userService.exportUsersToXlsx({
+      search: query.search || '',
+      sort: query.sort || '',
+      filter: query.filter || '',
+      role: query.role || 'ALL',
+      isBlocked,
+      isVerified,
+      isSTF,
+      isTMU,
+      paeAnalytics,
+    });
+
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename="users.xlsx"',
+    );
+    return Buffer.from(data);
   }
 
   @OpenAPI({
@@ -265,6 +454,9 @@ export class UserController {
     } = query;
     const userId = user._id.toString();
     const isAdmin = user.role === 'admin';
+    const isGatekeeperOrAuditor = user.role === 'gate_keeper' || user.role === 'auditor';
+    // Admin, gate_keeper, and auditor can see all users (including training users)
+    const canViewAllUsers = isAdmin || isGatekeeperOrAuditor;
     const isTrainingUser = user.isTrainingUser === true;
     return await this.userService.getAllUsersforManualSelect(
       userId,
@@ -275,7 +467,7 @@ export class UserController {
       filter,
       includeSelf === true || includeSelf === 'true',
       isTrainingUser,
-      isAdmin
+      canViewAllUsers
     );
   }
 
@@ -285,6 +477,20 @@ export class UserController {
   @OpenAPI({ summary: 'List all moderators ({_id, name, email}) for filter dropdowns' })
   async getModerators() {
     return await this.userService.getModeratorsList();
+  }
+
+  @Get('/pae-val-experts')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'List PAE validation experts',
+    description:
+      'Returns users with role pae_expert whose paeValidationAssigned array is empty or missing.',
+  })
+  async getPaeValidationExperts(): Promise<
+    { _id: string; name: string; email: string }[]
+  > {
+    return await this.userService.getPaeValidationExperts();
   }
 
   @OpenAPI({
@@ -313,10 +519,10 @@ export class UserController {
     // If isTrainingUser field doesn't exist in the collection, treat it as false (not true)
     const isTrainingUser = currentUser.isTrainingUser === true;
     const isAdmin = currentUser.role === 'admin';
-    
-   
+    const isGatekeeperOrAuditor = currentUser.role === 'gate_keeper' || currentUser.role === 'auditor';
+
     return users.filter(u => {
-      if (isAdmin) {
+      if (isAdmin || isGatekeeperOrAuditor) {
         return true;
       }
       return (u.isTrainingUser === true) === isTrainingUser;
@@ -533,7 +739,7 @@ export class UserController {
   })
   @Patch('/stf')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async toggleSTFStatus(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,
@@ -818,7 +1024,7 @@ export class UserController {
     statusCode: 403,
     description: 'Forbidden - Admin access required',
   })
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   @Post('/:id/remove-allocations')
   @HttpCode(200)
   async removeExpertAllocations(
@@ -958,7 +1164,7 @@ export class UserController {
     statusCode: 403,
     description: 'Forbidden - Admin access required',
   })
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   @Patch('/:id/verify')
   @HttpCode(200)
   async verifyUser(
@@ -966,10 +1172,10 @@ export class UserController {
     @Body() body: VerifyUserBody,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
-    // manual admin check
-  if (currentUser.role !== 'admin') {
+    // manual admin check (gate keepers get the same user-management actions)
+  if (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper') {
     throw new ForbiddenError(
-      'Only admins can verify users',
+      'Only admin or gate keeper can verify users',
     );
   }
     const {isVerified} = body;
@@ -990,7 +1196,11 @@ export class UserController {
         email: targetUser?.email,
       },
       changes: {
-        before: { isVerified: targetUser?.isVerified },
+        before: { 
+          isVerified: targetUser?.isVerified,
+          isBlocked: targetUser?.isBlocked,
+          status: targetUser?.status,
+        },
       },
       createdAt: new Date(),
     };
@@ -1000,7 +1210,11 @@ export class UserController {
         ...auditPayload,
         changes: {
           ...auditPayload.changes,
-          after: { isVerified },
+          after: { 
+            isVerified,
+            isBlocked: false,
+            status: 'active',
+          },
         },
         outcome: { status: OutComeStatus.SUCCESS },
       });
@@ -1236,7 +1450,7 @@ export class UserController {
   })
   @Patch('/training-users')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async toggleTrainingUserStatus(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,
@@ -1343,5 +1557,17 @@ export class UserController {
     @QueryParams() query: {userId: string; startDateTime: string; endDateTime: string; granularity: TrendGranularity;}
   ): Promise<any>{
     return await this.userService.getWorkingHoursTrend(query)
+  }
+
+  @Get('/by-role')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: '({_id, name, email}) List users filtered by roles',
+  })
+  async getUsersByRole(
+    @QueryParams() query: { role: UserRole[] },
+  ) {
+    return await this.userService.getUsersByRole(query.role ?? []);
   }
 }

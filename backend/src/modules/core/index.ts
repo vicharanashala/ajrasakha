@@ -9,24 +9,55 @@ import { NotificationController } from '../notification/controllers/Notification
 import { NOTIFICATION_VALIDATORS } from '../notification/validators/NotificationValidators.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
 import { ANSWER_VALIDATORS } from '../answer/classes/validators/AnswerValidator.js';
-import { QuestionController } from '../question/controllers/QuestionController.js';
+import {
+  QuestionController,
+  QuestionIngestionController,
+  QuestionAllocationController,
+  QuestionFeedbackController,
+  QuestionPaeValidationController,
+  QuestionReportController,
+  QuestionAiController,
+  QuestionMaintenanceController,
+} from '../question/controllers/index.js';
 import { QUESTION_VALIDATORS } from '../question/classes/validators/QuestionVaidators.js';
 import { ContextController } from '../../modules/context/controllers/ContextController.js';
 import { CONTEXT_VALIDATORS } from '../context/classes/validators/ContextValidator.js';
 import { CommentController } from '../comment/controllers/CommentController.js';
 import { COMMENT_VALIDATORS } from '../comment/classes/validators/CommentValidator.js';
 import { PerformanceController } from '../../modules/performance/controllers/PerformanceController.js';
+// Testers Dashboard now lives in testers-dashboard/backend/ - see the note
+// in core/container.ts.
+import { TestersDashboardController } from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js';
+import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
+import { TesterLogController } from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js';
+import { TESTER_LOG_VALIDATORS } from '../../../../testers-dashboard/backend/build/validators/TesterLogValidators.js';
 import { RequestController } from '../request/controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
+import { OrganizationController } from '../organization/controllers/OrganizationController.js';
+import { PopController } from '../pop/controllers/PopController.js';
+import { NewSourceController } from '../newSource/controllers/NewSourceController.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
+  QuestionReportController,
+  QuestionAllocationController,
+  QuestionFeedbackController,
+  QuestionPaeValidationController,
+  QuestionAiController,
+  QuestionIngestionController,
+  QuestionMaintenanceController,
   QuestionController,
   ContextController,
   AnswerController,
   CommentController,
   RequestController,
-  PerformanceController
+  PerformanceController,
+  TestersDashboardController,
+  ZohoTicketStatusController,
+  TesterLogController,
+  OrganizationController,
+  PopController,
+  NewSourceController,
 ];
 
 // Export container modules for loadAppModules
@@ -49,15 +80,18 @@ export const coreModuleValidators: Function[] = [
   ...CONTEXT_VALIDATORS,
   ...COMMENT_VALIDATORS,
   ...REQUEST_VALIDATORS,
+  ...TESTER_LOG_VALIDATORS,
 ];
 
 // Export all the main components for external use
-export * from '../../modules/question/controllers/QuestionController.js';
+export * from '../../modules/question/controllers/index.js';
 export * from '../../modules/answer/controllers/AnswerController.js'
 export * from '../../modules/context/controllers/ContextController.js';
 export * from '../../modules/comment/controllers/CommentController.js';
 export * from '../notification/controllers/NotificationController.js'
 export * from '../../modules/performance/controllers/PerformanceController.js'
+export * from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js'
+export * from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js'
 
 export * from '../../modules/question/services/QuestionService.js';
 export * from '../../modules/answer/services/AnswerService.js'
@@ -65,5 +99,7 @@ export * from '../../modules/context/services/ContextService.js';
 export * from '../../modules/comment/services/CommentService.js';
 export * from '../notification/services/NotificationService.js'
 export * from '../../modules/performance/services/PerformanceService.js'
+export * from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js'
+export * from '../../../../testers-dashboard/backend/build/services/TesterLogService.js'
 
 export * from '../core/types.js';

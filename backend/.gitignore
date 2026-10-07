@@ -18,6 +18,8 @@ firebase-debug.*.log*
 # .firebaserc
 
 # Runtime data
+data/testers-dashboard/
+data/
 pids
 *.pid
 *.seed
@@ -89,3 +91,4 @@ gcp-service-account.json
 src/migrations
 
 backups
+testers-dashboard-service-account.json

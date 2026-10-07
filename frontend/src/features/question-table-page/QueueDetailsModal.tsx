@@ -24,18 +24,23 @@ import {
   ShieldCheck,
   ShieldUser,
   GraduationCap,
+  MessageSquare,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
+import { useGetFeedbackQueueDetails } from "@/hooks/api/question/useGetFeedbackQueueDetails";
 import { useGetQueueSection } from "@/hooks/api/question/useGetQueueSection";
 import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
 import type {
   QueueQuestionItem,
   QueueExpertItem,
+  RespectiveFeedbackItem,
 } from "@/hooks/services/questionService";
 import { formatDate } from "@/utils/formatDate";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { useGetPaeValidationQueueDetails } from "@/hooks/api/question/useGetPaeValidationQueueDetails";
 
 type SectionColor = "blue" | "green" | "amber" | "violet" | "red" | "slate";
 
@@ -133,7 +138,7 @@ const TrainingUserTag = () => (
   </span>
 );
 
-const QuestionRow = ({
+export const QuestionRow = ({
   item,
   showExpert,
   showStuck,
@@ -141,6 +146,7 @@ const QuestionRow = ({
   showOpenedIdle,
   showModerator,
   showAssignee,
+  showLevel,
   assigneeLabel = "Assignee",
   onClick,
 }: {
@@ -151,6 +157,7 @@ const QuestionRow = ({
   showOpenedIdle?: boolean;
   showModerator?: boolean;
   showAssignee?: boolean;
+  showLevel?: boolean;
   assigneeLabel?: string;
   onClick?: () => void;
 }) => {
@@ -187,6 +194,11 @@ const QuestionRow = ({
         {item.status && (
           <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-medium uppercase tracking-wide">
             {item.status}
+          </span>
+        )}
+        {showLevel && item.reviewLevel != null && (
+          <span className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 font-medium uppercase tracking-wide">
+            {levelLabel(item.reviewLevel)}
           </span>
         )}
         {item.priority && <span>· {item.priority}</span>}
@@ -242,7 +254,7 @@ const QuestionRow = ({
   );
 };
 
-const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
+export const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
   <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0 flex items-center justify-between gap-2">
     <div className="min-w-0">
       <div className="flex items-center gap-2">
@@ -303,7 +315,7 @@ type SectionProps<T> = {
   itemFilter?: (item: T) => boolean;
 };
 
-function Section<T>({
+export function Section<T>({
   icon,
   color,
   title,
@@ -476,15 +488,143 @@ type QueueColumnGroup = {
   autoAllocateOpen: { count: number; items: QueueQuestionItem[] };
   autoAllocateDelayed: { count: number; items: QueueQuestionItem[] };
   allocated: { count: number; items: QueueQuestionItem[] };
+  allocatedLevelCounts: { level: number; count: number }[];
   waiting: { count: number; items: QueueQuestionItem[] };
   freeExperts: { count: number; items: QueueExpertItem[] };
   stuck: { count: number; items: QueueQuestionItem[] };
+  stuckLevelCounts: { level: number; count: number }[];
   needsReviewer: { count: number; items: QueueQuestionItem[] };
+  needsReviewerLevelCounts: { level: number; count: number }[];
   openedIdle: { count: number; items: QueueQuestionItem[] };
+  openedIdleLevelCounts: { level: number; count: number }[];
   moderatorWaiting: { count: number; items: QueueQuestionItem[] };
   moderatorAllocated: { count: number; items: QueueQuestionItem[] };
   availableModerators: { count: number; items: QueueExpertItem[] };
 };
+
+/** Label for a level — position 0 is the Author, then Level 1, Level 2, … */
+const levelLabel = (level: number | string) =>
+  Number(level) === 0 ? "Author" : `Level ${level}`;
+
+/** Per-color accent classes for the level tab strip (active text + badge). */
+const LEVEL_TAB_ACCENT: Record<SectionColor, { active: string; badge: string }> = {
+  blue: { active: "text-blue-600 dark:text-blue-400", badge: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
+  green: { active: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  amber: { active: "text-amber-600 dark:text-amber-400", badge: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
+  violet: { active: "text-violet-600 dark:text-violet-400", badge: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300" },
+  red: { active: "text-red-600 dark:text-red-400", badge: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300" },
+  slate: { active: "text-slate-600 dark:text-slate-300", badge: "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300" },
+};
+
+/**
+ * A queue Section split by waiting level (level = completed history steps + 1). Renders a
+ * level tab strip (ALL, Level 2..10, Level 10+) with per-level count badges and filters the
+ * list by the active level. Used for Needs Reviewer, Stuck and Opened-but-Idle.
+ */
+function LevelTabbedSection({
+  icon,
+  color,
+  title,
+  description,
+  count,
+  items,
+  levelCounts,
+  section,
+  isOpen,
+  onToggle,
+  emptyText,
+  startTime,
+  endTime,
+  renderItem,
+}: {
+  icon: React.ReactNode;
+  color: SectionColor;
+  title: string;
+  description: string;
+  count: number;
+  items: QueueQuestionItem[];
+  levelCounts: { level: number; count: number }[];
+  section: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  emptyText: string;
+  startTime?: Date;
+  endTime?: Date;
+  renderItem: (item: QueueQuestionItem) => React.ReactNode;
+}) {
+  const [activeLevel, setActiveLevel] = useState<string>("all");
+  // Reset to ALL whenever the section is collapsed.
+  useEffect(() => {
+    if (!isOpen) setActiveLevel("all");
+  }, [isOpen]);
+
+  const accent = LEVEL_TAB_ACCENT[color];
+  const countByLevel = new Map<number, number>(
+    (levelCounts ?? []).map(({ level, count }) => [level, count]),
+  );
+  // Individual level tabs up to 10; anything beyond rolls up into "10+".
+  const singleLevels = [...countByLevel.keys()].filter((lvl) => lvl <= 10).sort((a, b) => a - b);
+  const tenPlusCount = (levelCounts ?? [])
+    .filter(({ level }) => level > 10)
+    .reduce((sum, { count }) => sum + count, 0);
+  const tabs = [
+    "all",
+    ...singleLevels.map((lvl) => String(lvl)),
+    ...(tenPlusCount > 0 ? ["10+"] : []),
+  ];
+  const tabCount = (tab: string) =>
+    tab === "all" ? count : tab === "10+" ? tenPlusCount : countByLevel.get(Number(tab)) ?? 0;
+  const activeFilteredCount = activeLevel === "all" ? undefined : tabCount(activeLevel);
+  const tabStrip = (
+    <div className="flex flex-wrap items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
+      {tabs.map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          onClick={() => setActiveLevel(tab)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap",
+            activeLevel === tab
+              ? `bg-white shadow-sm dark:bg-gray-800 ${accent.active}`
+              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+          )}
+        >
+          {tab === "all" ? "ALL" : levelLabel(tab)}
+          <span className={cn("ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold", accent.badge)}>
+            {tabCount(tab)}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+  const itemFilter =
+    activeLevel === "all"
+      ? undefined
+      : activeLevel === "10+"
+        ? (q: QueueQuestionItem) => (q.reviewLevel ?? 0) > 10
+        : (q: QueueQuestionItem) => q.reviewLevel === Number(activeLevel);
+
+  return (
+    <Section<QueueQuestionItem>
+      icon={icon}
+      color={color}
+      title={title}
+      description={description}
+      count={count}
+      filteredCount={activeFilteredCount}
+      section={section}
+      initialItems={items}
+      renderItem={renderItem}
+      isOpen={isOpen}
+      onToggle={onToggle}
+      emptyText={emptyText}
+      startTime={startTime}
+      endTime={endTime}
+      headerExtra={tabStrip}
+      itemFilter={itemFilter}
+    />
+  );
+}
 
 /**
  * One column of the Queue Details modal — renders the full expert + moderator
@@ -513,7 +653,6 @@ function QueueColumn({
   const toggle = (key: string) =>
     setOpenSection((prev) => (prev === key ? null : key));
   const sk = (base: string) => `${base}${suffix}`;
-  const modSuffix = suffix === "Manual" ? "Manual" : "TimeBound";
 
   return (
     <div className="flex-1 min-w-0 space-y-3">
@@ -630,28 +769,77 @@ function QueueColumn({
 
       <Section<QueueQuestionItem> icon={<Clock size={20} />} color="amber" title="Never Allocated" description="Not yet assigned to any expert" count={g.waiting.count} section={sk("waiting")} initialItems={g.waiting.items} renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("waiting")} onToggle={() => toggle(sk("waiting"))} emptyText="Nothing waiting for allocation" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
 
-      <Section<QueueQuestionItem> icon={<AlertTriangle size={20} />} color="red" title="Stuck Questions (> 45 min)" description="Allocated > 45 min but never opened" count={g.stuck.count} section={sk("stuck")} initialItems={g.stuck.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("stuck")} onToggle={() => toggle(sk("stuck"))} emptyText="No stuck questions" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      <LevelTabbedSection
+        icon={<AlertTriangle size={20} />}
+        color="red"
+        title="Stuck Questions (> 45 min)"
+        description="Allocated > 45 min but never opened"
+        count={g.stuck.count}
+        items={g.stuck.items}
+        levelCounts={g.stuckLevelCounts}
+        section={sk("stuck")}
+        isOpen={openSection === sk("stuck")}
+        onToggle={() => toggle(sk("stuck"))}
+        emptyText="No stuck questions"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
-      <Section<QueueQuestionItem> icon={<Clock size={20} />} color="amber" title="Opened but Idle (> 45 min)" description="Opened > 45 min ago but still no answer" count={g.openedIdle.count} section={sk("openedIdle")} initialItems={g.openedIdle.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("openedIdle")} onToggle={() => toggle(sk("openedIdle"))} emptyText="No opened-but-idle questions" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      <LevelTabbedSection
+        icon={<Clock size={20} />}
+        color="amber"
+        title="Opened but Idle (> 45 min)"
+        description="Opened > 45 min ago but still no answer"
+        count={g.openedIdle.count}
+        items={g.openedIdle.items}
+        levelCounts={g.openedIdleLevelCounts}
+        section={sk("openedIdle")}
+        isOpen={openSection === sk("openedIdle")}
+        onToggle={() => toggle(sk("openedIdle"))}
+        emptyText="No opened-but-idle questions"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
-      <Section<QueueQuestionItem> icon={<UserPlus size={20} />} color="violet" title="Needs Reviewer" description="Answered/reviewed, awaiting the next reviewer" count={g.needsReviewer.count} section={sk("needsReviewer")} initialItems={g.needsReviewer.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("needsReviewer")} onToggle={() => toggle(sk("needsReviewer"))} emptyText="Nothing waiting for a reviewer" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      {/* Needs Reviewer — split by waiting level (2..10, then 10+) */}
+      <LevelTabbedSection
+        icon={<UserPlus size={20} />}
+        color="violet"
+        title="Needs Reviewer"
+        description="Answered/reviewed, awaiting the next reviewer"
+        count={g.needsReviewer.count}
+        items={g.needsReviewer.items}
+        levelCounts={g.needsReviewerLevelCounts}
+        section={sk("needsReviewer")}
+        isOpen={openSection === sk("needsReviewer")}
+        onToggle={() => toggle(sk("needsReviewer"))}
+        emptyText="Nothing waiting for a reviewer"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
-      <Section<QueueQuestionItem> icon={<UserCheck size={20} />} color="green" title="Questions Allocated" description="Assigned to an expert" count={g.allocated.count} section={sk("allocated")} initialItems={g.allocated.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("allocated")} onToggle={() => toggle(sk("allocated"))} emptyText="No allocated questions" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      <LevelTabbedSection
+        icon={<UserCheck size={20} />}
+        color="green"
+        title="Questions Allocated"
+        description="Assigned to an expert"
+        count={g.allocated.count}
+        items={g.allocated.items}
+        levelCounts={g.allocatedLevelCounts}
+        section={sk("allocated")}
+        isOpen={openSection === sk("allocated")}
+        onToggle={() => toggle(sk("allocated"))}
+        emptyText="No allocated questions"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
       <Section<QueueExpertItem> icon={<Users size={20} />} color="violet" title="Experts Waiting in Queue" description="Experts free with no active allocation" count={g.freeExperts.count} section={sk("freeExperts")} initialItems={g.freeExperts.items} renderItem={(e) => <ExpertRow key={e._id} item={e} />} isOpen={openSection === sk("freeExperts")} onToggle={() => toggle(sk("freeExperts"))} emptyText="No free experts" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      {/* Moderator queue for this group */}
-      <div className="flex items-center gap-3 pt-2">
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Moderator Queue</span>
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-      </div>
-
-      <Section<QueueQuestionItem> icon={<Hourglass size={20} />} color="amber" title="Waiting for Moderator" description="No moderator assigned yet" count={g.moderatorWaiting.count} section={`moderatorWaiting${modSuffix}`} initialItems={g.moderatorWaiting.items} renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => onQuestionClick(q)} />} isOpen={openSection === `moderatorWaiting${modSuffix}`} onToggle={() => toggle(`moderatorWaiting${modSuffix}`)} emptyText="Nothing waiting for a moderator" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      <Section<QueueQuestionItem> icon={<ShieldCheck size={20} />} color="green" title="Allocated to Moderator" description="Assigned to a moderator (incl. re-routed)" count={g.moderatorAllocated.count} section={`moderatorAllocated${modSuffix}`} initialItems={g.moderatorAllocated.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showModerator onClick={() => onQuestionClick(q)} />} isOpen={openSection === `moderatorAllocated${modSuffix}`} onToggle={() => toggle(`moderatorAllocated${modSuffix}`)} emptyText="No questions allocated to a moderator" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      <Section<QueueExpertItem> icon={<ShieldUser size={20} />} color="violet" title="Available Moderators" description="STF moderators free to take a question" count={g.availableModerators.count} section={`availableModerators${modSuffix}`} initialItems={g.availableModerators.items} renderItem={(e) => <ExpertRow key={e._id} item={e} />} isOpen={openSection === `availableModerators${modSuffix}`} onToggle={() => toggle(`availableModerators${modSuffix}`)} emptyText="No available moderators" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      {/* Moderator queue lives in its own file — see ModeratorQueueModal.tsx. */}
     </div>
   );
 }
@@ -811,11 +999,15 @@ export const QueueDetailsModal = ({
                           autoAllocateOpen: data.autoAllocateOpen,
                           autoAllocateDelayed: data.autoAllocateDelayed,
                           allocated: data.allocated,
+                          allocatedLevelCounts: data.allocatedLevelCounts,
                           waiting: data.waiting,
                           freeExperts: data.freeExperts,
                           stuck: data.stuck,
+                          stuckLevelCounts: data.stuckLevelCounts,
                           needsReviewer: data.needsReviewer,
+                          needsReviewerLevelCounts: data.needsReviewerLevelCounts,
                           openedIdle: data.openedIdle,
+                          openedIdleLevelCounts: data.openedIdleLevelCounts,
                           moderatorWaiting: data.moderatorWaitingTimeBound,
                           moderatorAllocated: data.moderatorAllocatedTimeBound,
                           availableModerators: data.availableModeratorsTimeBound,
@@ -837,11 +1029,15 @@ export const QueueDetailsModal = ({
                   autoAllocateOpen: data.autoAllocateOpenManual,
                   autoAllocateDelayed: data.autoAllocateDelayedManual,
                   allocated: data.allocatedManual,
+                  allocatedLevelCounts: data.allocatedLevelCountsManual,
                   waiting: data.waitingManual,
                   freeExperts: data.freeExpertsManual,
                   stuck: data.stuckManual,
+                  stuckLevelCounts: data.stuckLevelCountsManual,
                   needsReviewer: data.needsReviewerManual,
+                  needsReviewerLevelCounts: data.needsReviewerLevelCountsManual,
                   openedIdle: data.openedIdleManual,
+                  openedIdleLevelCounts: data.openedIdleLevelCountsManual,
                   moderatorWaiting: data.moderatorWaitingManual,
                   moderatorAllocated: data.moderatorAllocatedManual,
                   availableModerators: data.availableModeratorsManual,
@@ -1001,7 +1197,7 @@ export const GateKeeperAuditorQueueModal = ({
             </div>
             <div className="text-left">
               <p className="text-sm font-bold text-gray-900 dark:text-white">
-                Gate Keeper / Auditor / Feed Back Queue
+                Gate Keeper / Auditor
               </p>
               <p className="text-[11px] text-gray-500">
                 Live gate keeper & auditor allocation overview
@@ -1092,6 +1288,8 @@ export const GateKeeperAuditorQueueModal = ({
                 dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
                 onQuestionClick={handleQuestionClick}
               />
+              {/* Feedback Queue hidden for now — feedback is allocated via the
+                  moderator-queue cron and doesn't need its own queue column yet.
               <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-800 self-stretch" />
               <RoleQueueColumn
                 heading="Feedback Queue"
@@ -1108,7 +1306,526 @@ export const GateKeeperAuditorQueueModal = ({
                 dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
                 onQuestionClick={handleQuestionClick}
               />
+              */}
             </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ── Feedback Queue tab ───────────────────────────────────────────────────────
+// Self-contained collapsible section (client-side; the feedback endpoint returns
+// full arrays, so no server pagination is needed here).
+function FbSection<T>({
+  icon,
+  color,
+  title,
+  description,
+  count,
+  items,
+  renderItem,
+  isOpen,
+  onToggle,
+  emptyText,
+}: {
+  icon: React.ReactNode;
+  color: SectionColor;
+  title: string;
+  description: string;
+  count: number;
+  items: T[];
+  renderItem: (item: T) => React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+  emptyText: string;
+}) {
+  const c = colorClasses[color];
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "w-full flex items-center justify-between p-3 bg-white dark:bg-[#1a1a1a] transition-colors",
+          c.ring,
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", c.icon)}>
+            {icon}
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{title}</p>
+            <p className="text-[11px] text-gray-500">{description}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold", c.badge)}>{count}</span>
+          <ChevronDown
+            size={16}
+            className={cn("text-gray-400 transition-transform", isOpen && "rotate-180")}
+          />
+        </div>
+      </button>
+      {isOpen && (
+        <div className="max-h-[320px] overflow-y-auto border-t border-gray-100 dark:border-gray-800">
+          {items.length ? (
+            items.map((item) => renderItem(item))
+          ) : (
+            <p className="px-3 py-6 text-center text-xs text-gray-400">{emptyText}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const FeedbackQueueModal = ({
+  setIsSidebarOpen,
+}: {
+  setIsSidebarOpen?: (v: boolean) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>("waitingAuto");
+  const { goToQuestion } = useNavigateToQuestion();
+
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenFeedbackQueue") === "1") {
+      sessionStorage.removeItem("reopenFeedbackQueue");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenFeedbackQueue", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
+
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useGetFeedbackQueueDetails(open);
+
+  const toggle = (key: string) =>
+    setOpenSection((prev) => (prev === key ? null : key));
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setIsSidebarOpen?.(false);
+      }}
+    >
+      <DialogTrigger asChild>
+        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-blue-50 dark:hover:bg-blue-500/5 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <MessageSquare size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                Feedback Queue
+              </p>
+              <p className="text-[11px] text-gray-500">
+                Feedback allocation overview
+              </p>
+            </div>
+          </div>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] max-h-[90vh] overflow-y-auto [&_[data-slot=dialog-close]]:size-8 [&_[data-slot=dialog-close]]:flex [&_[data-slot=dialog-close]]:items-center [&_[data-slot=dialog-close]]:justify-center [&_[data-slot=dialog-close]]:rounded-md [&_[data-slot=dialog-close]]:opacity-100 [&_[data-slot=dialog-close]]:transition-colors [&_[data-slot=dialog-close]:hover]:bg-muted [&_[data-slot=dialog-close]_svg]:size-5">
+        <DialogHeader className="space-y-1 pr-8">
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            Feedback Queue
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Open-feedback questions, who they&apos;ll be assigned to, and free reviewers
+          </p>
+        </DialogHeader>
+
+        <div className="flex items-center justify-end border-b border-gray-100 dark:border-gray-800 pb-3">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw size={13} className={cn(isFetching && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading feedback queue…
+          </div>
+        ) : isError ? (
+          <div className="py-12 text-center">
+            <AlertTriangle className="h-6 w-6 text-red-500 mx-auto mb-2" />
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {error?.message || "Failed to load feedback queue"}
+            </p>
+            <button type="button" onClick={() => refetch()} className="mt-3 text-xs font-medium text-blue-600 hover:underline">
+              Try again
+            </button>
+          </div>
+        ) : data ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 py-2">
+            <FbSection<QueueQuestionItem>
+              icon={<Hourglass size={18} />}
+              color="amber"
+              title="Waiting — Auto Allocate"
+              description="Open feedback, auto-allocation ON, no reviewer yet"
+              count={data.waitingAuto.count}
+              items={data.waitingAuto.items}
+              isOpen={openSection === "waitingAuto"}
+              onToggle={() => toggle("waitingAuto")}
+              emptyText="Nothing waiting"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<Power size={18} />}
+              color="blue"
+              title="Waiting — Manual (Auto Off)"
+              description="Open feedback, auto-allocation OFF, unassigned"
+              count={data.waitingManual.count}
+              items={data.waitingManual.items}
+              isOpen={openSection === "waitingManual"}
+              onToggle={() => toggle("waitingManual")}
+              emptyText="Nothing waiting (manual)"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<UserCheck size={18} />}
+              color="green"
+              title="Assigned Feedback Questions"
+              description="Open feedback with a reviewer assigned"
+              count={data.assigned.count}
+              items={data.assigned.items}
+              isOpen={openSection === "assigned"}
+              onToggle={() => toggle("assigned")}
+              emptyText="No assigned feedback"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showAssignee assigneeLabel="Reviewer" onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueExpertItem>
+              icon={<ShieldUser size={18} />}
+              color="violet"
+              title="Available Moderators"
+              description="Moderators free to take feedback"
+              count={data.availableModerators.count}
+              items={data.availableModerators.items}
+              isOpen={openSection === "availableModerators"}
+              onToggle={() => toggle("availableModerators")}
+              emptyText="No available moderators"
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+            />
+            <FbSection<RespectiveFeedbackItem>
+              icon={<Users size={18} />}
+              color="violet"
+              title="Available Moderators — Respective Feedback"
+              description="Waiting questions whose approver moderator is active & free"
+              count={data.respectiveModerators.count}
+              items={data.respectiveModerators.items}
+              isOpen={openSection === "respectiveModerators"}
+              onToggle={() => toggle("respectiveModerators")}
+              emptyText="No respective-moderator matches"
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={{ ...q, assigneeName: q.approverName }}
+                  showAssignee
+                  assigneeLabel="Approver"
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+            />
+            <FbSection<QueueExpertItem>
+              icon={<ShieldCheck size={18} />}
+              color="violet"
+              title="Available Auditors"
+              description="Auditors free to take feedback"
+              count={data.availableAuditors.count}
+              items={data.availableAuditors.items}
+              isOpen={openSection === "availableAuditors"}
+              onToggle={() => toggle("availableAuditors")}
+              emptyText="No available auditors"
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<ShieldUser size={18} />}
+              color="green"
+              title="Questions → Active Moderator"
+              description="Approver is an active moderator (goes to moderator)"
+              count={data.questionsWithActiveModerator.count}
+              items={data.questionsWithActiveModerator.items}
+              isOpen={openSection === "questionsWithActiveModerator"}
+              onToggle={() => toggle("questionsWithActiveModerator")}
+              emptyText="None"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<AlertTriangle size={18} />}
+              color="red"
+              title="Questions → Auditor"
+              description="Approver not an active moderator (goes to auditor)"
+              count={data.questionsWithoutActiveModerator.count}
+              items={data.questionsWithoutActiveModerator.items}
+              isOpen={openSection === "questionsWithoutActiveModerator"}
+              onToggle={() => toggle("questionsWithoutActiveModerator")}
+              emptyText="None"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ── Pae Validation Queue tab ───────────────────────────────────────────────────────
+
+import { Pagination } from "@/components/pagination";
+
+const PaeSection = FbSection
+export const PaeValidationQueueModal = ({
+  setIsSidebarOpen,
+}: {
+  setIsSidebarOpen?: (v: boolean) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>("waitingAuto");
+  const { goToQuestion } = useNavigateToQuestion();
+  
+  // Pagination state per section
+  const [paePages, setPaePages] = useState({
+    waitingAuto: 1,
+    waitingManual: 1,
+    assigned: 1,
+  });
+  const PAE_PAGE_SIZE = 50;
+
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenPaeValidationQueue") === "1") {
+      sessionStorage.removeItem("reopenPaeValidationQueue");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenPaeValidationQueue", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
+
+  // Main query - server-side pagination happens in the repository
+  // Query key includes pagination state so it refetches when page changes
+  // For the initial load, we fetch page 1 of all sections
+  const [currentPagination, setCurrentPagination] = useState({
+    section: undefined as 'waitingAuto' | 'waitingManual' | 'assigned' | undefined,
+    page: 1,
+    limit: PAE_PAGE_SIZE,
+  });
+
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useGetPaeValidationQueueDetails(open, open ? currentPagination : undefined);
+
+  // Refetch when pagination changes
+  useEffect(() => {
+    if (open) {
+      refetch();
+    }
+  }, [currentPagination.section, currentPagination.page]);
+
+  const toggle = (key: string) =>
+    setOpenSection((prev) => (prev === key ? null : key));
+  
+  // Handle pagination for PAE sections
+  const handlePaePageChange = (section: 'waitingAuto' | 'waitingManual' | 'assigned', page: number) => {
+    setPaePages(prev => ({ ...prev, [section]: page }));
+    setCurrentPagination({ section, page, limit: PAE_PAGE_SIZE });
+    // Scroll to section after data loads
+    setTimeout(() => {
+      const element = document.getElementById(`pae-section-${section}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 200);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setIsSidebarOpen?.(false);
+      }}
+    >
+      <DialogTrigger asChild>
+        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-orange-50 dark:hover:bg-orange-500/5 border border-gray-200 dark:border-gray-800 hover:border-orange-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
+              <ClipboardCheck size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                PAE Validation Queue
+              </p>
+              <p className="text-[11px] text-gray-500">
+                PAE validation allocation overview
+              </p>
+            </div>
+          </div>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] max-h-[90vh] overflow-y-auto [&_[data-slot=dialog-close]]:size-8 [&_[data-slot=dialog-close]]:flex [&_[data-slot=dialog-close]]:items-center [&_[data-slot=dialog-close]]:justify-center [&_[data-slot=dialog-close]]:rounded-md [&_[data-slot=dialog-close]]:opacity-100 [&_[data-slot=dialog-close]]:transition-colors [&_[data-slot=dialog-close]:hover]:bg-muted [&_[data-slot=dialog-close]_svg]:size-5">
+        <DialogHeader className="space-y-1 pr-8">
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            Pae Validation Queue
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Open-pae validation questions, who they&apos;ll be assigned to, and free reviewers
+          </p>
+        </DialogHeader>
+
+        <div className="flex items-center justify-end border-b border-gray-100 dark:border-gray-800 pb-3">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw size={13} className={cn(isFetching && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading pae validation queue…
+          </div>
+        ) : isError ? (
+          <div className="py-12 text-center">
+            <AlertTriangle className="h-6 w-6 text-red-500 mx-auto mb-2" />
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {error?.message || "Failed to load pae validation queue"}
+            </p>
+            <button type="button" onClick={() => refetch()} className="mt-3 text-xs font-medium text-blue-600 hover:underline">
+              Try again
+            </button>
+          </div>
+        ) : data ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 py-2">
+            {/* Waiting Auto Allocate */}
+            <div id="pae-section-waitingAuto" className="space-y-2">
+              {isFetching && currentPagination.section === "waitingAuto" && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                </div>
+              )}
+              <PaeSection<QueueQuestionItem>
+                icon={<Hourglass size={18} />}
+                color="amber"
+                title="Waiting — Auto Allocate"
+                description="Open pae validation, auto-allocation ON, no reviewer yet"
+                count={data.waitingAuto.count}
+                items={data.waitingAuto.items}
+                isOpen={openSection === "waitingAuto"}
+                onToggle={() => toggle("waitingAuto")}
+                emptyText="Nothing waiting"
+                renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+              />
+              {data.waitingAuto.totalPages && data.waitingAuto.totalPages > 1 && (
+                <div className="flex justify-center px-4">
+                  <Pagination
+                    currentPage={paePages.waitingAuto}
+                    totalPages={data.waitingAuto.totalPages}
+                    onPageChange={(page) => handlePaePageChange('waitingAuto', page)}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Waiting Manual */}
+            <div id="pae-section-waitingManual" className="space-y-2">
+              {isFetching && currentPagination.section === "waitingManual" && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                </div>
+              )}
+              <PaeSection<QueueQuestionItem>
+                icon={<Power size={18} />}
+                color="blue"
+                title="Waiting — Manual (Auto Off)"
+                description="Open pae validation, auto-allocation OFF, unassigned"
+                count={data.waitingManual.count}
+                items={data.waitingManual.items}
+                isOpen={openSection === "waitingManual"}
+                onToggle={() => toggle("waitingManual")}
+                emptyText="Nothing waiting (manual)"
+                renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+              />
+              {data.waitingManual.totalPages && data.waitingManual.totalPages > 1 && (
+                <div className="flex justify-center px-4">
+                  <Pagination
+                    currentPage={paePages.waitingManual}
+                    totalPages={data.waitingManual.totalPages}
+                    onPageChange={(page) => handlePaePageChange('waitingManual', page)}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Assigned */}
+            <div id="pae-section-assigned" className="space-y-2">
+              {isFetching && currentPagination.section === "assigned" && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                </div>
+              )}
+              <PaeSection<QueueQuestionItem>
+                icon={<UserCheck size={18} />}
+                color="green"
+                title="Assigned Pae Validation Questions"
+                description="Open pae validation with a reviewer assigned"
+                count={data.assigned.count}
+                items={data.assigned.items}
+                isOpen={openSection === "assigned"}
+                onToggle={() => toggle("assigned")}
+                emptyText="No assigned pae validation"
+                renderItem={(q) => <QuestionRow key={q._id} item={q} showAssignee assigneeLabel="Reviewer" onClick={() => handleQuestionClick(q)} />}
+              />
+              {data.assigned.totalPages && data.assigned.totalPages > 1 && (
+                <div className="flex justify-center px-4">
+                  <Pagination
+                    currentPage={paePages.assigned}
+                    totalPages={data.assigned.totalPages}
+                    onPageChange={(page) => handlePaePageChange('assigned', page)}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Available Experts */}
+            <PaeSection<QueueExpertItem>
+              icon={<ShieldUser size={18} />}
+              color="violet"
+              title="Available Pae Experts"
+              description="Pae Experts free to take pae validation"
+              count={data.availablePaeExperts.count}
+              items={data.availablePaeExperts.items}
+              isOpen={openSection === "availableModerators"}
+              onToggle={() => toggle("availableModerators")}
+              emptyText="No available moderators"
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+            />
           </div>
         ) : null}
       </DialogContent>

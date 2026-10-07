@@ -1,4 +1,4 @@
-import type { IUser, IUnverifiedUser, ReviewLevelCount } from "@/types";
+import type { IUser, IUnverifiedUser, ReviewLevelCount, UserRole } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
@@ -32,6 +32,12 @@ export interface StfModerator {
   assignedQuestionIds?: AssignedQuestion[] | null;
 }
 
+export interface PaeValidationExpert {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 export class UserService {
   private _baseUrl = `${API_BASE_URL}/users`;
 
@@ -51,6 +57,23 @@ export class UserService {
   async getModerators(): Promise<{ _id: string; name: string; email: string }[] | null> {
     return apiFetch<{ _id: string; name: string; email: string }[]>(
       `${this._baseUrl}/moderators`,
+    );
+  }
+
+  /**
+ * All users ({_id, name, email}) — based on the given roles.
+ */
+  async getUsersByRole(
+    roles: UserRole[],
+  ): Promise<{ _id: string; name: string; email: string }[] | null> {
+    const params = new URLSearchParams();
+    
+    roles.forEach((role) => {
+      params.append('role', role);
+    });
+
+    return apiFetch<{ _id: string; name: string; email: string }[]>(
+      `${this._baseUrl}/by-role?${params.toString()}`,
     );
   }
 
@@ -332,4 +355,8 @@ export class UserService {
         `${this._baseUrl}/working-hours-trend?${params.toString()}`
       );
     }
+
+    async getPaeValidationExperts(): Promise<PaeValidationExpert[] | null> {
+    return apiFetch<PaeValidationExpert[]>(`${this._baseUrl}/pae-val-experts`);
+  }
 }

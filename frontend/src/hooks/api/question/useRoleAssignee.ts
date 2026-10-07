@@ -40,7 +40,7 @@ export const useToggleRoleAllocation = () => {
     }: {
       questionId: string;
       // Auto-allocation can also be toggled for the feedback queue.
-      role: Role | "feedback";
+      role: Role | "feedback" | "pae_validator";
       enabled: boolean;
     }) => questionService.toggleRoleAllocation(questionId, role, enabled),
     onSuccess: () => {

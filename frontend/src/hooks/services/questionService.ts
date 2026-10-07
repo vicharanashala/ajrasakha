@@ -42,6 +42,11 @@ export type QueueQuestionItem = {
   openedAt?: string | null;
   minutesSinceOpened?: number;
   workType?: "stuck" | "unallocated" | "needsReviewer";
+  /** Waiting review level (completed history steps + 1) — present for needs-reviewer items. */
+  reviewLevel?: number;
+  /** Names of experts who completed a step, in turn order — present for needs-reviewer items. */
+  completedExpertNames?: string[];
+  queueExpertNames?: string[];
 };
 
 export type QueueExpertItem = {
@@ -59,6 +64,110 @@ export type QueueSectionResponse = {
   items: (QueueQuestionItem | QueueExpertItem)[];
 };
 
+/** A waiting feedback question paired with its eligible (active, free) approver moderator. */
+export type RespectiveFeedbackItem = QueueQuestionItem & {
+  approverId: string;
+  approverName: string;
+};
+
+/** Data for the dedicated Feedback tab. */
+export type FeedbackQueueDetailsResponse = {
+  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  assigned: { count: number; items: QueueQuestionItem[] };
+  availableModerators: { count: number; items: QueueExpertItem[] };
+  respectiveModerators: { count: number; items: RespectiveFeedbackItem[] };
+  availableAuditors: { count: number; items: QueueExpertItem[] };
+  questionsWithActiveModerator: { count: number; items: QueueQuestionItem[] };
+  questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
+};
+
+/** Data for the dedicated Pae tab. */
+export type PaeValidationQueueDetailsResponse = {
+  waitingAuto: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
+  waitingManual: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
+  assigned: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
+  availablePaeExperts: { count: number; items: QueueExpertItem[] };
+};
+
+/** Source item within an answer's sources array for PAE validation */
+export type PaeValidationSource = {
+  source: string;
+  sourceType?: string;
+  sourceName?: string;
+  page?: string | number | null;
+};
+
+/** Answer data included in PAE validation question response */
+export type PaeValidationAnswerData = {
+  _id: string;
+  answer: string;
+  sources: PaeValidationSource[];
+  authorId: string;
+  isFinalAnswer: boolean;
+};
+
+/** Single question returned in the PAE validation assigned questions list */
+export type PaeValidationQuestionItem = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority: string;
+  totalAnswersCount: number;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: string;
+  domain?: string | string[];
+  season?: string;
+  normalised_crop?: string;
+  isAutoAllocate?: boolean;
+  answer?: PaeValidationAnswerData;
+  details?: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+};
+
+/** Paginated response for PAE validation assigned questions */
+export type PaeValidationAssignedQuestionsResponse = {
+  questions: PaeValidationQuestionItem[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+};
+
+/** One row of the PAE answering-flow (gate-keeper style) dashboard. */
+export type PaeAnswerDashboardQuestion = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  createdAt?: string;
+  /** true = the PAE has submitted an answer; false = still pending. */
+  submitted: boolean;
+  details?: { state?: string; crop?: string };
+};
+
+export type PaeAnswerDashboardResponse = {
+  assignedCount: number;
+  submittedCount: number;
+  /** Feedback / validation bucket counts (shown as their own cards). */
+  feedbackAssigned: number;
+  feedbackPending: number;
+  feedbackCompleted: number;
+  /** The PAE's completed validation questions (up to 50, newest first). */
+  feedbackCompletedQuestions: PaeAnswerDashboardQuestion[];
+  questions: PaeAnswerDashboardQuestion[];
+  totalPages: number;
+  totalCount: number;
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   /** Per-status counts for the received section — accurate DB totals for tab badges. */
@@ -73,6 +182,14 @@ export type QueueDetailsResponse = {
   freeExperts: { count: number; items: QueueExpertItem[] };
   stuck: { count: number; items: QueueQuestionItem[] };
   needsReviewer: { count: number; items: QueueQuestionItem[] };
+  /** Per-level counts for the needsReviewer section (level = history steps + 1). */
+  needsReviewerLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the stuck section. */
+  stuckLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the opened-idle section. */
+  openedIdleLevelCounts: { level: number; count: number }[];
+  /** Per-level counts for the allocated section. */
+  allocatedLevelCounts: { level: number; count: number }[];
   totalWork: { count: number; items: QueueQuestionItem[] };
   openedIdle: { count: number; items: QueueQuestionItem[] };
   moderatorWaiting: { count: number; items: QueueQuestionItem[] };
@@ -107,6 +224,14 @@ export type QueueDetailsResponse = {
   freeExpertsManual: { count: number; items: QueueExpertItem[] };
   stuckManual: { count: number; items: QueueQuestionItem[] };
   needsReviewerManual: { count: number; items: QueueQuestionItem[] };
+  /** Per-level counts for the manual needsReviewer section. */
+  needsReviewerLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual stuck section. */
+  stuckLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual opened-idle section. */
+  openedIdleLevelCountsManual: { level: number; count: number }[];
+  /** Per-level counts for the manual allocated section. */
+  allocatedLevelCountsManual: { level: number; count: number }[];
   openedIdleManual: { count: number; items: QueueQuestionItem[] };
 };
 
@@ -121,6 +246,9 @@ export interface RoleDashboardQuestion {
   gateKeeperFinishedAt?: string | null;
   auditorAssignedAt?: string | null;
   auditorFinishedAt?: string | null;
+  moderatorAssignedAt?: string | null;
+  /** Computed completion time for a moderator = closedAt || passedAt. */
+  moderatorCompletedAt?: string | null;
   details?: { state?: string; crop?: string };
 }
 export interface RoleDashboardResponse {
@@ -139,13 +267,14 @@ export interface FeedbackData {
     email: string;
   };
   answerId: { $oid: string };
-  type: "thumbs_up" | "thumbs_down";
+  type: "thumbs_up" | "thumbs_down" | "PAE_VALIDATION";
   predefinedOption: string;
   comment: string;
   status: "open" | "rejected" | "accepted";
   reviewNote?: string;
   createdAt: { $date: string };
   updatedAt: { $date: string };
+  link?: { name: string; source: string};
 }
 
 export interface FeedbackResponse {
@@ -162,12 +291,30 @@ export interface FeedbackReviewRound {
   reviewerName: string;
   assignedAt: string;
   finishedAt: string | null;
+  /** How many feedbacks this reviewer has already acted on (accepted/rejected). */
+  completedCount?: number;
+}
+
+export interface PaeValidationReviewRound {
+  index: number;
+  paeId: string;
+  paeName: string;
+  paeAssignedAt: Date;
+  paeFinishedAt: Date | null;
+  paeStatus: string;
+  paeAction?: 'approve' | 'suggestion';
 }
 
 export interface FeedbackTimeline {
   autoAllocateFeedback: boolean;
   hasOpenFeedback: boolean;
   reviews: FeedbackReviewRound[];
+}
+
+export interface PaeValidationTimeline {
+  autoAllocatePaeValidationExpert: boolean;
+  hasOpenRound: boolean;
+  reviews: PaeValidationReviewRound[];
 }
 
 export interface FeedbackReviewerOption {
@@ -229,6 +376,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
     }
 
     if (filter.answersCount) {
@@ -678,6 +828,9 @@ export class QuestionService {
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
     }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
+    }
 
     if (filter.isTrainingQuestion === true) {
       params.append("isTrainingQuestion", "true");
@@ -758,6 +911,58 @@ export class QuestionService {
     return await response.blob();
   }
 
+
+  /** Download the TAT (turnaround-time) lifecycle report as an .xlsx blob for the
+   *  given date range. `sources`/`statuses` restrict to those values (empty ⇒ all);
+   *  the range matches questions CREATED or CLOSED within it. */
+  async downloadTatReport(
+    startDate: string,
+    endDate: string,
+    options?: { sources?: string[]; statuses?: string[] },
+  ): Promise<Blob> {
+    const params = new URLSearchParams();
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+    if (options?.sources && options.sources.length) {
+      params.append("sources", options.sources.join(","));
+    }
+    if (options?.statuses && options.statuses.length) {
+      params.append("statuses", options.statuses.join(","));
+    }
+
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+    const token = await getIdToken(firebaseUser);
+
+    const response = await fetch(
+      `${this._baseUrl}/download-tat-report?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download TAT report");
+    }
+
+    // A JSON body means the "no data" case rather than a spreadsheet.
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const jsonResponse = await response.json();
+      if (!jsonResponse.success) {
+        throw new Error(
+          jsonResponse.message || "No questions found for the selected date range",
+        );
+      }
+    }
+
+    return await response.blob();
+  }
 
   async checkSubmissionExists(questionId: string): Promise<{ exists: boolean } | null> {
     return apiFetch<{ exists: boolean }>(`${this._baseUrl}/${questionId}/submission-exists`);
@@ -890,7 +1095,8 @@ export class QuestionService {
     duplicateQuestions?: boolean;
     startDate?: string;
     endDate?: string;
-    moderator?: string;
+    allUsers?: string;
+    totalCount?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.startDate) {
@@ -926,8 +1132,11 @@ export class QuestionService {
     if (filters.duplicateQuestions) {
       params.append("duplicateQuestions", String(filters.duplicateQuestions));
     }
-    if (filters.moderator && filters.moderator !== "all") {
-      params.append("moderator", filters.moderator);
+    if (filters.allUsers && filters.allUsers !== "all") {
+      params.append("allUsers", filters.allUsers);
+    }
+    if (filters.totalCount) {
+      params.append("totalCount", filters.totalCount);
     }
 
     // Get the current Firebase user and token
@@ -990,7 +1199,7 @@ export class QuestionService {
     limit: number,
     search: string,
     userId?: string,
-    role?: "gate_keeper" | "auditor",
+    role?: "gate_keeper" | "auditor" | "moderator",
     startDate?: string,
     endDate?: string,
     dateFilterType?: "assigned" | "completed" | "both",
@@ -1051,13 +1260,20 @@ export class QuestionService {
 
   async toggleRoleAllocation(
     questionId: string,
-    role: "gate_keeper" | "auditor" | "feedback",
+    role: "gate_keeper" | "auditor" | "feedback" | "pae_validator",
     enabled: boolean,
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/role-allocation`, {
       method: "PATCH",
       body: JSON.stringify({ role, enabled }),
     });
+  }
+
+  //get pae validation timeline
+    async getPaeValidationTimeline(
+    questionId: string,
+  ): Promise<{ success: boolean; data: PaeValidationTimeline } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-validation-timeline`);
   }
 
   async getFeedbackTimeline(
@@ -1091,6 +1307,30 @@ export class QuestionService {
     index: number,
   ): Promise<{ success: true } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/feedback-reviewer`, {
+      method: "DELETE",
+      body: JSON.stringify({ index }),
+    });
+  }
+
+  //assign pae reviewer
+   async assignPaeValidationReviewer(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-val-reviewer`, {
+      method: "POST",
+      body: JSON.stringify(
+        typeof index === "number" ? { userId, index } : { userId },
+      ),
+    });
+  }
+
+  async removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-val-reviewer`, {
       method: "DELETE",
       body: JSON.stringify({ index }),
     });
@@ -1139,6 +1379,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
     }
 
     if (filter.answersCount) {
@@ -1201,16 +1444,57 @@ export class QuestionService {
     if (endTime) {
       params.append("endTime", endTime.toISOString());
     }
-    const queryString = params.toString();
+    const res = await apiFetch<{ success: boolean; data: QueueDetailsResponse }>(
+      `${this._baseUrl}/queue-details${params.toString() ? `?${params.toString()}` : ""}`,
+      { method: "GET" }
+    );
+    return res?.data ?? null;
+  }
+
+  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetailsResponse | null> {
     const res = await apiFetch<{
       success: boolean;
-      data: QueueDetailsResponse;
-    }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
+      data: FeedbackQueueDetailsResponse;
+    }>(`${this._baseUrl}/feedback/queue-details`, {
       method: "GET",
     });
     return res?.data ?? null;
   }
 
+  async getPaeValidaitonQueueDetails(params?: {
+    section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+    page?: number;
+    limit?: number;
+  }): Promise<PaeValidationQueueDetailsResponse | null> {
+    const searchParams = new URLSearchParams();
+    if (params?.section) {
+      searchParams.set('section', params.section);
+    }
+    if (params?.page) {
+      searchParams.set('page', String(params.page));
+    }
+    if (params?.limit) {
+      searchParams.set('limit', String(params.limit));
+    }
+    
+    const queryString = searchParams.toString();
+    const url = `${this._baseUrl}/pae-val/queue-details${queryString ? `?${queryString}` : ''}`;
+    
+    const res = await apiFetch<{
+      success: boolean;
+      data: PaeValidationQueueDetailsResponse;
+    }>(url, {
+      method: "GET",
+    });
+    return res?.data ?? null;
+  }
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+ 
   async getQueueSection(
     section: string,
     page: number,
@@ -1288,15 +1572,140 @@ export class QuestionService {
     feedbackId: string,
     action: 'accept' | 'reject',
     reason: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch<{ success: boolean; message: string } | null>(
       `${this._baseUrl}/${questionId}/${feedbackId}/feedback-action`,
       {
         method: "POST",
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify({ action, reason, source }),
         headers: { "Content-Type": "application/json" },
       }
     );
   }
 
+  /**
+   * Fetch paginated questions assigned to the current PAE expert for validation.
+   * Returns questions with their final answers and sources included.
+   */
+  /** Gate-keeper-style dashboard for a PAE's answering flow. */
+  async getPaeAnswerDashboard(
+    page: number,
+    limit: number,
+    options?: { search?: string; userId?: string; startDate?: string; endDate?: string }
+  ): Promise<PaeAnswerDashboardResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    if (options?.search) params.append("search", options.search);
+    if (options?.userId) params.append("userId", options.userId);
+    if (options?.startDate) params.append("startDate", options.startDate);
+    if (options?.endDate) params.append("endDate", options.endDate);
+    return apiFetch<PaeAnswerDashboardResponse>(
+      `${this._baseUrl}/pae/answer-dashboard?${params.toString()}`
+    );
+  }
+
+  async getPaeValidationAssignedQuestions(
+    page: number,
+    limit: number,
+    userId?: string
+  ): Promise<PaeValidationAssignedQuestionsResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    // Managers viewing another PAE's dashboard pass that PAE's id.
+    if (userId) params.append("userId", userId);
+
+    const res = await apiFetch<
+      | {
+          success: boolean;
+          data: PaeValidationAssignedQuestionsResponse;
+        }
+      | PaeValidationAssignedQuestionsResponse
+    >(`${this._baseUrl}/pae/validations/assigned?${params.toString()}`, {
+      method: "GET",
+    });
+    if (!res) return null;
+    return "data" in res ? res.data : res;
+  }
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+async processPaeValidation(
+    payload: {
+      questionId: string;
+      status: "approve" | "feedback";
+      suggestionComment?: string;
+      suggestionLink?: string;
+      suggestionSourceName?: string;
+      answerId?: string;
+    }
+  ): Promise<{ success: boolean; message: string } | null> {
+    const res = await apiFetch<{ success: boolean; message: string }>(
+      `${this._baseUrl}/pae/validations/process`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    return res;
+  }
+
+  /**
+   * Fetches the background worker status of a question bulk upload job.
+   */
+  async getBulkJobStatus(jobId: string): Promise<IQuestionBulkJobStatus | null> {
+    const res = await apiFetch<IQuestionBulkJobStatus>(
+      `${this._baseUrl}/background/jobs/${jobId}`,
+      { method: "GET" }
+    );
+    return res;
+  }
+
+  /**
+   * Fetches the background worker status of a bulk delete job.
+   */
+  async getBulkDeleteJobStatus(jobId: string): Promise<IBulkDeleteJobStatus | null> {
+    const res = await apiFetch<IBulkDeleteJobStatus>(
+      `${this._baseUrl}/bulk-delete/jobs/${jobId}`,
+      { method: "GET" }
+    );
+    return res;
+  }
+
 }
+
+export interface IQuestionBulkJobStatus {
+  id: string;
+  total: number;
+  processed: number;
+  created: number;
+  duplicates: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+  startedAt: string | Date;
+  finishedAt?: string | Date;
+  logs: string[];
+  errors?: any[];
+  successIds?: string[];
+}
+
+export interface IBulkDeleteJobStatus {
+  id: string;
+  total: number;
+  processed: number;
+  deleted: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+  startedAt: string | Date;
+  finishedAt?: string | Date;
+  logs: string[];
+  errors?: any[];
+  successIds?: string[];
+}
+
+  

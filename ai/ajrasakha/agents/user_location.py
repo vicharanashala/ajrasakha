@@ -68,7 +68,20 @@ def sanitize_stored_location(
             stored.get("district"),
         )
         return None
-    return {"state": state, "district": district}
+    res: dict[str, Any] = {"state": state, "district": district}
+    lat = stored.get("latitude")
+    lon = stored.get("longitude")
+    if lat is not None:
+        try:
+            res["latitude"] = float(lat)
+        except (ValueError, TypeError):
+            pass
+    if lon is not None:
+        try:
+            res["longitude"] = float(lon)
+        except (ValueError, TypeError):
+            pass
+    return res
 
 
 def load_user_location(user_id: str | None) -> dict[str, str] | None:
@@ -98,6 +111,8 @@ def maybe_persist_resolved_location(
     user_id: str | None,
     state: str | None,
     district: str | None,
+    latitude: float | None = None,      
+    longitude: float | None = None,     
     *,
     thread_id: str | None = None,
     state_source: str | None,
@@ -125,6 +140,8 @@ def maybe_persist_resolved_location(
             thread_id=thread_id,
             state_source=state_source,
             district_source=district_source,
+            latitude=latitude,
+            longitude=longitude,
         )
 
     if background:

@@ -1,4 +1,4 @@
-import type { UserCredential } from "firebase/auth";
+﻿import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
 export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent" | "gate_keeper" | "auditor";
@@ -62,7 +62,7 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
-  /** KVKs this user covers — one { state, district, name } entry each.
+  /** KVKs this user covers ΓÇö one { state, district, name } entry each.
    *  (Legacy records may hold string[] or { number, name[] }.) */
   kvkCovered?: IKVKCoveredItem[];
   isVerified?: boolean;
@@ -74,6 +74,16 @@ export interface IUser {
   currentCallUuid?: string | null; // UUID of the current call being handled
   isTrainingUser?: boolean; // true if the user is assigned as a training user
   feedbacksAssigned?: string[]; // question IDs assigned for feedback review
+}
+
+export interface IUserAdminEdit {
+  firstName: string;
+  lastName?: string;
+  avatar?: string;
+  preference?: IMyPreference | null;
+  mobile?: string;
+  university?: string;
+  kvkCovered?: IKVKCoveredItem[] | null;
 }
 
 export interface IUnverifiedUser {
@@ -183,7 +193,7 @@ export interface HistoryItem {
 }
 
 export type QuestionPriority = "low" | "medium" | "high" | "critical";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH" | "QUESTION_COLLECTION";
 
 export interface IQuestion {
   id: string;
@@ -209,8 +219,6 @@ export interface IQuestion {
   aiInitialAnswer?: string;
   aiApprovedSources?: SourceItem[];
   aiApprovedAnswer?: string;
-  finalAnswer?: string;
-  isFinalAnswer?: boolean;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -391,21 +399,147 @@ export interface FinalizedAnswersResponse {
   heatMapResults: HeatMapResult[];
 }
 
-export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
-
-export interface UploadedDocumentInfo {
-  id: string;
-  filename: string;
-  mimeType: string;
-  size: number;
+export interface ClosedAnswerQuestion {
+  id?: string;
+  text?: string;
+  status?: string;
+  closedAt?: string;
+  priority?: string;
+  source?: string;
+  details?: {
+    state?: string;
+    district?: string;
+    crop?: string;
+    season?: string;
+    domain?: string[];
+  } | null;
 }
+
+/** Server-side filters accepted by GET /answers/closed. */
+export interface ClosedAnswerFilters {
+  closedAtStart?: string;
+  closedAtEnd?: string;
+  authorIds: string[];
+  sourcePresence?: "with" | "without";
+  sourceTypes: SourceType[];
+  minSources?: number;
+  maxSources?: number;
+  /** Review states to keep; "none" means answers nobody has started. */
+  newSourceStatuses: (
+    | "pending"
+    | "in-progress"
+    | "review-completed"
+    | "moderator-in-review"
+    | "merged"
+    | "flagged"
+  )[];
+  /** Keeps only answers a moderator has sent back to Pending at least once. */
+  sentBackToPending?: boolean;
+  /** Pop lookup outcomes recorded on the answer's reviewed sources. */
+  sourceReferenceStatuses: ("notFound" | "topLevelMatch" | "duplicateMatch")[];
+  /** Orders results by a seeded shuffle instead of newest first. */
+  shuffleSeed?: number;
+  states: string[];
+  crops: string[];
+  domains: string[];
+  priorities: string[];
+}
+
+export interface ClosedAnswerAuthor {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
+export interface ClosedAnswer {
+  _id: string;
+  questionId: string | null;
+  authorId: string | null;
+  answer: string;
+  status?: string;
+  isFinalAnswer: boolean;
+  approvalCount: number;
+  remarks?: string;
+  sources: SourceItem[];
+  // The answer's own updated_sources record status, if one exists (there's at most one per
+  // answer - see NewSourceService.startNewSource's dedup). Null when no one has started
+  // reviewing this answer's sources yet.
+  newSourceStatus?: | "pending"
+    | "review-completed"
+    | "in-progress"
+    | "moderator-in-review"
+    | "flagged"
+    | "merged"
+    | null;
+  // True when the requesting viewer is the one who put this answer's sources
+  // 'in-progress' - false (including for a 'pending'/'review-completed' record) otherwise.
+  isOwnInProgress?: boolean;
+  // True when this viewer is the moderator/admin currently holding the answer in
+  // 'moderator-in-review' - nobody else sees it while that hold is open.
+  isOwnModeratorReview?: boolean;
+  // True when any reviewed source on this answer had no matching pop document
+  // (sourceReferenceStatus 'notFound'), so the list can flag it.
+  hasNotFoundReference?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  question: ClosedAnswerQuestion;
+  author: ClosedAnswerAuthor | null;
+  approvedBy?: ClosedAnswerAuthor | null;
+}
+
+export interface ClosedAnswersResponse {
+  answers: ClosedAnswer[];
+  totalAnswers: number;
+}
+
+export type SourceType = "hyper_local" | "state" | "central" | "district" | "MODERATOR_REVIEW" | "other";
 
 export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
   page?: string | number;
-  uploadedDocument?: UploadedDocumentInfo;
+  // The matched pop_unique_documents entry's own year of release.
+  yearOfRelease?: string | number;
+  organization?: string;
+  // The matched pop_unique_documents document's own _id.
+  sourceReference?: string;
+}
+
+export interface Organization {
+  _id?: string;
+  org_name: string;
+  type?: 'central' | 'state' | 'district';
+  state?: string;
+  district?: string;
+  address?: string;
+}
+
+export interface OrganizationsResponse {
+  organizations: Organization[];
+  totalPages: number;
+}
+
+/** One row of an organization sheet import. The type is chosen once for the whole
+ *  sheet, so it is not part of the row. */
+export interface OrganizationBulkRow {
+  org_name: string;
+  state: string;
+  district?: string;
+  address?: string;
+}
+
+export interface OrganizationBulkResult {
+  name: string;
+  status: "created" | "skipped" | "failed";
+  reason: string;
+}
+
+export interface OrganizationBulkResponse {
+  results: OrganizationBulkResult[];
+  created: number;
+  skipped: number;
+  failed: number;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string
@@ -514,7 +648,7 @@ export interface IQuestionFullData {
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
   authors_history?: IAuthorsHistory[];
-  similarityScore?: number; // percentage (0–100)
+  similarityScore?: number; // percentage (0ΓÇô100)
   referenceQuestionId?: string;
   referenceQuestion?: string;
   referenceSource?: string;
@@ -533,6 +667,8 @@ export interface IQuestionFullData {
       [key: string]: string;
     };
     text: string;
+    /** The reference question's approved final-answer text. */
+    answer?: string;
     sources?: SourceItem[];
   };
   originalQuestion?: string;
@@ -566,7 +702,7 @@ export interface IQuestionFullData {
   /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
   isAssignedGateKeeper?: boolean;
   isAssignedAuditor?: boolean;
-  /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
+  /** Set when a Gate Keeper pushes to the Auditor (status ΓåÆ 'auditor_review'); records
    *  whether the question was 'dynamic' or 'duplicate' so the Auditor shows the right
    *  action (Notify User vs Push to GDB). */
   auditorReviewType?: "dynamic" | "duplicate";
@@ -585,6 +721,7 @@ export interface IQuestionFullData {
     createdAt?: string;
     updatedAt?: string;
   } | null;
+  paeValidation?: "in-progress" | "completed" | "pending"
 }
 
 export interface QuestionFullDataResponse {
@@ -616,9 +753,11 @@ export interface QuestionFeedbackResponse {
   success: boolean;
   data: {
     feedback: {
+      _id?:string;
       rating: string;
       tag?: string;
       text?: string;
+      status?:string;
     } | null;
     user?: {
       username: string;
@@ -683,7 +822,7 @@ export interface IDetailedQuestion {
   pae_review?: boolean;
   is_non_agri?: boolean;
   isTesting?: boolean;
-  similarityScore?: number;        // percentage (0–100)
+  similarityScore?: number;        // percentage (0ΓÇô100)
   referenceQuestionId?: string;
   referenceQuestion?: string
   referenceSource?: string;
@@ -695,6 +834,7 @@ export interface IDetailedQuestion {
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;
+  autoAllocatePaeValidationExpert?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
@@ -1097,6 +1237,10 @@ enum AuditAction {
   DELETE_AUDITOR = 'DELETE_AUDITOR',
   TOGGLE_GATE_KEEPER_ALLOCATION = 'TOGGLE_GATE_KEEPER_ALLOCATION',
   TOGGLE_AUDITOR_ALLOCATION = 'TOGGLE_AUDITOR_ALLOCATION',
+  SELECT_FEEDBACK_REVIEWER = 'SELECT_FEEDBACK_REVIEWER',
+  DELETE_FEEDBACK_REVIEWER = 'DELETE_FEEDBACK_REVIEWER',
+  TOGGLE_FEEDBACK_ALLOCATION = 'TOGGLE_FEEDBACK_ALLOCATION',
+  FEEDBACK_ACTION = 'FEEDBACK_ACTION',
   EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
 
   //EXPERTS_MANAGEMENT
@@ -1113,6 +1257,10 @@ enum AuditAction {
   //CROP_MANAGEMENT
   ADD_CROP = 'ADD_CROP',
   UPDATE_CROP = 'UPDATE_CROP',
+  ADD_ORGANIZATION = 'ADD_ORGANIZATION',
+  UPDATE_ORGANIZATION = 'UPDATE_ORGANIZATION',
+  DELETE_ORGANIZATION = 'DELETE_ORGANIZATION',
+  ORGANIZATION_BULK_CREATE = 'ORGANIZATION_BULK_CREATE',
 
   //OUTREACH_REPORT
   SEND_OUTREACH_REPORT = 'SEND_OUTREACH_REPORT',
@@ -1154,7 +1302,7 @@ export interface ModeratorAuditTrail {
     errorCode?: string;
     errorMessage?: string;
     errorName?: string;
-    errorStack?: string; // truncated (top 3–5 lines)
+    errorStack?: string; // truncated (top 3ΓÇô5 lines)
   };
 
   createdAt?: Date;

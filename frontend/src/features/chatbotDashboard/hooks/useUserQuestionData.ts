@@ -18,10 +18,16 @@ export interface UserMessage {
   updatedAt: string;
   repeatedCount: number;
   isDuplicate: boolean;
+  status?: string;
+  mcpToolCalls?: any[];
+  toolCalls?: any[];
+  content?: any[];
 }
 
 export interface PaginatedResponse<T> {
   total: number;
+  // Raw (pre-dedup) count, only populated for the "messages" (All) tab.
+  totalRaw?: number;
   totalPages: number;
   currentPage: number;
   limit: number;
@@ -30,6 +36,8 @@ export interface PaginatedResponse<T> {
 
 export interface UserActivityResponse {
   questions: PaginatedResponse<UserQuestion>;
+
+  nonAgriQuestions: PaginatedResponse<UserQuestion>;
 
   messages: PaginatedResponse<UserMessage>;
 }
@@ -40,9 +48,20 @@ export function useUserQuestionsData(
   userType: string,
   page = 1,
   limit = 10,
+  startDate?: string,
+  endDate?: string,
 ) {
   const { data, isLoading, error } = useQuery<UserActivityResponse, Error>({
-    queryKey: ["user-questions-data", userEmail, source, userType, page, limit],
+    queryKey: [
+      "user-questions-data",
+      userEmail,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+    ],
 
     enabled: !!userEmail,
 
@@ -59,6 +78,14 @@ export function useUserQuestionsData(
       params.set("page", String(page));
       params.set("limit", String(limit));
 
+      if (startDate) {
+        params.set("startDate", startDate);
+      }
+
+      if (endDate) {
+        params.set("endDate", endDate);
+      }
+
       const result = await apiFetch<UserActivityResponse>(
         `${API_BASE_URL}/analytics/user-questions-data?${params.toString()}`,
       );
@@ -69,14 +96,21 @@ export function useUserQuestionsData(
             totalQuestions: 0,
             totalPages: 1,
             currentPage: 1,
-            limit: 10,
+            limit: 12,
+            items: [],
+          },
+          nonAgriQuestions: {
+            totalQuestions: 0,
+            totalPages: 1,
+            currentPage: 1,
+            limit: 12,
             items: [],
           },
           messages: {
             totalMessages: 0,
             totalPages: 1,
             currentPage: 1,
-            limit: 10,
+            limit: 12,
             items: [],
           },
         }
@@ -90,21 +124,25 @@ export function useUserQuestionsData(
         totalQuestions: 0,
         totalPages: 1,
         currentPage: 1,
-        limit: 10,
+        limit: 12,
         items: [],
       },
-
+      nonAgriQuestions: {
+        totalQuestions: 0,
+        totalPages: 1,
+        currentPage: 1,
+        limit: 12,
+        items: [],
+      },
       messages: {
         totalMessages: 0,
         totalPages: 1,
         currentPage: 1,
-        limit: 10,
+        limit: 12,
         items: [],
       },
     },
-
     isLoading,
-
     error,
   };
 }

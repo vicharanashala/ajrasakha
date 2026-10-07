@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+﻿import { defineConfig } from "vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -20,15 +20,20 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      "@testers-dashboard": resolve(__dirname, "../testers-dashboard/frontend/src"),
     },
   },
 
   server: {
-    host: "127.0.0.1",
-    port: 5173,
+    fs: {
+      // Testers Dashboard code lives outside this project root
+      // (../testers-dashboard/frontend/src) but is still part of this same
+      // Vite build - allow the dev server to read it.
+      allow: [resolve(__dirname, ".."), resolve(__dirname)],
+    },
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        target: "http://localhost:4000",
         changeOrigin: true,
       },
     },

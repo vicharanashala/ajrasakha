@@ -122,12 +122,16 @@ export interface IUserRepository {
    * @param ids - Array of user IDs to find.
    * @returns A promise that resolves to an array of users.
    */
-  getUsersByIds(ids: string[], session?: ClientSession): Promise<IUser[]>;
+  getUsersByIds(
+    ids: string[],
+    session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
+  ): Promise<IUser[]>;
   /**
    * Finds all users.
    * @returns A promise that resolves to an array of users.
    */
-  findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
+  findAll(session?: ClientSession, isTrainingUser?: boolean, canViewAllUsers?: boolean): Promise<IUser[]>;
 
   /**
    * Finds all users.
@@ -146,6 +150,7 @@ export interface IUserRepository {
     isBlocked?: boolean,
     isVerified?: boolean,
     isSTF?: boolean,
+    isTMU?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -370,6 +375,32 @@ export interface IUserRepository {
   addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<boolean>;
   removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
+  /** Remove a deleted question from every user's assignment arrays: assignedQuestionIds,
+   *  paeValidationAssigned and feedbacksAssigned. */
+  removeQuestionFromAllUsers(questionId: string, session?: ClientSession): Promise<void>;
+  
+  /** Find available PAE experts who can take questions for validation.
+   *  - role must be 'pae_expert'
+   *  - isBlocked must NOT be true
+   *  - status must NOT be 'in-active'
+   *  - paeValidationAssigned must be empty or null (not currently holding any question)
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to array of available PAE experts */
+  findAvailablePaeExperts(session?: ClientSession): Promise<IUser[]>;
+  
+  /** Add a question ID to the user's paeValidationAssigned array.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param questionId The question ID to assign
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to boolean indicating success */
+  addPaeValidationAssigned(paeExpertId: string, questionId: string, session?: ClientSession): Promise<boolean>;
+  
+  /** Remove a question ID from the user's paeValidationAssigned array.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param questionId The question ID to remove
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to void */
+  removePaeValidationAssigned(paeExpertId: string, questionId: string, session?: ClientSession): Promise<void>;
 
    /**
    * @param session
@@ -401,4 +432,6 @@ export interface IUserRepository {
    * @param questionId - The question ID to remove from feedbacksAssigned array
    */
   removeFeedbacksAssigned(userId: string, questionId: string, session?: ClientSession): Promise<IUser | null>;
+
+  getUsersByRole(roles: UserRole[], session?: ClientSession): Promise<IUser[]>;
 }

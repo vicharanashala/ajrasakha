@@ -282,6 +282,10 @@ async def _vector_search_answers(
 
 
 async def _get_answer_text_sources_and_author_name(question_id: str):
+    log.info(
+        "_get_answer_text_sources_and_author_name: querying question_id=%s",
+        question_id,
+    )
     answer_document = await answers_collection.find_one(
         {
             "questionId": ObjectId(question_id),
@@ -293,7 +297,15 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
             "answer": 1,
         },
     )
+    log.info(
+        "_get_answer_text_sources_and_author_name: answer_document=%s",
+        "FOUND" if answer_document else "NOT FOUND",
+    )
     if not answer_document:
+        log.warning(
+            "_get_answer_text_sources_and_author_name: NO answer found for question_id=%s",
+            question_id,
+        )
         return None, [], None
 
     author_name = None
@@ -307,6 +319,12 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
 
     sources = answer_document.get("sources")
     answer = answer_document.get("answer")
+    log.info(
+        "_get_answer_text_sources_and_author_name: result answer=%s sources=%s author=%s",
+        "YES" if answer else "NO",
+        len(sources) if sources else 0,
+        author_name,
+    )
     return answer, sources, author_name
 
 

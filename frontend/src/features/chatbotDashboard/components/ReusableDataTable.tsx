@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Inbox } from "lucide-react";
 
 export type ReusableTableColumn<T> = {
   key: string;
@@ -31,7 +32,8 @@ export function ReusableDataTable<T>({
 }: ReusableDataTableProps<T>) {
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-gray-400 dark:text-gray-500">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border py-16 text-sm text-muted-foreground">
+        <Inbox className="h-6 w-6 text-muted-foreground/60" />
         {emptyMessage}
       </div>
     );
@@ -39,15 +41,15 @@ export function ReusableDataTable<T>({
 
   return (
     <div
-      className={`overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg ${className}`}
+      className={`rounded-xl border border-border ${className}`}
     >
-      <table className="w-full text-sm border-collapse">
-        <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+      <table className="w-full border-collapse text-sm">
+        <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm">
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={`px-3 py-2 font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap ${
+                className={`whitespace-nowrap px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground ${
                   alignClasses[column.align ?? "left"]
                 } ${column.className ?? ""}`}
               >
@@ -60,12 +62,12 @@ export function ReusableDataTable<T>({
           {data.map((row, index) => (
             <tr
               key={getRowKey?.(row, index) ?? index}
-              className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              className="border-t border-border/70 transition-colors hover:bg-muted/40"
             >
               {columns.map((column) => (
                 <td
                   key={column.key}
-                  className={`px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap ${
+                  className={`whitespace-nowrap px-4 py-2.5 text-foreground/90 ${
                     alignClasses[column.align ?? "left"]
                   } ${column.className ?? ""}`}
                 >

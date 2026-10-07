@@ -25,6 +25,7 @@ import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuesti
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 export const QuestionsPage = ({
   currentUser,
@@ -80,6 +81,7 @@ export const QuestionsPage = ({
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [autoAllocateModeratorFilter, setAutoAllocateModeratorFilter] = useState("all");
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "open" | "closed">("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
@@ -187,6 +189,7 @@ export const QuestionsPage = ({
         consecutiveApprovals,
         autoAllocateFilter,
         autoAllocateModeratorFilter,
+        feedbackFilter,
         closedInTwoHrs,
         hiddenQuestions,
         duplicateQuestions,
@@ -235,6 +238,7 @@ export const QuestionsPage = ({
       consecutiveApprovals,
       autoAllocateFilter,
       autoAllocateModeratorFilter,
+      feedbackFilter,
       closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
@@ -478,6 +482,8 @@ export const QuestionsPage = ({
       setAutoAllocateFilter(next.autoAllocateFilter);
     if (next.autoAllocateModeratorFilter !== undefined)
       setAutoAllocateModeratorFilter(next.autoAllocateModeratorFilter);
+    if (next.feedbackFilter !== undefined)
+      setFeedbackFilter(next.feedbackFilter);
     if (next.closedInTwoHrs !== undefined)
       setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
@@ -531,6 +537,7 @@ export const QuestionsPage = ({
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
     setAutoAllocateModeratorFilter("all");
+    setFeedbackFilter("all");
     setClosedInTwoHrs(false);
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
@@ -701,6 +708,7 @@ export const QuestionsPage = ({
           )}
         </>
       )}
+      <ScrollToTopButton />
     </main>
   );
 };

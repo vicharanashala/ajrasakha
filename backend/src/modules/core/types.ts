@@ -1,15 +1,23 @@
-export const CORE_TYPES = {
+﻿export const CORE_TYPES = {
   // Controllers
   QuestionController: Symbol.for('QuestionController'),
   AnswerController: Symbol.for('AnswerController'),
   ContextController: Symbol.for('ContextController'),
   RequestController: Symbol.for('RequestController'),
+  TestersDashboardController: Symbol.for('TestersDashboardController'),
+  ZohoTicketStatusController: Symbol.for('ZohoTicketStatusController'),
+  TesterLogController: Symbol.for('TesterLogController'),
 
   // Services
   UserService: Symbol.for('UserService'),
   QuestionService: Symbol.for('QuestionService'),
   RequestService: Symbol.for('RequestService'),
   AnswerService: Symbol.for('AnswerService'),
+  AnswerReviewService: Symbol.for('AnswerReviewService'),
+  AnswerApprovalService: Symbol.for('AnswerApprovalService'),
+  AnswerSubmissionService: Symbol.for('AnswerSubmissionService'),
+  AnswerAiService: Symbol.for('AnswerAiService'),
+  AnswerFaqService: Symbol.for('AnswerFaqService'),
   AnswerDocumentService: Symbol.for('AnswerDocumentService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
@@ -17,6 +25,12 @@ export const CORE_TYPES = {
   SarvamService: Symbol.for('SarvamService'),
   NotificationService:Symbol.for('NotificationService'),
   PerformanceService:Symbol.for('PerformanceService'),
+  TestersDashboardService: Symbol.for('TestersDashboardService'),
+  ZohoTicketStatusService: Symbol.for('ZohoTicketStatusService'),
+  TesterLogService: Symbol.for('TesterLogService'),
+  OrganizationService: Symbol.for('OrganizationService'),
+  PopService: Symbol.for('PopService'),
+  NewSourceService: Symbol.for('NewSourceService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),
@@ -30,6 +44,10 @@ export const CORE_TYPES = {
   NotificationRepository:Symbol.for('NotificationRepository'),
   ReviewRepository:Symbol.for('ReviewRepository'),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
+  FeedbackRepository: Symbol.for('FeedbackRepository'),
+  OrganizationRepository: Symbol.for('OrganizationRepository'),
+  PopRepository: Symbol.for('PopRepository'),
+  NewSourceRepository: Symbol.for('NewSourceRepository'),
   CheckOverlapsService: Symbol.for('CheckOverlapsService'),
 
 };
