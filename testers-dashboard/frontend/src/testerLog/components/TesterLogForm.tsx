@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { FormSection } from "./FormSection";
 import { TimeInput } from "./TimeInput";
@@ -9,7 +9,7 @@ import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { hmsDiff, isTimeEarlier, isTimeInFuture, getLocalDatetimeMax } from "../utils/timingUtils";
+import { hmsDiff, isTimeEarlier, isTimeInFuture, isMidnightRollover, getLocalDatetimeMax } from "../utils/timingUtils";
 import type { ITesterLogEntry } from "../types";
 import {
     TYPE_OF_QUESTION_OPTIONS,
@@ -34,7 +34,8 @@ import {
     YES_NO_NA_OPTIONS,
     OVERALL_STATUS_OPTIONS,
     TRANSLATION_QUALITY_OPTIONS,
-    TRANSLATION_ERROR_TYPE_OPTIONS,
+    TRANSLATION_ERROR_MAP,
+    getTranslationErrorOptions,
     DEFECT_SEVERITY_OPTIONS,
     INDIAN_LANGUAGES_OPTIONS,
     VOICE_ISSUE_OPTIONS,
@@ -44,6 +45,13 @@ import {
     TAGGING_OPTIONS,
     RETRIEVAL_ACCURACY_OPTIONS,
     TESTER_REMARKS_OPTIONS,
+    TEXT_FIELD_LIMITS,
+    BUILD_VERSION_REGEX,
+    THREAD_ID_REGEX,
+    WA_THREAD_ID_REGEX,
+    PERSON_NAME_REGEX,
+    LANGUAGE_NAME_REGEX,
+    HTTP_URL_REGEX,
 } from "../types";
 
 type FormValues = Omit<ITesterLogEntry, "_id" | "submittedByUserId" | "submittedByEmail" | "testerName" | "createdAt" | "updatedAt">;
@@ -75,21 +83,26 @@ function Field({
     required,
     error,
     className,
+    helper,
 }: {
     label: string;
     children: React.ReactNode;
     required?: boolean;
     error?: string;
     className?: string;
+    helper?: React.ReactNode;
 }) {
     return (
         <div className={cn("flex flex-col gap-1", className)}>
-            <label className={labelClass}>
-                {label}
-                {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
-            </label>
+            <div className="flex items-center justify-between">
+                <label className={labelClass}>
+                    {label}
+                    {required && <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
+                </label>
+                {helper && <span className="text-[11px] text-muted-foreground">{helper}</span>}
+            </div>
             {children}
-            {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
+            {error && <span className="text-xs text-red-500 dark:text-red-400 mt-0.5">{error}</span>}
         </div>
     );
 }
@@ -98,14 +111,15 @@ function TextInput({
     label,
     required,
     error,
+    helper,
     className,
     ...props
-}: { label: string; required?: boolean; error?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+}: { label: string; required?: boolean; error?: string; helper?: React.ReactNode } & React.InputHTMLAttributes<HTMLInputElement>) {
     return (
-        <Field label={label} required={required} error={error}>
+        <Field label={label} required={required} error={error} helper={helper}>
             <input
                 type="text"
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive", className)}
+                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400", className)}
                 {...props}
             />
         </Field>
@@ -118,15 +132,16 @@ function SelectInput({
     required,
     error,
     className,
+    placeholder = "-- Select --",
     ...props
-}: { label: string; options: string[]; required?: boolean; error?: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+}: { label: string; options: string[]; required?: boolean; error?: string; placeholder?: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
     return (
         <Field label={label} required={required} error={error}>
             <select
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive", className)}
+                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400", className)}
                 {...props}
             >
-                <option value="">-- Select --</option>
+                <option value="">{placeholder}</option>
                 {options.map(o => (
                     <option key={o} value={o}>{o}</option>
                 ))}
@@ -139,14 +154,15 @@ function TextareaInput({
     label,
     required,
     error,
+    helper,
     className,
     ...props
-}: { label: string; required?: boolean; error?: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+}: { label: string; required?: boolean; error?: string; helper?: React.ReactNode } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
     return (
-        <Field label={label} required={required} error={error} className="sm:col-span-2 lg:col-span-3">
+        <Field label={label} required={required} error={error} helper={helper} className="sm:col-span-2 lg:col-span-3">
             <textarea
                 rows={3}
-                className={cn(inputClass, "h-auto py-2 resize-y", error && "border-destructive focus-visible:ring-destructive", className)}
+                className={cn(inputClass, "h-auto py-2 resize-y", error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400", className)}
                 {...props}
             />
         </Field>
@@ -190,7 +206,7 @@ function LanguageSelectInput({
     return (
         <Field label={label} required={required} error={error}>
             <select
-                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                 value={selectedOption}
                 onChange={handleSelectChange}
             >
@@ -202,7 +218,8 @@ function LanguageSelectInput({
             {selectedOption === "Others" && (
                 <input
                     type="text"
-                    className={cn(inputClass, "mt-1.5", error && "border-destructive focus-visible:ring-destructive")}
+                    maxLength={TEXT_FIELD_LIMITS.LANGUAGE_MAX}
+                    className={cn(inputClass, "mt-1.5", error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                     placeholder="Specify language (e.g. Hinglish, Telugu + English)"
                     value={customText}
                     onChange={handleCustomTextChange}
@@ -243,6 +260,7 @@ function DefectIdBugRefInput({
     zohoStatuses,
     required,
     error,
+    disabled,
 }: {
     value?: string;
     onChange: (val: string) => void;
@@ -250,6 +268,7 @@ function DefectIdBugRefInput({
     zohoStatuses?: Record<string, any>;
     required?: boolean;
     error?: string;
+    disabled?: boolean;
 }) {
     const val = value || "";
     const selectedOption = val === "NA" ? "NA" : val !== "" ? "Zoho Ticket URL" : "";
@@ -281,13 +300,17 @@ function DefectIdBugRefInput({
             <div className="flex items-center justify-between">
                 <label className={labelClass}>
                     Defect ID / Bug Ref
-                    {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
+                    {required && <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
                 </label>
                 {!isValidUrl && (
                     <button
                         type="button"
                         onClick={onOpenCreateModal}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors py-0.5 px-2 rounded-md hover:bg-primary/10 border border-primary/20"
+                        disabled={disabled}
+                        className={cn(
+                            "inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors py-0.5 px-2 rounded-md hover:bg-primary/10 border border-primary/20",
+                            disabled && "cursor-not-allowed opacity-50 pointer-events-none"
+                        )}
                     >
                         <Plus className="h-3.5 w-3.5" />
                         Create Zoho Ticket
@@ -333,8 +356,12 @@ function DefectIdBugRefInput({
                             <button
                                 type="button"
                                 onClick={() => onChange("")}
+                                disabled={disabled}
                                 title="Disconnect ticket to choose NA or enter a different URL"
-                                className="inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors border border-destructive/20"
+                                className={cn(
+                                    "inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors border border-destructive/20",
+                                    disabled && "cursor-not-allowed opacity-50 pointer-events-none"
+                                )}
                             >
                                 <Trash2 className="h-3 w-3" />
                                 Disconnect
@@ -345,8 +372,9 @@ function DefectIdBugRefInput({
             ) : (
                 <>
                     <select
-                        className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                        className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                         value={selectedOption}
+                        disabled={disabled}
                         onChange={handleSelectChange}
                     >
                         <option value="">-- Select --</option>
@@ -358,16 +386,18 @@ function DefectIdBugRefInput({
                         <div className="mt-1.5 flex flex-col gap-2">
                             <input
                                 type="text"
-                                className={cn(inputClass, error && "border-destructive focus-visible:ring-destructive")}
+                                maxLength={TEXT_FIELD_LIMITS.DEFECT_URL_MAX}
+                                className={cn(inputClass, error && "border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400")}
                                 placeholder="Paste Zoho ticket URL (e.g. https://desk.zoho.in/...)"
                                 value={customUrl}
+                                disabled={disabled}
                                 onChange={handleUrlChange}
                             />
                         </div>
                     )}
                 </>
             )}
-            {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
+            {error && <span className="text-xs text-red-500 dark:text-red-400 mt-0.5">{error}</span>}
         </div>
     );
 }
@@ -388,27 +418,62 @@ function validateTesterLogForm(
     // Section 1: Basic Info
     checkRequired("typeOfQuestion", "Type of Question");
     checkRequired("buildVersion", "Build / Version");
+    if (data.buildVersion?.trim()) {
+        const bv = data.buildVersion.trim();
+        if (bv.length > TEXT_FIELD_LIMITS.BUILD_VERSION_MAX) {
+            errors.buildVersion = `Build / Version cannot exceed ${TEXT_FIELD_LIMITS.BUILD_VERSION_MAX} characters`;
+        } else if (!BUILD_VERSION_REGEX.test(bv)) {
+            errors.buildVersion = "Build / Version must contain numbers and valid version characters (e.g. 1.0, 2.1.0, v1.0.1)";
+        }
+    }
     checkRequired("channelTested", "Channel Tested");
 
     const lang = data.languageTested?.trim();
     if (!lang || lang === "Others") {
         errors.languageTested = "Language Tested is required";
+    } else if (lang.length > TEXT_FIELD_LIMITS.LANGUAGE_MAX || !LANGUAGE_NAME_REGEX.test(lang)) {
+        errors.languageTested = `Language name must be letters only and under ${TEXT_FIELD_LIMITS.LANGUAGE_MAX} characters`;
     }
 
     checkRequired("threadId", flags.isCross ? "Web App Thread / Session ID" : "Thread ID");
+    if (data.threadId?.trim()) {
+        const t = data.threadId.trim();
+        if (t.length > TEXT_FIELD_LIMITS.THREAD_ID_MAX) {
+            errors.threadId = `Thread ID cannot exceed ${TEXT_FIELD_LIMITS.THREAD_ID_MAX} characters`;
+        } else if (!THREAD_ID_REGEX.test(t)) {
+            errors.threadId = "Thread ID contains invalid characters";
+        }
+    }
     if (flags.isCross) {
         checkRequired("waThreadId", "WhatsApp Thread / Phone Number");
+        if (data.waThreadId?.trim()) {
+            const wt = data.waThreadId.trim();
+            if (wt.length > TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX) {
+                errors.waThreadId = `WhatsApp Thread cannot exceed ${TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX} characters`;
+            } else if (!WA_THREAD_ID_REGEX.test(wt)) {
+                errors.waThreadId = "WhatsApp Thread / Phone Number format is invalid";
+            }
+        }
     }
 
     checkRequired("questionCategory", "Question Category");
     checkRequired("queryText", "Query Text");
+    if (data.queryText !== undefined && data.queryText !== null) {
+        const q = data.queryText.trim();
+        if (q.length > 0 && q.length < TEXT_FIELD_LIMITS.QUERY_TEXT_MIN) {
+            errors.queryText = `Query Text must be at least ${TEXT_FIELD_LIMITS.QUERY_TEXT_MIN} characters`;
+        } else if (data.queryText.length > TEXT_FIELD_LIMITS.QUERY_TEXT_MAX) {
+            errors.queryText = `Query Text cannot exceed ${TEXT_FIELD_LIMITS.QUERY_TEXT_MAX} characters`;
+        }
+    }
 
     // Section 2: Timing & SLA
     checkRequired("timeQuestionAsked", flags.isCross ? "Web Time Asked" : "Time Question Asked");
     checkRequired("timeAnswerReceived", flags.isCross ? "Web Time Received" : "Time Answer Received");
     checkRequired("slaStatus", flags.isCross ? "Web SLA Status" : "SLA Status");
 
-    if (isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
+    const isWebRollover = isMidnightRollover(data.timeQuestionAsked, data.timeAnswerReceived);
+    if (!isWebRollover && isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
         errors.timeQuestionAsked = "Time Question Asked cannot be in the future";
     }
     if (isTimeInFuture(data.timeAnswerReceived, data.testDate)) {
@@ -422,7 +487,8 @@ function validateTesterLogForm(
         checkRequired("waTimeAnswerReceived", "WhatsApp Time Received");
         checkRequired("waSlaStatus", "WhatsApp SLA Status");
 
-        if (isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
+        const isWaRollover = isMidnightRollover(data.waTimeQuestionAsked, data.waTimeAnswerReceived);
+        if (!isWaRollover && isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
             errors.waTimeQuestionAsked = "WhatsApp Time Asked cannot be in the future";
         }
         if (isTimeInFuture(data.waTimeAnswerReceived, data.testDate)) {
@@ -439,15 +505,25 @@ function validateTesterLogForm(
     const origLang = data.originalLanguage?.trim();
     if (!origLang || origLang === "Others") {
         errors.originalLanguage = "Original Language is required";
+    } else if (origLang.length > TEXT_FIELD_LIMITS.LANGUAGE_MAX || !LANGUAGE_NAME_REGEX.test(origLang)) {
+        errors.originalLanguage = `Language name must be letters only and under ${TEXT_FIELD_LIMITS.LANGUAGE_MAX} characters`;
     }
 
     const transLang = data.translatedLanguage?.trim();
     if (!transLang || transLang === "Others") {
         errors.translatedLanguage = "Translated Language is required";
+    } else if (transLang.length > TEXT_FIELD_LIMITS.LANGUAGE_MAX || !LANGUAGE_NAME_REGEX.test(transLang)) {
+        errors.translatedLanguage = `Language name must be letters only and under ${TEXT_FIELD_LIMITS.LANGUAGE_MAX} characters`;
     }
 
     checkRequired("translationQuality", "Translation Quality");
     checkRequired("translationErrorType", "Translation Error Type");
+    if (data.translationQuality && data.translationErrorType) {
+        const allowed = TRANSLATION_ERROR_MAP[data.translationQuality.trim()];
+        if (allowed && !allowed.includes(data.translationErrorType.trim())) {
+            errors.translationErrorType = `Invalid Translation Error Type for ${data.translationQuality}. Allowed: ${allowed.join(", ")}`;
+        }
+    }
     checkRequired("tagging", "Tagging");
 
     // Section 4: Reviewer Workflow
@@ -455,9 +531,16 @@ function validateTesterLogForm(
         checkRequired("allocatedToReviewer", "Allocated to Author?");
         if (data.allocatedToReviewer === "Yes") {
             checkRequired("authorsName", "Author Name");
+            if (data.authorsName?.trim()) {
+                const an = data.authorsName.trim();
+                if (an.length < TEXT_FIELD_LIMITS.NAME_MIN || an.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(an)) {
+                    errors.authorsName = "Author Name must be 2-100 characters and contain letters only";
+                }
+            }
             checkRequired("authorAssignmentTime", "Author Assignment Time");
             checkRequired("authorCompletionTime", "Author Completion Time");
-            if (isTimeInFuture(data.authorAssignmentTime, data.testDate)) {
+            const isAuthorRollover = isMidnightRollover(data.authorAssignmentTime, data.authorCompletionTime);
+            if (!isAuthorRollover && isTimeInFuture(data.authorAssignmentTime, data.testDate)) {
                 errors.authorAssignmentTime = "Author Assignment Time cannot be in the future";
             }
             if (isTimeInFuture(data.authorCompletionTime, data.testDate)) {
@@ -467,9 +550,17 @@ function validateTesterLogForm(
             }
         }
         for (let i = 1; i <= 5; i++) {
+            const nameKey = `reviewer${i}Name` as keyof FormValues;
+            const revName = (data[nameKey] as string | undefined)?.trim();
+            if (revName) {
+                if (revName.length < TEXT_FIELD_LIMITS.NAME_MIN || revName.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(revName)) {
+                    errors[nameKey] = `Reviewer ${i} Name must be 2-100 characters and contain letters only`;
+                }
+            }
             const aKey = `reviewer${i}AssignmentTime` as keyof FormValues;
             const cKey = `reviewer${i}CompletionTime` as keyof FormValues;
-            if (isTimeInFuture(data[aKey] as string, data.testDate)) {
+            const isRevRollover = isMidnightRollover(data[aKey] as string, data[cKey] as string);
+            if (!isRevRollover && isTimeInFuture(data[aKey] as string, data.testDate)) {
                 errors[aKey] = `Reviewer ${i} Assignment Time cannot be in the future`;
             }
             if (isTimeInFuture(data[cKey] as string, data.testDate)) {
@@ -478,7 +569,14 @@ function validateTesterLogForm(
                 errors[cKey] = `Reviewer ${i} Completion Time cannot be earlier than Assignment Time`;
             }
         }
-        if (isTimeInFuture(data.moderatorAssignmentTime, data.testDate)) {
+        if (data.moderatorName?.trim()) {
+            const mn = data.moderatorName.trim();
+            if (mn.length < TEXT_FIELD_LIMITS.NAME_MIN || mn.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(mn)) {
+                errors.moderatorName = "Moderator Name must be 2-100 characters and contain letters only";
+            }
+        }
+        const isModRollover = isMidnightRollover(data.moderatorAssignmentTime, data.moderatorCompletionTime);
+        if (!isModRollover && isTimeInFuture(data.moderatorAssignmentTime, data.testDate)) {
             errors.moderatorAssignmentTime = "Moderator Assignment Time cannot be in the future";
         }
         if (isTimeInFuture(data.moderatorCompletionTime, data.testDate)) {
@@ -528,6 +626,9 @@ function validateTesterLogForm(
             checkRequired("crossPlatformDiscrepancyNotes", "Discrepancy Notes");
         }
     }
+    if (data.crossPlatformDiscrepancyNotes && data.crossPlatformDiscrepancyNotes.length > TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX) {
+        errors.crossPlatformDiscrepancyNotes = `Discrepancy Notes cannot exceed ${TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX} characters`;
+    }
 
     checkRequired("weatherQAnsweredCorrectly", "Weather Q Answered Correctly");
     checkRequired("mandiPriceQCorrect", "Mandi Price Q Correct");
@@ -539,18 +640,38 @@ function validateTesterLogForm(
         checkRequired("waOverallTestStatus", "WhatsApp Status");
     }
     checkRequired("overallTestStatus", "Overall Test Status");
-    checkRequired("defectSeverity", "Defect Severity");
+    const isPass = (data.overallTestStatus || "").trim().toLowerCase() === "pass";
+    if (isPass) {
+        if (!data.defectSeverity) data.defectSeverity = "NA";
+        if (!data.defectIdBugRef) data.defectIdBugRef = "NA";
+    } else {
+        checkRequired("defectSeverity", "Defect Severity");
 
-    const bugRef = data.defectIdBugRef?.trim();
-    if (!bugRef) {
-        errors.defectIdBugRef = "Defect ID / Bug Ref is required (Select NA or enter Zoho URL)";
-    } else if (bugRef === "Zoho Ticket URL") {
-        errors.defectIdBugRef = "Please enter the Zoho Ticket URL";
+        const bugRef = data.defectIdBugRef?.trim();
+        if (!bugRef) {
+            errors.defectIdBugRef = "Defect ID / Bug Ref is required (Select NA or enter Zoho URL)";
+        } else if (bugRef === "Zoho Ticket URL") {
+            errors.defectIdBugRef = "Please enter the Zoho Ticket URL";
+        } else if (bugRef !== "NA") {
+            if (bugRef.length > TEXT_FIELD_LIMITS.DEFECT_URL_MAX) {
+                errors.defectIdBugRef = `Defect URL cannot exceed ${TEXT_FIELD_LIMITS.DEFECT_URL_MAX} characters`;
+            } else if (!HTTP_URL_REGEX.test(bugRef)) {
+                errors.defectIdBugRef = "Defect ID must be 'NA' or a valid URL starting with http:// or https://";
+            }
+        }
     }
 
     checkRequired("testerRemarks", "Tester Remarks");
     if (data.testerRemarks && data.testerRemarks !== "No Action Required") {
         checkRequired("testerRemarksNotes", "Remarks Details");
+    }
+    if (data.testerRemarksNotes?.trim()) {
+        const rn = data.testerRemarksNotes.trim();
+        if (rn.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN) {
+            errors.testerRemarksNotes = `Remarks Details must be at least ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} characters`;
+        } else if (data.testerRemarksNotes.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX) {
+            errors.testerRemarksNotes = `Remarks Details cannot exceed ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters`;
+        }
     }
 
     return errors;
@@ -571,9 +692,25 @@ function getInitialFormValues(userEmail?: string, todayDate: string = getTodayDa
         if (saved) {
             const parsed = JSON.parse(saved);
             if (parsed && typeof parsed === "object") {
+                let errorType = parsed.translationErrorType;
+                const quality = (parsed.translationQuality || "").trim();
+                if (quality) {
+                    const allowed = TRANSLATION_ERROR_MAP[quality];
+                    if (allowed) {
+                        if (allowed.length === 1) {
+                            errorType = allowed[0];
+                        } else if (!allowed.includes(errorType || "")) {
+                            errorType = "";
+                        }
+                    }
+                }
+                const isPass = (parsed.overallTestStatus || "").trim().toLowerCase() === "pass";
                 return {
                     ...parsed,
-                    testDate: parsed.testDate || todayDate,
+                    testDate: todayDate,
+                    translationErrorType: errorType,
+                    defectSeverity: isPass ? "NA" : parsed.defectSeverity,
+                    defectIdBugRef: isPass ? "NA" : parsed.defectIdBugRef,
                 };
             }
         }
@@ -614,6 +751,11 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         }
     }, [nextTestId, setValue, getValues]);
 
+    // Ensure testDate always reflects today's date even if an existing draft had an older date
+    useEffect(() => {
+        setValue("testDate", todayDate);
+    }, [todayDate, setValue]);
+
     // Auto-save form draft to localStorage whenever fields change
     useEffect(() => {
         const subscription = watch((values) => {
@@ -623,14 +765,14 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     return typeof v === "string" ? v.trim() !== "" : Boolean(v);
                 });
                 if (hasUserInput) {
-                    localStorage.setItem(draftKey, JSON.stringify(values));
+                    localStorage.setItem(draftKey, JSON.stringify({ ...values, testDate: todayDate }));
                 }
             } catch {
                 // ignore storage quota errors
             }
         });
         return () => subscription.unsubscribe();
-    }, [watch, draftKey]);
+    }, [watch, draftKey, todayDate]);
 
     // Watch fields for dynamic workflow and TAT auto-computations
     const [
@@ -681,8 +823,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     // Auto-synthesize Overall Test Status for Cross-Platform if both individual statuses are selected
     useEffect(() => {
         const synthesized = isCross ? synthesizeOverallTestStatus(webOverallTestStatus, waOverallTestStatus) : undefined;
-        if (synthesized) setValue("overallTestStatus", synthesized);
-    }, [webOverallTestStatus, waOverallTestStatus, isCross]);
+        if (synthesized) setValue("overallTestStatus", synthesized, { shouldDirty: true });
+    }, [webOverallTestStatus, waOverallTestStatus, isCross, setValue]);
 
     const responseTimeMins = watch("responseTimeMins");
     const waResponseTimeMins = watch("waResponseTimeMins");
@@ -694,14 +836,72 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const review5TatMins = watch("review5TatMins");
     const moderatorTatMins = watch("moderatorTatMins");
 
-    const [languageTested, originalLanguage, translatedLanguage, defectIdBugRef, tagging, testerRemarks] = watch([
+    const [
+        languageTested,
+        originalLanguage,
+        translatedLanguage,
+        defectIdBugRef,
+        tagging,
+        testerRemarks,
+        translationQuality,
+        overallTestStatus,
+        queryText,
+        testerRemarksNotes,
+    ] = watch([
         "languageTested",
         "originalLanguage",
         "translatedLanguage",
         "defectIdBugRef",
         "tagging",
         "testerRemarks",
+        "translationQuality",
+        "overallTestStatus",
+        "queryText",
+        "testerRemarksNotes",
     ]);
+
+    const isPass = (overallTestStatus || "").trim().toLowerCase() === "pass";
+
+    const prevOverallStatusRef = useRef<string | undefined>(undefined);
+    useEffect(() => {
+        const current = (overallTestStatus || "").trim().toLowerCase();
+        const prev = (prevOverallStatusRef.current || "").trim().toLowerCase();
+        prevOverallStatusRef.current = overallTestStatus;
+
+        if (current === "pass") {
+            setValue("defectSeverity", "NA", { shouldDirty: true });
+            setValue("defectIdBugRef", "NA", { shouldDirty: true });
+            clearError("defectSeverity");
+            clearError("defectIdBugRef");
+        } else if (prev === "pass" && current === "fail") {
+            if (getValues("defectSeverity") === "NA") {
+                setValue("defectSeverity", "", { shouldDirty: true });
+            }
+            if (getValues("defectIdBugRef") === "NA") {
+                setValue("defectIdBugRef", "", { shouldDirty: true });
+            }
+        }
+    }, [overallTestStatus, setValue, getValues]);
+
+    const availableErrorOptions = getTranslationErrorOptions(translationQuality);
+
+    const handleTranslationQualityChange = (quality: string) => {
+        clearError("translationQuality");
+        const allowed = TRANSLATION_ERROR_MAP[quality.trim()];
+        if (allowed) {
+            if (allowed.length === 1) {
+                setValue("translationErrorType", allowed[0]);
+                clearError("translationErrorType");
+            } else {
+                const currentErr = getValues("translationErrorType");
+                if (!currentErr || !allowed.includes(currentErr)) {
+                    setValue("translationErrorType", "");
+                }
+            }
+        } else {
+            setValue("translationErrorType", "");
+        }
+    };
 
     const isDynamic = isDynamicTagging(tagging);
     const isDuplicate = isDuplicateTagging(tagging);
@@ -814,15 +1014,18 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         }
     }, [isSuccess]);
 
-    const isAskedInFuture = isTimeInFuture(timeQuestionAsked, testDate);
+    const isWebRollover = isMidnightRollover(timeQuestionAsked, timeAnswerReceived);
+    const isAskedInFuture = !isWebRollover && isTimeInFuture(timeQuestionAsked, testDate);
     const isAnsweredInFuture = isTimeInFuture(timeAnswerReceived, testDate);
     const isWebTimingInvalid = isTimeEarlier(timeAnswerReceived, timeQuestionAsked, testDate);
 
-    const isWaAskedInFuture = isCross && isTimeInFuture(waTimeQuestionAsked, testDate);
+    const isWaRollover = isCross && isMidnightRollover(waTimeQuestionAsked, waTimeAnswerReceived);
+    const isWaAskedInFuture = isCross && !isWaRollover && isTimeInFuture(waTimeQuestionAsked, testDate);
     const isWaAnsweredInFuture = isCross && isTimeInFuture(waTimeAnswerReceived, testDate);
     const isWaTimingInvalid = isCross && isTimeEarlier(waTimeAnswerReceived, waTimeQuestionAsked, testDate);
 
-    const isAuthorAssignedInFuture = !excludeReviewerWorkflow && isTimeInFuture(authorAssignmentTime, testDate);
+    const isAuthorRollover = !excludeReviewerWorkflow && isMidnightRollover(authorAssignmentTime, authorCompletionTime);
+    const isAuthorAssignedInFuture = !excludeReviewerWorkflow && !isAuthorRollover && isTimeInFuture(authorAssignmentTime, testDate);
     const isAuthorCompletedInFuture = !excludeReviewerWorkflow && isTimeInFuture(authorCompletionTime, testDate);
     const isAuthorTimingInvalid = !excludeReviewerWorkflow && isTimeEarlier(authorCompletionTime, authorAssignmentTime, testDate);
 
@@ -837,12 +1040,15 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 errors.waTimeAnswerReceived ||
                 errors.authorAssignmentTime ||
                 errors.authorCompletionTime;
+            const firstKey = Object.keys(errors)[0];
+            const firstError = errors[firstKey];
             if (firstTimingError) {
                 toast.error(firstTimingError);
+            } else if (firstError && !firstError.includes("is required")) {
+                toast.error(firstError);
             } else {
                 toast.error("Please fill in all required fields before submitting.");
             }
-            const firstKey = Object.keys(errors)[0];
             const el = document.querySelector(`[name="${firstKey}"]`);
             if (el) {
                 el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -946,6 +1152,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 <TextInput
                     label="Build / Version"
                     placeholder="e.g. 2.1.0"
+                    maxLength={TEXT_FIELD_LIMITS.BUILD_VERSION_MAX}
                     required
                     error={formErrors.buildVersion}
                     {...register("buildVersion", { onChange: () => clearError("buildVersion") })}
@@ -972,6 +1179,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                         <TextInput
                             label="Web App Thread / Session ID"
                             placeholder="Web thread or session ID"
+                            maxLength={TEXT_FIELD_LIMITS.THREAD_ID_MAX}
                             required
                             error={formErrors.threadId}
                             {...register("threadId", { onChange: () => clearError("threadId") })}
@@ -979,6 +1187,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                         <TextInput
                             label="WhatsApp Thread / Phone Number"
                             placeholder="WA thread ID or Phone Number"
+                            maxLength={TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX}
                             required
                             error={formErrors.waThreadId}
                             {...register("waThreadId", { onChange: () => clearError("waThreadId") })}
@@ -988,6 +1197,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     <TextInput
                         label="Thread ID"
                         placeholder="Thread ID"
+                        maxLength={TEXT_FIELD_LIMITS.THREAD_ID_MAX}
                         required
                         error={formErrors.threadId}
                         {...register("threadId", { onChange: () => clearError("threadId") })}
@@ -1003,6 +1213,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 <TextareaInput
                     label="Query Text (Original)"
                     placeholder="Enter the original query text..."
+                    maxLength={TEXT_FIELD_LIMITS.QUERY_TEXT_MAX}
+                    helper={`${(queryText || "").length} / ${TEXT_FIELD_LIMITS.QUERY_TEXT_MAX}`}
                     required
                     error={formErrors.queryText}
                     {...register("queryText", { onChange: () => clearError("queryText") })}
@@ -1182,12 +1394,16 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     options={TRANSLATION_QUALITY_OPTIONS}
                     required
                     error={formErrors.translationQuality}
-                    {...register("translationQuality", { onChange: () => clearError("translationQuality") })}
+                    {...register("translationQuality", {
+                        onChange: (e) => handleTranslationQualityChange(e.target.value),
+                    })}
                 />
                 <SelectInput
                     label="Translation Error Type"
-                    options={TRANSLATION_ERROR_TYPE_OPTIONS}
+                    options={availableErrorOptions}
                     required
+                    disabled={!translationQuality}
+                    placeholder={translationQuality ? "-- Select --" : "-- Select Translation Quality first --"}
                     error={formErrors.translationErrorType}
                     {...register("translationErrorType", { onChange: () => clearError("translationErrorType") })}
                 />
@@ -1216,6 +1432,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <TextInput
                                 label="Author Name"
+                                maxLength={TEXT_FIELD_LIMITS.NAME_MAX}
                                 required={watch("allocatedToReviewer") === "Yes"}
                                 error={formErrors.authorsName}
                                 {...register("authorsName", { onChange: () => clearError("authorsName") })}
@@ -1254,7 +1471,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                         <div key={n} className="sm:col-span-2 lg:col-span-3 border-t border-border pt-3 mt-1">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Reviewer {n}</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <TextInput label={`Reviewer ${n} Name`} {...register(`reviewer${n}Name` as any)} />
+                                <TextInput label={`Reviewer ${n} Name`} maxLength={TEXT_FIELD_LIMITS.NAME_MAX} {...register(`reviewer${n}Name` as any)} />
                                 <TimeInput label={`Reviewer ${n} Assignment Time`} max={getLocalDatetimeMax()} error={formErrors[`reviewer${n}AssignmentTime`]} {...register(`reviewer${n}AssignmentTime` as any)} />
                                 <TimeInput label={`Reviewer ${n} Completion Time`} max={getLocalDatetimeMax()} error={formErrors[`reviewer${n}CompletionTime`]} {...register(`reviewer${n}CompletionTime` as any)} />
                                 <TimeInput label={`Review ${n} TAT [Auto]`} readOnly value={[review1TatMins, review2TatMins, review3TatMins, review4TatMins, review5TatMins][n - 1] ?? ""} onChange={() => {}} />
@@ -1265,7 +1482,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     <div className="sm:col-span-2 lg:col-span-3 border-t border-border pt-3 mt-1">
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Moderator</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <TextInput label="Moderator Name" {...register("moderatorName")} />
+                            <TextInput label="Moderator Name" maxLength={TEXT_FIELD_LIMITS.NAME_MAX} {...register("moderatorName")} />
                             <TimeInput label="Moderator Assignment Time" max={getLocalDatetimeMax()} error={formErrors.moderatorAssignmentTime} {...register("moderatorAssignmentTime")} />
                             <TimeInput label="Moderator Completion Time" max={getLocalDatetimeMax()} error={formErrors.moderatorCompletionTime} {...register("moderatorCompletionTime")} />
                             <TimeInput label="Moderator TAT [Auto]" readOnly value={moderatorTatMins ?? ""} onChange={() => {}} />
@@ -1489,6 +1706,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                             <TextInput
                                 label="Discrepancy Notes (if answers differ)"
                                 placeholder="e.g. WebApp provided detailed tables, WhatsApp returned summary text"
+                                maxLength={TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX}
                                 error={formErrors.crossPlatformDiscrepancyNotes}
                                 {...register("crossPlatformDiscrepancyNotes", { onChange: () => clearError("crossPlatformDiscrepancyNotes") })}
                             />
@@ -1564,13 +1782,15 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 <SelectInput
                     label="Defect Severity"
                     options={DEFECT_SEVERITY_OPTIONS}
-                    required
+                    required={!isPass}
+                    disabled={isPass}
                     error={formErrors.defectSeverity}
                     {...register("defectSeverity", { onChange: () => clearError("defectSeverity") })}
                 />
                 <DefectIdBugRefInput
                     value={defectIdBugRef}
-                    required
+                    required={!isPass}
+                    disabled={isPass}
                     error={formErrors.defectIdBugRef}
                     onChange={val => {
                         setValue("defectIdBugRef", val);
@@ -1598,6 +1818,8 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     <TextareaInput
                         label="Remarks Details"
                         placeholder="Write down your detailed remarks..."
+                        maxLength={TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}
+                        helper={`${(testerRemarksNotes || "").length} / ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}`}
                         required
                         error={formErrors.testerRemarksNotes}
                         {...register("testerRemarksNotes", { onChange: () => clearError("testerRemarksNotes") })}

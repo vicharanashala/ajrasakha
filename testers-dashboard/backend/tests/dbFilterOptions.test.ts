@@ -70,7 +70,7 @@ describe('buildDbFilterOptions', () => {
         expect(countOf(fields.channel, 'WebApp')).toBe(2);
         expect(countOf(fields.channel, 'Both')).toBe(0);
         expect(countOf(fields.status, 'Pass')).toBe(2);
-        expect(countOf(fields.status, 'Partial')).toBe(0);
+        expect(countOf(fields.status, 'Fail')).toBe(1);
         expect(countOf(fields.severity, 'NA')).toBe(2);
         expect(countOf(fields.category, 'Climate, Weather & Stress Management')).toBe(1);
         expect(countOf(typeTree.dynamic, 'Weather Dynamic')).toBe(2);

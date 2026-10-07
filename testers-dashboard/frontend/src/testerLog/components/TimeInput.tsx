@@ -21,7 +21,7 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(
                 {label && (
                     <label className="text-sm font-medium text-foreground">
                         {label}
-                        {required && <span className="text-destructive dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
+                        {required && <span className="text-red-500 dark:text-red-400 font-bold ml-1 text-sm select-none" aria-hidden="true">*</span>}
                         {readOnly && (
                             <span className="ml-1 text-xs text-muted-foreground">(auto)</span>
                         )}
@@ -39,12 +39,12 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(
                         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                         readOnly && 'bg-muted text-muted-foreground cursor-default',
-                        error && 'border-destructive focus-visible:ring-destructive',
+                        error && 'border-red-500 dark:border-red-400 focus-visible:ring-red-500 dark:focus-visible:ring-red-400',
                         className,
                     )}
                     {...props}
                 />
-                {error && <span className="text-xs text-destructive mt-0.5">{error}</span>}
+                {error && <span className="text-xs text-red-500 dark:text-red-400 mt-0.5">{error}</span>}
                 {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
             </div>
         );

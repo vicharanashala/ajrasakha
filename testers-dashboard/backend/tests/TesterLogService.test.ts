@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as XLSX from 'xlsx';
-import { TesterLogService, incrementTestId, validateNotFuture, validateTestDateNotFuture, parseEpochMs } from '../services/TesterLogService.js';
+import { TesterLogService, incrementTestId, validateNotFuture, validateTestDateNotFuture, parseEpochMs, validateTranslationMapping, validateTextFields, TEXT_FIELD_LIMITS } from '../services/TesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
 
 describe('TesterLogService date filtering', () => {
@@ -1000,6 +1000,37 @@ describe('TesterLogService date filtering', () => {
         ).rejects.toThrow('Test date cannot be in the future');
     });
 
+    it('allows updateEntry to update remarks on legacy records with existing inverted or future times without failing', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '12:00:00',
+            timeAnswerReceived: '11:00:00', // legacy reversed time
+            reviewer3AssignmentTime: '2030-01-01T10:00:00', // legacy future time
+            reviewerRemarks: 'Old remarks',
+        });
+        mockCollection.updateOne = vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        const result = await service.updateEntry(ID, { reviewerRemarks: 'Updated remarks without touching times' }, actor);
+        expect(result).not.toBeNull();
+        expect(result?.entry.reviewerRemarks).toBe('Updated remarks without touching times');
+    });
+
+    it('supports times that cross midnight (e.g. 23:55 to 00:04) in createEntry without rejection', async () => {
+        mockCollection.insertOne = vi.fn().mockResolvedValue({ insertedId: 'entry-midnight-1' });
+        const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+            channelTested: 'WebApp',
+            typeOfQuestion: 'Unique',
+            timeQuestionAsked: '23:55:00',
+            timeAnswerReceived: '00:04:00',
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.entry.responseTimeMins).toBe('00:09:00');
+    });
+
     it('aggregates cross-platform stats and credits both platforms in getMySummary', async () => {
         const mockEntries = [
             {
@@ -1295,6 +1326,12 @@ describe('validateNotFuture and validateTestDateNotFuture', () => {
         expect(() => validateTestDateNotFuture('2026-10-05', today)).not.toThrow();
         expect(() => validateTestDateNotFuture('2026-09-01', today)).not.toThrow();
     });
+
+    it('validateTestDateNotFuture throws BadRequestError for invalid date format (e.g. DD/MM/YYYY)', () => {
+        const today = new Date('2026-10-05T12:00:00Z');
+        expect(() => validateTestDateNotFuture('05/10/2030', today)).toThrow('Test date must be formatted as YYYY-MM-DD');
+        expect(() => validateTestDateNotFuture('not-a-date', today)).toThrow('Test date must be formatted as YYYY-MM-DD');
+    });
 });
 
 describe('TesterLogService getNextTestId and allocateNextTestId', () => {
@@ -1414,4 +1451,203 @@ describe('TesterLogService getNextTestId and allocateNextTestId', () => {
         expect(allocatedIds).toContain('TL-0011');
         expect(allocatedIds).toContain('TL-0060');
     });
+
+    describe('Translation Quality to Error Type mapping validation', () => {
+        it('accepts valid translation quality and error type combinations', () => {
+            expect(() => validateTranslationMapping('Good', 'No Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Acceptable', 'Grammar Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Not Acceptable', 'Intent Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Not Acceptable', 'Word Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Not Acceptable', 'Partial Translation')).not.toThrow();
+            expect(() => validateTranslationMapping('NA', 'NA')).not.toThrow();
+        });
+
+        it('rejects invalid combinations with 400 BadRequestError', () => {
+            expect(() => validateTranslationMapping('Good', 'Intent Error')).toThrow(
+                /Translation Error Type "Intent Error" is not valid for Translation Quality "Good"/,
+            );
+            expect(() => validateTranslationMapping('Acceptable', 'No Error')).toThrow(
+                /Translation Error Type "No Error" is not valid for Translation Quality "Acceptable"/,
+            );
+            expect(() => validateTranslationMapping('Not Acceptable', 'No Error')).toThrow(
+                /Translation Error Type "No Error" is not valid for Translation Quality "Not Acceptable"/,
+            );
+            expect(() => validateTranslationMapping('NA', 'No Error')).toThrow(
+                /Translation Error Type "No Error" is not valid for Translation Quality "NA"/,
+            );
+        });
+
+        it('ignores validation when either field is blank or missing', () => {
+            expect(() => validateTranslationMapping('', 'No Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Good', '')).not.toThrow();
+            expect(() => validateTranslationMapping(undefined, undefined)).not.toThrow();
+        });
+    });
+
+    describe('Text field limits and format validation (TL-0059, TL-0063)', () => {
+        describe('Query Text validation (TL-0059)', () => {
+            it('rejects queryText exceeding 1000 characters', () => {
+                const query5000Chars = 'a'.repeat(5000);
+                expect(() => validateTextFields({ queryText: query5000Chars })).toThrow(
+                    /Query Text must not exceed 1000 characters \(received 5000 characters\)/,
+                );
+            });
+
+            it('rejects queryText shorter than 3 characters', () => {
+                expect(() => validateTextFields({ queryText: 'ab' })).toThrow(
+                    /Query Text must be at least 3 characters/,
+                );
+            });
+
+            it('accepts valid queryText within 3 to 1000 characters', () => {
+                expect(() => validateTextFields({ queryText: 'What is the price of wheat in Punjab?' })).not.toThrow();
+                expect(() => validateTextFields({ queryText: 'a'.repeat(1000) })).not.toThrow();
+                expect(() => validateTextFields({ queryText: 'abc' })).not.toThrow();
+            });
+
+            it('rejects 5000-character queryText in service.createEntry', async () => {
+                const query5000Chars = 'x'.repeat(5000);
+                await expect(
+                    service.createEntry('user-1', 'tester@example.com', 'Tester', {
+                        buildVersion: '1.0',
+                        queryText: query5000Chars,
+                    } as any),
+                ).rejects.toThrow(/Query Text must not exceed 1000 characters/);
+            });
+        });
+
+        describe('Build / Version format validation (TL-0063)', () => {
+            it('rejects invalid build versions like not-a-version!@#$%', () => {
+                expect(() => validateTextFields({ buildVersion: 'not-a-version!@#$%' })).toThrow(
+                    /Invalid Build \/ Version "not-a-version!@#\$%". Must be a valid version format containing numbers/,
+                );
+            });
+
+            it('rejects build version without numbers', () => {
+                expect(() => validateTextFields({ buildVersion: 'release' })).toThrow(
+                    /Invalid Build \/ Version/,
+                );
+            });
+
+            it('rejects build version exceeding 50 characters', () => {
+                const longVersion = 'v1.0.' + '0'.repeat(50);
+                expect(() => validateTextFields({ buildVersion: longVersion })).toThrow(
+                    /Invalid Build \/ Version/,
+                );
+            });
+
+            it('accepts valid build versions containing numbers', () => {
+                expect(() => validateTextFields({ buildVersion: '1.0' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: '2.1.0' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: 'v1.0.4' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: 'release-2.0.1' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: 'Build 104 (Staging)' })).not.toThrow();
+            });
+
+            it('rejects invalid buildVersion in service.createEntry', async () => {
+                await expect(
+                    service.createEntry('user-1', 'tester@example.com', 'Tester', {
+                        buildVersion: 'not-a-version!@#$%',
+                        queryText: 'Valid query text',
+                    } as any),
+                ).rejects.toThrow(/Invalid Build \/ Version "not-a-version!@#\$%"/);
+            });
+        });
+
+        describe('Thread IDs format validation', () => {
+            it('rejects threadId exceeding 100 characters or with invalid characters', () => {
+                expect(() => validateTextFields({ threadId: 'thread<script>' })).toThrow(
+                    /Thread ID must be between 1 and 100 characters/,
+                );
+                expect(() => validateTextFields({ threadId: 'a'.repeat(101) })).toThrow(
+                    /Thread ID must be between 1 and 100 characters/,
+                );
+            });
+
+            it('accepts valid thread IDs', () => {
+                expect(() => validateTextFields({ threadId: 'thread-12345' })).not.toThrow();
+                expect(() => validateTextFields({ threadId: 'sess_abc.1:xyz' })).not.toThrow();
+            });
+
+            it('rejects waThreadId with invalid characters', () => {
+                expect(() => validateTextFields({ waThreadId: 'bad phone!@#' })).toThrow(
+                    /WhatsApp Thread \/ Phone Number must be a valid phone number or identifier/,
+                );
+            });
+
+            it('accepts valid waThreadId as phone or identifier', () => {
+                expect(() => validateTextFields({ waThreadId: '+919876543210' })).not.toThrow();
+                expect(() => validateTextFields({ waThreadId: '9876543210' })).not.toThrow();
+                expect(() => validateTextFields({ waThreadId: 'wa-session-123' })).not.toThrow();
+            });
+        });
+
+        describe('Person names validation', () => {
+            it('rejects names with numbers or special characters', () => {
+                expect(() => validateTextFields({ authorsName: 'Author 123' })).toThrow(
+                    /Author Name must contain only letters and standard name characters/,
+                );
+                expect(() => validateTextFields({ reviewer1Name: 'Reviewer@#$' })).toThrow(
+                    /Reviewer 1 Name must contain only letters and standard name characters/,
+                );
+                expect(() => validateTextFields({ moderatorName: 'Mod!' })).toThrow(
+                    /Moderator Name must contain only letters and standard name characters/,
+                );
+            });
+
+            it('rejects names shorter than 2 characters or longer than 100 characters', () => {
+                expect(() => validateTextFields({ authorsName: 'A' })).toThrow(/Author Name/);
+                expect(() => validateTextFields({ moderatorName: 'A'.repeat(101) })).toThrow(/Moderator Name/);
+            });
+
+            it('accepts valid names', () => {
+                expect(() => validateTextFields({ authorsName: 'John Doe' })).not.toThrow();
+                expect(() => validateTextFields({ reviewer1Name: 'Mary-Jane' })).not.toThrow();
+                expect(() => validateTextFields({ moderatorName: "Dr. O'Connor" })).not.toThrow();
+            });
+        });
+
+        describe('Remarks and Notes length validation', () => {
+            it('rejects remarks notes < 3 or > 2000 characters', () => {
+                expect(() => validateTextFields({ testerRemarksNotes: 'ab' })).toThrow(
+                    /Remarks Details must be between 3 and 2000 characters/,
+                );
+                expect(() => validateTextFields({ testerRemarksNotes: 'x'.repeat(2001) })).toThrow(
+                    /Remarks Details must be between 3 and 2000 characters/,
+                );
+            });
+
+            it('rejects discrepancy notes > 1000 characters', () => {
+                expect(() => validateTextFields({ crossPlatformDiscrepancyNotes: 'x'.repeat(1001) })).toThrow(
+                    /Discrepancy Notes must not exceed 1000 characters/,
+                );
+            });
+
+            it('accepts valid remarks and discrepancy notes', () => {
+                expect(() => validateTextFields({ testerRemarksNotes: 'Testing completed successfully' })).not.toThrow();
+                expect(() => validateTextFields({ crossPlatformDiscrepancyNotes: 'Slight difference in formatting' })).not.toThrow();
+            });
+        });
+
+        describe('updateEntry text field validation', () => {
+            const VALID_ID = '64b7f0c2a1b2c3d4e5f60718';
+            const testActor = { userId: 'admin-1', email: 'admin@example.com', name: 'Admin One' };
+
+            it('rejects invalid fields in service.updateEntry', async () => {
+                mockCollection.findOne = vi.fn().mockResolvedValue({ _id: VALID_ID, testId: 'TL-0001' });
+                await expect(
+                    service.updateEntry(VALID_ID, {
+                        buildVersion: 'bad-version!@#$',
+                    }, testActor),
+                ).rejects.toThrow(/Invalid Build \/ Version/);
+
+                await expect(
+                    service.updateEntry(VALID_ID, {
+                        queryText: 'a'.repeat(5000),
+                    }, testActor),
+                ).rejects.toThrow(/Query Text must not exceed 1000 characters/);
+            });
+        });
+    });
 });
+

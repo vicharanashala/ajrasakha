@@ -153,8 +153,8 @@ export const notificationLinkedQid = (e: Entry) => classify(e.notificationLinked
 const DISCLAIMER: Table<'received' | 'notreceived'> = { received: 'received', notreceived: 'notreceived', yes: 'received', y: 'received', no: 'notreceived', n: 'notreceived' };
 export const disclaimer120 = (e: Entry) => classify(e.msg120MinShownToUser, DISCLAIMER);
 
-// Retrieval Accuracy - Correct Retrieval / Incorrect Retrieval / No Retrieval.
-const RETRIEVAL: Table<'correct' | 'incorrect'> = { correctretrieval: 'correct', incorrectretrieval: 'incorrect', noretrieval: 'incorrect' };
+// Retrieval Accuracy - Correct Retrieval / Incorrect Retrieval / No Retrieval / Partial Retrieval.
+const RETRIEVAL: Table<'correct' | 'incorrect'> = { correctretrieval: 'correct', incorrectretrieval: 'incorrect', noretrieval: 'incorrect', partialretrieval: 'incorrect' };
 export const retrievalAccuracy = (e: Entry) => classify(e.retrievalAccuracy, RETRIEVAL);
 
 // Tagging - only the duplicate-tagging outcomes (other tagging values are
@@ -179,11 +179,11 @@ export function defectSeverity(e: Entry): string | null {
     return DB_DEFECT_SEVERITY_OPTIONS.includes(v) ? v : null;
 }
 
-// Overall Test Status - Pass / Fail / Partial / NA, via Step 4's matching.
+// Overall Test Status - Pass / Fail, via Step 4's matching.
 // Null when blank or not one of the current options.
-export function overallStatus(e: Entry): 'Pass' | 'Fail' | 'Partial' | 'NA' | null {
+export function overallStatus(e: Entry): 'Pass' | 'Fail' | null {
     const v = canonicalValue('status', e.overallTestStatus, DB_OVERALL_STATUS_OPTIONS);
-    return DB_OVERALL_STATUS_OPTIONS.includes(v) ? (v as 'Pass' | 'Fail' | 'Partial' | 'NA') : null;
+    return DB_OVERALL_STATUS_OPTIONS.includes(v) ? (v as 'Pass' | 'Fail') : null;
 }
 
 // ---- Platform fields (temporary until Step 7) ----

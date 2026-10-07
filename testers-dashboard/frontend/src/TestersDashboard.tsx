@@ -58,7 +58,7 @@ export function TestersDashboard() {
         <SheetAnalyticsSection
           key="sheet-section"
           title="Google Sheet Analytics"
-          description="Analytics derived from Google Sheet test records (updated.csv)"
+          description="Analytics derived from Google Sheet test records"
           sourceBadge="Source: Google Sheet"
         />
       )}
