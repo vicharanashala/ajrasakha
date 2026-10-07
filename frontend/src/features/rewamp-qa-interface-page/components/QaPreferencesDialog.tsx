@@ -1,12 +1,31 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Badge } from "@/components/atoms/badge";
 import { Label } from "@/components/atoms/label";
-import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/atoms/select";
-import { Filter, Globe, Layers, Bot, UserRound, MapPin, Sprout } from "lucide-react";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/atoms/select";
+import {
+  Filter,
+  Globe,
+  Layers,
+  Bot,
+  UserRound,
+  MapPin,
+  Sprout,
+} from "lucide-react";
 import { StateMultiSelect } from "@/components/atoms/StateMultiSelect";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 import { CROPS, Review_Level_QAI } from "@/components/MetaData";
@@ -21,7 +40,13 @@ interface QaPreferencesDialogProps {
   onFilterChange: (key: string, value: any) => void;
 }
 
-export const QaPreferencesDialog: React.FC<QaPreferencesDialogProps> = ({ reviewLevel, source, states, crops, onFilterChange }) => {
+export const QaPreferencesDialog: React.FC<QaPreferencesDialogProps> = ({
+  reviewLevel,
+  source,
+  states,
+  crops,
+  onFilterChange,
+}) => {
   const [open, setOpen] = useState(false);
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
@@ -65,61 +90,146 @@ export const QaPreferencesDialog: React.FC<QaPreferencesDialogProps> = ({ review
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2 py-1 h-8 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-sm shrink-0">
-          <span className="text-xs font-normal text-gray-900 dark:text-white whitespace-nowrap">Preferences</span>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 px-2.5 py-1 h-8 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-xs shrink-0 cursor-pointer"
+        >
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium text-foreground whitespace-nowrap">
+            Preferences
+          </span>
           {activeFiltersCount > 0 && (
-            <Badge variant="destructive" className="bg-red-500 h-4 px-1.5 min-w-4 rounded-full flex items-center justify-center text-[10px]">{activeFiltersCount}</Badge>
+            <Badge
+              variant="destructive"
+              className="bg-primary text-primary-foreground h-4 px-1.5 min-w-4 rounded-full flex items-center justify-center text-[10px] font-bold"
+            >
+              {activeFiltersCount}
+            </Badge>
           )}
         </button>
       </DialogTrigger>
-      <ScrollArea>
-        <DialogContent className="sm:max-w-2xl max-w-[95vw]">
-          <DialogHeader>
-            <DialogTitle className="text-xl flex items-center gap-2"><Filter className="h-5 w-5 text-primary" /> Advanced Filters</DialogTitle>
-            <p className="text-sm text-muted-foreground">Refine your search with multiple filter options</p>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold"><Globe className="h-4 w-4 text-primary" /> Source</Label>
-                <Select value={localSource} onValueChange={setLocalSource}>
-                  <SelectTrigger className="bg-background w-full"><SelectValue placeholder="Select Source" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all"><div className="flex items-center gap-2"><Globe className="w-4 h-4 text-primary" /><span>All Sources</span></div></SelectItem>
-                    <SelectItem value="AJRASAKHA"><div className="flex items-center gap-2"><Bot className="w-4 h-4 text-primary" /><span>Ajrasakha</span></div></SelectItem>
-                    <SelectItem value="AGRI_EXPERT"><div className="flex items-center gap-2"><UserRound className="w-4 h-4 text-primary" /><span>Agri Expert</span></div></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold"><Layers className="h-4 w-4 text-primary" /> Review Level</Label>
-                <Select value={localReviewLevel} onValueChange={setLocalReviewLevel}>
-                  <SelectTrigger className="bg-background w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Levels</SelectItem>
-                    {Review_Level_QAI.map((d) => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
+
+      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+            <Filter className="h-5 w-5 text-primary" />
+            Preferences & Filters
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Refine your allocated questions by source, review level, state, and crop
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-5 py-3">
+          {/* Top Section: Source & Review Level */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5 min-w-0">
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <Globe className="h-3.5 w-3.5 text-primary" />
+                Source
+              </Label>
+              <Select value={localSource} onValueChange={setLocalSource}>
+                <SelectTrigger className="bg-background w-full text-xs h-9">
+                  <SelectValue placeholder="Select Source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-primary" />
+                      <span>All Sources</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="AJRASAKHA" className="text-xs">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Ajrasakha</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="AGRI_EXPERT" className="text-xs">
+                    <div className="flex items-center gap-2">
+                      <UserRound className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Agri Expert</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Separator />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> State/Region</Label>
-                <StateMultiSelect states={stateOptions} selected={localStates} onChange={setLocalStates} />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold"><Sprout className="h-4 w-4 text-primary" /> Crop Type</Label>
-                <CropMultiSelect dbCrops={dbCrops} crops={CROPS} selected={localCrops} onChange={setLocalCrops} />
-              </div>
+
+            <div className="space-y-1.5 min-w-0">
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <Layers className="h-3.5 w-3.5 text-primary" />
+                Review Level
+              </Label>
+              <Select
+                value={localReviewLevel}
+                onValueChange={setLocalReviewLevel}
+              >
+                <SelectTrigger className="bg-background w-full text-xs h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">
+                    All Levels
+                  </SelectItem>
+                  {Review_Level_QAI.map((d) => (
+                    <SelectItem key={d} value={d} className="text-xs">
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="border-t border-border mt-4 pt-4 flex gap-4 justify-between items-center w-full">
-            <Button variant="ghost" className="text-muted-foreground w-1/2" onClick={handleReset}>Reset Filters</Button>
-            <Button onClick={handleApply} className="w-1/2">Apply Changes</Button>
+
+          <Separator className="bg-border/60" />
+
+          {/* Bottom Section: Location & Crop */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5 min-w-0">
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <MapPin className="h-3.5 w-3.5 text-primary" />
+                State / Region
+              </Label>
+              <StateMultiSelect
+                states={stateOptions}
+                selected={localStates}
+                onChange={setLocalStates}
+              />
+            </div>
+
+            <div className="space-y-1.5 min-w-0">
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <Sprout className="h-3.5 w-3.5 text-primary" />
+                Crop Type
+              </Label>
+              <CropMultiSelect
+                dbCrops={dbCrops}
+                crops={CROPS}
+                selected={localCrops}
+                onChange={setLocalCrops}
+              />
+            </div>
           </div>
-        </DialogContent>
-      </ScrollArea>
+        </div>
+
+        <div className="border-t border-border/80 mt-2 pt-3 flex gap-3 justify-between items-center w-full">
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-xs text-muted-foreground hover:text-foreground w-1/2"
+            onClick={handleReset}
+          >
+            Reset Filters
+          </Button>
+          <Button
+            type="button"
+            onClick={handleApply}
+            className="text-xs font-semibold w-1/2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+          >
+            Apply Changes
+          </Button>
+        </div>
+      </DialogContent>
     </Dialog>
   );
 };

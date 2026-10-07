@@ -13,6 +13,7 @@ import {
   Check,
   RefreshCw,
   Layers,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
@@ -31,8 +32,8 @@ import { formatDate } from "@/utils/formatDate";
 
 interface QuestionAndContextPanelProps {
   question?: IQuestionContextData | null;
-  questions?: any;
-  isLoading?:boolean;
+  questions?: any[];
+  isLoading?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   progressPercent?: number;
@@ -46,11 +47,14 @@ interface QuestionAndContextPanelProps {
   crops?: string[];
   onFilterChange?: (key: string, value: any) => void;
   onRefresh?: () => void;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 }
 export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = ({
   question,
   questions = [],
-  isLoading=false,
+  isLoading = false,
   isCollapsed = false,
   onToggleCollapse,
   progressPercent = 15,
@@ -64,8 +68,10 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   crops = [],
   onFilterChange,
   onRefresh,
+  fetchNextPage,
+  hasNextPage = false,
+  isFetchingNextPage = false,
 }) => {
-  console.log("questiond revienve ",questions)
   const [activeTab, setActiveTab] = useState<"current" | "queue">("current");
   const [showAllMetadata, setShowAllMetadata] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -93,7 +99,6 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
       setActiveTab("current");
       onQuestionSelect?.(qId);
     };
-    console.log("q 1 ",q)
     return (
       <button
         type="button"
@@ -432,8 +437,28 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
               {queueQuestions.length} question{queueQuestions.length !== 1 ? "s" : ""} in queue
             </div>
             {queueQuestions.map((q) => (
-              <QuestionCard key={q.id} q={q} />
+              <QuestionCard key={q.id || (q as any)._id} q={q} />
             ))}
+            {hasNextPage && (
+              <div className="pt-2 text-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchNextPage?.()}
+                  disabled={isFetchingNextPage}
+                  className="w-full text-xs h-7 text-muted-foreground hover:text-foreground"
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
+                      Loading more...
+                    </>
+                  ) : (
+                    "Load More Questions"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

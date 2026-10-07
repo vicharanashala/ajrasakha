@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { QuestionAndContextPanel } from "./components/QuestionAndContextPanel";
 import { AnswerReviewDraftPanel } from "./components/AnswerReviewDraftPanel";
 import { SourceReferencePanel } from "./components/SourceReferencePanel";
@@ -45,13 +45,26 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   const [states, setStates] = useState<string[]>([]);
   const [crops, setCrops] = useState<string[]>([]);
 
+  // Memoized preferences object matching the old QA interface
+  const preferences = useMemo(
+    () => ({
+      source,
+      states,
+      crops,
+      review_level: reviewLevel,
+    }),
+    [source, states, crops, reviewLevel]
+  );
+
   // Call the hook to get allocated questions
   const LIMIT = 10;
   const filter = "newest";
-  const preferences = {};
   const {
     data: questionPages,
     isLoading: isQuestionsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, null, reviewLevel);
 
@@ -308,6 +321,9 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               crops={crops}
               onFilterChange={handleFilterChange}
               onRefresh={handleRefresh}
+              fetchNextPage={fetchNextPage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
             />
           </div>
 
