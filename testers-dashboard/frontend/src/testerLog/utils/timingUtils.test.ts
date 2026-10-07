@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseToMs, hmsDiff, isTimeEarlier, isTimeInFuture, getLocalDatetimeMax } from "./timingUtils";
+import { TRANSLATION_ERROR_MAP, getTranslationErrorOptions } from "../types";
 
 describe("timingUtils", () => {
     describe("parseToMs", () => {
@@ -117,4 +118,41 @@ describe("timingUtils", () => {
             expect(isTimeEarlier("11:00:00", "12:00:00")).toBe(true);
         });
     });
+
+    describe("Translation Quality to Error Type mapping", () => {
+        it("maps Good to No Error only", () => {
+            expect(getTranslationErrorOptions("Good")).toEqual(["No Error"]);
+            expect(TRANSLATION_ERROR_MAP["Good"]).toEqual(["No Error"]);
+        });
+
+        it("maps Acceptable to Grammar Error only", () => {
+            expect(getTranslationErrorOptions("Acceptable")).toEqual(["Grammar Error"]);
+            expect(TRANSLATION_ERROR_MAP["Acceptable"]).toEqual(["Grammar Error"]);
+        });
+
+        it("maps Not Acceptable to Intent Error, Word Error, Partial Translation", () => {
+            expect(getTranslationErrorOptions("Not Acceptable")).toEqual([
+                "Intent Error",
+                "Word Error",
+                "Partial Translation",
+            ]);
+            expect(TRANSLATION_ERROR_MAP["Not Acceptable"]).toEqual([
+                "Intent Error",
+                "Word Error",
+                "Partial Translation",
+            ]);
+        });
+
+        it("maps NA to NA only", () => {
+            expect(getTranslationErrorOptions("NA")).toEqual(["NA"]);
+            expect(TRANSLATION_ERROR_MAP["NA"]).toEqual(["NA"]);
+        });
+
+        it("returns empty array for empty, undefined, or unknown quality", () => {
+            expect(getTranslationErrorOptions("")).toEqual([]);
+            expect(getTranslationErrorOptions(undefined)).toEqual([]);
+            expect(getTranslationErrorOptions("Unknown")).toEqual([]);
+        });
+    });
 });
+

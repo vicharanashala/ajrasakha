@@ -56,7 +56,7 @@ export const DB_LANGUAGE_OPTIONS = [
     'Santali', 'Sindhi', 'Tamil', 'Telugu', 'Urdu',
 ];
 
-export const DB_OVERALL_STATUS_OPTIONS = ['Pass', 'Fail', 'Partial', 'NA'];
+export const DB_OVERALL_STATUS_OPTIONS = ['Pass', 'Fail'];
 
 export const DB_DEFECT_SEVERITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low', 'NA'];
 

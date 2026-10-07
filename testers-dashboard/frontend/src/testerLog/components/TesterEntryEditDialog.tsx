@@ -33,6 +33,8 @@ import {
     OVERALL_STATUS_OPTIONS,
     TRANSLATION_QUALITY_OPTIONS,
     TRANSLATION_ERROR_TYPE_OPTIONS,
+    TRANSLATION_ERROR_MAP,
+    getTranslationErrorOptions,
     DEFECT_SEVERITY_OPTIONS,
     INDIAN_LANGUAGES_OPTIONS,
     VOICE_ISSUE_OPTIONS,
@@ -42,6 +44,13 @@ import {
     TAGGING_OPTIONS,
     RETRIEVAL_ACCURACY_OPTIONS,
     TESTER_REMARKS_OPTIONS,
+    TEXT_FIELD_LIMITS,
+    BUILD_VERSION_REGEX,
+    THREAD_ID_REGEX,
+    WA_THREAD_ID_REGEX,
+    PERSON_NAME_REGEX,
+    LANGUAGE_NAME_REGEX,
+    HTTP_URL_REGEX,
 } from "../types";
 import {
     CROSS_PLATFORM_AFTER_GROUP,
@@ -155,26 +164,58 @@ function initialValues(entry: ITesterLogEntry): FormValues {
     for (const key of keys) {
         if (!READ_ONLY_KEYS.has(key)) values[key] = (entry[key] as string | undefined) ?? "";
     }
+    if ((values.overallTestStatus || "").trim().toLowerCase() === "pass") {
+        values.defectSeverity = "NA";
+        values.defectIdBugRef = "NA";
+    }
     return values;
 }
 
-function FieldInput({ fieldKey, isDateTime, value, disabled, onChange }: {
+const FIELD_MAX_LENGTHS: Partial<Record<EntryKey, number>> = {
+    buildVersion: TEXT_FIELD_LIMITS.BUILD_VERSION_MAX,
+    threadId: TEXT_FIELD_LIMITS.THREAD_ID_MAX,
+    waThreadId: TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX,
+    languageTested: TEXT_FIELD_LIMITS.LANGUAGE_MAX,
+    originalLanguage: TEXT_FIELD_LIMITS.LANGUAGE_MAX,
+    translatedLanguage: TEXT_FIELD_LIMITS.LANGUAGE_MAX,
+    authorsName: TEXT_FIELD_LIMITS.NAME_MAX,
+    reviewer1Name: TEXT_FIELD_LIMITS.NAME_MAX,
+    reviewer2Name: TEXT_FIELD_LIMITS.NAME_MAX,
+    reviewer3Name: TEXT_FIELD_LIMITS.NAME_MAX,
+    reviewer4Name: TEXT_FIELD_LIMITS.NAME_MAX,
+    reviewer5Name: TEXT_FIELD_LIMITS.NAME_MAX,
+    moderatorName: TEXT_FIELD_LIMITS.NAME_MAX,
+    queryText: TEXT_FIELD_LIMITS.QUERY_TEXT_MAX,
+    defectIdBugRef: TEXT_FIELD_LIMITS.DEFECT_URL_MAX,
+    crossPlatformDiscrepancyNotes: TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX,
+    testerRemarksNotes: TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX,
+};
+
+function FieldInput({ fieldKey, isDateTime, value, disabled, onChange, translationQuality }: {
     fieldKey: EntryKey;
     isDateTime?: boolean;
     value: string;
     disabled: boolean;
     onChange: (value: string) => void;
+    translationQuality?: string;
 }) {
     const id = `tester-entry-edit-${fieldKey}`;
-    const options = SELECT_OPTIONS[fieldKey];
+    let options = SELECT_OPTIONS[fieldKey];
+    if (fieldKey === "translationErrorType") {
+        options = getTranslationErrorOptions(translationQuality);
+    }
 
     if (options) {
         // Keep a stored value that isn't in today's list selectable, so
         // opening the editor never silently changes it.
         const withCurrent = value && !options.includes(value) ? [value, ...options] : options;
+        const isDisabled = disabled || (fieldKey === "translationErrorType" && !translationQuality);
+        const placeholder = fieldKey === "translationErrorType" && !translationQuality
+            ? "-- Select Translation Quality first --"
+            : "-- Select --";
         return (
-            <select id={id} className={INPUT_CLASS} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-                <option value="">-- Select --</option>
+            <select id={id} className={INPUT_CLASS} value={value} disabled={isDisabled} onChange={(e) => onChange(e.target.value)}>
+                <option value="">{placeholder}</option>
                 {withCurrent.map((o) => (
                     <option key={o} value={o}>{o}</option>
                 ))}
@@ -193,7 +234,15 @@ function FieldInput({ fieldKey, isDateTime, value, disabled, onChange }: {
     }
     if (TEXTAREA_KEYS.has(fieldKey)) {
         return (
-            <textarea id={id} rows={3} className={`${INPUT_CLASS} h-auto py-2 resize-y`} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+            <textarea
+                id={id}
+                rows={3}
+                maxLength={FIELD_MAX_LENGTHS[fieldKey]}
+                className={`${INPUT_CLASS} h-auto py-2 resize-y`}
+                value={value}
+                disabled={disabled}
+                onChange={(e) => onChange(e.target.value)}
+            />
         );
     }
     return (
@@ -201,6 +250,7 @@ function FieldInput({ fieldKey, isDateTime, value, disabled, onChange }: {
             id={id}
             type="text"
             list={LANGUAGE_KEYS.has(fieldKey) ? LANGUAGE_LIST_ID : undefined}
+            maxLength={FIELD_MAX_LENGTHS[fieldKey]}
             className={INPUT_CLASS}
             value={value}
             disabled={disabled}
@@ -244,6 +294,27 @@ function EditForm({ entry, onDone, mutation }: {
                     : undefined;
                 if (synthesized) next.overallTestStatus = synthesized;
             }
+            const isPass = (next.overallTestStatus || "").trim().toLowerCase() === "pass";
+            const wasPass = (prev.overallTestStatus || "").trim().toLowerCase() === "pass";
+            if (isPass) {
+                next.defectSeverity = "NA";
+                next.defectIdBugRef = "NA";
+            } else if (wasPass && (next.overallTestStatus || "").trim().toLowerCase() === "fail") {
+                if (next.defectSeverity === "NA") next.defectSeverity = "";
+                if (next.defectIdBugRef === "NA") next.defectIdBugRef = "";
+            }
+            if (key === "translationQuality") {
+                const allowed = TRANSLATION_ERROR_MAP[value.trim()];
+                if (allowed) {
+                    if (allowed.length === 1) {
+                        next.translationErrorType = allowed[0];
+                    } else if (!allowed.includes(next.translationErrorType || "")) {
+                        next.translationErrorType = "";
+                    }
+                } else {
+                    next.translationErrorType = "";
+                }
+            }
             return next;
         });
     }
@@ -252,6 +323,8 @@ function EditForm({ entry, onDone, mutation }: {
         const readOnly = READ_ONLY_KEYS.has(field.key);
         const rawValue = (entry[field.key] as string | undefined) ?? "";
         const isChanged = field.key in changes;
+        const isPass = (values.overallTestStatus || "").trim().toLowerCase() === "pass";
+        const isDefectFieldDisabled = isPass && (field.key === "defectSeverity" || field.key === "defectIdBugRef");
         return (
             <div
                 key={String(field.key)}
@@ -282,7 +355,8 @@ function EditForm({ entry, onDone, mutation }: {
                             fieldKey={field.key}
                             isDateTime={field.isDateTime}
                             value={values[field.key] ?? ""}
-                            disabled={isPending}
+                            disabled={isPending || isDefectFieldDisabled}
+                            translationQuality={values.translationQuality}
                             onChange={(v) => setField(field.key, v)}
                         />
                     )}
@@ -380,6 +454,123 @@ function EditForm({ entry, onDone, mutation }: {
         if (isTimeEarlier(modCompleted, modAssigned, effectiveDate)) {
             toast.error("Moderator Completion Time cannot be earlier than Assignment Time");
             return;
+        }
+
+        const bv = values.buildVersion !== undefined ? values.buildVersion.trim() : entry.buildVersion?.trim();
+        if (bv) {
+            if (bv.length > TEXT_FIELD_LIMITS.BUILD_VERSION_MAX) {
+                toast.error(`Build / Version cannot exceed ${TEXT_FIELD_LIMITS.BUILD_VERSION_MAX} characters`);
+                return;
+            }
+            if (!BUILD_VERSION_REGEX.test(bv)) {
+                toast.error("Build / Version must contain numbers and valid version characters (e.g. 1.0, 2.1.0, v1.0.1)");
+                return;
+            }
+        }
+
+        const qt = values.queryText !== undefined ? values.queryText.trim() : entry.queryText?.trim();
+        if (qt) {
+            if (qt.length < TEXT_FIELD_LIMITS.QUERY_TEXT_MIN) {
+                toast.error(`Query Text must be at least ${TEXT_FIELD_LIMITS.QUERY_TEXT_MIN} characters`);
+                return;
+            }
+            const fullQt = values.queryText !== undefined ? values.queryText : (entry.queryText || "");
+            if (fullQt.length > TEXT_FIELD_LIMITS.QUERY_TEXT_MAX) {
+                toast.error(`Query Text cannot exceed ${TEXT_FIELD_LIMITS.QUERY_TEXT_MAX} characters`);
+                return;
+            }
+        }
+
+        const tid = values.threadId !== undefined ? values.threadId.trim() : entry.threadId?.trim();
+        if (tid) {
+            if (tid.length > TEXT_FIELD_LIMITS.THREAD_ID_MAX) {
+                toast.error(`Thread ID cannot exceed ${TEXT_FIELD_LIMITS.THREAD_ID_MAX} characters`);
+                return;
+            }
+            if (!THREAD_ID_REGEX.test(tid)) {
+                toast.error("Thread ID contains invalid characters");
+                return;
+            }
+        }
+
+        if (isCross) {
+            const wtid = values.waThreadId !== undefined ? values.waThreadId.trim() : entry.waThreadId?.trim();
+            if (wtid) {
+                if (wtid.length > TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX) {
+                    toast.error(`WhatsApp Thread cannot exceed ${TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX} characters`);
+                    return;
+                }
+                if (!WA_THREAD_ID_REGEX.test(wtid)) {
+                    toast.error("WhatsApp Thread / Phone Number format is invalid");
+                    return;
+                }
+            }
+        }
+
+        for (const lKey of ["languageTested", "originalLanguage", "translatedLanguage"] as EntryKey[]) {
+            const lVal = (values[lKey] !== undefined ? values[lKey] : entry[lKey]) as string | undefined;
+            if (lVal?.trim() && lVal.trim() !== "Others") {
+                if (lVal.trim().length > TEXT_FIELD_LIMITS.LANGUAGE_MAX || !LANGUAGE_NAME_REGEX.test(lVal.trim())) {
+                    toast.error("Language name must be letters only and under 50 characters");
+                    return;
+                }
+            }
+        }
+
+        const an = values.authorsName !== undefined ? values.authorsName.trim() : entry.authorsName?.trim();
+        if (an) {
+            if (an.length < TEXT_FIELD_LIMITS.NAME_MIN || an.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(an)) {
+                toast.error("Author Name must be 2-100 characters and contain letters only");
+                return;
+            }
+        }
+        for (let i = 1; i <= 5; i++) {
+            const rKey = `reviewer${i}Name` as EntryKey;
+            const rn = (values[rKey] !== undefined ? values[rKey] : entry[rKey]) as string | undefined;
+            if (rn?.trim()) {
+                if (rn.trim().length < TEXT_FIELD_LIMITS.NAME_MIN || rn.trim().length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(rn.trim())) {
+                    toast.error(`Reviewer ${i} Name must be 2-100 characters and contain letters only`);
+                    return;
+                }
+            }
+        }
+        const mn = values.moderatorName !== undefined ? values.moderatorName.trim() : entry.moderatorName?.trim();
+        if (mn) {
+            if (mn.length < TEXT_FIELD_LIMITS.NAME_MIN || mn.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(mn)) {
+                toast.error("Moderator Name must be 2-100 characters and contain letters only");
+                return;
+            }
+        }
+
+        const cNotes = values.crossPlatformDiscrepancyNotes !== undefined ? values.crossPlatformDiscrepancyNotes : entry.crossPlatformDiscrepancyNotes;
+        if (cNotes && cNotes.length > TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX) {
+            toast.error(`Discrepancy Notes cannot exceed ${TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX} characters`);
+            return;
+        }
+
+        const bugRef = values.defectIdBugRef !== undefined ? values.defectIdBugRef.trim() : entry.defectIdBugRef?.trim();
+        if (bugRef && bugRef !== "NA") {
+            if (bugRef.length > TEXT_FIELD_LIMITS.DEFECT_URL_MAX) {
+                toast.error(`Defect URL cannot exceed ${TEXT_FIELD_LIMITS.DEFECT_URL_MAX} characters`);
+                return;
+            }
+            if (!HTTP_URL_REGEX.test(bugRef)) {
+                toast.error("Defect ID must be 'NA' or a valid URL starting with http:// or https://");
+                return;
+            }
+        }
+
+        const rNotes = values.testerRemarksNotes !== undefined ? values.testerRemarksNotes.trim() : entry.testerRemarksNotes?.trim();
+        if (rNotes) {
+            if (rNotes.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN) {
+                toast.error(`Remarks Details must be at least ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} characters`);
+                return;
+            }
+            const fullRn = values.testerRemarksNotes !== undefined ? values.testerRemarksNotes : (entry.testerRemarksNotes || "");
+            if (fullRn.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX) {
+                toast.error(`Remarks Details cannot exceed ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters`);
+                return;
+            }
         }
 
         mutate({ id: entry._id, changes }, { onSuccess: onDone });

@@ -373,9 +373,7 @@ export function synthesizeOverallTestStatus(webStatus?: string, waStatus?: strin
     const w1 = webStatus.toLowerCase();
     const w2 = waStatus.toLowerCase();
     if (w1 === "pass" && w2 === "pass") return "Pass";
-    if (w1 === "fail" && w2 === "fail") return "Fail";
-    if (w1 === "na" && w2 === "na") return "NA";
-    return "Partial";
+    return "Fail";
 }
 
 export const CHANNEL_OPTIONS = ['WhatsApp', 'WebApp', 'Both'];
@@ -459,7 +457,7 @@ export const QID_CONSISTENT_OPTIONS = [
     'Yes', 'No', 'NA', 'Successfully Identified as duplicate', 'Wrongly Identified as duplicate',
 ];
 
-export const OVERALL_STATUS_OPTIONS = ['Pass', 'Fail', 'Partial', 'NA'];
+export const OVERALL_STATUS_OPTIONS = ['Pass', 'Fail'];
 
 export const STATUS_OPTIONS = ['Anomaly Found in Output', 'Expected Output', 'Pending'];
 
@@ -473,6 +471,18 @@ export const TRANSLATION_ERROR_TYPE_OPTIONS = [
     'Partial Translation',
     'NA',
 ];
+
+export const TRANSLATION_ERROR_MAP: Record<string, string[]> = {
+    Good: ['No Error'],
+    Acceptable: ['Grammar Error'],
+    'Not Acceptable': ['Intent Error', 'Word Error', 'Partial Translation'],
+    NA: ['NA'],
+};
+
+export function getTranslationErrorOptions(quality?: string): string[] {
+    if (!quality) return [];
+    return TRANSLATION_ERROR_MAP[quality.trim()] || [];
+}
 
 export const DEFECT_SEVERITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low', 'NA'];
 
@@ -552,5 +562,32 @@ export const TAGGING_OPTIONS = [
 export const RETRIEVAL_ACCURACY_OPTIONS = [
     'Correct Retrieval',
     'Incorrect Retrieval',
+    'Partial Retrieval',
     'No Retrieval',
 ];
+
+export const TEXT_FIELD_LIMITS = {
+    QUERY_TEXT_MIN: 3,
+    QUERY_TEXT_MAX: 1000,
+    BUILD_VERSION_MAX: 50,
+    THREAD_ID_MAX: 100,
+    WA_THREAD_ID_MAX: 50,
+    NAME_MIN: 2,
+    NAME_MAX: 100,
+    DISCREPANCY_NOTES_MAX: 1000,
+    REMARKS_NOTES_MIN: 3,
+    REMARKS_NOTES_MAX: 2000,
+    LANGUAGE_MAX: 50,
+    DEFECT_URL_MAX: 500,
+    TEST_ID_MAX: 30,
+    SPRINT_CYCLE_MAX: 50,
+} as const;
+
+export const BUILD_VERSION_REGEX = /^(?=.*\d)[a-zA-Z0-9][a-zA-Z0-9.\-_/\s()]{0,49}$/;
+export const THREAD_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._:\-\/]{0,99}$/;
+export const WA_THREAD_ID_REGEX = /^(\+?[0-9]{7,15}|[a-zA-Z0-9._\-]{1,50})$/;
+export const PERSON_NAME_REGEX = /^[a-zA-Z\s.'\-]{2,100}$/;
+export const LANGUAGE_NAME_REGEX = /^[a-zA-Z\s,+/.\-]{2,50}$/;
+export const TEST_ID_REGEX = /^[a-zA-Z0-9._\-]{1,30}$/;
+export const HTTP_URL_REGEX = /^https?:\/\/.+/i;
+

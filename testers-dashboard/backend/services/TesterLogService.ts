@@ -273,6 +273,178 @@ export function validateTestDateNotFuture(testDate?: string, now: Date = new Dat
     }
 }
 
+export const TRANSLATION_ERROR_MAP: Record<string, string[]> = {
+    Good: ['No Error'],
+    Acceptable: ['Grammar Error'],
+    'Not Acceptable': ['Intent Error', 'Word Error', 'Partial Translation'],
+    NA: ['NA'],
+};
+
+export function validateTranslationMapping(quality?: string, errorType?: string): void {
+    if (!quality || !errorType) return;
+    const trimmedQ = quality.trim();
+    const trimmedE = errorType.trim();
+    if (!trimmedQ || !trimmedE) return;
+    const allowed = TRANSLATION_ERROR_MAP[trimmedQ];
+    if (allowed && !allowed.includes(trimmedE)) {
+        throw new BadRequestError(
+            `Translation Error Type "${trimmedE}" is not valid for Translation Quality "${trimmedQ}". Allowed: ${allowed.join(', ')}`,
+        );
+    }
+}
+
+export const TEXT_FIELD_LIMITS = {
+    QUERY_TEXT_MIN: 3,
+    QUERY_TEXT_MAX: 1000,
+    BUILD_VERSION_MAX: 50,
+    THREAD_ID_MAX: 100,
+    WA_THREAD_ID_MAX: 50,
+    NAME_MIN: 2,
+    NAME_MAX: 100,
+    DISCREPANCY_NOTES_MAX: 1000,
+    REMARKS_NOTES_MIN: 3,
+    REMARKS_NOTES_MAX: 2000,
+    LANGUAGE_MAX: 50,
+    DEFECT_URL_MAX: 500,
+    TEST_ID_MAX: 30,
+    SPRINT_CYCLE_MAX: 50,
+} as const;
+
+export const BUILD_VERSION_REGEX = /^(?=.*\d)[a-zA-Z0-9][a-zA-Z0-9.\-_/\s()]{0,49}$/;
+export const THREAD_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._:\-\/]{0,99}$/;
+export const WA_THREAD_ID_REGEX = /^(\+?[0-9]{7,15}|[a-zA-Z0-9._\-]{1,50})$/;
+export const PERSON_NAME_REGEX = /^[a-zA-Z\s.'\-]{2,100}$/;
+export const LANGUAGE_NAME_REGEX = /^[a-zA-Z\s,+/.\-]{2,50}$/;
+export const TEST_ID_REGEX = /^[a-zA-Z0-9._\-]{1,30}$/;
+export const HTTP_URL_REGEX = /^https?:\/\/.+/i;
+
+export function validateTextFields(e: Partial<TesterLogEntry>): void {
+    if (e.buildVersion !== undefined && e.buildVersion !== null) {
+        const bv = e.buildVersion.trim();
+        if (bv) {
+            if (bv.length > TEXT_FIELD_LIMITS.BUILD_VERSION_MAX || !BUILD_VERSION_REGEX.test(bv)) {
+                throw new BadRequestError(
+                    `Invalid Build / Version "${bv}". Must be a valid version format containing numbers (e.g. 1.0, 2.1.0, v1.0.1) and up to ${TEXT_FIELD_LIMITS.BUILD_VERSION_MAX} characters.`,
+                );
+            }
+        }
+    }
+
+    if (e.queryText !== undefined && e.queryText !== null) {
+        const q = e.queryText.trim();
+        if (q) {
+            if (q.length < TEXT_FIELD_LIMITS.QUERY_TEXT_MIN) {
+                throw new BadRequestError(`Query Text must be at least ${TEXT_FIELD_LIMITS.QUERY_TEXT_MIN} characters.`);
+            }
+            if (q.length > TEXT_FIELD_LIMITS.QUERY_TEXT_MAX) {
+                throw new BadRequestError(
+                    `Query Text must not exceed ${TEXT_FIELD_LIMITS.QUERY_TEXT_MAX} characters (received ${q.length} characters).`,
+                );
+            }
+        }
+    }
+
+    if (e.threadId !== undefined && e.threadId !== null) {
+        const t = e.threadId.trim();
+        if (t) {
+            if (t.length > TEXT_FIELD_LIMITS.THREAD_ID_MAX || !THREAD_ID_REGEX.test(t)) {
+                throw new BadRequestError(
+                    `Thread ID must be between 1 and ${TEXT_FIELD_LIMITS.THREAD_ID_MAX} characters and contain valid identifier characters.`,
+                );
+            }
+        }
+    }
+
+    if (e.waThreadId !== undefined && e.waThreadId !== null) {
+        const wt = e.waThreadId.trim();
+        if (wt) {
+            if (wt.length > TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX || !WA_THREAD_ID_REGEX.test(wt)) {
+                throw new BadRequestError(
+                    `WhatsApp Thread / Phone Number must be a valid phone number or identifier up to ${TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX} characters.`,
+                );
+            }
+        }
+    }
+
+    const nameFields: [keyof TesterLogEntry, string][] = [
+        ['authorsName', 'Author Name'],
+        ['reviewer1Name', 'Reviewer 1 Name'],
+        ['reviewer2Name', 'Reviewer 2 Name'],
+        ['reviewer3Name', 'Reviewer 3 Name'],
+        ['reviewer4Name', 'Reviewer 4 Name'],
+        ['reviewer5Name', 'Reviewer 5 Name'],
+        ['moderatorName', 'Moderator Name'],
+    ];
+    for (const [key, label] of nameFields) {
+        const val = e[key] as string | undefined;
+        if (val !== undefined && val !== null) {
+            const trimmed = val.trim();
+            if (trimmed && (trimmed.length < TEXT_FIELD_LIMITS.NAME_MIN || trimmed.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(trimmed))) {
+                throw new BadRequestError(
+                    `${label} must contain only letters and standard name characters (${TEXT_FIELD_LIMITS.NAME_MIN} to ${TEXT_FIELD_LIMITS.NAME_MAX} characters).`,
+                );
+            }
+        }
+    }
+
+    if (e.testerRemarksNotes !== undefined && e.testerRemarksNotes !== null) {
+        const notes = e.testerRemarksNotes.trim();
+        if (notes && (notes.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN || notes.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX)) {
+            throw new BadRequestError(
+                `Remarks Details must be between ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} and ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters.`,
+            );
+        }
+    }
+
+    if (e.crossPlatformDiscrepancyNotes !== undefined && e.crossPlatformDiscrepancyNotes !== null) {
+        const disc = e.crossPlatformDiscrepancyNotes.trim();
+        if (disc && disc.length > TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX) {
+            throw new BadRequestError(
+                `Discrepancy Notes must not exceed ${TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX} characters.`,
+            );
+        }
+    }
+
+    const langFields: [keyof TesterLogEntry, string][] = [
+        ['languageTested', 'Language Tested'],
+        ['originalLanguage', 'Original Language'],
+        ['translatedLanguage', 'Translated Language'],
+    ];
+    for (const [key, label] of langFields) {
+        const l = e[key] as string | undefined;
+        if (l !== undefined && l !== null) {
+            const trimmed = l.trim();
+            if (trimmed && (trimmed.length > TEXT_FIELD_LIMITS.LANGUAGE_MAX || !LANGUAGE_NAME_REGEX.test(trimmed))) {
+                throw new BadRequestError(
+                    `${label} must be a valid language name up to ${TEXT_FIELD_LIMITS.LANGUAGE_MAX} characters.`,
+                );
+            }
+        }
+    }
+
+    if (e.defectIdBugRef !== undefined && e.defectIdBugRef !== null) {
+        const bugRef = e.defectIdBugRef.trim();
+        if (bugRef && bugRef !== 'NA' && bugRef.toLowerCase() !== 'na') {
+            if (bugRef.startsWith('http://') || bugRef.startsWith('https://')) {
+                if (bugRef.length > TEXT_FIELD_LIMITS.DEFECT_URL_MAX) {
+                    throw new BadRequestError(
+                        `Defect ID / Zoho Ticket URL must not exceed ${TEXT_FIELD_LIMITS.DEFECT_URL_MAX} characters.`,
+                    );
+                }
+            }
+        }
+    }
+
+    if (e.testId !== undefined && e.testId !== null) {
+        const tid = e.testId.trim();
+        if (tid && (tid.length > TEXT_FIELD_LIMITS.TEST_ID_MAX || !TEST_ID_REGEX.test(tid))) {
+            throw new BadRequestError(
+                `Test ID must be a valid identifier up to ${TEXT_FIELD_LIMITS.TEST_ID_MAX} characters.`,
+            );
+        }
+    }
+}
+
 export function validateTimingPair(
     start?: string,
     end?: string,
@@ -673,6 +845,12 @@ export class TesterLogService implements ITesterLogService {
         // Reject inverted or future timestamps
         validateAllTimingPairs(body, testDate, now.getTime());
 
+        // Validate translation quality to error type mapping
+        validateTranslationMapping(body.translationQuality, body.translationErrorType);
+
+        // Validate text fields for format and length limits
+        validateTextFields(body);
+
         let testId = body.testId?.trim();
         if (!testId) {
             testId = await this.allocateNextTestId();
@@ -751,6 +929,14 @@ export class TesterLogService implements ITesterLogService {
                 );
             }
         }
+
+        // Only validate translation mapping if quality or error type was modified
+        if (changes.translationQuality !== undefined || changes.translationErrorType !== undefined) {
+            validateTranslationMapping(merged.translationQuality, merged.translationErrorType);
+        }
+
+        // Validate modified text fields for format and length limits
+        validateTextFields(changes);
 
         const $set: Partial<TesterLogEntry> = {
             ...changes,
