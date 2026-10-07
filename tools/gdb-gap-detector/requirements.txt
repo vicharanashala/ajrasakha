@@ -1,0 +1,9 @@
+# Runtime
+pymongo>=4.6.0
+
+# --- dev / test ---
+# Required only to run test_find_gap_candidates.py.
+# Install with:
+#   pip install -r requirements.txt
+pytest>=8.0.0
+mongomock>=4.1.0
