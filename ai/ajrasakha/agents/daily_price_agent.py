@@ -1254,6 +1254,14 @@ class DailyPriceInput(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     location_from_profile: Optional[bool] = None  # True when state/district/latitude/longitude are the farmer's profile location (answer adds a "change it in the profile section" note)
+    # Planner-supplied place details; accepted so the planner's tool call validates.
+    sub_places: Optional[list[str]] = None
+    sub_place_latitude: Optional[float] = None
+    sub_place_longitude: Optional[float] = None
+    sub_place_state: Optional[str] = None
+    sub_place_district: Optional[str] = None
+    village: Optional[str] = None
+    block: Optional[str] = None
 
 
 @tool(args_schema=DailyPriceInput)
@@ -1265,6 +1273,13 @@ async def daily_price(
     state: Optional[str] = None,
     district: Optional[str] = None,
     location_from_profile: Optional[bool] = None,
+    sub_places: Optional[list[str]] = None,
+    sub_place_latitude: Optional[float] = None,
+    sub_place_longitude: Optional[float] = None,
+    sub_place_state: Optional[str] = None,
+    sub_place_district: Optional[str] = None,
+    village: Optional[str] = None,
+    block: Optional[str] = None,
     config: RunnableConfig = None,
 ) -> str:
     """

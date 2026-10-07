@@ -104,8 +104,8 @@ DATA_SOURCE_IMD = "India Meteorological Department (IMD)"
 DATA_SOURCE_ANNAM = "Annam Weather Station"
 
 LOCATION_UNRESOLVED_MESSAGE = (
-    "Latitude, Longitude is not available for a given district, "
-    "so that we are unable to retrieve lat long to provide accurate advisory."
+    "Sorry, we could not find the weather for this place right now. "
+    "Please tell us your district and state, or check the location in your profile, and ask again."
 )
 
 _STATION_ID_FILE = os.path.join(_current_dir, "station_id.json")
