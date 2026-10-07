@@ -1050,8 +1050,23 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
           </tr>
 
           <!-- ========================================= -->
-          <!-- PUSH TO GDB & NOTIFY USER -->
+          <!-- TODAY'S CLOSURE SUMMARY -->
           <!-- ========================================= -->
+          <tr>
+            <td
+              colspan="2"
+              style="
+                padding: 14px 20px 8px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #9ca3af;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              "
+            >
+              Today's Closure Summary
+            </td>
+          </tr>
           <tr style="border-bottom: 1px solid #f3f4f6;">
             <td style="
               padding: 11px 20px 11px 32px;
