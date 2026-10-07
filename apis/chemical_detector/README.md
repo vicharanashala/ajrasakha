@@ -1,9 +1,20 @@
 # Banned/Restricted Chemical Detector API
 
 Checks author-submitted text for banned/restricted chemical names (including
-known aliases). Splits the text into 1/2/3-word chunks and fuzzy-matches each
-one against the chemical list pulled from Mongo (`type: "chemical"` docs in
-the `crop_master` collection), so it still catches close misspellings.
+known aliases). Splits the text into word-chunks (sized up to however many
+words the longest real chemical name has) and fuzzy-matches each one against
+the chemical list pulled from Mongo (`type: "chemical"` docs in the
+`crop_master` collection), so it still catches close misspellings, reordered
+words, "ph"/"f" spelling, formulation-code suffixes, leetspeak, and
+letter-spaced obfuscation.
+
+Fuzzy matching uses a word-frequency check (`wordfreq`) to tell "a real
+chemical name typo" apart from "a real English word that just looks
+similar" - e.g. "methyl" and "ammonium sulphate" require a near-exact match
+since they're genuine words, while "akdrin" (meaningless on its own) gets a
+more lenient one. See the comments above `_fuzzy_lookup` in `main.py` for
+the exact rule and its one known gap (a word that coincidentally resembles a
+chemical name but isn't in frequency data either, e.g. a place name).
 
 Port `8002`.
 
