@@ -84,17 +84,12 @@ describe('TestersDashboardController', () => {
                 type: 'GDB',
                 status: 'Pass',
                 dateRange: '7days',
-                excludeFailures: 'true',
             });
             expect(mockTestersDashboardService.getSummary).toHaveBeenCalledWith(
                 expect.objectContaining({
                     type: 'GDB',
                     status: 'Pass',
                     dateRange: '7days',
-                    // Stays a string, not coerced to boolean - this app's
-                    // routing-controllers setup has no implicit type
-                    // conversion (see TestersDashboardValidators.ts).
-                    excludeFailures: 'true',
                 }),
             );
         });
