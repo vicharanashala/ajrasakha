@@ -1085,7 +1085,7 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
               font-size: 13px;
               color: #4b5563;
             ">
-              Notify User
+              Notify User (Only) - Not Pushed to GDB
             </td>
             <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
               ${(stats.todayNotifyUser ?? 0).toLocaleString()}
