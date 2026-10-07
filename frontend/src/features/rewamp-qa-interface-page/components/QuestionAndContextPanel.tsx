@@ -76,14 +76,21 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   const [showAllMetadata, setShowAllMetadata] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Filter out current question from queue list
-  const queueQuestions = (questions || []).filter(
-    (q) => (q.id || (q as any)._id) !== (question?.id || (question as any)?._id)
-  );
+  // Filter out current question from queue list safely
+  const queueQuestions = (questions || [])
+    .filter(Boolean)
+    .filter(
+      (q) => (q?.id || (q as any)?._id) !== (question?.id || (question as any)?._id)
+    );
 
   const handleCopyQuestion = () => {
-    if (question?.text) {
-      navigator.clipboard.writeText(question.text);
+    const textToCopy =
+      question?.text ||
+      (question as any)?.question?.text ||
+      (question as any)?.question?.question ||
+      (question as any)?.question;
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       toast.success("Question copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
@@ -92,13 +99,21 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
 
   // Question card component for queue items
   const QuestionCard = ({ q }: { q: IQuestionContextData }) => {
-    const qId = q.id || (q as any)._id;
+    if (!q) return null;
+    const qId = q?.id || (q as any)?._id;
     const isSelected = selectedQuestionId === qId;
     const handleSelect = () => {
       // Switch to current tab and notify parent to select question
       setActiveTab("current");
       onQuestionSelect?.(qId);
     };
+    const questionText =
+      q?.text ||
+      (q as any)?.question?.text ||
+      (q as any)?.question?.question ||
+      (q as any)?.question ||
+      "—";
+
     return (
       <button
         type="button"
@@ -114,25 +129,25 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
             <Badge
               variant="destructive"
               className={`text-[11px] px-2 py-0.2 font-semibold rounded-md ${
-                q.priority === 'critical' ? 'bg-rose-500' :
-                q.priority === 'high' ? 'bg-orange-500' :
-                q.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                q?.priority === 'critical' ? 'bg-rose-500' :
+                q?.priority === 'high' ? 'bg-orange-500' :
+                q?.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
               }`}
             >
-              {q.priority ? q.priority.charAt(0).toUpperCase() + q.priority.slice(1) : "Medium"}
+              {q?.priority ? q.priority.charAt(0).toUpperCase() + q.priority.slice(1) : "Medium"}
             </Badge>
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {q.createdAt ? formatDate(new Date(q.createdAt)) : "—"}
+              {q?.createdAt ? formatDate(new Date(q.createdAt)) : "—"}
             </span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>{q.totalAnswersCount || 0}</span>
+            <span>{q?.totalAnswersCount || 0}</span>
           </div>
         </div>
         <p className="text-sm font-medium text-foreground leading-relaxed line-clamp-2">
-          {q.text}
+          {questionText}
         </p>
       </button>
     );
@@ -244,7 +259,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
             <p className="text-xs">Loading questions...</p>
           </div>
         ) : activeTab === "current" ? (
-          question && question.text ? (
+          question && (question.text || (question as any)?.question?.text || (question as any)?.question?.question || (question as any)?.question) ? (
             <>
               {/* Current Question Text Box */}
               <div className="p-3.5 rounded-xl border border-blue-100 dark:border-blue-950 bg-blue-50/40 dark:bg-blue-950/20 space-y-2.5">
@@ -253,35 +268,39 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
                     <Badge
                       variant="destructive"
                       className={`text-[11px] px-2 py-0.2 font-semibold rounded-md ${
-                        question.priority === "critical"
+                        question?.priority === "critical"
                           ? "bg-rose-500"
-                          : question.priority === "high"
+                          : question?.priority === "high"
                             ? "bg-orange-500"
-                            : question.priority === "medium"
+                            : question?.priority === "medium"
                               ? "bg-yellow-500"
                               : "bg-green-500"
                       }`}
                     >
-                      {question.priority
+                      {question?.priority
                         ? question.priority.charAt(0).toUpperCase() +
                           question.priority.slice(1)
                         : "Medium"}
                     </Badge>
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {question.createdAt
+                      {question?.createdAt
                         ? formatDate(new Date(question.createdAt))
                         : "—"}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                     <MessageSquare className="w-3.5 h-3.5" />
-                    <span>{question.totalAnswersCount || 0}</span>
+                    <span>{question?.totalAnswersCount || 0}</span>
                   </div>
                 </div>
 
                 <p className="text-sm font-medium text-foreground leading-relaxed">
-                  {question.text}
+                  {question?.text ||
+                    (question as any)?.question?.text ||
+                    (question as any)?.question?.question ||
+                    (question as any)?.question ||
+                    "—"}
                 </p>
               </div>
 
@@ -546,7 +565,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
         )}
 
         {/* Bottom Actions */}
-        {question && question.text && (
+        {question && (question.text || (question as any)?.question?.text || (question as any)?.question?.question || (question as any)?.question) && (
           <div className="pt-2 mt-auto grid grid-cols-2 gap-2">
             <Button
               variant="outline"

@@ -358,7 +358,7 @@ export const RevampReviewHistoryTimeline: React.FC<RevampReviewHistoryTimelinePr
                           <div className="text-foreground">
                             <ExpandableText
                               text={item.review.reason}
-                              maxLength={0}
+                              maxLength={180}
                               isExpanded={!!expandedAnswers[reviewKey]}
                               onToggle={() => {
                                 setExpandedAnswers((prev) => ({
@@ -573,12 +573,13 @@ export const RevampReviewHistoryTimeline: React.FC<RevampReviewHistoryTimelinePr
                     !item.approvedAnswer &&
                     !item.rejectedAnswer &&
                     item.status === "in-review" && (
-                      <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                      <div className="grid grid-cols-3 gap-1.5 pt-2 w-full">
                         <AcceptReviewDialog
                           checklist={checklist}
                           onChecklistChange={setChecklist}
                           isSubmitting={isSubmittingAnswer}
                           onConfirm={handleAccept}
+                          className="w-full min-w-0 h-8 px-1.5 text-xs font-semibold justify-center truncate"
                         />
 
                         <Button
@@ -586,19 +587,19 @@ export const RevampReviewHistoryTimeline: React.FC<RevampReviewHistoryTimelinePr
                           disabled={isSubmittingAnswer}
                           onClick={() => setIsRejectDialogOpen(true)}
                           variant="destructive"
-                          className="gap-1 h-8 px-3 text-xs"
+                          className="w-full min-w-0 h-8 px-1.5 text-xs font-semibold gap-1 justify-center shrink-0 whitespace-nowrap"
                         >
                           {isSubmittingAnswer &&
                           rejectionReason &&
                           isRejectionSubmitted ? (
                             <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Rejecting...
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                              <span className="truncate">Rejecting...</span>
                             </>
                           ) : (
                             <>
-                              <XCircle className="w-3 h-3" />
-                              Reject
+                              <XCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">Reject</span>
                             </>
                           )}
                         </Button>
@@ -606,20 +607,20 @@ export const RevampReviewHistoryTimeline: React.FC<RevampReviewHistoryTimelinePr
                         <Button
                           size="sm"
                           disabled={isSubmittingAnswer}
-                          className="gap-1 h-8 px-3 text-xs bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-600"
+                          className="w-full min-w-0 h-8 px-1.5 text-xs font-semibold gap-1 justify-center bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-700 shrink-0 whitespace-nowrap"
                           onClick={() => setIsModifyDialogOpen(true)}
                         >
                           {isSubmittingAnswer &&
                           rejectionReason &&
                           isRejectionSubmitted ? (
                             <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Modifying...
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                              <span className="truncate">Modifying...</span>
                             </>
                           ) : (
                             <>
-                              <Pencil className="w-3 h-3" />
-                              Modify
+                              <Pencil className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">Modify</span>
                             </>
                           )}
                         </Button>
@@ -627,66 +628,78 @@ export const RevampReviewHistoryTimeline: React.FC<RevampReviewHistoryTimelinePr
                     )}
 
                   {item.answer && item.status === "re-routed" && (
-                    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                      <AcceptReviewDialog
-                        checklist={checklist}
-                        onChecklistChange={setChecklist}
-                        isSubmitting={isSubmittingAnswer}
-                        onConfirm={handleAccept}
-                      />
+                    <div className="space-y-1.5 pt-2 w-full">
+                      <div className="grid grid-cols-3 gap-1.5 w-full">
+                        <AcceptReviewDialog
+                          checklist={checklist}
+                          onChecklistChange={setChecklist}
+                          isSubmitting={isSubmittingAnswer}
+                          onConfirm={handleAccept}
+                          className="w-full min-w-0 h-8 px-1.5 text-xs font-semibold justify-center truncate"
+                        />
+
+                        <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          onClick={() => setIsRejectDialogOpen(true)}
+                          variant="destructive"
+                          className="w-full min-w-0 h-8 px-1.5 text-xs font-semibold gap-1 justify-center shrink-0 whitespace-nowrap"
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                              <span className="truncate">Rejecting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">Reject</span>
+                            </>
+                          )}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          className="w-full min-w-0 h-8 px-1.5 text-xs font-semibold gap-1 justify-center bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-700 shrink-0 whitespace-nowrap"
+                          onClick={() => setIsModifyDialogOpen(true)}
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                              <span className="truncate">Modifying...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Pencil className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">Modify</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
 
                       <Button
                         size="sm"
-                        disabled={isSubmittingAnswer}
-                        onClick={() => setIsRejectDialogOpen(true)}
-                        variant="destructive"
-                        className="gap-1 h-8 px-3 text-xs"
-                      >
-                        {isSubmittingAnswer &&
-                        rejectionReason &&
-                        isRejectionSubmitted ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            Rejecting...
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-3 h-3" />
-                            Reject
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        disabled={isSubmittingAnswer}
-                        className="gap-1 h-8 px-3 text-xs bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-600"
-                        onClick={() => setIsModifyDialogOpen(true)}
-                      >
-                        {isSubmittingAnswer &&
-                        rejectionReason &&
-                        isRejectionSubmitted ? (
-                          <>
-                            <Pencil className="w-3 h-3" />
-                            Modify
-                          </>
-                        ) : (
-                          <>
-                            <Pencil className="w-3 h-3" />
-                            Modify
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        disabled={isSubmittingAnswer}
+                        disabled={isSubmittingAnswer || isRejecting}
                         onClick={() => setRerouteModal(true)}
                         variant="destructive"
-                        className="gap-1 h-8 px-3 text-xs"
+                        className="w-full h-8 px-2 text-xs font-semibold gap-1.5 justify-center shrink-0 shadow-xs"
                       >
-                        <XCircle className="w-3 h-3" />
-                        Reject ReRoute
+                        {isRejecting ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                            <span>Rejecting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>Reject ReRoute</span>
+                          </>
+                        )}
                       </Button>
 
                       <Dialog open={rerouteModal} onOpenChange={setRerouteModal}>

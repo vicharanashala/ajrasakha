@@ -68,7 +68,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, null, reviewLevel);
 
-  const questions = (questionPages?.pages?.flat() || []) as any[];
+  const questions = (questionPages?.pages?.flat() || []).filter(Boolean) as any[];
 
   // Auto-select first question or timebound question with priority
   useEffect(() => {
@@ -77,7 +77,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
         (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
       );
       if (timebound) {
-        setSelectedQuestionId(timebound.id || timebound._id);
+        setSelectedQuestionId(timebound?.id || timebound?._id);
       } else {
         const first = questions[0];
         setSelectedQuestionId(first?.id || first?._id);
@@ -97,7 +97,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     if (!currentId) return;
 
     const currentExists = questions.some(
-      (q) => (q.id || q._id) === currentId
+      (q) => (q?.id || q?._id) === currentId
     );
 
     if (!currentExists) {
@@ -106,7 +106,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
         (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
       );
       if (timebound) {
-        setSelectedQuestionId(timebound.id || timebound._id);
+        setSelectedQuestionId(timebound?.id || timebound?._id);
       } else {
         const first = questions[0];
         setSelectedQuestionId(first?.id || first?._id);
@@ -283,26 +283,42 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               question={
                 selectedQuestionData
                   ? ({
-                      id: selectedQuestionData.id || (selectedQuestionData as any)._id || "",
-                      text: selectedQuestionData.text || "",
-                      priority: selectedQuestionData.priority || "medium",
-                      createdAt: selectedQuestionData.createdAt,
-                      updatedAt: selectedQuestionData.updatedAt,
-                      totalAnswersCount: selectedQuestionData.totalAnswersCount || 0,
-                      status: selectedQuestionData.status,
-                      source: selectedQuestionData.source,
-                      assignedAt: selectedQuestionData.assignedAt,
-                      review_level_number: selectedQuestionData.review_level_number,
-                      aiInitialAnswer: selectedQuestionData.aiInitialAnswer,
-                      aiApprovedAnswer: selectedQuestionData.aiApprovedAnswer,
-                      details: selectedQuestionData.details ? {
-                        state: selectedQuestionData.details.state,
-                        district: selectedQuestionData.details.district,
-                        crop: selectedQuestionData.details.crop,
-                        normalised_crop: selectedQuestionData.details.normalised_crop,
-                        season: selectedQuestionData.details.season,
-                        domain: selectedQuestionData.details.domain,
-                      } : undefined,
+                      id: selectedQuestionData?.id || (selectedQuestionData as any)?._id || "",
+                      text:
+                        selectedQuestionData?.text ||
+                        (selectedQuestionData as any)?.question?.text ||
+                        (selectedQuestionData as any)?.question?.question ||
+                        (selectedQuestionData as any)?.question ||
+                        "",
+                      priority: selectedQuestionData?.priority || (selectedQuestionData as any)?.question?.priority || "medium",
+                      createdAt: selectedQuestionData?.createdAt || (selectedQuestionData as any)?.question?.createdAt,
+                      updatedAt: selectedQuestionData?.updatedAt,
+                      totalAnswersCount: selectedQuestionData?.totalAnswersCount || 0,
+                      status: selectedQuestionData?.status || (selectedQuestionData as any)?.question?.status,
+                      source: selectedQuestionData?.source,
+                      assignedAt: selectedQuestionData?.assignedAt,
+                      review_level_number: selectedQuestionData?.review_level_number,
+                      aiInitialAnswer: selectedQuestionData?.aiInitialAnswer,
+                      aiApprovedAnswer: selectedQuestionData?.aiApprovedAnswer,
+                      details: selectedQuestionData?.details
+                        ? {
+                            state: selectedQuestionData.details?.state,
+                            district: selectedQuestionData.details?.district,
+                            crop: selectedQuestionData.details?.crop,
+                            normalised_crop: selectedQuestionData.details?.normalised_crop,
+                            season: selectedQuestionData.details?.season,
+                            domain: selectedQuestionData.details?.domain,
+                          }
+                        : (selectedQuestionData as any)?.question?.details
+                          ? {
+                              state: (selectedQuestionData as any).question.details?.state,
+                              district: (selectedQuestionData as any).question.details?.district,
+                              crop: (selectedQuestionData as any).question.details?.crop,
+                              normalised_crop: (selectedQuestionData as any).question.details?.normalised_crop,
+                              season: (selectedQuestionData as any).question.details?.season,
+                              domain: (selectedQuestionData as any).question.details?.domain,
+                            }
+                          : undefined,
                     } as IQuestionContextData)
                   : questionData
               }

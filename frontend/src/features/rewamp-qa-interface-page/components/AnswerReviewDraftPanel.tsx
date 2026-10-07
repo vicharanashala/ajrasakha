@@ -246,7 +246,13 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   }, [selectedQuestionData]);
 
   const handleGenerateAiInitialAnswer = () => {
-    if (!selectedQuestionData?.text) {
+    const queryText =
+      selectedQuestionData?.text ||
+      (selectedQuestionData as any)?.question?.text ||
+      (selectedQuestionData as any)?.question?.question ||
+      (selectedQuestionData as any)?.question;
+
+    if (!queryText) {
       toast.error("Question text is required to generate AI answer.");
       return;
     }
@@ -254,16 +260,18 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     const crop =
       selectedQuestionData?.details?.crop ||
       (selectedQuestionData as any)?.crop ||
+      (selectedQuestionData as any)?.question?.details?.crop ||
       "";
     const state =
       selectedGenState ||
       selectedQuestionData?.details?.state ||
       (selectedQuestionData as any)?.state ||
+      (selectedQuestionData as any)?.question?.details?.state ||
       "";
 
     fetchAnswer(
       {
-        query: selectedQuestionData.text,
+        query: queryText,
         crop,
         state,
       },
