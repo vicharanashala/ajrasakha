@@ -17,7 +17,6 @@ import {
   Code2,
   Languages,
   RotateCcw,
-  CheckCircle2,
   Wand2,
   FileCheck,
   ArrowDownToLine,
@@ -621,7 +620,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <FileCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Reviewer Draft / Edit Answer</span>
+                <span>Reviewer Draft</span>
               </label>
 
               {/* Action Button: Reset (Icon only with hover Tooltip) */}
@@ -795,7 +794,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
             {/* Remarks Section */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold text-muted-foreground">
-                Remarks / Internal Notes
+                Remarks
               </Label>
               <Textarea
                 value={remarks}
@@ -811,12 +810,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
             </div>
 
             {/* Author Submit Action Bar */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Auto-saved to local session</span>
-              </div>
-
+            <div className="flex items-center justify-end pt-1">
               <ConfirmationModal
                 title="Submit Response"
                 description="You are the first expert responding to this question. Please cross-check your answer carefully before submitting — accurate responses improve your approval conversion rate."
