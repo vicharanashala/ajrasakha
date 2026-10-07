@@ -67,6 +67,11 @@ _MIN_SQUASHED_LEN = 4  # don't bother matching squashed strings shorter than thi
 # before giving up on a word lets us still catch the real chemical name inside it.
 _FORMULATION_SUFFIX_RE = re.compile(r"(-based|-insecticide|-pesticide|-formulation|\d+%?[a-z]{0,4})$")
 
+# any non-whitespace run - wider than _WORD_RE, which drops symbols like "@"
+# entirely. Needed to catch leetspeak ("M@l@thion") before it gets shredded.
+_RAW_TOKEN_RE = re.compile(r"\S+")
+_LEET_MAP = str.maketrans({"@": "a", "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "$": "s"})
+
 # difflib's ratio is 2*shared/(lenA+lenB), capped by the shorter string's length,
 # so two strings whose lengths are too far apart can NEVER reach SIMILARITY_CUTOFF
 # no matter what they contain. This is the min(lenA,lenB)/max(lenA,lenB) that's
@@ -79,10 +84,16 @@ _CANDIDATES: dict[str, tuple[str, str]] = {}
 _CANDIDATE_TERMS: list[str] = []
 _TERMS_BY_LEN: dict[int, list[str]] = {}  # same terms, grouped by length - see _candidates_near_length
 
-# same candidates again, but under two different normalizations, so we can
+# same candidates again, but under three different normalizations, so we can
 # catch matches the plain exact/fuzzy check above would miss:
 _CANDIDATES_SQUASHED: dict[str, tuple[str, str]] = {}  # punctuation stripped, e.g. "2,4,5-t" -> "245t"
 _CANDIDATES_SORTED: dict[str, tuple[str, str]] = {}  # words alphabetized, e.g. "calcium cyanide" -> "calcium cyanide" either order
+_CANDIDATES_PHF: dict[str, tuple[str, str]] = {}  # "ph" -> "f" (same sound), e.g. "mevinphos" -> "mevinfos"
+
+# how many words the longest real chemical name/alias has - computed from the
+# actual data in _ensure_loaded() instead of a fixed number, so a future name
+# longer than today's longest one still gets matched as a whole phrase.
+_MAX_CANDIDATE_WORDS = 3
 _LOADED = False
 
 
@@ -97,7 +108,8 @@ def _ensure_loaded() -> None:
     """Loads all chemical records from Mongo into memory, once. Every request
     calls this first, but after the first successful call it's just a no-op,
     so we're not hitting the DB on every single request."""
-    global _CANDIDATES, _CANDIDATE_TERMS, _TERMS_BY_LEN, _CANDIDATES_SQUASHED, _CANDIDATES_SORTED, _LOADED
+    global _CANDIDATES, _CANDIDATE_TERMS, _TERMS_BY_LEN
+    global _CANDIDATES_SQUASHED, _CANDIDATES_SORTED, _CANDIDATES_PHF, _MAX_CANDIDATE_WORDS, _LOADED
     if _LOADED:
         return
 
@@ -159,6 +171,12 @@ def _ensure_loaded() -> None:
         if len(term_words) >= 2:  # sorting a single word is a no-op, skip it
             _CANDIDATES_SORTED[" ".join(sorted(term_words))] = value
 
+    _CANDIDATES_PHF = {}
+    for term, value in candidates.items():
+        _CANDIDATES_PHF[term.replace("ph", "f")] = value
+
+    _MAX_CANDIDATE_WORDS = max((len(t.split()) for t in _CANDIDATE_TERMS), default=3)
+
     _LOADED = True
     log.info("[chemical_detector] loaded %d chemical names/aliases", len(_CANDIDATES))
 
@@ -204,6 +222,36 @@ def _fuzzy_lookup(term: str) -> tuple[str, str] | None:
     return _CANDIDATES[match[0]] if match else None
 
 
+def _collapse_letter_spaced_runs(words: list[str]) -> list[str]:
+    """Finds runs of 2+ consecutive single-letter words (e.g. from "E n d r i n"
+    typed with spaces between every letter) and joins each run into one word,
+    so it can be matched normally. Single letters almost never appear
+    back-to-back in real sentences, so this only ever triggers on this
+    specific obfuscation pattern."""
+    collapsed: list[str] = []
+    i = 0
+    while i < len(words):
+        if len(words[i]) == 1 and words[i].isalpha():
+            j = i
+            while j < len(words) and len(words[j]) == 1 and words[j].isalpha():
+                j += 1
+            if j - i >= 2:
+                collapsed.append("".join(words[i:j]))
+            i = j
+        else:
+            i += 1
+    return collapsed
+
+
+def _leet_decode(token: str) -> str | None:
+    """Replaces leetspeak stand-ins (@ -> a, 0 -> o, etc.) with the letter they
+    represent, e.g. "M@l@thion" -> "malathion". Returns None if the token has
+    none of those characters, so callers can skip the (rare) extra work."""
+    if not any(c in token for c in "@0134578$"):
+        return None
+    return token.translate(_LEET_MAP).lower()
+
+
 def _strip_formulation_suffix(term: str) -> str | None:
     """Removes a trailing dosage/formulation code or "-based" style suffix,
     e.g. "carbaryl50ec" -> "carbaryl", "aldrin-based" -> "aldrin". Returns None
@@ -217,21 +265,24 @@ def _strip_formulation_suffix(term: str) -> str | None:
 def detect_chemicals(text: str) -> dict[str, str]:
     """Scans the given text for banned/restricted chemicals.
 
-    Splits the text into words, then checks every 1-word, 2-word, and 3-word
-    combination against the known chemical names/aliases, longest first:
+    Splits the text into words, then checks every word-chunk (1 word up to
+    however many words the longest real chemical name has) against the known
+    chemical names/aliases, longest chunk first:
       1. exact match
       2. same words in a different order (e.g. "Cyanide Calcium" for "Calcium Cyanide")
-      3. fuzzy match, so small typos still get caught
-      4. if still nothing, strip a formulation/dosage suffix and retry 1-3
+      3. "ph" written as "f" or vice versa (e.g. "Mevinfos" for "Mevinphos")
+      4. fuzzy match, so small typos still get caught
+      5. if still nothing, strip a formulation/dosage suffix and retry 1-4
          (e.g. "Carbaryl50EC" -> "Carbaryl")
     Checking longest chunks first means once "methyl bromide" exact-matches,
-    we don't also separately fuzzy-check "methyl" on its own and wrongly flag
-    an unrelated chemical that it happens to resemble.
+    we don't also separately check "methyl" on its own and wrongly flag an
+    unrelated chemical that it happens to resemble.
 
-    Separately, also scans a punctuation-tolerant tokenization so chemical
-    codes like "2,4,5-T" (which contain commas) aren't broken apart by normal
-    word-splitting, matching them regardless of how the punctuation is written
-    ("2,4,5-T" vs "245T" both become "245t").
+    Three separate passes handle text normal word-splitting can't represent:
+      - a punctuation-tolerant tokenization for chemical codes like "2,4,5-T"
+        (commas), matching "2,4,5-T" and "245T" the same way
+      - collapsing runs of single letters typed with spaces ("E n d r i n")
+      - decoding leetspeak stand-ins ("M@l@thion" -> "malathion")
 
     Returns {chemical name: status}, with each chemical only appearing once
     even if it's mentioned multiple times in the text.
@@ -242,7 +293,7 @@ def detect_chemicals(text: str) -> dict[str, str]:
     seen_grams: set[str] = set()
     exact_covered: set[int] = set()  # word-indices already claimed by a bigger exact match
 
-    for n in (3, 2, 1):  # longest first, so exact hits can suppress shorter fuzzy sub-matches
+    for n in range(_MAX_CANDIDATE_WORDS, 0, -1):  # longest first, so exact hits can suppress shorter sub-matches
         for start, gram in _ngrams_with_pos(words, n):
             gram_l = gram.lower()
             if len(gram_l) < _MIN_TOKEN_LEN or gram_l in seen_grams:
@@ -250,17 +301,20 @@ def detect_chemicals(text: str) -> dict[str, str]:
             seen_grams.add(gram_l)  # don't re-check the same phrase twice
             span = range(start, start + n)
 
+            # this chunk is fully inside a longer chunk that already matched
+            # exactly - skip it entirely (exact or fuzzy), that's how "methyl"
+            # (inside an already-matched "methyl bromide") used to also wrongly
+            # flag the unrelated chemical "Methomyl" on its own, and how a real
+            # but shorter name nested inside a longer one (e.g. "Ethyl Mercury
+            # Chloride" inside "Methoxy Ethyl Mercury Chloride") used to fire
+            # alongside the more specific, correct match.
+            if span and all(i in exact_covered for i in span):
+                continue
+
             if gram_l in _CANDIDATES:
                 name, status = _CANDIDATES[gram_l]
                 found[name] = status
                 exact_covered.update(span)
-                continue
-
-            # this chunk is fully inside a longer chunk that already matched
-            # exactly - don't also fuzzy-check it, that's how "methyl" (inside
-            # an already-matched "methyl bromide") used to also wrongly flag
-            # the unrelated chemical "Methomyl" on its own.
-            if all(i in exact_covered for i in span):
                 continue
 
             if n >= 2:
@@ -269,6 +323,12 @@ def detect_chemicals(text: str) -> dict[str, str]:
                     name, status = _CANDIDATES_SORTED[sorted_gram]
                     found[name] = status
                     continue
+
+            phf_gram = gram_l.replace("ph", "f")
+            if phf_gram in _CANDIDATES_PHF:
+                name, status = _CANDIDATES_PHF[phf_gram]
+                found[name] = status
+                continue
 
             hit = _fuzzy_lookup(gram_l)
             if hit:
@@ -298,6 +358,47 @@ def detect_chemicals(text: str) -> dict[str, str]:
             if squashed in _CANDIDATES_SQUASHED:
                 name, status = _CANDIDATES_SQUASHED[squashed]
                 found[name] = status
+
+    # separate pass: letters typed with spaces between them ("E n d r i n")
+    for collapsed in _collapse_letter_spaced_runs(words):
+        collapsed_l = collapsed.lower()
+        if collapsed_l in _CANDIDATES:
+            name, status = _CANDIDATES[collapsed_l]
+            found[name] = status
+        else:
+            hit = _fuzzy_lookup(collapsed_l)
+            if hit:
+                found[hit[0]] = hit[1]
+
+    # separate pass: leetspeak ("M@l@thion")
+    for raw_token in _RAW_TOKEN_RE.findall(text):
+        decoded = _leet_decode(raw_token)
+        if not decoded or len(decoded) < _MIN_TOKEN_LEN:
+            continue
+        if decoded in _CANDIDATES:
+            name, status = _CANDIDATES[decoded]
+            found[name] = status
+        else:
+            hit = _fuzzy_lookup(decoded)
+            if hit:
+                found[hit[0]] = hit[1]
+
+    # the suppression above only applies within the main word-based pass - the
+    # punctuation/leetspeak/letter-spaced passes above run independently and
+    # don't know about it, so they can still re-add a name that's actually
+    # just a less-specific piece of another match we already have (e.g.
+    # "Ethyl Mercury Chloride" re-appearing alongside "Methoxy Ethyl Mercury
+    # Chloride", which contains it). Drop any found name that's a whole-word
+    # substring of another found name, keeping the more specific one.
+    if len(found) > 1:
+        names = list(found)
+        for name in names:
+            contained_in_another = any(
+                other != name and f" {name.lower()} " in f" {other.lower()} "
+                for other in names
+            )
+            if contained_in_another:
+                del found[name]
 
     return found
 
