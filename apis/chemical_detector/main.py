@@ -55,6 +55,18 @@ SIMILARITY_CUTOFF = 0.85  # how close a word needs to match a chemical name/alia
 _MIN_TOKEN_LEN = 3  # skip tiny words like "a", "ok" - too short to match anything meaningfully
 _WORD_RE = re.compile(r"[A-Za-z0-9'-]+")  # pulls out words, drops punctuation
 
+# a second, wider tokenizer that keeps commas/periods inside a word - needed
+# for chemical codes like "2,4,5-T" or "2,4-D", which _WORD_RE would otherwise
+# shred into meaningless fragments ("2", "4", "5-t") because it doesn't treat
+# "," as part of a word. Only used for the punctuation-normalized pass below.
+_CODE_RE = re.compile(r"[A-Za-z0-9,.\-]+")
+_MIN_SQUASHED_LEN = 4  # don't bother matching squashed strings shorter than this
+
+# trailing formulation/dosage code or a "-based"/"-insecticide" style suffix,
+# e.g. "Carbaryl50EC" -> "carbaryl", "Aldrin-based" -> "aldrin". Stripping this
+# before giving up on a word lets us still catch the real chemical name inside it.
+_FORMULATION_SUFFIX_RE = re.compile(r"(-based|-insecticide|-pesticide|-formulation|\d+%?[a-z]{0,4})$")
+
 # difflib's ratio is 2*shared/(lenA+lenB), capped by the shorter string's length,
 # so two strings whose lengths are too far apart can NEVER reach SIMILARITY_CUTOFF
 # no matter what they contain. This is the min(lenA,lenB)/max(lenA,lenB) that's
@@ -66,14 +78,26 @@ _LEN_RATIO_BOUND = SIMILARITY_CUTOFF / (2 - SIMILARITY_CUTOFF)
 _CANDIDATES: dict[str, tuple[str, str]] = {}
 _CANDIDATE_TERMS: list[str] = []
 _TERMS_BY_LEN: dict[int, list[str]] = {}  # same terms, grouped by length - see _candidates_near_length
+
+# same candidates again, but under two different normalizations, so we can
+# catch matches the plain exact/fuzzy check above would miss:
+_CANDIDATES_SQUASHED: dict[str, tuple[str, str]] = {}  # punctuation stripped, e.g. "2,4,5-t" -> "245t"
+_CANDIDATES_SORTED: dict[str, tuple[str, str]] = {}  # words alphabetized, e.g. "calcium cyanide" -> "calcium cyanide" either order
 _LOADED = False
+
+
+def _squash(s: str) -> str:
+    """Lowercase and strip everything that isn't a letter or digit.
+    "2,4,5-T" and "245T" both become "245t" - lets us match chemical codes
+    however their punctuation is written, as long as the letters/digits agree."""
+    return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
 def _ensure_loaded() -> None:
     """Loads all chemical records from Mongo into memory, once. Every request
     calls this first, but after the first successful call it's just a no-op,
     so we're not hitting the DB on every single request."""
-    global _CANDIDATES, _CANDIDATE_TERMS, _TERMS_BY_LEN, _LOADED
+    global _CANDIDATES, _CANDIDATE_TERMS, _TERMS_BY_LEN, _CANDIDATES_SQUASHED, _CANDIDATES_SORTED, _LOADED
     if _LOADED:
         return
 
@@ -122,6 +146,19 @@ def _ensure_loaded() -> None:
     _TERMS_BY_LEN = {}
     for term in _CANDIDATE_TERMS:
         _TERMS_BY_LEN.setdefault(len(term), []).append(term)
+
+    _CANDIDATES_SQUASHED = {}
+    for term, value in candidates.items():
+        squashed = _squash(term)
+        if len(squashed) >= _MIN_SQUASHED_LEN:
+            _CANDIDATES_SQUASHED[squashed] = value
+
+    _CANDIDATES_SORTED = {}
+    for term, value in candidates.items():
+        term_words = term.split()
+        if len(term_words) >= 2:  # sorting a single word is a no-op, skip it
+            _CANDIDATES_SORTED[" ".join(sorted(term_words))] = value
+
     _LOADED = True
     log.info("[chemical_detector] loaded %d chemical names/aliases", len(_CANDIDATES))
 
@@ -150,19 +187,52 @@ def _candidates_near_length(n: int) -> list[str]:
 # C-implemented, drop-in) rather than hand-rolling a smarter index here.
 
 
-def _ngrams(words: list[str], n: int) -> list[str]:
-    """Groups a list of words into consecutive chunks of n words.
-    e.g. n=2 on ["the","farmer","used","lasso"] -> ["the farmer","farmer used","used lasso"].
-    Needed because some chemical names are 2-3 words long (e.g. "Benzene Hexachloride")."""
-    return [" ".join(words[i : i + n]) for i in range(len(words) - n + 1)]
+def _ngrams_with_pos(words: list[str], n: int) -> list[tuple[int, str]]:
+    """Same idea as grouping words into consecutive n-word chunks, but also
+    hands back the starting word-index of each chunk. We need the position so
+    that once a long chunk gets a confident exact match, we can tell which
+    shorter chunks are "inside" it and skip double-checking those."""
+    return [(i, " ".join(words[i : i + n])) for i in range(len(words) - n + 1)]
+
+
+def _fuzzy_lookup(term: str) -> tuple[str, str] | None:
+    """Fuzzy-match one term against the candidate list (see _candidates_near_length
+    for why we don't scan the whole list). Returns (name, status) or None."""
+    match = difflib.get_close_matches(
+        term, _candidates_near_length(len(term)), n=1, cutoff=SIMILARITY_CUTOFF
+    )
+    return _CANDIDATES[match[0]] if match else None
+
+
+def _strip_formulation_suffix(term: str) -> str | None:
+    """Removes a trailing dosage/formulation code or "-based" style suffix,
+    e.g. "carbaryl50ec" -> "carbaryl", "aldrin-based" -> "aldrin". Returns None
+    if there's nothing to strip, so callers can tell "no change" from "stripped
+    down to the same string" (which can't actually happen here, but is cheap
+    to tell apart)."""
+    stripped = _FORMULATION_SUFFIX_RE.sub("", term).rstrip("-")
+    return stripped if stripped and stripped != term else None
 
 
 def detect_chemicals(text: str) -> dict[str, str]:
     """Scans the given text for banned/restricted chemicals.
 
     Splits the text into words, then checks every 1-word, 2-word, and 3-word
-    combination against the known chemical names/aliases. Exact matches are
-    free; anything else gets a fuzzy match so small typos still get caught.
+    combination against the known chemical names/aliases, longest first:
+      1. exact match
+      2. same words in a different order (e.g. "Cyanide Calcium" for "Calcium Cyanide")
+      3. fuzzy match, so small typos still get caught
+      4. if still nothing, strip a formulation/dosage suffix and retry 1-3
+         (e.g. "Carbaryl50EC" -> "Carbaryl")
+    Checking longest chunks first means once "methyl bromide" exact-matches,
+    we don't also separately fuzzy-check "methyl" on its own and wrongly flag
+    an unrelated chemical that it happens to resemble.
+
+    Separately, also scans a punctuation-tolerant tokenization so chemical
+    codes like "2,4,5-T" (which contain commas) aren't broken apart by normal
+    word-splitting, matching them regardless of how the punctuation is written
+    ("2,4,5-T" vs "245T" both become "245t").
+
     Returns {chemical name: status}, with each chemical only appearing once
     even if it's mentioned multiple times in the text.
     """
@@ -170,28 +240,63 @@ def detect_chemicals(text: str) -> dict[str, str]:
     words = _WORD_RE.findall(text)
     found: dict[str, str] = {}
     seen_grams: set[str] = set()
+    exact_covered: set[int] = set()  # word-indices already claimed by a bigger exact match
 
-    for n in (1, 2, 3):
-        for gram in _ngrams(words, n):
+    for n in (3, 2, 1):  # longest first, so exact hits can suppress shorter fuzzy sub-matches
+        for start, gram in _ngrams_with_pos(words, n):
             gram_l = gram.lower()
             if len(gram_l) < _MIN_TOKEN_LEN or gram_l in seen_grams:
                 continue
             seen_grams.add(gram_l)  # don't re-check the same phrase twice
+            span = range(start, start + n)
 
             if gram_l in _CANDIDATES:
-                # exact hit, no need to bother with fuzzy matching
                 name, status = _CANDIDATES[gram_l]
                 found[name] = status
+                exact_covered.update(span)
                 continue
 
-            # not an exact hit - see if it's close enough to count as a typo/variant.
-            # only compare against similarly-long candidates (see _candidates_near_length)
-            # instead of the whole list - same result, much less work at scale.
-            match = difflib.get_close_matches(
-                gram_l, _candidates_near_length(len(gram_l)), n=1, cutoff=SIMILARITY_CUTOFF
-            )
-            if match:
-                name, status = _CANDIDATES[match[0]]
+            # this chunk is fully inside a longer chunk that already matched
+            # exactly - don't also fuzzy-check it, that's how "methyl" (inside
+            # an already-matched "methyl bromide") used to also wrongly flag
+            # the unrelated chemical "Methomyl" on its own.
+            if all(i in exact_covered for i in span):
+                continue
+
+            if n >= 2:
+                sorted_gram = " ".join(sorted(gram_l.split()))
+                if sorted_gram in _CANDIDATES_SORTED:
+                    name, status = _CANDIDATES_SORTED[sorted_gram]
+                    found[name] = status
+                    continue
+
+            hit = _fuzzy_lookup(gram_l)
+            if hit:
+                found[hit[0]] = hit[1]
+                continue
+
+            stripped = _strip_formulation_suffix(gram_l)
+            if stripped and len(stripped) >= _MIN_TOKEN_LEN:
+                if stripped in _CANDIDATES:
+                    name, status = _CANDIDATES[stripped]
+                    found[name] = status
+                else:
+                    hit = _fuzzy_lookup(stripped)
+                    if hit:
+                        found[hit[0]] = hit[1]
+
+    # separate pass: punctuation-tolerant tokenization, for chemical codes
+    # like "2,4,5-T" that normal word-splitting would otherwise shred
+    code_words = _CODE_RE.findall(text)
+    seen_squashed: set[str] = set()
+    for n in (1, 2, 3):
+        for _, gram in _ngrams_with_pos(code_words, n):
+            squashed = _squash(gram)
+            if len(squashed) < _MIN_SQUASHED_LEN or squashed in seen_squashed:
+                continue
+            seen_squashed.add(squashed)
+            if squashed in _CANDIDATES_SQUASHED:
+                name, status = _CANDIDATES_SQUASHED[squashed]
                 found[name] = status
 
     return found
