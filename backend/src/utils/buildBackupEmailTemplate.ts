@@ -1050,6 +1050,34 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
           </tr>
 
           <!-- ========================================= -->
+          <!-- PUSH TO GDB & NOTIFY USER -->
+          <!-- ========================================= -->
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="
+              padding: 11px 20px 11px 32px;
+              font-size: 13px;
+              color: #4b5563;
+            ">
+              Push to GDB
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
+              ${(stats.todayGdbPush ?? 0).toLocaleString()}
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="
+              padding: 11px 20px 11px 32px;
+              font-size: 13px;
+              color: #4b5563;
+            ">
+              Notify User
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
+              ${(stats.todayNotifyUser ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
+          <!-- ========================================= -->
           <!-- TOTAL QUESTIONS ENTERED IN SYSTEM TODAY -->
           <!-- ========================================= -->
 

@@ -70,6 +70,10 @@ export interface DailyStats {
   todayPass?: number;
   todayDynamicClosed?: number;
   todayDuplicateClosed?: number;
+  // Push to GDB: questions with status=closed (by moderator/auditor) in the period
+  todayGdbPush?: number;
+  // Notify User: questions with status=dynamic_closed or duplicate_closed in the period
+  todayNotifyUser?: number;
   // Questions entered into the system today (by createdAt), broken down by source.
   todayAddedWebAppCount?: number;
   todayAddedWhatSappCount?: number;
@@ -214,7 +218,9 @@ export const getDailyStats = async (
     gdbByAuditor,
     todayPass,
     todayDynamicClosed,
-    todayDuplicateClosed
+    todayDuplicateClosed,
+    gdbPushCount,
+    notifyUserCount
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
@@ -318,6 +324,18 @@ export const getDailyStats = async (
     questionRepository.count({
       isTesting: { $ne: true },
       status: 'duplicate_closed',
+      closedAt: dateRange,
+    }),
+    // ── Push to GDB: questions with status=closed in the period
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      closedAt: dateRange,
+    }),
+    // ── Notify User: questions with status=dynamic_closed or duplicate_closed in the period
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['dynamic_closed', 'duplicate_closed'] },
       closedAt: dateRange,
     }),
   ]);
@@ -429,6 +447,8 @@ export const getDailyStats = async (
     todayAddedWhatSappCount,
     todayAddedOutReachCount,
     todayAddedAgriExpertCount,
-    todayAddedTypeBySource
+    todayAddedTypeBySource,
+    todayGdbPush: gdbPushCount,
+    todayNotifyUser: notifyUserCount
   };
 };
