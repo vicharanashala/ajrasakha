@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import re
+from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
@@ -19,7 +20,18 @@ logging.basicConfig(
 )
 log = logging.getLogger("chemical_detector")
 
-load_dotenv()  # picks up .env locally, no-op on Render where vars are set in the dashboard
+# this service's own .env wins if present; the repo root .env is a fallback
+# for anything not set here (load_dotenv never overwrites an already-set var,
+# so loading the local one first gives it priority). No-op on Render, where
+# vars are set directly in the dashboard per service - there's no root .env there.
+# Also a no-op inside Docker: the repo's apis/chemical_detector/ nesting only
+# exists on the host - in the container everything is flattened to /app, so
+# there's no repo root to find (and Compose's env_file already injected
+# everything as real env vars before this even runs, so it's not needed there).
+load_dotenv()
+_parents = Path(__file__).resolve().parents
+if len(_parents) > 2:
+    load_dotenv(_parents[2] / ".env")
 
 app = FastAPI(title="Banned/Restricted Chemical Detector")
 

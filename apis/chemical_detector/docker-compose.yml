@@ -4,7 +4,8 @@ services:
     ports:
       - "8002:8002"   # host:container - hit it locally at localhost:8002
     env_file:
-      - .env   # CHEMICAL_DB_URL etc, not committed - copy .env.example to .env first
+      - ../../.env   # repo root - optional fallback (e.g. a shared CHEMICAL_DB_URL)
+      - .env   # this service's own config, not committed - copy .env.example to .env first; overrides the root one if both set a key
     volumes:
       - .:/app   # mounts the code in so you don't have to rebuild on every change
     restart: always
