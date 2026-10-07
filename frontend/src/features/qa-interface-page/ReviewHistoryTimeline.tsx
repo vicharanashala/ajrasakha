@@ -376,7 +376,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                             {/* {item.review.reason} */}
                             <ExpandableText
                               text={item.review.reason}
-                              maxLength={0}
+                              maxLength={180}
                               isExpanded={!!expandedAnswers[reviewKey]}
                                 onToggle={() => {
                                   setExpandedAnswers(prev => ({

@@ -289,7 +289,7 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
                     Current Query:
                   </Label>
                   <p className="text-sm p-3 rounded-md border bg-muted/50">
-                    {selectedQuestionData.text}
+                    {selectedQuestionData?.text || (selectedQuestionData as any)?.question?.text || (selectedQuestionData as any)?.question?.question || (selectedQuestionData as any)?.question || "—"}
                   </p>
                 </div>
 

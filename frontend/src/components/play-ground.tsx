@@ -3,6 +3,7 @@ import {
   TabsContent,
 } from "@/components/atoms/tabs";
 import { QAInterface } from "../features/qa-interface-page/QA-interface";
+import { RevampQaLayout } from "../features/rewamp-qa-interface-page";
 // import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
@@ -366,6 +367,21 @@ export const PlaygroundPage = () => {
                     selectQuestionType={selectedQuestionType}
                     onManualSelectQuestionType={setSelectedQuestionType}
                   />
+                </TabsContent>
+              )}
+              {user && user.role === "expert" && (
+                <TabsContent
+                  value="revamp_qa"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <RevampQaLayout />
                 </TabsContent>
               )}
               {user && user.role !== "call_agent" && (
