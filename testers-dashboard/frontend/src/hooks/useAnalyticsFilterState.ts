@@ -6,7 +6,21 @@ import { EMPTY_FILTERS } from "../components/analyticsFilterFields";
 // Dynamic/Static type tree) shared by SheetAnalyticsSection and
 // DbAnalyticsSection. Each section calls this hook itself, so the two
 // sources keep fully independent filter selections.
-export function useAnalyticsFilterState() {
+//
+// `treeOptions` are the Type of Question tree's sub-type options, used for
+// the select-all/"N selected" logic - Google Sheet Analytics uses the
+// default; Database Logs Analytics passes the Tester UI's types.
+export interface IAnalyticsTypeTreeValues {
+  dynamic: { value: string }[];
+  static: { value: string }[];
+}
+
+const SHEET_TYPE_TREE_VALUES: IAnalyticsTypeTreeValues = {
+  dynamic: DYNAMIC_SUB_TYPE_OPTIONS,
+  static: STATIC_SUB_TYPE_OPTIONS,
+};
+
+export function useAnalyticsFilterState(treeOptions: IAnalyticsTypeTreeValues = SHEET_TYPE_TREE_VALUES) {
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -37,7 +51,7 @@ export function useAnalyticsFilterState() {
     // Reaching zero items resets the branch to unselected rather than
     // reverting to "everything included" while still showing as selected.
     const effectivePrev =
-      dynamicSubTypes.length === 0 && typeBranch === "Dynamic" ? DYNAMIC_SUB_TYPE_OPTIONS.map((o) => o.value) : dynamicSubTypes;
+      dynamicSubTypes.length === 0 && typeBranch === "Dynamic" ? treeOptions.dynamic.map((o) => o.value) : dynamicSubTypes;
     const next = effectivePrev.includes(value) ? effectivePrev.filter((v) => v !== value) : [...effectivePrev, value];
     setTypeBranch(next.length === 0 ? "all" : "Dynamic");
     setDynamicSubTypes(next);
@@ -52,13 +66,13 @@ export function useAnalyticsFilterState() {
   function toggleDynamicSelectAll() {
     setStaticSubTypes([]);
     const isFullyChecked =
-      typeBranch === "Dynamic" && (dynamicSubTypes.length === 0 || dynamicSubTypes.length === DYNAMIC_SUB_TYPE_OPTIONS.length);
+      typeBranch === "Dynamic" && (dynamicSubTypes.length === 0 || dynamicSubTypes.length === treeOptions.dynamic.length);
     if (isFullyChecked) {
       setTypeBranch("all");
       setDynamicSubTypes([]);
     } else {
       setTypeBranch("Dynamic");
-      setDynamicSubTypes(DYNAMIC_SUB_TYPE_OPTIONS.map((o) => o.value));
+      setDynamicSubTypes(treeOptions.dynamic.map((o) => o.value));
     }
   }
 
@@ -66,7 +80,7 @@ export function useAnalyticsFilterState() {
     setDynamicSubTypes([]);
     // Same reasoning as toggleDynamicSubType above.
     const effectivePrev =
-      staticSubTypes.length === 0 && typeBranch === "Static" ? STATIC_SUB_TYPE_OPTIONS.map((o) => o.value) : staticSubTypes;
+      staticSubTypes.length === 0 && typeBranch === "Static" ? treeOptions.static.map((o) => o.value) : staticSubTypes;
     const next = effectivePrev.includes(value) ? effectivePrev.filter((v) => v !== value) : [...effectivePrev, value];
     setTypeBranch(next.length === 0 ? "all" : "Static");
     setStaticSubTypes(next);
@@ -76,23 +90,23 @@ export function useAnalyticsFilterState() {
   function toggleStaticSelectAll() {
     setDynamicSubTypes([]);
     const isFullyChecked =
-      typeBranch === "Static" && (staticSubTypes.length === 0 || staticSubTypes.length === STATIC_SUB_TYPE_OPTIONS.length);
+      typeBranch === "Static" && (staticSubTypes.length === 0 || staticSubTypes.length === treeOptions.static.length);
     if (isFullyChecked) {
       setTypeBranch("all");
       setStaticSubTypes([]);
     } else {
       setTypeBranch("Static");
-      setStaticSubTypes(STATIC_SUB_TYPE_OPTIONS.map((o) => o.value));
+      setStaticSubTypes(treeOptions.static.map((o) => o.value));
     }
   }
 
   function typeSummaryLabel(): string {
     if (typeBranch === "Dynamic") {
-      if (dynamicSubTypes.length === 0 || dynamicSubTypes.length === DYNAMIC_SUB_TYPE_OPTIONS.length) return "Dynamic";
+      if (dynamicSubTypes.length === 0 || dynamicSubTypes.length === treeOptions.dynamic.length) return "Dynamic";
       return `Dynamic (${dynamicSubTypes.length} selected)`;
     }
     if (typeBranch === "Static") {
-      if (staticSubTypes.length === 0 || staticSubTypes.length === STATIC_SUB_TYPE_OPTIONS.length) return "Static";
+      if (staticSubTypes.length === 0 || staticSubTypes.length === treeOptions.static.length) return "Static";
       return `Static (${staticSubTypes.length} selected)`;
     }
     return "All";

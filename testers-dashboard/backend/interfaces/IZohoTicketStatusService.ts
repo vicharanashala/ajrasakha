@@ -20,18 +20,27 @@ export interface ZohoTicketStatus {
     lastCheckedAt: string;
 }
 
+// Result of a direct Zoho ticket list fetch.
+export interface ZohoTicketsSnapshot {
+    // False when the Zoho env vars aren't set - statuses is then empty.
+    configured: boolean;
+    // Every Bugs Tracker ticket keyed by ticketId (excluded teams removed).
+    statuses: Record<string, ZohoTicketStatus>;
+    // When these statuses were fetched from Zoho; null if never fetched.
+    fetchedAt: string | null;
+    // True when the latest fetch failed and these are the previous fetch's statuses.
+    stale: boolean;
+    error?: string;
+}
+
 export interface IZohoTicketStatusService {
     /**
-     * Pages through Zoho Desk's ticket list endpoint, keeps only tickets in the "Bugs
-     * Tracker" layout (other products' layouts are excluded), and replaces the cache
-     * wholesale. This is the ticket card's ONLY source of tickets - not the sheet.
+     * Current Bugs Tracker tickets, fetched directly from Zoho Desk's ticket list endpoint
+     * (all pages) when requested - no scheduled sync. A fetch younger than `maxAgeMs`
+     * (default ZOHO_TICKETS_MAX_AGE_SECONDS, 60s) is reused, and concurrent requests share
+     * one fetch. This is the ticket card's ONLY source of tickets - not the QA sheet/CSV.
      */
-    syncAllBugsTrackerTickets(): Promise<void>;
-
-    /**
-     * Returns whatever statuses are currently cached (does not hit Zoho).
-     */
-    getCachedStatuses(): Record<string, ZohoTicketStatus>;
+    getTicketStatuses(options?: { maxAgeMs?: number }): Promise<ZohoTicketsSnapshot>;
 
     /**
      * Creates a new ticket in Zoho Desk and returns the created ticket details.

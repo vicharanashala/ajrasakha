@@ -58,10 +58,12 @@ export function AdditionalMetrics({
   // category, same count Pass Rate is built from) rather than
   // distinctSuccessRows, which double-counts rows with failures elsewhere -
   // this keeps Failures + Successes summing to N and Successes matching Pass Rate.
+  // (DB-native summaries send noFailureRows instead: their Pass/Fail comes
+  // from Overall Test Status, so totalPassed isn't "no failures" there.)
   const activeCriticalDistinctRows =
     activeCriticalTab === "failures"
       ? kpis.criticalFailureCategories.distinctFailureRows
-      : kpis.totalPassed;
+      : (kpis.criticalFailureCategories.noFailureRows ?? kpis.totalPassed);
   // Sorted by count within the active tab; a category's rank can differ
   // between the Failures and Successes tabs.
   const activeCriticalCategories = [...kpis.criticalFailureCategories.categories]

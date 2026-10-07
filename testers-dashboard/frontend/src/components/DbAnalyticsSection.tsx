@@ -1,8 +1,9 @@
-import { useTestersDashboardSummary } from "../hooks/useTestersDashboardSummary";
+import { useDbAnalyticsSummary } from "../hooks/useDbAnalyticsSummary";
 import { useAnalyticsFilterState } from "../hooks/useAnalyticsFilterState";
 import { useAnalyticsViewState } from "../hooks/useAnalyticsViewState";
 import { AnalyticsDashboardBody } from "./AnalyticsDashboardBody";
 import { AnalyticsSectionHeader, formatLastUpdated } from "./AnalyticsSectionHeader";
+import { DB_FILTER_FIELDS, DB_TYPE_TREE, dbTypeTreeWithCounts } from "./dbFilterFields";
 
 export interface DbAnalyticsSectionProps {
   title?: string;
@@ -11,26 +12,27 @@ export interface DbAnalyticsSectionProps {
 }
 
 // Database Logs Analytics - tester-entered entries from MongoDB
-// (tester_test_cases), summarized server-side via
-// GET /dashboard/testers/summary?source=db. Has no Exclude Failures toggle
-// and no sheet sync/upload controls - those are Google Sheet-only.
+// (tester_test_cases), calculated server-side by the DB-native path
+// (GET /dashboard/testers/db/summary; see useDbAnalyticsSummary for the
+// source=db fallback). Has no Exclude Failures toggle and no sheet
+// sync/upload controls - those are Google Sheet-only.
 export function DbAnalyticsSection({
   title = "Database Logs Analytics",
   description = "Analytics computed live from tester_test_cases collection in database",
   sourceBadge,
 }: DbAnalyticsSectionProps) {
-  const filterState = useAnalyticsFilterState();
+  const filterState = useAnalyticsFilterState(DB_TYPE_TREE);
 
-  const summaryQuery = useTestersDashboardSummary(
+  // DB-native calculations (GET /dashboard/testers/db/summary), falling back
+  // to the old source=db summary if that request fails. No Exclude Failures -
+  // a Google Sheet-only control.
+  const summaryQuery = useDbAnalyticsSummary(
     filterState.filters,
-    // Exclude Failures is a Google Sheet-only control - never applied to DB analytics.
-    false,
     filterState.customStart,
     filterState.customEnd,
     filterState.dynamicSubTypes,
     filterState.typeBranch,
     filterState.staticSubTypes,
-    "db",
   );
 
   const viewState = useAnalyticsViewState(summaryQuery.data?.diagnostics);
@@ -58,11 +60,23 @@ export function DbAnalyticsSection({
             <span className="text-muted-foreground">
               Last synced: {formatLastUpdated(summaryQuery.data.lastSyncedAt ?? null)}
             </span>
+            {summaryQuery.data.calculation === "legacy-source-db" && (
+              <span className="text-xs text-amber-600" role="status">
+                Showing the previous DB calculation (fallback) - the DB-native summary is unavailable.
+              </span>
+            )}
           </div>
         </div>
       </AnalyticsSectionHeader>
 
-      <AnalyticsDashboardBody data={summaryQuery.data} filterState={filterState} viewState={viewState} />
+      <AnalyticsDashboardBody
+        data={summaryQuery.data}
+        filterState={filterState}
+        viewState={viewState}
+        filterFields={DB_FILTER_FIELDS}
+        optionDetails={summaryQuery.data.dbFilterOptions?.fields}
+        typeTree={dbTypeTreeWithCounts(summaryQuery.data.dbFilterOptions)}
+      />
     </div>
   );
 }

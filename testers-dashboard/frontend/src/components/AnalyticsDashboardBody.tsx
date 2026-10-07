@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { TrendChart, buildXAxisTicks, buildRobustRangeSeries, type TrendChartProps } from "./TrendChart";
-import { FilterBar } from "./FilterBar";
+import { FilterBar, type IFilterField, type IFilterOptionDetail, type ITypeTreeOptions } from "./FilterBar";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { AdditionalMetrics } from "./AdditionalMetrics";
 import { DiagnosticsRow, type IDefectsTab, type ITeamBreakdown } from "./DiagnosticsRow";
@@ -20,6 +20,11 @@ export interface AnalyticsDashboardBodyProps {
   data: ITestersDashboardSummaryResponse;
   filterState: IAnalyticsFilterState;
   viewState: IAnalyticsViewState;
+  // Database Logs Analytics passes its own filter fields, options-with-counts,
+  // and Type of Question tree; Google Sheet Analytics uses the defaults.
+  filterFields?: IFilterField[];
+  optionDetails?: Record<string, IFilterOptionDetail[]>;
+  typeTree?: ITypeTreeOptions;
 }
 
 // Source-agnostic dashboard body - FilterBar, Executive Summary, Additional
@@ -27,7 +32,14 @@ export interface AnalyticsDashboardBodyProps {
 // already-loaded summary response. Shared by SheetAnalyticsSection and
 // DbAnalyticsSection; each section owns its own data fetching, header, and
 // loading/error states.
-export function AnalyticsDashboardBody({ data, filterState, viewState }: AnalyticsDashboardBodyProps) {
+export function AnalyticsDashboardBody({
+  data,
+  filterState,
+  viewState,
+  filterFields = FILTER_FIELDS,
+  optionDetails,
+  typeTree,
+}: AnalyticsDashboardBodyProps) {
   const { filters, setFilters, customStart, setCustomStart, customEnd, setCustomEnd, typeBranchState } = filterState;
   const {
     releaseHealthExpanded,
@@ -255,12 +267,14 @@ export function AnalyticsDashboardBody({ data, filterState, viewState }: Analyti
         filters={filters}
         setFilters={setFilters}
         filterOptions={filterOptions}
-        filterFields={FILTER_FIELDS}
+        filterFields={filterFields}
         customStart={customStart}
         setCustomStart={setCustomStart}
         customEnd={customEnd}
         setCustomEnd={setCustomEnd}
         typeBranchState={typeBranchState}
+        optionDetails={optionDetails}
+        typeTree={typeTree}
       />
 
       <ExecutiveSummary kpis={kpis} previousPeriodStats={previousPeriodStats} />

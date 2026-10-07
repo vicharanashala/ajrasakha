@@ -381,7 +381,9 @@ describe('TestersDashboardService.getSummary', () => {
             const dbService = new TestersDashboardService(mockDb as any);
 
             const withoutParam = await dbService.getSummary({ source: 'db' });
-            const withParam = await dbService.getSummary({ source: 'db', excludeFailures: 'true' });
+            // excludeFailures is no longer part of GetTestersDashboardQuery -
+            // sent anyway to simulate a stale client.
+            const withParam = await dbService.getSummary({ source: 'db', excludeFailures: 'true' } as GetTestersDashboardQuery);
 
             expect(withoutParam.kpis.N).toBe(2);
             expect(withParam.kpis.N).toBe(2);
@@ -394,13 +396,15 @@ describe('TestersDashboardService.getSummary', () => {
 // from Zoho's own ticket list (via ZohoTicketStatusService's cache), not
 // from the sheet's "Defect ID / Bug Ref" column - confirmed missing ~251
 // tickets, including 17 P0 Critical, when scoped to sheet-linked tickets
-// only. TestersDashboardService.getSummary reads
-// zohoTicketStatusService.getCachedStatuses() and passes it straight through
-// to calculateDiagnostics, regardless of source ("sheet" or "db") or any
-// applied filter.
+// only. TestersDashboardService.getSummary fetches them directly via
+// zohoTicketStatusService.getTicketStatuses() (no cron) and passes them
+// straight through to calculateDiagnostics, regardless of source ("sheet" or
+// "db") or any applied filter.
 describe('TestersDashboardService.getSummary - ticket card sourced from Zoho, not the sheet', () => {
-    function makeZohoService(cached: Record<string, unknown>) {
-        return { getCachedStatuses: () => cached } as any;
+    function makeZohoService(statuses: Record<string, unknown>) {
+        return {
+            getTicketStatuses: async () => ({ configured: true, statuses, fetchedAt: '2026-01-01T00:00:00.000Z', stale: false }),
+        } as any;
     }
 
     it('populates diagnostics.openTickets/allTickets from the injected ZohoTicketStatusService, ignoring the sheet\'s Defect ID / Bug Ref column entirely', async () => {

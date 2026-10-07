@@ -30,6 +30,8 @@ export interface ITestersDashboardFiltersState {
 
 export const useTestersDashboardSummary = (
     filters: ITestersDashboardFiltersState,
+    // Google Sheet-only (applied client-side by computeClientSummary).
+    // Ignored for source="db" - never sent to the backend.
     excludeFailures: boolean,
     customStart: string,
     customEnd: string,
@@ -48,8 +50,6 @@ export const useTestersDashboardSummary = (
         tester: filters.tester !== "all" ? filters.tester : undefined,
         status: filters.status !== "all" ? filters.status : undefined,
         severity: filters.severity !== "all" ? filters.severity : undefined,
-        // Exclude Failures is Google Sheet-only - never sent for the DB source.
-        excludeFailures: (source === 'sheet' && excludeFailures) || undefined,
         customStart: customStart || undefined,
         customEnd: customEnd || undefined,
         dynamicSubTypes: dynamicSubTypes.length > 0 ? dynamicSubTypes.join(",") : undefined,
@@ -72,8 +72,16 @@ export const useTestersDashboardSummary = (
         staticSubTypes,
     };
 
+    // The sheet key carries excludeFailures so toggling it refetches the
+    // client-side summary; the DB key never does, since DB analytics has no
+    // Exclude Failures.
+    const queryKey =
+        source === 'sheet'
+            ? ["testers-dashboard-summary", source, { ...query, excludeFailures: excludeFailures || undefined }]
+            : ["testers-dashboard-summary", source, query];
+
     return useQuery<ITestersDashboardSummaryResponse>({
-        queryKey: ["testers-dashboard-summary", source, query],
+        queryKey,
         queryFn: async () => {
             if (source === 'sheet') {
                 let stored = await getRecordsFromBrowserStorage();
