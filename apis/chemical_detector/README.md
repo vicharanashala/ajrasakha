@@ -17,6 +17,10 @@ Copy `.env.example` to `.env` and fill in:
 | `CHEMICAL_DB_NAME` | `agriai` | Database name |
 | `CHEMICAL_COLLECTION_NAME` | `crop_master` | Collection holding chemical records (`type: "chemical"`) |
 
+`CHEMICAL_DB_URL` can also be set in the repo root's `.env` as a fallback if
+it's not in this folder's `.env` (local-only: this one wins if both set it).
+Doesn't apply on Render - each service's vars are set in the dashboard there.
+
 ## Endpoints
 
 ### `POST /detect-chemicals`
