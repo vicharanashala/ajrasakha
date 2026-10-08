@@ -179,6 +179,9 @@ async def translate_answer_node(
         logger.warning("translate_answer: path=synthesis but empty body — no-op")
         end_conversation_turn("(empty answer body)", outcome="empty")
         return {}
+    if plan.get("profile_location_prefix"):
+        # Before translation, so the prefix is translated with the answer.
+        body = f"{plan['profile_location_prefix']}\n\n{body}"
 
     trace_event(
         "translate_answer_input",
@@ -246,7 +249,7 @@ async def translate_answer_node(
     except (APITimeoutError, APIConnectionError) as exc:
         logger.warning("translate_answer failed (%s) — untranslated body + synthesis footers", exc)
         content = finalize_synthesis_answer(
-            _message_to_text(final_msg),
+            body,
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
@@ -264,7 +267,7 @@ async def translate_answer_node(
             exc,
         )
         content = finalize_synthesis_answer(
-            _message_to_text(final_msg),
+            body,
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,

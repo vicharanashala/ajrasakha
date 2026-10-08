@@ -697,10 +697,20 @@ def test_naming_no_place_goes_ahead():
     assert out["is_complete"] is True and out["places_outside_profile"] == []
 
 
-def test_naming_even_the_profile_own_place_asks_to_change_the_location():
-    for place in ("Visakhapatnam", "Chinnawaltair"):
+def test_naming_the_profile_own_place_goes_ahead_with_the_location_prefix():
+    for place in ("Visakhapatnam", "Chinnawaltair", "seethamadhara", "andhra pradesh"):
         out = ask_to_change_profile_location(_weather_plan_naming(place), _PROFILE)
-        assert out["is_complete"] is False, place
+        assert out["is_complete"] is True, place
+        assert out["profile_location_prefix"] == (
+            "The below answer is provided for the location: Andhra Pradesh, Visakhapatnam, "
+            "chinnawaltair, seethammadhara. If this is not your preferred location, "
+            "please change it and ask again."
+        )
+
+
+def test_naming_the_profile_place_and_another_asks_to_change_the_location():
+    out = ask_to_change_profile_location(_weather_plan_naming("Visakhapatnam", "Kharar"), _PROFILE)
+    assert out["is_complete"] is False and out["places_outside_profile"] == ["Kharar"]
 
 
 def test_any_question_naming_another_place_asks_to_change_the_profile_location():

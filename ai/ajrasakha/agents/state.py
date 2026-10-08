@@ -106,6 +106,7 @@ class PlannerPlan(TypedDict, total=False):
     profile_coordinates: Optional[dict[str, Any]]  # farmer profile lat/long (+ village/block for weather/mandi)
     location_from_profile: bool  # tools use the farmer profile lat/long
     places_outside_profile: list[str]  # weather/mandi: places named that are not the profile's (asks to change profile)
+    profile_location_prefix: Optional[str]  # answer prefix when the question names only the profile's own places
     has_inappropriate_content: bool  # True when query contains abusive/inappropriate language
 
 

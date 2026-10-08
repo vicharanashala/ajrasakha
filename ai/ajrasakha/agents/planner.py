@@ -947,38 +947,16 @@ async def planner_node(
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        # Follow-up short-circuit: if the LLM (or the heuristic) flagged the latest
-        # message as a transformation on the previous AI answer, route through the
-        # follow-up node and skip entity re-resolution, completeness, and domain/crop.
+        # Follow-ups go through the normal flow (the follow-up node is no longer
+        # in the graph), so the profile location check applies to them too.
         if plan.get("is_follow_up"):
-            if not plan.get("follow_up_type") and heuristic_follow_up_type:
-                plan["follow_up_type"] = heuristic_follow_up_type
-            if not plan.get("main_question") and prev_plan.get("rephrased_query"):
-                plan["main_question"] = prev_plan.get("rephrased_query")
-            plan["entities"] = dict(prev_entities or {})
-            plan["is_complete"] = True
-            plan["missing_info"] = []
-            plan["follow_up_question"] = None
-            for flag in ("weather", "mandi", "soil", "schemes", "chemical_checker", "knowledge_base"):
-                plan[flag] = False
-            plan["domain"] = "General"
-            plan["domains"] = ["General"]
-            plan["is_agriculture_related"] = True
-            plan["tools_used"] = []
-            plan["reasoning"] = (plan.get("reasoning") or "") + f"; follow_up={plan.get('follow_up_type') or heuristic_follow_up_type}"
-            trace_event(
-                "planner_follow_up_finalized",
-                follow_up_type=plan.get("follow_up_type"),
-                follow_up_type_source="llm" if (output.follow_up_type or not heuristic_follow_up_type) else "heuristic",
-                main_question=plan.get("main_question"),
-            )
             logger.info(
-                "Planner: follow-up detected type=%s main_question=%r rephrased=%r",
-                plan.get("follow_up_type"),
-                plan.get("main_question"),
+                "Planner: follow-up type=%s treated as a new question rephrased=%r",
+                plan.get("follow_up_type") or heuristic_follow_up_type,
                 plan.get("rephrased_query"),
             )
-            return {"plan": plan}
+            plan["is_follow_up"] = False
+            plan["follow_up_type"] = None
 
         configurable = config.get("configurable") or {}
         user_id = resolve_user_id(config) or configurable.get("phone_number")

@@ -22,6 +22,7 @@ from ajrasakha.agents.lgd_location import (
     UNAVAILABLE as LGD_UNAVAILABLE,
     is_unspecified_place,
     lookup_location,
+    resolve_official_name,
 )
 from ajrasakha.agents.location_context import (
     extract_state_from_text,
@@ -629,6 +630,24 @@ MAX_PLACE_OPTIONS = 4
 SET_PROFILE_LOCATION = "Please set your location."
 CHANGE_PROFILE_LOCATION = "Please change your location and ask the question again."
 PROFILE_LOCATION_MESSAGES = (SET_PROFILE_LOCATION, CHANGE_PROFILE_LOCATION)
+PROFILE_LOCATION_PREFIX = (
+    "The below answer is provided for the location: {location}. "
+    "If this is not your preferred location, please change it and ask again."
+)
+_PROFILE_PLACE_FIELDS = (
+    ("state", "state"),
+    ("district", "district"),
+    ("village", "district"),
+    ("block", "district"),
+)
+
+
+def _is_profile_place(place: str, stored_location: dict[str, Any]) -> bool:
+    """True when the place fuzzy-matches the profile state, district, village or block."""
+    return any(
+        resolve_official_name(place, [stored_location.get(key) or ""], entity_type=entity_type)
+        for key, entity_type in _PROFILE_PLACE_FIELDS
+    )
 
 
 def ask_to_change_profile_location(
@@ -637,19 +656,30 @@ def ask_to_change_profile_location(
 ) -> PlannerPlan:
     """Answer only for the farmer profile location; otherwise end the turn.
 
-    No profile location: ask the farmer to set it. A question naming any place
-    (even the profile's own): ask the farmer to change the location and ask
-    again. Nothing else runs.
+    No profile location: ask the farmer to set it. A question naming a place
+    that is not the profile's: ask the farmer to change the location and ask
+    again. A question naming only the profile's own places goes ahead, and the
+    answer starts with the profile location it was given for.
     """
     out: PlannerPlan = dict(plan)
     out["places_outside_profile"] = []
+    out["profile_location_prefix"] = None
     if out.get("is_greeting"):
         return out
     if not stored_location:
         message = SET_PROFILE_LOCATION
     else:
-        outside = [p for p in out.get("places") or [] if not is_unspecified_place(p, "district")]
+        named = [p for p in out.get("places") or [] if not is_unspecified_place(p, "district")]
+        if not named:
+            return out
+        outside = [p for p in named if not _is_profile_place(p, stored_location)]
         if not outside:
+            location = ", ".join(
+                str(stored_location[key])
+                for key, _ in _PROFILE_PLACE_FIELDS
+                if stored_location.get(key) and not is_unspecified_place(stored_location[key], "district")
+            )
+            out["profile_location_prefix"] = PROFILE_LOCATION_PREFIX.format(location=location)
             return out
         out["places_outside_profile"] = outside
         message = CHANGE_PROFILE_LOCATION
