@@ -70,8 +70,9 @@ function DashboardComponent() {
     const userService = new UserService();
     const sendHeartbeat = async () => {
       try {
+        const effectiveWeak = isNetworkWeak || Boolean(networkLatency?.isWeak);
         const res = await userService.sendHeartbeat({
-          networkQuality: isNetworkWeak ? "weak" : "healthy",
+          networkQuality: effectiveWeak ? "weak" : "healthy",
           networkRtt: networkLatency?.rtt,
         });
         if (res?.alerts && Array.isArray(res.alerts) && res.alerts.length > 0) {

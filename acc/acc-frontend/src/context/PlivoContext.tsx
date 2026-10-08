@@ -161,7 +161,6 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isNetworkWeak, setIsNetworkWeak] = useState(false);
   const [undeliveredCallAlert, setUndeliveredCallAlert] = useState<UndeliveredCallAlert | null>(null);
   const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const incomingWatchdogRef = useRef<{ callUuid: string; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   // Clear undelivered alert helper
   const clearUndeliveredCallAlert = useCallback(() => {
@@ -188,6 +187,9 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       alertTimeoutRef.current = null;
     }, 5000);
   }, []);
+
+  const triggerUndeliveredAlertRef = useRef(triggerUndeliveredAlert);
+  triggerUndeliveredAlertRef.current = triggerUndeliveredAlert;
 
   // References
   const plivoClientRef = useRef<any>(null);
@@ -449,11 +451,6 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       client.client.on("onIncomingCall", (callerID: string, _extraHeaders: any, callInfo: any, callerName: string) => {
-        // Clear watchdog timer if this was the incoming call
-        if (incomingWatchdogRef.current) {
-          clearTimeout(incomingWatchdogRef.current.timer);
-          incomingWatchdogRef.current = null;
-        }
         clearUndeliveredCallAlert();
 
         const callerPhone = callerName || callerID || "Unknown Caller";
@@ -623,41 +620,13 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (data.type === "call_incoming_attempt") {
               const incomingId = data.callUuid || data.callId || "";
               const callerNumber = data.callerNumber || "Unknown Caller";
-              console.log(`📞 [PlivoContext] SSE call_incoming_attempt for call ${incomingId} from ${callerNumber}`);
-
-              if (incomingWatchdogRef.current) {
-                clearTimeout(incomingWatchdogRef.current.timer);
-              }
-
-              // Start 3.5s watchdog: if Plivo onIncomingCall doesn't ring on browser within 3.5s, notify agent
-              const timer = setTimeout(() => {
-                if (activeCallUuidRef.current !== incomingId && callStatus !== "connected") {
-                  console.warn(`🚨 [PlivoContext] Call ${incomingId} did not reach softphone within 3.5s. Triggering undelivered alert.`);
-                  triggerUndeliveredAlert({
-                    callUuid: incomingId,
-                    number: callerNumber,
-                    reason: "Phone interface could not receive call invite within 3.5s due to weak internet",
-                  });
-                  toast.error(
-                    `🚨 Incoming call from ${callerNumber}, but your phone interface could not connect due to weak internet!`,
-                    { duration: 5000 }
-                  );
-                }
-                incomingWatchdogRef.current = null;
-              }, 3500);
-
-              incomingWatchdogRef.current = { callUuid: incomingId, timer };
+              console.log(`📞 [PlivoContext] SSE call_incoming_attempt registered at server for call ${incomingId} from ${callerNumber}`);
             } else if (data.type === "call_delivery_failed") {
-              console.warn("⚠️ [PlivoContext] SSE call_delivery_failed:", data);
+              console.warn("⚠️ [PlivoContext] SSE call_delivery_failed from server:", data);
               const incomingId = data.callUuid || data.callId || "";
               const callerNumber = data.callerNumber || "Unknown Caller";
 
-              if (incomingWatchdogRef.current) {
-                clearTimeout(incomingWatchdogRef.current.timer);
-                incomingWatchdogRef.current = null;
-              }
-
-              triggerUndeliveredAlert({
+              triggerUndeliveredAlertRef.current({
                 callUuid: incomingId,
                 number: callerNumber,
                 reason: data.reason || "Call delivery failed at server due to network timeout",
@@ -685,16 +654,12 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return () => {
       isDisposed = true;
-      if (incomingWatchdogRef.current) {
-        clearTimeout(incomingWatchdogRef.current.timer);
-        incomingWatchdogRef.current = null;
-      }
       if (eventSource) {
         eventSource.close();
         console.log("🔌 [PlivoContext] SSE agent alert stream disconnected");
       }
     };
-  }, [userRole, isAgentActive, callStatus, triggerUndeliveredAlert]);
+  }, [userRole, isAgentActive]);
 
   // Outbound Redial Handler
   const initiateRedial = useCallback(

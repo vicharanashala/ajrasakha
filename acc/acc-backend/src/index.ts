@@ -31,7 +31,7 @@ app.use((req, res, next) => {
 
   res.header(
     'Access-Control-Allow-Methods',
-    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+    'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS'
   );
 
   res.header(
@@ -65,7 +65,7 @@ const { controllers, validators } = await loadAppModules(
 
 const corsOptions: CorsOptions = {
   origin: appConfig.origins,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
   optionsSuccessStatus: 204,

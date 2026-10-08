@@ -12,31 +12,37 @@ export interface NetworkQualityResult {
  */
 export async function measureNetworkLatency(): Promise<NetworkQualityResult> {
   const pings: number[] = [];
-  const testUrl = `${env.apiBaseUrl()}/users/me`;
+  const testUrl = `${env.apiBaseUrl()}/health`;
 
-  for (let i = 0; i < 3; i++) {
+  // Sample 2 fast pings against the lightweight public /health endpoint
+  for (let i = 0; i < 2; i++) {
     const start = performance.now();
     try {
       await fetch(testUrl, {
-        method: "HEAD",
+        method: "GET",
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       });
       pings.push(performance.now() - start);
-    } catch {
-      // In case HEAD fails due to network drop or CORS, sample a small penalty
-      pings.push(800);
+    } catch (err) {
+      console.warn("[networkQuality] Ping sample warning:", err);
     }
   }
 
-  const avgRtt = Math.round(pings.reduce((a, b) => a + b, 0) / pings.length);
-
   // Cross-reference with browser Network Information API if available
   const navConn = typeof navigator !== "undefined" ? (navigator as any).connection : null;
-  const navRtt = navConn?.rtt;
-  const effectiveRtt = navRtt && typeof navRtt === "number" && navRtt > avgRtt
-    ? Math.round((navRtt + avgRtt) / 2)
-    : avgRtt;
+  const navRtt = typeof navConn?.rtt === "number" ? navConn.rtt : null;
+
+  let effectiveRtt: number;
+  if (pings.length > 0) {
+    const avgPing = Math.round(pings.reduce((a, b) => a + b, 0) / pings.length);
+    effectiveRtt = navRtt !== null ? Math.round((navRtt + avgPing) / 2) : avgPing;
+  } else if (navRtt !== null) {
+    effectiveRtt = navRtt;
+  } else {
+    // If browser is online but endpoint was unreachable, assume moderate baseline (60ms) rather than false 800ms penalty
+    effectiveRtt = typeof navigator !== "undefined" && navigator.onLine ? 60 : 800;
+  }
 
   const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
   const isWeak = isOffline || effectiveRtt > 300 || navConn?.effectiveType === "2g";
