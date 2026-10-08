@@ -19022,12 +19022,31 @@ async getAllUserMessageIds(
         questionId: question._id,
       });
 
+      // Build reviewMap for accurate reviewer completion time
+      const reviewMap = new Map<string, any>();
+      if (submission?.history) {
+        const reviewIds = submission.history
+          .filter((h: any, index: number) => index >= 1 && h.reviewId)
+          .map((h: any) => typeof h.reviewId === 'string' ? new ObjectId(h.reviewId) : h.reviewId);
+        
+        if (reviewIds.length > 0) {
+          const reviewsCollection = await this.db.getCollection('reviews');
+          const reviews = await reviewsCollection.find({
+            _id: { $in: reviewIds },
+          }).toArray();
+          for (const review of reviews) {
+            reviewMap.set(review._id.toString(), review);
+          }
+        }
+      }
+
       const reviewTimeline = buildReviewTimeline(
         submission?.history || [],
         submission?.queue || [],
         question.createdAt,
         question.status,
         question.firstAllocationAt,
+        reviewMap,
       );
 
       // ---------------------------------------------------
@@ -20839,6 +20858,34 @@ async getAllUserMessageIds(
     ]);
 
     // -------------------------
+    // Collect all reviewIds from all submissions
+    // -------------------------
+    const allReviewIds: ObjectId[] = [];
+    for (const submission of submissions) {
+      if (submission?.history) {
+        for (let i = 1; i < submission.history.length; i++) {
+          const h = submission.history[i];
+          if (h.reviewId) {
+            const reviewId = typeof h.reviewId === 'string' ? new ObjectId(h.reviewId) : h.reviewId;
+            allReviewIds.push(reviewId);
+          }
+        }
+      }
+    }
+
+    // Fetch all reviews in bulk
+    const reviewMap = new Map<string, any>();
+    if (allReviewIds.length > 0) {
+      const reviewsCollection = await this.db.getCollection('reviews');
+      const reviews = await reviewsCollection.find({
+        _id: { $in: allReviewIds },
+      }).toArray();
+      for (const review of reviews) {
+        reviewMap.set(review._id.toString(), review);
+      }
+    }
+
+    // -------------------------
     // Maps
     // -------------------------
 
@@ -20863,6 +20910,7 @@ async getAllUserMessageIds(
         question.createdAt,
         question.status,
         question.firstAllocationAt,
+        reviewMap,
       );
 
       const timeline: any[] = [];

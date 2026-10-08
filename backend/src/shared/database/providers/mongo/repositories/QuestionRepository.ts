@@ -2415,10 +2415,21 @@ export class QuestionRepository implements IQuestionRepository {
         .map(id => id.toString())
         .includes(userId);
 
+      // Collect reviewIds from history entries (index >= 1) for accurate TAT calculation
+      const allReviewIds: ObjectId[] = [];
+      submission?.history?.forEach((h: any, index: number) => {
+        if (index >= 1 && h.reviewId) {
+          allReviewIds.push(h.reviewId as ObjectId);
+        }
+      });
+
       // Fetch associated reviews and reviewer details
+      // Fetch by answerId OR by reviewId for complete coverage
       const reviews = await this.ReviewCollection.find({
-        questionId: new ObjectId(questionId),
-        answerId: { $in: uniqueAnswerIds },
+        $or: [
+          { questionId: new ObjectId(questionId), answerId: { $in: uniqueAnswerIds } },
+          { _id: { $in: allReviewIds } },
+        ],
       })
         .sort({ createdAt: -1 })
         .toArray();
@@ -2574,12 +2585,20 @@ export class QuestionRepository implements IQuestionRepository {
       });
 
       const rerouteHistory = Array.from(rerouteHistoryMap.values());
+
+      // Build reviewMap from the already fetched reviews for accurate completion time
+      const reviewMap = new Map<string, any>();
+      for (const review of reviews) {
+        reviewMap.set(review._id.toString(), review);
+      }
+
       const reviewTimeline = buildReviewTimeline(
         submission?.history || [],
         submission?.queue || [],
         question?.createdAt,
         question.status,
         question?.firstAllocationAt,
+        reviewMap,
       );
 
       // 7 Populate submissions manually
