@@ -1721,6 +1721,7 @@ export class UserService extends BaseService {
       const submissionsCollection = await this.mongoDatabase.getCollection('question_submissions');
       const questionsCollection = await this.mongoDatabase.getCollection('questions');
       const reroutesCollection = await this.mongoDatabase.getCollection('reroutes');
+      const reviewsCollection = await this.mongoDatabase.getCollection('reviews');
 
       const submissions = await submissionsCollection.find({
         'history.updatedBy': userObjectId,
@@ -1738,6 +1739,30 @@ export class UserService extends BaseService {
         questionMap.set(q._id.toString(), q);
       }
 
+      // Collect all reviewIds from submissions for reviewer time calculation
+      const allReviewIds: ObjectId[] = [];
+      for (const sub of submissions) {
+        const history = (sub as any).history || [];
+        for (let i = 1; i < history.length; i++) {
+          const h = history[i];
+          if (h.updatedBy?.toString() === userId && h.reviewId) {
+            const reviewId = typeof h.reviewId === 'string' ? new ObjectId(h.reviewId) : h.reviewId;
+            allReviewIds.push(reviewId);
+          }
+        }
+      }
+
+      // Fetch all relevant reviews upfront
+      const reviewMap = new Map<string, any>();
+      if (allReviewIds.length > 0) {
+        const reviews = await reviewsCollection.find({
+          _id: { $in: allReviewIds },
+        }).toArray();
+        for (const review of reviews) {
+          reviewMap.set(review._id.toString(), review);
+        }
+      }
+
       let authoredCount = 0;
       let totalAuthoringMs = 0;
       let reviewedCount = 0;
@@ -1751,12 +1776,14 @@ export class UserService extends BaseService {
 
         // Check if user authored (index 0)
         if (history.length > 0 && history[0].updatedBy?.toString() === userId) {
-          const authorUpdatedAt = history[0].updatedAt ? new Date(history[0].updatedAt) : new Date(history[0].createdAt);
-          if (authorUpdatedAt >= startDate && authorUpdatedAt <= endDate && matchesTimeFilter(authorUpdatedAt)) {
+          // Author finished at is history[0].createdAt, not updatedAt
+          const authorCompletedAt = new Date(history[0].createdAt);
+          if (authorCompletedAt >= startDate && authorCompletedAt <= endDate && matchesTimeFilter(authorCompletedAt)) {
             authoredCount++;
 
+            // Author assigned at is question.firstAllocationAt
             const allocStart = question?.firstAllocationAt ? new Date(question.firstAllocationAt) : new Date(history[0].createdAt);
-            const diff = authorUpdatedAt.getTime() - allocStart.getTime();
+            const diff = authorCompletedAt.getTime() - allocStart.getTime();
             if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
               totalAuthoringMs += diff;
             }
@@ -1771,19 +1798,33 @@ export class UserService extends BaseService {
         for (let i = 1; i < history.length; i++) {
           const h = history[i];
           if (h.updatedBy?.toString() === userId) {
-            const reviewUpdatedAt = h.updatedAt ? new Date(h.updatedAt) : new Date(h.createdAt);
-            if (reviewUpdatedAt >= startDate && reviewUpdatedAt <= endDate && matchesTimeFilter(reviewUpdatedAt)) {
+            // Review is only complete if it has a reviewId
+            // If no reviewId, it's still in progress - skip time calculation
+            if (!h.reviewId) {
+              continue;
+            }
+
+            const reviewIdStr = typeof h.reviewId === 'string' ? h.reviewId : h.reviewId.toString();
+            const review = reviewMap.get(reviewIdStr);
+
+            // If review document not found, treat as in progress
+            if (!review || !review.createdAt) {
+              continue;
+            }
+
+            // Review completed at is the review document's createdAt, not history.updatedAt
+            const reviewCompletedAt = new Date(review.createdAt);
+            if (reviewCompletedAt >= startDate && reviewCompletedAt <= endDate && matchesTimeFilter(reviewCompletedAt)) {
               reviewedCount++;
               if (i >= 1 && i <= 9) {
                 revCounts[i]++;
               }
 
-              const prevDate = h.createdAt ? new Date(h.createdAt) : (history[i - 1]?.updatedAt ? new Date(history[i - 1].updatedAt) : null);
-              if (prevDate) {
-                const diff = reviewUpdatedAt.getTime() - prevDate.getTime();
-                if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
-                  totalReviewingMs += diff;
-                }
+              // Assigned at is h.createdAt
+              const assignedAt = new Date(h.createdAt);
+              const diff = reviewCompletedAt.getTime() - assignedAt.getTime();
+              if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+                totalReviewingMs += diff;
               }
             }
           }
