@@ -193,6 +193,8 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // References
   const plivoClientRef = useRef<any>(null);
+  const isPlivoConnectedRef = useRef(false);
+  const incomingWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const activeCallUuidRef = useRef<string | null>(null);
   const parentCallUuidRef = useRef<string | null>(null);
@@ -202,6 +204,8 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const handledAnsweredLegRef = useRef<string | null>(null);
   const currentUserRef = useRef<any>(currentUser);
   currentUserRef.current = currentUser;
+  const callStatusRef = useRef(callStatus);
+  callStatusRef.current = callStatus;
 
   // Active call duration timer
   useEffect(() => {
@@ -405,6 +409,8 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         debug: "DEBUG",
         permOnClick: true,
         enableTracking: true,
+        clientRegion: "asia-south",
+        usePlivoStunServer: true,
         audioConstraints: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -416,10 +422,12 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       client.client.login(endpointUsername, endpointPassword);
 
       client.client.on("onLogin", () => {
+        isPlivoConnectedRef.current = true;
         console.log("✅ [PlivoContext] Plivo client logged in successfully as", endpointUsername);
       });
 
       client.client.on("onLoginFailed", (error: any) => {
+        isPlivoConnectedRef.current = false;
         console.error("❌ [PlivoContext] Plivo login failed:", error);
         toast.error("Plivo login failed: " + (error?.message || "Check network/credentials"));
       });
@@ -428,12 +436,15 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       client.client.on("onConnectionChange", (data: any) => {
         console.warn("🌐 [PlivoContext] Plivo connection change:", data);
         if (data?.state === "disconnected") {
+          isPlivoConnectedRef.current = false;
           setIsNetworkWeak(true);
+          userService.sendHeartbeat({ networkQuality: "weak" }).catch(() => {});
           toast.error("⚠️ Phone disconnected from call server. Unstable internet connection.", {
             id: "plivo-net-err",
             duration: 5000,
           });
         } else if (data?.state === "connected") {
+          isPlivoConnectedRef.current = true;
           setIsNetworkWeak(false);
           toast.success("Phone connected to call server.", {
             id: "plivo-net-err",
@@ -451,6 +462,10 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       client.client.on("onIncomingCall", (callerID: string, _extraHeaders: any, callInfo: any, callerName: string) => {
+        if (incomingWatchdogRef.current) {
+          clearTimeout(incomingWatchdogRef.current);
+          incomingWatchdogRef.current = null;
+        }
         clearUndeliveredCallAlert();
 
         const callerPhone = callerName || callerID || "Unknown Caller";
@@ -621,7 +636,47 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               const incomingId = data.callUuid || data.callId || "";
               const callerNumber = data.callerNumber || "Unknown Caller";
               console.log(`📞 [PlivoContext] SSE call_incoming_attempt registered at server for call ${incomingId} from ${callerNumber}`);
+
+              // If the softphone is ALREADY disconnected (e.g. 2G/3G throttled or socket closed), alert IMMEDIATELY!
+              if (!isPlivoConnectedRef.current) {
+                console.warn(`🚨 [PlivoContext] Softphone is disconnected while call ${incomingId} is incoming. Alerting agent.`);
+                triggerUndeliveredAlertRef.current({
+                  callUuid: incomingId,
+                  number: callerNumber,
+                  reason: "Phone softphone is disconnected due to weak internet",
+                });
+                toast.error(
+                  `⚠️ Missed incoming call from ${callerNumber}: Phone is disconnected due to weak internet.`,
+                  { duration: 5000 }
+                );
+                return;
+              }
+
+              // If softphone is currently connected, set a realistic 20-second delivery watchdog
+              // (16 seconds for IVR greeting + 4 seconds buffer for SIP ringing)
+              if (incomingWatchdogRef.current) {
+                clearTimeout(incomingWatchdogRef.current);
+              }
+              incomingWatchdogRef.current = setTimeout(() => {
+                if (activeCallUuidRef.current !== incomingId && callStatusRef.current !== "incoming" && callStatusRef.current !== "connected") {
+                  console.warn(`🚨 [PlivoContext] Call ${incomingId} did not reach softphone within 20s. Triggering undelivered alert.`);
+                  triggerUndeliveredAlertRef.current({
+                    callUuid: incomingId,
+                    number: callerNumber,
+                    reason: "Call failed to reach softphone within 20s due to weak internet",
+                  });
+                  toast.error(
+                    `⚠️ Missed incoming call from ${callerNumber}: Call could not reach your interface due to weak internet.`,
+                    { duration: 5000 }
+                  );
+                }
+                incomingWatchdogRef.current = null;
+              }, 20000);
             } else if (data.type === "call_delivery_failed") {
+              if (incomingWatchdogRef.current) {
+                clearTimeout(incomingWatchdogRef.current);
+                incomingWatchdogRef.current = null;
+              }
               console.warn("⚠️ [PlivoContext] SSE call_delivery_failed from server:", data);
               const incomingId = data.callUuid || data.callId || "";
               const callerNumber = data.callerNumber || "Unknown Caller";
@@ -654,6 +709,10 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return () => {
       isDisposed = true;
+      if (incomingWatchdogRef.current) {
+        clearTimeout(incomingWatchdogRef.current);
+        incomingWatchdogRef.current = null;
+      }
       if (eventSource) {
         eventSource.close();
         console.log("🔌 [PlivoContext] SSE agent alert stream disconnected");

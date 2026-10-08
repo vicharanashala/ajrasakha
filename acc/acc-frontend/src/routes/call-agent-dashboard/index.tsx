@@ -248,25 +248,25 @@ function DashboardComponent() {
                 <span
                   className={cn(
                     "hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border select-none transition-colors",
-                    isNetworkWeak || (networkLatency?.rtt && networkLatency.rtt > 300)
+                    isNetworkWeak || Boolean(networkLatency?.isWeak)
                       ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                      : "bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
                   )}
                   title={
-                    isNetworkWeak || (networkLatency?.rtt && networkLatency.rtt > 300)
-                      ? "Weak internet: High latency or packet loss detected"
-                      : "Healthy internet latency"
+                    isNetworkWeak || Boolean(networkLatency?.isWeak)
+                      ? "Weak internet: Connection degraded or unstable"
+                      : "Strong internet: Connection stable"
                   }
                 >
                   <span
                     className={cn(
                       "w-1.5 h-1.5 rounded-full",
-                      isNetworkWeak || (networkLatency?.rtt && networkLatency.rtt > 300)
+                      isNetworkWeak || Boolean(networkLatency?.isWeak)
                         ? "bg-amber-500 animate-ping"
                         : "bg-emerald-500"
                     )}
                   />
-                  {networkLatency?.rtt ? `${networkLatency.rtt}ms` : (isNetworkWeak ? "Weak Net" : "Healthy Net")}
+                  {isNetworkWeak || Boolean(networkLatency?.isWeak) ? "Internet: Weak" : "Internet: Strong"}
                 </span>
               )}
 
