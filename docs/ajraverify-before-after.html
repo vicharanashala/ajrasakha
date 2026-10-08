@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AjraVerify — Before vs After</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #2a2f3a;
+    --txt: #e8eaf0; --muted: #9aa3b2;
+    --red: #ef4444; --red-bg: rgba(239,68,68,.08);
+    --green: #22c55e; --green-bg: rgba(34,197,94,.08);
+    --amber: #f59e0b; --orange: #fb923c;
+    --blue: #60a5fa; --purple: #a78bfa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--txt);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 28px; max-width: 1180px; margin: 0 auto;
+  }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: .2px; }
+  h1 span { color: var(--purple); }
+  .sub { color: var(--muted); font-size: 13px; margin: 6px 0 22px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .col-head { padding: 12px 16px; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .before .col-head { background: var(--red-bg); border-bottom: 1px solid rgba(239,68,68,.35); color: #fca5a5; }
+  .after  .col-head { background: var(--green-bg); border-bottom: 1px solid rgba(34,197,94,.35); color: #86efac; }
+  .col-body { padding: 14px 16px 18px; }
+  .step {
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+    font-size: 13px; line-height: 1.45; background: #12151b;
+  }
+  .step b { font-weight: 600; }
+  .step .tag { display: inline-block; font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 1px; }
+  .arrow { text-align: center; color: #4b5563; font-size: 15px; padding: 4px 0; }
+  .gap { border: 1px dashed rgba(239,68,68,.6); background: var(--red-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #fca5a5; }
+  .gate { border: 1px solid rgba(34,197,94,.55); background: var(--green-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .gate .gtitle { font-weight: 700; color: #86efac; margin-bottom: 6px; font-size: 13px; }
+  .gate ul { margin: 0 0 8px 16px; color: var(--txt); }
+  .gate li { margin: 3px 0; }
+  .verdicts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+  .v-ok   { background: rgba(34,197,94,.15);  color: #86efac; border: 1px solid rgba(34,197,94,.5); }
+  .v-cond { background: rgba(245,158,11,.12); color: #fcd34d; border: 1px solid rgba(245,158,11,.5); }
+  .v-rev  { background: rgba(251,146,60,.12); color: #fdba74; border: 1px solid rgba(251,146,60,.5); }
+  .v-block{ background: rgba(239,68,68,.12);  color: #fca5a5; border: 1px solid rgba(239,68,68,.5); }
+  .callout { margin-top: 14px; font-size: 12.5px; line-height: 1.5; border-radius: 10px; padding: 10px 12px; }
+  .callout.bad  { background: var(--red-bg);   border: 1px solid rgba(239,68,68,.4);  color: #fca5a5; }
+  .callout.good { background: var(--green-bg); border: 1px solid rgba(34,197,94,.4);  color: #86efac; }
+  .foot {
+    margin-top: 20px; display: flex; gap: 18px; flex-wrap: wrap;
+    color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 12px;
+  }
+  .foot b { color: var(--txt); font-weight: 600; }
+  .shared { display: flex; align-items: center; gap: 8px; margin: 2px 0 14px; font-size: 12px; color: var(--muted); }
+  .shared .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+</style>
+</head>
+<body>
+  <h1>AjraVerify <span>— what changes in the answer pipeline</span></h1>
+  <div class="sub">Left: today (no gate). Right: with the AjraVerify module. The farmer-facing steps stay the same — a deterministic safety gate is inserted before delivery.</div>
+
+  <div class="shared"><span class="dot"></span>Shared steps: question intake (WhatsApp / IVR / web) → Golden Dataset → Package of Practices → AI fallback drafts an answer</div>
+
+  <div class="cols">
+    <!-- BEFORE -->
+    <div class="col before">
+      <div class="col-head">✕ BEFORE — today</div>
+      <div class="col-body">
+        <div class="step"><b>AI fallback drafts the answer</b> — an LLM writes the reply, including any dosage, interval and chemical names <span class="tag">unchecked text</span></div>
+        <div class="arrow">▼</div>
+        <div class="gap">⚠ <b>No automated safety check.</b> Nothing verifies the dosage claims against trusted agricultural data — not the chemical module, not PoP, not the Golden Dataset.</div>
+        <div class="arrow">▼</div>
+        <div class="step"><b>Answer is delivered to the farmer immediately</b> <span class="tag">before any human reads it</span></div>
+        <div class="arrow">▼</div>
+        <div class="step"><b>Question + AI answer are copied to the Review System</b> — a human expert may notice a problem later, after delivery <span class="tag">post-hoc, human-only</span></div>
+        <div class="callout bad">An unsafe dosage recommendation can reach a farmer before anyone sees it. The only quality gate is one expert reading it unaided, within SLA.</div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="col after">
+      <div class="col-head">✓ AFTER — with AjraVerify</div>
+      <div class="col-body">
+        <div class="step"><b>AI fallback drafts the answer</b> — same generation step as today</div>
+        <div class="arrow">▼</div>
+        <div class="gate">
+          <div class="gtitle">🛡 AjraVerify gate (runs before delivery)</div>
+          <ul>
+            <li><b>Extract claims</b> — chemical names, dosages (ml/L, g/acre), intervals ("every 5 days"), spray counts</li>
+            <li><b>Resolve</b> each claim against trusted data — chemical catalogue, PoP DB, Golden Dataset</li>
+            <li><b>Decide</b> with a deterministic policy engine (no LLM in the decision)</li>
+            <li><b>Persist a receipt</b> — every claim, match result, verdict and reason, for audit</li>
+          </ul>
+          <div class="verdicts">
+            <span class="pill v-ok">VERIFIED</span>
+            <span class="pill v-cond">CONDITIONAL</span>
+            <span class="pill v-rev">REVIEW_REQUIRED</span>
+            <span class="pill v-block">BLOCKED</span>
+          </div>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="step"><b>Delivery depends on the verdict:</b> verified → ships · conditional → ships with a caveat · review required / blocked → routed into the existing expert queue <span class="tag">instead of silent delivery</span></div>
+        <div class="arrow">▼</div>
+        <div class="step"><b>Experts open the queue with per-claim evidence</b> — matched sources and mismatches shown next to the answer, not a bare text box</div>
+        <div class="callout good">No AI answer ships with unchecked dosage or interval claims. Unsafe or unverifiable advice escalates to humans with evidence — and every gate decision is auditable.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>Where it lives:</b> new TypeScript module inside the existing backend — no new service</div>
+    <div><b>Facts come from data:</b> chemical module · PoP · Golden Dataset — never hardcoded in code</div>
+    <div><b>Milestone 1:</b> zero LLM calls, fully offline-testable · <b>Milestone 2:</b> LLM extracts, policy still decides</div>
+  </div>
+</body>
+</html>

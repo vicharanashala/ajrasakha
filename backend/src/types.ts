@@ -56,6 +56,9 @@ const TYPES = {
   CropService: Symbol.for('CropService'),
   ChemicalService: Symbol.for('ChemicalService'),
 
+  // Verification (AjraVerify)
+  VerificationService: Symbol.for('VerificationService'),
+
   // Constants
   uri: Symbol.for('dbURI'),
   dbName: Symbol.for('dbName'),
