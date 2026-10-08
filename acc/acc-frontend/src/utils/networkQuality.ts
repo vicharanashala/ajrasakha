@@ -18,10 +18,9 @@ export async function measureNetworkLatency(): Promise<NetworkQualityResult> {
   for (let i = 0; i < 2; i++) {
     const start = performance.now();
     try {
-      await fetch(testUrl, {
+      // Use cache-busting timestamp query param to avoid CORS preflight header restrictions
+      await fetch(`${testUrl}?_t=${Date.now()}`, {
         method: "GET",
-        cache: "no-store",
-        headers: { "Cache-Control": "no-cache" },
       });
       pings.push(performance.now() - start);
     } catch (err) {
