@@ -1,5 +1,6 @@
 import type { IUser, IUnverifiedUser, ReviewLevelCount, UserRole } from "@/types";
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getCurrentUser } from "../api/api-fetch";
+import { getIdToken } from "firebase/auth";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
@@ -358,5 +359,51 @@ export class UserService {
 
     async getPaeValidationExperts(): Promise<PaeValidationExpert[] | null> {
     return apiFetch<PaeValidationExpert[]>(`${this._baseUrl}/pae-val-experts`);
+  }
+
+  /** Export an individual user's activity report matching the given time filters as an .xlsx blob. */
+  async exportUserActivityReport(
+    userId: string,
+    params: {
+      viewType?: "year" | "month" | "week" | "day";
+      selectedYear?: string;
+      selectedMonth?: string;
+      selectedWeek?: string;
+      selectedDay?: string;
+      customStartDateTime?: string;
+      customEndDateTime?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<Blob> {
+    const qs = new URLSearchParams();
+    if (params.viewType) qs.append("viewType", params.viewType);
+    if (params.selectedYear) qs.append("selectedYear", params.selectedYear);
+    if (params.selectedMonth) qs.append("selectedMonth", params.selectedMonth);
+    if (params.selectedWeek) qs.append("selectedWeek", params.selectedWeek);
+    if (params.selectedDay) qs.append("selectedDay", params.selectedDay);
+    if (params.customStartDateTime)
+      qs.append("customStartDateTime", params.customStartDateTime);
+    if (params.customEndDateTime)
+      qs.append("customEndDateTime", params.customEndDateTime);
+    if (params.startDate) qs.append("startDate", params.startDate);
+    if (params.endDate) qs.append("endDate", params.endDate);
+
+    const user = await getCurrentUser();
+    if (!user) throw new Error("User not authenticated");
+    const token = await getIdToken(user);
+
+    const res = await fetch(
+      `${this._baseUrl}/${userId}/activity-report/export?${qs.toString()}`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Failed to export report" }));
+      throw new Error(err.message || "Failed to export report");
+    }
+    return await res.blob();
   }
 }
