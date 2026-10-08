@@ -1525,8 +1525,9 @@ WHAT YOU MUST NOT DO:
 - Do not add disclaimers, source citations, or testing notices — the application
   appends those automatically.
 
-LOCATION NOTE: when a LOCATION NOTE is given, start the answer with it, in the
-same language and script as the rest of the answer, then a blank line.
+LOCATION NOTE: when a LOCATION NOTE is given, start the answer with it, then a
+blank line. Copy it exactly; only translate it when the answer is in another
+language. Never change the place names in it.
 """
 
 FOLLOW_UP_TYPE_INSTRUCTIONS = {
@@ -1558,9 +1559,10 @@ FOLLOW_UP_TYPE_INSTRUCTIONS = {
         "add or remove facts."
     ),
     "location_change": (
-        "The farmer is asking the previous question for the place in their "
-        "follow-up. Give the previous answer again for that place; keep all facts "
-        "and do not invent new ones."
+        "The farmer named a place in their follow-up. Answers are always for the "
+        "farmer's profile location, never for a place named in the message: give "
+        "the previous answer again with the same facts. Do not mention the named "
+        "place or tailor the answer to it, and do not invent new facts."
     ),
 }
 

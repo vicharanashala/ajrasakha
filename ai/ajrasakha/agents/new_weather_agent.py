@@ -825,12 +825,6 @@ class NewWeatherInput(BaseModel):
     target_date: Optional[str] = Field(None, description="Target date in YYYY-MM-DD format if querying a specific date.")
     from_date: Optional[str] = Field(None, description="Start date in YYYY-MM-DD format for historical date ranges.")
     to_date: Optional[str] = Field(None, description="End date in YYYY-MM-DD format for historical date ranges.")
-    location: Optional[str] = Field(None, description="Planner-supplied sub-place name (town/village); accepted so the planner's tool call validates.")
-    sub_places: Optional[list[str]] = Field(None, description="Planner-supplied sub-places named in the query.")
-    sub_place_latitude: Optional[float] = Field(None, description="Planner-geocoded sub-place latitude.")
-    sub_place_longitude: Optional[float] = Field(None, description="Planner-geocoded sub-place longitude.")
-    sub_place_state: Optional[str] = Field(None, description="State of the planner-geocoded sub-place.")
-    sub_place_district: Optional[str] = Field(None, description="District of the planner-geocoded sub-place.")
     village: Optional[str] = Field(None, description="Farmer profile village, when known.")
     block: Optional[str] = Field(None, description="Farmer profile block, when known.")
 
@@ -1006,12 +1000,6 @@ async def new_weather(
     target_date: Optional[str] = None,
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
-    location: Optional[str] = None,
-    sub_places: Optional[list[str]] = None,
-    sub_place_latitude: Optional[float] = None,
-    sub_place_longitude: Optional[float] = None,
-    sub_place_state: Optional[str] = None,
-    sub_place_district: Optional[str] = None,
     village: Optional[str] = None,
     block: Optional[str] = None,
     config: RunnableConfig = None,

@@ -1067,10 +1067,13 @@ def _build_tool_args(
     state: str | None,
 ) -> dict[str, Any]:
     actions = intent.get("actions") or [intent["action"]]
+    # "With nearby" is for a named market, which is never used: today's price near the profile.
+    actions = list(dict.fromkeys("get_today_price" if a == "get_price_with_nearby" else a for a in actions))
     tool_action: str | list[str] = actions[0] if len(actions) == 1 else actions
     args: dict[str, Any] = {"action": tool_action}
-    # The profile state wins; a state named in the query is only a fallback.
-    tool_state = state or intent.get("state")
+    # The location is the farmer profile's only; a state or market named in the
+    # query is never used.
+    tool_state = state
     if tool_state and str(tool_state).strip().lower() not in {"all", "not specified", "unknown"}:
         args["state"] = str(tool_state).strip()
 
@@ -1090,23 +1093,8 @@ def _build_tool_args(
         args["nearest_market"] = bool(intent.get("nearest_market", True))
         if intent.get("radius_km") is not None:
             args["radius_km"] = intent["radius_km"]
-        # Only a named mandi/APMC is passed on; a city or district named in the
-        # query is a location, which always comes from the farmer profile.
-        if intent.get("market_name") and intent.get("search_by_apmc"):
-            args["market_name"] = intent["market_name"]
 
-    # Clean up market_name: strip trailing 'district', never treat crop as mandi name
-    if args.get("market_name"):
-        mn_raw = str(args["market_name"]).strip()
-        mn_clean = re.sub(r"\s+district\b", "", mn_raw, flags=re.IGNORECASE).strip()
-        cr = (crop or "").strip().lower()
-        if cr and (mn_clean.lower() == cr or mn_clean.lower() in {"rice", "paddy"} and cr in {"rice", "paddy"}):
-            args.pop("market_name", None)
-            args["nearest_market"] = True
-        else:
-            args["market_name"] = mn_clean
-
-    args["search_by_apmc"] = bool(intent.get("search_by_apmc", False))
+    args["search_by_apmc"] = False
 
     if intent.get("lookback_days") is not None:
         args["lookback_days"] = intent["lookback_days"]
@@ -1118,9 +1106,6 @@ def _build_tool_args(
 
     if "get_extreme_arrival" in actions and intent.get("sort_order"):
         args["sort_order"] = intent["sort_order"]
-
-    if args.get("market_name") and args.get("search_by_apmc"):
-        args["nearest_market"] = False
 
     return args
 
@@ -1255,11 +1240,6 @@ class DailyPriceInput(BaseModel):
     district: Optional[str] = None
     location_from_profile: Optional[bool] = None  # True when state/district/latitude/longitude are the farmer's profile location (answer adds a "change it in the profile section" note)
     # Planner-supplied place details; accepted so the planner's tool call validates.
-    sub_places: Optional[list[str]] = None
-    sub_place_latitude: Optional[float] = None
-    sub_place_longitude: Optional[float] = None
-    sub_place_state: Optional[str] = None
-    sub_place_district: Optional[str] = None
     village: Optional[str] = None
     block: Optional[str] = None
 
@@ -1273,11 +1253,6 @@ async def daily_price(
     state: Optional[str] = None,
     district: Optional[str] = None,
     location_from_profile: Optional[bool] = None,
-    sub_places: Optional[list[str]] = None,
-    sub_place_latitude: Optional[float] = None,
-    sub_place_longitude: Optional[float] = None,
-    sub_place_state: Optional[str] = None,
-    sub_place_district: Optional[str] = None,
     village: Optional[str] = None,
     block: Optional[str] = None,
     config: RunnableConfig = None,

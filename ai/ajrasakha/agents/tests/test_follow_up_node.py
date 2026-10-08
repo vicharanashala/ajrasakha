@@ -56,7 +56,7 @@ class TestHelpers:
         assert "simpler words" in _type_instruction("simplify")
         assert "tone" in _type_instruction("tone_change")
         assert "Rephrase" in _type_instruction("rephrase")
-        assert "previous question for the place" in _type_instruction("location_change")
+        assert "never for a place named in the message" in _type_instruction("location_change")
 
     def test_type_instruction_unknown_falls_back(self):
         instr = _type_instruction("unknown_type")

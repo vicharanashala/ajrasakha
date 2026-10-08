@@ -11,7 +11,6 @@ from typing import Any, NamedTuple, Optional
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 
-from ajrasakha.agents.location_context import extract_state_from_text
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.config import (
     resolve_message_id,
@@ -483,13 +482,6 @@ def _entity_with_source(
     if val and str(val).strip() and str(val).strip().lower() not in _PLACEHOLDER_STATES:
         return str(val).strip(), f"plan.entities.{key}"
 
-    if key == "state":
-        query_text = (user_query or "").strip() or (plan.get("rephrased_query") or "").strip() or (plan.get("original_query_en") or "").strip()
-        if query_text:
-            extracted = extract_state_from_text(query_text)
-            if extracted:
-                return extracted, "query_text_extracted"
-
     # A state from the planner with no district means the whole state ("all"):
     # never borrow a district from the thread location, which can be another
     # state's (e.g. the farmer's profile district).
@@ -497,14 +489,6 @@ def _entity_with_source(
         planner_state = str(entities.get("state") or "").strip().lower()
         if planner_state and planner_state not in _PLACEHOLDER_STATES:
             return default, "default_all_when_state_known"
-
-    # Fallback to stored profile/location ONLY when query text has no location:
-    if key in {"state", "district"}:
-        loc_key = "district" if (key == "district" and loc.get("district")) else ("city" if key == "district" else key)
-        if loc.get(loc_key) and str(loc[loc_key]).strip():
-            candidate = str(loc[loc_key]).strip()
-            if candidate.lower() not in _PLACEHOLDER_STATES:
-                return candidate, f"location.{loc_key}"
 
     return default, "default"
 
@@ -758,21 +742,14 @@ async def build_specialist_tool_calls_from_plan(
     district = resolved.district
     crop = resolved.crop
 
-    # The planner's LGD-checked state/district are the only location the tools get.
-    # Coordinates come from the farmer profile when the location is the profile's;
-    # otherwise the weather and mandi tools look up the district/state themselves.
+    # The farmer profile state/district/lat/long are the only location the tools get;
+    # without profile lat/long the weather and mandi tools geocode the district/state.
     coords = plan.get("profile_coordinates") or {}
     lat: Optional[float] = coords.get("latitude")
     lon: Optional[float] = coords.get("longitude")
     addr: Optional[str] = None
     lat_source: str = "farmer_profile" if lat is not None and lon is not None else "unset"
-    # Weather/mandi only: places the farmer named that LGD did not verify.
-    sub_places: list[str] = list(plan.get("sub_places") or [])
-    curr_sub_loc: Optional[str] = sub_places[0] if sub_places else None
-    # Weather/mandi: lat/long above are the farmer profile's; the tools use them
-    # only when the question names no place, else the planner-geocoded sub-place.
     location_from_profile = bool(plan.get("location_from_profile"))
-    sub_loc = plan.get("sub_place_location") or {}
 
     if out_transient_location is not None and lat is not None and lon is not None:
         out_transient_location["state"] = state_name
@@ -818,13 +795,7 @@ async def build_specialist_tool_calls_from_plan(
                 "query": weather_query,
                 "district": eff_district,
                 "state": state_name if state_name and state_name.lower() not in {"not specified", "unknown"} else None,
-                "location": curr_sub_loc,
-                "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
-                "sub_place_latitude": sub_loc.get("latitude"),
-                "sub_place_longitude": sub_loc.get("longitude"),
-                "sub_place_state": sub_loc.get("state"),
-                "sub_place_district": sub_loc.get("district"),
                 "village": coords.get("village"),
                 "block": coords.get("block"),
                 "latitude": lat,
@@ -851,12 +822,7 @@ async def build_specialist_tool_calls_from_plan(
                 "crop": crop if crop != "General" else "all",
                 "state": state_name if state_name != "Not specified" else None,
                 "district": eff_district,
-                "sub_places": sub_places,
                 "location_from_profile": location_from_profile,
-                "sub_place_latitude": sub_loc.get("latitude"),
-                "sub_place_longitude": sub_loc.get("longitude"),
-                "sub_place_state": sub_loc.get("state"),
-                "sub_place_district": sub_loc.get("district"),
                 "village": coords.get("village"),
                 "block": coords.get("block"),
             },

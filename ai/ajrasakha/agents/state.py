@@ -100,12 +100,9 @@ class PlannerPlan(TypedDict, total=False):
     follow_up_type: Optional[str]  # "language_change" | "format_change" | "detail_request" | "simplify" | "tone_change" | "rephrase"
     main_question: Optional[str]  # The underlying question the previous AI answer was about
     is_multiple_crops: Optional[bool]  # Farmer named 2+ crops: GDB searches "all", reviewer gets "Multiple Crops"
-    location_check: Optional[str]  # "invalid" | "ambiguous" when LGD rejected the place named in the query
     places: list[str]  # every place the current message names (planner LLM)
-    sub_places: list[str]  # weather/mandi: named places LGD did not verify, or beyond the one state/district
     profile_coordinates: Optional[dict[str, Any]]  # farmer profile lat/long (+ village/block for weather/mandi)
     location_from_profile: bool  # tools use the farmer profile lat/long
-    places_outside_profile: list[str]  # weather/mandi: places named that are not the profile's (asks to change profile)
     profile_location_prefix: Optional[str]  # answer prefix when the question names only the profile's own places
     has_inappropriate_content: bool  # True when query contains abusive/inappropriate language
 

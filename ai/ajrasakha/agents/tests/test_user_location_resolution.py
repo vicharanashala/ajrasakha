@@ -67,7 +67,7 @@ def test_merge_uses_stored_location_when_query_has_no_state():
     assert sources["state_source"] == "stored_user_location"
 
 
-def test_merge_query_overrides_stored_location():
+def test_merge_stored_location_overrides_the_query():
     plan = {
         "rephrased_query": "Weather in Ambala, Haryana",
         "entities": {"state": "Haryana", "district": "Ambala"},
@@ -82,8 +82,8 @@ def test_merge_query_overrides_stored_location():
         stored_location=stored,
         sources_out=sources,
     )
-    assert entities["district"] == "Ambala"
-    assert sources["state_source"] in ("plan.entities.state (llm)", "rephrased_query_text")
+    assert entities["district"] == "Sirsa"
+    assert sources["state_source"] == "stored_user_location"
 
 
 def test_merge_prefers_stored_over_prev_entities():
