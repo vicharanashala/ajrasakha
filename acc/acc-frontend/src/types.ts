@@ -28,6 +28,8 @@ export interface IUser {
   currentCallUuid?: string | null;
   currentCallPhoneNumber?: string | null;
   lastAgentActiveAt?: string | Date;
+  networkQuality?: 'healthy' | 'weak';
+  networkRtt?: number;
   avatar?: string;
   mobile?: string;
 }

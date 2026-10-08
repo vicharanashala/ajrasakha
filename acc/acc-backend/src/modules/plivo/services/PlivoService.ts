@@ -54,6 +54,7 @@ export class PlivoService {
   private plivoClient: plivo.Client;
   private callAgentMapping: Map<string, string> = new Map();
   private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; agentNumber?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }> = new Map();
+  private pendingAgentAlerts: Map<string, Array<{ callUuid: string; callerNumber: string; timestamp: Date; reason: string }>> = new Map();
 
   private lastActivityMap: Map<string, number> = new Map();
   // private audioDumpBuffers: Map<string, Buffer[]> = new Map();
@@ -627,6 +628,18 @@ export class PlivoService {
 
   getCallDirection(callUuid: string): 'inbound' | 'outbound' {
     return this.callMetadataMap.get(callUuid)?.direction || 'inbound';
+  }
+
+  addAgentAlert(agentUserId: string, alert: { callUuid: string; callerNumber: string; reason: string }): void {
+    const existing = this.pendingAgentAlerts.get(agentUserId) || [];
+    existing.push({ ...alert, timestamp: new Date() });
+    this.pendingAgentAlerts.set(agentUserId, existing.slice(-5));
+  }
+
+  getAndClearAgentAlerts(agentUserId: string): Array<{ callUuid: string; callerNumber: string; timestamp: Date; reason: string }> {
+    const alerts = this.pendingAgentAlerts.get(agentUserId) || [];
+    this.pendingAgentAlerts.delete(agentUserId);
+    return alerts;
   }
 
   findParentCallUuid(phoneNumber?: string, agentUserId?: string): string | undefined {

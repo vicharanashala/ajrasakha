@@ -215,7 +215,11 @@ export class UserService extends BaseService {
     });
   }
 
-  async updateAgentHeartbeat(userId: string): Promise<void> {
+  async updateAgentHeartbeat(
+    userId: string,
+    networkQuality?: 'healthy' | 'weak',
+    networkRtt?: number
+  ): Promise<void> {
     await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -226,9 +230,17 @@ export class UserService extends BaseService {
         throw new BadRequestError('User is not a call agent');
       }
 
-      await this.userRepo.edit(userId, {
-        lastAgentActiveAt: new Date()
-      }, session);
+      const updateData: any = {
+        lastAgentActiveAt: new Date(),
+      };
+      if (networkQuality !== undefined) {
+        updateData.networkQuality = networkQuality;
+      }
+      if (networkRtt !== undefined) {
+        updateData.networkRtt = networkRtt;
+      }
+
+      await this.userRepo.edit(userId, updateData, session);
     });
   }
 

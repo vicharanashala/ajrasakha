@@ -73,6 +73,7 @@ import {
 import type { GeneratedQuestion } from "@/hooks/services/questionService";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
 import { plivoService } from "@/hooks/api/plivo/api";
+import { usePlivo } from "@/context/PlivoContext";
 
 const DOMAIN_OPTIONS = [
   "Soil Health and Nutrient Management",
@@ -517,6 +518,7 @@ const renderWeatherInsights = (weatherInput: any) => {
 };
 
 export const CallInterface = () => {
+  const { undeliveredCallAlert, clearUndeliveredCallAlert } = usePlivo();
   const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
   const [isCallActive, setIsCallActive] = useState(false);
   const [callUuid, setCallUuid] = useState<string | null>(null);
@@ -1695,6 +1697,25 @@ export const CallInterface = () => {
     <div className="space-y-3.5 w-full max-w-full px-1.5 sm:px-3 py-1.5 relative">
       {/* Incoming Call Box - Top Sticky Bar */}
       <div className="sticky top-0 z-40 bg-background/95 dark:bg-background/95 backdrop-blur-md pt-0.5 pb-2 -mt-1">
+        {/* Undelivered Call Alert (Auto-dismisses in 5s) */}
+        {undeliveredCallAlert && (
+          <div className="bg-destructive/15 border border-destructive/30 text-destructive dark:text-red-300 px-4 py-2.5 rounded-lg flex items-center justify-between text-xs sm:text-sm mb-2 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="h-2 w-2 rounded-full bg-destructive animate-ping shrink-0" />
+              <span className="truncate sm:whitespace-normal">
+                <strong>Undelivered Call:</strong> A call from <strong>{undeliveredCallAlert.number}</strong> could not reach your screen due to weak internet connectivity.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={clearUndeliveredCallAlert}
+              className="text-xs font-semibold underline ml-3 shrink-0 cursor-pointer hover:opacity-80"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <IncomingCallBox
           extractedFarmerProfile={extractedFarmerProfile}
           onTranscriptChange={() => { }} // Not using direct strings anymore

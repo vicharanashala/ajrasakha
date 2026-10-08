@@ -29,6 +29,13 @@ export interface ActiveCallInfo {
 
 export type CallStatus = "idle" | "incoming" | "calling" | "connected" | "held" | "ended";
 
+export interface UndeliveredCallAlert {
+  callUuid?: string;
+  number: string;
+  timestamp: string;
+  reason?: string;
+}
+
 export interface PlivoContextType {
   plivoClient: any | null;
   callStatus: CallStatus;
@@ -46,6 +53,10 @@ export interface PlivoContextType {
   setSelectedLanguage: (lang: string) => void;
   languageManuallyChanged: boolean;
   setLanguageManuallyChanged: (val: boolean) => void;
+  isNetworkWeak: boolean;
+  undeliveredCallAlert: UndeliveredCallAlert | null;
+  clearUndeliveredCallAlert: () => void;
+  triggerUndeliveredAlert: (alert: { callUuid?: string; number: string; reason?: string }) => void;
   
   // Actions
   initiateRedial: (phoneNumber: string, metadata?: any) => Promise<boolean>;
@@ -145,6 +156,38 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [farmerDetectedLanguage, setFarmerDetectedLanguage] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
   const [languageManuallyChanged, setLanguageManuallyChanged] = useState(false);
+
+  // Network & undelivered call alerting states
+  const [isNetworkWeak, setIsNetworkWeak] = useState(false);
+  const [undeliveredCallAlert, setUndeliveredCallAlert] = useState<UndeliveredCallAlert | null>(null);
+  const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const incomingWatchdogRef = useRef<{ callUuid: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+
+  // Clear undelivered alert helper
+  const clearUndeliveredCallAlert = useCallback(() => {
+    if (alertTimeoutRef.current) {
+      clearTimeout(alertTimeoutRef.current);
+      alertTimeoutRef.current = null;
+    }
+    setUndeliveredCallAlert(null);
+  }, []);
+
+  // Trigger undelivered alert with strict 5-second auto-dismiss
+  const triggerUndeliveredAlert = useCallback((alert: { callUuid?: string; number: string; reason?: string }) => {
+    if (alertTimeoutRef.current) {
+      clearTimeout(alertTimeoutRef.current);
+    }
+    setUndeliveredCallAlert({
+      callUuid: alert.callUuid,
+      number: alert.number,
+      reason: alert.reason,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    });
+    alertTimeoutRef.current = setTimeout(() => {
+      setUndeliveredCallAlert(null);
+      alertTimeoutRef.current = null;
+    }, 5000);
+  }, []);
 
   // References
   const plivoClientRef = useRef<any>(null);
@@ -246,7 +289,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           console.log(`🔗 [PlivoContext] Adopting server parent callId ${message.callId} for active connected leg`);
           activeCallUuidRef.current = message.callId;
           parentCallUuidRef.current = message.callId;
-          setActiveCall((prev) => (prev ? { ...prev, uuid: message.callId } : prev));
+          setActiveCall((prev) => (prev ? { ...prev, uuid: message.callId || "" } : prev));
         } else {
           return;
         }
@@ -379,7 +422,40 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toast.error("Plivo login failed: " + (error?.message || "Check network/credentials"));
       });
 
+      // Monitor WebSocket connection state to Plivo phone server
+      client.client.on("onConnectionChange", (data: any) => {
+        console.warn("🌐 [PlivoContext] Plivo connection change:", data);
+        if (data?.state === "disconnected") {
+          setIsNetworkWeak(true);
+          toast.error("⚠️ Phone disconnected from call server. Unstable internet connection.", {
+            id: "plivo-net-err",
+            duration: 5000,
+          });
+        } else if (data?.state === "connected") {
+          setIsNetworkWeak(false);
+          toast.success("Phone connected to call server.", {
+            id: "plivo-net-err",
+            duration: 3000,
+          });
+        }
+      });
+
+      // Monitor WebRTC media quality metrics (high latency, packet loss, ICE timeout)
+      client.client.on("mediaMetrics", (metric: any) => {
+        if (metric?.type === "high_rtt" || metric?.type === "ice_timeout") {
+          console.warn("⚠️ [PlivoContext] WebRTC network quality warning:", metric);
+          setIsNetworkWeak(true);
+        }
+      });
+
       client.client.on("onIncomingCall", (callerID: string, _extraHeaders: any, callInfo: any, callerName: string) => {
+        // Clear watchdog timer if this was the incoming call
+        if (incomingWatchdogRef.current) {
+          clearTimeout(incomingWatchdogRef.current.timer);
+          incomingWatchdogRef.current = null;
+        }
+        clearUndeliveredCallAlert();
+
         const callerPhone = callerName || callerID || "Unknown Caller";
         const callUuid = callInfo?.callUUID || callInfo?.calluuid || (callerID?.includes("-") ? callerID : undefined);
 
@@ -518,6 +594,107 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     initializeClient();
   }, [agentId, isAgentActive, userRole, isUserLoading, handleMarkAgentAsAvailable, connectWebSocket, disconnectWebSocket, refetchCurrentUser]);
+
+  // Real-time out-of-band undelivered call alerts via Server-Sent Events (SSE)
+  useEffect(() => {
+    if (userRole !== "call_agent" || !isAgentActive) return;
+
+    let eventSource: EventSource | null = null;
+    let isDisposed = false;
+
+    const setupSSE = async () => {
+      try {
+        const firebaseUser = await getCurrentUser();
+        if (!firebaseUser) return;
+        const token = await getIdToken(firebaseUser);
+        if (isDisposed) return;
+
+        const apiBase = env.apiBaseUrl();
+        const sseUrl = `${apiBase}/plivo/agent-alerts?token=${encodeURIComponent(token)}`;
+        eventSource = new EventSource(sseUrl);
+
+        eventSource.onopen = () => {
+          console.log("📡 [PlivoContext] SSE agent alert stream connected");
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "call_incoming_attempt") {
+              const incomingId = data.callUuid || data.callId || "";
+              const callerNumber = data.callerNumber || "Unknown Caller";
+              console.log(`📞 [PlivoContext] SSE call_incoming_attempt for call ${incomingId} from ${callerNumber}`);
+
+              if (incomingWatchdogRef.current) {
+                clearTimeout(incomingWatchdogRef.current.timer);
+              }
+
+              // Start 3.5s watchdog: if Plivo onIncomingCall doesn't ring on browser within 3.5s, notify agent
+              const timer = setTimeout(() => {
+                if (activeCallUuidRef.current !== incomingId && callStatus !== "connected") {
+                  console.warn(`🚨 [PlivoContext] Call ${incomingId} did not reach softphone within 3.5s. Triggering undelivered alert.`);
+                  triggerUndeliveredAlert({
+                    callUuid: incomingId,
+                    number: callerNumber,
+                    reason: "Phone interface could not receive call invite within 3.5s due to weak internet",
+                  });
+                  toast.error(
+                    `🚨 Incoming call from ${callerNumber}, but your phone interface could not connect due to weak internet!`,
+                    { duration: 5000 }
+                  );
+                }
+                incomingWatchdogRef.current = null;
+              }, 3500);
+
+              incomingWatchdogRef.current = { callUuid: incomingId, timer };
+            } else if (data.type === "call_delivery_failed") {
+              console.warn("⚠️ [PlivoContext] SSE call_delivery_failed:", data);
+              const incomingId = data.callUuid || data.callId || "";
+              const callerNumber = data.callerNumber || "Unknown Caller";
+
+              if (incomingWatchdogRef.current) {
+                clearTimeout(incomingWatchdogRef.current.timer);
+                incomingWatchdogRef.current = null;
+              }
+
+              triggerUndeliveredAlert({
+                callUuid: incomingId,
+                number: callerNumber,
+                reason: data.reason || "Call delivery failed at server due to network timeout",
+              });
+              toast.error(
+                `⚠️ Missed incoming call from ${callerNumber}: Call could not reach your interface.`,
+                { duration: 5000 }
+              );
+            }
+          } catch (parseErr) {
+            // Ignore keepalive comments or non-JSON pings
+          }
+        };
+
+        eventSource.onerror = (err) => {
+          // Native EventSource automatically reconnects in the background
+          console.warn("⚠️ [PlivoContext] SSE alert stream interrupted, browser will auto-reconnect:", err);
+        };
+      } catch (err) {
+        console.error("❌ [PlivoContext] Failed to setup SSE alert stream:", err);
+      }
+    };
+
+    setupSSE();
+
+    return () => {
+      isDisposed = true;
+      if (incomingWatchdogRef.current) {
+        clearTimeout(incomingWatchdogRef.current.timer);
+        incomingWatchdogRef.current = null;
+      }
+      if (eventSource) {
+        eventSource.close();
+        console.log("🔌 [PlivoContext] SSE agent alert stream disconnected");
+      }
+    };
+  }, [userRole, isAgentActive, callStatus, triggerUndeliveredAlert]);
 
   // Outbound Redial Handler
   const initiateRedial = useCallback(
@@ -728,6 +905,10 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSelectedLanguage,
         languageManuallyChanged,
         setLanguageManuallyChanged,
+        isNetworkWeak,
+        undeliveredCallAlert,
+        clearUndeliveredCallAlert,
+        triggerUndeliveredAlert,
         initiateRedial,
         answerCall,
         hangupCall,
@@ -766,6 +947,10 @@ const defaultFallbackPlivoContext: PlivoContextType = {
   setSelectedLanguage: () => {},
   languageManuallyChanged: false,
   setLanguageManuallyChanged: () => {},
+  isNetworkWeak: false,
+  undeliveredCallAlert: null,
+  clearUndeliveredCallAlert: () => {},
+  triggerUndeliveredAlert: () => {},
   initiateRedial: async () => false,
   answerCall: () => {},
   hangupCall: () => {},

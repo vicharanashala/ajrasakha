@@ -23,9 +23,10 @@ import { Request, Response, urlencoded } from 'express';
 import { appConfig } from '#root/config/app.js';
 import { inject, injectable } from 'inversify';
 import plivo from 'plivo';
+import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
-import type { ICallDetailsRepository, AgentAnalytics, ACCAnalytics, CallRecording } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallDetailsRepository, CallDetails, AgentAnalytics, ACCAnalytics, CallRecording } from '#shared/database/interfaces/ICallDetailsRepository.js';
 import type { ICallFarmerRepository } from '#shared/database/interfaces/IFarmerRepository.js';
 import type { IPlivoCredentialsRepository } from '#shared/database/interfaces/IPlivoCredentialsRepository.js';
 import type { IUser } from '#shared/interfaces/models.js';
@@ -56,6 +57,27 @@ function stripMarkdown(text: string): string {
     .replace(/^[\s]*\d+\.\s+/gm, '')
     .trim();
 }
+
+// Thread-safe map of active agent SSE streams: Map<agentUserId, Set<Response>>
+const agentSseConnections = new Map<string, Set<Response>>();
+
+export const sendSseAlertToAgent = (agentUserId: string, payload: any): number => {
+  if (!agentUserId) return 0;
+  const clientSet = agentSseConnections.get(agentUserId);
+  if (!clientSet || clientSet.size === 0) return 0;
+
+  let deliveredCount = 0;
+  const dataString = `data: ${JSON.stringify(payload)}\n\n`;
+  clientSet.forEach((res) => {
+    try {
+      res.write(dataString);
+      deliveredCount++;
+    } catch (err) {
+      console.warn(`[SSE] Failed to write alert to agent ${agentUserId}:`, err);
+    }
+  });
+  return deliveredCount;
+};
 
 @OpenAPI({
   tags: ['plivo'],
@@ -240,6 +262,22 @@ export class PlivoController {
 
       let xml: string;
       if (endpointUser) {
+        const isAgentNetworkWeak = availableAgent?.networkQuality === 'weak';
+        const dialTimeout = isAgentNetworkWeak ? 20 : 60;
+        // console.log(`📞 [PLIVO-CONTROLLER] Incoming call ${callUuid} routing to agent ${availableAgent?.agent} (network=${availableAgent?.networkQuality || 'healthy'}, timeout=${dialTimeout}s)`);
+
+        if (availableAgent?._id) {
+          const attemptPayload = {
+            type: 'call_incoming_attempt',
+            callUuid,
+            callerNumber,
+            timestamp: new Date().toISOString(),
+          };
+          sendSseAlertToAgent(availableAgent._id.toString(), attemptPayload);
+        }
+
+        const dialActionUrl = recordCallbackUrl.replace('/webhook/record', '/dial-action');
+
         xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
                               <Stream contentType="audio/x-l16;rate=16000"
@@ -247,7 +285,7 @@ export class PlivoController {
           >${streamUrl}</Stream>
                               <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
-                              <Dial timeout="60" callerId="${myPlivoNumber}">
+                              <Dial action="${dialActionUrl}" timeout="${dialTimeout}" callerId="${myPlivoNumber}">
                                         <User sipHeaders="X-PH-parentCallUuid=${callUuid};parentCallUuid=${callUuid}">${endpointUser}</User>
                               </Dial>
                               <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre</Speak>
@@ -255,6 +293,31 @@ export class PlivoController {
                               <Hangup />
                     </Response>`;
       } else {
+        // Persist unassigned inbound call as failed in DB for redial in Call History
+        try {
+          await this.callDetailsRepository.create({
+            callUuid,
+            from: callerNumber,
+            to: myPlivoNumber,
+            direction: 'inbound',
+            status: 'failed',
+            duration: 0,
+            caller: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            agent: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        } catch (dbErr) {
+          console.warn(`⚠️ [PLIVO-CONTROLLER] Failed to persist unassigned failed call ${callUuid}:`, dbErr);
+        }
 
         xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
@@ -640,6 +703,195 @@ export class PlivoController {
       console.error('❌ [PLIVO-CONTROLLER] Error in call answered webhook:', error);
       res.status(500).send('Internal Server Error');
     }
+  }
+
+  @Post('/dial-action')
+  @HttpCode(200)
+  @UseBefore(urlencoded({ extended: true }))
+  @OpenAPI({ summary: 'Handle Plivo Dial completion and notify agent if call failed to reach interface' })
+  async handleDialAction(@Req() req: Request, @Res() res: Response): Promise<any> {
+    try {
+      const { DialStatus, DialRingStatus, DialHangupCause, DialALegUUID } = req.body || {};
+      const callUuid = DialALegUUID || req.body?.CallUUID;
+      const callMeta = callUuid ? this.plivoService.getCallMetadata(callUuid) : undefined;
+      const agentUserId = callMeta?.agentUserId;
+
+      // console.log(`📡 [DIAL-ACTION] CallUUID=${callUuid}, Status=${DialStatus}, Rang=${DialRingStatus}, Cause=${DialHangupCause}, Agent=${agentUserId}`);
+
+      const isDeliveryFailure =
+        DialRingStatus === 'false' ||
+        DialStatus === 'failed' ||
+        DialStatus === 'timeout' ||
+        DialHangupCause?.includes('Endpoint Not Registered') ||
+        DialHangupCause?.includes('2020');
+
+      // If dial was not completed (failed, timeout, no-answer, busy, etc.), persist as failed call in DB for redial
+      if (DialStatus !== 'completed') {
+        const callerPhone = callMeta?.from || req.body?.From || req.query?.From || 'unknown';
+        const myPlivoNumber = appConfig.plivo.plivo_number || '+918031150392';
+
+        try {
+          if (callUuid) {
+            const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
+            if (existingCall) {
+              await this.callDetailsRepository.updateCallDetails(callUuid, {
+                status: 'failed',
+                duration: 0,
+                ...(callerPhone && callerPhone !== 'unknown' ? { from: callerPhone } : {}),
+              });
+            } else {
+              let agentObjId: ObjectId | undefined;
+              if (agentUserId && ObjectId.isValid(agentUserId)) {
+                agentObjId = new ObjectId(agentUserId);
+              }
+              const failedCallRecord: CallDetails = {
+                callUuid,
+                from: callerPhone,
+                to: myPlivoNumber,
+                direction: 'inbound',
+                status: 'failed',
+                duration: 0,
+                caller: {
+                  transcript: '',
+                  translation: '',
+                  detectedLanguage: 'unknown',
+                },
+                agent: {
+                  userid: agentObjId,
+                  username: callMeta?.agentNumber || undefined,
+                  transcript: '',
+                  translation: '',
+                  detectedLanguage: 'unknown',
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              };
+              await this.callDetailsRepository.create(failedCallRecord);
+            }
+            // console.log(`💾 [DIAL-ACTION] Saved failed call ${callUuid} (from: ${callerPhone}, agent: ${agentUserId || 'none'}) in DB for redial.`);
+          }
+        } catch (dbErr) {
+          console.error(`❌ [DIAL-ACTION] Failed to persist failed call ${callUuid} in DB:`, dbErr);
+        }
+      }
+
+      if (isDeliveryFailure && agentUserId) {
+        console.warn(`🚨 [DIAL-ACTION] Call ${callUuid} failed to ring agent ${agentUserId}. Notifying agent.`);
+
+        // 1. Free agent so they are not stuck in isBusy
+        try {
+          await this.agentAssignmentService.markAgentAsAvailable(agentUserId);
+        } catch (mErr) {
+          console.warn(`Failed to mark agent ${agentUserId} available in dial-action:`, mErr);
+        }
+
+        // 2. Push real-time alert to agent screen and buffer for heartbeat
+        const alertData = {
+          callUuid: callUuid || `unknown_${Date.now()}`,
+          callerNumber: callMeta?.from || req.body?.From || 'Unknown',
+          reason: DialHangupCause || 'Endpoint Unreachable / Weak Internet',
+          timestamp: new Date().toISOString(),
+        };
+
+        const failedPayload = {
+          type: 'call_delivery_failed',
+          ...alertData,
+        };
+
+        sendSseAlertToAgent(agentUserId, failedPayload);
+
+        this.plivoService.addAgentAlert(agentUserId, alertData);
+
+        // 3. Let call end naturally with courteous apology (no re-routing)
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre. The specialist could not be connected due to a network connection issue. Please try calling back later.</Speak>
+  <Wait length="2" />
+  <Hangup />
+</Response>`;
+        res.set('Content-Type', 'text/xml');
+        return res.send(xml);
+      }
+
+      // If call rang on agent softphone but agent did not answer before timeout
+      if (DialStatus === 'no-answer' && agentUserId) {
+        try {
+          await this.agentAssignmentService.markAgentAsAvailable(agentUserId);
+        } catch (mErr) {
+          // ignore
+        }
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre. The specialist is currently unavailable. Please call back later.</Speak>
+  <Wait length="2" />
+  <Hangup />
+</Response>`;
+        res.set('Content-Type', 'text/xml');
+        return res.send(xml);
+      }
+
+      res.set('Content-Type', 'text/xml');
+      return res.send('<Response><Hangup /></Response>');
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error in dial-action handler:', error);
+      res.set('Content-Type', 'text/xml');
+      return res.send('<Response><Hangup /></Response>');
+    }
+  }
+
+  @Get('/agent-alerts')
+  @Authorized(['call_agent'])
+  @OpenAPI({ summary: 'Server-Sent Events stream for agent real-time undelivered call alerts' })
+  async subscribeAgentAlerts(
+    @Req() req: Request,
+    @Res() res: Response,
+    @CurrentUser() currentUser: IUser
+  ): Promise<any> {
+    const userId = currentUser?._id?.toString();
+    if (!userId) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    // Set standard SSE streaming headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering on Cloud Run / App Engine / Nginx
+    res.flushHeaders();
+
+    // Register active stream
+    if (!agentSseConnections.has(userId)) {
+      agentSseConnections.set(userId, new Set());
+    }
+    agentSseConnections.get(userId)!.add(res);
+    // console.log(`📡 [SSE] Agent ${userId} connected to alerts stream (active connections: ${agentSseConnections.get(userId)!.size})`);
+
+    // Send initial handshake
+    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+    // 25s keepalive ping to prevent proxy/cloud timeout
+    const pingInterval = setInterval(() => {
+      try {
+        res.write(': keepalive\n\n');
+      } catch (e) {
+        clearInterval(pingInterval);
+      }
+    }, 25000);
+
+    // Cleanup when connection closes
+    req.on('close', () => {
+      clearInterval(pingInterval);
+      const set = agentSseConnections.get(userId);
+      if (set) {
+        set.delete(res);
+        if (set.size === 0) {
+          agentSseConnections.delete(userId);
+        }
+      }
+      // console.log(` [SSE] Agent ${userId} disconnected from alerts stream`);
+    });
+
+    return res;
   }
 
   @Post('/webhook/call-ended')

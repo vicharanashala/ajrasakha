@@ -28,7 +28,8 @@ import {
   Users,
   Loader2,
 } from "lucide-react";
-import { PlivoProvider } from "@/context/PlivoContext";
+import { PlivoProvider, usePlivo } from "@/context/PlivoContext";
+import { measureNetworkLatency, type NetworkQualityResult } from "@/utils/networkQuality";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/call-agent-dashboard/")({
@@ -51,8 +52,10 @@ function DashboardComponent() {
     isLoading,
     refetch: refetchUser,
   } = useGetCurrentUser({ enabled: !!authUser });
+  const { isNetworkWeak, triggerUndeliveredAlert } = usePlivo();
   const [activeTab, setActiveTab] = useState("call_dashboard");
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [networkLatency, setNetworkLatency] = useState<NetworkQualityResult | null>(null);
 
   useEffect(() => {
     if (!authUser) {
@@ -67,7 +70,22 @@ function DashboardComponent() {
     const userService = new UserService();
     const sendHeartbeat = async () => {
       try {
-        await userService.sendHeartbeat();
+        const res = await userService.sendHeartbeat({
+          networkQuality: isNetworkWeak ? "weak" : "healthy",
+          networkRtt: networkLatency?.rtt,
+        });
+        if (res?.alerts && Array.isArray(res.alerts) && res.alerts.length > 0) {
+          for (const alert of res.alerts) {
+            triggerUndeliveredAlert({
+              callUuid: alert.callUuid,
+              number: alert.callerNumber,
+              reason: alert.reason,
+            });
+            toast.error(`⚠️ Missed Call from ${alert.callerNumber}: Call could not reach your device due to weak network.`, {
+              duration: 5000,
+            });
+          }
+        }
       } catch (err) {
         console.error("Failed to send heartbeat:", err);
       }
@@ -78,7 +96,7 @@ function DashboardComponent() {
     const interval = setInterval(sendHeartbeat, 30000);
 
     return () => clearInterval(interval);
-  }, [user?.role, user?.isCallAgentActive]);
+  }, [user?.role, user?.isCallAgentActive, triggerUndeliveredAlert, isNetworkWeak, networkLatency]);
 
   if (isLoading) {
     return (
@@ -123,6 +141,17 @@ function DashboardComponent() {
     setIsTogglingStatus(true);
     const newStatus = !isAgentOnline;
     try {
+      if (newStatus) {
+        const net = await measureNetworkLatency();
+        setNetworkLatency(net);
+        if (net.isWeak) {
+          toast.warning(`⚠️ Weak internet detected (${net.rtt}ms latency). Incoming calls may fail to reach your screen.`, {
+            duration: 5000,
+          });
+        }
+      } else {
+        setNetworkLatency(null);
+      }
       const userService = new UserService();
       await userService.toggleAgentStatus(newStatus);
       toast.success(
@@ -211,6 +240,33 @@ function DashboardComponent() {
                   )}
                   <span>{isAgentOnline ? "Online" : "Offline"}</span>
                 </button>
+              )}
+
+              {/* Network Latency Status Indicator */}
+              {isCallAgent && isAgentOnline && (
+                <span
+                  className={cn(
+                    "hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border select-none transition-colors",
+                    isNetworkWeak || (networkLatency?.rtt && networkLatency.rtt > 300)
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                      : "bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                  )}
+                  title={
+                    isNetworkWeak || (networkLatency?.rtt && networkLatency.rtt > 300)
+                      ? "Weak internet: High latency or packet loss detected"
+                      : "Healthy internet latency"
+                  }
+                >
+                  <span
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      isNetworkWeak || (networkLatency?.rtt && networkLatency.rtt > 300)
+                        ? "bg-amber-500 animate-ping"
+                        : "bg-emerald-500"
+                    )}
+                  />
+                  {networkLatency?.rtt ? `${networkLatency.rtt}ms` : (isNetworkWeak ? "Weak Net" : "Healthy Net")}
+                </span>
               )}
 
               <ThemeToggleCompact />

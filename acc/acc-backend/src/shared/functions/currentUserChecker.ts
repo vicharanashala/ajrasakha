@@ -10,7 +10,9 @@ export const currentUserChecker: CurrentUserChecker = async (
   const request = action.request as Request;
   const authService = getFromContainer(FirebaseAuthService);
 
-  const token = request.headers.authorization?.split(' ')[1];
+  const token =
+    request.headers.authorization?.split(' ')[1] ||
+    (request.query?.token as string);
   if (!token) {
     return null;
   }

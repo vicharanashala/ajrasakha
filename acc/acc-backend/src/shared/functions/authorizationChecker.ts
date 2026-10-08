@@ -5,7 +5,9 @@ import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
 export async function authorizationChecker(action: Action, roles: string[] = []): Promise<boolean> {
   getFirebaseAuth();
   const firebaseAuthService = getFromContainer(FirebaseAuthService);
-  const token = action.request.headers.authorization?.split(' ')[1];
+  const token =
+    action.request.headers.authorization?.split(' ')[1] ||
+    (action.request.query?.token as string);
   if (!token) {
     return false;
   }

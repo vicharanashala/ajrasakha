@@ -33,4 +33,6 @@ export interface IUser {
   currentCallPhoneNumber?: string | null; // Phone number of caller/destination being handled
   lastAgentActiveAt?: Date;
   lastCallAssignedAt?: Date;
+  networkQuality?: 'healthy' | 'weak';
+  networkRtt?: number;
 }

@@ -17,6 +17,8 @@ import {
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
+import { PLIVO_TYPES } from '#root/modules/plivo/types.js';
+import type { PlivoService } from '#root/modules/plivo/services/PlivoService.js';
 import { UserService } from '../services/UserService.js';
 import type { IUser } from '#shared/interfaces/models.js';
 
@@ -29,6 +31,7 @@ import type { IUser } from '#shared/interfaces/models.js';
 export class UserController {
   constructor(
     @inject(GLOBAL_TYPES.UserService) private readonly userService: UserService,
+    @inject(PLIVO_TYPES.PlivoService) private readonly plivoService: PlivoService,
   ) {}
 
   @Get('/me')
@@ -134,10 +137,12 @@ export class UserController {
   @OpenAPI({ summary: 'Update call agent heartbeat status' })
   async updateHeartbeat(
     @CurrentUser() currentUser: IUser,
-  ): Promise<{ success: boolean }> {
+    @Body() body?: { networkQuality?: 'healthy' | 'weak'; networkRtt?: number },
+  ): Promise<{ success: boolean; alerts?: any[] }> {
     const userId = currentUser._id.toString();
-    await this.userService.updateAgentHeartbeat(userId);
-    return { success: true };
+    await this.userService.updateAgentHeartbeat(userId, body?.networkQuality, body?.networkRtt);
+    const alerts = this.plivoService.getAndClearAgentAlerts(userId);
+    return { success: true, alerts };
   }
 
   @Put('/')

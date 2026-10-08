@@ -56,9 +56,13 @@ export class UserService {
     });
   }
 
-  async sendHeartbeat(): Promise<void | null> {
-    return apiFetch<void>(`${this._baseUrl}/call-agents/heartbeat`, {
+  async sendHeartbeat(data?: {
+    networkQuality?: "healthy" | "weak";
+    networkRtt?: number;
+  }): Promise<{ success: boolean; alerts?: any[] } | null> {
+    return apiFetch<{ success: boolean; alerts?: any[] }>(`${this._baseUrl}/call-agents/heartbeat`, {
       method: "POST",
+      body: data ? JSON.stringify(data) : undefined,
     });
   }
 
