@@ -409,7 +409,6 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         debug: "DEBUG",
         permOnClick: true,
         enableTracking: true,
-        clientRegion: "asia-south",
         usePlivoStunServer: true,
         audioConstraints: {
           echoCancellation: true,
