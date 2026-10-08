@@ -1,0 +1,58 @@
+name: Weekly GDB gap report
+
+# Runs the gap-detection pipeline every Monday 03:00 IST (21:30 UTC Sunday) and on demand.
+# Requires the repository secret MONGODB_URI. The embedding model (~470 MB) is cached
+# between runs.
+
+on:
+  schedule:
+    - cron: "30 21 * * 0"
+  workflow_dispatch:
+    inputs:
+      period_days:
+        description: "Report window in days (blank = profile default)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Compute without writing to MongoDB"
+        type: boolean
+        default: false
+
+jobs:
+  gap-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      OUTPUT_DB: ${{ vars.OUTPUT_DB || 'ace_insights' }}
+      ACE_PROFILE: ${{ vars.ACE_PROFILE || 'prod' }}
+      FARMER_KEY_SALT: ${{ secrets.FARMER_KEY_SALT || 'ace-insights' }}
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-paraphrase-multilingual-MiniLM-L12-v2
+      - name: Install (CPU torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Run gap report
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.period_days }}" ]; then ARGS="$ARGS --period-days ${{ github.event.inputs.period_days }}"; fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          python -m pipeline.run_gap_report $ARGS | tee gap_report_summary.txt
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap-report-summary
+          path: gap_report_summary.txt
+          retention-days: 90
