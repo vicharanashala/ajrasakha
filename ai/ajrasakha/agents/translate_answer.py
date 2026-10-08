@@ -179,8 +179,9 @@ async def translate_answer_node(
         logger.warning("translate_answer: path=synthesis but empty body — no-op")
         end_conversation_turn("(empty answer body)", outcome="empty")
         return {}
-    if plan.get("profile_location_prefix"):
+    if plan.get("profile_location_prefix") and not plan.get("is_follow_up"):
         # Before translation, so the prefix is translated with the answer.
+        # (The follow-up node writes it in the follow-up answer's language.)
         body = f"{plan['profile_location_prefix']}\n\n{body}"
 
     trace_event(

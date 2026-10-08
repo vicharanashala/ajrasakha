@@ -56,6 +56,7 @@ class TestHelpers:
         assert "simpler words" in _type_instruction("simplify")
         assert "tone" in _type_instruction("tone_change")
         assert "Rephrase" in _type_instruction("rephrase")
+        assert "previous question for the place" in _type_instruction("location_change")
 
     def test_type_instruction_unknown_falls_back(self):
         instr = _type_instruction("unknown_type")
@@ -190,6 +191,41 @@ async def test_follow_up_node_does_not_pin_language_directive(monkeypatch):
     assert "output language" not in sys_text
     assert "write in hindi" not in sys_text
     assert "devanagari" not in sys_text
+
+
+@pytest.mark.asyncio
+async def test_follow_up_node_passes_the_profile_location_note(monkeypatch):
+    from ajrasakha.agents import follow_up_node as fu_module
+
+    captured: dict = {}
+
+    class _Resp:
+        content = "Answer for Jammu."
+
+    async def fake_ainvoke(self, messages, **kwargs):
+        captured["messages"] = messages
+        return _Resp()
+
+    monkeypatch.setattr(fu_module.ChatAnthropic, "ainvoke", fake_ainvoke)
+
+    note = "The below answer is provided for the location: Jammu and Kashmir, Jammu."
+    plan = {
+        "is_follow_up": True,
+        "follow_up_type": "location_change",
+        "main_question": "How do I control yellow rust in wheat?",
+        "profile_location_prefix": note,
+    }
+    messages = [
+        HumanMessage(content="How do I control yellow rust in wheat?"),
+        AIMessage(content="Spray propiconazole."),
+        HumanMessage(content="What about in Jammu?"),
+    ]
+    await follow_up_node({"messages": messages, "location": None, "plan": plan}, {})
+    assert f"LOCATION NOTE:\n{note}" in captured["messages"][1].content
+
+    plan["profile_location_prefix"] = None
+    await follow_up_node({"messages": messages, "location": None, "plan": plan}, {})
+    assert "LOCATION NOTE" not in captured["messages"][1].content
 
 
 # -------- follow_up_node: LLM failure fallback --------

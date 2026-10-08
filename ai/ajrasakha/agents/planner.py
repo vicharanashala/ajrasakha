@@ -146,7 +146,8 @@ class PlannerOutput(BaseModel):
         default=False,
         description=(
             "True when the farmer's latest message is a transformation request on the previous AI answer "
-            "(language change, format change, detail request, simplification, tone change, rephrase). "
+            "(language change, format change, detail request, simplification, tone change, rephrase, "
+            "or the previous question for a place, e.g. 'what about in Jammu?'). "
             "The answer can be generated from the previous AI message alone — no new tool calls. "
             "False for any new substantive question or when new data is required."
         ),
@@ -160,7 +161,8 @@ class PlannerOutput(BaseModel):
             "'detail_request' (explain more, elaborate, details), "
             "'simplify' (simpler words, easier explanation), "
             "'tone_change' (for beginner, for expert, polite), "
-            "'rephrase' (reword, rewrite, same meaning)."
+            "'rephrase' (reword, rewrite, same meaning), "
+            "'location_change' (the previous question for a place, e.g. 'what about in Jammu?')."
         ),
     )
     main_question: Optional[str] = Field(
@@ -664,6 +666,16 @@ def _check_question_completeness(
     return True, [], None
 
 
+async def _translate_profile_location_message(plan: PlannerPlan, config: RunnableConfig) -> str:
+    """The set/change-location message in the farmer's language (not in the fixed catalog)."""
+    script, vocal = language_pair_from_plan(plan)
+    if not needs_translation(script, vocal):
+        return plan["follow_up_question"]
+    from ajrasakha.agents.translate_answer import _translate_body
+
+    return await _translate_body(plan["follow_up_question"], vocal, script, config)
+
+
 async def planner_node(
     state: AjraSakhaState,
     config: RunnableConfig,
@@ -817,7 +829,8 @@ async def planner_node(
         "Set `vocal_language` and `script_language` from the official language list.\n"
         "Leave `follow_up_question` empty when location/crop is missing — server uses the catalog.\n"
         "Set `is_follow_up=true` ONLY when the latest message is answerable from the previous AI answer alone\n"
-        "(language change, format change, detail request, simplification, tone change, rephrase).\n"
+        "(language change, format change, detail request, simplification, tone change, rephrase,\n"
+        "or the previous question for a place, e.g. 'what about in Jammu?' -> follow_up_type='location_change').\n"
         "When `is_follow_up=true`, copy the previous turn's rephrased_query into `main_question` verbatim.\n"
         "Return the routing plan only."
     )
@@ -947,17 +960,6 @@ async def planner_node(
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        # Follow-ups go through the normal flow (the follow-up node is no longer
-        # in the graph), so the profile location check applies to them too.
-        if plan.get("is_follow_up"):
-            logger.info(
-                "Planner: follow-up type=%s treated as a new question rephrased=%r",
-                plan.get("follow_up_type") or heuristic_follow_up_type,
-                plan.get("rephrased_query"),
-            )
-            plan["is_follow_up"] = False
-            plan["follow_up_type"] = None
-
         configurable = config.get("configurable") or {}
         user_id = resolve_user_id(config) or configurable.get("phone_number")
         stored_location = load_user_location(user_id) if user_id else None
@@ -971,6 +973,54 @@ async def planner_node(
             stored_location=stored_location,
             configurable_user_id=(config.get("configurable") or {}).get("user_id"),
         )
+
+        # Follow-up short-circuit: if the LLM (or the heuristic) flagged the latest
+        # message as a transformation on the previous AI answer, route through the
+        # follow-up node and skip entity re-resolution, completeness, and domain/crop.
+        # The location is checked as for a fresh question: the farmer profile only,
+        # never the previous turn's.
+        if plan.get("is_follow_up"):
+            if not plan.get("follow_up_type") and heuristic_follow_up_type:
+                plan["follow_up_type"] = heuristic_follow_up_type
+            if not plan.get("main_question") and prev_plan.get("rephrased_query"):
+                plan["main_question"] = prev_plan.get("rephrased_query")
+            plan["entities"] = {
+                **{k: v for k, v in (prev_entities or {}).items() if k not in ("state", "district")},
+                "state": (stored_location or {}).get("state"),
+                "district": (stored_location or {}).get("district"),
+            }
+            plan["is_complete"] = True
+            plan["missing_info"] = []
+            plan["follow_up_question"] = None
+            for flag in ("weather", "mandi", "soil", "schemes", "chemical_checker", "knowledge_base"):
+                plan[flag] = False
+            plan["domain"] = "General"
+            plan["domains"] = ["General"]
+            plan["is_agriculture_related"] = True
+            plan["tools_used"] = []
+            plan["reasoning"] = (plan.get("reasoning") or "") + f"; follow_up={plan.get('follow_up_type') or heuristic_follow_up_type}"
+            plan = ask_to_change_profile_location(plan, stored_location)
+            if plan.get("follow_up_question") in PROFILE_LOCATION_MESSAGES:
+                # Not a follow-up any more: the clarify node sends the message.
+                plan["is_follow_up"] = False
+                plan["follow_up_question"] = await _translate_profile_location_message(
+                    plan, config
+                )
+            trace_event(
+                "planner_follow_up_finalized",
+                follow_up_type=plan.get("follow_up_type"),
+                follow_up_type_source="llm" if (output.follow_up_type or not heuristic_follow_up_type) else "heuristic",
+                main_question=plan.get("main_question"),
+                profile_location_prefix=plan.get("profile_location_prefix"),
+                follow_up_question=plan.get("follow_up_question"),
+            )
+            logger.info(
+                "Planner: follow-up detected type=%s main_question=%r rephrased=%r",
+                plan.get("follow_up_type"),
+                plan.get("main_question"),
+                plan.get("rephrased_query"),
+            )
+            return {"plan": plan}
         entities = merge_entities_from_rephrased_query(
             plan,
             messages,
@@ -1031,14 +1081,7 @@ async def planner_node(
         )
         plan = ask_to_change_profile_location(plan, stored_location)
         if plan.get("follow_up_question") in PROFILE_LOCATION_MESSAGES:
-            # Translated into the farmer's language (not in the fixed catalog).
-            script, vocal = language_pair_from_plan(plan)
-            if needs_translation(script, vocal):
-                from ajrasakha.agents.translate_answer import _translate_body
-
-                plan["follow_up_question"] = await _translate_body(
-                    plan["follow_up_question"], vocal, script, config
-                )
+            plan["follow_up_question"] = await _translate_profile_location_message(plan, config)
         # Weather/mandi always answer for the farmer profile location (a question
         # naming another place ended above); other questions only when they name no place.
         plan["location_from_profile"] = is_weather_or_mandi_plan(plan) or not plan.get("places")
