@@ -167,6 +167,8 @@ function initialValues(entry: ITesterLogEntry): FormValues {
     if ((values.overallTestStatus || "").trim().toLowerCase() === "pass") {
         values.defectSeverity = "NA";
         values.defectIdBugRef = "NA";
+        values.testerRemarks = "No Action Required";
+        values.testerRemarksNotes = "";
     }
     return values;
 }
@@ -299,9 +301,12 @@ function EditForm({ entry, onDone, mutation }: {
             if (isPass) {
                 next.defectSeverity = "NA";
                 next.defectIdBugRef = "NA";
+                next.testerRemarks = "No Action Required";
+                next.testerRemarksNotes = "";
             } else if (wasPass && (next.overallTestStatus || "").trim().toLowerCase() === "fail") {
                 if (next.defectSeverity === "NA") next.defectSeverity = "";
                 if (next.defectIdBugRef === "NA") next.defectIdBugRef = "";
+                if (next.testerRemarks === "No Action Required") next.testerRemarks = "";
             }
             if (key === "translationQuality") {
                 const allowed = TRANSLATION_ERROR_MAP[value.trim()];
@@ -324,7 +329,12 @@ function EditForm({ entry, onDone, mutation }: {
         const rawValue = (entry[field.key] as string | undefined) ?? "";
         const isChanged = field.key in changes;
         const isPass = (values.overallTestStatus || "").trim().toLowerCase() === "pass";
-        const isDefectFieldDisabled = isPass && (field.key === "defectSeverity" || field.key === "defectIdBugRef");
+        const isDefectFieldDisabled = isPass && (
+            field.key === "defectSeverity" ||
+            field.key === "defectIdBugRef" ||
+            field.key === "testerRemarks" ||
+            field.key === "testerRemarksNotes"
+        );
         return (
             <div
                 key={String(field.key)}

@@ -773,11 +773,29 @@ describe('TesterLogService date filtering', () => {
         // Target vs. Achieved assertions
         expect(summary.targetVsAchieved).toBeDefined();
         expect(summary.targetVsAchieved.daysCount).toBe(2);
-        expect(summary.targetVsAchieved.rows.length).toBe(6);
+        expect(summary.targetVsAchieved.rows.length).toBe(7);
         expect(summary.targetVsAchieved.total.targetTotal).toBe(108); // 54 * 2 days
         expect(summary.targetVsAchieved.total.targetWebApp).toBe(54); // 27 * 2 days
         expect(summary.targetVsAchieved.total.targetWhatsApp).toBe(54); // 27 * 2 days
         expect(summary.targetVsAchieved.total.achievedTotal).toBe(3);
+    });
+
+    it('scales targetVsAchieved targets to exactly 378 across 7 days and 1620 across 30 days', async () => {
+        mockToArray.mockResolvedValue([]);
+
+        // 7 days inclusive: e.g. 2026-10-03 to 2026-10-09
+        const summary7 = await service.getMySummary('user-1', '2026-10-03', '2026-10-09');
+        expect(summary7.targetVsAchieved.daysCount).toBe(7);
+        expect(summary7.targetVsAchieved.total.targetTotal).toBe(378); // 54 * 7
+        expect(summary7.targetVsAchieved.total.targetWebApp).toBe(189); // 27 * 7
+        expect(summary7.targetVsAchieved.total.targetWhatsApp).toBe(189); // 27 * 7
+
+        // 30 days inclusive: e.g. 2026-09-10 to 2026-10-09
+        const summary30 = await service.getMySummary('user-1', '2026-09-10', '2026-10-09');
+        expect(summary30.targetVsAchieved.daysCount).toBe(30);
+        expect(summary30.targetVsAchieved.total.targetTotal).toBe(1620); // 54 * 30
+        expect(summary30.targetVsAchieved.total.targetWebApp).toBe(810); // 27 * 30
+        expect(summary30.targetVsAchieved.total.targetWhatsApp).toBe(810); // 27 * 30
     });
 
     it('computes dbPersistence correctly with form dropdown values ("Saved", "Not Saved", "Partial Save")', async () => {
@@ -864,61 +882,89 @@ describe('TesterLogService date filtering', () => {
     });
 
     it('computes both Web App and WhatsApp response times in createEntry for cross-platform tests', async () => {
-        mockCollection.insertOne = vi.fn().mockImplementation(async (entry: any) => ({
-            insertedId: 'entry-cp-1',
-        }));
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            mockCollection.insertOne = vi.fn().mockImplementation(async (entry: any) => ({
+                insertedId: 'entry-cp-1',
+            }));
 
-        const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
-            channelTested: 'Both',
-            typeOfQuestion: 'Unique',
-            timeQuestionAsked: '10:00:00',
-            timeAnswerReceived: '10:00:15',
-            waTimeQuestionAsked: '10:00:00',
-            waTimeAnswerReceived: '10:00:45',
-            whatsappVsWebAnswerMatch: 'Yes',
-        } as any);
-
-        expect(result.success).toBe(true);
-        expect(result.entry.responseTimeMins).toBe('00:00:15');
-        expect(result.entry.waResponseTimeMins).toBe('00:00:45');
-        expect(result.entry.channelTested).toBe('Both');
-    });
-
-    it('rejects createEntry when timeAnswerReceived is earlier than timeQuestionAsked', async () => {
-        await expect(
-            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
-                channelTested: 'WebApp',
-                typeOfQuestion: 'Unique',
-                timeQuestionAsked: '12:00:00',
-                timeAnswerReceived: '11:00:00',
-            } as any),
-        ).rejects.toThrow('Time Answer Received cannot be earlier than Time Question Asked');
-    });
-
-    it('rejects createEntry when waTimeAnswerReceived is earlier than waTimeQuestionAsked', async () => {
-        await expect(
-            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+            const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                testDate: '2026-10-01',
                 channelTested: 'Both',
                 typeOfQuestion: 'Unique',
                 timeQuestionAsked: '10:00:00',
-                timeAnswerReceived: '10:05:00',
-                waTimeQuestionAsked: '10:10:00',
-                waTimeAnswerReceived: '10:00:00',
-            } as any),
-        ).rejects.toThrow('WhatsApp Time Received cannot be earlier than WhatsApp Time Asked');
+                timeAnswerReceived: '10:00:15',
+                waTimeQuestionAsked: '10:00:00',
+                waTimeAnswerReceived: '10:00:45',
+                whatsappVsWebAnswerMatch: 'Yes',
+            } as any);
+
+            expect(result.success).toBe(true);
+            expect(result.entry.responseTimeMins).toBe('00:00:15');
+            expect(result.entry.waResponseTimeMins).toBe('00:00:45');
+            expect(result.entry.channelTested).toBe('Both');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects createEntry when timeAnswerReceived is earlier than timeQuestionAsked', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    testDate: '2026-10-01',
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '12:00:00',
+                    timeAnswerReceived: '11:00:00',
+                } as any),
+            ).rejects.toThrow('Time Answer Received cannot be earlier than Time Question Asked');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects createEntry when waTimeAnswerReceived is earlier than waTimeQuestionAsked', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    testDate: '2026-10-01',
+                    channelTested: 'Both',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '10:00:00',
+                    timeAnswerReceived: '10:05:00',
+                    waTimeQuestionAsked: '10:10:00',
+                    waTimeAnswerReceived: '10:00:00',
+                } as any),
+            ).rejects.toThrow('WhatsApp Time Received cannot be earlier than WhatsApp Time Asked');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('rejects createEntry when authorCompletionTime is earlier than authorAssignmentTime', async () => {
-        await expect(
-            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
-                channelTested: 'WebApp',
-                typeOfQuestion: 'Unique',
-                timeQuestionAsked: '10:00:00',
-                timeAnswerReceived: '10:05:00',
-                authorAssignmentTime: '11:00:00',
-                authorCompletionTime: '10:30:00',
-            } as any),
-        ).rejects.toThrow('Author Completion Time cannot be earlier than Author Assignment Time');
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    testDate: '2026-10-01',
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '10:00:00',
+                    timeAnswerReceived: '10:05:00',
+                    authorAssignmentTime: '11:00:00',
+                    authorCompletionTime: '10:30:00',
+                } as any),
+            ).rejects.toThrow('Author Completion Time cannot be earlier than Author Assignment Time');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('rejects updateEntry when answer time is updated to be earlier than question asked', async () => {
@@ -1073,6 +1119,213 @@ describe('TesterLogService date filtering', () => {
         expect(uniqueRow?.achievedWebApp).toBe(2);
         expect(uniqueRow?.achievedWhatsApp).toBe(1);
         expect(uniqueRow?.achievedTotal).toBe(3);
+    });
+
+    it('excludes entries with NA or blank WhatsApp vs Web Answer Match from crossPlatformStats total', async () => {
+        // Reproduce QA issue: 20 tests with channel "Both", 19 with NA, 1 with Mismatch
+        const mockEntries = [
+            ...Array.from({ length: 19 }, () => ({
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'NA',
+                slaStatus: 'Met',
+            })),
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Fail',
+                whatsappVsWebAnswerMatch: 'Mismatch',
+                slaStatus: 'Met',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-09', '2026-10-09');
+
+        expect(summary.crossPlatformStats).toBeDefined();
+        // Only 1 entry was actually compared (Mismatch). The 19 NA entries must not be counted in total.
+        expect(summary.crossPlatformStats?.totalCrossPlatform).toBe(1);
+        expect(summary.crossPlatformStats?.matchedAnswers).toBe(0);
+        expect(summary.crossPlatformStats?.mismatches).toBe(1);
+        expect(summary.crossPlatformStats?.parityRate).toBe(0);
+    });
+
+    it('correctly credits "Proper Match" in crossPlatformStats', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'Proper Match',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'Partial Match',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'NA',
+                slaStatus: 'Met',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-09', '2026-10-09');
+
+        expect(summary.crossPlatformStats).toBeDefined();
+        // 2 compared (Proper Match + Partial Match), 1 NA ignored
+        expect(summary.crossPlatformStats?.totalCrossPlatform).toBe(2);
+        expect(summary.crossPlatformStats?.matchedAnswers).toBe(1);
+        expect(summary.crossPlatformStats?.partialMatches).toBe(1);
+        expect(summary.crossPlatformStats?.parityRate).toBe(50.0); // 1 / 2 = 50%
+    });
+
+    it('isolates Static Dynamic questions into their own row and does not conflate them with Dynamic - Weather', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-08',
+                typeOfQuestion: 'Weather Dynamic',
+                questionCategory: 'Climate, Weather & Stress Management',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-08',
+                typeOfQuestion: 'Weather Dynamic',
+                questionCategory: 'Climate, Weather & Stress Management',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-08',
+                typeOfQuestion: 'Static Dynamic',
+                questionCategory: 'Climate, Weather & Stress Management',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Met',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-08', '2026-10-08');
+
+        // Top Question Types
+        expect(summary.byQuestionType['Weather Dynamic']).toBe(2);
+        expect(summary.byQuestionType['Static Dynamic']).toBe(1);
+
+        // Weather row: exactly 2 entries tested on 'Both' => 2 Web, 2 WhatsApp, Total 4 (NOT 3 Web / 3 WhatsApp)
+        const weatherRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Dynamic - Weather');
+        expect(weatherRow).toBeDefined();
+        expect(weatherRow?.achievedWebApp).toBe(2);
+        expect(weatherRow?.achievedWhatsApp).toBe(2);
+        expect(weatherRow?.achievedTotal).toBe(4);
+
+        // Static Dynamic row: exactly 1 entry tested on 'Both' => 1 Web, 1 WhatsApp, Total 2
+        const staticDynamicRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Static Dynamic');
+        expect(staticDynamicRow).toBeDefined();
+        expect(staticDynamicRow?.achievedWebApp).toBe(1);
+        expect(staticDynamicRow?.achievedWhatsApp).toBe(1);
+        expect(staticDynamicRow?.achievedTotal).toBe(2);
+        expect(staticDynamicRow?.targetTotal).toBe(0);
+    });
+
+    it('caps target achievement per question type so over-performing in one type does not inflate overall completion rate', async () => {
+        // Reproduces exact user scenario: 26 Unique (target 8), 2 GDB (8), 2 Outreach (11),
+        // 6 Weather (19), 2 Scheme (6), 2 Mandi (2)
+        const entries: any[] = [];
+        const addEntries = (type: string, count: number) => {
+            for (let i = 0; i < count; i++) {
+                entries.push({
+                    testDate: '2026-10-08',
+                    typeOfQuestion: type,
+                    channelTested: 'WebApp', // 1 each
+                    overallTestStatus: 'Pass',
+                    slaStatus: 'Met',
+                });
+            }
+        };
+
+        addEntries('Unique', 26);
+        addEntries('GDB', 2);
+        addEntries('Outreach', 2);
+        addEntries('Weather Dynamic', 6);
+        addEntries('Scheme Dynamic', 2);
+        addEntries('Mandi Dynamic', 2);
+
+        expect(entries.length).toBe(40);
+
+        mockToArray.mockResolvedValue(entries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-08', '2026-10-08');
+
+        // Total target is 54 for 1 day
+        expect(summary.targetVsAchieved.total.targetTotal).toBe(54);
+
+        // Capped achieved total: 8 + 2 + 2 + 6 + 2 + 2 = 22
+        expect(summary.targetVsAchieved.total.achievedTotal).toBe(22);
+
+        // Raw uncapped total: 40
+        expect(summary.targetVsAchieved.total.rawAchievedTotal).toBe(40);
+
+        // Completion rate: 22 / 54 = 40.7% (NOT 40 / 54 = 74.1%)
+        expect(summary.targetVsAchieved.total.completionRate).toBe(40.7);
+    });
+
+    it('calculates scientificAccuracy correctly including Partially Correct answers in denominator', async () => {
+        // User scenario: 20 tests: 18 Correct, 1 Incorrect, 1 Partially Correct => 18 / 20 = 90%
+        const entries: any[] = [];
+        for (let i = 0; i < 18; i++) {
+            entries.push({
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'WebApp',
+                overallTestStatus: 'Pass',
+                answerScientificallyCorrect: 'Correct',
+            });
+        }
+        entries.push({
+            testDate: '2026-10-09',
+            typeOfQuestion: 'Unique',
+            channelTested: 'WebApp',
+            overallTestStatus: 'Fail',
+            answerScientificallyCorrect: 'Incorrect',
+        });
+        entries.push({
+            testDate: '2026-10-09',
+            typeOfQuestion: 'Unique',
+            channelTested: 'WebApp',
+            overallTestStatus: 'Pass',
+            answerScientificallyCorrect: 'Partially Correct',
+        });
+
+        expect(entries.length).toBe(20);
+
+        mockToArray.mockResolvedValue(entries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-09', '2026-10-09');
+
+        expect(summary.scientificAccuracy.correct).toBe(18);
+        expect(summary.scientificAccuracy.incorrect).toBe(1);
+        expect(summary.scientificAccuracy.partiallyCorrect).toBe(1);
+        expect(summary.scientificAccuracy.totalChecked).toBe(20);
+        expect(summary.scientificAccuracy.rate).toBe(90.0); // 18 / 20 = 90% (NOT 18 / 19 = 94.7%)
     });
 });
 

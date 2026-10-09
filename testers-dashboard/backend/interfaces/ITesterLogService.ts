@@ -312,6 +312,8 @@ export interface TesterLogSummaryResponse {
     scientificAccuracy: {
         correct: number;
         incorrect: number;
+        partiallyCorrect?: number;
+        totalChecked?: number;
         rate: number;
     };
     dbPersistence: {
@@ -327,6 +329,8 @@ export interface TesterLogSummaryResponse {
     crossPlatformStats?: {
         totalCrossPlatform: number;
         matchedAnswers: number;
+        partialMatches?: number;
+        mismatches?: number;
         parityRate: number;
     };
     targetVsAchieved: TargetVsAchievedSummary;
@@ -336,10 +340,13 @@ export interface TargetAchievedRow {
     questionType: string;
     targetTotal: number;
     achievedTotal: number;
+    rawAchievedTotal?: number;
     targetWebApp: number;
     achievedWebApp: number;
+    rawAchievedWebApp?: number;
     targetWhatsApp: number;
     achievedWhatsApp: number;
+    rawAchievedWhatsApp?: number;
     completionRate: number;
 }
 
