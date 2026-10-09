@@ -174,7 +174,15 @@ export function parseEpochMs(str?: string, defaultDate?: string): number | null 
     const s = str.trim();
 
     let fullStr: string | null = null;
-    if (s.includes('-') || s.includes('/')) {
+    const dmyMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})([ T].*)?$/);
+    if (dmyMatch) {
+        const day = String(dmyMatch[1]).padStart(2, '0');
+        const month = String(dmyMatch[2]).padStart(2, '0');
+        const year = dmyMatch[3];
+        const rest = dmyMatch[4] ? dmyMatch[4].trim() : '';
+        const timePart = rest ? (rest.startsWith('T') ? rest : `T${rest}`) : 'T00:00:00';
+        fullStr = `${year}-${month}-${day}${timePart}`;
+    } else if (s.includes('-') || s.includes('/')) {
         fullStr = s.includes('T') ? s : s.replace(' ', 'T');
     } else {
         const parts = s.split(':').map(Number);
@@ -551,6 +559,47 @@ export function validateAllTimingPairs(e: Partial<TesterLogEntry>, testDate?: st
     }
 }
 
+export function validateSlaStatus(e: Partial<TesterLogEntry>, testDate?: string): void {
+    if (e.timeQuestionAsked && e.timeAnswerReceived && e.slaStatus) {
+        const sMs = parseToMs(e.timeQuestionAsked, testDate);
+        const eMs = parseToMs(e.timeAnswerReceived, testDate);
+        if (sMs !== null && eMs !== null) {
+            let diffMs = eMs - sMs;
+            if (diffMs < 0 && isMidnightRollover(e.timeQuestionAsked, e.timeAnswerReceived)) {
+                diffMs += 24 * 3600 * 1000;
+            }
+            if (diffMs >= 0) {
+                const diffMins = diffMs / (1000 * 60);
+                if (diffMins > 120 && e.slaStatus !== 'SLA Breached') {
+                    throw new BadRequestError("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+                }
+                if (diffMins <= 120 && e.slaStatus === 'SLA Breached') {
+                    throw new BadRequestError("Response time is within 120 minutes; SLA Status cannot be 'SLA Breached'");
+                }
+            }
+        }
+    }
+    if (e.waTimeQuestionAsked && e.waTimeAnswerReceived && e.waSlaStatus) {
+        const sMs = parseToMs(e.waTimeQuestionAsked, testDate);
+        const eMs = parseToMs(e.waTimeAnswerReceived, testDate);
+        if (sMs !== null && eMs !== null) {
+            let diffMs = eMs - sMs;
+            if (diffMs < 0 && isMidnightRollover(e.waTimeQuestionAsked, e.waTimeAnswerReceived)) {
+                diffMs += 24 * 3600 * 1000;
+            }
+            if (diffMs >= 0) {
+                const diffMins = diffMs / (1000 * 60);
+                if (diffMins > 120 && e.waSlaStatus !== 'SLA Breached') {
+                    throw new BadRequestError("WhatsApp response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+                }
+                if (diffMins <= 120 && e.waSlaStatus === 'SLA Breached') {
+                    throw new BadRequestError("WhatsApp response time is within 120 minutes; SLA Status cannot be 'SLA Breached'");
+                }
+            }
+        }
+    }
+}
+
 // The [Auto] duration fields - computed here from their start/end pair
 // (create and admin edit). The TAT fields are never taken from a request body.
 //
@@ -845,6 +894,9 @@ export class TesterLogService implements ITesterLogService {
         // Reject inverted or future timestamps
         validateAllTimingPairs(body, testDate, now.getTime());
 
+        // Reject contradictory SLA statuses
+        validateSlaStatus(body, testDate);
+
         // Validate translation quality to error type mapping
         validateTranslationMapping(body.translationQuality, body.translationErrorType);
 
@@ -937,6 +989,18 @@ export class TesterLogService implements ITesterLogService {
 
         // Validate modified text fields for format and length limits
         validateTextFields(changes);
+
+        // Validate SLA status if SLA or timing fields were modified
+        if (
+            changes.slaStatus !== undefined ||
+            changes.timeQuestionAsked !== undefined ||
+            changes.timeAnswerReceived !== undefined ||
+            changes.waSlaStatus !== undefined ||
+            changes.waTimeQuestionAsked !== undefined ||
+            changes.waTimeAnswerReceived !== undefined
+        ) {
+            validateSlaStatus(merged, merged.testDate);
+        }
 
         const $set: Partial<TesterLogEntry> = {
             ...changes,
@@ -1591,6 +1655,15 @@ export class TesterLogService implements ITesterLogService {
         if (startDate && endDate) {
             const start = new Date(startDate.trim().slice(0, 10));
             const end = new Date(endDate.trim().slice(0, 10));
+            const diffMs = end.getTime() - start.getTime();
+            if (!isNaN(diffMs) && diffMs >= 0) {
+                daysCount = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+            }
+        } else if (startDate && !endDate) {
+            const start = new Date(startDate.trim().slice(0, 10));
+            const now = new Date();
+            const todayIST = getTodayIST(now);
+            const end = new Date(todayIST);
             const diffMs = end.getTime() - start.getTime();
             if (!isNaN(diffMs) && diffMs >= 0) {
                 daysCount = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);

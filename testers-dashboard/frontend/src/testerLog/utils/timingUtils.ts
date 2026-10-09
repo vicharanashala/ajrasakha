@@ -2,6 +2,20 @@ export function parseToMs(str?: string, defaultDate?: string): number | null {
     if (!str || !str.trim()) return null;
     const s = str.trim();
 
+    const dmyMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})([ T].*)?$/);
+    if (dmyMatch) {
+        const day = String(dmyMatch[1]).padStart(2, "0");
+        const month = String(dmyMatch[2]).padStart(2, "0");
+        const year = dmyMatch[3];
+        const rest = dmyMatch[4] ? dmyMatch[4].trim() : "";
+        const timePart = rest ? (rest.startsWith("T") ? rest : `T${rest}`) : "T00:00:00";
+        const iso = `${year}-${month}-${day}${timePart}`;
+        const hasTz = /([zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(iso);
+        const withTz = hasTz ? iso : `${iso}+05:30`;
+        const parsed = Date.parse(withTz);
+        if (!isNaN(parsed)) return parsed;
+    }
+
     if (s.includes("-") || s.includes("/")) {
         const fullStr = s.includes("T") ? s : s.replace(" ", "T");
         const hasTz = /([zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(fullStr);
