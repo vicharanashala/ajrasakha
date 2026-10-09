@@ -194,6 +194,13 @@ describe("validateTesterLogForm", () => {
         baseData.slaStatus = "Within SLA";
         const err2 = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
         expect(err2.slaStatus).toBe("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+
+        // Over SLA test with "Not Applicable" (e.g. 72 hours / 4320 mins)
+        baseData.timeQuestionAsked = "06/10/2026 08:00";
+        baseData.timeAnswerReceived = "09/10/2026 08:00";
+        baseData.slaStatus = "Not Applicable";
+        const err3 = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(err3.slaStatus).toBe("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
     });
 
     it("rejects contradictory notification answers when notification is Not Received (Issue #3)", () => {

@@ -501,7 +501,7 @@ export function validateTesterLogForm(
     if (webDiffMins !== null && !isNaN(webDiffMins)) {
         if (webDiffMins <= 120 && data.slaStatus === "SLA Breached") {
             errors.slaStatus = "Response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
-        } else if (webDiffMins > 120 && data.slaStatus === "Within SLA") {
+        } else if (webDiffMins > 120 && data.slaStatus !== "SLA Breached") {
             errors.slaStatus = "Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
         }
     }
@@ -525,7 +525,7 @@ export function validateTesterLogForm(
         if (waDiffMins !== null && !isNaN(waDiffMins)) {
             if (waDiffMins <= 120 && data.waSlaStatus === "SLA Breached") {
                 errors.waSlaStatus = "WhatsApp response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
-            } else if (waDiffMins > 120 && data.waSlaStatus === "Within SLA") {
+            } else if (waDiffMins > 120 && data.waSlaStatus !== "SLA Breached") {
                 errors.waSlaStatus = "WhatsApp response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
             }
         }

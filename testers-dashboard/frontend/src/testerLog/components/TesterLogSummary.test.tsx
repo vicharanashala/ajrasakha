@@ -170,6 +170,17 @@ describe("TesterLogSummary component", () => {
         expect(screen.queryByText("Today's Target Tracker")).toBeNull();
     });
 
+    it("displays comparison analytics when only From date is entered (open-ended range)", () => {
+        const { container } = render(<TesterLogSummary />);
+        const customButton = screen.getByRole("button", { name: "Custom" });
+        fireEvent.click(customButton);
+
+        const dateInputs = container.querySelectorAll('input[type="date"]');
+        fireEvent.change(dateInputs[0], { target: { value: "2026-10-08" } });
+
+        expect(screen.getByText("Target vs. Achieved Comparison Analytics")).toBeTruthy();
+    });
+
     it("does not render obsolete sprintCycle or dbPersistence fields", () => {
         render(<TesterLogSummary />);
 

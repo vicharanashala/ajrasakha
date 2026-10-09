@@ -373,9 +373,23 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         setPage(1);
     }, [debouncedSearch, statusFilter, preset, customStart, customEnd]);
 
+    const todayStr = useMemo(() => {
+        const d = new Date();
+        try {
+            const formatter = new Intl.DateTimeFormat("en-CA", {
+                timeZone: "Asia/Kolkata",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+            });
+            return formatter.format(d);
+        } catch {
+            return d.toISOString().slice(0, 10);
+        }
+    }, []);
+
     const { startDate, endDate } = useMemo(() => {
         const now = new Date();
-        const todayStr = now.toISOString().slice(0, 10);
         if (preset === "today") {
             return { startDate: todayStr, endDate: todayStr };
         }
@@ -410,11 +424,11 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
             }
         }
         return { startDate: undefined, endDate: undefined };
-    }, [preset, customStart, customEnd]);
+    }, [preset, customStart, customEnd, todayStr]);
 
     const isCustomEmpty = preset === "custom" && !customStart?.trim() && !customEnd?.trim();
     const isCustomDateInverted = Boolean(customStart?.trim() && customEnd?.trim() && customStart.trim() > customEnd.trim());
-    const isSingleDay = preset === "today" || Boolean(startDate && endDate && startDate === endDate);
+    const isSingleDay = preset === "today" || Boolean(startDate && endDate && startDate === endDate) || Boolean(startDate && !endDate && startDate === todayStr);
     const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd);
     const showAllTimeView = preset === "all" || isCustomEmpty || (!startDate && Boolean(endDate));
 
@@ -466,14 +480,14 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         }
         if (startDate && !endDate) {
             const start = new Date(startDate.trim().slice(0, 10));
-            const end = new Date();
+            const end = new Date(todayStr);
             const diff = end.getTime() - start.getTime();
             if (!isNaN(diff) && diff >= 0) {
                 return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
             }
         }
         return 1;
-    }, [summaryData?.targetVsAchieved?.daysCount, startDate, endDate]);
+    }, [summaryData?.targetVsAchieved?.daysCount, startDate, endDate, todayStr]);
 
     const targetRows = useMemo(() => {
         const backendRows = summaryData?.targetVsAchieved?.rows;

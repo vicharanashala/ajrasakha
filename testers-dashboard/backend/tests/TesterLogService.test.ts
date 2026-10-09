@@ -798,6 +798,21 @@ describe('TesterLogService date filtering', () => {
         expect(summary30.targetVsAchieved.total.targetWhatsApp).toBe(810); // 27 * 30
     });
 
+    it('scales targetVsAchieved targets from startDate to today when endDate is open-ended', async () => {
+        mockToArray.mockResolvedValue([]);
+
+        const now = new Date();
+        const todayStr = getTodayIST(now);
+        const summaryToday = await service.getMySummary('user-1', todayStr);
+        expect(summaryToday.targetVsAchieved.daysCount).toBe(1);
+        expect(summaryToday.targetVsAchieved.total.targetTotal).toBe(54);
+
+        const past2Days = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const summaryPast = await service.getMySummary('user-1', past2Days);
+        expect(summaryPast.targetVsAchieved.daysCount).toBeGreaterThanOrEqual(2);
+        expect(summaryPast.targetVsAchieved.total.targetTotal).toBe(54 * summaryPast.targetVsAchieved.daysCount);
+    });
+
     it('computes dbPersistence correctly with form dropdown values ("Saved", "Not Saved", "Partial Save")', async () => {
         const mockEntries = [
             {
@@ -1029,6 +1044,34 @@ describe('TesterLogService date filtering', () => {
         await expect(
             service.updateEntry(ID, { timeQuestionAsked: '2030-01-01T10:00:00', timeAnswerReceived: '2030-01-01T10:05:00' }, actor),
         ).rejects.toThrow('Time Question Asked cannot be in the future');
+    });
+
+    it('rejects createEntry when response time exceeds 120 minutes and slaStatus is Not Applicable or Within SLA', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-10-09T18:00:00.000Z'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '08:00:00',
+                    timeAnswerReceived: '12:00:00', // 4 hours = 240 mins
+                    slaStatus: 'Not Applicable',
+                } as any),
+            ).rejects.toThrow("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '08:00:00',
+                    timeAnswerReceived: '12:00:00',
+                    slaStatus: 'Within SLA',
+                } as any),
+            ).rejects.toThrow("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('rejects updateEntry when testDate is updated to the future', async () => {
