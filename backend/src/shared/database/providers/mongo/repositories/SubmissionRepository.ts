@@ -37,12 +37,44 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     private db: MongoDatabase,
   ) {}
 
+  private indexesEnsured = false;
+
   private async init() {
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+
+    if (!this.indexesEnsured) {
+      this.indexesEnsured = true;
+      void this.ensureIndexes();
+    }
+  }
+
+  private async ensureIndexes() {
+    try {
+      await Promise.all([
+        this.QuestionSubmissionCollection.createIndex(
+          { questionId: 1 },
+          { name: 'submission_questionId' },
+        ),
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertAllocatedAt: 1, currentExpertOpenedAt: 1 },
+          { name: 'submission_stuck_opened' },
+        ),
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertOpenedAt: 1 },
+          { name: 'submission_opened_idle' },
+        ),
+        this.QuestionSubmissionCollection.createIndex(
+          { 'history.updatedBy': 1 },
+          { name: 'submission_history_updatedBy' },
+        ),
+      ]);
+    } catch (error) {
+      console.error('Failed to create question_submissions indexes:', error);
+    }
   }
 
   async addSubmissions(
@@ -4300,67 +4332,76 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     isAdmin?: boolean,
   ): Promise<IQuestionSubmission[]> {
     await this.init();
-    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+    const matchQuestion: Record<string, unknown> = {
+      isTesting: { $ne: true },
+      source: { $in: sources },
+      status: { $in: ['open', 'delayed'] },
+      isOnHold: { $ne: true },
+      isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser ? true : { $ne: true },
+      }),
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    };
+
+    return this.QuestionCollection.aggregate<IQuestionSubmission>([
+      { $match: matchQuestion },
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $unwind: '$sub' },
       {
         $addFields: {
-          histLen: {$size: {$ifNull: ['$history', []]}},
-          queueLen: {$size: {$ifNull: ['$queue', []]}},
-          lastHistory: {$arrayElemAt: ['$history', -1]},
+          histLen: { $size: { $ifNull: ['$sub.history', []] } },
+          queueLen: { $size: { $ifNull: ['$sub.queue', []] } },
+          lastHistory: { $arrayElemAt: ['$sub.history', -1] },
         },
       },
       {
         $match: {
-          // Queue must not be empty
-          queueLen: {$gt: 0},
-          // All queue members must have a history entry (everyone has done their part)
-          $expr: {$gte: ['$histLen', '$queueLen']},
-          // The last history entry must indicate completed work
+          queueLen: { $gt: 0 },
+          $expr: { $gte: ['$histLen', '$queueLen'] },
           $or: [
-            // Author (queue has 1 member) submitted their answer
             {
               $and: [
-                {queueLen: 1},
-                {'lastHistory.answer': {$exists: true, $ne: null}},
+                { queueLen: 1 },
+                { 'lastHistory.answer': { $exists: true, $ne: null } },
               ],
             },
-            // Reviewer (queue has >1 members) completed their review (status != 'in-review')
             {
               $and: [
-                {queueLen: {$gt: 1}},
-                {'lastHistory.status': {$nin: ['in-review']}},
+                { queueLen: { $gt: 1 } },
+                { 'lastHistory.status': { $nin: ['in-review'] } },
               ],
             },
           ],
         },
       },
       {
-        $lookup: {
-          from: 'questions',
-          localField: 'questionId',
-          foreignField: '_id',
-          as: 'question',
+        $project: {
+          _id: '$sub._id',
+          questionId: '$_id',
+          queue: '$sub.queue',
+          history: '$sub.history',
+          currentExpertAllocatedAt: '$sub.currentExpertAllocatedAt',
+          currentExpertOpenedAt: '$sub.currentExpertOpenedAt',
+          createdAt: '$sub.createdAt',
+          updatedAt: '$sub.updatedAt',
+          question: '$$ROOT',
         },
       },
-      {$unwind: '$question'},
       {
-        $match: {
-         // 'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
-          //'question.status': {$in: ['open', 'delayed']},
-         // 'question.isOnHold': {$ne: true},
-          //'question.isAutoAllocate': {$eq: true},
-          // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-          'question.isTesting': {$ne: true},
-          'question.source': { $in: sources },
-          'question.status': { $in: ['open', 'delayed'] },
-          'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq:true},
-          // Training question filter
-          ...(!isAdmin && {
-            'question.isTrainingQuestion': isTrainingUser
-              ? true
-              : { $ne: true },
-          }),
-          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
+        $project: {
+          'question.sub': 0,
+          'question.histLen': 0,
+          'question.queueLen': 0,
+          'question.lastHistory': 0,
+          'question.embedding': 0,
         },
       },
     ]).toArray();
@@ -4379,68 +4420,89 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     limit = 50,
   ): Promise<{ count: number; items: IQuestionSubmission[] }> {
     await this.init();
-    const res = await this.QuestionSubmissionCollection.aggregate<{
+    const matchQuestion: Record<string, unknown> = {
+      isTesting: { $ne: true },
+      source: { $in: sources },
+      status: { $in: ['open', 'delayed'] },
+      isOnHold: { $ne: true },
+      isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser ? true : { $ne: true },
+      }),
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    };
+
+    const res = await this.QuestionCollection.aggregate<{
       items: IQuestionSubmission[];
       total: { count: number }[];
     }>([
+      { $match: matchQuestion },
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $unwind: '$sub' },
       {
         $addFields: {
-          histLen: {$size: {$ifNull: ['$history', []]}},
-          queueLen: {$size: {$ifNull: ['$queue', []]}},
-          lastHistory: {$arrayElemAt: ['$history', -1]},
+          histLen: { $size: { $ifNull: ['$sub.history', []] } },
+          queueLen: { $size: { $ifNull: ['$sub.queue', []] } },
+          lastHistory: { $arrayElemAt: ['$sub.history', -1] },
         },
       },
       {
         $match: {
-          queueLen: {$gt: 0},
-          $expr: {$gte: ['$histLen', '$queueLen']},
+          queueLen: { $gt: 0 },
+          $expr: { $gte: ['$histLen', '$queueLen'] },
           $or: [
             {
               $and: [
-                {queueLen: 1},
-                {'lastHistory.answer': {$exists: true, $ne: null}},
+                { queueLen: 1 },
+                { 'lastHistory.answer': { $exists: true, $ne: null } },
               ],
             },
             {
               $and: [
-                {queueLen: {$gt: 1}},
-                {'lastHistory.status': {$nin: ['in-review']}},
+                { queueLen: { $gt: 1 } },
+                { 'lastHistory.status': { $nin: ['in-review'] } },
               ],
             },
           ],
         },
       },
-      {
-        $lookup: {
-          from: 'questions',
-          localField: 'questionId',
-          foreignField: '_id',
-          as: 'question',
-        },
-      },
-      {$unwind: '$question'},
-      {
-        $match: {
-          'question.isTesting': {$ne: true},
-          'question.source': { $in: sources },
-          'question.status': { $in: ['open', 'delayed'] },
-          'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq: true},
-          ...(!isAdmin && {
-            'question.isTrainingQuestion': isTrainingUser ? true : { $ne: true },
-          }),
-          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
-        },
-      },
-      {$sort: {'question.createdAt': 1}},
+      { $sort: { createdAt: 1 } },
       {
         $facet: {
           items: [
-            {$skip: skip},
-            {$limit: limit},
-            {$project: {'question.embedding': 0}},
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: '$sub._id',
+                questionId: '$_id',
+                queue: '$sub.queue',
+                history: '$sub.history',
+                currentExpertAllocatedAt: '$sub.currentExpertAllocatedAt',
+                currentExpertOpenedAt: '$sub.currentExpertOpenedAt',
+                createdAt: '$sub.createdAt',
+                updatedAt: '$sub.updatedAt',
+                question: '$$ROOT',
+              },
+            },
+            {
+              $project: {
+                'question.sub': 0,
+                'question.histLen': 0,
+                'question.queueLen': 0,
+                'question.lastHistory': 0,
+                'question.embedding': 0,
+              },
+            },
           ],
-          total: [{$count: 'count'}],
+          total: [{ $count: 'count' }],
         },
       },
     ]).toArray();
@@ -4487,42 +4549,42 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
   ): Promise<Map<string, number>> {
     await this.init();
-    // Pipeline: join with questions, filter to time-bound, unwind queue with index,
-    // and determine whether the expert at each position still has pending work.
+    // Pipeline: start on questions to leverage index, join with submissions,
+    // unwind queue with index, and determine whether the expert at each position still has pending work.
     //
     // Position 0 (author): active if history[0].answer is missing/null (hasn't submitted yet).
     // Position ≥ 1 (reviewer): active if history[position].status === 'in-review' (hasn't completed review).
-    const result = await this.QuestionSubmissionCollection.aggregate<{
+    const result = await this.QuestionCollection.aggregate<{
       _id: string;
       count: number;
     }>([
       {
-        $lookup: {
-          from: 'questions',
-          localField: 'questionId',
-          foreignField: '_id',
-          as: 'q',
-        },
-      },
-      {$unwind: '$q'},
-      {
         $match: {
-          'q.source': { $in: sources },
-          'q.status': { $in: ['open', 'delayed'] },
-          'q.isOnHold': { $ne: true },
+          source: { $in: sources },
+          status: { $in: ['open', 'delayed'] },
+          isOnHold: { $ne: true },
         },
       },
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $unwind: '$sub' },
       // Unwind queue so each expert gets their own document with their position index
       {
         $unwind: {
-          path: '$queue',
+          path: '$sub.queue',
           includeArrayIndex: 'queueIndex',
         },
       },
       // Get the corresponding history entry for this queue position (may be null if not yet created)
       {
         $addFields: {
-          correspondingHistory: {$arrayElemAt: ['$history', '$queueIndex']},
+          correspondingHistory: { $arrayElemAt: ['$sub.history', '$queueIndex'] },
         },
       },
       // Determine if this expert still has pending work at their position
@@ -4531,18 +4593,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           isPending: {
             $cond: {
               // Position 0 = author: pending if no history entry yet, or history entry has no answer
-              if: {$eq: ['$queueIndex', 0]},
+              if: { $eq: ['$queueIndex', 0] },
               then: {
                 $or: [
-                  {$eq: ['$correspondingHistory', null]},
-                  {$not: {$ifNull: ['$correspondingHistory.answer', false]}},
+                  { $eq: ['$correspondingHistory', null] },
+                  { $not: { $ifNull: ['$correspondingHistory.answer', false] } },
                 ],
               },
               // Position >= 1 = reviewer: pending if no history entry yet, or status is 'in-review'
               else: {
                 $or: [
-                  {$eq: ['$correspondingHistory', null]},
-                  {$eq: ['$correspondingHistory.status', 'in-review']},
+                  { $eq: ['$correspondingHistory', null] },
+                  { $eq: ['$correspondingHistory.status', 'in-review'] },
                 ],
               },
             },
@@ -4550,13 +4612,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       // Keep only experts who still have pending work
-      {$match: {isPending: true}},
+      { $match: { isPending: true } },
       // Filter out null queue entries
-      {$match: {queue: {$ne: null}}},
+      { $match: { 'sub.queue': { $ne: null } } },
       {
         $group: {
-          _id: '$queue',
-          count: {$sum: 1},
+          _id: '$sub.queue',
+          count: { $sum: 1 },
         },
       },
     ]).toArray();

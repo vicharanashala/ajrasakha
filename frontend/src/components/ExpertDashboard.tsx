@@ -54,6 +54,7 @@ import { ReviewerLifecycle } from "./ReviewerTimeline";
 import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
+import { UserActivityReportControl } from "./UserActivityReportControl";
 
 interface ExpertDashboardProps {
   expertId?: string | null;
@@ -484,7 +485,7 @@ const [dateRange, setDateRange] = useState<
       ) : null}
 
       <div className="mx-auto p-6">
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
               {roleLabel} {expertId ? "Performance" : "Dashboard"}
@@ -495,8 +496,19 @@ const [dateRange, setDateRange] = useState<
             </p>
           </div>
 
-          {/* <DashboardClock /> */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-wrap items-center gap-3">
+            {userId && (user?.role === "admin" || user?.role === "gate_keeper") && (
+              <UserActivityReportControl
+                userId={userId}
+                userName={
+                  userDetails?.[0]?.firstName
+                    ? `${userDetails[0].firstName} ${userDetails[0].lastName || ""}`.trim()
+                    : userDetails?.[0]?.userName || user?.firstName || "Expert"
+                }
+                userRole={selectedUserRole || user?.role || "expert"}
+              />
+            )}
+
             {expertId && currentUserRole === "admin" && (
               <ConfirmationModal
                 title="Remove all allocations for this expert?"

@@ -163,11 +163,13 @@ export function TesterDataView() {
         const now = new Date();
         const todayStr = now.toISOString().slice(0, 10);
         if (datePreset === "today") return { startDate: todayStr, endDate: todayStr };
+        // N-1 days back so "Last 7 Days" spans exactly 7 calendar days inclusive, not 8
         if (datePreset === "7days") {
-            return { startDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), endDate: todayStr };
+            return { startDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), endDate: todayStr };
         }
+        // N-1 days back so "Last 30 Days" spans exactly 30 calendar days inclusive, not 31
         if (datePreset === "30days") {
-            return { startDate: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), endDate: todayStr };
+            return { startDate: new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), endDate: todayStr };
         }
         if (datePreset === "custom") return { startDate: customStart || undefined, endDate: customEnd || undefined };
         return { startDate: undefined, endDate: undefined };

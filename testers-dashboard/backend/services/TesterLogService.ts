@@ -1403,6 +1403,7 @@ export class TesterLogService implements ITesterLogService {
 
         let sciCorrect = 0;
         let sciIncorrect = 0;
+        let sciPartiallyCorrect = 0;
 
         let dbSaved = 0;
         let dbNotSaved = 0;
@@ -1413,6 +1414,8 @@ export class TesterLogService implements ITesterLogService {
 
         let totalCrossPlatform = 0;
         let matchedAnswers = 0;
+        let partialMatches = 0;
+        let mismatchedAnswers = 0;
 
         for (const entry of entries) {
             const overall = (entry.overallTestStatus || '').trim().toLowerCase();
@@ -1516,6 +1519,8 @@ export class TesterLogService implements ITesterLogService {
                 sciCorrect++;
             } else if (sci === 'no' || sci === 'incorrect') {
                 sciIncorrect++;
+            } else if (sci === 'partially correct' || sci.includes('partial')) {
+                sciPartiallyCorrect++;
             }
 
             const isSaved = (v: string) => v === 'saved' || v === 'yes';
@@ -1537,11 +1542,24 @@ export class TesterLogService implements ITesterLogService {
             if (vOut === 'yes') voiceOutputWorking++;
 
             const ch = (entry.channelTested || '').trim().toLowerCase();
-            if (ch.includes('both') || ch.includes('cross')) {
-                totalCrossPlatform++;
-                const match = (entry.whatsappVsWebAnswerMatch || '').trim().toLowerCase();
-                if (match === 'yes' || match === 'match' || match === 'true') {
-                    matchedAnswers++;
+            const isCross = ch.includes('both') || ch.includes('cross');
+            if (isCross) {
+                const rawMatch = (entry.whatsappVsWebAnswerMatch || '').trim().toLowerCase();
+                const compactMatch = rawMatch.replace(/[^a-z]/g, '');
+
+                const isMatch = compactMatch === 'propermatch' || compactMatch === 'match' || compactMatch === 'yes' || compactMatch === 'y' || compactMatch === 'true' || compactMatch === 'proper';
+                const isPartial = compactMatch === 'partialmatch' || compactMatch === 'partial';
+                const isMismatch = compactMatch === 'mismatch' || compactMatch === 'no' || compactMatch === 'n' || compactMatch === 'false';
+
+                if (isMatch || isPartial || isMismatch) {
+                    totalCrossPlatform++;
+                    if (isMatch) {
+                        matchedAnswers++;
+                    } else if (isPartial) {
+                        partialMatches++;
+                    } else if (isMismatch) {
+                        mismatchedAnswers++;
+                    }
                 }
             }
         }
@@ -1553,7 +1571,7 @@ export class TesterLogService implements ITesterLogService {
         const slaMetRate = totalSla > 0 ? Math.round((slaMet / totalSla) * 1000) / 10 : 0;
         const avgResponseMinutes = responseTimeCount > 0 ? Math.round((responseTimeSum / responseTimeCount) * 10) / 10 : null;
 
-        const totalSci = sciCorrect + sciIncorrect;
+        const totalSci = sciCorrect + sciIncorrect + sciPartiallyCorrect;
         const sciRate = totalSci > 0 ? Math.round((sciCorrect / totalSci) * 1000) / 10 : 0;
 
         const totalDb = dbSaved + dbNotSaved;
@@ -1586,14 +1604,18 @@ export class TesterLogService implements ITesterLogService {
             'Dynamic - Weather': { total: 0, webApp: 0, whatsApp: 0 },
             'Dynamic - Scheme': { total: 0, webApp: 0, whatsApp: 0 },
             'Dynamic - Mandi': { total: 0, webApp: 0, whatsApp: 0 },
+            'Static Dynamic': { total: 0, webApp: 0, whatsApp: 0 },
         };
 
         for (const entry of entries) {
             const qType = (entry.typeOfQuestion || '').trim().toLowerCase();
             const cat = (entry.questionCategory || '').trim().toLowerCase();
+            const compactQType = qType.replace(/[^a-z]/g, '');
 
             let targetType: string | null = null;
-            if (qType === 'unique') {
+            if (compactQType === 'staticdynamic' || qType.includes('static dynamic')) {
+                targetType = 'Static Dynamic';
+            } else if (qType === 'unique') {
                 targetType = 'Unique';
             } else if (qType === 'gdb' || qType === 'gdp') {
                 targetType = 'GDB';
@@ -1631,6 +1653,7 @@ export class TesterLogService implements ITesterLogService {
             { questionType: 'Dynamic - Weather', targetTotal: 19, targetWebApp: 9, targetWhatsApp: 10 },
             { questionType: 'Dynamic - Scheme', targetTotal: 6, targetWebApp: 3, targetWhatsApp: 3 },
             { questionType: 'Dynamic - Mandi', targetTotal: 2, targetWebApp: 1, targetWhatsApp: 1 },
+            { questionType: 'Static Dynamic', targetTotal: 0, targetWebApp: 0, targetWhatsApp: 0 },
         ];
 
         const targetRows = DAILY_TARGET_DEFINITIONS.map(def => {
@@ -1651,13 +1674,20 @@ export class TesterLogService implements ITesterLogService {
             };
         });
 
-        const totalAchievedTotal = targetRows.reduce((sum, r) => sum + r.achievedTotal, 0);
-        const totalAchievedWebApp = targetRows.reduce((sum, r) => sum + r.achievedWebApp, 0);
-        const totalAchievedWhatsApp = targetRows.reduce((sum, r) => sum + r.achievedWhatsApp, 0);
+        const rawAchievedTotal = targetRows.reduce((sum, r) => sum + r.achievedTotal, 0);
+        const rawAchievedWebApp = targetRows.reduce((sum, r) => sum + r.achievedWebApp, 0);
+        const rawAchievedWhatsApp = targetRows.reduce((sum, r) => sum + r.achievedWhatsApp, 0);
+
+        // Target progress is capped per question type:
+        // Exceeding one category's quota does not fulfill targets for other categories.
+        const cappedAchievedTotal = targetRows.reduce((sum, r) => sum + (r.targetTotal > 0 ? Math.min(r.achievedTotal, r.targetTotal) : 0), 0);
+        const cappedAchievedWebApp = targetRows.reduce((sum, r) => sum + (r.targetWebApp > 0 ? Math.min(r.achievedWebApp, r.targetWebApp) : 0), 0);
+        const cappedAchievedWhatsApp = targetRows.reduce((sum, r) => sum + (r.targetWhatsApp > 0 ? Math.min(r.achievedWhatsApp, r.targetWhatsApp) : 0), 0);
+
         const totalTargetTotal = 54 * daysCount;
         const totalTargetWebApp = 27 * daysCount;
         const totalTargetWhatsApp = 27 * daysCount;
-        const totalCompletionRate = totalTargetTotal > 0 ? Math.round((totalAchievedTotal / totalTargetTotal) * 1000) / 10 : 0;
+        const totalCompletionRate = totalTargetTotal > 0 ? Math.round((cappedAchievedTotal / totalTargetTotal) * 1000) / 10 : 0;
 
         const targetVsAchieved = {
             daysCount,
@@ -1665,11 +1695,14 @@ export class TesterLogService implements ITesterLogService {
             total: {
                 questionType: 'Total',
                 targetTotal: totalTargetTotal,
-                achievedTotal: totalAchievedTotal,
+                achievedTotal: cappedAchievedTotal,
+                rawAchievedTotal,
                 targetWebApp: totalTargetWebApp,
-                achievedWebApp: totalAchievedWebApp,
+                achievedWebApp: cappedAchievedWebApp,
+                rawAchievedWebApp,
                 targetWhatsApp: totalTargetWhatsApp,
-                achievedWhatsApp: totalAchievedWhatsApp,
+                achievedWhatsApp: cappedAchievedWhatsApp,
+                rawAchievedWhatsApp,
                 completionRate: totalCompletionRate,
             },
         };
@@ -1698,6 +1731,8 @@ export class TesterLogService implements ITesterLogService {
             scientificAccuracy: {
                 correct: sciCorrect,
                 incorrect: sciIncorrect,
+                partiallyCorrect: sciPartiallyCorrect,
+                totalChecked: totalSci,
                 rate: sciRate,
             },
             dbPersistence: {
@@ -1713,6 +1748,8 @@ export class TesterLogService implements ITesterLogService {
             crossPlatformStats: {
                 totalCrossPlatform,
                 matchedAnswers,
+                partialMatches,
+                mismatches: mismatchedAnswers,
                 parityRate: totalCrossPlatform > 0 ? Math.round((matchedAnswers / totalCrossPlatform) * 1000) / 10 : 0,
             },
             targetVsAchieved,

@@ -402,7 +402,7 @@ function DefectIdBugRefInput({
     );
 }
 
-function validateTesterLogForm(
+export function validateTesterLogForm(
     data: FormValues,
     flags: { isCross: boolean; excludeReviewerWorkflow: boolean }
 ): Record<string, string> {
@@ -644,6 +644,8 @@ function validateTesterLogForm(
     if (isPass) {
         if (!data.defectSeverity) data.defectSeverity = "NA";
         if (!data.defectIdBugRef) data.defectIdBugRef = "NA";
+        data.testerRemarks = "No Action Required";
+        data.testerRemarksNotes = "";
     } else {
         checkRequired("defectSeverity", "Defect Severity");
 
@@ -659,18 +661,18 @@ function validateTesterLogForm(
                 errors.defectIdBugRef = "Defect ID must be 'NA' or a valid URL starting with http:// or https://";
             }
         }
-    }
 
-    checkRequired("testerRemarks", "Tester Remarks");
-    if (data.testerRemarks && data.testerRemarks !== "No Action Required") {
-        checkRequired("testerRemarksNotes", "Remarks Details");
-    }
-    if (data.testerRemarksNotes?.trim()) {
-        const rn = data.testerRemarksNotes.trim();
-        if (rn.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN) {
-            errors.testerRemarksNotes = `Remarks Details must be at least ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} characters`;
-        } else if (data.testerRemarksNotes.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX) {
-            errors.testerRemarksNotes = `Remarks Details cannot exceed ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters`;
+        checkRequired("testerRemarks", "Tester Remarks");
+        if (data.testerRemarks && data.testerRemarks !== "No Action Required") {
+            checkRequired("testerRemarksNotes", "Remarks Details");
+        }
+        if (data.testerRemarksNotes?.trim()) {
+            const rn = data.testerRemarksNotes.trim();
+            if (rn.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN) {
+                errors.testerRemarksNotes = `Remarks Details must be at least ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} characters`;
+            } else if (data.testerRemarksNotes.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX) {
+                errors.testerRemarksNotes = `Remarks Details cannot exceed ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters`;
+            }
         }
     }
 
@@ -711,6 +713,8 @@ function getInitialFormValues(userEmail?: string, todayDate: string = getTodayDa
                     translationErrorType: errorType,
                     defectSeverity: isPass ? "NA" : parsed.defectSeverity,
                     defectIdBugRef: isPass ? "NA" : parsed.defectIdBugRef,
+                    testerRemarks: isPass ? "No Action Required" : parsed.testerRemarks,
+                    testerRemarksNotes: isPass ? "" : parsed.testerRemarksNotes,
                 };
             }
         }
@@ -871,14 +875,21 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         if (current === "pass") {
             setValue("defectSeverity", "NA", { shouldDirty: true });
             setValue("defectIdBugRef", "NA", { shouldDirty: true });
+            setValue("testerRemarks", "No Action Required", { shouldDirty: true });
+            setValue("testerRemarksNotes", "", { shouldDirty: true });
             clearError("defectSeverity");
             clearError("defectIdBugRef");
-        } else if (prev === "pass" && current === "fail") {
+            clearError("testerRemarks");
+            clearError("testerRemarksNotes");
+        } else if (prev === "pass" && current !== "pass") {
             if (getValues("defectSeverity") === "NA") {
                 setValue("defectSeverity", "", { shouldDirty: true });
             }
             if (getValues("defectIdBugRef") === "NA") {
                 setValue("defectIdBugRef", "", { shouldDirty: true });
+            }
+            if (getValues("testerRemarks") === "No Action Required") {
+                setValue("testerRemarks", "", { shouldDirty: true });
             }
         }
     }, [overallTestStatus, setValue, getValues]);
@@ -1063,6 +1074,31 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         };
         // testId is automated and allocated atomically on the backend to prevent collisions across concurrent submissions
         delete (payload as any).testId;
+        const isPassStatus = (data.overallTestStatus || "").trim().toLowerCase() === "pass";
+        if (isPassStatus) {
+            payload.defectSeverity = "NA";
+            payload.defectIdBugRef = "NA";
+            payload.testerRemarks = "No Action Required";
+            delete payload.testerRemarksNotes;
+        }
+        if (!isCross) {
+            delete payload.webThreadId;
+            delete payload.waThreadId;
+            delete payload.waTimeQuestionAsked;
+            delete payload.waTimeAnswerReceived;
+            delete payload.waResponseTimeMins;
+            delete payload.waSlaStatus;
+            delete payload.waVoiceInputWorking;
+            delete payload.waVoiceOutputWorking;
+            delete payload.waVoiceInputQuality;
+            delete payload.waVoiceOutputQuality;
+            delete payload.waVoiceInputIssueDescription;
+            delete payload.waVoiceIssueDescription;
+            delete payload.waNotificationReceived;
+            delete payload.webOverallTestStatus;
+            delete payload.waOverallTestStatus;
+            delete payload.crossPlatformDiscrepancyNotes;
+        }
         if (excludeReviewerWorkflow) {
             delete payload.allocatedToReviewer;
             delete payload.authorsName;
@@ -1094,6 +1130,13 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             delete payload.moderatorCompletionTime;
             delete payload.moderatorTatMins;
         }
+        // Clean up empty strings for unsupplied optional fields so payloads remain clean
+        (Object.keys(payload) as (keyof FormValues)[]).forEach((key) => {
+            const val = payload[key];
+            if (typeof val === "string" && val.trim() === "") {
+                delete payload[key];
+            }
+        });
         mutate(payload);
     };
 
@@ -1803,6 +1846,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     label="Tester Remarks"
                     options={TESTER_REMARKS_OPTIONS}
                     required
+                    disabled={isPass}
                     error={formErrors.testerRemarks}
                     {...register("testerRemarks", {
                         onChange: (e) => {

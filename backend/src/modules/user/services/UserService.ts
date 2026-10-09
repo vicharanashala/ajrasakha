@@ -18,7 +18,7 @@ import {
   NotFoundError,
 } from 'routing-controllers';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { ClientSession } from 'mongodb';
+import { ClientSession, ObjectId } from 'mongodb';
 import {
   PreferenceDto,
   UsersNameResponseDto,
@@ -1578,4 +1578,534 @@ export class UserService extends BaseService {
       .filter((user) => user._id);
   }
 
+  async exportUserActivityReport(
+    userId: string,
+    query: {
+      viewType?: 'year' | 'month' | 'week' | 'day';
+      selectedYear?: string;
+      selectedMonth?: string;
+      selectedWeek?: string;
+      selectedDay?: string;
+      customStartDateTime?: string;
+      customEndDateTime?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<Buffer> {
+    return this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      // Date parsing logic
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December',
+      ];
+      const dayMap: Record<string, number> = {
+        Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+      };
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+
+      let startDate: Date;
+      let endDate: Date;
+      const customStartTime = query.customStartDateTime;
+      const customEndTime = query.customEndDateTime;
+
+      if (query.startDate && query.endDate) {
+        startDate = new Date(query.startDate);
+        endDate = new Date(query.endDate);
+      } else {
+        const viewType = query.viewType || 'year';
+        const yearNum = Number(query.selectedYear || currentYear);
+
+        if (viewType === 'year') {
+          startDate = new Date(yearNum, 0, 1, 0, 0, 0, 0);
+          endDate = new Date(yearNum, 11, 31, 23, 59, 59, 999);
+        } else if (viewType === 'month') {
+          const selectedMonth = query.selectedMonth || monthNames[now.getMonth()];
+          const monthNum = monthNames.indexOf(selectedMonth) !== -1 ? monthNames.indexOf(selectedMonth) : now.getMonth();
+          startDate = new Date(yearNum, monthNum, 1, 0, 0, 0, 0);
+          endDate = new Date(yearNum, monthNum + 1, 0, 23, 59, 59, 999);
+        } else if (viewType === 'week') {
+          const selectedMonth = query.selectedMonth || monthNames[now.getMonth()];
+          const monthNum = monthNames.indexOf(selectedMonth) !== -1 ? monthNames.indexOf(selectedMonth) : now.getMonth();
+          const selectedWeek = query.selectedWeek || 'Week 1';
+          const weekNum = Number(selectedWeek.replace('Week ', '')) || 1;
+          const startDay = (weekNum - 1) * 7 + 1;
+          const daysInMonth = new Date(yearNum, monthNum + 1, 0).getDate();
+          const endDay = Math.min(startDay + 6, daysInMonth);
+          startDate = new Date(yearNum, monthNum, startDay, 0, 0, 0, 0);
+          endDate = new Date(yearNum, monthNum, endDay, 23, 59, 59, 999);
+        } else {
+          // viewType === 'day'
+          const selectedMonth = query.selectedMonth || monthNames[now.getMonth()];
+          const monthNum = monthNames.indexOf(selectedMonth) !== -1 ? monthNames.indexOf(selectedMonth) : now.getMonth();
+          const selectedWeek = query.selectedWeek || 'Week 1';
+          const weekNum = Number(selectedWeek.replace('Week ', '')) || 1;
+          const startDay = (weekNum - 1) * 7 + 1;
+          const daysInMonth = new Date(yearNum, monthNum + 1, 0).getDate();
+          const endDay = Math.min(startDay + 6, daysInMonth);
+          const selectedDay = query.selectedDay || 'Mon';
+          const targetDayOfWeek = dayMap[selectedDay] !== undefined ? dayMap[selectedDay] : 1;
+          let targetDateNum = startDay;
+          for (let d = startDay; d <= endDay; d++) {
+            const testDate = new Date(yearNum, monthNum, d);
+            if (testDate.getDay() === targetDayOfWeek) {
+              targetDateNum = d;
+              break;
+            }
+          }
+          startDate = new Date(yearNum, monthNum, targetDateNum, 0, 0, 0, 0);
+          endDate = new Date(yearNum, monthNum, targetDateNum, 23, 59, 59, 999);
+        }
+      }
+
+      const matchesTimeFilter = (d: Date): boolean => {
+        if (!customStartTime || !customEndTime) return true;
+        const istTime = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+        const minutes = istTime.getUTCHours() * 60 + istTime.getUTCMinutes();
+        const [startH, startM] = customStartTime.split(':').map(Number);
+        const [endH, endM] = customEndTime.split(':').map(Number);
+        const startTotal = (startH || 0) * 60 + (startM || 0);
+        const endTotal = (endH || 0) * 60 + (endM || 0);
+        return minutes >= startTotal && minutes <= endTotal;
+      };
+
+      const userObjectId = new ObjectId(userId);
+
+      // User name and designation
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || (user as any).userName || user.email || 'User';
+      const roleDisplayMap: Record<string, string> = {
+        admin: 'Admin',
+        moderator: 'Moderator',
+        expert: 'Expert',
+        pae_expert: 'PAE Expert',
+        gate_keeper: 'Gate Keeper',
+        auditor: 'Auditor',
+        tester: 'Tester',
+      };
+      const userDesignation = roleDisplayMap[user.role] || user.role;
+
+      // 1. Total Hours in Rev Cycle
+      const userRoleHistoryCollection = await this.mongoDatabase.getCollection('user_role_history');
+      const roleHistories = await userRoleHistoryCollection.find({
+        userId: userObjectId,
+        $or: [{ to: null }, { to: { $gte: startDate } }],
+        from: { $lte: endDate },
+      }).toArray();
+
+      let totalRevCycleMs = 0;
+      const nowMs = Date.now();
+      const startLimitMs = startDate.getTime();
+      const endLimitMs = endDate.getTime();
+
+      for (const item of roleHistories) {
+        if (item.isBlocked === true) continue;
+        const fromTime = item.from ? new Date(item.from).getTime() : null;
+        if (!fromTime) continue;
+        const toTime = item.to ? new Date(item.to).getTime() : nowMs;
+
+        const start = Math.max(fromTime, startLimitMs);
+        const end = Math.min(toTime, endLimitMs);
+        if (end > start) {
+          totalRevCycleMs += (end - start);
+        }
+      }
+      const totalHoursInRevCycle = totalRevCycleMs / (1000 * 60 * 60);
+
+      // 2. Submissions & Questions for Authoring, Reviewing (Rev 1-9), GDB Pushed
+      const submissionsCollection = await this.mongoDatabase.getCollection('question_submissions');
+      const questionsCollection = await this.mongoDatabase.getCollection('questions');
+      const reroutesCollection = await this.mongoDatabase.getCollection('reroutes');
+      const reviewsCollection = await this.mongoDatabase.getCollection('reviews');
+
+      const submissions = await submissionsCollection.find({
+        'history.updatedBy': userObjectId,
+      }).toArray();
+
+      const questionIds = submissions.map((s: any) => s.questionId).filter(Boolean);
+      const questions = questionIds.length > 0
+        ? await questionsCollection.find({
+            _id: { $in: questionIds.map((id: any) => typeof id === 'string' ? new ObjectId(id) : id) },
+          }).toArray()
+        : [];
+
+      const questionMap = new Map<string, any>();
+      for (const q of questions) {
+        questionMap.set(q._id.toString(), q);
+      }
+
+      // Collect all reviewIds from submissions for reviewer time calculation
+      const allReviewIds: ObjectId[] = [];
+      for (const sub of submissions) {
+        const history = (sub as any).history || [];
+        for (let i = 1; i < history.length; i++) {
+          const h = history[i];
+          if (h.updatedBy?.toString() === userId && h.reviewId) {
+            const reviewId = typeof h.reviewId === 'string' ? new ObjectId(h.reviewId) : h.reviewId;
+            allReviewIds.push(reviewId);
+          }
+        }
+      }
+
+      // Fetch all relevant reviews upfront
+      const reviewMap = new Map<string, any>();
+      if (allReviewIds.length > 0) {
+        const reviews = await reviewsCollection.find({
+          _id: { $in: allReviewIds },
+        }).toArray();
+        for (const review of reviews) {
+          reviewMap.set(review._id.toString(), review);
+        }
+      }
+
+      let authoredCount = 0;
+      let totalAuthoringMs = 0;
+      let reviewedCount = 0;
+      let totalReviewingMs = 0;
+      const revCounts: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      let gdbPushedCount = 0;
+
+      for (const sub of submissions) {
+        const history = (sub as any).history || [];
+        const question = questionMap.get((sub as any).questionId?.toString());
+
+        // Check if user authored (index 0)
+        if (history.length > 0 && history[0].updatedBy?.toString() === userId) {
+          // Author finished at is history[0].createdAt, not updatedAt
+          const authorCompletedAt = new Date(history[0].createdAt);
+          if (authorCompletedAt >= startDate && authorCompletedAt <= endDate && matchesTimeFilter(authorCompletedAt)) {
+            authoredCount++;
+
+            // Author assigned at is question.firstAllocationAt
+            const allocStart = question?.firstAllocationAt ? new Date(question.firstAllocationAt) : new Date(history[0].createdAt);
+            const diff = authorCompletedAt.getTime() - allocStart.getTime();
+            if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+              totalAuthoringMs += diff;
+            }
+
+            if (question && (question.status === 'closed' || question.closedAt || question.isClosed)) {
+              gdbPushedCount++;
+            }
+          }
+        }
+
+        // Check reviews (index >= 1)
+        for (let i = 1; i < history.length; i++) {
+          const h = history[i];
+          if (h.updatedBy?.toString() === userId) {
+            // Review is only complete if it has a reviewId
+            // If no reviewId, it's still in progress - skip time calculation
+            if (!h.reviewId) {
+              continue;
+            }
+
+            const reviewIdStr = typeof h.reviewId === 'string' ? h.reviewId : h.reviewId.toString();
+            const review = reviewMap.get(reviewIdStr);
+
+            // If review document not found, treat as in progress
+            if (!review || !review.createdAt) {
+              continue;
+            }
+
+            // Review completed at is the review document's createdAt, not history.updatedAt
+            const reviewCompletedAt = new Date(review.createdAt);
+            if (reviewCompletedAt >= startDate && reviewCompletedAt <= endDate && matchesTimeFilter(reviewCompletedAt)) {
+              reviewedCount++;
+              if (i >= 1 && i <= 9) {
+                revCounts[i]++;
+              }
+
+              // Assigned at is h.createdAt
+              const assignedAt = new Date(h.createdAt);
+              const diff = reviewCompletedAt.getTime() - assignedAt.getTime();
+              if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+                totalReviewingMs += diff;
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Moderating
+      let moderatedCount = 0;
+      let totalModeratingMs = 0;
+
+      const moderatedQuestions = await questionsCollection.find({
+        moderatorId: userObjectId,
+        moderatorAssignedAt: { $ne: null },
+        $or: [{ closedAt: { $ne: null } }, { passedAt: { $ne: null } }, { status: { $in: ['closed', 'pass'] } }],
+      }).toArray();
+
+      for (const q of moderatedQuestions) {
+        const endAt = q.closedAt ? new Date(q.closedAt) : (q.passedAt ? new Date(q.passedAt) : (q.updatedAt ? new Date(q.updatedAt) : null));
+        if (endAt && endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+          moderatedCount++;
+          const startAt = new Date((q as any).moderatorAssignedAt);
+          const diff = endAt.getTime() - startAt.getTime();
+          if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+            totalModeratingMs += diff;
+          }
+        }
+      }
+
+      const reroutes = await reroutesCollection.find({
+        'reroutes.reroutedTo': userObjectId,
+      }).toArray();
+
+      for (const doc of reroutes) {
+        for (const r of (doc as any).reroutes || []) {
+          if (r.reroutedTo?.toString() === userId && r.updatedAt) {
+            const endAt = new Date(r.updatedAt);
+            if (endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+              moderatedCount++;
+              const startAt = new Date(r.reroutedAt);
+              const diff = endAt.getTime() - startAt.getTime();
+              if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+                totalModeratingMs += diff;
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Auditing
+      let auditedCount = 0;
+      let totalAuditingMs = 0;
+
+      const auditedQuestions = await questionsCollection.find({
+        auditorId: userObjectId,
+        auditorFinishedAt: { $ne: null },
+      }).toArray();
+
+      for (const q of auditedQuestions) {
+        const endAt = new Date((q as any).auditorFinishedAt);
+        if (endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+          auditedCount++;
+          const startAt = (q as any).auditorAssignedAt ? new Date((q as any).auditorAssignedAt) : null;
+          if (startAt) {
+            const diff = endAt.getTime() - startAt.getTime();
+            if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+              totalAuditingMs += diff;
+            }
+          }
+        }
+      }
+
+      // 5. Gatekeeping
+      let gatekeepedCount = 0;
+      let totalGatekeepingMs = 0;
+
+      const gatekeepedQuestions = await questionsCollection.find({
+        gateKeeperId: userObjectId,
+        gateKeeperFinishedAt: { $ne: null },
+      }).toArray();
+
+      for (const q of gatekeepedQuestions) {
+        const endAt = new Date((q as any).gateKeeperFinishedAt);
+        if (endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+          gatekeepedCount++;
+          const startAt = (q as any).gateKeeperAssignedAt ? new Date((q as any).gateKeeperAssignedAt) : null;
+          if (startAt) {
+            const diff = endAt.getTime() - startAt.getTime();
+            if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+              totalGatekeepingMs += diff;
+            }
+          }
+        }
+      }
+
+      // Helper formatters
+      const formatMsToHMS = (ms: number): string => {
+        if (!ms || ms <= 0 || isNaN(ms)) return '00:00:00';
+        const totalSec = Math.floor(ms / 1000);
+        const hrs = Math.floor(totalSec / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      };
+
+      const formatHours = (hrs: number): string => {
+        if (!hrs || hrs <= 0 || isNaN(hrs)) return '0.00 hrs';
+        return `${hrs.toFixed(2)} hrs`;
+      };
+
+      // Create Excel Workbook
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('User Activity Report');
+
+      sheet.columns = [
+        { key: 'col1', width: 32 },
+        { key: 'col2', width: 22 },
+        { key: 'col3', width: 34 },
+        { key: 'col4', width: 22 },
+        { key: 'col5', width: 18 },
+        { key: 'col6', width: 18 },
+        { key: 'col7', width: 18 },
+        { key: 'col8', width: 18 },
+        { key: 'col9', width: 18 },
+        { key: 'col10', width: 18 },
+        { key: 'col11', width: 18 },
+        { key: 'col12', width: 18 },
+        { key: 'col13', width: 18 },
+        { key: 'col14', width: 18 },
+        { key: 'col15', width: 18 },
+        { key: 'col16', width: 38 },
+      ];
+
+      const THIN_BORDER: Partial<ExcelJS.Borders> = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+
+      // Row 1
+      sheet.getCell('A1').value = 'Name';
+      sheet.getCell('A1').font = { bold: true };
+      sheet.getCell('B1').value = userName;
+
+      // Row 2
+      sheet.getCell('A2').value = 'Designation';
+      sheet.getCell('A2').font = { bold: true };
+      sheet.getCell('B2').value = userDesignation;
+
+      // Row 4
+      sheet.getCell('A4').value = 'Total Hours in Rev Cycle';
+      sheet.getCell('A4').font = { bold: true };
+      sheet.getCell('A4').border = THIN_BORDER;
+      sheet.getCell('B4').value = formatHours(totalHoursInRevCycle);
+      sheet.getCell('B4').border = THIN_BORDER;
+      sheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 5: Authoring
+      sheet.getCell('A5').value = 'Avg time for Authoring';
+      sheet.getCell('A5').border = THIN_BORDER;
+      sheet.getCell('B5').value = formatMsToHMS(authoredCount > 0 ? totalAuthoringMs / authoredCount : 0);
+      sheet.getCell('B5').border = THIN_BORDER;
+      sheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C5').value = 'Total Hours involved in Authoring';
+      sheet.getCell('C5').border = THIN_BORDER;
+      sheet.getCell('D5').value = formatHours(totalAuthoringMs / (1000 * 60 * 60));
+      sheet.getCell('D5').border = THIN_BORDER;
+      sheet.getCell('D5').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 6: Reviewing
+      sheet.getCell('A6').value = 'Avg time for Revieweing';
+      sheet.getCell('A6').border = THIN_BORDER;
+      sheet.getCell('B6').value = formatMsToHMS(reviewedCount > 0 ? totalReviewingMs / reviewedCount : 0);
+      sheet.getCell('B6').border = THIN_BORDER;
+      sheet.getCell('B6').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C6').value = 'Total Hours involved in Reviewing';
+      sheet.getCell('C6').border = THIN_BORDER;
+      sheet.getCell('D6').value = formatHours(totalReviewingMs / (1000 * 60 * 60));
+      sheet.getCell('D6').border = THIN_BORDER;
+      sheet.getCell('D6').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 7: Moderating
+      sheet.getCell('A7').value = 'Avg time for Moderating';
+      sheet.getCell('A7').border = THIN_BORDER;
+      sheet.getCell('B7').value = formatMsToHMS(moderatedCount > 0 ? totalModeratingMs / moderatedCount : 0);
+      sheet.getCell('B7').border = THIN_BORDER;
+      sheet.getCell('B7').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C7').value = 'Total Hours involved in Moderating';
+      sheet.getCell('C7').border = THIN_BORDER;
+      sheet.getCell('D7').value = formatHours(totalModeratingMs / (1000 * 60 * 60));
+      sheet.getCell('D7').border = THIN_BORDER;
+      sheet.getCell('D7').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 8: Auditing
+      sheet.getCell('A8').value = 'Avg time for Auditing';
+      sheet.getCell('A8').border = THIN_BORDER;
+      sheet.getCell('B8').value = formatMsToHMS(auditedCount > 0 ? totalAuditingMs / auditedCount : 0);
+      sheet.getCell('B8').border = THIN_BORDER;
+      sheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C8').value = 'Total Hours involved in Auditing';
+      sheet.getCell('C8').border = THIN_BORDER;
+      sheet.getCell('D8').value = formatHours(totalAuditingMs / (1000 * 60 * 60));
+      sheet.getCell('D8').border = THIN_BORDER;
+      sheet.getCell('D8').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 9: Gatekeeping
+      sheet.getCell('A9').value = 'Avg time for Gatekeeping';
+      sheet.getCell('A9').border = THIN_BORDER;
+      sheet.getCell('B9').value = formatMsToHMS(gatekeepedCount > 0 ? totalGatekeepingMs / gatekeepedCount : 0);
+      sheet.getCell('B9').border = THIN_BORDER;
+      sheet.getCell('B9').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C9').value = 'Total Hours involved in Gatekeeping';
+      sheet.getCell('C9').border = THIN_BORDER;
+      sheet.getCell('D9').value = formatHours(totalGatekeepingMs / (1000 * 60 * 60));
+      sheet.getCell('D9').border = THIN_BORDER;
+      sheet.getCell('D9').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 11: Main Table Headers
+      const tableHeaders = [
+        'Agri Proffesional Name',
+        'Authored',
+        'Reviewed',
+        'Reviewed as Rev1',
+        'Reviewed as Rev2',
+        'Reviewed as Rev3',
+        'Reviewed as Rev4',
+        'Reviewed as Rev5',
+        'Reviewed as Rev6',
+        'Reviewed as Rev7',
+        'Reviewed as Rev8',
+        'Reviewed as Rev9',
+        'Moderated',
+        'Audited',
+        'Gatekeeped',
+        'GDB Pushed (Authored / GDB Pushed)',
+      ];
+
+      const headerRow = sheet.getRow(11);
+      tableHeaders.forEach((th, idx) => {
+        const cell = headerRow.getCell(idx + 1);
+        cell.value = th;
+        cell.font = { bold: true };
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2F2F2' },
+        };
+      });
+
+      // Row 12: Data Row
+      const dataRowValues = [
+        userName,
+        authoredCount,
+        reviewedCount,
+        revCounts[1] || 0,
+        revCounts[2] || 0,
+        revCounts[3] || 0,
+        revCounts[4] || 0,
+        revCounts[5] || 0,
+        revCounts[6] || 0,
+        revCounts[7] || 0,
+        revCounts[8] || 0,
+        revCounts[9] || 0,
+        moderatedCount,
+        auditedCount,
+        gatekeepedCount,
+        gdbPushedCount,
+      ];
+
+      const dataRow = sheet.getRow(12);
+      dataRowValues.forEach((val, idx) => {
+        const cell = dataRow.getCell(idx + 1);
+        cell.value = val;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: idx === 0 ? 'left' : 'center', vertical: 'middle' };
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      return Buffer.from(buffer);
+    });
+  }
 }

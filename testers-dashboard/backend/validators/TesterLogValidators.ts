@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNotEmpty, IsNumberString, IsArray, IsBoolean, MaxLength, MinLength, Matches } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsNumberString, IsArray, IsBoolean, MaxLength, MinLength, Matches, ValidateIf } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 import {
     TEXT_FIELD_LIMITS,
@@ -9,6 +9,8 @@ import {
     LANGUAGE_NAME_REGEX,
     TEST_ID_REGEX,
 } from '../services/TesterLogService.js';
+
+const isNonEmptyString = (_o: any, v: any) => v !== undefined && v !== null && (typeof v !== 'string' || v.trim() !== '');
 
 export class CreateTesterLogDto {
     @JSONSchema({ description: 'Test date formatted as YYYY-MM-DD or DD/MM/YYYY' })
@@ -24,6 +26,7 @@ export class CreateTesterLogDto {
     @JSONSchema({ description: 'Test ID – tester-entered identifier for the test case' })
     @IsString()
     @IsOptional()
+    @ValidateIf(isNonEmptyString)
     @MaxLength(TEXT_FIELD_LIMITS.TEST_ID_MAX)
     @Matches(TEST_ID_REGEX)
     testId?: string;
@@ -31,6 +34,7 @@ export class CreateTesterLogDto {
     @JSONSchema({ description: 'Build version tested' })
     @IsString()
     @IsOptional()
+    @ValidateIf(isNonEmptyString)
     @MaxLength(TEXT_FIELD_LIMITS.BUILD_VERSION_MAX)
     @Matches(BUILD_VERSION_REGEX)
     buildVersion?: string;
@@ -49,6 +53,7 @@ export class CreateTesterLogDto {
     @JSONSchema({ description: 'Language tested' })
     @IsString()
     @IsOptional()
+    @ValidateIf(isNonEmptyString)
     @MaxLength(TEXT_FIELD_LIMITS.LANGUAGE_MAX)
     @Matches(LANGUAGE_NAME_REGEX)
     languageTested?: string;
@@ -56,6 +61,7 @@ export class CreateTesterLogDto {
     @JSONSchema({ description: 'Thread or conversation ID' })
     @IsString()
     @IsOptional()
+    @ValidateIf(isNonEmptyString)
     @MaxLength(TEXT_FIELD_LIMITS.THREAD_ID_MAX)
     @Matches(THREAD_ID_REGEX)
     threadId?: string;
@@ -63,6 +69,7 @@ export class CreateTesterLogDto {
     @JSONSchema({ description: 'The text of the query tested' })
     @IsString()
     @IsOptional()
+    @ValidateIf(isNonEmptyString)
     @MinLength(TEXT_FIELD_LIMITS.QUERY_TEXT_MIN)
     @MaxLength(TEXT_FIELD_LIMITS.QUERY_TEXT_MAX)
     queryText?: string;
@@ -89,39 +96,39 @@ export class CreateTesterLogDto {
 
     @IsString() @IsOptional() questionInReviewModel?: string;
     @IsString() @IsOptional() questionCorrectlyFramed?: string;
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.LANGUAGE_MAX) @Matches(LANGUAGE_NAME_REGEX) originalLanguage?: string;
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.LANGUAGE_MAX) @Matches(LANGUAGE_NAME_REGEX) translatedLanguage?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.LANGUAGE_MAX) @Matches(LANGUAGE_NAME_REGEX) originalLanguage?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.LANGUAGE_MAX) @Matches(LANGUAGE_NAME_REGEX) translatedLanguage?: string;
     @IsString() @IsOptional() translationQuality?: string;
     @IsString() @IsOptional() translationErrorType?: string;
     @IsString() @IsOptional() tagging?: string;
     @IsString() @IsOptional() retrievalAccuracy?: string;
 
     @IsString() @IsOptional() allocatedToReviewer?: string;
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) authorsName?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) authorsName?: string;
     @IsString() @IsOptional() authorAssignmentTime?: string;
     @IsString() @IsOptional() authorCompletionTime?: string;
 
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer1Name?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer1Name?: string;
     @IsString() @IsOptional() reviewer1AssignmentTime?: string;
     @IsString() @IsOptional() reviewer1CompletionTime?: string;
 
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer2Name?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer2Name?: string;
     @IsString() @IsOptional() reviewer2AssignmentTime?: string;
     @IsString() @IsOptional() reviewer2CompletionTime?: string;
 
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer3Name?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer3Name?: string;
     @IsString() @IsOptional() reviewer3AssignmentTime?: string;
     @IsString() @IsOptional() reviewer3CompletionTime?: string;
 
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer4Name?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer4Name?: string;
     @IsString() @IsOptional() reviewer4AssignmentTime?: string;
     @IsString() @IsOptional() reviewer4CompletionTime?: string;
 
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer5Name?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) reviewer5Name?: string;
     @IsString() @IsOptional() reviewer5AssignmentTime?: string;
     @IsString() @IsOptional() reviewer5CompletionTime?: string;
 
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) moderatorName?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.NAME_MAX) @Matches(PERSON_NAME_REGEX) moderatorName?: string;
     @IsString() @IsOptional() moderatorAssignmentTime?: string;
     @IsString() @IsOptional() moderatorCompletionTime?: string;
 
@@ -159,8 +166,8 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() status?: string;
 
     // Cross-Platform Dual-Channel Fields
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.THREAD_ID_MAX) @Matches(THREAD_ID_REGEX) webThreadId?: string;
-    @IsString() @IsOptional() @MaxLength(TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX) @Matches(WA_THREAD_ID_REGEX) waThreadId?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.THREAD_ID_MAX) @Matches(THREAD_ID_REGEX) webThreadId?: string;
+    @IsString() @IsOptional() @ValidateIf(isNonEmptyString) @MaxLength(TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX) @Matches(WA_THREAD_ID_REGEX) waThreadId?: string;
     @IsString() @IsOptional() waTimeQuestionAsked?: string;
     @IsString() @IsOptional() waTimeAnswerReceived?: string;
     @IsString() @IsOptional() waResponseTimeMins?: string;
