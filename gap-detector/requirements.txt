@@ -1,0 +1,25 @@
+# Runtime
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pymongo==4.18.1
+dnspython==2.8.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+httpx==0.28.1
+numpy==2.5.3
+# ML runtime: sentence-transformers (embeddings + util.cos_sim / community_detection on torch).
+# scikit-learn is NOT used by this project; it is only pulled in transitively by sentence-transformers.
+torch>=2.4
+pandas==3.0.5
+sentence-transformers==6.0.1
+# torch is pulled in by sentence-transformers; install the CPU wheel first to avoid CUDA:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+typer==0.27.2
+rich==15.0.0
+
+# Dev / test
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.7
+mongomock==4.3.0
