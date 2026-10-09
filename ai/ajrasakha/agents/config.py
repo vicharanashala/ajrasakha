@@ -122,6 +122,9 @@ def resolve_user_id(config: Optional[dict[str, Any]] = None) -> str | None:
         match = _WHATSAPP_THREAD_ID_RE.match(thread_id)
         if match:
             return match.group(1)
+    # Local testing: run as LOCAL_USER_ID when the run carries no user identity.
+    if os.getenv("LOCAL", "").strip().lower() in ("true", "1", "yes"):
+        return _first_non_empty(os.getenv("LOCAL_USER_ID"))
     return None
 
 
