@@ -98,4 +98,5 @@ jobs:
             MINIMAX_API=${{ secrets.MINIMAX_API }}
             MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
             MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
+            CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
           flags: --allow-unauthenticated
