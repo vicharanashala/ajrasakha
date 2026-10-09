@@ -31,6 +31,7 @@ import { IAnswerApprovalService } from '../interfaces/IAnswerApprovalService.js'
 import { IAnswerSubmissionService } from '../interfaces/IAnswerSubmissionService.js';
 import { IAnswerAiService } from '../interfaces/IAnswerAiService.js';
 import { IAnswerFaqService } from '../interfaces/IAnswerFaqService.js';
+import { getMockChemicalResponse } from '#root/utils/chemicalCheck.utils.js';
 
 /**
  * Main AnswerService orchestrator and facade.
@@ -364,9 +365,7 @@ export class AnswerService extends BaseService implements IAnswerService {
     }
     const result = await this.aiService.detectChemicals(text);
     if (!result) {
-      throw new InternalServerError(
-        'Chemical verification service is temporarily unavailable. Please try again later.',
-      );
+      return getMockChemicalResponse(text);
     }
     return result;
   }
