@@ -9,7 +9,7 @@ import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { hmsDiff, isTimeEarlier, isTimeInFuture, isMidnightRollover, getLocalDatetimeMax } from "../utils/timingUtils";
+import { hmsDiff, isTimeEarlier, isTimeInFuture, isMidnightRollover, getLocalDatetimeMax, getMinutesDiff } from "../utils/timingUtils";
 import type { ITesterLogEntry } from "../types";
 import {
     TYPE_OF_QUESTION_OPTIONS,
@@ -51,7 +51,7 @@ import {
     WA_THREAD_ID_REGEX,
     PERSON_NAME_REGEX,
     LANGUAGE_NAME_REGEX,
-    HTTP_URL_REGEX,
+    ZOHO_DESK_URL_REGEX,
 } from "../types";
 
 type FormValues = Omit<ITesterLogEntry, "_id" | "submittedByUserId" | "submittedByEmail" | "testerName" | "createdAt" | "updatedAt">;
@@ -258,6 +258,7 @@ function DefectIdBugRefInput({
     onChange,
     onOpenCreateModal,
     zohoStatuses,
+    connectedTicketInfo,
     required,
     error,
     disabled,
@@ -266,6 +267,7 @@ function DefectIdBugRefInput({
     onChange: (val: string) => void;
     onOpenCreateModal: () => void;
     zohoStatuses?: Record<string, any>;
+    connectedTicketInfo?: { ticketNumber?: string; status?: string; team?: string } | null;
     required?: boolean;
     error?: string;
     disabled?: boolean;
@@ -293,7 +295,20 @@ function DefectIdBugRefInput({
     const isValidUrl = customUrl.startsWith("http://") || customUrl.startsWith("https://");
     const ticketId = extractZohoTicketId(customUrl);
     const cachedStatus = ticketId && zohoStatuses ? zohoStatuses[ticketId] : null;
-    const badgeStyle = getStatusBadgeStyle(cachedStatus?.status);
+    const displayTicketNumber = cachedStatus?.ticketNumber || connectedTicketInfo?.ticketNumber;
+    const displayStatus = cachedStatus?.status || connectedTicketInfo?.status;
+    const displayTeam = cachedStatus?.team || connectedTicketInfo?.team;
+    const badgeStyle = getStatusBadgeStyle(displayStatus);
+
+    const handleDisconnect = () => {
+        const confirmed = typeof window !== "undefined" && window.confirm
+            ? window.confirm("Are you sure you want to disconnect this Zoho ticket? The ticket will remain in Zoho Desk.")
+            : true;
+        if (confirmed) {
+            onChange("");
+            toast.info("Ticket disconnected from this test case. The ticket remains in Zoho Desk.");
+        }
+    };
 
     return (
         <div className="flex flex-col gap-1">
@@ -330,16 +345,16 @@ function DefectIdBugRefInput({
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${badgeStyle.dot}`} />
                             <span className="font-semibold text-foreground text-sm">
-                                Ticket {cachedStatus?.ticketNumber ? `#${cachedStatus.ticketNumber}` : (ticketId ? `#${ticketId}` : "")}
+                                Ticket {displayTicketNumber ? `#${displayTicketNumber}` : (ticketId ? `#${ticketId}` : "")}
                             </span>
-                            {cachedStatus?.status && (
+                            {displayStatus && (
                                 <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${badgeStyle.bg} ${badgeStyle.text}`}>
-                                    {cachedStatus.status}
+                                    {displayStatus}
                                 </span>
                             )}
-                            {cachedStatus?.team && (
+                            {displayTeam && (
                                 <span className="text-muted-foreground text-[11px]">
-                                    • Team: {cachedStatus.team}
+                                    • Team: {displayTeam}
                                 </span>
                             )}
                         </div>
@@ -355,11 +370,11 @@ function DefectIdBugRefInput({
                             </a>
                             <button
                                 type="button"
-                                onClick={() => onChange("")}
+                                onClick={handleDisconnect}
                                 disabled={disabled}
                                 title="Disconnect ticket to choose NA or enter a different URL"
                                 className={cn(
-                                    "inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors border border-destructive/20",
+                                    "inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors border border-destructive/20 cursor-pointer",
                                     disabled && "cursor-not-allowed opacity-50 pointer-events-none"
                                 )}
                             >
@@ -482,6 +497,15 @@ export function validateTesterLogForm(
         errors.timeAnswerReceived = "Time Answer Received cannot be earlier than Time Question Asked";
     }
 
+    const webDiffMins = getMinutesDiff(data.timeQuestionAsked, data.timeAnswerReceived, data.testDate);
+    if (webDiffMins !== null && !isNaN(webDiffMins)) {
+        if (webDiffMins <= 120 && data.slaStatus === "SLA Breached") {
+            errors.slaStatus = "Response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
+        } else if (webDiffMins > 120 && data.slaStatus === "Within SLA") {
+            errors.slaStatus = "Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
+        }
+    }
+
     if (flags.isCross) {
         checkRequired("waTimeQuestionAsked", "WhatsApp Time Asked");
         checkRequired("waTimeAnswerReceived", "WhatsApp Time Received");
@@ -495,6 +519,15 @@ export function validateTesterLogForm(
             errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be in the future";
         } else if (isTimeEarlier(data.waTimeAnswerReceived, data.waTimeQuestionAsked, data.testDate)) {
             errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be earlier than WhatsApp Time Asked";
+        }
+
+        const waDiffMins = getMinutesDiff(data.waTimeQuestionAsked, data.waTimeAnswerReceived, data.testDate);
+        if (waDiffMins !== null && !isNaN(waDiffMins)) {
+            if (waDiffMins <= 120 && data.waSlaStatus === "SLA Breached") {
+                errors.waSlaStatus = "WhatsApp response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
+            } else if (waDiffMins > 120 && data.waSlaStatus === "Within SLA") {
+                errors.waSlaStatus = "WhatsApp response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
+            }
         }
     }
 
@@ -531,24 +564,35 @@ export function validateTesterLogForm(
         checkRequired("allocatedToReviewer", "Allocated to Author?");
         if (data.allocatedToReviewer === "Yes") {
             checkRequired("authorsName", "Author Name");
-            if (data.authorsName?.trim()) {
-                const an = data.authorsName.trim();
-                if (an.length < TEXT_FIELD_LIMITS.NAME_MIN || an.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(an)) {
-                    errors.authorsName = "Author Name must be 2-100 characters and contain letters only";
-                }
-            }
             checkRequired("authorAssignmentTime", "Author Assignment Time");
             checkRequired("authorCompletionTime", "Author Completion Time");
-            const isAuthorRollover = isMidnightRollover(data.authorAssignmentTime, data.authorCompletionTime);
-            if (!isAuthorRollover && isTimeInFuture(data.authorAssignmentTime, data.testDate)) {
-                errors.authorAssignmentTime = "Author Assignment Time cannot be in the future";
+        }
+        if (data.authorsName?.trim()) {
+            const an = data.authorsName.trim();
+            if (an.length < TEXT_FIELD_LIMITS.NAME_MIN || an.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(an)) {
+                errors.authorsName = "Author Name must be 2-100 characters and contain letters only";
             }
+        }
+        const isAuthorRollover = isMidnightRollover(data.authorAssignmentTime, data.authorCompletionTime);
+        if (data.authorAssignmentTime && !isAuthorRollover && isTimeInFuture(data.authorAssignmentTime, data.testDate)) {
+            errors.authorAssignmentTime = "Author Assignment Time cannot be in the future";
+        }
+        if (data.authorCompletionTime) {
             if (isTimeInFuture(data.authorCompletionTime, data.testDate)) {
                 errors.authorCompletionTime = "Author Completion Time cannot be in the future";
-            } else if (isTimeEarlier(data.authorCompletionTime, data.authorAssignmentTime, data.testDate)) {
+            } else if (data.authorAssignmentTime && isTimeEarlier(data.authorCompletionTime, data.authorAssignmentTime, data.testDate)) {
                 errors.authorCompletionTime = "Author Completion Time cannot be earlier than Author Assignment Time";
             }
         }
+
+        // Chronological Stage Progression Check
+        if (data.timeQuestionAsked && data.authorAssignmentTime && isTimeEarlier(data.authorAssignmentTime, data.timeQuestionAsked, data.testDate)) {
+            errors.authorAssignmentTime = "Author Assignment Time cannot be earlier than Time Question Asked";
+        }
+
+        let lastStageCompletion = data.authorCompletionTime || (data.allocatedToReviewer === "Yes" ? undefined : data.timeQuestionAsked);
+        let lastStageLabel = data.authorCompletionTime ? "Author Completion Time" : "Time Question Asked";
+
         for (let i = 1; i <= 5; i++) {
             const nameKey = `reviewer${i}Name` as keyof FormValues;
             const revName = (data[nameKey] as string | undefined)?.trim();
@@ -559,21 +603,39 @@ export function validateTesterLogForm(
             }
             const aKey = `reviewer${i}AssignmentTime` as keyof FormValues;
             const cKey = `reviewer${i}CompletionTime` as keyof FormValues;
-            const isRevRollover = isMidnightRollover(data[aKey] as string, data[cKey] as string);
-            if (!isRevRollover && isTimeInFuture(data[aKey] as string, data.testDate)) {
+            const aTime = data[aKey] as string | undefined;
+            const cTime = data[cKey] as string | undefined;
+
+            if (aTime) {
+                if (lastStageCompletion && isTimeEarlier(aTime, lastStageCompletion, data.testDate)) {
+                    errors[aKey] = `Reviewer ${i} Assignment Time cannot be earlier than ${lastStageLabel}`;
+                }
+            }
+
+            const isRevRollover = isMidnightRollover(aTime, cTime);
+            if (!isRevRollover && isTimeInFuture(aTime, data.testDate)) {
                 errors[aKey] = `Reviewer ${i} Assignment Time cannot be in the future`;
             }
-            if (isTimeInFuture(data[cKey] as string, data.testDate)) {
+            if (isTimeInFuture(cTime, data.testDate)) {
                 errors[cKey] = `Reviewer ${i} Completion Time cannot be in the future`;
-            } else if (isTimeEarlier(data[cKey] as string, data[aKey] as string, data.testDate)) {
+            } else if (isTimeEarlier(cTime, aTime, data.testDate)) {
                 errors[cKey] = `Reviewer ${i} Completion Time cannot be earlier than Assignment Time`;
             }
+
+            if (cTime) {
+                lastStageCompletion = cTime;
+                lastStageLabel = `Reviewer ${i} Completion Time`;
+            }
         }
+
         if (data.moderatorName?.trim()) {
             const mn = data.moderatorName.trim();
             if (mn.length < TEXT_FIELD_LIMITS.NAME_MIN || mn.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(mn)) {
                 errors.moderatorName = "Moderator Name must be 2-100 characters and contain letters only";
             }
+        }
+        if (data.moderatorAssignmentTime && lastStageCompletion && isTimeEarlier(data.moderatorAssignmentTime, lastStageCompletion, data.testDate)) {
+            errors.moderatorAssignmentTime = `Moderator Assignment Time cannot be earlier than ${lastStageLabel}`;
         }
         const isModRollover = isMidnightRollover(data.moderatorAssignmentTime, data.moderatorCompletionTime);
         if (!isModRollover && isTimeInFuture(data.moderatorAssignmentTime, data.testDate)) {
@@ -602,6 +664,19 @@ export function validateTesterLogForm(
     checkRequired("notificationOnSameThread", "Notification on Same Thread");
     checkRequired("notificationLinkedCorrectQId", "Notification Linked to Correct Q-ID");
 
+    const noWebNotification = data.notificationReceived === "Not Received";
+    const noWaNotification = flags.isCross && data.waNotificationReceived === "Not Received";
+    const allNotificationsNotReceived = flags.isCross ? (noWebNotification && noWaNotification) : noWebNotification;
+
+    if (allNotificationsNotReceived) {
+        if (data.notificationOnSameThread === "Yes - on same thread" || data.notificationOnSameThread === "No - on Different Thread") {
+            errors.notificationOnSameThread = "Notification was not received; thread comparison cannot be 'Yes' or 'No'";
+        }
+        if (data.notificationLinkedCorrectQId === "Yes") {
+            errors.notificationLinkedCorrectQId = "Notification was not received; cannot be linked to Q-ID";
+        }
+    }
+
     checkRequired("voiceInputWorking", flags.isCross ? "Web Voice Input Working" : "Voice Input Working");
     checkRequired("voiceOutputWorking", flags.isCross ? "Web Voice Output Working" : "Voice Output Working");
     checkRequired("voiceInputIssueDescription", flags.isCross ? "Web Voice Input Issue Description" : "Voice Input Issue Description");
@@ -613,6 +688,21 @@ export function validateTesterLogForm(
     checkRequired("voiceInputQuality", "Voice Input Quality");
     checkRequired("voiceOutputQuality", "Voice Output Quality");
     checkRequired("voiceIssueDescription", "Voice Output Issue Description");
+
+    if (data.voiceInputWorking === "No" && data.voiceInputQuality === "Correct") {
+        errors.voiceInputQuality = "Voice Input is not working; quality cannot be rated 'Correct'";
+    }
+    if (data.voiceOutputWorking === "No" && data.voiceOutputQuality === "Clear") {
+        errors.voiceOutputQuality = "Voice Output is not working; quality cannot be rated 'Clear'";
+    }
+    if (flags.isCross) {
+        if (data.waVoiceInputWorking === "No" && data.waVoiceInputQuality === "Correct") {
+            errors.waVoiceInputQuality = "WhatsApp Voice Input is not working; quality cannot be rated 'Correct'";
+        }
+        if (data.waVoiceOutputWorking === "No" && data.waVoiceOutputQuality === "Clear") {
+            errors.waVoiceOutputQuality = "WhatsApp Voice Output is not working; quality cannot be rated 'Clear'";
+        }
+    }
 
     // Section 7: Domain Checks & Parity
     checkRequired("whatsappVsWebAnswerMatch", "WhatsApp vs Web Application Answer Match?");
@@ -648,6 +738,9 @@ export function validateTesterLogForm(
         data.testerRemarksNotes = "";
     } else {
         checkRequired("defectSeverity", "Defect Severity");
+        if (data.defectSeverity === "NA") {
+            errors.defectSeverity = "A failed test case requires a valid Defect Severity (cannot be 'NA')";
+        }
 
         const bugRef = data.defectIdBugRef?.trim();
         if (!bugRef) {
@@ -657,12 +750,15 @@ export function validateTesterLogForm(
         } else if (bugRef !== "NA") {
             if (bugRef.length > TEXT_FIELD_LIMITS.DEFECT_URL_MAX) {
                 errors.defectIdBugRef = `Defect URL cannot exceed ${TEXT_FIELD_LIMITS.DEFECT_URL_MAX} characters`;
-            } else if (!HTTP_URL_REGEX.test(bugRef)) {
-                errors.defectIdBugRef = "Defect ID must be 'NA' or a valid URL starting with http:// or https://";
+            } else if (!ZOHO_DESK_URL_REGEX.test(bugRef)) {
+                errors.defectIdBugRef = "Please enter a valid Zoho Desk ticket URL (e.g. https://desk.zoho.in/...)";
             }
         }
 
         checkRequired("testerRemarks", "Tester Remarks");
+        if (data.testerRemarks === "No Action Required") {
+            errors.testerRemarks = "A failed test case requires an actionable remark (cannot be 'No Action Required')";
+        }
         if (data.testerRemarks && data.testerRemarks !== "No Action Required") {
             checkRequired("testerRemarksNotes", "Remarks Details");
         }
@@ -807,12 +903,27 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         "webOverallTestStatus", "waOverallTestStatus",
     ]);
 
+    const [connectedTicketInfo, setConnectedTicketInfo] = useState<{ ticketNumber?: string; status?: string; team?: string } | null>(null);
+
     const isCross = isCrossPlatform(channelTested);
 
-    useEffect(() => { setValue("responseTimeMins", hmsDiff(timeQuestionAsked, timeAnswerReceived, testDate)); }, [timeQuestionAsked, timeAnswerReceived, testDate]);
+    useEffect(() => {
+        setValue("responseTimeMins", hmsDiff(timeQuestionAsked, timeAnswerReceived, testDate));
+        const mins = getMinutesDiff(timeQuestionAsked, timeAnswerReceived, testDate);
+        if (mins !== null && !isNaN(mins)) {
+            setValue("slaStatus", mins <= 120 ? "Within SLA" : "SLA Breached", { shouldDirty: true });
+            clearError("slaStatus");
+        }
+    }, [timeQuestionAsked, timeAnswerReceived, testDate]);
+
     useEffect(() => {
         if (isCross) {
             setValue("waResponseTimeMins", hmsDiff(waTimeQuestionAsked, waTimeAnswerReceived, testDate));
+            const mins = getMinutesDiff(waTimeQuestionAsked, waTimeAnswerReceived, testDate);
+            if (mins !== null && !isNaN(mins)) {
+                setValue("waSlaStatus", mins <= 120 ? "Within SLA" : "SLA Breached", { shouldDirty: true });
+                clearError("waSlaStatus");
+            }
         }
     }, [waTimeQuestionAsked, waTimeAnswerReceived, testDate, isCross]);
 
@@ -893,6 +1004,35 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             }
         }
     }, [overallTestStatus, setValue, getValues]);
+
+    const notificationReceived = watch("notificationReceived");
+    useEffect(() => {
+        if (notificationReceived === "Not Received") {
+            setValue("notificationOnSameThread", "Notification not received", { shouldDirty: true });
+            setValue("notificationLinkedCorrectQId", "NA", { shouldDirty: true });
+            clearError("notificationOnSameThread");
+            clearError("notificationLinkedCorrectQId");
+        }
+    }, [notificationReceived, setValue]);
+
+    const voiceInputWorking = watch("voiceInputWorking");
+    const voiceOutputWorking = watch("voiceOutputWorking");
+    useEffect(() => {
+        if (voiceInputWorking === "No") {
+            const cur = getValues("voiceInputQuality");
+            if (cur === "Correct") {
+                setValue("voiceInputQuality", "Error Displayed", { shouldDirty: true });
+            }
+        }
+    }, [voiceInputWorking, setValue, getValues]);
+    useEffect(() => {
+        if (voiceOutputWorking === "No") {
+            const cur = getValues("voiceOutputQuality");
+            if (cur === "Clear") {
+                setValue("voiceOutputQuality", "Error Displayed", { shouldDirty: true });
+            }
+        }
+    }, [voiceOutputWorking, setValue, getValues]);
 
     const availableErrorOptions = getTranslationErrorOptions(translationQuality);
 
@@ -1012,6 +1152,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             testerRemarksNotes: "",
         });
         setFormErrors({});
+        setConnectedTicketInfo(null);
         refetchNextId();
         if (showToast) {
             toast.info("Form has been reset");
@@ -1146,7 +1287,15 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         + ((isAskedInFuture || isAnsweredInFuture || isWebTimingInvalid) && !formErrors.timeAnswerReceived && !formErrors.timeQuestionAsked ? 1 : 0)
         + ((isWaAskedInFuture || isWaAnsweredInFuture || isWaTimingInvalid) && !formErrors.waTimeAnswerReceived && !formErrors.waTimeQuestionAsked ? 1 : 0);
     const s3Errors = ["questionInReviewModel", "questionCorrectlyFramed", "originalLanguage", "translatedLanguage", "translationQuality", "translationErrorType", "tagging"].filter(k => formErrors[k]).length;
-    const s4Errors = ["allocatedToReviewer", "authorsName", "authorAssignmentTime", "authorCompletionTime"].filter(k => formErrors[k]).length
+    const s4Errors = [
+        "allocatedToReviewer", "authorsName", "authorAssignmentTime", "authorCompletionTime",
+        "reviewer1Name", "reviewer1AssignmentTime", "reviewer1CompletionTime",
+        "reviewer2Name", "reviewer2AssignmentTime", "reviewer2CompletionTime",
+        "reviewer3Name", "reviewer3AssignmentTime", "reviewer3CompletionTime",
+        "reviewer4Name", "reviewer4AssignmentTime", "reviewer4CompletionTime",
+        "reviewer5Name", "reviewer5AssignmentTime", "reviewer5CompletionTime",
+        "moderatorName", "moderatorAssignmentTime", "moderatorCompletionTime",
+    ].filter(k => formErrors[k]).length
         + ((isAuthorAssignedInFuture || isAuthorCompletedInFuture || isAuthorTimingInvalid) && !formErrors.authorCompletionTime && !formErrors.authorAssignmentTime ? 1 : 0);
     const s5Errors = ["followUpQInReviewModel", "answerScientificallyCorrect", "retrievalAccuracy", "expertNameDisplayed", "correctSourceLinksProvided"].filter(k => formErrors[k]).length;
     const s6Errors = ["msg120MinShownToUser", "notificationReceived", "waNotificationReceived", "notificationOnSameThread", "notificationLinkedCorrectQId", "voiceInputWorking", "voiceOutputWorking", "waVoiceInputWorking", "waVoiceOutputWorking", "voiceInputIssueDescription", "waVoiceInputIssueDescription", "voiceInputQuality", "voiceOutputQuality", "voiceIssueDescription"].filter(k => formErrors[k]).length;
@@ -1155,7 +1304,15 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
 
     return (
         <>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+                        e.preventDefault();
+                    }
+                }}
+                className="space-y-4"
+            >
 
             {/* Section 1 */}
             <FormSection title="1. Basic Info" errorCount={s1Errors}>
@@ -1838,9 +1995,11 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     onChange={val => {
                         setValue("defectIdBugRef", val);
                         clearError("defectIdBugRef");
+                        if (!val) setConnectedTicketInfo(null);
                     }}
                     onOpenCreateModal={() => setIsTicketModalOpen(true)}
                     zohoStatuses={zohoStatuses}
+                    connectedTicketInfo={connectedTicketInfo}
                 />
                 <SelectInput
                     label="Tester Remarks"
@@ -1893,9 +2052,10 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         <CreateZohoTicketModal
             isOpen={isTicketModalOpen}
             onClose={() => setIsTicketModalOpen(false)}
-            onTicketCreated={(url) => {
+            onTicketCreated={(url, ticketNumber) => {
                 setValue("defectIdBugRef", url, { shouldDirty: true });
                 clearError("defectIdBugRef");
+                setConnectedTicketInfo(ticketNumber ? { ticketNumber: ticketNumber || undefined, status: "Open" } : null);
             }}
             initialData={{
                 queryText: watch("queryText"),

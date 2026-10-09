@@ -597,4 +597,5 @@ export const PERSON_NAME_REGEX = /^[a-zA-Z\s.'\-]{2,100}$/;
 export const LANGUAGE_NAME_REGEX = /^[a-zA-Z\s,+/.\-]{2,50}$/;
 export const TEST_ID_REGEX = /^[a-zA-Z0-9._\-]{1,30}$/;
 export const HTTP_URL_REGEX = /^https?:\/\/.+/i;
+export const ZOHO_DESK_URL_REGEX = /^https?:\/\/(desk\.zoho\.(in|com|eu|com\.cn|com\.au)|([a-zA-Z0-9-]+\.)?zoho\.(in|com|eu)\/desk)\/.+$/i;
 

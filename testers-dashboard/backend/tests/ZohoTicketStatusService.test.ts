@@ -123,6 +123,19 @@ describe('ZohoTicketStatusService.createTicket', () => {
         expect(result.requiresScopeUpgrade).toBe(true);
         expect(result.error).toContain('Desk.tickets.CREATE');
     });
+
+    it('rejects dueDate in the past (Issue #16)', async () => {
+        (service as any).isConfigured = () => true;
+
+        const result = await service.createTicket({
+            subject: '[QA Defect] Past Due Date Test',
+            description: 'Testing past due date rejection',
+            dueDate: '2020-01-01',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('Due Date cannot be earlier than today.');
+    });
 });
 
 // Zoho's own `priority` field -> the ticket card's display severity. Both

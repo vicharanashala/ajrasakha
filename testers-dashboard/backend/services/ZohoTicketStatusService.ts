@@ -415,6 +415,17 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
     }
 
     private async executeCreateTicket(params: CreateZohoTicketParams): Promise<CreateZohoTicketResponse> {
+        if (params.dueDate && params.dueDate.trim()) {
+            const raw = params.dueDate.trim();
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (raw.length === 10 && raw < todayStr) {
+                return {
+                    success: false,
+                    error: "Due Date cannot be earlier than today.",
+                };
+            }
+        }
+
         const token = await this.getAccessToken();
         if (!token) {
             return {
@@ -490,6 +501,13 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
         let formattedDueDateIso: string | null = null;
         if (params.dueDate && params.dueDate.trim()) {
             const raw = params.dueDate.trim();
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (raw.length === 10 && raw < todayStr) {
+                return {
+                    success: false,
+                    error: "Due Date cannot be earlier than today.",
+                };
+            }
             const d = new Date(raw);
             if (!isNaN(d.getTime())) {
                 // If user selected a plain date like "YYYY-MM-DD", set time to end of day IST (23:59:59 IST = 18:29:59 UTC)
