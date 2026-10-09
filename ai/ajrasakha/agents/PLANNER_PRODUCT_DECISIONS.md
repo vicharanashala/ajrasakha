@@ -13,9 +13,11 @@ Take input query
       crop_required=True  AND crop available   → pass
       crop_required=True  AND crop unavailable  → ask user for crop
       crop_required=False                       → crop = "All"
-  → State resolution:
-      state in query      → state = query_state
-      state NOT in query  → state = from lat/long (thread location)
+  → State/district resolution:
+      place named in query → validate against LGD → official state + district
+                             (district alone supplies its state; state alone → district "all")
+      place not in LGD     → ask again: "that state/district was not found"
+      no place in query    → state/district = the farmer's profile location
   → Completeness check:
       state=True  AND crop_required=True  AND crop=True  → is_question_complete=True
       state=True  AND crop_required=True  AND crop=False → is_question_complete=False
@@ -25,8 +27,8 @@ Take input query
       {original_query, rephrased_query, state, crop, tools: [list]}
 ```
 
-**Key principle:** LLM is used for domain/tool classification, query translation/rephrasing, and crop extraction.  
-State resolution is deterministic (regex-based extraction). The crop name comes only from the planner LLM's `entities.crop`, which translates local names and scripts; regex only detects non-specific "all crops" requests.  
+**Key principle:** LLM is used for domain/tool classification, query translation/rephrasing, and crop/place extraction.  
+Whether a place exists is decided deterministically against the LGD directory (`lgd_location.py`), never by the LLM. The crop name comes only from the planner LLM's `entities.crop`, which translates local names and scripts; regex only detects non-specific "all crops" requests.  
 If the farmer answers a location/crop clarification with a new question, the planner sets `is_new_question` and the turn is planned as a fresh conversation.  
 GDB no longer overrides state from thread config — it uses what the planner passed.
 
@@ -45,10 +47,35 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 ## Crop / non-crop classifier
 
 `domains.py` lists crop-required vs crop-all domains. `planner_rules.apply_planner_completeness_rules` enforces:
-- Location: state in **latest message** → resolved (district defaults to `all` if not in text); else GPS on thread → use reverse-geocoded state/city; no GPS and no state → ask **state only** (never district-only follow-up). District from GPS city only when lat/long present.
+- Location: place named in the **latest message** → validated against LGD and replaced by its official name; no place named → the farmer's **profile** location (state *and* district); neither → ask for the state/district. A place LGD does not have is never silently replaced by the profile location — the farmer is asked again.
 - Crop: ask only when `domain_requires_crop` and crop not in **recent** farmer replies (last ~3 turns). **One-shot clarify**: if a crop follow-up was already asked in the thread and the farmer still does not name a crop, set `crop="all"` and proceed (no repeated crop questions).
 - Schemes/insurance/PM-KISAN: `schemes=true`, block meta follow-ups ("what would you like to know…").
 - State/district must not leak from unrelated older questions in the thread.
+
+## Location validity (LGD)
+
+`lgd_location.py` fetches the backend's own `states` / `districts` collections once per
+process (`GET {LGD_API_BASE}/location/states` and `/location/districts/all`, cached 24h)
+and validates only the place **named in the query** — the profile location is trusted as-is.
+
+| Farmer says | Result |
+| --- | --- |
+| state + district that exist | both replaced by their official LGD names |
+| district only | its state is supplied from LGD |
+| state only | district = `all` |
+| a town/village inside a real state | state kept, district = `all` (no re-ask) |
+| a district name used by two states, no state | ask the plain location question |
+| a place LGD does not have | ask again with the "not found" catalog wording |
+| LGD unreachable | fail open — the farmer's place is used unchanged |
+
+Matching is exact → alias (LGD's own aliases plus a small rename table) → fuzzy (88 with a
+margin), so spelling slips like "Ludhiyana" and renames like Allahabad → Prayagraj resolve.
+Where LGD's official spelling is not the one the rest of the pipeline keys on (LGD says
+"Keralam"; GDB filters, weather centres and the mandi state list say "Kerala"), the alias
+those tables know is emitted instead.
+
+Env: `LGD_API_BASE`, `LGD_VALIDATION_ENABLED` (default true), `LGD_CACHE_TTL_SECONDS`,
+`LGD_REQUEST_TIMEOUT_SECONDS`, `LGD_RETRY_AFTER_SECONDS`.
 
 ## Feature flag
 

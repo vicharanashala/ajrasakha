@@ -185,7 +185,11 @@ def get_farmer_profile_location(user_id: str | None) -> dict[str, str] | None:
         users_col = col.database["users"]
         doc = users_col.find_one(
             {"_id": parsed_id},
-            projection={"farmerProfile.state": 1, "farmerProfile.district": 1},
+            projection={
+                "farmerProfile.state": 1,
+                "farmerProfile.district": 1,
+                "farmerProfile.location": 1,
+            },
             max_time_ms=_MONGO_OP_TIMEOUT_MS,
         )
     except Exception:
@@ -202,7 +206,12 @@ def get_farmer_profile_location(user_id: str | None) -> dict[str, str] | None:
         return None
     if not district:
         district = "all"
-    return {"district": district, "state": state}
+    res: dict[str, Any] = {"district": district, "state": state}
+    coords = profile.get("location") or {}
+    if coords.get("latitude") is not None and coords.get("longitude") is not None:
+        res["latitude"] = coords["latitude"]
+        res["longitude"] = coords["longitude"]
+    return res
 
 
 def _format_location_source(

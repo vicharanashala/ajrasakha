@@ -129,6 +129,24 @@ def extract_location_from_query(query: str) -> tuple[str | None, str | None]:
     return detected_place, detected_state
 
 
+_NOTE_PLACEHOLDERS = frozenset({"", "all", "not specified", "unknown", "none", "null"})
+
+
+def profile_location_note(kind: str, state: Optional[str], district: Optional[str]) -> str:
+    """Note appended to weather/mandi answers: the data is for the profile location.
+
+    ``kind`` is "weather" or "mandi price".
+    """
+    place = ", ".join(
+        p.strip() for p in (district, state) if p and p.strip().lower() not in _NOTE_PLACEHOLDERS
+    )
+    where = f"your profile location ({place})" if place else "your profile location"
+    return (
+        f"Note: {kind.capitalize()} details are fetched for {where}. "
+        f"To see {kind} details for a different location, change it in the profile section."
+    )
+
+
 def normalize_state_name(state: str | None) -> Optional[str]:
     """Map a state string to the canonical Indian state name, if recognized."""
     if not state:

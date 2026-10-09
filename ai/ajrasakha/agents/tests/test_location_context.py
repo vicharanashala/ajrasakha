@@ -23,7 +23,7 @@ def test_extract_state_from_text_common_typos():
 
 
 @pytest.mark.asyncio
-async def test_build_tool_calls_gdb_uses_query_state_over_gps_state():
+async def test_build_tool_calls_gdb_never_uses_query_or_gps_state():
     plan = {
         "weather": False,
         "mandi": False,
@@ -43,4 +43,4 @@ async def test_build_tool_calls_gdb_uses_query_state_over_gps_state():
         question_source="AJRASAKHA",
     )
     gdb = next(c for c in calls if c["name"] == "gdb")
-    assert gdb["args"]["state"] == "Kerala"
+    assert gdb["args"]["state"] == "all"

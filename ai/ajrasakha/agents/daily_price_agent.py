@@ -17,7 +17,28 @@ from pydantic import BaseModel
 
 from ajrasakha.agents.config import MCP_URLS, MINIMAX_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_error, trace_llm_request, trace_llm_response
-from ajrasakha.agents.prompts import DAILY_PRICE_ANSWER_PROMPT, DAILY_PRICE_INTENT_PROMPT
+from ajrasakha.agents.daily_price_formatter import (
+    RenderedAnswer,
+    arrival_unavailable_message,
+    dedupe_and_sort_nearby_records as _dedupe_and_sort_nearby_records,
+    extract_source_systems as _extract_source_systems_from_payload,
+    fmt_price as _fmt_price,
+    is_arrival_quantity_unavailable as _is_arrival_quantity_unavailable,
+    render_daily_price_answer,
+    summary_is_grounded,
+)
+from ajrasakha.agents.daily_price_support import (
+    LLM_REPORTABLE_REASONS,
+    MISSING_COMMODITY,
+    MISSING_LOCATION,
+    UNRECOGNIZED_REQUEST,
+    clarify_reason_for_error,
+    detect_unsupported_query,
+    message_for,
+    status_for,
+)
+from ajrasakha.agents.location_context import profile_location_note
+from ajrasakha.agents.prompts import DAILY_PRICE_INTENT_PROMPT, DAILY_PRICE_SUMMARY_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -280,15 +301,8 @@ def _extract_market_name_from_query(query: str) -> str | None:
             if name:
                 return name
 
-    # 2. General location pattern: "in <City>, <State>" when not a discovery query
-    if not _is_market_discovery_query(query):
-        match_loc = _LOCATION_QUERY.search(query)
-        if match_loc:
-            name = match_loc.group(1).strip()
-            name_lower = name.lower()
-            if not any(w in name_lower for w in _INVALID_MARKET_SUBSTRINGS) and not any(name_lower == st for st in _INDIAN_STATES):
-                return name
-
+    # A plain place in the query ("in <City>") is not a mandi: location comes
+    # from the farmer profile, so it is not extracted here.
     return None
 
 
@@ -597,35 +611,63 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def _map_action(action: str) -> str:
-    key = (action or "").strip().lower()
+def _map_action(action: str) -> str | None:
+    """Canonical supported action, or None when the name is not one we serve."""
+    key = re.sub(r"[\s\-]+", "_", (action or "").strip().lower())
     key = _LEGACY_ACTION_MAP.get(key, key)
-    if key not in _FARMER_ACTIONS:
-        return "get_today_price"
-    return key
+    return key if key in _FARMER_ACTIONS else None
+
+
+def _raw_action_candidates(raw_action: Any) -> list[Any]:
+    if isinstance(raw_action, list):
+        return [a for a in raw_action if a is not None and str(a).strip()]
+    if raw_action is not None and str(raw_action).strip():
+        return [raw_action]
+    return []
+
+
+def _valid_actions(raw_action: Any) -> list[str]:
+    """All supported actions named by the LLM/heuristic, deduped, order kept (not capped)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in _raw_action_candidates(raw_action):
+        mapped = _map_action(str(item))
+        if mapped and mapped not in seen:
+            seen.add(mapped)
+            out.append(mapped)
+    return out
 
 
 def _normalize_action_list(raw_action: Any, fallback: str) -> list[str]:
     """Map LLM/heuristic action(s) to a deduped list (max MAX_INTENT_ACTIONS)."""
-    candidates: list[Any] = []
-    if isinstance(raw_action, list):
-        candidates = raw_action
-    elif raw_action is not None and str(raw_action).strip():
-        candidates = [raw_action]
-    else:
-        candidates = [fallback]
+    valid = _valid_actions(raw_action)[:MAX_INTENT_ACTIONS]
+    return valid or [_map_action(fallback) or "get_today_price"]
 
-    seen: set[str] = set()
-    out: list[str] = []
-    for item in candidates:
-        mapped = _map_action(str(item))
-        if mapped in seen:
+
+def _clean_crop_tokens(val: Any) -> list[str]:
+    if not val:
+        return []
+    items = val if isinstance(val, list) else [val]
+    res: list[str] = []
+    for item in items:
+        if item is None:
             continue
-        seen.add(mapped)
-        out.append(mapped)
-        if len(out) >= MAX_INTENT_ACTIONS:
-            break
-    return out or [_map_action(fallback)]
+        s = str(item).strip()
+        if not s or s.lower() in {"all", "any", "general", "none", "null"}:
+            continue
+        parts = re.split(r",|\s+and\s+|\s*&\s*|\s+vs\s+", s, flags=re.I)
+        for p in parts:
+            clean = p.strip()
+            if clean and clean.lower() not in {"all", "any", "general", "none", "null"}:
+                res.append(clean)
+    seen: set[str] = set()
+    unique_res: list[str] = []
+    for r in res:
+        k = r.lower()
+        if k not in seen:
+            seen.add(k)
+            unique_res.append(r)
+    return unique_res
 
 
 def _normalize_intent(
@@ -633,6 +675,7 @@ def _normalize_intent(
     query: str,
     *,
     llm_succeeded: bool = False,
+    crop: str | None = None,
 ) -> dict[str, Any]:
     base = _heuristic_intent(query)
     raw_dict = raw if isinstance(raw, dict) else {}
@@ -643,16 +686,42 @@ def _normalize_intent(
         base["action"],
     )
     action = actions[0]
-    raw_action_str = str(raw_action or "").strip().lower() if not isinstance(raw_action, list) else ""
+
+    # Questions we do not serve: an explicit LLM verdict, or an action name that is not ours
+    # (never silently coerced into a different question).
+    raw_candidates = raw_actions if raw_actions is not None else raw_action
+    valid_all = _valid_actions(raw_candidates)
+    unsupported_reason = str(raw_dict.get("unsupported_reason") or "").strip().lower()
+    if unsupported_reason not in LLM_REPORTABLE_REASONS:
+        unsupported_reason = ""
+    if llm_succeeded and not unsupported_reason and _raw_action_candidates(raw_candidates) and not valid_all:
+        unsupported_reason = UNRECOGNIZED_REQUEST
+    dropped_actions = valid_all[MAX_INTENT_ACTIONS:]
+
+    raw_action_str =str(raw_action or "").strip().lower() if not isinstance(raw_action, list) else ""
     if raw_action_str in {"get_prices", "lookup_commodity"} and (
         raw_dict.get("lookback_days") or raw_dict.get("from_date") or raw_dict.get("to_date")
     ):
         action = "get_price_history"
         actions = ["get_price_history"] + [a for a in actions if a != "get_price_history"]
 
+    # Commodity name extraction: MiniMax 1st priority, Heuristics fallback
+    raw_commodity = raw_dict.get("commodity_name")
+    crops_from_llm = _clean_crop_tokens(raw_commodity)
+    if crops_from_llm:
+        commodity_val: Union[str, list[str], None] = (
+            crops_from_llm[0] if len(crops_from_llm) == 1 else crops_from_llm
+        )
+    else:
+        crops_heuristic = _clean_crop_tokens(crop)
+        commodity_val = (
+            crops_heuristic[0] if len(crops_heuristic) == 1 else crops_heuristic
+        ) if crops_heuristic else None
+
     out = {
         "action": action,
         "actions": actions,
+        "commodity_name": commodity_val,
         "nearest_market": bool(raw_dict.get("nearest_market", base.get("nearest_market", True))),
         "radius_km": raw_dict.get("radius_km", base.get("radius_km")),
         "lookback_days": raw_dict.get("lookback_days", base.get("lookback_days")),
@@ -662,6 +731,8 @@ def _normalize_intent(
         "search_by_apmc": bool(raw_dict.get("search_by_apmc", base.get("search_by_apmc", False))),
         "state": raw_dict.get("state", base.get("state")),
         "sort_order": raw_dict.get("sort_order", base.get("sort_order")),
+        "unsupported_reason": unsupported_reason or None,
+        "dropped_actions": dropped_actions,
     }
     for key in ("radius_km", "lookback_days"):
         val = out.get(key)
@@ -905,7 +976,7 @@ async def extract_daily_price_intent(
     )
     parsed = _extract_json_object(raw_text or "")
     llm_succeeded = parsed is not None
-    intent = _normalize_intent(parsed, query, llm_succeeded=llm_succeeded)
+    intent = _normalize_intent(parsed, query, llm_succeeded=llm_succeeded, crop=crop)
     if not llm_succeeded:
         trace_llm_response(
             "daily_price_intent",
@@ -996,16 +1067,24 @@ def _build_tool_args(
     state: str | None,
 ) -> dict[str, Any]:
     actions = intent.get("actions") or [intent["action"]]
+    # "With nearby" is for a named market, which is never used: today's price near the profile.
+    actions = list(dict.fromkeys("get_today_price" if a == "get_price_with_nearby" else a for a in actions))
     tool_action: str | list[str] = actions[0] if len(actions) == 1 else actions
     args: dict[str, Any] = {"action": tool_action}
-    tool_state = intent.get("state") or state
+    # The location is the farmer profile's only; a state or market named in the
+    # query is never used.
+    tool_state = state
     if tool_state and str(tool_state).strip().lower() not in {"all", "not specified", "unknown"}:
         args["state"] = str(tool_state).strip()
 
     if any(a in _COMMODITY_ACTIONS for a in actions):
-        crop_clean = (crop or "").strip()
-        if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
-            args["commodity_name"] = [crop_clean]
+        cn = intent.get("commodity_name")
+        if cn:
+            args["commodity_name"] = [cn] if isinstance(cn, str) else list(cn)
+        else:
+            crop_clean = (crop or "").strip()
+            if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
+                args["commodity_name"] = [crop_clean]
 
     if any(a in _GEO_ACTIONS for a in actions):
         if lat is not None and lon is not None:
@@ -1014,21 +1093,8 @@ def _build_tool_args(
         args["nearest_market"] = bool(intent.get("nearest_market", True))
         if intent.get("radius_km") is not None:
             args["radius_km"] = intent["radius_km"]
-        if intent.get("market_name"):
-            args["market_name"] = intent["market_name"]
 
-    # Clean up market_name: strip trailing 'district', never treat crop as mandi name
-    if args.get("market_name"):
-        mn_raw = str(args["market_name"]).strip()
-        mn_clean = re.sub(r"\s+district\b", "", mn_raw, flags=re.IGNORECASE).strip()
-        cr = (crop or "").strip().lower()
-        if cr and (mn_clean.lower() == cr or mn_clean.lower() in {"rice", "paddy"} and cr in {"rice", "paddy"}):
-            args.pop("market_name", None)
-            args["nearest_market"] = True
-        else:
-            args["market_name"] = mn_clean
-
-    args["search_by_apmc"] = bool(intent.get("search_by_apmc", False))
+    args["search_by_apmc"] = False
 
     if intent.get("lookback_days") is not None:
         args["lookback_days"] = intent["lookback_days"]
@@ -1041,9 +1107,6 @@ def _build_tool_args(
     if "get_extreme_arrival" in actions and intent.get("sort_order"):
         args["sort_order"] = intent["sort_order"]
 
-    if args.get("market_name") and args.get("search_by_apmc"):
-        args["nearest_market"] = False
-
     return args
 
 
@@ -1054,9 +1117,12 @@ def _fallback_unavailable_answer(
     state: str | None = None,
     market_name: str | None = None,
 ) -> str:
-    """Deterministic English reply when LLM cannot phrase an unavailable result."""
+    """Deterministic English reply when the tool returned no usable data."""
     if isinstance(payload, dict) and payload.get("error"):
         return str(payload["error"]).strip()
+
+    if _is_arrival_quantity_unavailable(payload):
+        return arrival_unavailable_message(payload, crop=crop, market_name=market_name, state=state)
 
     parts = ["Mandi price data is not available"]
     crop_clean = (crop or "").strip()
@@ -1072,157 +1138,8 @@ def _fallback_unavailable_answer(
     return " ".join(parts)
 
 
-def _extract_source_systems_from_payload(payload: Any) -> list[str]:
-    """Find all unique non-empty source_system strings in tool payload."""
-    sources: list[str] = []
-    seen: set[str] = set()
-
-    def _traverse(obj: Any):
-        if isinstance(obj, dict):
-            val = obj.get("source_system")
-            if val:
-                val_str = str(val).strip()
-                if val_str and val_str.lower() not in {"none", "null", "unknown"}:
-                    for s in [x.strip() for x in val_str.split(",") if x.strip()]:
-                        if s and s not in seen:
-                            seen.add(s)
-                            sources.append(s)
-            for v in obj.values():
-                _traverse(v)
-        elif isinstance(obj, list):
-            for item in obj:
-                _traverse(item)
-
-    _traverse(payload)
-    return sources
-
-
-def _ensure_source_line(answer: str, payload: Any) -> str:
-    """Ensure the answer ends with source attribution when data is available."""
-    ans = (answer or "").strip()
-    if not ans or _tool_result_is_empty(payload):
-        return ans
-
-    sources = _extract_source_systems_from_payload(payload)
-    if not sources:
-        return ans
-
-    ans_lower = ans.lower()
-    if any(s.lower() in ans_lower for s in sources) or "fetched from the following source" in ans_lower:
-        return ans
-
-    source_text = ", ".join(sources)
-    if len(sources) > 1:
-        source_line = f"This information is fetched from the following sources: {source_text}."
-    else:
-        source_line = f"This information is fetched from the following source: {source_text}."
-
-    return f"{ans}\n\n{source_line}"
-
-
-def _ensure_latest_notice(answer: str, payload: Any) -> str:
-    """If the tool payload indicates today's data was not found and shows latest data,
-    ensure the answer starts with that notice."""
-    ans = (answer or "").strip()
-    if not ans or not isinstance(payload, dict):
-        return ans
-
-    notice = None
-
-    # get_price_with_nearby composite response: only propagate named_market's notice
-    # when nearby_markets has NO records for the requested date. If nearby markets
-    # successfully returned data, the named market's fallback notice is irrelevant
-    # to the main body of the answer (which is about nearby markets).
-    if payload.get("action") == "get_price_with_nearby" or (
-        isinstance(payload.get("named_market"), dict)
-        and payload.get("nearby_markets") is not None
-    ):
-        nearby = payload.get("nearby_markets")
-        nearby_has_records = (
-            isinstance(nearby, dict)
-            and int(nearby.get("total_records_returned") or 0) > 0
-        )
-        if not nearby_has_records:
-            # Named market is the primary answer — propagate its notice
-            named = payload.get("named_market") or {}
-            if isinstance(named.get("resolution"), dict):
-                notice = named["resolution"].get("latest_price_notice")
-        # If nearby HAS records, don't show Pampady's fallback notice as a header
-        return _apply_notice(ans, notice)
-
-    if isinstance(payload.get("resolution"), dict):
-        notice = payload["resolution"].get("latest_price_notice")
-    elif isinstance(payload.get("results"), dict):
-        for sub in payload["results"].values():
-            if isinstance(sub, dict) and isinstance(sub.get("resolution"), dict):
-                n = sub["resolution"].get("latest_price_notice")
-                if n:
-                    notice = n
-                    break
-
-    return _apply_notice(ans, notice)
-
-
-
-def _apply_notice(ans: str, notice: Any) -> str:
-    """Prepend notice to answer if not already present."""
-    if not notice:
-        return ans
-    notice_str = str(notice).strip()
-    ans_lower = ans.lower()
-    first_line = ans_lower.split("\n")[0]
-    if (
-        "today's price" not in first_line
-        and "today's arrival" not in first_line
-        and "latest available" not in first_line
-        and "no price data found" not in first_line
-        and "price data for" not in first_line
-    ):
-        return f"{notice_str}\n\n{ans}"
-    return ans
-
-
-def _fmt_price(val: Any) -> str | None:
-    if val is None:
-        return None
-    try:
-        f = float(val)
-        if f.is_integer():
-            return f"Rs {int(f)}"
-        return f"Rs {f:.2f}".rstrip("0").rstrip(".")
-    except (ValueError, TypeError):
-        return f"Rs {val}"
-
-
-def _dedupe_and_sort_nearby_records(records: list[dict], top_n: int = 3) -> list[dict]:
-    """Deduplicate records by market name (keeping highest price) and sort descending."""
-    by_market: dict[str, dict] = {}
-    for r in records:
-        if not isinstance(r, dict):
-            continue
-        mkt = (r.get("market_name") or "").strip().lower()
-        if not mkt:
-            continue
-        cur_modal = float(r.get("modal_price") or 0)
-        cur_max = float(r.get("max_price") or 0)
-        if mkt not in by_market:
-            by_market[mkt] = r
-        else:
-            prev = by_market[mkt]
-            prev_modal = float(prev.get("modal_price") or 0)
-            prev_max = float(prev.get("max_price") or 0)
-            if (cur_modal, cur_max) > (prev_modal, prev_max):
-                by_market[mkt] = r
-    sorted_unique = sorted(
-        by_market.values(),
-        key=lambda r: (float(r.get("modal_price") or 0), float(r.get("max_price") or 0)),
-        reverse=True,
-    )
-    return sorted_unique[:top_n]
-
-
 def _sanitize_payload_for_synthesis(payload: Any) -> Any:
-    """Preprocess tool payload before LLM prompt & fallback to ensure concise, highest-first nearby records."""
+    """Keep the nearby-markets block concise: one record per market, highest first."""
     if not isinstance(payload, dict):
         return payload
     data = dict(payload)
@@ -1237,324 +1154,41 @@ def _sanitize_payload_for_synthesis(payload: Any) -> Any:
 
 
 def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
-    """Deterministic price answer from tool JSON when LLM is unavailable."""
-    if not isinstance(payload, dict):
-        return ""
+    """Fixed-structure answer built purely from the tool JSON ('' when nothing is renderable)."""
+    rendered = render_daily_price_answer(payload, crop=crop)
+    return rendered.text() if rendered else ""
 
-    # Handle get_price_with_nearby composite response
-    named = payload.get("named_market")
-    nearby = payload.get("nearby_markets")
-    if named is not None:
-        named_part = _format_price_fallback(named, crop=crop)
-        # If named market has an error or no data, show a clear explanation
-        if not named_part and isinstance(named, dict):
-            err = named.get("error") or ""
-            resolution = named.get("resolution") or {}
-            requested_mkt = resolution.get("requested_market_name") or ""
-            notice = (named.get("resolution") or {}).get("latest_price_notice") or ""
-            if err:
-                named_part = str(err).strip()
-            elif notice:
-                named_part = str(notice).strip()
-            elif requested_mkt:
-                named_part = f"Price data is not available for {crop.title() if crop else 'this commodity'} at {requested_mkt.title()}."
 
-        # Strip any redundant source line from named_part so source is only printed once at the end
-        if named_part and "This information is fetched from the following source" in named_part:
-            named_part = re.sub(r"\n\nThis information is fetched from the following source.*", "", named_part).strip()
+_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
-        nearby_part = ""
-        if isinstance(nearby, dict) and nearby.get("price_records"):
-            nearby_records = _dedupe_and_sort_nearby_records(nearby.get("price_records") or [], top_n=3)
-            if nearby_records:
-                date_val = nearby_records[0].get("date") or ""
-                lines = [f"Prices in nearby markets on {date_val}:"]
-                for i, r in enumerate(nearby_records, 1):
-                    mkt = (r.get("market_name") or f"Market {i}").title()
-                    variety = r.get("variety") or ""
-                    grade = r.get("grade") or ""
-                    label = mkt
-                    suffix = ", ".join(filter(None, [variety, grade]))
-                    if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
-                        label = f"{mkt} ({suffix})"
-                    modal = _fmt_price(r.get("modal_price"))
-                    mn = _fmt_price(r.get("min_price"))
-                    mx = _fmt_price(r.get("max_price"))
-                    aq = r.get("arrival_quantity")
-                    price_str = " | ".join(filter(None, [
-                        f"Modal: {modal}/quintal" if modal else None,
-                        f"Min: {mn}" if mn else None,
-                        f"Max: {mx}" if mx else None,
-                        f"Arrival: {aq} tonnes" if aq is not None else None,
-                    ]))
-                    lines.append(f"{i}) {label}")
-                    lines.append(f"   {price_str}")
-                nearby_part = "\n".join(lines)
 
-        ans = "\n\n".join(p for p in [named_part, nearby_part] if p)
-        return _ensure_source_line(ans, payload)
+def _llm_summary_enabled() -> bool:
+    return os.getenv("DAILY_PRICE_LLM_SUMMARY", "1").strip().lower() not in {"0", "false", "no", "off"}
 
-    # Handle multi-action response
-    if "results" in payload:
-        parts = []
-        for sub in payload["results"].values():
-            p = _format_price_fallback(sub, crop=crop)
-            if p:
-                parts.append(p)
-        return "\n\n".join(parts)
 
-    action = payload.get("action") or ""
-
-    # Handle summary stats
-    if action == "get_price_summary" or ("stats" in payload and not payload.get("price_records")):
-        stats = payload.get("stats") or {}
-        overall = stats.get("overall") or {}
-        commodity = (crop or "Commodity").title()
-        lines = [f"Here is the {commodity} price summary:"]
-        avg_modal = _fmt_price(overall.get("avg_modal_price"))
-        hi_max = _fmt_price(overall.get("highest_max_price"))
-        lo_min = _fmt_price(overall.get("lowest_min_price"))
-        spread = _fmt_price(overall.get("price_spread"))
-        tot_records = payload.get("total_records_analysed") or overall.get("total_records")
-        tot_arr = overall.get("total_arrival_qty")
-
-        if avg_modal:
-            lines.append(f"Average Modal Price: {avg_modal}/quintal")
-        if hi_max:
-            lines.append(f"Highest Max Price: {hi_max}")
-        if lo_min:
-            lines.append(f"Lowest Min Price: {lo_min}")
-        if spread:
-            lines.append(f"Price Spread: {spread}")
-        if tot_records:
-            lines.append(f"Total Records Analysed: {tot_records}")
-        if tot_arr:
-            lines.append(f"Total Arrival Quantity: {tot_arr} tonnes")
-        return _ensure_source_line("\n".join(lines), payload)
-
-    # Resolution notice (latest price / fallback market)
-    notice = ""
-    resolution = payload.get("resolution") or {}
-    if isinstance(resolution, dict):
-        notice = resolution.get("latest_price_notice") or ""
-
-    records = (
-        payload.get("price_records")
-        or payload.get("highest_records")
-        or payload.get("lowest_records")
-        or payload.get("arrival_records")
-        or payload.get("highest_arrivals")
-        or payload.get("lowest_arrivals")
-        or []
+async def _llm_summary(
+    query: str,
+    rendered: RenderedAnswer,
+    *,
+    config: RunnableConfig | None = None,
+) -> str | None:
+    """One-sentence summary written by the LLM, kept only if every number is in the rendered answer."""
+    raw = await _minimax_chat(
+        trace_name="daily_price_summary",
+        system_prompt=DAILY_PRICE_SUMMARY_PROMPT,
+        user_content=f"Farmer query: {query}\n\nAnswer data:\n{rendered.head}\n\nSummary:",
+        max_tokens=200,
+        temperature=0.0,
+        query=query,
+        config=config,
     )
-    if not records:
-        return ""
-
-    commodity = (crop or records[0].get("commodity_name") or "commodity").title()
-    sources = list({r.get("source_system") for r in records if r.get("source_system")})
-
-    lines: list[str] = []
-    if notice:
-        lines.append(notice)
-
-    # 1) Highest Price
-    if action == "get_highest_price":
-        if len(records) == 1:
-            r = records[0]
-            mkt = (r.get("market_name") or "").title()
-            r_date = r.get("date") or ""
-            modal = _fmt_price(r.get("modal_price"))
-            mn = _fmt_price(r.get("min_price"))
-            mx = _fmt_price(r.get("max_price"))
-            aq = r.get("arrival_quantity")
-            price_str = " | ".join(filter(None, [
-                f"Modal: {modal}/quintal" if modal is not None else None,
-                f"Min: {mn}" if mn is not None else None,
-                f"Max: {mx}" if mx is not None else None,
-                f"Arrival: {aq} tonnes" if aq is not None else None,
-            ]))
-            if not notice:
-                lines.append(f"Here is the highest {commodity} price at {mkt} on {r_date}:")
-            lines.append(price_str)
-        else:
-            date_val = records[0].get("date") or ""
-            lines.append(f"Highest {commodity} prices on {date_val}:")
-            for i, r in enumerate(records[:5], 1):
-                mkt = (r.get("market_name") or f"Market {i}").title()
-                variety = r.get("variety") or ""
-                grade = r.get("grade") or ""
-                label = mkt
-                suffix = ", ".join(filter(None, [variety, grade]))
-                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
-                    label = f"{mkt} ({suffix})"
-                modal = _fmt_price(r.get("modal_price"))
-                mn = _fmt_price(r.get("min_price"))
-                mx = _fmt_price(r.get("max_price"))
-                aq = r.get("arrival_quantity")
-                price_str = " | ".join(filter(None, [
-                    f"Modal: {modal}/quintal" if modal is not None else None,
-                    f"Min: {mn}" if mn is not None else None,
-                    f"Max: {mx}" if mx is not None else None,
-                    f"Arrival: {aq} tonnes" if aq is not None else None,
-                ]))
-                lines.append(f"{i}) {label}")
-                lines.append(f"   {price_str}")
-
-    # 2) Lowest Price
-    elif action == "get_lowest_price":
-        if len(records) == 1:
-            r = records[0]
-            mkt = (r.get("market_name") or "").title()
-            r_date = r.get("date") or ""
-            modal = _fmt_price(r.get("modal_price"))
-            mn = _fmt_price(r.get("min_price"))
-            mx = _fmt_price(r.get("max_price"))
-            aq = r.get("arrival_quantity")
-            price_str = " | ".join(filter(None, [
-                f"Modal: {modal}/quintal" if modal is not None else None,
-                f"Min: {mn}" if mn is not None else None,
-                f"Max: {mx}" if mx is not None else None,
-                f"Arrival: {aq} tonnes" if aq is not None else None,
-            ]))
-            if not notice:
-                lines.append(f"Here is the lowest {commodity} price at {mkt} on {r_date}:")
-            lines.append(price_str)
-        else:
-            date_val = records[0].get("date") or ""
-            lines.append(f"Lowest {commodity} prices on {date_val}:")
-            for i, r in enumerate(records[:5], 1):
-                mkt = (r.get("market_name") or f"Market {i}").title()
-                variety = r.get("variety") or ""
-                grade = r.get("grade") or ""
-                label = mkt
-                suffix = ", ".join(filter(None, [variety, grade]))
-                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
-                    label = f"{mkt} ({suffix})"
-                modal = _fmt_price(r.get("modal_price"))
-                mn = _fmt_price(r.get("min_price"))
-                mx = _fmt_price(r.get("max_price"))
-                aq = r.get("arrival_quantity")
-                price_str = " | ".join(filter(None, [
-                    f"Modal: {modal}/quintal" if modal is not None else None,
-                    f"Min: {mn}" if mn is not None else None,
-                    f"Max: {mx}" if mx is not None else None,
-                    f"Arrival: {aq} tonnes" if aq is not None else None,
-                ]))
-                lines.append(f"{i}) {label}")
-                lines.append(f"   {price_str}")
-
-    # 3) Price History (list all records with dates)
-    elif action == "get_price_history":
-        mkt_names = {r.get("market_name") for r in records if r.get("market_name")}
-        same_mkt = len(mkt_names) == 1
-        mkt_title = (list(mkt_names)[0] or "").title() if same_mkt else ""
-        if same_mkt:
-            lines.append(f"Here is the {commodity} price history for {mkt_title}:")
-        else:
-            lines.append(f"Here is the {commodity} price history:")
-        for i, r in enumerate(records[:15], 1):
-            r_date = r.get("date") or ""
-            mkt = (r.get("market_name") or "").title()
-            variety = r.get("variety") or ""
-            grade = r.get("grade") or ""
-            suffix = ", ".join(filter(None, [variety, grade]))
-            if not same_mkt:
-                label = f"{r_date} - {mkt}"
-                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
-                    label += f" ({suffix})"
-            else:
-                label = f"{r_date}"
-                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
-                    label += f" ({suffix})"
-            modal = _fmt_price(r.get("modal_price"))
-            mn = _fmt_price(r.get("min_price"))
-            mx = _fmt_price(r.get("max_price"))
-            aq = r.get("arrival_quantity")
-            price_str = " | ".join(filter(None, [
-                f"Modal: {modal}/quintal" if modal is not None else None,
-                f"Min: {mn}" if mn is not None else None,
-                f"Max: {mx}" if mx is not None else None,
-                f"Arrival: {aq} tonnes" if aq is not None else None,
-            ]))
-            lines.append(f"{i}) {label}")
-            lines.append(f"   {price_str}")
-
-    # 4) Arrival History (list all records with dates)
-    elif action == "get_arrival_history":
-        mkt_names = {r.get("market_name") for r in records if r.get("market_name")}
-        same_mkt = len(mkt_names) == 1
-        mkt_title = (list(mkt_names)[0] or "").title() if same_mkt else ""
-        if same_mkt:
-            lines.append(f"Here is the {commodity} arrival history for {mkt_title}:")
-        else:
-            lines.append(f"Here is the {commodity} arrival history:")
-        for i, r in enumerate(records[:15], 1):
-            r_date = r.get("date") or ""
-            mkt = (r.get("market_name") or "").title()
-            aq = r.get("arrival_quantity")
-            label = f"{r_date}" if same_mkt else f"{r_date} - {mkt}"
-            lines.append(f"{i}) {label}: Arrival: {aq} tonnes" if aq is not None else f"{i}) {label}: No arrival data")
-
-    # 5) Extreme Arrival
-    elif action == "get_extreme_arrival":
-        order = payload.get("sort_order") or "highest"
-        r = records[0]
-        mkt = (r.get("market_name") or "").title()
-        r_date = r.get("date") or ""
-        aq = r.get("arrival_quantity")
-        lines.append(f"Here is the {order} {commodity} arrival recorded at {mkt} on {r_date}:")
-        lines.append(f"Arrival: {aq} tonnes" if aq is not None else "No arrival data")
-
-    # 6) Today / Single Record / Default
-    elif len(records) == 1:
-        r = records[0]
-        mkt = (r.get("market_name") or "").title()
-        date_val = r.get("date") or ""
-        modal = _fmt_price(r.get("modal_price"))
-        mn = _fmt_price(r.get("min_price"))
-        mx = _fmt_price(r.get("max_price"))
-        aq = r.get("arrival_quantity")
-        price_str = " | ".join(filter(None, [
-            f"Modal: {modal}/quintal" if modal is not None else None,
-            f"Min: {mn}" if mn is not None else None,
-            f"Max: {mx}" if mx is not None else None,
-            f"Arrival: {aq} tonnes" if aq is not None else None,
-        ]))
-        if not notice:
-            lines.append(f"{commodity} price at {mkt} on {date_val}:")
-        lines.append(price_str)
-
-    # 7) Multiple Markets (Today's price across mandis)
-    else:
-        sorted_records = _dedupe_and_sort_nearby_records(records, top_n=5)
-        date_val = sorted_records[0].get("date") or "" if sorted_records else ""
-        lines.append(f"{commodity} prices on {date_val}:")
-        for i, r in enumerate(sorted_records, 1):
-            mkt = (r.get("market_name") or f"Market {i}").title()
-            variety = r.get("variety") or ""
-            grade = r.get("grade") or ""
-            label = mkt
-            suffix = ", ".join(filter(None, [variety, grade]))
-            if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
-                label = f"{mkt} ({suffix})"
-            modal = _fmt_price(r.get("modal_price"))
-            mn = _fmt_price(r.get("min_price"))
-            mx = _fmt_price(r.get("max_price"))
-            aq = r.get("arrival_quantity")
-            price_str = " | ".join(filter(None, [
-                f"Modal: {modal}/quintal" if modal is not None else None,
-                f"Min: {mn}" if mn is not None else None,
-                f"Max: {mx}" if mx is not None else None,
-                f"Arrival: {aq} tonnes" if aq is not None else None,
-            ]))
-            lines.append(f"{i}) {label}")
-            lines.append(f"   {price_str}")
-
-    if sources:
-        src_str = ", ".join(sources)
-        lines.append(f"\nThis information is fetched from the following source: {src_str}.")
-
-    return "\n".join(lines)
+    summary = _THINK_BLOCK.sub("", raw or "").strip()
+    if not summary:
+        return None
+    if not summary_is_grounded(summary, rendered.head):
+        logger.warning("daily_price summary rejected (numbers not grounded in tool data): %r", summary)
+        return None
+    return summary
 
 
 async def synthesize_daily_price_answer(
@@ -1566,48 +1200,35 @@ async def synthesize_daily_price_answer(
     market_name: str | None = None,
     config: RunnableConfig | None = None,
 ) -> str:
-    """Ask MiniMax to turn tool JSON into a farmer-facing English answer."""
-    payload = _unwrap_tool_payload(tool_result)
-    payload = _sanitize_payload_for_synthesis(payload)
-    if isinstance(payload, (dict, list)):
-        tool_text = json.dumps(payload, ensure_ascii=False, default=str, separators=(",", ":"))
-    else:
-        tool_text = str(payload)
-    user_content = (
-        f"Farmer query: {query}\n\n"
-        f"Tool response JSON:\n{tool_text}\n\n"
-        "Answer:"
-    )
-    answer = await _minimax_chat(
-        trace_name="daily_price_answer",
-        system_prompt=DAILY_PRICE_ANSWER_PROMPT,
-        user_content=user_content,
-        max_tokens=2048,
-        temperature=0.2,
-        query=query,
-        config=config,
-    )
-    if answer and answer.strip():
-        ans_with_source = _ensure_source_line(answer.strip(), payload)
-        return _ensure_latest_notice(ans_with_source, payload)
+    """Fixed-structure answer from the tool JSON, plus an optional grounded LLM summary line."""
+    payload = _sanitize_payload_for_synthesis(_unwrap_tool_payload(tool_result))
     if _tool_result_is_empty(payload):
-        return _fallback_unavailable_answer(
-            payload,
-            crop=crop,
-            state=state,
-            market_name=market_name,
-        )
-    # LLM unavailable but data exists — build a deterministic answer so the farmer
-    # always sees prices instead of triggering the "2-hour" fallback upstream.
-    logger.warning(
-        "synthesize_daily_price_answer: MiniMax returned empty — using deterministic fallback formatter"
+        return _fallback_unavailable_answer(payload, crop=crop, state=state, market_name=market_name)
+
+    rendered = render_daily_price_answer(payload, crop=crop, market_name=market_name, state=state)
+    if rendered is None:
+        return _fallback_unavailable_answer(payload, crop=crop, state=state, market_name=market_name)
+
+    summary = None
+    if rendered.has_data and _llm_summary_enabled() and not _is_arrival_quantity_unavailable(payload):
+        summary = await _llm_summary(query, rendered, config=config)
+    return rendered.text(summary)
+
+
+
+
+def _decline_envelope(reason: str) -> str:
+    """Reply for a question we do not serve (status 'unsupported') or need a detail for ('clarify')."""
+    status = status_for(reason)
+    return json.dumps(
+        {
+            "answer": message_for(reason),
+            "tool_data": {"status": status, "reason": reason},
+            "status": status,
+            "reason": reason,
+        },
+        ensure_ascii=False,
     )
-    fallback = _format_price_fallback(payload, crop=crop)
-    if fallback:
-        return _ensure_latest_notice(fallback, payload)
-    return ""
-
-
 
 
 class DailyPriceInput(BaseModel):
@@ -1617,16 +1238,23 @@ class DailyPriceInput(BaseModel):
     crop: str
     state: Optional[str] = None
     district: Optional[str] = None
+    location_from_profile: Optional[bool] = None  # True when state/district/latitude/longitude are the farmer's profile location (answer adds a "change it in the profile section" note)
+    # Planner-supplied place details; accepted so the planner's tool call validates.
+    village: Optional[str] = None
+    block: Optional[str] = None
 
 
 @tool(args_schema=DailyPriceInput)
 async def daily_price(
     query: str,
-    latitude: Optional[float],
-    longitude: Optional[float],
-    crop: str,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    crop: str = "all",
     state: Optional[str] = None,
     district: Optional[str] = None,
+    location_from_profile: Optional[bool] = None,
+    village: Optional[str] = None,
+    block: Optional[str] = None,
     config: RunnableConfig = None,
 ) -> str:
     """
@@ -1635,28 +1263,33 @@ async def daily_price(
     Requires crop name and resolved latitude/longitude when possible.
     """
     try:
-        lat = latitude
-        lon = longitude
-        if (lat is None or lon is None) and state:
-            from ajrasakha.agents.location_context import forward_geocode
+        # Questions we deliberately do not serve are declined before any geocoding/LLM/tool call.
+        declined = detect_unsupported_query(query)
+        if declined:
+            logger.info("daily_price_agent: declining query (reason=%s): %s", declined, query)
+            return _decline_envelope(declined)
 
-            # Use district from parameter (preferred) or extract from query as fallback
-            district_val = district
-            if not district_val:
-                m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
-                if m_dist:
-                    district_val = m_dist.group(1).strip()
+        # The location is always the farmer's profile location (state, district,
+        # lat/long) passed in by the planner; nothing is read from the query.
+        lat, lon = latitude, longitude
+        if lat is None or lon is None:
+            from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
 
-            geocode_result = await forward_geocode(state=state, district=district_val)
-            if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
-                lat = geocode_result.get("latitude")
-                lon = geocode_result.get("longitude")
+            _lat, _lon, _resolved_name = await _get_lat_long(
+                district=district,
+                subdistrict=None,
+                state=state,
+            )
+            if _lat is not None and _lon is not None:
+                lat = _lat
+                lon = _lon
                 logger.info(
-                    "daily_price_agent: forward geocoded state %r district %r to %s, %s",
+                    "daily_price_agent: geocoded state=%r district=%r -> lat=%s, lon=%s (%s)",
                     state,
-                    district_val,
+                    district,
                     lat,
                     lon,
+                    _resolved_name,
                 )
 
         intent = await extract_daily_price_intent(
@@ -1669,6 +1302,10 @@ async def daily_price(
         )
         logger.info("Daily price intent: %s", intent)
 
+        if intent.get("unsupported_reason"):
+            logger.info("daily_price_agent: declining query (intent reason=%s)", intent["unsupported_reason"])
+            return _decline_envelope(intent["unsupported_reason"])
+
         tool_args = _build_tool_args(
             intent,
             lat=lat,
@@ -1680,14 +1317,14 @@ async def daily_price(
 
         if any(a in _COMMODITY_ACTIONS for a in actions) and not tool_args.get("commodity_name"):
             logger.warning("daily_price_agent: missing commodity_name for actions=%s", actions)
-            return ""
+            return _decline_envelope(MISSING_COMMODITY)
 
         if any(a in _GEO_ACTIONS for a in actions) and (
             tool_args.get("lat") is None or tool_args.get("long") is None
         ):
             if not tool_args.get("state") and not tool_args.get("market_name"):
                 logger.warning("daily_price_agent: missing lat/long and state for geo/price query")
-                return ""
+                return _decline_envelope(MISSING_LOCATION)
 
         tool_result = await call_mandi_price_tool(tool_args)
         tool_payload = _unwrap_tool_payload(tool_result)
@@ -1697,17 +1334,39 @@ async def daily_price(
             json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000],
         )
 
-        # Always ask MiniMax — including error/empty payloads — so farmers get a clear "not available".
+        # The tool needs a detail the farmer has not given (e.g. state): ask for it.
+        clarify = clarify_reason_for_error(tool_payload)
+        if clarify:
+            return _decline_envelope(clarify)
+
+        effective_crop = (
+            ", ".join(tool_args["commodity_name"])
+            if isinstance(tool_args.get("commodity_name"), list)
+            else (tool_args.get("commodity_name") or crop)
+        )
         answer = await synthesize_daily_price_answer(
             query,
             tool_result,
-            crop=crop,
+            crop=effective_crop,
             state=tool_args.get("state") or state,
             market_name=tool_args.get("market_name"),
             config=config,
         )
+        answer = answer or ""
+        if answer and location_from_profile and not _tool_result_is_empty(tool_payload):
+            answer += f"\n\n{profile_location_note('mandi price', state, district)}"
+        if answer and intent.get("dropped_actions"):
+            answer += (
+                f"\n\nNote: I answered the first {MAX_INTENT_ACTIONS} parts of your question. "
+                "Please ask the remaining part separately."
+            )
         return json.dumps(
-            {"answer": answer or "", "tool_data": tool_payload},
+            {
+                "answer": answer,
+                "tool_data": tool_payload,
+                "status": "no_data" if _tool_result_is_empty(tool_payload) else "ok",
+                "reason": None,
+            },
             ensure_ascii=False,
             default=str,
         )
