@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 from langchain_core.messages import AIMessage
@@ -20,7 +21,10 @@ from ajrasakha.agents.answer_relevance_checker import (
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.plan_executor import (
+    _DAILY_PRICE_TOOL_NAMES,
+    _current_turn_tool_messages,
     _gdb_has_usable_data,
+    _message_to_text,
     _turn_has_specialist_tool_message,
 )
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
@@ -33,6 +37,23 @@ from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 import asyncio
 
 logger = logging.getLogger(__name__)
+
+
+def _daily_price_declined(messages: list[BaseMessage]) -> bool:
+    """True when the daily-price tool deliberately declined (unsupported) or asked for a detail (clarify).
+
+    Its message already tells the farmer what to ask, so it must not go to the 2-hour expert queue.
+    """
+    for msg in _current_turn_tool_messages(messages):
+        if (getattr(msg, "name", None) or "") not in _DAILY_PRICE_TOOL_NAMES:
+            continue
+        try:
+            payload = json.loads(_message_to_text(msg))
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(payload, dict) and payload.get("status") in {"unsupported", "clarify"}:
+            return True
+    return False
 
 
 def is_crop_advisory_query(plan: dict, query: str) -> bool:
@@ -235,7 +256,7 @@ async def assemble_answer_body_node(
             
             # If query has complex intent (recommendations, advice) and we have dynamic tools,
             # we need to check relevance
-            if has_complex_intent:
+            if has_complex_intent and not _daily_price_declined(messages):
                 # Check if any dynamic tool was used (weather, mandi, soil, schemes)
                 # NOT triggered for knowledge_base only
                 has_dynamic_tool = (

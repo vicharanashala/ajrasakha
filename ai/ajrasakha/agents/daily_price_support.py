@@ -52,11 +52,12 @@ MULTI_MARKET_COMPARISON = "multi_market_comparison"
 FORECAST_OR_ADVICE = "forecast_or_advice"
 MSP_OR_COST = "msp_or_cost"
 UNRECOGNIZED_REQUEST = "unrecognized_request"
+PERIOD_COMPARISON = "period_comparison"
 # Clarify reasons (we need one more detail)
 MISSING_COMMODITY = "missing_commodity"
 MISSING_LOCATION = "missing_location"
 
-UNSUPPORTED_REASONS = frozenset({MULTI_MARKET_COMPARISON, FORECAST_OR_ADVICE, MSP_OR_COST, UNRECOGNIZED_REQUEST})
+UNSUPPORTED_REASONS = frozenset({MULTI_MARKET_COMPARISON, FORECAST_OR_ADVICE, MSP_OR_COST, UNRECOGNIZED_REQUEST, PERIOD_COMPARISON})
 CLARIFY_REASONS = frozenset({MISSING_COMMODITY, MISSING_LOCATION})
 
 # Reasons the LLM may report in its intent JSON.
@@ -69,36 +70,57 @@ def _examples(*actions: str) -> str:
 
 def capability_menu() -> str:
     items = ", ".join(CAPABILITIES[a]["summary"] for a in (
-        "get_today_price", "get_price_history", "get_price_summary", "get_highest_price", "get_today_arrival",
+        "get_today_price", "get_price_history", "get_price_summary", "get_highest_price",
         "search_markets"))
     return f"I can help with: {items}."
 
 
+_SUGGESTED_ACTIONS = (
+    "get_today_price",
+    "get_price_history",
+    "get_price_summary",
+    "get_highest_price",
+    "get_lowest_price",
+    "search_markets",
+)
+
+
+def suggested_questions() -> str:
+    """Bulleted list of sample questions the daily-price tool can answer."""
+    return "\n".join(f"- {CAPABILITIES[a]['example']}" for a in _SUGGESTED_ACTIONS)
+
+
+def _with_suggestions(message: str) -> str:
+    return f"{message}\n\nYou can ask questions like:\n{suggested_questions()}"
+
+
 _MESSAGES: dict[str, str] = {
-    MULTI_MARKET_COMPARISON: (
+    MULTI_MARKET_COMPARISON: _with_suggestions(
         "I can show the price for one mandi at a time (along with its nearby mandis), so I cannot compare "
         "two mandis in a single answer. Please ask for each mandi separately, for example: "
         '"Onion price in Azadpur mandi" and then "Onion price in Ludhiana mandi".'
     ),
-    FORECAST_OR_ADVICE: (
+    FORECAST_OR_ADVICE: _with_suggestions(
         "I only share prices that were actually recorded in mandis (today, a past date or a past period). "
-        "I cannot predict future prices or advise when to sell. You can ask, for example: "
-        + _examples("get_price_history", "get_price_summary") + "."
+        "I cannot predict future prices or advise when to sell."
     ),
-    MSP_OR_COST: (
+    MSP_OR_COST: _with_suggestions(
         "I provide recorded mandi market prices only. MSP, cost of cultivation and similar details are not "
-        "available here. You can ask, for example: " + _examples("get_today_price", "get_highest_price") + "."
+        "available here."
     ),
-    UNRECOGNIZED_REQUEST: (
-        "I could not match this question to the daily mandi price information I provide. "
-        + capability_menu() + " For example: " + _examples("get_today_price", "get_price_history") + "."
+    PERIOD_COMPARISON: _with_suggestions(
+        "I cannot tell whether a price went up or down compared to another period. I can share the recorded "
+        "prices for one date or period at a time, so you can compare them yourself."
+    ),
+    UNRECOGNIZED_REQUEST: _with_suggestions(
+        "I could not match this question to the daily mandi price information I provide. " + capability_menu()
     ),
     MISSING_COMMODITY: (
         "Which crop would you like the price of? For example: " + _examples("get_today_price") + "."
     ),
     MISSING_LOCATION: (
-        "Please tell me your state or district (or the mandi name) so I can look up the price. "
-        "For example: " + _examples("get_price_with_nearby") + "."
+        "I could not find your location. Please set your state and district in your profile so I can look "
+        "up mandi prices near you."
     ),
 }
 
@@ -145,6 +167,14 @@ _MSP_COST = re.compile(
     re.I,
 )
 
+_PERIOD_COMPARISON = re.compile(
+    r"\b(compared?\s+(?:to|with)|comparison|than\s+(?:last|previous|earlier|yesterday)|"
+    r"(?:increase[ds]?|decrease[ds]?|rise[ns]?|rose|fall(?:en|s)?|fell|drop(?:ped|s)?|"
+    r"gone\s+(?:up|down)|go(?:es)?\s+(?:up|down)|up\s+or\s+down|higher\s+or\s+lower)\b.*\b(?:last|previous|earlier|ago)\b|"
+    r"(?:last|previous|earlier)\b.*\b(?:increase[ds]?|decrease[ds]?|rise[ns]?|rose|fall(?:en|s)?|fell|dropped|up\s+or\s+down|higher\s+or\s+lower))\b",
+    re.I,
+)
+
 
 def _is_multi_market_comparison(query: str) -> bool:
     q = _MARKET_PRICE_PHRASE.sub(" ", query or "")
@@ -174,6 +204,8 @@ def detect_unsupported_query(query: str) -> str | None:
         return FORECAST_OR_ADVICE
     if _is_multi_market_comparison(q):
         return MULTI_MARKET_COMPARISON
+    if _PERIOD_COMPARISON.search(q):
+        return PERIOD_COMPARISON
     return None
 
 
@@ -227,4 +259,6 @@ def clarify_reason_for_error(payload: Any) -> str | None:
         return MISSING_LOCATION
     if code == COMMODITY_REQUIRED:
         return MISSING_COMMODITY
+    if code == UNSUPPORTED_ACTION:
+        return UNRECOGNIZED_REQUEST
     return None
