@@ -28,6 +28,7 @@ import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import type { IUser } from "@/types";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { format } from "date-fns";
+import { UserActivityReportControl } from "./UserActivityReportControl";
 import type { DateRange } from "react-day-picker";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
@@ -237,7 +238,7 @@ export const GateKeeperAuditorDashboard = ({
           <Dashboard hideMainWrapper />
         ) : (
           <>
-            <div className="mb-8 flex justify-between items-center">
+            <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-foreground">
                   {nounTitle} {viewingOther ? "Performance" : "Dashboard"}
@@ -251,7 +252,18 @@ export const GateKeeperAuditorDashboard = ({
                 </p>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {targetUserId && (currentUser?.role === "admin" || currentUser?.role === "gate_keeper") && (
+                  <UserActivityReportControl
+                    userId={targetUserId}
+                    userName={
+                      viewingOther
+                        ? userName ?? "User"
+                        : `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() || "User"
+                    }
+                    userRole={role}
+                  />
+                )}
                 <GateKeeperAuditorCheckInControl user={currentUser} />
               </div>
             </div>
