@@ -182,3 +182,48 @@ def test_mandi_ignores_a_market_or_state_named_in_the_query():
     assert "market_name" not in args and args["search_by_apmc"] is False
     assert args["action"] == "get_today_price"
     assert (args["lat"], args["long"]) == (17.7, 83.3)
+
+
+# --- prefix on catalog replies ------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_question_sent_to_the_experts_gets_the_prefix():
+    from langchain_core.messages import AIMessage
+
+    from ajrasakha.agents.answer_footers import build_expert_queue_content
+    from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
+    from ajrasakha.agents.translate_answer import translate_answer_node
+
+    plan = _plan(places=["Ludhiana"], profile_location_prefix=_PREFIX, translate_path=TRANSLATE_PATH_EMPTY_GDB)
+    state = {"messages": [*_messages(), AIMessage(content="")], "plan": plan}
+    result = await translate_answer_node(state, RunnableConfig())
+    assert result["messages"][0].content == f"{_PREFIX}\n\n{build_expert_queue_content('English', 'English')}"
+
+
+@pytest.mark.asyncio
+async def test_the_weather_unavailable_reply_gets_the_prefix():
+    from ajrasakha.agents.answer_footers import build_weather_unavailable_content
+    from ajrasakha.agents.weather_unavailable_reply import weather_unavailable_reply_node
+
+    state = {"messages": _messages(), "plan": _plan(places=["Kathua"], profile_location_prefix=_PREFIX)}
+    result = await weather_unavailable_reply_node(state, RunnableConfig())
+    assert result["messages"][0].content == f"{_PREFIX}\n\n{build_weather_unavailable_content('English', 'English')}"
+
+
+@pytest.mark.asyncio
+async def test_the_prefix_is_translated_for_other_languages():
+    from unittest.mock import AsyncMock, patch
+
+    from ajrasakha.agents.translate_answer import add_profile_location_prefix
+
+    plan = _plan(profile_location_prefix=_PREFIX, vocal_language="Hindi", script_language="Devanagari")
+    with patch("ajrasakha.agents.translate_answer._translate_body", AsyncMock(return_value="HINDI PREFIX")):
+        assert await add_profile_location_prefix("reply", plan, None) == "HINDI PREFIX\n\nreply"
+
+
+@pytest.mark.asyncio
+async def test_a_catalog_reply_without_a_place_has_no_prefix():
+    from ajrasakha.agents.translate_answer import add_profile_location_prefix
+
+    assert await add_profile_location_prefix("reply", _plan(profile_location_prefix=None), None) == "reply"
