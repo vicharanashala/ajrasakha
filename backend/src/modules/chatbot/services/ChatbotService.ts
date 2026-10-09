@@ -58,6 +58,7 @@ import {
   buildResponseAdherenceCsv,
   buildResponseAdherenceHtmlTable,
 } from '../utils/responseAdherenceReport.js';
+import {buildFarmerDetailsCsv} from '../utils/farmerDetailsCsv.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
@@ -65,6 +66,7 @@ import {triggerWebhook} from '#root/modules/answer/utils/triggerWebhook.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { LGD_TYPES } from '#root/modules/lgd/types.js';
 import {ILocationService} from '#root/modules/lgd/interfaces/ILocationService.js';
+import { ClientSession } from 'mongodb';
 
 type HeatMapLgdState = {
   stateCode: number;
@@ -1601,6 +1603,65 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+   async exportUserDetailsCsv(
+    startDate?: string,
+    endDate?: string,
+    search = '',
+    source = 'annam',
+    crop = '',
+    primaryCrops = '',
+    secondaryCrops = '',
+    village = '',
+    state = '',
+    district = '',
+    block = '',
+    profileCompleted = 'all',
+    inactiveOnly = false,
+    lowFeedbackOnly = false,
+    userType = 'all',
+    roles = '',
+    sortBy = 'totalQuestions',
+    sortOrder = 'desc',
+    activeTodayByProfile = false,
+    missingDemographicField?: string,
+    isVerified?: boolean,
+    fromMap?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
+  ): Promise<string> {
+    try {
+      const data = await this.getUserDetails(
+        startDate,
+        endDate,
+        1,
+        1_000_000,
+        search,
+        source,
+        crop,
+        primaryCrops,
+        secondaryCrops,
+        village,
+        state,
+        district,
+        block,
+        profileCompleted,
+        inactiveOnly,
+        lowFeedbackOnly,
+        userType,
+        roles,
+        sortBy,
+        sortOrder,
+        activeTodayByProfile,
+        missingDemographicField,
+        isVerified,
+        fromMap,
+        loginStatus,
+      );
+      return buildFarmerDetailsCsv(data.users);
+    } catch (error) {
+      throw new InternalServerError(`Failed to export user details: ${error}`);
+    }
+  }
+
   async getUsersByDemographic(
     category: string,
     value: string,
@@ -1669,85 +1730,104 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getUserQuestionsData(
-    userEmail: string,
-    source = 'annam',
-    userType = 'all',
-    page = 1,
-    limit = 10,
-  ) {
-    const user = await this.chatbotRepository.getUserData(userEmail, source);
+async getUserQuestionsData(
+  userEmail: string,
+  source = 'annam',
+  userType = 'all',
+  page = 1,
+  limit = 12,
+  startDate?: string,
+  endDate?: string,
+) {
+  const user = await this.chatbotRepository.getUserData(
+    userEmail,
+    source,
+  );
 
-    // Always fetch messages
-    const messages = await this.chatbotRepository.getUsersMessages(
-      userEmail,
-      source,
-      undefined,
-      userType,
-      page,
-      limit,
-    );
+  // Always fetch messages
+  const messages = await this.chatbotRepository.getUsersMessages(
+    userEmail,
+    source,
+    undefined,
+    userType,
+    page,
+    limit,
+    startDate,
+    endDate,
+  );
 
-    // No user found
-    if (!user) {
-      return {
-        questions: {
-          total: 0,
-          totalPages: 0,
-          currentPage: page,
-          limit,
-          items: [],
-        },
+  const emptyQuestionsPage = {
+    total: 0,
+    totalPages: 0,
+    currentPage: page,
+    limit,
+    items: [],
+  };
 
-        messages,
-      };
-    }
-
-    const threadIds = []
-  // await this.chatbotRepository.getUserConversationIds(
-  //   user.userId,
-  //   source,
-  // );
-
-    // Extract messageIds
-    const messageIds = await this.chatbotRepository.getAllUserMessageIds(
-      userEmail,
-      source,
-    );
-
-    // No linked messages
-    if (!messageIds.length) {
-      return {
-        questions: {
-          total: 0,
-          totalPages: 0,
-          currentPage: page,
-          limit,
-          items: [],
-        },
-
-        messages,
-      };
-    }
-
-    // Fetch questions using messageIds
-    const questions = await this.chatbotRepository.getUserQuestionsData(
-        {
-      threadIds,
-      messageIds,
-      userId: user.userId,
-    },
-      source,
-      userType,
-      page,
-      limit,
-    );
-
+  // No user found
+  if (!user) {
     return {
-      questions,
+      questions: emptyQuestionsPage,
+      nonAgriQuestions: emptyQuestionsPage,
       messages,
     };
   }
+
+  const threadIds = [];
+
+  // Extract messageIds
+  const messageIds = await this.chatbotRepository.getAllUserMessageIds(
+    userEmail,
+    source,
+    undefined,
+    startDate,
+    endDate,
+  );
+
+  // No linked messages
+  if (!messageIds.length) {
+    return {
+      questions: emptyQuestionsPage,
+      nonAgriQuestions: emptyQuestionsPage,
+      messages,
+    };
+  }
+
+  // Agri and Non-Agri questions use the identical identifiers — only the
+  // status they're matched against differs.
+  const identifiers = {
+    threadIds,
+    messageIds,
+    userId: user.userId,
+  };
+
+  const [questions, nonAgriQuestions] = await Promise.all([
+    this.chatbotRepository.getUserQuestionsData(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+    ),
+    this.chatbotRepository.getUserNonAgriQuestionsData(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+    ),
+  ]);
+
+  return {
+    questions,
+    nonAgriQuestions,
+    messages,
+  };
+}
 
   async getUserMessageMetricDetails(
     userId: string,
@@ -3673,12 +3753,23 @@ export class ChatbotService extends BaseService implements IChatbotService {
         </html>
       `;
       if(isVerified === true){
-        await sendEmailNotification(
-          updatedUser.email,
-          subject,
-          '',
-          htmlMessage
-        );
+        // Email delivery is best-effort: a SMTP failure must not fail the
+        // verify-user API, because the DB update above has already committed
+        // and the admin expects the user to be verified regardless. We log
+        // the failure so it can be retried / diagnosed out-of-band.
+        try {
+          await sendEmailNotification(
+            updatedUser.email,
+            subject,
+            '',
+            htmlMessage,
+          );
+        } catch (emailError: any) {
+          console.error(
+            `[verifyUser] Failed to send verification email to ${updatedUser.email} for user ${userId}:`,
+            emailError?.message || emailError,
+          );
+        }
       }
 
       return updatedUser;
@@ -4645,6 +4736,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
       pageSize,
       this.mapDatasetUserItem,
     );
+  }
+
+  async logoutUser (userId: string): Promise<{value: boolean, message: string}> {
+    try {
+      const result = await this.chatbotRepository.logoutUser(userId, undefined);
+      return result;
+    }catch(err){
+      throw new InternalServerError(`Something went wrong ${err}`)
+    }
   }
 }
 

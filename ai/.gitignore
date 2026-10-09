@@ -30,6 +30,7 @@ env/
 # Environment Variables
 .env
 .env.local
+.env.example
 
 # IDE
 .vscode/

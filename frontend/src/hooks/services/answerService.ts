@@ -2,6 +2,8 @@ import type {
   ISubmissions,
   SubmitAnswerResponse,
   FinalizedAnswersResponse,
+  ClosedAnswersResponse,
+  ClosedAnswerFilters,
   SourceItem,
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
@@ -168,6 +170,48 @@ export class AnswerService {
   ): Promise<FinalizedAnswersResponse | null> {
     return apiFetch<FinalizedAnswersResponse>(
       `${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}&status=${status}`,
+    );
+  }
+
+  async getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    filters?: ClosedAnswerFilters,
+  ): Promise<ClosedAnswersResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    if (search) params.append("search", search);
+
+    if (filters) {
+      const listParams: [string, string[]][] = [
+        ["authorIds", filters.authorIds],
+        ["sourceTypes", filters.sourceTypes],
+        ["sourceReferenceStatuses", filters.sourceReferenceStatuses],
+        ["newSourceStatuses", filters.newSourceStatuses],
+        ["states", filters.states],
+        ["crops", filters.crops],
+        ["domains", filters.domains],
+        ["priorities", filters.priorities],
+      ];
+      listParams.forEach(([key, values]) => {
+        if (values?.length) params.append(key, values.join(","));
+      });
+      if (filters.closedAtStart) params.append("closedAtStart", filters.closedAtStart);
+      if (filters.closedAtEnd) params.append("closedAtEnd", filters.closedAtEnd);
+      if (filters.sourcePresence) params.append("sourcePresence", filters.sourcePresence);
+      if (filters.sentBackToPending) params.append("sentBackToPending", "true");
+      if (filters.minSources !== undefined)
+        params.append("minSources", String(filters.minSources));
+      if (filters.maxSources !== undefined)
+        params.append("maxSources", String(filters.maxSources));
+      if (filters.shuffleSeed !== undefined)
+        params.append("shuffleSeed", String(filters.shuffleSeed));
+    }
+
+    return apiFetch<ClosedAnswersResponse>(
+      `${this._baseUrl}/closed?${params.toString()}`,
     );
   }
 

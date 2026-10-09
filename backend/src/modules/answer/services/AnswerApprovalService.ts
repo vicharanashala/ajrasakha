@@ -21,6 +21,7 @@ import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import { IQuestionService } from '#root/modules/question/interfaces/IQuestionService.js';
+import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 import { UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { triggerWebhook } from '../utils/triggerWebhook.js';
 import { IAnswerApprovalService } from '../interfaces/IAnswerApprovalService.js';
@@ -49,10 +50,30 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: IQuestionService,
 
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
+
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
     super(mongoDatabase);
+  }
+
+  /**
+   * Event-driven gate-keeper / auditor queue allocation. Call after a role assignee is
+   * freed (freeRoleAssigneeOnStatusChange) so the freed gate keeper / auditor immediately
+   * picks up their next queued question. Fire-and-forget and idempotent — never affects
+   * the approval that triggered it.
+   */
+  private triggerRoleQueueAllocation(context: string): void {
+    void this.roleAssigneeService
+      .runGateKeeperAuditorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven gate-keeper/auditor allocation failed:`,
+          err?.message,
+        ),
+      );
   }
 
   async approveAnswer(
@@ -119,7 +140,16 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
       };
 
       // EDIT-FINAL-ANSWER FLOW
-      if (question.status === 'closed' && updates.answerId) {
+      // Applies to any closed variant — a plain `closed` question AND the auditor
+      // "Notify User" closes (`duplicate_closed` / `dynamic_closed`). The latter skip the
+      // peer-review cycle so they have no question_submissions doc; routing their edit
+      // through here (text/embedding + updateAnswer) avoids the submission-required path.
+      if (
+        (question.status === 'closed' ||
+          question.status === 'duplicate_closed' ||
+          question.status === 'dynamic_closed') &&
+        updates.answerId
+      ) {
         const existing = await this.answerRepo.getById(updates.answerId, session);
         if (!existing) {
           throw new BadRequestError(`Answer with ID ${updates.answerId} not found`);
@@ -339,9 +369,16 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
             userId, // approvedBy — same id as author
           );
 
+          // Refresh the child's text/embedding with the replicated answer (same as the
+          // parent close above) so the closed duplicate is searchable by its answer too.
+          const childText = `Question: ${child.question}\n\nanswer: ${updates.answer ?? ''}`;
+          const childEmbedding = await generateEmbedding(childText);
+
           await this.questionRepo.updateQuestion(
             childId,
             {
+              text: childText,
+              embedding: childEmbedding,
               status: 'closed',
               closedAt: new Date(),
               closedBy: 'System',
@@ -349,6 +386,7 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
               autoAllocatePaeValidationExpert: true,
             },
             session,
+            true, // addText — persist the answer-inclusive text
           );
 
           await this.userRepo
@@ -398,6 +436,15 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         updates.questionId,
       );
     }
+    // Approving/closing frees any gate keeper / auditor on the question — run the role
+    // queue so that freed assignee immediately picks up their next queued question.
+    this.triggerRoleQueueAllocation('approveAnswer');
+
+    // Approving/closing a question frees its moderator (removeAssignedQuestionFromAllModerators
+    // above, committed) — run the moderator queue so that moderator immediately picks up
+    // their next in-review/pae_submitted question. Fire-and-forget; can't affect approval.
+    this.questionService.triggerModeratorQueueAllocation('approveAnswer');
+
     return approveResult;
   }
 
@@ -463,9 +510,18 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
             userId, // approvedBy
           );
 
+          // Refresh this question's text/embedding with the replicated answer (same as the
+          // parent close in approveAnswer) so the closed duplicate is searchable by its answer.
+          const duplicateText = `Question: ${question.question}\n\nanswer: ${answerText}`;
+          const duplicateEmbedding = appConfig.isDevelopment
+            ? []
+            : (await this.aiService.getEmbedding(duplicateText)).embedding;
+
           await this.questionRepo.updateQuestion(
             questionId,
             {
+              text: duplicateText,
+              embedding: duplicateEmbedding,
               status: 'closed',
               closedAt: new Date(),
               closedBy: 'System',
@@ -473,6 +529,7 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
               autoAllocatePaeValidationExpert: true,
             },
             session,
+            true, // addText — persist the answer-inclusive text
           );
 
           const author = await this.userRepo.findById(userId, session);
@@ -505,6 +562,8 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
     );
 
     await this.questionService.freeRoleAssigneeOnStatusChange(questionId);
+    // Confirming a duplicate frees its gate keeper — run the role queue for their next one.
+    this.triggerRoleQueueAllocation('confirmDuplicate');
     return result;
   }
 
@@ -648,6 +707,8 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         updates.questionId,
       );
     }
+    // Frees any gate keeper / auditor on the question — run the role queue for their next.
+    this.triggerRoleQueueAllocation('approveLLMAnswer');
     return llmResult;
   }
 }

@@ -4,7 +4,9 @@ import {
   AlertTriangle,
   BarChart3,
   Bot,
+  CheckCircle2,
   Clock,
+  ClipboardList,
   Database,
   History,
   List,
@@ -17,7 +19,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { canManageUsers, isCoordinatorRole } from "@/lib/roles";
+import { canManageUsers, isCoordinatorRole, canLogTestCases } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -25,11 +27,13 @@ const SidebarButton = ({
   icon: Icon,
   onClick,
   isActive = false,
+  isNew = false,
 }: {
   label: string;
   icon: any;
   onClick: () => void;
   isActive?: boolean;
+  isNew?: boolean;
 }) => {
   return (
     <button
@@ -52,6 +56,11 @@ const SidebarButton = ({
           isActive ? "" : "text-muted-foreground group-hover:text-foreground"
         }`}
       />
+      {isNew && (
+        <span className="inline-flex items-center rounded-full bg-red-600 px-1.5 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-wide text-white dark:bg-red-500">
+          new
+        </span>
+      )}
       <span className="font-medium">{label}</span>
     </button>
   );
@@ -121,6 +130,10 @@ export const MobileSidebar = ({
       ? [{ id: "all_questions", label: "All Questions", icon: List }]
       : []),
 
+    ...(user && user.role !== "call_agent"
+      ? [{ id: "closed_answers", label: "Answer Sources", icon: CheckCircle2 }]
+      : []),
+
     ...(user && canManageUsers(user.role)
       ? [
           {
@@ -158,7 +171,7 @@ export const MobileSidebar = ({
         ]
       : []),
 
-    ...(user && user.role === "admin"
+    ...(user && (user.role === "admin" || user.role === "moderator" || user.role === "expert")
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
@@ -169,6 +182,13 @@ export const MobileSidebar = ({
             label: "Gap Detector",
             icon: Activity,
           },
+        ]
+      : []),
+
+    ...(user && user.role === "admin"
+      ? [
+          { id: "manage_agents", label: "Manage Agents", icon: Users },
+          { id: "testers_dashboard", label: "Testers Dashboard", icon: ClipboardList },
         ]
       : []),
 
@@ -183,6 +203,10 @@ export const MobileSidebar = ({
             icon: MessageSquare,
           },
         ]
+      : []),
+
+    ...(user && canLogTestCases(user.role)
+      ? [{ id: "tester_log", label: "Log Test Case", icon: ClipboardList }]
       : []),
   ];
 
@@ -228,6 +252,7 @@ export const MobileSidebar = ({
               icon={item.icon}
               onClick={() => handleClick(item.id)}
               isActive={item.id === activeTab}
+              isNew={item.id === "closed_answers"}
             />
           ))}
         </nav>

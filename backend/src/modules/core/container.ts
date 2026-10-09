@@ -17,7 +17,16 @@ import { AnswerSubmissionService } from '../answer/services/AnswerSubmissionServ
 import { AnswerAiService } from '../answer/services/AnswerAiService.js';
 import { AnswerFaqService } from '../answer/services/AnswerFaqService.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
-import { QuestionController } from '../question/controllers/QuestionController.js';
+import {
+  QuestionController,
+  QuestionIngestionController,
+  QuestionAllocationController,
+  QuestionFeedbackController,
+  QuestionPaeValidationController,
+  QuestionReportController,
+  QuestionAiController,
+  QuestionMaintenanceController,
+} from '../question/controllers/index.js';
 import { QuestionService } from '../question/services/QuestionService.js';
 import { QuestionReportService } from '../question/services/QuestionReportService.js';
 import { PaeValidationService } from '../question/services/PaeValidationService.js';
@@ -35,21 +44,52 @@ import { PerformanceController } from '../performance/controllers/PerformanceCon
 import { CORE_TYPES } from './types.js';
 import { GLOBAL_TYPES } from '../../types.js';
 import { PerformanceService } from '../performance/services/PerformanceService.js';
+// Testers Dashboard now lives in testers-dashboard/backend/ - these come
+// from its compiled output, so `pnpm run build:testers-dashboard` must run
+// before this file can be type-checked/compiled (see backend/package.json).
+import { TestersDashboardController } from '../../../../testers-dashboard/backend/build/controllers/TestersDashboardController.js';
+import { TestersDashboardService } from '../../../../testers-dashboard/backend/build/services/TestersDashboardService.js';
 import { RequestController } from '../request/controllers/RequestController.js';
+import { ZohoTicketStatusService } from '../../../../testers-dashboard/backend/build/services/ZohoTicketStatusService.js';
+import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
+import { TesterLogController } from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js';
+import { TesterLogService } from '../../../../testers-dashboard/backend/build/services/TesterLogService.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
 import { FeedbackRepository } from '#root/shared/database/providers/mongo/repositories/FeedbackRepository.js';
 import { AccAgentService } from '../acc-agent/services/AccAgentService.js';
 import { CheckOverlapsService } from '../question/services/CheckOverlapsService.js';
+import { OrganizationRepository } from '#root/shared/database/providers/mongo/repositories/OrganizationRepository.js';
+import { OrganizationService } from '../organization/services/OrganizationService.js';
+import { OrganizationController } from '../organization/controllers/OrganizationController.js';
+import { PopRepository } from '#root/shared/database/providers/mongo/repositories/PopRepository.js';
+import { PopService } from '../pop/services/PopService.js';
+import { PopController } from '../pop/controllers/PopController.js';
+import { NewSourceRepository } from '#root/shared/database/providers/mongo/repositories/NewSourceRepository.js';
+import { NewSourceService } from '../newSource/services/NewSourceService.js';
+import { NewSourceController } from '../newSource/controllers/NewSourceController.js';
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
+  options.bind(QuestionReportController).toSelf().inSingletonScope();
+  options.bind(QuestionAllocationController).toSelf().inSingletonScope();
+  options.bind(QuestionFeedbackController).toSelf().inSingletonScope();
+  options.bind(QuestionPaeValidationController).toSelf().inSingletonScope();
+  options.bind(QuestionAiController).toSelf().inSingletonScope();
+  options.bind(QuestionIngestionController).toSelf().inSingletonScope();
+  options.bind(QuestionMaintenanceController).toSelf().inSingletonScope();
   options.bind(QuestionController).toSelf().inSingletonScope();
   options.bind(AnswerController).toSelf().inSingletonScope();
   options.bind(ContextController).toSelf().inSingletonScope();
   options.bind(CommentController).toSelf().inSingletonScope();
   options.bind(RequestController).toSelf().inSingletonScope();
-  options.bind(PerformanceController).toSelf().inSingletonScope()
+  options.bind(PerformanceController).toSelf().inSingletonScope();
+  options.bind(TestersDashboardController).toSelf().inSingletonScope();
+  options.bind(ZohoTicketStatusController).toSelf().inSingletonScope();
+  options.bind(TesterLogController).toSelf().inSingletonScope();
+  options.bind(OrganizationController).toSelf().inSingletonScope();
+  options.bind(PopController).toSelf().inSingletonScope();
+  options.bind(NewSourceController).toSelf().inSingletonScope();
   // Services
 
   options
@@ -120,8 +160,14 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
   options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
   options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
+  options.bind(CORE_TYPES.ZohoTicketStatusService).to(ZohoTicketStatusService).inSingletonScope();
 
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
+  options.bind(CORE_TYPES.TestersDashboardService).to(TestersDashboardService).inSingletonScope();
+  options.bind(CORE_TYPES.TesterLogService).to(TesterLogService).inSingletonScope();
+  options.bind(CORE_TYPES.OrganizationService).to(OrganizationService).inSingletonScope();
+  options.bind(CORE_TYPES.PopService).to(PopService).inSingletonScope();
+  options.bind(CORE_TYPES.NewSourceService).to(NewSourceService).inSingletonScope();
   options.bind(GLOBAL_TYPES.AccAgentService).to(AccAgentService).inSingletonScope();
   options.bind(CORE_TYPES.CheckOverlapsService).to(CheckOverlapsService).inSingletonScope();
   // Repositories
@@ -155,4 +201,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.UserRepository).to(UserRepository).inSingletonScope()
   options.bind(CORE_TYPES.DuplicateQuestionRepository).to(DuplicateQuestionRepository).inSingletonScope()
   options.bind(CORE_TYPES.FeedbackRepository).to(FeedbackRepository).inSingletonScope()
+  options.bind(CORE_TYPES.OrganizationRepository).to(OrganizationRepository).inSingletonScope()
+  options.bind(CORE_TYPES.PopRepository).to(PopRepository).inSingletonScope()
+  options.bind(CORE_TYPES.NewSourceRepository).to(NewSourceRepository).inSingletonScope()
 });

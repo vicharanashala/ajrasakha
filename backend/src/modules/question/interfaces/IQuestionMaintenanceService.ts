@@ -11,6 +11,8 @@ export type IQuestionMaintenanceService = Pick<
   | 'findUnknownQuestionGeo'
   | 'sendDelayedNotifications'
   | 'backfillEmptyEmbeddings'
+  | 'backfillMissingEmbeddings'
+  | 'backfillAnswerEmbeddings'
   | 'backgroundProcessAction'
   | 'removeSubmissionHistoryEntry'
   | 'removeSubmissionQueueEntry'

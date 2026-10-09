@@ -26,9 +26,19 @@ export interface IQuestionReportService {
   ): Promise<ArrayBuffer | null>;
 
   generateTatReport(
-    out: any,
     startDate: Date,
     endDate: Date,
+    opts?: {
+      sources?: string[];
+      statuses?: string[];
+      maxReviewers?: number;
+    },
+  ): Promise<ArrayBuffer | null>;
+
+  streamTatReport(
+    startDate: Date,
+    endDate: Date,
+    outputStream: any,
     opts?: {
       sources?: string[];
       statuses?: string[];

@@ -15,6 +15,7 @@ from ajrasakha.agents.resolution_trace import trace_resolution
 class Location(TypedDict, total=False):
     latitude: Optional[float]
     longitude: Optional[float]
+    district: Optional[str]
     city: Optional[str]
     state: Optional[str]
     address: Optional[str]
@@ -98,6 +99,12 @@ class PlannerPlan(TypedDict, total=False):
     is_follow_up: Optional[bool]  # True when the latest message is a transformation on the previous AI answer
     follow_up_type: Optional[str]  # "language_change" | "format_change" | "detail_request" | "simplify" | "tone_change" | "rephrase"
     main_question: Optional[str]  # The underlying question the previous AI answer was about
+    is_multiple_crops: Optional[bool]  # Farmer named 2+ crops: GDB searches "all", reviewer gets "Multiple Crops"
+    places: list[str]  # every place the current message names (planner LLM)
+    profile_coordinates: Optional[dict[str, Any]]  # farmer profile lat/long (+ village/block for weather/mandi)
+    location_from_profile: bool  # tools use the farmer profile lat/long
+    profile_location_prefix: Optional[str]  # answer prefix when the question names only the profile's own places
+    has_inappropriate_content: bool  # True when query contains abusive/inappropriate language
 
 
 TRANSLATE_PATH_EMPTY_GDB = "empty_gdb"

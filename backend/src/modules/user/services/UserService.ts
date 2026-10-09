@@ -3,12 +3,14 @@ import ExcelJS from 'exceljs';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserAdminEdit,
   INotificationType,
   NotificationRetentionType,
   UserRole,
   IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import type { PaeAnalyticsRow } from '#root/modules/question/interfaces/IQuestionService.js';
 import {
   BadRequestError,
   ForbiddenError,
@@ -16,7 +18,7 @@ import {
   NotFoundError,
 } from 'routing-controllers';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { ClientSession } from 'mongodb';
+import { ClientSession, ObjectId } from 'mongodb';
 import {
   PreferenceDto,
   UsersNameResponseDto,
@@ -28,8 +30,11 @@ import {getFromContainer} from 'class-validator';
 import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
+import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
+import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -51,6 +56,12 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.NotificationService)
     private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
+
+    @inject(GLOBAL_TYPES.ModeratorQueueService)
+    private readonly moderatorQueueService: IModeratorQueueService,
   ) {
     super(mongoDatabase);
   }
@@ -225,6 +236,129 @@ export class UserService extends BaseService {
     }
   }
 
+  async adminEditUser(
+    currentUser: IUser,
+    userId: string,
+    data: IUserAdminEdit,
+  ): Promise<IUser> {
+    try {
+      if (!currentUser || currentUser.role !== 'admin') {
+        throw new ForbiddenError('Only admin can edit user details');
+      }
+
+      if (!userId) {
+        throw new BadRequestError('User ID is required');
+      }
+
+      const targetUser = await this.userRepo.findById(userId);
+      if (!targetUser) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (targetUser.role === 'admin') {
+        throw new ForbiddenError('Admin cannot edit details of another admin');
+      }
+
+      const editableFields = [
+        'firstName',
+        'lastName',
+        'avatar',
+        'preference',
+        'mobile',
+        'university',
+        'kvkCovered',
+      ] as const;
+
+      const sanitizedData: Partial<IUser> = {};
+
+      for (const field of editableFields) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          (sanitizedData as any)[field] = (data as any)[field];
+        }
+      }
+
+      if (sanitizedData.firstName !== undefined && !sanitizedData.firstName.trim()) {
+        throw new BadRequestError('First name cannot be empty or blank space');
+      }
+
+      if (sanitizedData.mobile !== undefined && sanitizedData.mobile !== null) {
+        sanitizedData.mobile = sanitizedData.mobile.trim();
+      }
+
+      if (sanitizedData.university !== undefined && sanitizedData.university !== null) {
+        sanitizedData.university = sanitizedData.university.trim();
+      }
+
+      // Title-case a value so entries persist consistently ("kl university" → "Kl University").
+      const toTitleCase = (v: unknown) =>
+        typeof v === 'string'
+          ? v.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          : '';
+      // Same, but keep the "all" sentinel lowercase so domain/district "all" checks keep working.
+      const titleCaseOrAll = (v: unknown) => {
+        const s = typeof v === 'string' ? v.trim() : '';
+        return s.toLowerCase() === 'all' ? 'all' : toTitleCase(s);
+      };
+
+      if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : [];
+        sanitizedData.kvkCovered = raw
+          .map((item: any) => {
+            if (item && typeof item === 'object') {
+              return {
+                state: toTitleCase(item.state),
+                district: toTitleCase(item.district),
+                name: toTitleCase(item.name),
+              };
+            }
+            return { state: '', district: '', name: toTitleCase(item) };
+          })
+          .filter((item: { name: string }) => item.name);
+      }
+
+      if (sanitizedData.preference) {
+        const pref: any = sanitizedData.preference;
+        if (typeof pref.district === 'string') {
+          pref.district = titleCaseOrAll(pref.district);
+        }
+        if (Array.isArray(pref.domain)) {
+          pref.domain = pref.domain.map((d: unknown) => titleCaseOrAll(d)).filter(Boolean);
+        } else if (typeof pref.domain === 'string') {
+          pref.domain = titleCaseOrAll(pref.domain);
+        }
+      }
+
+      const authService = getFromContainer(FirebaseAuthService);
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, sanitizedData, session);
+        if (!updatedUser) {
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        }
+        if (sanitizedData.firstName || sanitizedData.lastName) {
+          await authService.updateFirebaseUser(updatedUser.firebaseUID, {
+            firstName: sanitizedData.firstName ?? updatedUser.firstName,
+            lastName: sanitizedData.lastName ?? updatedUser.lastName,
+          });
+        }
+        return updatedUser;
+      });
+    } catch (error) {
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError ||
+        error instanceof ForbiddenError
+      ) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to edit user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+
   async updateUserRole(
     currentUser: IUser,
     userId: string,
@@ -242,30 +376,60 @@ export class UserService extends BaseService {
         throw new BadRequestError('User ID is required');
       }
 
-      return this._withTransaction(async (session: ClientSession) => {
-        const user = await this.userRepo.findById(userId, session);
+      const result = await this._withTransaction(
+        async (session: ClientSession) => {
+          const user = await this.userRepo.findById(userId, session);
 
-        if (!user) {
-          throw new NotFoundError(`User with ID ${userId} not found`);
-        }
+          if (!user) {
+            throw new NotFoundError(`User with ID ${userId} not found`);
+          }
 
-        // Prevent unnecessary update
-        if (user.role === changeRoleTo) {
-          throw new BadRequestError(`User already has role ${changeRoleTo}`);
-        }
+          // Prevent unnecessary update
+          if (user.role === changeRoleTo) {
+            throw new BadRequestError(`User already has role ${changeRoleTo}`);
+          }
 
-        const updatedUser = await this.userRepo.edit(
-          userId,
-          { role: changeRoleTo },
-          session,
-        );
+          const updatedUser = await this.userRepo.edit(
+            userId,
+            { role: changeRoleTo },
+            session,
+          );
 
-        if (!updatedUser) {
-          throw new InternalServerError('Failed to update user role');
-        }
+          if (!updatedUser) {
+            throw new InternalServerError('Failed to update user role');
+          }
 
-        return updatedUser;
-      });
+          return updatedUser;
+        },
+      );
+
+      // Switching a user INTO the gate keeper / auditor role adds a new available
+      // assignee — fill the role queues now so they can immediately receive a question.
+      // Fire-and-forget and idempotent, so it can't affect the role update.
+      if (changeRoleTo === 'gate_keeper' || changeRoleTo === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+      // Switching a user INTO the moderator role adds a new available moderator — fill the
+      // moderator queue now so they immediately receive an in-review question.
+      if (changeRoleTo === 'moderator') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven moderator-queue allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+
+      return result;
     } catch (error) {
       // Preserve known errors
       if (
@@ -298,6 +462,9 @@ export class UserService extends BaseService {
     isBlocked?: boolean;
     isVerified?: boolean;
     isSTF?: boolean;
+    isTMU?: boolean;
+    /** When provided, a second "PAE Analytics" sheet is appended (one row per PAE). */
+    paeAnalytics?: PaeAnalyticsRow[];
   }): Promise<ArrayBuffer> {
     // Fetch every matching user (no pagination) via the same query the list uses.
     // 1_000_000 is an effective "no limit" cap — far above the total user count.
@@ -311,6 +478,7 @@ export class UserService extends BaseService {
       opts.isBlocked,
       opts.isVerified,
       opts.isSTF,
+      opts.isTMU,
     );
 
     const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -360,6 +528,27 @@ export class UserService extends BaseService {
       { header: 'Updated At', value: u => asIST(u.updatedAt) },
     ];
 
+    // When PAE analytics are provided (PAE role + "Get Analytics"), merge the per-PAE
+    // metrics onto the SAME sheet as extra columns, matched to each user by id — no separate
+    // sheet. Users without a match (shouldn't happen when filtered to PAE) get blanks.
+    if (opts.paeAnalytics && opts.paeAnalytics.length > 0) {
+      const analyticsById = new Map<string, PaeAnalyticsRow>(
+        opts.paeAnalytics.map(r => [r.id, r]),
+      );
+      const metric = (u: any, pick: (r: PaeAnalyticsRow) => number): number | '' => {
+        const r = analyticsById.get(u._id?.toString());
+        return r ? pick(r) : '';
+      };
+      columns.push(
+        { header: 'Assigned', value: u => metric(u, r => r.assigned) },
+        { header: 'Submitted', value: u => metric(u, r => r.submitted) },
+        { header: 'Pending', value: u => metric(u, r => r.pending) },
+        { header: 'Feedback Assigned', value: u => metric(u, r => r.feedbackAssigned) },
+        { header: 'Feedback Pending', value: u => metric(u, r => r.feedbackPending) },
+        { header: 'Feedback Completed', value: u => metric(u, r => r.feedbackCompleted) },
+      );
+    }
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Users');
     sheet.columns = columns.map(c => ({ header: c.header, key: c.header, width: 22 }));
@@ -384,6 +573,7 @@ export class UserService extends BaseService {
     isBlocked?: boolean,
     isVerified?: boolean,
     isSTF?: boolean,
+    isTMU?: boolean,
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
     return await this._withTransaction(async () => {
       const { users, totalUsers, totalPages } =
@@ -397,6 +587,7 @@ export class UserService extends BaseService {
           isBlocked,
           isVerified,
           isSTF,
+          isTMU,
         );
       return { users, totalUsers, totalPages };
     });
@@ -411,12 +602,12 @@ export class UserService extends BaseService {
     filter: string,
     includeSelf = false,
     isTrainingUser?: boolean,
-    isAdmin?: boolean
+    canViewAllUsers?: boolean
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session,isTrainingUser,isAdmin);
+        const users = await this.userRepo.findAll(session,isTrainingUser,canViewAllUsers);
         // The caller is excluded by default: most manual-select flows are handing work
         // to someone else (re-routing an answer, reallocating a question). Gate keepers /
         // auditors assigning a question to themselves pass includeSelf.
@@ -514,7 +705,7 @@ export class UserService extends BaseService {
   }
 
   async blockUnblockExperts(userId: string, action: string) {
-    return await this._withTransaction(async (session: ClientSession) => {
+    const result = await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
         // The minimum-experts guard protects the EXPERT pool only. Blocking a
         // moderator (e.g. moderator check-out, which toggles isBlocked) must not
@@ -533,6 +724,40 @@ export class UserService extends BaseService {
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
     });
+
+    // Unblocking a gate keeper / auditor makes them available again
+    // (findAvailableUsersByRole excludes isBlocked users) — fill the role queues now so
+    // they can immediately receive a question. Only relevant for those two roles.
+    // Fire-and-forget and idempotent, so it can't affect the unblock result.
+    if (action !== 'block') {
+      const unblocked = await this.userRepo.findById(userId);
+      const role = unblocked?.role;
+      if (role === 'gate_keeper' || role === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+      // A moderator (or auditor) unblocked becomes available for the moderator queue
+      // (findAvailableStfModeratorsForSources excludes isBlocked) — fill it now so they
+      // immediately receive an in-review question instead of waiting for the cron.
+      if (role === 'moderator' || role === 'auditor') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven moderator-queue allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+    }
+
+    return result;
   }
 
   async updateSTFStatus(userId: string, action: string): Promise<void> {
@@ -776,114 +1001,158 @@ export class UserService extends BaseService {
             //     <p>Please review their request in the admin dashboard.</p>
             //   </div>
             // `;
+            const requestDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+            const currentYear = new Date().getFullYear();
+            const frontendUrl = appConfig.frontendUrl;
             const htmlMessage = `
             <!DOCTYPE html>
-            <html>
+            <html lang="en">
             <head>
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+              <meta name="color-scheme" content="light" />
+              <meta name="supported-color-schemes" content="light" />
+              <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+              <title>New Registration Request</title>
             </head>
-            <body style="margin: 0; padding: 0; background-color: #f2f2f0; font-family: 'Outfit', sans-serif;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f2f2f0; padding: 40px 20px;">
+            <body style="margin: 0; padding: 0; background-color: #eef1ef; font-family: 'Outfit', Arial, sans-serif;">
+              <!-- Preheader (hidden preview text) -->
+              <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
+                ${identifier} has requested registration approval on Ajrasakha Reviewer System.
+              </div>
+
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #eef1ef; padding: 40px 16px;">
                 <tr>
                   <td align="center">
-                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #fdfdfb; border-radius: 8px; overflow: hidden; border: 1px solid #e8e8e4;">
+                    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 600px; max-width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e3e6e2; box-shadow: 0 1px 3px rgba(20, 40, 30, 0.06);">
+
+                      <!-- Logo bar -->
+                      <tr>
+                        <td style="background-color: #ffffff; padding: 20px 40px; text-align: center; border-bottom: 1px solid #e3e6e2;">
+                          <img src="${frontendUrl}/annam-logo.png" alt="Annam.ai" width="130" height="auto" style="display: block; margin: 0 auto; max-width: 130px; border: 0;" />
+                        </td>
+                      </tr>
 
                       <!-- Header -->
                       <tr>
-                        <td style="background-color: #c5eedb; padding: 32px 40px; text-align: center; border-bottom: 1px solid #b0e4ca;">
-                          <h1 style="margin: 0; color: #2d6650; font-size: 22px; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
+                        <td style="background-color: #1f5f45; padding: 24px 40px; text-align: center;">
+                          <p style="margin: 0; color: #ffffff; font-size: 17px; font-weight: 700; font-family: 'Outfit', Arial, sans-serif; letter-spacing: 0.02em;">
                             Ajrasakha Reviewer System
-                          </h1>
-                          <p style="margin: 6px 0 0; color: #4a8c72; font-size: 13px; font-family: 'Outfit', sans-serif;">
-                            desk.vicharanashala.ai
+                          </p>
+                          <p style="margin: 4px 0 0; font-size: 12.5px; font-family: 'Outfit', Arial, sans-serif;">
+                            <a href="${frontendUrl}" style="color: #bfe0cf; text-decoration: none; font-family: 'Outfit', Arial, sans-serif;">ajrasakha-desk.annam.ai</a>
                           </p>
                         </td>
                       </tr>
 
+                      <!-- Accent stripe -->
+                      <tr>
+                        <td style="height: 4px; background-color: #2f8f66; line-height: 4px; font-size: 0;">&nbsp;</td>
+                      </tr>
+
                       <!-- Body -->
                       <tr>
-                        <td style="padding: 36px 40px 24px;">
+                        <td style="padding: 40px 40px 24px;">
 
-                          <p style="margin: 0 0 4px; font-size: 12px; color: #8a8a85; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                            Action Required
-                          </p>
-                          <h2 style="margin: 0 0 20px; font-size: 20px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
-                            New Verification Request
-                          </h2>
-
-                          <p style="margin: 0 0 16px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            Hello Admin,
-                          </p>
-                          <p style="margin: 0 0 28px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            A user has submitted a verification request on the Ajrasakha Reviewer System and is awaiting your approval. Please review the details below and take the appropriate action.
-                          </p>
-
-                          <!-- User Info Card -->
-                          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f2; border: 1px solid #e8e8e4; border-radius: 8px; margin-bottom: 28px;">
+                          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 20px;">
                             <tr>
-                              <td style="padding: 20px 24px;">
-
-                                <p style="margin: 0 0 3px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">
-                                  Requesting User
-                                </p>
-                                <p style="margin: 0 0 18px; font-size: 18px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                                  ${identifier}
-                                </p>
-
-                                <table cellpadding="0" cellspacing="0">
-                                  <tr>
-                                    <td style="padding-right: 32px;">
-                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Request Date</p>
-                                      <p style="margin: 0; font-size: 14px; color: #3a3a35; font-family: 'Outfit', sans-serif;">
-                                        ${new Date().toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})}
-                                      </p>
-                                    </td>
-                                    <td>
-                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Status</p>
-                                      <p style="margin: 0; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                                        <span style="display: inline-block; background-color: #fef9ec; color: #a0721a; border: 1px solid #f5dfa0; border-radius: 4px; padding: 2px 10px; font-size: 13px;">
-                                          Pending Review
-                                        </span>
-                                      </p>
-                                    </td>
-                                  </tr>
-                                </table>
-
+                              <td style="background-color: #fef3d9; border-radius: 4px; padding: 4px 10px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #96650f; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                  Action Required
+                                </span>
                               </td>
                             </tr>
                           </table>
 
-                          <!-- Dashboard Link -->
-                          <p style="margin: 0 0 6px; font-size: 14px; color: #6b6b66; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            Or review all pending requests in the admin dashboard:
-                          </p>
-                          <a href="https://desk.vicharanashala.ai"
-                            style="font-size: 14px; color: #4a8c72; text-decoration: underline; font-family: 'Outfit', sans-serif;">
-                            Open Admin Dashboard →
-                          </a>
+                          <h1 style="margin: 0 0 16px; font-size: 21px; line-height: 1.3; color: #1a1e1b; font-weight: 700; font-family: 'Outfit', Arial, sans-serif;">
+                            New Registration Request
+                          </h1>
 
+                          <p style="margin: 0 0 14px; font-size: 15px; color: #454a46; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            Hello Admin,
+                          </p>
+                          <p style="margin: 0 0 28px; font-size: 15px; color: #454a46; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            A new user has submitted a registration request on the Ajrasakha Web Application and is awaiting your approval. Please review the details below and take the appropriate action.
+                          </p>
+
+                          <!-- Role reminder callout -->
+                          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 28px;">
+                            <tr>
+                              <td style="background-color: #f0f7f4; border-left: 3px solid #1f5f45; border-radius: 0 6px 6px 0; padding: 14px 18px;">
+                                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #1f5f45; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Outfit', Arial, sans-serif;">Before Approving</p>
+                                <p style="margin: 0; font-size: 13.5px; color: #383d39; line-height: 1.65; font-family: 'Outfit', Arial, sans-serif;">
+                                  Please ensure the user's <strong>role is correctly set</strong> before granting access. If this is a test or internal account, set the role to <strong style="color: #1f5f45;">INTERNAL</strong> before approving.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- User Info Card -->
+                          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f6f8f6; border: 1px solid #e3e6e2; border-radius: 10px; margin-bottom: 28px;">
+                            <tr>
+                              <td style="padding: 22px 24px;">
+                                <p style="margin: 0 0 4px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                  Requesting User
+                                </p>
+                                <p style="margin: 0 0 20px; font-size: 18px; color: #1a1e1b; font-weight: 600; font-family: 'Outfit', Arial, sans-serif;">
+                                  ${identifier}
+                                </p>
+
+                                <table cellpadding="0" cellspacing="0" role="presentation">
+                                  <tr>
+                                    <td style="padding-right: 40px;">
+                                      <p style="margin: 0 0 3px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                        Request Date
+                                      </p>
+                                      <p style="margin: 0; font-size: 14px; color: #383d39; font-family: 'Outfit', Arial, sans-serif;">
+                                        ${requestDate}
+                                      </p>
+                                    </td>
+                                    <td>
+                                      <p style="margin: 0 0 3px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                        Status
+                                      </p>
+                                      <span style="display: inline-block; background-color: #fef3d9; color: #96650f; border: 1px solid #f3dda2; border-radius: 4px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; font-family: 'Outfit', Arial, sans-serif;">
+                                        Pending Review
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- CTA Button -->
+                          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 8px;">
+                            <tr>
+                              <td style="border-radius: 8px; background-color: #1f5f45;">
+                                <a href="${frontendUrl}/chatbot?source=web-application&view=dashboard&user=all"
+                                  style="display: inline-block; padding: 13px 28px; font-size: 14.5px; font-weight: 600; color: #ffffff; text-decoration: none; font-family: 'Outfit', Arial, sans-serif; border-radius: 8px;">
+                                  Review Request
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
 
                       <!-- Divider -->
                       <tr>
                         <td style="padding: 0 40px;">
-                          <hr style="border: none; border-top: 1px solid #e8e8e4; margin: 0;" />
+                          <hr style="border: none; border-top: 1px solid #e3e6e2; margin: 0;" />
                         </td>
                       </tr>
 
                       <!-- Footer -->
                       <tr>
                         <td style="padding: 24px 40px 32px;">
-                          <p style="margin: 0; font-size: 12px; color: #9a9a95; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            This is an automated notification from the <strong style="color: #6b6b66;">Ajrasakha Web Application</strong>.
+                          <p style="margin: 0; font-size: 12px; color: #9a9fa0; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            This is an automated notification from the <strong style="color: #6b706c;">Ajrasakha</strong>.
                             Please do not reply to this email. If you believe this was sent in error, you can safely ignore it
                             or contact your system administrator.
                           </p>
-                          <p style="margin: 10px 0 0; font-size: 12px; color: #b8b8b3; font-family: 'Outfit', sans-serif;">
-                            © ${new Date().getFullYear()} Annam.Ai · desk.vicharanashala.ai
+                          <p style="margin: 10px 0 0; font-size: 12px; color: #b8bcb8; font-family: 'Outfit', Arial, sans-serif;">
+                            &copy; ${currentYear} Annam.Ai 
                           </p>
                         </td>
                       </tr>
@@ -1309,4 +1578,534 @@ export class UserService extends BaseService {
       .filter((user) => user._id);
   }
 
+  async exportUserActivityReport(
+    userId: string,
+    query: {
+      viewType?: 'year' | 'month' | 'week' | 'day';
+      selectedYear?: string;
+      selectedMonth?: string;
+      selectedWeek?: string;
+      selectedDay?: string;
+      customStartDateTime?: string;
+      customEndDateTime?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<Buffer> {
+    return this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      // Date parsing logic
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December',
+      ];
+      const dayMap: Record<string, number> = {
+        Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+      };
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+
+      let startDate: Date;
+      let endDate: Date;
+      const customStartTime = query.customStartDateTime;
+      const customEndTime = query.customEndDateTime;
+
+      if (query.startDate && query.endDate) {
+        startDate = new Date(query.startDate);
+        endDate = new Date(query.endDate);
+      } else {
+        const viewType = query.viewType || 'year';
+        const yearNum = Number(query.selectedYear || currentYear);
+
+        if (viewType === 'year') {
+          startDate = new Date(yearNum, 0, 1, 0, 0, 0, 0);
+          endDate = new Date(yearNum, 11, 31, 23, 59, 59, 999);
+        } else if (viewType === 'month') {
+          const selectedMonth = query.selectedMonth || monthNames[now.getMonth()];
+          const monthNum = monthNames.indexOf(selectedMonth) !== -1 ? monthNames.indexOf(selectedMonth) : now.getMonth();
+          startDate = new Date(yearNum, monthNum, 1, 0, 0, 0, 0);
+          endDate = new Date(yearNum, monthNum + 1, 0, 23, 59, 59, 999);
+        } else if (viewType === 'week') {
+          const selectedMonth = query.selectedMonth || monthNames[now.getMonth()];
+          const monthNum = monthNames.indexOf(selectedMonth) !== -1 ? monthNames.indexOf(selectedMonth) : now.getMonth();
+          const selectedWeek = query.selectedWeek || 'Week 1';
+          const weekNum = Number(selectedWeek.replace('Week ', '')) || 1;
+          const startDay = (weekNum - 1) * 7 + 1;
+          const daysInMonth = new Date(yearNum, monthNum + 1, 0).getDate();
+          const endDay = Math.min(startDay + 6, daysInMonth);
+          startDate = new Date(yearNum, monthNum, startDay, 0, 0, 0, 0);
+          endDate = new Date(yearNum, monthNum, endDay, 23, 59, 59, 999);
+        } else {
+          // viewType === 'day'
+          const selectedMonth = query.selectedMonth || monthNames[now.getMonth()];
+          const monthNum = monthNames.indexOf(selectedMonth) !== -1 ? monthNames.indexOf(selectedMonth) : now.getMonth();
+          const selectedWeek = query.selectedWeek || 'Week 1';
+          const weekNum = Number(selectedWeek.replace('Week ', '')) || 1;
+          const startDay = (weekNum - 1) * 7 + 1;
+          const daysInMonth = new Date(yearNum, monthNum + 1, 0).getDate();
+          const endDay = Math.min(startDay + 6, daysInMonth);
+          const selectedDay = query.selectedDay || 'Mon';
+          const targetDayOfWeek = dayMap[selectedDay] !== undefined ? dayMap[selectedDay] : 1;
+          let targetDateNum = startDay;
+          for (let d = startDay; d <= endDay; d++) {
+            const testDate = new Date(yearNum, monthNum, d);
+            if (testDate.getDay() === targetDayOfWeek) {
+              targetDateNum = d;
+              break;
+            }
+          }
+          startDate = new Date(yearNum, monthNum, targetDateNum, 0, 0, 0, 0);
+          endDate = new Date(yearNum, monthNum, targetDateNum, 23, 59, 59, 999);
+        }
+      }
+
+      const matchesTimeFilter = (d: Date): boolean => {
+        if (!customStartTime || !customEndTime) return true;
+        const istTime = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+        const minutes = istTime.getUTCHours() * 60 + istTime.getUTCMinutes();
+        const [startH, startM] = customStartTime.split(':').map(Number);
+        const [endH, endM] = customEndTime.split(':').map(Number);
+        const startTotal = (startH || 0) * 60 + (startM || 0);
+        const endTotal = (endH || 0) * 60 + (endM || 0);
+        return minutes >= startTotal && minutes <= endTotal;
+      };
+
+      const userObjectId = new ObjectId(userId);
+
+      // User name and designation
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || (user as any).userName || user.email || 'User';
+      const roleDisplayMap: Record<string, string> = {
+        admin: 'Admin',
+        moderator: 'Moderator',
+        expert: 'Expert',
+        pae_expert: 'PAE Expert',
+        gate_keeper: 'Gate Keeper',
+        auditor: 'Auditor',
+        tester: 'Tester',
+      };
+      const userDesignation = roleDisplayMap[user.role] || user.role;
+
+      // 1. Total Hours in Rev Cycle
+      const userRoleHistoryCollection = await this.mongoDatabase.getCollection('user_role_history');
+      const roleHistories = await userRoleHistoryCollection.find({
+        userId: userObjectId,
+        $or: [{ to: null }, { to: { $gte: startDate } }],
+        from: { $lte: endDate },
+      }).toArray();
+
+      let totalRevCycleMs = 0;
+      const nowMs = Date.now();
+      const startLimitMs = startDate.getTime();
+      const endLimitMs = endDate.getTime();
+
+      for (const item of roleHistories) {
+        if (item.isBlocked === true) continue;
+        const fromTime = item.from ? new Date(item.from).getTime() : null;
+        if (!fromTime) continue;
+        const toTime = item.to ? new Date(item.to).getTime() : nowMs;
+
+        const start = Math.max(fromTime, startLimitMs);
+        const end = Math.min(toTime, endLimitMs);
+        if (end > start) {
+          totalRevCycleMs += (end - start);
+        }
+      }
+      const totalHoursInRevCycle = totalRevCycleMs / (1000 * 60 * 60);
+
+      // 2. Submissions & Questions for Authoring, Reviewing (Rev 1-9), GDB Pushed
+      const submissionsCollection = await this.mongoDatabase.getCollection('question_submissions');
+      const questionsCollection = await this.mongoDatabase.getCollection('questions');
+      const reroutesCollection = await this.mongoDatabase.getCollection('reroutes');
+      const reviewsCollection = await this.mongoDatabase.getCollection('reviews');
+
+      const submissions = await submissionsCollection.find({
+        'history.updatedBy': userObjectId,
+      }).toArray();
+
+      const questionIds = submissions.map((s: any) => s.questionId).filter(Boolean);
+      const questions = questionIds.length > 0
+        ? await questionsCollection.find({
+            _id: { $in: questionIds.map((id: any) => typeof id === 'string' ? new ObjectId(id) : id) },
+          }).toArray()
+        : [];
+
+      const questionMap = new Map<string, any>();
+      for (const q of questions) {
+        questionMap.set(q._id.toString(), q);
+      }
+
+      // Collect all reviewIds from submissions for reviewer time calculation
+      const allReviewIds: ObjectId[] = [];
+      for (const sub of submissions) {
+        const history = (sub as any).history || [];
+        for (let i = 1; i < history.length; i++) {
+          const h = history[i];
+          if (h.updatedBy?.toString() === userId && h.reviewId) {
+            const reviewId = typeof h.reviewId === 'string' ? new ObjectId(h.reviewId) : h.reviewId;
+            allReviewIds.push(reviewId);
+          }
+        }
+      }
+
+      // Fetch all relevant reviews upfront
+      const reviewMap = new Map<string, any>();
+      if (allReviewIds.length > 0) {
+        const reviews = await reviewsCollection.find({
+          _id: { $in: allReviewIds },
+        }).toArray();
+        for (const review of reviews) {
+          reviewMap.set(review._id.toString(), review);
+        }
+      }
+
+      let authoredCount = 0;
+      let totalAuthoringMs = 0;
+      let reviewedCount = 0;
+      let totalReviewingMs = 0;
+      const revCounts: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      let gdbPushedCount = 0;
+
+      for (const sub of submissions) {
+        const history = (sub as any).history || [];
+        const question = questionMap.get((sub as any).questionId?.toString());
+
+        // Check if user authored (index 0)
+        if (history.length > 0 && history[0].updatedBy?.toString() === userId) {
+          // Author finished at is history[0].createdAt, not updatedAt
+          const authorCompletedAt = new Date(history[0].createdAt);
+          if (authorCompletedAt >= startDate && authorCompletedAt <= endDate && matchesTimeFilter(authorCompletedAt)) {
+            authoredCount++;
+
+            // Author assigned at is question.firstAllocationAt
+            const allocStart = question?.firstAllocationAt ? new Date(question.firstAllocationAt) : new Date(history[0].createdAt);
+            const diff = authorCompletedAt.getTime() - allocStart.getTime();
+            if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+              totalAuthoringMs += diff;
+            }
+
+            if (question && (question.status === 'closed' || question.closedAt || question.isClosed)) {
+              gdbPushedCount++;
+            }
+          }
+        }
+
+        // Check reviews (index >= 1)
+        for (let i = 1; i < history.length; i++) {
+          const h = history[i];
+          if (h.updatedBy?.toString() === userId) {
+            // Review is only complete if it has a reviewId
+            // If no reviewId, it's still in progress - skip time calculation
+            if (!h.reviewId) {
+              continue;
+            }
+
+            const reviewIdStr = typeof h.reviewId === 'string' ? h.reviewId : h.reviewId.toString();
+            const review = reviewMap.get(reviewIdStr);
+
+            // If review document not found, treat as in progress
+            if (!review || !review.createdAt) {
+              continue;
+            }
+
+            // Review completed at is the review document's createdAt, not history.updatedAt
+            const reviewCompletedAt = new Date(review.createdAt);
+            if (reviewCompletedAt >= startDate && reviewCompletedAt <= endDate && matchesTimeFilter(reviewCompletedAt)) {
+              reviewedCount++;
+              if (i >= 1 && i <= 9) {
+                revCounts[i]++;
+              }
+
+              // Assigned at is h.createdAt
+              const assignedAt = new Date(h.createdAt);
+              const diff = reviewCompletedAt.getTime() - assignedAt.getTime();
+              if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+                totalReviewingMs += diff;
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Moderating
+      let moderatedCount = 0;
+      let totalModeratingMs = 0;
+
+      const moderatedQuestions = await questionsCollection.find({
+        moderatorId: userObjectId,
+        moderatorAssignedAt: { $ne: null },
+        $or: [{ closedAt: { $ne: null } }, { passedAt: { $ne: null } }, { status: { $in: ['closed', 'pass'] } }],
+      }).toArray();
+
+      for (const q of moderatedQuestions) {
+        const endAt = q.closedAt ? new Date(q.closedAt) : (q.passedAt ? new Date(q.passedAt) : (q.updatedAt ? new Date(q.updatedAt) : null));
+        if (endAt && endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+          moderatedCount++;
+          const startAt = new Date((q as any).moderatorAssignedAt);
+          const diff = endAt.getTime() - startAt.getTime();
+          if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+            totalModeratingMs += diff;
+          }
+        }
+      }
+
+      const reroutes = await reroutesCollection.find({
+        'reroutes.reroutedTo': userObjectId,
+      }).toArray();
+
+      for (const doc of reroutes) {
+        for (const r of (doc as any).reroutes || []) {
+          if (r.reroutedTo?.toString() === userId && r.updatedAt) {
+            const endAt = new Date(r.updatedAt);
+            if (endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+              moderatedCount++;
+              const startAt = new Date(r.reroutedAt);
+              const diff = endAt.getTime() - startAt.getTime();
+              if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+                totalModeratingMs += diff;
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Auditing
+      let auditedCount = 0;
+      let totalAuditingMs = 0;
+
+      const auditedQuestions = await questionsCollection.find({
+        auditorId: userObjectId,
+        auditorFinishedAt: { $ne: null },
+      }).toArray();
+
+      for (const q of auditedQuestions) {
+        const endAt = new Date((q as any).auditorFinishedAt);
+        if (endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+          auditedCount++;
+          const startAt = (q as any).auditorAssignedAt ? new Date((q as any).auditorAssignedAt) : null;
+          if (startAt) {
+            const diff = endAt.getTime() - startAt.getTime();
+            if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+              totalAuditingMs += diff;
+            }
+          }
+        }
+      }
+
+      // 5. Gatekeeping
+      let gatekeepedCount = 0;
+      let totalGatekeepingMs = 0;
+
+      const gatekeepedQuestions = await questionsCollection.find({
+        gateKeeperId: userObjectId,
+        gateKeeperFinishedAt: { $ne: null },
+      }).toArray();
+
+      for (const q of gatekeepedQuestions) {
+        const endAt = new Date((q as any).gateKeeperFinishedAt);
+        if (endAt >= startDate && endAt <= endDate && matchesTimeFilter(endAt)) {
+          gatekeepedCount++;
+          const startAt = (q as any).gateKeeperAssignedAt ? new Date((q as any).gateKeeperAssignedAt) : null;
+          if (startAt) {
+            const diff = endAt.getTime() - startAt.getTime();
+            if (diff > 0 && diff < 7 * 24 * 60 * 60 * 1000) {
+              totalGatekeepingMs += diff;
+            }
+          }
+        }
+      }
+
+      // Helper formatters
+      const formatMsToHMS = (ms: number): string => {
+        if (!ms || ms <= 0 || isNaN(ms)) return '00:00:00';
+        const totalSec = Math.floor(ms / 1000);
+        const hrs = Math.floor(totalSec / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      };
+
+      const formatHours = (hrs: number): string => {
+        if (!hrs || hrs <= 0 || isNaN(hrs)) return '0.00 hrs';
+        return `${hrs.toFixed(2)} hrs`;
+      };
+
+      // Create Excel Workbook
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('User Activity Report');
+
+      sheet.columns = [
+        { key: 'col1', width: 32 },
+        { key: 'col2', width: 22 },
+        { key: 'col3', width: 34 },
+        { key: 'col4', width: 22 },
+        { key: 'col5', width: 18 },
+        { key: 'col6', width: 18 },
+        { key: 'col7', width: 18 },
+        { key: 'col8', width: 18 },
+        { key: 'col9', width: 18 },
+        { key: 'col10', width: 18 },
+        { key: 'col11', width: 18 },
+        { key: 'col12', width: 18 },
+        { key: 'col13', width: 18 },
+        { key: 'col14', width: 18 },
+        { key: 'col15', width: 18 },
+        { key: 'col16', width: 38 },
+      ];
+
+      const THIN_BORDER: Partial<ExcelJS.Borders> = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+
+      // Row 1
+      sheet.getCell('A1').value = 'Name';
+      sheet.getCell('A1').font = { bold: true };
+      sheet.getCell('B1').value = userName;
+
+      // Row 2
+      sheet.getCell('A2').value = 'Designation';
+      sheet.getCell('A2').font = { bold: true };
+      sheet.getCell('B2').value = userDesignation;
+
+      // Row 4
+      sheet.getCell('A4').value = 'Total Hours in Rev Cycle';
+      sheet.getCell('A4').font = { bold: true };
+      sheet.getCell('A4').border = THIN_BORDER;
+      sheet.getCell('B4').value = formatHours(totalHoursInRevCycle);
+      sheet.getCell('B4').border = THIN_BORDER;
+      sheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 5: Authoring
+      sheet.getCell('A5').value = 'Avg time for Authoring';
+      sheet.getCell('A5').border = THIN_BORDER;
+      sheet.getCell('B5').value = formatMsToHMS(authoredCount > 0 ? totalAuthoringMs / authoredCount : 0);
+      sheet.getCell('B5').border = THIN_BORDER;
+      sheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C5').value = 'Total Hours involved in Authoring';
+      sheet.getCell('C5').border = THIN_BORDER;
+      sheet.getCell('D5').value = formatHours(totalAuthoringMs / (1000 * 60 * 60));
+      sheet.getCell('D5').border = THIN_BORDER;
+      sheet.getCell('D5').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 6: Reviewing
+      sheet.getCell('A6').value = 'Avg time for Revieweing';
+      sheet.getCell('A6').border = THIN_BORDER;
+      sheet.getCell('B6').value = formatMsToHMS(reviewedCount > 0 ? totalReviewingMs / reviewedCount : 0);
+      sheet.getCell('B6').border = THIN_BORDER;
+      sheet.getCell('B6').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C6').value = 'Total Hours involved in Reviewing';
+      sheet.getCell('C6').border = THIN_BORDER;
+      sheet.getCell('D6').value = formatHours(totalReviewingMs / (1000 * 60 * 60));
+      sheet.getCell('D6').border = THIN_BORDER;
+      sheet.getCell('D6').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 7: Moderating
+      sheet.getCell('A7').value = 'Avg time for Moderating';
+      sheet.getCell('A7').border = THIN_BORDER;
+      sheet.getCell('B7').value = formatMsToHMS(moderatedCount > 0 ? totalModeratingMs / moderatedCount : 0);
+      sheet.getCell('B7').border = THIN_BORDER;
+      sheet.getCell('B7').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C7').value = 'Total Hours involved in Moderating';
+      sheet.getCell('C7').border = THIN_BORDER;
+      sheet.getCell('D7').value = formatHours(totalModeratingMs / (1000 * 60 * 60));
+      sheet.getCell('D7').border = THIN_BORDER;
+      sheet.getCell('D7').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 8: Auditing
+      sheet.getCell('A8').value = 'Avg time for Auditing';
+      sheet.getCell('A8').border = THIN_BORDER;
+      sheet.getCell('B8').value = formatMsToHMS(auditedCount > 0 ? totalAuditingMs / auditedCount : 0);
+      sheet.getCell('B8').border = THIN_BORDER;
+      sheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C8').value = 'Total Hours involved in Auditing';
+      sheet.getCell('C8').border = THIN_BORDER;
+      sheet.getCell('D8').value = formatHours(totalAuditingMs / (1000 * 60 * 60));
+      sheet.getCell('D8').border = THIN_BORDER;
+      sheet.getCell('D8').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 9: Gatekeeping
+      sheet.getCell('A9').value = 'Avg time for Gatekeeping';
+      sheet.getCell('A9').border = THIN_BORDER;
+      sheet.getCell('B9').value = formatMsToHMS(gatekeepedCount > 0 ? totalGatekeepingMs / gatekeepedCount : 0);
+      sheet.getCell('B9').border = THIN_BORDER;
+      sheet.getCell('B9').alignment = { horizontal: 'center', vertical: 'middle' };
+      sheet.getCell('C9').value = 'Total Hours involved in Gatekeeping';
+      sheet.getCell('C9').border = THIN_BORDER;
+      sheet.getCell('D9').value = formatHours(totalGatekeepingMs / (1000 * 60 * 60));
+      sheet.getCell('D9').border = THIN_BORDER;
+      sheet.getCell('D9').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 11: Main Table Headers
+      const tableHeaders = [
+        'Agri Proffesional Name',
+        'Authored',
+        'Reviewed',
+        'Reviewed as Rev1',
+        'Reviewed as Rev2',
+        'Reviewed as Rev3',
+        'Reviewed as Rev4',
+        'Reviewed as Rev5',
+        'Reviewed as Rev6',
+        'Reviewed as Rev7',
+        'Reviewed as Rev8',
+        'Reviewed as Rev9',
+        'Moderated',
+        'Audited',
+        'Gatekeeped',
+        'GDB Pushed (Authored / GDB Pushed)',
+      ];
+
+      const headerRow = sheet.getRow(11);
+      tableHeaders.forEach((th, idx) => {
+        const cell = headerRow.getCell(idx + 1);
+        cell.value = th;
+        cell.font = { bold: true };
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2F2F2' },
+        };
+      });
+
+      // Row 12: Data Row
+      const dataRowValues = [
+        userName,
+        authoredCount,
+        reviewedCount,
+        revCounts[1] || 0,
+        revCounts[2] || 0,
+        revCounts[3] || 0,
+        revCounts[4] || 0,
+        revCounts[5] || 0,
+        revCounts[6] || 0,
+        revCounts[7] || 0,
+        revCounts[8] || 0,
+        revCounts[9] || 0,
+        moderatedCount,
+        auditedCount,
+        gatekeepedCount,
+        gdbPushedCount,
+      ];
+
+      const dataRow = sheet.getRow(12);
+      dataRowValues.forEach((val, idx) => {
+        const cell = dataRow.getCell(idx + 1);
+        cell.value = val;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: idx === 0 ? 'left' : 'center', vertical: 'middle' };
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      return Buffer.from(buffer);
+    });
+  }
 }

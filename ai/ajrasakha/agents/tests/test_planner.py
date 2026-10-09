@@ -106,6 +106,33 @@ async def test_reviewer_upload_uses_rephrased_query_not_raw_user_text():
     assert reviewer["args"]["question"] != raw_user
 
 
+def test_multiple_crops_label_goes_to_reviewer_only():
+    from ajrasakha.agents.plan_executor import _resolve_reviewer_location
+
+    plan = {
+        "knowledge_base": True,
+        "is_complete": True,
+        "is_multiple_crops": True,
+        "domains": ["Nutrient Management"],
+        "rephrased_query": "What is the fertilizer dose for wheat and mustard in Punjab?",
+        "entities": {"crop": "all", "state": "Punjab", "district": "all"},
+    }
+    calls = build_reviewer_upload_calls(
+        plan,
+        plan["rephrased_query"],
+        None,
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+    )
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["crop"] == "Multiple Crops"
+    assert reviewer["args"]["details"]["crop"] == "Multiple Crops"
+
+    specialist = _resolve_reviewer_location(plan, {}, stage="specialist_tool_batch")
+    assert specialist.crop != "Multiple Crops"
+
+
 @pytest.mark.asyncio
 async def test_reviewer_upload_falls_back_to_user_query_without_rephrased():
     user_text = "Weather in Ropar and yellow rust on wheat"

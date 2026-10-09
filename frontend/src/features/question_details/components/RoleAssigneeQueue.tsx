@@ -45,6 +45,7 @@ interface RoleAssigneeQueueProps {
   role: Role;
   question: IQuestionFullData;
   currentUser: IUser;
+  initialOpen?: boolean;
 }
 
 /**
@@ -59,6 +60,7 @@ export const RoleAssigneeQueue = ({
   role,
   question,
   currentUser,
+  initialOpen = false,
 }: RoleAssigneeQueueProps) => {
   const isGK = role === "gate_keeper";
   const assignee = isGK
@@ -87,7 +89,7 @@ export const RoleAssigneeQueue = ({
     : ["auditor_review"];
   const isRoleStatus = roleStatuses.includes(question.status);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -167,7 +169,7 @@ export const RoleAssigneeQueue = ({
               <UserCheck className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
+              <h2 className="text-xl sm:text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
                 {title}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">

@@ -1,12 +1,22 @@
 import { apiFetch, getCurrentUser } from "../api/api-fetch";
 import { getIdToken } from "firebase/auth";
 import { env } from "@/config/env";
-import type { IUser } from "@/types";
+import type { IUser, IUserAdminEdit } from "@/types";
 
 const API_BASE_URL = env.apiBaseUrl();
 
 export class AdminUserService {
   private _baseUrl = `${API_BASE_URL}/users`;
+
+  async editUserDetails(
+    userId: string,
+    data: IUserAdminEdit,
+  ): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/admin/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
 
   async removeExpertAllocations(
     expertId: string,
@@ -39,10 +49,11 @@ export class AdminUserService {
     role: string,
     isBlocked: string,
     isVerified: string,
-    isSTF: string
+    isSTF: string,
+    isTMU: string
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
     return apiFetch(
-      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}&isVerified=${isVerified}&isSTF=${isSTF}`
+      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}&isVerified=${isVerified}&isSTF=${isSTF}&isTMU=${isTMU}`
     );
   }
 
@@ -55,6 +66,9 @@ export class AdminUserService {
     isBlocked?: string;
     isVerified?: string;
     isSTF?: string;
+    isTMU?: string;
+    /** When true AND role is pae_expert, the export includes a "PAE Analytics" sheet. */
+    getAnalytics?: boolean;
   }): Promise<Blob> {
     const qs = new URLSearchParams();
     if (params.search) qs.append("search", params.search);
@@ -64,6 +78,9 @@ export class AdminUserService {
     if (params.isBlocked && params.isBlocked !== "ALL") qs.append("isBlocked", params.isBlocked);
     if (params.isVerified && params.isVerified !== "ALL") qs.append("isVerified", params.isVerified);
     if (params.isSTF && params.isSTF !== "ALL") qs.append("isSTF", params.isSTF);
+    if (params.isTMU && params.isTMU !== "ALL") qs.append("isTMU", params.isTMU);
+    // Only meaningful for the PAE role — the backend also guards on role === pae_expert.
+    if (params.getAnalytics && params.role === "pae_expert") qs.append("getAnalytics", "true");
 
     const user = await getCurrentUser();
     if (!user) throw new Error("User not authenticated");

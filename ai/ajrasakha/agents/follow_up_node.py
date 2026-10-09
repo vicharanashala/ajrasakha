@@ -22,11 +22,12 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from openai import APITimeoutError, APIConnectionError, APIStatusError
+from anthropic import APITimeoutError, APIConnectionError, APIStatusError
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.config import FOLLOW_UP_MODEL, get_minimax_chat_model
+from ajrasakha.agents.config import FOLLOW_UP_MODEL
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 from ajrasakha.agents.prompts import FOLLOW_UP_SYSTEM_PROMPT, FOLLOW_UP_TYPE_INSTRUCTIONS
 from ajrasakha.agents.state import AjraSakhaState
@@ -140,7 +141,12 @@ async def follow_up_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
         f"MAIN QUESTION (what the previous answer was about):\n{main_question}\n\n"
         f"PREVIOUS AI ANSWER (to transform):\n{previous_answer}\n\n"
         f"FARMER'S FOLLOW-UP REQUEST:\n{follow_up_text}\n\n"
-        "Produce the transformed answer now."
+        + (
+            f"LOCATION NOTE:\n{plan['profile_location_prefix']}\n\n"
+            if plan.get("profile_location_prefix")
+            else ""
+        )
+        + "Produce the transformed answer now."
     )
 
     llm_messages: list[BaseMessage] = [
@@ -149,7 +155,7 @@ async def follow_up_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     ]
 
     try:
-        llm = get_minimax_chat_model()
+        llm = ChatAnthropic(model=FOLLOW_UP_MODEL)
         trace_llm_request(
             "follow_up",
             model=FOLLOW_UP_MODEL,

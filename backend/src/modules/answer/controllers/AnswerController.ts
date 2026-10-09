@@ -16,6 +16,7 @@ import {
   BadRequestError,
   InternalServerError,
   ForbiddenError,
+  UseBefore,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -23,13 +24,40 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
+import { InternalApiAuth } from '#root/shared/index.js';
 import { AnswerService } from '../services/AnswerService.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
+import { ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IQuestionService } from '#root/modules/question/interfaces/index.js';
+
+// Parses a non-negative whole number query param, or undefined when unusable.
+const toCount = (value?: string): number | undefined => {
+  if (value === undefined || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : undefined;
+};
+
+// Keeps the shuffle seed inside a range where seed * timestamp stays within int64.
+const toSeed = (value?: string): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return Math.floor(parsed) % 999983 || undefined;
+};
+
+// Splits a comma-separated query param into a trimmed list, or undefined when empty.
+const toList = (value?: string): string[] | undefined => {
+  if (!value) return undefined;
+  const items = value
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : undefined;
+};
 
 @OpenAPI({
   tags: ['Answers'],
@@ -541,4 +569,83 @@ export class AnswerController {
     return await this.answerService.goldenFaq(userId,Number(page),Number(limit),search)
   }
 
+  @Get('/closed')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get all answers belonging to closed questions'})
+  async getClosedAnswers(
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      closedAtStart?: string;
+      closedAtEnd?: string;
+      authorIds?: string;
+      sourcePresence?: string;
+      sourceTypes?: string;
+      minSources?: string;
+      maxSources?: string;
+      shuffleSeed?: string;
+      sourceReferenceStatuses?: string;
+      newSourceStatuses?: string;
+      sentBackToPending?: string;
+      states?: string;
+      crops?: string;
+      domains?: string;
+      priorities?: string;
+    },
+    @CurrentUser() user: IUser,
+  ): Promise<{answers: any[]; totalAnswers: number}> {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    const filters: ClosedAnswerFilters = {
+      closedAtStart: query.closedAtStart,
+      closedAtEnd: query.closedAtEnd,
+      authorIds: toList(query.authorIds),
+      sourcePresence:
+        query.sourcePresence === 'with' || query.sourcePresence === 'without'
+          ? query.sourcePresence
+          : undefined,
+      sourceTypes: toList(query.sourceTypes),
+      minSources: toCount(query.minSources),
+      maxSources: toCount(query.maxSources),
+      shuffleSeed: toSeed(query.shuffleSeed),
+      sourceReferenceStatuses: toList(query.sourceReferenceStatuses),
+      newSourceStatuses: toList(query.newSourceStatuses),
+      sentBackToPending: query.sentBackToPending === 'true',
+      states: toList(query.states),
+      crops: toList(query.crops),
+      domains: toList(query.domains),
+      priorities: toList(query.priorities),
+      viewerRole: user.role,
+      viewerId: user._id?.toString(),
+    };
+    return await this.answerService.getClosedAnswers(
+      page,
+      limit,
+      query.search,
+      filters,
+    );
+  }
+
+  @OpenAPI({ summary: 'Get question and final answer by messageId' })
+  @Get('/message/:id')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  async getAnswerByMessageId(
+    @Param('id') id: string,
+  ) {
+    return this.answerService.getAnswerByMessageOrThreadId(id);
+  }
+
+  @OpenAPI({ summary: 'Get question and final answer by threadId' })
+  @Get('/thread/:id')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  async getAnswerByThreadId(
+    @Param('id') id: string,
+  ) {
+    return this.answerService.getAnswerByMessageOrThreadId(id);
+  }
 }

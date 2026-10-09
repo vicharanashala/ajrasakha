@@ -39,7 +39,6 @@ import CountUp from "react-countup";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import { Spinner } from "@/components/atoms/spinner";
 import { TimePicker } from "./time-picker";
-import { TopRightBadge } from "../NewBadge";
 
 // Helper function to safely convert decimal hours to formatted "Xh Ym"
 // We convert entirely to minutes first to avoid floating point issues (e.g., "0h 60m")
@@ -519,7 +518,6 @@ export const GoldenDatasetOverview = ({
 
             {/* Time Range Filters */}
             <div className="flex gap-3 items-center ml-auto relative">
-              <TopRightBadge label="new" left={0} />
               <TimePicker
                 value={customStartDateTime || ""}
                 onChange={setCustomStartDateTime}

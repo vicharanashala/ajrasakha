@@ -27,6 +27,32 @@ import { ScrollArea } from "./atoms/scroll-area";
 import { toast,useToast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
+// The standard clarification / "please share more details" reply — e.g.
+//   "We're sorry, we couldn't fully understand your question. Could you please share more
+//    details. ..."
+// is a request for more information and legitimately has no sources, so the mandatory-
+// source check is skipped for it. We detect it by a signature phrase (not an exact match)
+// so light paraphrases also count, e.g. "we are sorry we could not fully understand ...".
+
+// Normalise so contractions and punctuation don't matter: unify curly quotes, expand
+// common contractions (we're -> we are, couldn't -> could not), strip punctuation,
+// collapse whitespace, lowercase.
+const normalizeReply = (s: string) =>
+    (s ?? "")
+        .replace(/[‘’]/g, "'")
+        .replace(/[“”]/g, '"')
+        .toLowerCase()
+        .replace(/won't/g, "will not")
+        .replace(/can't/g, "can not")
+        .replace(/n't/g, " not") // couldn't -> could not, don't -> do not
+        .replace(/'re/g, " are") // we're -> we are
+        .replace(/[^a-z0-9\s]/g, " ") // strip punctuation
+        .replace(/\s+/g, " ")
+        .trim();
+
+const isClarificationMessage = (s: string) =>
+    normalizeReply(s).includes("could not fully understand");
+
 interface MessageDetailCardProps {
     question: IQuestionFullData;
     isQuestionAllocatedToExpert: boolean;
@@ -709,13 +735,16 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 }
             }
 
-            if (sources.length === 0) {
+            const action = flowType ?? confirmDialog.type;
+            const isAcceptFlow = action === "accept";
+
+            // Sources are mandatory in general, but the standard "please share more details"
+            // clarification reply legitimately has none — so when the auditor's answer is
+            // exactly that message, skip the mandatory source check.
+            if (sources.length === 0 && !isClarificationMessage(editedAnswerBody)) {
                 toast.error("At least one source is required to proceed.");
                 return;
             }
-
-            const action = flowType ?? confirmDialog.type;
-            const isAcceptFlow = action === "accept";
             // "Push to GDB" → close as 'closed'; "Notify User" → dynamic/duplicate_closed.
             const closeIntent: "gdb" | "notify" | undefined =
                 action === "notify" ? "notify" : action === "push-to-gdb" ? "gdb" : undefined;
@@ -765,7 +794,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         const hasAnySource =
             editedSpecialists.some(s => s.sourceLink?.trim()) ||
             editedPdfSources.some(s => s.link?.trim());
-        if (!hasAnySource) {
+        // The standard "please share more details" clarification reply has no sources — skip
+        // the mandatory source check when the answer is that message.
+        if (!hasAnySource && !isClarificationMessage(editedAnswerBody)) {
             toast.error("At least one source is required to proceed.");
             return;
         }

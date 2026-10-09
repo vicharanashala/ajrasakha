@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from ajrasakha.agents.domains import (
+    apply_tool_flags_from_domains,
     crop_counts_as_resolved,
     domain_requires_crop,
     is_crop_placeholder,
     normalize_crop_value,
     normalize_domain,
 )
-from ajrasakha.agents.location_context import (
-    extract_state_from_text,
-    latest_human_text,
-    recent_human_text,
-)
+from ajrasakha.agents.location_context import latest_human_text
 from ajrasakha.agents.resolution_trace import trace_resolution
 from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
 from ajrasakha.agents.translation_catalog import (
@@ -179,25 +176,6 @@ _CROP_OUTPUT_RE = re.compile(
     r"(?:\bwhat\s+should\s+i\s+(?:grow|plant|cultivate|sow)\b)",
     re.I,
 )
-
-_CROP_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("cotton", re.compile(r"\bcotton\b", re.I)),
-    ("paddy", re.compile(r"\b(paddy|rice)\b", re.I)),
-    ("wheat", re.compile(r"\bwheat\b", re.I)),
-    ("maize", re.compile(r"\b(maize|corn)\b", re.I)),
-    ("tomato", re.compile(r"\btomato\b", re.I)),
-    ("onion", re.compile(r"\bonion\b", re.I)),
-    ("chilli", re.compile(r"\b(chilli|chili|mirch)\b", re.I)),
-    ("potato", re.compile(r"\bpotato\b", re.I)),
-    ("sugarcane", re.compile(r"\bsugarcane\b", re.I)),
-    ("soybean", re.compile(r"\bsoybean\b", re.I)),
-    ("groundnut", re.compile(r"\b(groundnut|peanut)\b", re.I)),
-    ("mustard", re.compile(r"\bmustard\b", re.I)),
-    ("sunflower", re.compile(r"\bsunflower\b", re.I)),
-    ("banana", re.compile(r"\bbanana\b", re.I)),
-    ("mango", re.compile(r"\bmango\b", re.I)),
-]
-
 
 def _message_to_text(message: BaseMessage) -> str:
     content = message.content
@@ -525,77 +503,6 @@ def apply_crop_one_shot_fallback(
     return entities
 
 
-def resolve_crop_for_turn_with_source(
-    messages: list[BaseMessage],
-    *,
-    prev_plan: Optional[PlannerPlan] = None,
-) -> tuple[Optional[str], str]:
-    """Resolve the crop slot as ``specific`` or the canonical ``all`` scope.
-
-    A missing/ambiguous value is represented as ``all`` for persistence and
-    downstream tools. The requirement gate still treats ``all`` as unsatisfied
-    when the selected domain needs a specific crop, so this normalization does
-    not suppress a necessary crop follow-up.
-    """
-    crop_clarify = is_crop_clarify_turn(messages, prev_plan=prev_plan)
-    latest_text = latest_human_text(messages)
-    text = recent_human_text(messages, max_turns=3) if crop_clarify else latest_text
-
-    if is_crop_output_question(text) or is_explicit_all_crop_request(text):
-        source = (
-            "deterministic_non_specific_crop_request"
-            if is_crop_output_question(text)
-            else "deterministic_all_crop_request"
-        )
-        trace_resolution(
-            "crop_scope_from_text",
-            crop="all",
-            crop_source=source,
-            text_preview=text[:120] if text else None,
-        )
-        return "all", source
-
-    crop = extract_crop_from_text(latest_text if crop_clarify else text)
-    if crop:
-        trace_resolution(
-            "crop_from_text",
-            crop=crop,
-            crop_source="legacy_crop_pattern",
-            text_preview=(latest_text if crop_clarify else text)[:120],
-        )
-        return crop, "legacy_crop_pattern"
-
-    if crop_clarify and latest_text.strip():
-        # The user answered the crop question, but did not provide a resolvable
-        # crop. Represent that answer using MongoDB's canonical all-crops value;
-        # the planner will treat this clarification turn as resolved.
-        trace_resolution(
-            "crop_clarification_fallback",
-            crop="all",
-            crop_source="crop_clarification_default_all",
-            text_preview=latest_text[:120],
-        )
-        return "all", "crop_clarification_default_all"
-
-    trace_resolution(
-        "crop_unresolved",
-        crop="all",
-        crop_source="unresolved_default_all",
-        text_preview=text[:120] if text else None,
-    )
-    return "all", "unresolved_default_all"
-
-
-def resolve_crop_for_turn(
-    messages: list[BaseMessage],
-    *,
-    prev_plan: Optional[PlannerPlan] = None,
-) -> Optional[str]:
-    """Backward-compatible crop-only wrapper around the three-state resolver."""
-    crop, _source = resolve_crop_for_turn_with_source(messages, prev_plan=prev_plan)
-    return crop
-
-
 def is_explicit_all_crop_request(text: str | None) -> bool:
     """True when the farmer explicitly asks for non-specific/all-crop handling."""
     raw = (text or "").strip()
@@ -607,20 +514,66 @@ def is_crop_output_question(text: str | None) -> bool:
     return bool(_CROP_OUTPUT_RE.search((text or "").strip()))
 
 
-def extract_crop_from_text(text: str) -> Optional[str]:
-    if not text:
-        return None
-
-    for name, pattern in _CROP_PATTERNS:
-        if pattern.search(text):
-            return name
-    return None
-
-
 def entity_text_from_plan(plan: PlannerPlan, messages: list[BaseMessage]) -> str:
     """English text used for state/crop extraction — rephrased query first."""
     text = (plan.get("rephrased_query") or plan.get("original_query_en") or "").strip()
     return text or latest_human_text(messages)
+
+
+def is_weather_or_mandi_plan(plan: PlannerPlan) -> bool:
+    """Weather or mandi turn. Read from the domains too, since the planner merges
+    entities once before the server derives the tool flags from them."""
+    if plan.get("weather") or plan.get("mandi"):
+        return True
+    domains = [normalize_domain(d) for d in (plan.get("domains") or [plan.get("domain") or "General"])]
+    flags = apply_tool_flags_from_domains(domains)
+    return bool(flags.get("weather") or flags.get("mandi"))
+
+
+SET_PROFILE_LOCATION = "Please set your location."
+PROFILE_LOCATION_MESSAGES = (SET_PROFILE_LOCATION,)
+PROFILE_LOCATION_PREFIX = (
+    "The below answer is provided for the location: {location}. "
+    "If this is not your preferred location, please change it and ask again."
+)
+_UNSPECIFIED_PLACES = frozenset({
+    "", "all", "general", "na", "n a", "none", "null", "not specified", "unknown", "unspecified",
+})
+
+
+def is_unspecified_place(value: object) -> bool:
+    """True for values that mean "no place given" ("all", "none", "unknown", ...)."""
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip() in _UNSPECIFIED_PLACES
+
+
+def ask_to_change_profile_location(
+    plan: PlannerPlan,
+    stored_location: Optional[dict[str, Any]] = None,
+) -> PlannerPlan:
+    """The farmer profile is the only location.
+
+    No profile location: ask the farmer to set it and end the turn. A question
+    naming any place is answered for the profile location, and the answer starts
+    with that location.
+    """
+    out: PlannerPlan = dict(plan)
+    out["profile_location_prefix"] = None
+    if out.get("is_greeting"):
+        return out
+    if not stored_location:
+        out["is_complete"] = False
+        # No missing_info: the next message is a new question, not a reply to merge.
+        out["missing_info"] = []
+        out["follow_up_question"] = SET_PROFILE_LOCATION
+        return out
+    if any(not is_unspecified_place(p) for p in out.get("places") or []):
+        location = ", ".join(
+            str(stored_location[key])
+            for key in ("state", "district", "village", "block")
+            if not is_unspecified_place(stored_location.get(key))
+        )
+        out["profile_location_prefix"] = PROFILE_LOCATION_PREFIX.format(location=location)
+    return out
 
 
 def merge_entities_from_rephrased_query(
@@ -633,11 +586,8 @@ def merge_entities_from_rephrased_query(
     stored_location: Optional[dict[str, str]] = None,
     sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerEntities:
-    """Resolve state/crop/district from farmer text, LLM entities, stored profile, or clarify carry-over.
-
-    State/district never come from device coordinates — only from rephrased query text,
-    LLM entity fields, stored user location, or ``prev_entities`` during clarification.
-    """
+    """Resolve crop from the farmer text / LLM entities / clarify carry-over, and
+    state/district from the farmer profile only."""
     # Start with previous entities, override with new plan entities
     merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
     if merged.get("crop"):
@@ -652,37 +602,21 @@ def merge_entities_from_rephrased_query(
     crop_output_requested = is_crop_output_question(text) or is_crop_output_question(raw_latest_text)
     explicit_all_requested = is_explicit_all_crop_request(text) or is_explicit_all_crop_request(raw_latest_text)
 
-    if is_crop_clarify_turn(messages, prev_plan=prev_plan):
-        turn_crop = (
-            "all"
-            if crop_output_requested or explicit_all_requested
-            else extract_crop_from_text(text)
-        )
-        if turn_crop:
-            crop_source = (
-                "deterministic_non_specific_crop_request (crop_clarify_turn)"
-                if turn_crop == "all"
-                else "rephrased_query_text (crop_clarify_turn)"
-            )
-            current_crop_mentioned = True
-        else:
-            turn_crop = resolve_crop_for_turn(messages, prev_plan=prev_plan)
-            if turn_crop:
-                crop_source = "recent_human_text (crop_clarify_turn)"
-                current_crop_mentioned = True
-    else:
-        turn_crop = (
-            "all"
-            if crop_output_requested or explicit_all_requested
-            else extract_crop_from_text(text)
-        )
-        if turn_crop:
-            crop_source = (
-                "deterministic_non_specific_crop_request"
-                if turn_crop == "all"
-                else "rephrased_query_text"
-            )
-            current_crop_mentioned = True
+    # The planner LLM is the only source of the crop name (it translates local
+    # names/scripts); only the non-specific "all" scope is detected here.
+    llm_crop = (plan.get("entities") or {}).get("crop")
+    clarify_suffix = (
+        " (crop_clarify_turn)" if is_crop_clarify_turn(messages, prev_plan=prev_plan) else ""
+    )
+    turn_crop: Optional[str] = None
+    if crop_output_requested or explicit_all_requested:
+        turn_crop = "all"
+        crop_source = f"deterministic_non_specific_crop_request{clarify_suffix}"
+        current_crop_mentioned = True
+    elif has_specific_crop(llm_crop):
+        turn_crop = llm_crop
+        crop_source = f"plan.entities.crop (llm){clarify_suffix}"
+        current_crop_mentioned = True
 
     if turn_crop:
         normalized_turn_crop = normalize_crop_value(turn_crop)
@@ -710,50 +644,15 @@ def merge_entities_from_rephrased_query(
         merged["crop"] = "all"
         crop_source = "non_agriculture_forced_all"
 
-    # --- State/District Resolution (farmer text + LLM entities + clarify carry-over) ---
-    state_from_text = extract_state_from_text(text)
-    llm_state = plan.get("entities", {}).get("state")
-    llm_district = plan.get("entities", {}).get("district")
-
-    extracted_state = state_from_text or llm_state
-    extracted_district = llm_district
-    state_source: str | None = None
-    district_source: str | None = None
-
-    if extracted_state and extracted_district:
-        merged["state"] = extracted_state
-        merged["district"] = extracted_district
-        state_source = "rephrased_query_text" if state_from_text else "plan.entities.state (llm)"
-        district_source = "plan.entities.district (llm)"
-    elif extracted_district and not extracted_state:
-        merged["district"] = extracted_district
-        merged.pop("state", None)
-        district_source = "plan.entities.district (llm)"
-        state_source = "cleared (district_only_without_state)"
-    elif extracted_state and not extracted_district:
-        merged["state"] = extracted_state
-        merged["district"] = "all"
-        state_source = "rephrased_query_text" if state_from_text else "plan.entities.state (llm)"
-        district_source = "default_all_when_state_only"
-    elif stored_location and stored_location.get("state"):
+    # --- State/District: the farmer profile only, never the query or earlier turns ---
+    if stored_location and stored_location.get("state"):
         merged["state"] = stored_location["state"]
         merged["district"] = stored_location.get("district") or "all"
-        state_source = "stored_user_location"
-        district_source = "stored_user_location"
-    elif prev_entities and prev_entities.get("state"):
-        merged["state"] = prev_entities.get("state")
-        state_source = "prev_entities (incomplete_clarify_carryover)"
-        if prev_entities.get("district"):
-            merged["district"] = prev_entities["district"]
-            district_source = "prev_entities.district (incomplete_clarify_carryover)"
-        else:
-            merged.pop("district", None)
-            district_source = "unset (prev_entities had state only)"
+        state_source = district_source = "stored_user_location"
     else:
         merged.pop("state", None)
         merged.pop("district", None)
-        state_source = "unresolved (no_text_no_llm_no_prev)"
-        district_source = "unresolved (no_text_no_llm_no_prev)"
+        state_source = district_source = "unresolved (no farmer profile location)"
 
     trace_resolution(
         "planner_entities_merge",
@@ -771,29 +670,6 @@ def merge_entities_from_rephrased_query(
         sources_out["district_source"] = district_source
 
     return merged
-
-
-def _extract_state_from_history(
-    messages: list[BaseMessage],
-    max_turns: int = 4,
-) -> Optional[str]:
-    """Extract state from last N human messages (most recent first).
-    
-    Returns state from the FIRST mention found
-    when walking backwards from the most recent message.
-    """
-    # Get last N human messages
-    human_messages = [msg for msg in messages if isinstance(msg, HumanMessage)]
-    recent = human_messages[-max_turns:] if len(human_messages) > max_turns else human_messages
-    
-    # Walk from most recent backwards
-    for msg in reversed(recent):
-        text = _message_to_text(msg)
-        state = extract_state_from_text(text)
-        if state:
-            return state
-    
-    return None
 
 
 def is_schemes_intent(text: str) -> bool:
@@ -854,6 +730,11 @@ def _location_status(
     return has_state, has_district, has_gps
 
 
+def location_follow_up_for_plan(plan: PlannerPlan, script: str, vocal: str) -> str:
+    """The location question to ask."""
+    return get_state_follow_up(script, vocal)
+
+
 def _is_bad_follow_up(question: Optional[str]) -> bool:
     if not question:
         return False
@@ -885,10 +766,10 @@ def _finalize_location_and_crop_completeness(
         crop_required = any(domain_requires_crop(d) for d in canonical_domains)
     needs_crop = bool(crop_required) and not crop_slot_satisfied(crop)
 
-    if not has_state:
+    if not has_state and not is_weather_or_mandi_plan(out):
         out["is_complete"] = False
         out["missing_info"] = ["location"]
-        out["follow_up_question"] = get_state_follow_up(script, vocal)
+        out["follow_up_question"] = location_follow_up_for_plan(out, script, vocal)
     elif needs_crop:
         out["is_complete"] = False
         out["missing_info"] = ["crop"]
@@ -972,7 +853,7 @@ def apply_planner_completeness_rules(
             if "crop" in missing:
                 out["follow_up_question"] = get_crop_follow_up(script, vocal)
             elif "location" in missing:
-                out["follow_up_question"] = get_state_follow_up(script, vocal)
+                out["follow_up_question"] = location_follow_up_for_plan(out, script, vocal)
 
     out = _finalize_location_and_crop_completeness(
         out,

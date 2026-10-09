@@ -285,11 +285,19 @@ export class UserRepository implements IUserRepository {
   async getUsersByIds(
     ids: string[],
     session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
   ): Promise<IUser[]> {
     await this.init();
-    const objectIds = ids.map(id => new ObjectId(id));
+    const objectIds = ids
+      .filter(id => ObjectId.isValid(id))
+      .map(id => new ObjectId(id));
+    if (!objectIds.length) return [];
+    const options: any = {session};
+    if (projection) {
+      options.projection = projection;
+    }
     const users = await this.usersCollection
-      .find({_id: {$in: objectIds}}, {session})
+      .find({_id: {$in: objectIds}}, options)
       .toArray();
 
     return users.map(user => ({
@@ -298,12 +306,12 @@ export class UserRepository implements IUserRepository {
     }));
   }
 
-  async findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]> {
+  async findAll(session?: ClientSession, isTrainingUser?: boolean, canViewAllUsers?: boolean): Promise<IUser[]> {
     await this.init();
     const allUsers = await this.usersCollection.find(
       {
         ...(
-          !isAdmin &&
+          !canViewAllUsers &&
           (isTrainingUser
             ? { isTrainingUser: true }
             : { isTrainingUser: { $ne: true } })
@@ -335,6 +343,7 @@ export class UserRepository implements IUserRepository {
     isBlockedFilter?: boolean,
     isVerifiedFilter?: boolean,
     isSTFFilter?: boolean,
+    isTMUFilter?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -375,6 +384,11 @@ export class UserRepository implements IUserRepository {
 
       if (isSTFFilter !== undefined) {
         matchQuery.special_task_force = isSTFFilter;
+      }
+
+      // Training-user filter: true → training users; false → non-training (false/missing).
+      if (isTMUFilter !== undefined) {
+        matchQuery.isTrainingUser = isTMUFilter ? true : { $ne: true };
       }
 
       const sortMap: any = {
@@ -1336,6 +1350,41 @@ export class UserRepository implements IUserRepository {
         $pull: {assignedQuestionIds: {questionId: qid}},
         $set: {updatedAt: new Date()},
       },
+      {session},
+    );
+  }
+
+  /**
+   * Remove a (deleted) question from every user's assignment arrays — the moderator
+   * `assignedQuestionIds`, the PAE `paeValidationAssigned`, and the feedback
+   * `feedbacksAssigned`. Called on question deletion so no user is left holding an orphan
+   * reference to a question that no longer exists. Matches both ObjectId and string forms
+   * since the id arrays may store either.
+   */
+  async removeQuestionFromAllUsers(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    // paeValidationAssigned / feedbacksAssigned may hold ids as ObjectId or string.
+    const idForms = [qid, questionId] as (ObjectId | string)[];
+    await this.usersCollection.updateMany(
+      {
+        $or: [
+          {'assignedQuestionIds.questionId': qid},
+          {paeValidationAssigned: {$in: idForms}},
+          {feedbacksAssigned: {$in: idForms}},
+        ],
+      },
+      {
+        $pull: {
+          assignedQuestionIds: {questionId: qid},
+          paeValidationAssigned: {$in: idForms},
+          feedbacksAssigned: {$in: idForms},
+        },
+        $set: {updatedAt: new Date()},
+      } as any,
       {session},
     );
   }

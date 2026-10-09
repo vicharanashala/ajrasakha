@@ -138,7 +138,7 @@ const TrainingUserTag = () => (
   </span>
 );
 
-const QuestionRow = ({
+export const QuestionRow = ({
   item,
   showExpert,
   showStuck,
@@ -146,6 +146,7 @@ const QuestionRow = ({
   showOpenedIdle,
   showModerator,
   showAssignee,
+  showLevel,
   assigneeLabel = "Assignee",
   onClick,
 }: {
@@ -156,6 +157,7 @@ const QuestionRow = ({
   showOpenedIdle?: boolean;
   showModerator?: boolean;
   showAssignee?: boolean;
+  showLevel?: boolean;
   assigneeLabel?: string;
   onClick?: () => void;
 }) => {
@@ -192,6 +194,11 @@ const QuestionRow = ({
         {item.status && (
           <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-medium uppercase tracking-wide">
             {item.status}
+          </span>
+        )}
+        {showLevel && item.reviewLevel != null && (
+          <span className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 font-medium uppercase tracking-wide">
+            {levelLabel(item.reviewLevel)}
           </span>
         )}
         {item.priority && <span>· {item.priority}</span>}
@@ -247,7 +254,7 @@ const QuestionRow = ({
   );
 };
 
-const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
+export const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
   <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0 flex items-center justify-between gap-2">
     <div className="min-w-0">
       <div className="flex items-center gap-2">
@@ -308,7 +315,7 @@ type SectionProps<T> = {
   itemFilter?: (item: T) => boolean;
 };
 
-function Section<T>({
+export function Section<T>({
   icon,
   color,
   title,
@@ -481,15 +488,143 @@ type QueueColumnGroup = {
   autoAllocateOpen: { count: number; items: QueueQuestionItem[] };
   autoAllocateDelayed: { count: number; items: QueueQuestionItem[] };
   allocated: { count: number; items: QueueQuestionItem[] };
+  allocatedLevelCounts: { level: number; count: number }[];
   waiting: { count: number; items: QueueQuestionItem[] };
   freeExperts: { count: number; items: QueueExpertItem[] };
   stuck: { count: number; items: QueueQuestionItem[] };
+  stuckLevelCounts: { level: number; count: number }[];
   needsReviewer: { count: number; items: QueueQuestionItem[] };
+  needsReviewerLevelCounts: { level: number; count: number }[];
   openedIdle: { count: number; items: QueueQuestionItem[] };
+  openedIdleLevelCounts: { level: number; count: number }[];
   moderatorWaiting: { count: number; items: QueueQuestionItem[] };
   moderatorAllocated: { count: number; items: QueueQuestionItem[] };
   availableModerators: { count: number; items: QueueExpertItem[] };
 };
+
+/** Label for a level — position 0 is the Author, then Level 1, Level 2, … */
+const levelLabel = (level: number | string) =>
+  Number(level) === 0 ? "Author" : `Level ${level}`;
+
+/** Per-color accent classes for the level tab strip (active text + badge). */
+const LEVEL_TAB_ACCENT: Record<SectionColor, { active: string; badge: string }> = {
+  blue: { active: "text-blue-600 dark:text-blue-400", badge: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
+  green: { active: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  amber: { active: "text-amber-600 dark:text-amber-400", badge: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
+  violet: { active: "text-violet-600 dark:text-violet-400", badge: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300" },
+  red: { active: "text-red-600 dark:text-red-400", badge: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300" },
+  slate: { active: "text-slate-600 dark:text-slate-300", badge: "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300" },
+};
+
+/**
+ * A queue Section split by waiting level (level = completed history steps + 1). Renders a
+ * level tab strip (ALL, Level 2..10, Level 10+) with per-level count badges and filters the
+ * list by the active level. Used for Needs Reviewer, Stuck and Opened-but-Idle.
+ */
+function LevelTabbedSection({
+  icon,
+  color,
+  title,
+  description,
+  count,
+  items,
+  levelCounts,
+  section,
+  isOpen,
+  onToggle,
+  emptyText,
+  startTime,
+  endTime,
+  renderItem,
+}: {
+  icon: React.ReactNode;
+  color: SectionColor;
+  title: string;
+  description: string;
+  count: number;
+  items: QueueQuestionItem[];
+  levelCounts: { level: number; count: number }[];
+  section: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  emptyText: string;
+  startTime?: Date;
+  endTime?: Date;
+  renderItem: (item: QueueQuestionItem) => React.ReactNode;
+}) {
+  const [activeLevel, setActiveLevel] = useState<string>("all");
+  // Reset to ALL whenever the section is collapsed.
+  useEffect(() => {
+    if (!isOpen) setActiveLevel("all");
+  }, [isOpen]);
+
+  const accent = LEVEL_TAB_ACCENT[color];
+  const countByLevel = new Map<number, number>(
+    (levelCounts ?? []).map(({ level, count }) => [level, count]),
+  );
+  // Individual level tabs up to 10; anything beyond rolls up into "10+".
+  const singleLevels = [...countByLevel.keys()].filter((lvl) => lvl <= 10).sort((a, b) => a - b);
+  const tenPlusCount = (levelCounts ?? [])
+    .filter(({ level }) => level > 10)
+    .reduce((sum, { count }) => sum + count, 0);
+  const tabs = [
+    "all",
+    ...singleLevels.map((lvl) => String(lvl)),
+    ...(tenPlusCount > 0 ? ["10+"] : []),
+  ];
+  const tabCount = (tab: string) =>
+    tab === "all" ? count : tab === "10+" ? tenPlusCount : countByLevel.get(Number(tab)) ?? 0;
+  const activeFilteredCount = activeLevel === "all" ? undefined : tabCount(activeLevel);
+  const tabStrip = (
+    <div className="flex flex-wrap items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
+      {tabs.map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          onClick={() => setActiveLevel(tab)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap",
+            activeLevel === tab
+              ? `bg-white shadow-sm dark:bg-gray-800 ${accent.active}`
+              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+          )}
+        >
+          {tab === "all" ? "ALL" : levelLabel(tab)}
+          <span className={cn("ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold", accent.badge)}>
+            {tabCount(tab)}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+  const itemFilter =
+    activeLevel === "all"
+      ? undefined
+      : activeLevel === "10+"
+        ? (q: QueueQuestionItem) => (q.reviewLevel ?? 0) > 10
+        : (q: QueueQuestionItem) => q.reviewLevel === Number(activeLevel);
+
+  return (
+    <Section<QueueQuestionItem>
+      icon={icon}
+      color={color}
+      title={title}
+      description={description}
+      count={count}
+      filteredCount={activeFilteredCount}
+      section={section}
+      initialItems={items}
+      renderItem={renderItem}
+      isOpen={isOpen}
+      onToggle={onToggle}
+      emptyText={emptyText}
+      startTime={startTime}
+      endTime={endTime}
+      headerExtra={tabStrip}
+      itemFilter={itemFilter}
+    />
+  );
+}
 
 /**
  * One column of the Queue Details modal — renders the full expert + moderator
@@ -518,7 +653,6 @@ function QueueColumn({
   const toggle = (key: string) =>
     setOpenSection((prev) => (prev === key ? null : key));
   const sk = (base: string) => `${base}${suffix}`;
-  const modSuffix = suffix === "Manual" ? "Manual" : "TimeBound";
 
   return (
     <div className="flex-1 min-w-0 space-y-3">
@@ -635,28 +769,77 @@ function QueueColumn({
 
       <Section<QueueQuestionItem> icon={<Clock size={20} />} color="amber" title="Never Allocated" description="Not yet assigned to any expert" count={g.waiting.count} section={sk("waiting")} initialItems={g.waiting.items} renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("waiting")} onToggle={() => toggle(sk("waiting"))} emptyText="Nothing waiting for allocation" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
 
-      <Section<QueueQuestionItem> icon={<AlertTriangle size={20} />} color="red" title="Stuck Questions (> 45 min)" description="Allocated > 45 min but never opened" count={g.stuck.count} section={sk("stuck")} initialItems={g.stuck.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("stuck")} onToggle={() => toggle(sk("stuck"))} emptyText="No stuck questions" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      <LevelTabbedSection
+        icon={<AlertTriangle size={20} />}
+        color="red"
+        title="Stuck Questions (> 45 min)"
+        description="Allocated > 45 min but never opened"
+        count={g.stuck.count}
+        items={g.stuck.items}
+        levelCounts={g.stuckLevelCounts}
+        section={sk("stuck")}
+        isOpen={openSection === sk("stuck")}
+        onToggle={() => toggle(sk("stuck"))}
+        emptyText="No stuck questions"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
-      <Section<QueueQuestionItem> icon={<Clock size={20} />} color="amber" title="Opened but Idle (> 45 min)" description="Opened > 45 min ago but still no answer" count={g.openedIdle.count} section={sk("openedIdle")} initialItems={g.openedIdle.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("openedIdle")} onToggle={() => toggle(sk("openedIdle"))} emptyText="No opened-but-idle questions" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      <LevelTabbedSection
+        icon={<Clock size={20} />}
+        color="amber"
+        title="Opened but Idle (> 45 min)"
+        description="Opened > 45 min ago but still no answer"
+        count={g.openedIdle.count}
+        items={g.openedIdle.items}
+        levelCounts={g.openedIdleLevelCounts}
+        section={sk("openedIdle")}
+        isOpen={openSection === sk("openedIdle")}
+        onToggle={() => toggle(sk("openedIdle"))}
+        emptyText="No opened-but-idle questions"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
-      <Section<QueueQuestionItem> icon={<UserPlus size={20} />} color="violet" title="Needs Reviewer" description="Answered/reviewed, awaiting the next reviewer" count={g.needsReviewer.count} section={sk("needsReviewer")} initialItems={g.needsReviewer.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("needsReviewer")} onToggle={() => toggle(sk("needsReviewer"))} emptyText="Nothing waiting for a reviewer" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      {/* Needs Reviewer — split by waiting level (2..10, then 10+) */}
+      <LevelTabbedSection
+        icon={<UserPlus size={20} />}
+        color="violet"
+        title="Needs Reviewer"
+        description="Answered/reviewed, awaiting the next reviewer"
+        count={g.needsReviewer.count}
+        items={g.needsReviewer.items}
+        levelCounts={g.needsReviewerLevelCounts}
+        section={sk("needsReviewer")}
+        isOpen={openSection === sk("needsReviewer")}
+        onToggle={() => toggle(sk("needsReviewer"))}
+        emptyText="Nothing waiting for a reviewer"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
-      <Section<QueueQuestionItem> icon={<UserCheck size={20} />} color="green" title="Questions Allocated" description="Assigned to an expert" count={g.allocated.count} section={sk("allocated")} initialItems={g.allocated.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("allocated")} onToggle={() => toggle(sk("allocated"))} emptyText="No allocated questions" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      <LevelTabbedSection
+        icon={<UserCheck size={20} />}
+        color="green"
+        title="Questions Allocated"
+        description="Assigned to an expert"
+        count={g.allocated.count}
+        items={g.allocated.items}
+        levelCounts={g.allocatedLevelCounts}
+        section={sk("allocated")}
+        isOpen={openSection === sk("allocated")}
+        onToggle={() => toggle(sk("allocated"))}
+        emptyText="No allocated questions"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert showLevel onClick={() => onQuestionClick(q)} />}
+      />
 
       <Section<QueueExpertItem> icon={<Users size={20} />} color="violet" title="Experts Waiting in Queue" description="Experts free with no active allocation" count={g.freeExperts.count} section={sk("freeExperts")} initialItems={g.freeExperts.items} renderItem={(e) => <ExpertRow key={e._id} item={e} />} isOpen={openSection === sk("freeExperts")} onToggle={() => toggle(sk("freeExperts"))} emptyText="No free experts" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      {/* Moderator queue for this group */}
-      <div className="flex items-center gap-3 pt-2">
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Moderator Queue</span>
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-      </div>
-
-      <Section<QueueQuestionItem> icon={<Hourglass size={20} />} color="amber" title="Waiting for Moderator" description="No moderator assigned yet" count={g.moderatorWaiting.count} section={`moderatorWaiting${modSuffix}`} initialItems={g.moderatorWaiting.items} renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => onQuestionClick(q)} />} isOpen={openSection === `moderatorWaiting${modSuffix}`} onToggle={() => toggle(`moderatorWaiting${modSuffix}`)} emptyText="Nothing waiting for a moderator" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      <Section<QueueQuestionItem> icon={<ShieldCheck size={20} />} color="green" title="Allocated to Moderator" description="Assigned to a moderator (incl. re-routed)" count={g.moderatorAllocated.count} section={`moderatorAllocated${modSuffix}`} initialItems={g.moderatorAllocated.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showModerator onClick={() => onQuestionClick(q)} />} isOpen={openSection === `moderatorAllocated${modSuffix}`} onToggle={() => toggle(`moderatorAllocated${modSuffix}`)} emptyText="No questions allocated to a moderator" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      <Section<QueueExpertItem> icon={<ShieldUser size={20} />} color="violet" title="Available Moderators" description="STF moderators free to take a question" count={g.availableModerators.count} section={`availableModerators${modSuffix}`} initialItems={g.availableModerators.items} renderItem={(e) => <ExpertRow key={e._id} item={e} />} isOpen={openSection === `availableModerators${modSuffix}`} onToggle={() => toggle(`availableModerators${modSuffix}`)} emptyText="No available moderators" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      {/* Moderator queue lives in its own file — see ModeratorQueueModal.tsx. */}
     </div>
   );
 }
@@ -816,11 +999,15 @@ export const QueueDetailsModal = ({
                           autoAllocateOpen: data.autoAllocateOpen,
                           autoAllocateDelayed: data.autoAllocateDelayed,
                           allocated: data.allocated,
+                          allocatedLevelCounts: data.allocatedLevelCounts,
                           waiting: data.waiting,
                           freeExperts: data.freeExperts,
                           stuck: data.stuck,
+                          stuckLevelCounts: data.stuckLevelCounts,
                           needsReviewer: data.needsReviewer,
+                          needsReviewerLevelCounts: data.needsReviewerLevelCounts,
                           openedIdle: data.openedIdle,
+                          openedIdleLevelCounts: data.openedIdleLevelCounts,
                           moderatorWaiting: data.moderatorWaitingTimeBound,
                           moderatorAllocated: data.moderatorAllocatedTimeBound,
                           availableModerators: data.availableModeratorsTimeBound,
@@ -842,11 +1029,15 @@ export const QueueDetailsModal = ({
                   autoAllocateOpen: data.autoAllocateOpenManual,
                   autoAllocateDelayed: data.autoAllocateDelayedManual,
                   allocated: data.allocatedManual,
+                  allocatedLevelCounts: data.allocatedLevelCountsManual,
                   waiting: data.waitingManual,
                   freeExperts: data.freeExpertsManual,
                   stuck: data.stuckManual,
+                  stuckLevelCounts: data.stuckLevelCountsManual,
                   needsReviewer: data.needsReviewerManual,
+                  needsReviewerLevelCounts: data.needsReviewerLevelCountsManual,
                   openedIdle: data.openedIdleManual,
+                  openedIdleLevelCounts: data.openedIdleLevelCountsManual,
                   moderatorWaiting: data.moderatorWaitingManual,
                   moderatorAllocated: data.moderatorAllocatedManual,
                   availableModerators: data.availableModeratorsManual,

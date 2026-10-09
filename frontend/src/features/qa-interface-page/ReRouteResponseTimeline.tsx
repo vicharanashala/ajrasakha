@@ -293,6 +293,7 @@ ReRouteResponseTimelineProps) => {
         setConfirmOpen={setIsRejecConfirmationOpen}
         remarks={remarks}
         setRemarks={setRemarks}
+        currentReviewingAnswer={currentReviewingAnswer}
       />
     </div>
   );

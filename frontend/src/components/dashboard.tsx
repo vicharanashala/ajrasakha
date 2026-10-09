@@ -37,6 +37,8 @@ import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import type { IUser } from "@/types";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
+import { GateKeeperAuditorCheckInControl } from "./GateKeeperAuditorCheckInControl";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -144,7 +146,11 @@ const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
   );
 };
 
-export const Dashboard = () => {
+export interface DashboardProps {
+  hideMainWrapper?: boolean;
+}
+
+export const Dashboard = ({ hideMainWrapper = false }: DashboardProps = {}) => {
 
   localStorage.removeItem("animationsEnabled");
 
@@ -217,14 +223,17 @@ export const Dashboard = () => {
 
   const { data: user } = useGetCurrentUser();
   const isTrainingUser = user?.isTrainingUser === true;
-  const isAdmin = user?.role === "admin";
+  const isOverallAdminView =
+    user?.role === "admin" ||
+    user?.role === "gate_keeper";
+  const isAdmin = isOverallAdminView;
 
   // Granular Hooks
   const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
     selectedDate: overviewSelectedDate,
     startTime: overviewStartTime,
     endTime: overviewEndTime,
-    userType: isAdmin ? overviewUserTypeFilter : undefined,
+    userType: isOverallAdminView ? overviewUserTypeFilter : undefined,
   });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
@@ -307,26 +316,31 @@ export const Dashboard = () => {
     </div>
   );
 
-  return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto p-6">
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              {user?.role === "admin"
-                ? "Admin Dashboard"
+  const dashboardContent = (
+    <div className={hideMainWrapper ? "w-full" : "mx-auto p-6"}>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">
+            {user?.role === "admin"
+              ? "Admin Dashboard"
+              : user?.role === "gate_keeper"
+                ? "Overall Dashboard"
                 : "Moderator Dashboard"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Monitor content moderation and expert performance
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <ModeratorCheckInControl user={user} />
-            <DashboardClock />
-          </div>
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Monitor content moderation and expert performance
+          </p>
         </div>
+
+        <div className="flex items-center gap-4">
+          {user?.role === "gate_keeper" ? (
+            <GateKeeperAuditorCheckInControl user={user} />
+          ) : (
+            <ModeratorCheckInControl user={user} />
+          )}
+          <DashboardClock />
+        </div>
+      </div>
 
         {/* Top Stats Row */}
         <div className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2 xl:items-stretch">
@@ -360,9 +374,12 @@ export const Dashboard = () => {
                 overviewData?.moderatorApprovalRate ?? {
                   approved: 0,
                   pending: 0,
+                  pendingTraining: 0,
+                  pendingOther: 0,
                   approvalRate: 0,
                 }
               }
+              isAdmin={isAdmin}
             />
           </LoadingWrapper>
         </div>
@@ -539,8 +556,8 @@ export const Dashboard = () => {
         <div className="mb-6">
           <ReviewLevelComponent />
         </div>
-      </div>
-      {user?.role === "admin" && (
+
+        {user?.role === "admin" && (
         <div className="flex flex-wrap items-end justify-end gap-3 px-6">
           <div className="flex flex-col">
             <label className="text-xs text-muted-foreground mb-1">From</label>
@@ -597,6 +614,17 @@ export const Dashboard = () => {
           </button>
         </div>
       )}
+    </div>
+  );
+
+  if (hideMainWrapper) {
+    return dashboardContent;
+  }
+
+  return (
+    <main className="min-h-screen bg-background">
+      {dashboardContent}
+      <ScrollToTopButton />
     </main>
   );
 };

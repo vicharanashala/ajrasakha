@@ -1,8 +1,5 @@
 import pytest
 from ajrasakha.agents.location_context import forward_geocode
-from ajrasakha.agents.plan_executor import ensure_location_node, build_tool_calls_from_plan
-from ajrasakha.agents.state import AjraSakhaState
-from langchain_core.runnables import RunnableConfig
 
 @pytest.mark.asyncio
 async def test_forward_geocode_rohtak_haryana():
@@ -31,56 +28,40 @@ async def test_forward_geocode_varanasi_up():
     assert res["state"].lower() == "uttar pradesh"
 
 @pytest.mark.asyncio
-async def test_ensure_location_node_registers_home_location():
-    state: AjraSakhaState = {
-        "messages": [],
-        "location": None,  # Registration case: no coordinates
-        "plan": {
-            "is_complete": True,
-            "entities": {"state": "Punjab", "district": "Ludhiana"}
-        }
-    }
-    
-    res = await ensure_location_node(state, RunnableConfig())
-    assert "location" in res
-    loc = res["location"]
-    assert loc is not None
-    assert abs(loc["latitude"] - 30.9) < 0.5
-    assert abs(loc["longitude"] - 75.8) < 0.5
-    assert loc["state"] == "Punjab"
+async def test_forward_geocode_chintapally_ap():
+    res = await forward_geocode(state="Andhra Pradesh", district="Chintapally")
+    assert res is not None
+    assert abs(res["latitude"] - 17.87) < 0.5
+    assert abs(res["longitude"] - 82.35) < 0.5
+    assert res["state"].lower() == "andhra pradesh"
 
 @pytest.mark.asyncio
-async def test_build_tool_calls_geocodes_transient_location():
-    plan = {
-        "weather": True,
-        "mandi": False,
-        "soil": False,
-        "schemes": False,
-        "chemical_checker": False,
-        "knowledge_base": False,
-        "is_complete": True,
-        "entities": {"state": "Uttar Pradesh", "district": "Varanasi"}, # Transient Varanasi
-    }
-    
-    home_loc = {"latitude": 28.4, "longitude": 77.3, "state": "Haryana", "city": "Faridabad"} # Home Faridabad
-    
-    calls = await build_tool_calls_from_plan(
-        plan,
-        "Weather in Varanasi",
-        home_loc,
-        location_tool_name="location_information_tool",
-        reviewer_tool_name="upload_question_to_reviewer_system",
-        question_source="WHATSAPP"
-    )
-    
-    # Assert home location Faridabad remains completely untouched
-    assert home_loc["latitude"] == 28.4
-    assert home_loc["city"] == "Faridabad"
-    
-    names = [c["name"] for c in calls]
-    assert "weather" in names
-    
-    weather_call = next(c for c in calls if c["name"] == "weather")
-    # Verify Varanasi's resolved coordinates are injected into the weather call instead of Faridabad's!
-    assert abs(weather_call["args"]["latitude"] - 25.3) < 0.5
-    assert abs(weather_call["args"]["longitude"] - 83.0) < 0.5
+async def test_merge_location_dict_clears_stale_district_on_state_change():
+    from ajrasakha.agents.location_context import merge_location_dict
+
+    left = {"state": "Andhra Pradesh", "district": "Chintapally", "city": "Chintapally", "latitude": 16.5, "longitude": 80.6}
+    right = {"state": "Bihar", "city": "Patna", "latitude": 25.59, "longitude": 85.13}
+
+    merged = merge_location_dict(left, right)
+    assert merged["state"] == "Bihar"
+    assert "district" not in merged
+    assert merged["city"] == "Patna"
+    assert merged["latitude"] == 25.59
+
+
+@pytest.mark.asyncio
+async def test_forward_geocode_official_districts():
+    res_kodungoor = await forward_geocode(state="Kerala", district="Kodungoor")
+    assert res_kodungoor is not None
+    assert res_kodungoor["district"] == "Kottayam"
+    assert res_kodungoor["city"] == "Kodungoor"
+
+    res_kakkanad = await forward_geocode(state="Kerala", district="Kakkanad")
+    assert res_kakkanad is not None
+    assert res_kakkanad["district"] == "Ernakulam"
+    assert res_kakkanad["city"] == "Kakkanad"
+
+    res_bihar = await forward_geocode(state="Bihar", district=None)
+    assert res_bihar is not None
+    assert res_bihar["district"] is None
+    assert res_bihar["state"] == "Bihar"

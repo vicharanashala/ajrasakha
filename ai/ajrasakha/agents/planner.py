@@ -15,13 +15,13 @@ import logging
 import re
 from typing import Optional
 
+from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_anthropic import ChatAnthropic
-from openai import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import CLAUDE_MODEL, PLANNER_MODEL, get_minimax_chat_model, resolve_thread_id, resolve_user_id
+from ajrasakha.agents.config import PLANNER_MODEL, resolve_thread_id, resolve_user_id
 from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
@@ -43,11 +43,10 @@ from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
     get_catalog,
     get_crop_follow_up,
-    get_state_follow_up,
     language_pair_from_plan,
+    needs_translation,
 )
 from ajrasakha.agents.location_context import (
-    extract_state_from_text,
     gps_state_from_location,
     latest_human_text,
 )
@@ -58,17 +57,21 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
+    PROFILE_LOCATION_MESSAGES,
+    ask_to_change_profile_location,
+    is_weather_or_mandi_plan,
     classify_follow_up_heuristic,
     crop_slot_satisfied,
     format_conversation_for_planner,
     format_last_queries_for_rephrasing,
+    is_crop_clarify_turn,
     is_standalone_clarification_reply,
+    location_follow_up_for_plan,
     merge_clarification_reply_into_query,
     format_prev_plan_context,
     is_explicit_all_crop_request,
     merge_entities_from_rephrased_query,
     normalize_crop_value,
-    resolve_crop_for_turn_with_source,
     is_crop_output_question,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
@@ -93,6 +96,14 @@ class PlannerEntitiesOutput(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     chemicals: list[str] = Field(default_factory=list)
+    places: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Every place name the current message mentions (state, district, city, town, "
+            "block, or village), in English (Latin) script: transliterate names written "
+            "in another script (e.g. खरड़ -> Kharar). Empty when it names none."
+        ),
+    )
 
 
 class PlannerOutput(BaseModel):
@@ -133,7 +144,8 @@ class PlannerOutput(BaseModel):
         default=False,
         description=(
             "True when the farmer's latest message is a transformation request on the previous AI answer "
-            "(language change, format change, detail request, simplification, tone change, rephrase). "
+            "(language change, format change, detail request, simplification, tone change, rephrase, "
+            "or the previous question for a place, e.g. 'what about in Jammu?'). "
             "The answer can be generated from the previous AI message alone — no new tool calls. "
             "False for any new substantive question or when new data is required."
         ),
@@ -147,7 +159,8 @@ class PlannerOutput(BaseModel):
             "'detail_request' (explain more, elaborate, details), "
             "'simplify' (simpler words, easier explanation), "
             "'tone_change' (for beginner, for expert, polite), "
-            "'rephrase' (reword, rewrite, same meaning)."
+            "'rephrase' (reword, rewrite, same meaning), "
+            "'location_change' (the previous question for a place, e.g. 'what about in Jammu?')."
         ),
     )
     main_question: Optional[str] = Field(
@@ -156,6 +169,34 @@ class PlannerOutput(BaseModel):
             "When is_follow_up is true, copy verbatim the previous turn's rephrased_query "
             "so the follow-up node sees the underlying question that was answered before. "
             "If unclear, leave null."
+        ),
+    )
+    is_new_question: bool = Field(
+        default=False,
+        description=(
+            "Only relevant when the server asked the farmer for a missing location or crop. "
+            "True when the latest message does NOT answer that request but asks a new, different "
+            "question (e.g. we asked for the state and the farmer asked about another crop or "
+            "problem), in any language or script. False when the message supplies the location "
+            "or crop, says it does not know, or says any crop is fine. False on all other turns."
+        ),
+    )
+    is_multiple_crops: bool = Field(
+        default=False,
+        description=(
+            "True when the farmer names two or more specific crops for the question "
+            "(e.g. 'wheat and mustard'), in any language or script. False for a single crop "
+            "and for crop categories or non-specific scopes such as 'vegetables', "
+            "'rabi crops', 'all crops', or 'any crop'."
+        ),
+    )
+    has_inappropriate_content: bool = Field(
+        default=False,
+        description=(
+            "True if the farmer's message contains abusive, profane, offensive, or inappropriate language. "
+            "Check carefully for swear words, slurs, vulgar terms, or disrespectful language in ANY language "
+            "(English, Hindi, or any other Indian language). "
+            "If ANY inappropriate content is detected, set this to true."
         ),
     )
     original_query_en: Optional[str] = Field(
@@ -187,62 +228,6 @@ class PlannerOutput(BaseModel):
             "Native Unicode script → same language name as vocal (e.g. both Telugu for Telugu script)."
         ),
     )
-
-
-# --- Claude rephrase helper -------------------------------------------------
-# Used by planner_node to override MiniMax's `original_query_en` /
-# `rephrased_query` for non-English inputs. MiniMax has a frequency-bias
-# hallucination on English→Punjabi/Hindi translations (e.g. swapping "wheat"
-# for "sugarcane"). Claude handles this much more reliably, so for any
-# non-English farmer query we re-do just the rephrasing step with Claude
-# and overwrite the MiniMax-generated fields.
-
-REPHRASE_SYSTEM_PROMPT = """You translate an Indian farmer's question into clean, faithful English.
-
-PRESERVE all agricultural terms exactly as the farmer meant them:
-- Crop names — NEVER substitute one crop for another.
-- Disease/pest names.
-- Place names (states, districts, villages).
-- Chemical names, numbers, and units.
-
-FORBIDDEN:
-- Substituting one crop for another.
-- "Improving" or paraphrasing disease/pest names.
-- Adding diagnoses the farmer did not state.
-
-Output JSON with two fields:
-- "original_query_en": literal English translation of the farmer's message, no fixes.
-- "rephrased_query": same meaning as original_query_en with only spelling, grammar, or word-order fixes.
-"""
-
-
-class RephraseOutput(BaseModel):
-    original_query_en: str = Field(
-        description="Literal English translation of the farmer's latest message. "
-        "Preserve all crop/disease/pest/place names exactly."
-    )
-    rephrased_query: str = Field(
-        description="Same meaning as original_query_en with only spelling/grammar/word-order fixes. "
-        "Do NOT add facts, swap agricultural terms, or paraphrase disease/pest/crop names."
-    )
-
-
-async def _claude_rephrase(user_text: str, vocal_language: str) -> RephraseOutput:
-    """Translate a non-English farmer query to English using Claude Sonnet.
-
-    Called by `planner_node` for non-English inputs to avoid the MiniMax
-    frequency-bias crop-substitution bug (e.g. ਕਣਕ → ਗੰਨਾ / wheat → sugarcane)
-    in the rephrasing step.
-    """
-    llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(RephraseOutput)
-    messages = [
-        SystemMessage(content=REPHRASE_SYSTEM_PROMPT),
-        HumanMessage(content=(
-            f"vocal_language: {vocal_language}\n\n"
-            f"Farmer message:\n{user_text}"
-        )),
-    ]
-    return await llm.ainvoke(messages)
 
 
 def _message_to_text(message: BaseMessage) -> str:
@@ -352,6 +337,9 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "is_follow_up": bool(output.is_follow_up),
         "follow_up_type": output.follow_up_type,
         "main_question": output.main_question,
+        "is_multiple_crops": bool(output.is_multiple_crops),
+        "places": [p.strip() for p in output.entities.places if p and p.strip()],
+        "has_inappropriate_content": output.has_inappropriate_content,
     }
 
 
@@ -386,64 +374,11 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
     }
 
 
-def _extract_state_from_history(
-    messages: list[BaseMessage],
-    max_turns: int = 4,
-) -> Optional[str]:
-    """Extract state from last N human messages (most recent first).
-
-    Returns state from the FIRST mention found
-    when walking backwards from the most recent message.
-    """
-    human_messages = [msg for msg in messages if isinstance(msg, HumanMessage)]
-    recent = human_messages[-max_turns:] if len(human_messages) > max_turns else human_messages
-    for msg in reversed(recent):
-        text = _message_to_text(msg)
-        state = extract_state_from_text(text)
-        if state:
-            return state
-    return None
-
-
 def _planner_invoke_config(config: RunnableConfig) -> RunnableConfig:
     """Strip thread location from config so the planner LLM never sees coordinates."""
     configurable = dict((config.get("configurable") or {}))
     configurable.pop("location", None)
     return patch_config(config, configurable=configurable)
-
-
-def _resolve_state_deterministic(
-    messages: list[BaseMessage],
-    location: Optional[dict],
-    prev_entities: Optional[PlannerEntities] = None,
-) -> Optional[str]:
-    """Deterministically resolve state from latest text or previous turn (do NOT fallback to GPS here)."""
-    # Priority 0: State from latest message text (explicit mention in current query)
-    latest_text = latest_human_text(messages)
-    state_from_latest = extract_state_from_text(latest_text)
-    if state_from_latest:
-        trace_resolution(
-            "planner_state_hint",
-            state=state_from_latest,
-            state_source="latest_message_text (regex)",
-            text_preview=latest_text[:120] if latest_text else None,
-        )
-        return state_from_latest
-    # Priority 1: State from previous turn (thread carry-over - always check this)
-    if prev_entities and prev_entities.get("state"):
-        state = prev_entities.get("state")
-        trace_resolution(
-            "planner_state_hint",
-            state=state,
-            state_source="prev_entities (thread_carryover)",
-        )
-        return state
-    trace_resolution(
-        "planner_state_hint",
-        state=None,
-        state_source="unresolved (no_current_text_no_prev_entities; GPS not used here)",
-    )
-    return None
 
 
 async def _apply_domain_and_crop_async(
@@ -472,7 +407,13 @@ async def _apply_domain_and_crop_async(
     plan["domains"] = domains
     plan["domain"] = domains[0]
 
+    # Preserve the LLM's explicit weather decision - the domain-based flag
+    # derivation should NOT override it. The LLM is the source of truth for
+    # whether live weather data is actually required.
+    llm_weather = plan.get("weather")
     plan.update(apply_tool_flags_from_domains(domains))
+    if llm_weather is not None:
+        plan["weather"] = llm_weather
     if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker", False):
         plan["chemical_checker"] = True
     else:
@@ -494,22 +435,9 @@ async def _apply_domain_and_crop_async(
         prev_plan=prev_plan,
     )
 
-    resolved_turn_crop, resolved_turn_source = resolve_crop_for_turn_with_source(
-        messages,
-        prev_plan=prev_plan,
-    )
-    # ``unresolved_default_all`` is only the system's fallback scope, not
-    # evidence that the farmer omitted a crop. Let the planner's entity win in
-    # that case, as it did before the August crop-scope change. Explicit crop
-    # choices and clarification answers still take deterministic precedence.
-    if resolved_turn_source == "unresolved_default_all":
-        crop = normalize_crop_value(
-            crop_prefilled or entities.get("crop") or resolved_turn_crop
-        )
-    else:
-        crop = normalize_crop_value(
-            resolved_turn_crop or crop_prefilled or entities.get("crop")
-        )
+    # The planner LLM is the only source of the crop name: it translates local
+    # names and scripts (e.g. "గోధుమ" -> "Wheat") that no English regex can.
+    crop = normalize_crop_value(crop_prefilled or entities.get("crop"))
     if deterministic_crop_output:
         # A crop-output question asks the system to recommend the crop. Any
         # crop entity inferred by the LLM (for example, "Kharif crops" or
@@ -523,16 +451,25 @@ async def _apply_domain_and_crop_async(
         entities["crop"] = "all"
         crop_required = False
         crop_requirement_source = "deterministic_all_crop_requested"
-    elif (
-        resolved_turn_crop == "all"
-        and resolved_turn_source == "crop_clarification_default_all"
-    ):
-        # A non-empty answer to an already-asked crop clarification that does
-        # not resolve to a catalog crop uses MongoDB's canonical all-crops
-        # value. Initial missing-crop turns still go through domain policy.
+    elif plan.get("is_multiple_crops"):
+        # Two or more named crops satisfy the crop requirement, so the farmer
+        # is not asked again. Retrieval searches all crops; the reviewer
+        # upload labels the question "Multiple Crops".
         entities["crop"] = "all"
         crop_required = False
-        crop_requirement_source = resolved_turn_source
+        crop_requirement_source = "multiple_crops"
+    elif (
+        is_crop_clarify_turn(messages, prev_plan=prev_plan)
+        and latest_human_text(messages).strip()
+        and not crop_slot_satisfied(crop)
+    ):
+        # A non-empty answer to an already-asked crop clarification that does
+        # not name a specific crop uses MongoDB's canonical all-crops value, so
+        # the farmer is not asked twice. Initial missing-crop turns still go
+        # through domain policy.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "crop_clarification_default_all"
     elif crop_slot_satisfied(crop):
         # Preserve the pre-existing crop-present behavior. The new JSON/LLM
         # decision path is intentionally only for turns without a crop name.
@@ -570,6 +507,12 @@ async def _apply_domain_and_crop_async(
                 domain_remarks=policy.get("remarks", ""),
                 additional_remarks=additional_text,
                 default_crop_required=bool(policy.get("default_crop_required")),
+                llm=ChatAnthropic(
+                    model=PLANNER_MODEL,
+                    max_tokens=16,
+                    temperature=0,
+                ),
+                model_name=PLANNER_MODEL,
             )
 
         # Always-required domains retain their existing behavior unless the
@@ -641,10 +584,11 @@ def _check_question_completeness(
     script, vocal = language_pair_from_plan(plan)
     missing: list[str] = []
     follow_up: Optional[str] = None
-    has_state = bool(state_resolved)
+    # Weather/mandi never ask for location: the agents get whatever places were named.
+    has_state = bool(state_resolved) or is_weather_or_mandi_plan(plan)
     if not has_state:
         missing.append("location")
-        follow_up = get_state_follow_up(script, vocal)
+        follow_up = location_follow_up_for_plan(plan, script, vocal)
         trace_resolution(
             "planner_completeness",
             state=None,
@@ -677,6 +621,16 @@ def _check_question_completeness(
         is_complete=True,
     )
     return True, [], None
+
+
+async def _translate_profile_location_message(plan: PlannerPlan, config: RunnableConfig) -> str:
+    """The set/change-location message in the farmer's language (not in the fixed catalog)."""
+    script, vocal = language_pair_from_plan(plan)
+    if not needs_translation(script, vocal):
+        return plan["follow_up_question"]
+    from ajrasakha.agents.translate_answer import _translate_body
+
+    return await _translate_body(plan["follow_up_question"], vocal, script, config)
 
 
 async def planner_node(
@@ -758,19 +712,6 @@ async def planner_node(
         prev_plan_complete=prev_plan.get("is_complete"),
     )
 
-    state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
-    crop_resolved, crop_resolution_source = resolve_crop_for_turn_with_source(
-        messages,
-        prev_plan=prev_plan,
-    )
-    # Do not feed the generic unresolved ``all`` fallback to the LLM as if it
-    # were a detected crop. The planner must be free to identify a crop from
-    # the full query (for example, "tomatoes" or "chillies").
-    crop_hint = (
-        None
-        if crop_resolution_source == "unresolved_default_all"
-        else crop_resolved
-    )
     clarification_query = merge_clarification_reply_into_query(prev_plan, user_text)
     previous_vocal_language = (prev_plan.get("vocal_language") or "").strip()
     previous_script_language = (prev_plan.get("script_language") or "").strip()
@@ -785,7 +726,8 @@ async def planner_node(
     if clarification_query:
         rephrasing_context = (
             f"{rephrasing_context}\n"
-            "SERVER-ASSEMBLED CLARIFICATION QUERY (canonical rephrasing input):\n"
+            "SERVER-ASSEMBLED CLARIFICATION QUERY (canonical rephrasing input "
+            "unless is_new_question=true):\n"
             f"{clarification_query}"
         )
 
@@ -803,19 +745,19 @@ async def planner_node(
         user_text=user_text[:160],
     )
 
-    deterministic_context = (
-        f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
-        f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
-        f"- crop hint: {crop_hint or 'NOT RESOLVED'}\n"
-    )
+    deterministic_context = ""
     if prev_plan_context:
         deterministic_context = f"{deterministic_context}\n{prev_plan_context}"
     if clarification_query:
         deterministic_context = (
             f"{deterministic_context}\n"
-            "The server assembled the following query from the previous question "
-            "and the latest clarification. Preserve its intent and all facts when "
-            "generating original_query_en and rephrased_query:\n"
+            "The server asked the farmer for a missing location/crop and assembled "
+            "the following query from the previous question and the latest message. "
+            "If the latest message answers that request, preserve the assembled "
+            "query's intent and all facts when generating original_query_en and "
+            "rephrased_query. If the latest message is instead a new, different "
+            "question, set is_new_question=true, ignore the assembled query and the "
+            "previous question, and translate/rephrase only the latest message:\n"
             f"{clarification_query}\n"
         )
     if heuristic_follow_up_active:
@@ -840,7 +782,8 @@ async def planner_node(
         "Set `vocal_language` and `script_language` from the official language list.\n"
         "Leave `follow_up_question` empty when location/crop is missing — server uses the catalog.\n"
         "Set `is_follow_up=true` ONLY when the latest message is answerable from the previous AI answer alone\n"
-        "(language change, format change, detail request, simplification, tone change, rephrase).\n"
+        "(language change, format change, detail request, simplification, tone change, rephrase,\n"
+        "or the previous question for a place, e.g. 'what about in Jammu?' -> follow_up_type='location_change').\n"
         "When `is_follow_up=true`, copy the previous turn's rephrased_query into `main_question` verbatim.\n"
         "Return the routing plan only."
     )
@@ -849,13 +792,12 @@ async def planner_node(
         "planner",
         model=PLANNER_MODEL,
         messages=llm_messages,
-        state_hint=state_resolved,
-        crop_hint=crop_hint,
         prev_plan_context=prev_plan_context or None,
     )
 
     try:
-        llm = get_minimax_chat_model().with_structured_output(PlannerOutput)
+        planner_llm = ChatAnthropic(model=PLANNER_MODEL)
+        llm = planner_llm.with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
         trace_llm_response(
             "planner",
@@ -870,40 +812,24 @@ async def planner_node(
             script_language=output.script_language,
         )
 
-        # If the input is non-English, override the rephrasing fields with Claude.
-        # MiniMax has a frequency-bias hallucination on English translations of
-        # Indian-language agricultural text (e.g. substituting "sugarcane" for
-        # "wheat" — ਕਣਕ → ਗੰਨਾ). Without this override, that wrong rephrasing
-        # propagates downstream to GDB / weather / mandi tools and they fetch
-        # wrong-context answers. Claude is reliable here, so we re-do just the
-        # rephrasing step with Claude for non-English inputs and overwrite the
-        # two fields. English inputs pay zero extra cost — we skip the call.
-        if (output.vocal_language or "").strip().lower() != "english":
-            try:
-                rephrase = await _claude_rephrase(user_text, output.vocal_language)
-                output.original_query_en = rephrase.original_query_en
-                output.rephrased_query = rephrase.rephrased_query
-                trace_event(
-                    "planner_claude_rephrase_override",
-                    vocal_language=output.vocal_language,
-                    original_query_en=rephrase.original_query_en,
-                    rephrased_query=rephrase.rephrased_query,
-                )
-            except Exception as exc:
-                # Don't let Claude failure crash the planner. Fall back to
-                # MiniMax's rephrasing (which may be imperfect for non-English
-                # inputs, but is better than a 500 error).
-                logger.warning(
-                    "Claude rephrase failed (%s: %s) — falling back to MiniMax rephrasing",
-                    type(exc).__name__, exc,
-                )
-                trace_event(
-                    "planner_claude_rephrase_failed",
-                    error_type=type(exc).__name__,
-                    error=str(exc),
-                )
-
         plan = planner_output_to_plan(output)
+
+        if clarification_query and output.is_new_question:
+            # The farmer ignored our location/crop request and asked a new
+            # question. Merging it would corrupt both queries, so plan this
+            # turn as a fresh conversation: no previous query, routing,
+            # language, entities, or clarification history.
+            trace_event(
+                "planner_clarification_skipped_new_question",
+                previous_query=prev_plan.get("rephrased_query"),
+                missing_info=prev_plan.get("missing_info"),
+                new_question=user_text,
+            )
+            clarification_query = None
+            preserve_clarification_language = False
+            prev_plan = {}
+            prev_entities = {}
+            messages = [human]
 
         # The clarification query was supplied to the LLM before rephrasing.
         # Preserve it as the original input and fall back to it if the LLM
@@ -965,7 +891,11 @@ async def planner_node(
 
             # Use LLM-based language detection for vocal_language with script context
             # to avoid incorrect inference from state/crop names.
-            detected_vocal = _llm_detect_language(user_text, script_context=detected_script)
+            detected_vocal = _llm_detect_language(
+                user_text,
+                script_context=detected_script,
+                llm=planner_llm,
+            )
             vocal = _coerce_official_language(detected_vocal) or "English"
 
             if vocal != plan.get("vocal_language"):
@@ -982,39 +912,6 @@ async def planner_node(
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        # Follow-up short-circuit: if the LLM (or the heuristic) flagged the latest
-        # message as a transformation on the previous AI answer, route through the
-        # follow-up node and skip entity re-resolution, completeness, and domain/crop.
-        if plan.get("is_follow_up"):
-            if not plan.get("follow_up_type") and heuristic_follow_up_type:
-                plan["follow_up_type"] = heuristic_follow_up_type
-            if not plan.get("main_question") and prev_plan.get("rephrased_query"):
-                plan["main_question"] = prev_plan.get("rephrased_query")
-            plan["entities"] = dict(prev_entities or {})
-            plan["is_complete"] = True
-            plan["missing_info"] = []
-            plan["follow_up_question"] = None
-            for flag in ("weather", "mandi", "soil", "schemes", "chemical_checker", "knowledge_base"):
-                plan[flag] = False
-            plan["domain"] = "General"
-            plan["domains"] = ["General"]
-            plan["is_agriculture_related"] = True
-            plan["tools_used"] = []
-            plan["reasoning"] = (plan.get("reasoning") or "") + f"; follow_up={plan.get('follow_up_type') or heuristic_follow_up_type}"
-            trace_event(
-                "planner_follow_up_finalized",
-                follow_up_type=plan.get("follow_up_type"),
-                follow_up_type_source="llm" if (output.follow_up_type or not heuristic_follow_up_type) else "heuristic",
-                main_question=plan.get("main_question"),
-            )
-            logger.info(
-                "Planner: follow-up detected type=%s main_question=%r rephrased=%r",
-                plan.get("follow_up_type"),
-                plan.get("main_question"),
-                plan.get("rephrased_query"),
-            )
-            return {"plan": plan}
-
         configurable = config.get("configurable") or {}
         user_id = resolve_user_id(config) or configurable.get("phone_number")
         stored_location = load_user_location(user_id) if user_id else None
@@ -1025,6 +922,54 @@ async def planner_node(
             stored_location=stored_location,
             configurable_user_id=(config.get("configurable") or {}).get("user_id"),
         )
+
+        # Follow-up short-circuit: if the LLM (or the heuristic) flagged the latest
+        # message as a transformation on the previous AI answer, route through the
+        # follow-up node and skip entity re-resolution, completeness, and domain/crop.
+        # The location is checked as for a fresh question: the farmer profile only,
+        # never the previous turn's.
+        if plan.get("is_follow_up"):
+            if not plan.get("follow_up_type") and heuristic_follow_up_type:
+                plan["follow_up_type"] = heuristic_follow_up_type
+            if not plan.get("main_question") and prev_plan.get("rephrased_query"):
+                plan["main_question"] = prev_plan.get("rephrased_query")
+            plan["entities"] = {
+                **{k: v for k, v in (prev_entities or {}).items() if k not in ("state", "district")},
+                "state": (stored_location or {}).get("state"),
+                "district": (stored_location or {}).get("district"),
+            }
+            plan["is_complete"] = True
+            plan["missing_info"] = []
+            plan["follow_up_question"] = None
+            for flag in ("weather", "mandi", "soil", "schemes", "chemical_checker", "knowledge_base"):
+                plan[flag] = False
+            plan["domain"] = "General"
+            plan["domains"] = ["General"]
+            plan["is_agriculture_related"] = True
+            plan["tools_used"] = []
+            plan["reasoning"] = (plan.get("reasoning") or "") + f"; follow_up={plan.get('follow_up_type') or heuristic_follow_up_type}"
+            plan = ask_to_change_profile_location(plan, stored_location)
+            if plan.get("follow_up_question") in PROFILE_LOCATION_MESSAGES:
+                # Not a follow-up any more: the clarify node sends the message.
+                plan["is_follow_up"] = False
+                plan["follow_up_question"] = await _translate_profile_location_message(
+                    plan, config
+                )
+            trace_event(
+                "planner_follow_up_finalized",
+                follow_up_type=plan.get("follow_up_type"),
+                follow_up_type_source="llm" if (output.follow_up_type or not heuristic_follow_up_type) else "heuristic",
+                main_question=plan.get("main_question"),
+                profile_location_prefix=plan.get("profile_location_prefix"),
+                follow_up_question=plan.get("follow_up_question"),
+            )
+            logger.info(
+                "Planner: follow-up detected type=%s main_question=%r rephrased=%r",
+                plan.get("follow_up_type"),
+                plan.get("main_question"),
+                plan.get("rephrased_query"),
+            )
+            return {"plan": plan}
         entities = merge_entities_from_rephrased_query(
             plan,
             messages,
@@ -1083,13 +1028,28 @@ async def planner_node(
             stored_location=stored_location,
             sources_out=location_sources,
         )
+        plan = ask_to_change_profile_location(plan, stored_location)
+        if plan.get("follow_up_question") in PROFILE_LOCATION_MESSAGES:
+            plan["follow_up_question"] = await _translate_profile_location_message(plan, config)
+        # Every answer is for the farmer profile location.
+        plan["location_from_profile"] = bool(stored_location)
+        # Village/block are sent even without profile lat/long (the tools then geocode).
+        plan["profile_coordinates"] = (
+            {k: stored_location.get(k) for k in ("latitude", "longitude", "village", "block")}
+            if stored_location
+            else None
+        )
 
         if plan.get("is_complete"):
             final_entities = plan.get("entities") or {}
+            loc_lat = location.get("latitude") if location else None
+            loc_lon = location.get("longitude") if location else None
             maybe_persist_resolved_location(
                 user_id,
                 final_entities.get("state"),
                 final_entities.get("district"),
+                latitude=loc_lat,
+                longitude=loc_lon,
                 thread_id=resolve_thread_id(config),
                 state_source=location_sources.get("state_source"),
                 district_source=location_sources.get("district_source"),
@@ -1139,7 +1099,9 @@ async def planner_node(
             plan["schemes"] = False
             plan["chemical_checker"] = False
         else:
-            plan["knowledge_base"] = True
+            # Weather/mandi-only questions are answered by those tools alone: no GDB.
+            domains = {normalize_domain(d) for d in plan.get("domains") or [plan.get("domain") or "General"]}
+            plan["knowledge_base"] = not domains <= {"Weather", "Market Prices"}
             plan["soil"] = False
             plan["schemes"] = False
 
@@ -1164,7 +1126,10 @@ async def planner_node(
             plan.get("rephrased_query"),
             plan.get("missing_info"),
         )
-        return {"plan": plan}
+        res: dict[str, Any] = {"plan": plan}
+        if stored_location and (not location or (location.get("latitude") is None and stored_location.get("latitude") is not None)):
+            res["location"] = stored_location
+        return res
     except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
         logger.warning("Planner failed (%s: %s) — using default knowledge_base plan", type(exc).__name__, exc)
         return {"plan": _default_plan_for_agriculture(user_text)}
@@ -1181,18 +1146,19 @@ def clarify_node(state: AjraSakhaState) -> dict:
     missing = plan.get("missing_info") or []
     script, vocal = language_pair_from_plan(plan)
     if not question:
-        if "location" in missing:
-            question = get_state_follow_up(script, vocal)
-        elif "crop" in missing:
+        if "crop" in missing:
             question = get_crop_follow_up(script, vocal)
         else:
-            question = get_state_follow_up(script, vocal)
+            question = location_follow_up_for_plan(plan, script, vocal)
     end_conversation_turn(question, outcome="clarify")
     return {"messages": [AIMessage(content=question)]}
 
 
 def route_after_planner(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
+    # Check for inappropriate content first - fail fast
+    if plan.get("has_inappropriate_content"):
+        return "abusive_word_reply"
     if plan.get("is_follow_up"):
         return "follow_up"
     if not plan.get("is_complete", True):

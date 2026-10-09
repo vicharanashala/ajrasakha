@@ -45,6 +45,7 @@ _SCHEMA_VERSION = 1
 _TEXT_FIELDS = (
     "two_hour_disclaimer",
     "state_follow_up",
+    "invalid_location_follow_up",
     "crop_follow_up",
     "testing_disclaimer",
     "late_night_disclaimer",
@@ -53,6 +54,7 @@ _TEXT_FIELDS = (
     "weather_unavailable_for_dynamic_weather_queries",
     "crop_price_not_available_in_selected_mandi",
     "mandi_not_available",
+    "abusive_word_disclaimer",
 )
 
 # The legacy loader stripped surrounding whitespace from these fields. Preserve
@@ -61,6 +63,7 @@ _STRIPPED_TEXT_FIELDS = frozenset(
     {
         "two_hour_disclaimer",
         "state_follow_up",
+        "invalid_location_follow_up",
         "crop_follow_up",
         "testing_disclaimer",
         "late_night_disclaimer",
@@ -75,6 +78,7 @@ class CatalogRow:
     vocal_language: str
     two_hour_disclaimer: str
     state_follow_up: str
+    invalid_location_follow_up: str
     crop_follow_up: str
     testing_disclaimer: str
     late_night_disclaimer: str
@@ -83,6 +87,7 @@ class CatalogRow:
     weather_unavailable_for_dynamic_weather_queries: str
     crop_price_not_available_in_selected_mandi: str
     mandi_not_available: str
+    abusive_word_disclaimer: str
 
 
 def _normalize_lang(name: str) -> str:
@@ -176,6 +181,7 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
             vocal_language=vocal,
             two_hour_disclaimer=text("two_hour_disclaimer"),
             state_follow_up=text("state_follow_up"),
+            invalid_location_follow_up=text("invalid_location_follow_up"),
             crop_follow_up=text("crop_follow_up"),
             testing_disclaimer=text("testing_disclaimer"),
             late_night_disclaimer=text("late_night_disclaimer"),
@@ -188,6 +194,7 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
                 "crop_price_not_available_in_selected_mandi"
             ),
             mandi_not_available=text("mandi_not_available"),
+            abusive_word_disclaimer=text("abusive_word_disclaimer"),
         )
 
     if _lang_key(_DEFAULT_SCRIPT, _DEFAULT_VOCAL) not in catalog:
@@ -237,6 +244,11 @@ def get_testing_disclaimer(script_language: str, vocal_language: str) -> str:
 
 def get_two_hour_disclaimer(script_language: str, vocal_language: str) -> str:
     return get_catalog_row(script_language, vocal_language).two_hour_disclaimer
+
+
+def get_invalid_location_follow_up(script_language: str, vocal_language: str) -> str:
+    """Asked again when the farmer named a state/district that LGD does not have."""
+    return get_catalog_row(script_language, vocal_language).invalid_location_follow_up
 
 
 def get_state_follow_up(script_language: str, vocal_language: str) -> str:
@@ -301,6 +313,12 @@ def get_crop_price_unavailable_reply(script_language: str, vocal_language: str) 
     return get_catalog_row(
         script_language, vocal_language
     ).crop_price_not_available_in_selected_mandi
+
+
+def get_abusive_word_disclaimer(script_language: str, vocal_language: str) -> str:
+    """Return localized abusive word disclaimer."""
+    row = get_catalog_row(script_language, vocal_language)
+    return row.abusive_word_disclaimer
 
 
 def get_mandi_unavailable_reply(script_language: str, vocal_language: str) -> str:

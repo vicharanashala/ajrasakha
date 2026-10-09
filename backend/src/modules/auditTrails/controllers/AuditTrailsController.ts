@@ -231,6 +231,32 @@ class AuditTrailsController {
     };
   }
 
+  @Get('/crop/:cropId')
+  @HttpCode(200)
+  async getAuditTrailsByCropId(
+    @Param('cropId') cropId: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @QueryParam('action') action?: string | null,
+    @QueryParam('order') order: "asc" | "desc" = "desc",
+  ) {
+    const result = await this.auditTrailsService.getAuditTrailsByCropId(
+      cropId,
+      page,
+      limit,
+      action,
+      order
+    );
+
+    return {
+      message: 'Audit trails retrieved successfully',
+      data: result.data,
+      totalDocuments: result.totalDocuments,
+      totalPages: Math.ceil(result.totalDocuments / limit),
+      currentPage: page,
+    };
+  }
+
 }
 
 export {AuditTrailsController};

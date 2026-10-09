@@ -48,11 +48,14 @@ export const QuestionDetailsDialog = ({
     details,
     status,
   } = question;
-  const Option = ({ label, value }: { label: ReactNode; value?: string }) => {
+  const Option = ({ label, value }: { label: ReactNode; value?: string | string[] }) => {
+    const formattedValue = Array.isArray(value)
+      ? value.join(", ")
+      : value ?? "-";
     return (
       <div className="rounded-md border p-3">
         <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="mt-1 text-sm">{value ?? "-"}</div>
+        <div className="mt-1 text-sm break-words">{formattedValue}</div>
       </div>
     );
   };

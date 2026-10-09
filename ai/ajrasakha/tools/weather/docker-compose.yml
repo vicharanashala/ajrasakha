@@ -1,0 +1,21 @@
+# Weather MCP service (7 Cluster Tools)
+# Run from this directory:
+#   docker compose up --build -d
+# Or from ajrasakha/ai:
+#   docker compose -f ajrasakha/tools/weather/docker-compose.yml up --build -d
+
+services:
+  weather-mcp:
+    build:
+      context: ../../..
+      dockerfile: ajrasakha/tools/weather/Dockerfile
+    container_name: weather-mcp
+    ports:
+      - "8112:8007"
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      IMD_CITY_BASE: "http://100.100.108.101:18080/city/api"
+      IMD_MAUSAM_BASE: "http://100.100.108.101:18080/mausam/api"
+    restart: unless-stopped

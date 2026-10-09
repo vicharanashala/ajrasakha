@@ -147,7 +147,20 @@ def get_user_location(user_id: str | None) -> dict[str, str] | None:
     state = str(current.get("state") or "").strip()
     if not district or not state:
         return None
-    return {"district": district, "state": state}
+    res: dict[str, Any] = {"district": district, "state": state}
+    lat = current.get("latitude")
+    lon = current.get("longitude")
+    if lat is not None:
+        try:
+            res["latitude"] = float(lat)
+        except (ValueError, TypeError):
+            pass
+    if lon is not None:
+        try:
+            res["longitude"] = float(lon)
+        except (ValueError, TypeError):
+            pass
+    return res
 
 
 def get_farmer_profile_location(user_id: str | None) -> dict[str, str] | None:
@@ -172,7 +185,11 @@ def get_farmer_profile_location(user_id: str | None) -> dict[str, str] | None:
         users_col = col.database["users"]
         doc = users_col.find_one(
             {"_id": parsed_id},
-            projection={"farmerProfile.state": 1, "farmerProfile.district": 1},
+            projection={
+                "farmerProfile.state": 1,
+                "farmerProfile.district": 1,
+                "farmerProfile.location": 1,
+            },
             max_time_ms=_MONGO_OP_TIMEOUT_MS,
         )
     except Exception:
@@ -189,7 +206,12 @@ def get_farmer_profile_location(user_id: str | None) -> dict[str, str] | None:
         return None
     if not district:
         district = "all"
-    return {"district": district, "state": state}
+    res: dict[str, Any] = {"district": district, "state": state}
+    coords = profile.get("location") or {}
+    if coords.get("latitude") is not None and coords.get("longitude") is not None:
+        res["latitude"] = coords["latitude"]
+        res["longitude"] = coords["longitude"]
+    return res
 
 
 def _format_location_source(
@@ -217,6 +239,8 @@ def save_user_location(
     district: str,
     state: str,
     *,
+    latitude: float | None = None,
+    longitude: float | None = None,
     thread_id: str | None = None,
     state_source: str | None = None,
     district_source: str | None = None,
@@ -236,7 +260,20 @@ def save_user_location(
         return False
 
     now = datetime.now(timezone.utc)
-    new_current = {"district": district, "state": state}
+    new_current: dict[str, Any] = {
+        "district": district, 
+        "state": state,
+    }
+    if latitude is not None:
+        try:
+            new_current["latitude"] = float(latitude)
+        except (ValueError, TypeError):
+            pass
+    if longitude is not None:
+        try:
+            new_current["longitude"] = float(longitude)
+        except (ValueError, TypeError):
+            pass
     new_source = _format_location_source(
         thread_id=thread_id,
         state_source=state_source,

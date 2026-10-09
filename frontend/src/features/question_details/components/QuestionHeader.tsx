@@ -165,13 +165,11 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     }
   };
 
-  // For compare mode: reference answer (from the original/reference question)
-  const referenceAnswerText = (() => {
-    const text = question.referenceQuestionData?.text;
-    if (!text) return null;
-    const match = text.match(/answer:\s*([\s\S]+)/i);
-    return match ? match[1].trim() : null;
-  })();
+  // Reference answer = the reference question's approved final answer (now provided by
+  // the API). Previously this tried to regex it out of `text`, but `text` is the QUESTION
+  // ("Question: …"), so it never matched and the reference answer never showed.
+  const referenceAnswerText =
+    question.referenceQuestionData?.answer?.trim() || null;
 
   const finalAnswer = question.closedFinalAnswer;
 
@@ -271,7 +269,6 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <div className="flex flex-wrap justify-end gap-2">
               {currentUser.role != "expert" &&
                 currentUser.role !== "tester" &&
-                isQuestionAllocatedToExpert &&
                 question.status !== "closed" && (
                   <Button
                     size="sm"
@@ -717,7 +714,11 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   <span className="text-muted-foreground font-medium">
                     Domain:{" "}
                   </span>
-                  <span>{question.referenceQuestionData.details?.domain}</span>
+                  <span>
+                    {Array.isArray(question.referenceQuestionData.details?.domain)
+                      ? question.referenceQuestionData.details.domain.join(", ")
+                      : question.referenceQuestionData.details?.domain || "-"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground font-medium">

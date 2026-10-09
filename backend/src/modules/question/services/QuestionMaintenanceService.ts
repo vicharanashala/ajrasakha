@@ -185,6 +185,258 @@ export class QuestionMaintenanceService extends BaseService {
     );
   }
 
+  /**
+   * Backfill embeddings that were never generated (empty/missing `embedding`), reproducing
+   * the SAME text each generation path uses so the backfilled vectors are consistent with
+   * live ones:
+   *   • creation path → `Question: <question>` (see QuestionService.processQuestionInBackground)
+   *   • approval/close path → `Question: <question>\n\nanswer: <final answer>` and the final
+   *     answer's own embedding gets the same vector (see AnswerApprovalService.approveAnswer)
+   *
+   * So a CLOSED question (closed / duplicate_closed / dynamic_closed) is embedded from its
+   * Q+A text and its final answer's embedding is repaired too; any other status is embedded
+   * from the question text alone. Runs in batches; call repeatedly until `scanned` is 0.
+   */
+  async backfillMissingEmbeddings(batchLimit = 50): Promise<{
+    scanned: number;
+    questionsUpdated: number;
+    updatedIds: string[];
+    matchedButUnchanged: number;
+    closedWithAnswer: number;
+    closedWithAnswerIds: string[];
+    skippedNoText: number;
+    failed: number;
+  }> {
+    const result = {
+      scanned: 0,
+      questionsUpdated: 0,
+      updatedIds: [] as string[],
+      matchedButUnchanged: 0,
+      closedWithAnswer: 0,
+      closedWithAnswerIds: [] as string[],
+      skippedNoText: 0,
+      failed: 0,
+    };
+
+    if (!appConfig.ENABLE_AI_SERVER) {
+      console.log('<<EMBEDDING_BACKFILL>> AI server disabled, skipping.');
+      return result;
+    }
+
+    const questions =
+      await this.questionRepo.getQuestionsMissingEmbedding(batchLimit);
+    result.scanned = questions.length;
+
+    if (questions.length === 0) {
+      console.log('<<EMBEDDING_BACKFILL>> No questions with missing embeddings.');
+      return result;
+    }
+
+    const CLOSED_STATUSES = new Set([
+      'closed',
+      'duplicate_closed',
+      'dynamic_closed',
+    ]);
+
+    // Batch-fetch the final answers for every closed candidate (one query, no N+1).
+    const closedIds = questions
+      .filter(q => CLOSED_STATUSES.has(q.status ?? ''))
+      .map(q => q._id.toString());
+    // questionId -> final answer text (used only as the embedding INPUT for closed questions).
+    const finalAnswerByQuestion = new Map<string, string>();
+    if (closedIds.length) {
+      const finals = await this.answerRepo.getFinalAnswersByQuestionIds(closedIds);
+      for (const a of finals) {
+        const qid = a.questionId?.toString();
+        // First final answer per question wins (matches the approval flow's single final).
+        if (qid && !finalAnswerByQuestion.has(qid)) {
+          finalAnswerByQuestion.set(qid, a.answer ?? '');
+        }
+      }
+    }
+
+    console.log(
+      `<<EMBEDDING_BACKFILL>> Processing ${questions.length} question(s)...`,
+    );
+
+    for (const q of questions) {
+      const qid = q._id.toString();
+      const questionText = (q.question || '').trim();
+      const isClosed = CLOSED_STATUSES.has(q.status ?? '');
+      const finalAnswerText = isClosed ? finalAnswerByQuestion.get(qid) : undefined;
+
+      // Closed + has a final answer → embed the Q+A text (approval flow); otherwise fall
+      // back to the plain question text (creation flow).
+      const inputText =
+        finalAnswerText && questionText
+          ? `Question: ${questionText}\n\nanswer: ${finalAnswerText}`
+          : questionText
+            ? `Question: ${questionText}`
+            : (q.text || '').trim();
+
+      if (!inputText) {
+        console.warn(`<<EMBEDDING_BACKFILL>> Skipping ${qid} — no text`);
+        result.skippedNoText++;
+        continue;
+      }
+
+      try {
+        const {embedding} = await this.aiService.getEmbedding(inputText);
+        if (!embedding?.length) {
+          console.warn(
+            `<<EMBEDDING_BACKFILL>> Empty embedding returned for ${qid}, skipping`,
+          );
+          result.failed++;
+          continue;
+        }
+
+        // Only the question's embedding is backfilled — `text` (and everything else) is left
+        // as-is. The Q+A text is used purely as the embedding INPUT for closed questions so
+        // the vector matches the approval flow. (Answer-collection embeddings are handled
+        // separately by backfillAnswerEmbeddings.)
+        const {modifiedCount} = await this.questionRepo.updateQuestionEmbedding(
+          qid,
+          embedding,
+        );
+        // Count/report ONLY questions Mongo actually changed, so the numbers reflect real
+        // DB writes (a matched-but-unchanged doc is surfaced separately, not as "updated").
+        if (modifiedCount > 0) {
+          result.questionsUpdated++;
+          result.updatedIds.push(qid);
+          if (finalAnswerText) {
+            result.closedWithAnswer++;
+            result.closedWithAnswerIds.push(qid);
+          }
+        } else {
+          result.matchedButUnchanged++;
+          console.warn(
+            `<<EMBEDDING_BACKFILL>> ${qid} matched but not modified (no DB change)`,
+          );
+        }
+      } catch (err) {
+        console.error(`<<EMBEDDING_BACKFILL>> Failed for ${qid}:`, err);
+        result.failed++;
+      }
+    }
+
+    console.log(
+      `<<EMBEDDING_BACKFILL>> Done — questions ✅ ${result.questionsUpdated} ` +
+        `(closed w/ answer ${result.closedWithAnswer}), unchanged ${result.matchedButUnchanged}, ` +
+        `❌ ${result.failed}, skipped ${result.skippedNoText}`,
+    );
+    if (result.updatedIds.length) {
+      console.log(
+        `<<EMBEDDING_BACKFILL>> Updated question ids: ${result.updatedIds.join(', ')}`,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * Backfill embeddings on the ANSWERS collection (empty/missing `embedding`), reproducing
+   * the SAME text each answer path uses:
+   *   • normal submission (AnswerService.addAnswer) → `getEmbedding(answer)` — answer text only
+   *   • approval/close (AnswerApprovalService)      → `Question: <q>\n\nanswer: <answer>`
+   *     for the FINAL answer
+   *
+   * So `isFinalAnswer` answers are embedded from their Q+A text (question fetched by id) and
+   * every other answer from its answer text alone. Batched; call until `scanned` is 0.
+   */
+  async backfillAnswerEmbeddings(batchLimit = 50): Promise<{
+    scanned: number;
+    updated: number;
+    finalWithQuestion: number;
+    skippedNoText: number;
+    failed: number;
+  }> {
+    const result = {
+      scanned: 0,
+      updated: 0,
+      finalWithQuestion: 0,
+      skippedNoText: 0,
+      failed: 0,
+    };
+
+    if (!appConfig.ENABLE_AI_SERVER) {
+      console.log('<<ANSWER_EMBEDDING_BACKFILL>> AI server disabled, skipping.');
+      return result;
+    }
+
+    const answers =
+      await this.answerRepo.getAnswersMissingEmbedding(batchLimit);
+    result.scanned = answers.length;
+
+    if (answers.length === 0) {
+      console.log('<<ANSWER_EMBEDDING_BACKFILL>> No answers with missing embeddings.');
+      return result;
+    }
+
+    // Final answers embed the Q+A text, so batch-fetch their question texts (one query).
+    const questionIdsForFinal = Array.from(
+      new Set(
+        answers
+          .filter(a => a.isFinalAnswer && a.questionId)
+          .map(a => a.questionId!.toString()),
+      ),
+    ).map(id => new ObjectId(id));
+    const questionTextById = new Map<string, string>();
+    if (questionIdsForFinal.length) {
+      const qs = await this.questionRepo.findByIds(questionIdsForFinal);
+      for (const q of qs) {
+        questionTextById.set(q._id!.toString(), (q.question || '').trim());
+      }
+    }
+
+    console.log(
+      `<<ANSWER_EMBEDDING_BACKFILL>> Processing ${answers.length} answer(s)...`,
+    );
+
+    for (const a of answers) {
+      const aid = a._id.toString();
+      const answerText = (a.answer || '').trim();
+      const questionText = a.isFinalAnswer
+        ? questionTextById.get(a.questionId?.toString() ?? '')
+        : undefined;
+
+      // Final answer with a resolvable question → Q+A text (approval flow); otherwise the
+      // answer text alone (submission flow).
+      const inputText =
+        a.isFinalAnswer && questionText && answerText
+          ? `Question: ${questionText}\n\nanswer: ${answerText}`
+          : answerText;
+
+      if (!inputText) {
+        console.warn(`<<ANSWER_EMBEDDING_BACKFILL>> Skipping ${aid} — no text`);
+        result.skippedNoText++;
+        continue;
+      }
+
+      try {
+        const {embedding} = await this.aiService.getEmbedding(inputText);
+        if (!embedding?.length) {
+          console.warn(
+            `<<ANSWER_EMBEDDING_BACKFILL>> Empty embedding returned for ${aid}, skipping`,
+          );
+          result.failed++;
+          continue;
+        }
+        await this.answerRepo.updateAnswer(aid, {embedding});
+        result.updated++;
+        if (a.isFinalAnswer && questionText) result.finalWithQuestion++;
+      } catch (err) {
+        console.error(`<<ANSWER_EMBEDDING_BACKFILL>> Failed for ${aid}:`, err);
+        result.failed++;
+      }
+    }
+
+    console.log(
+      `<<ANSWER_EMBEDDING_BACKFILL>> Done — answers ✅ ${result.updated} ` +
+        `(final w/ question ${result.finalWithQuestion}), ❌ ${result.failed}, ` +
+        `skipped ${result.skippedNoText}`,
+    );
+    return result;
+  }
+
   async backgroundProcessAction(
     userId: string,
   ): Promise<{modifiedCount: number}> {

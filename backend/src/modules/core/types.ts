@@ -4,6 +4,9 @@ export const CORE_TYPES = {
   AnswerController: Symbol.for('AnswerController'),
   ContextController: Symbol.for('ContextController'),
   RequestController: Symbol.for('RequestController'),
+  TestersDashboardController: Symbol.for('TestersDashboardController'),
+  ZohoTicketStatusController: Symbol.for('ZohoTicketStatusController'),
+  TesterLogController: Symbol.for('TesterLogController'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -21,6 +24,12 @@ export const CORE_TYPES = {
   SarvamService: Symbol.for('SarvamService'),
   NotificationService:Symbol.for('NotificationService'),
   PerformanceService:Symbol.for('PerformanceService'),
+  TestersDashboardService: Symbol.for('TestersDashboardService'),
+  ZohoTicketStatusService: Symbol.for('ZohoTicketStatusService'),
+  TesterLogService: Symbol.for('TesterLogService'),
+  OrganizationService: Symbol.for('OrganizationService'),
+  PopService: Symbol.for('PopService'),
+  NewSourceService: Symbol.for('NewSourceService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),
@@ -34,6 +43,9 @@ export const CORE_TYPES = {
   ReviewRepository:Symbol.for('ReviewRepository'),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
   FeedbackRepository: Symbol.for('FeedbackRepository'),
+  OrganizationRepository: Symbol.for('OrganizationRepository'),
+  PopRepository: Symbol.for('PopRepository'),
+  NewSourceRepository: Symbol.for('NewSourceRepository'),
   CheckOverlapsService: Symbol.for('CheckOverlapsService'),
 
 };

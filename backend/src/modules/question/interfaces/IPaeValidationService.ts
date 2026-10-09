@@ -14,4 +14,6 @@ export type IPaeValidationService = Pick<
   | 'getPaeValidationAssignedQuestions'
   | 'processPaeValidation'
   | 'getPaeValidationQueueDetails'
+  | 'checkAndTriggerPaeMilestoneEmail'
+  | 'sendPaeMilestoneReport'
 >;

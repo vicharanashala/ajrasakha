@@ -89,7 +89,7 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: .
           file: ./backend/Dockerfile.app
           push: true
           platforms: linux/amd64
@@ -146,6 +146,21 @@ jobs:
             GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
             DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
             REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
+            POP_DB_URL=${{ secrets.POP_DB_URL }}
+            POP_DB_NAME=${{ secrets.POP_DB_NAME }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
+            MINIMAX_API=${{ secrets.MINIMAX_API }}
+            MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
+            MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
+            TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH=${{ secrets.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH }}
+            TESTERS_DASHBOARD_SHEETS=${{ secrets.TESTERS_DASHBOARD_SHEETS }}
+            ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }}
+            ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }}
+            ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }}
+            ZOHO_ORG_ID=${{ secrets.ZOHO_ORG_ID }}
+            ZOHO_ACCOUNTS_DOMAIN=${{ secrets.ZOHO_ACCOUNTS_DOMAIN }}
+            ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
+            CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────

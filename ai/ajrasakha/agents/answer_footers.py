@@ -10,6 +10,8 @@ from typing import Optional
 
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.translation_catalog import (
+    get_crop_price_unavailable_reply,
+    get_mandi_unavailable_reply,
     get_non_agriculture_reply,
     get_weather_unavailable_reply,
     get_testing_disclaimer,
@@ -265,6 +267,58 @@ def build_weather_unavailable_content(
     if not body.strip():
         raise ValueError(
             "Translation catalogue configuration error: Weather unavailable reply "
+            f"must not be blank for ({script_language}, {vocal_language})"
+        )
+    if not testing.strip():
+        raise ValueError(
+            "Translation catalogue configuration error: Testing disclaimer must "
+            f"not be blank for ({script_language}, {vocal_language})"
+        )
+    return f"{body}\n\n{FOOTER_SEPARATOR}\n\n{testing}"
+
+
+def build_mandi_unavailable_content(
+    script_language: str,
+    vocal_language: str,
+    *,
+    reason: str,
+    crop_name: str,
+    mandi_name: str,
+    is_district: bool = False,
+) -> str:
+    """Return a localized mandi-unavailable reply and testing disclaimer.
+
+    ``reason`` is deliberately limited to the two catalog cases.  The caller
+    supplies the resolved crop and mandi/locality, so this path never asks an
+    LLM to translate or classify a failed dynamic-price response.
+    """
+    clean_name = str(mandi_name).strip()
+    if reason == "crop_price_unavailable":
+        body = get_crop_price_unavailable_reply(script_language, vocal_language)
+        body = body.replace("[Crop Name]", crop_name)
+        if is_district or clean_name.lower().endswith("district"):
+            dist_label = clean_name if clean_name.lower().endswith("district") else f"{clean_name} district"
+            body = body.replace("[Mandi Name] mandi", dist_label).replace("[Mandi Name]", dist_label)
+        elif clean_name.lower().endswith("mandi"):
+            body = body.replace("[Mandi Name] mandi", clean_name).replace("[Mandi Name]", clean_name)
+        else:
+            body = body.replace("[Mandi Name]", clean_name)
+    elif reason == "mandi_unavailable":
+        body = get_mandi_unavailable_reply(script_language, vocal_language)
+        if is_district or clean_name.lower().endswith("district"):
+            dist_label = clean_name if clean_name.lower().endswith("district") else f"{clean_name} district"
+            body = body.replace("[Mandi Name] mandi", dist_label).replace("[Mandi Name]", dist_label)
+        elif clean_name.lower().endswith("mandi"):
+            body = body.replace("[Mandi Name] mandi", clean_name).replace("[Mandi Name]", clean_name)
+        else:
+            body = body.replace("[Mandi Name]", clean_name)
+    else:
+        raise ValueError(f"Unsupported mandi unavailable reason: {reason}")
+
+    testing = get_testing_disclaimer(script_language, vocal_language)
+    if not body.strip():
+        raise ValueError(
+            "Translation catalogue configuration error: Mandi unavailable reply "
             f"must not be blank for ({script_language}, {vocal_language})"
         )
     if not testing.strip():

@@ -6,15 +6,20 @@ RUN apk add --no-cache git bash \
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
-COPY scripts ./scripts
+# Copy backend package files and scripts
+COPY backend/package.json backend/pnpm-lock.yaml ./
+COPY backend/scripts ./scripts
+
+# Copy testers-dashboard/backend so postinstall links node_modules and tsc can build it
+COPY testers-dashboard/backend /testers-dashboard/backend
 
 RUN pnpm install --frozen-lockfile
 
-COPY . .
+# Copy backend source code
+COPY backend/ .
 
-# Fresh compile
-RUN rm -rf build tsconfig.tsbuildinfo && pnpm exec tsc
+# Fresh compile: builds testers-dashboard first, then compiles backend
+RUN rm -rf build tsconfig.tsbuildinfo && pnpm run build
 
 
 FROM node:22-alpine
@@ -31,11 +36,19 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
-COPY scripts ./scripts
+COPY backend/package.json backend/pnpm-lock.yaml ./
+COPY backend/scripts ./scripts
 
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
+
+# Testers Dashboard runtime setup:
+# 1. Compiled build output at /testers-dashboard/backend/build
+# 2. package.json for ES module resolution ("type": "module")
+# 3. Symlink /app/node_modules into /testers-dashboard/backend/node_modules so bare imports (inversify, etc.) resolve
+COPY --from=builder /testers-dashboard/backend/build /testers-dashboard/backend/build
+COPY --from=builder /testers-dashboard/backend/package.json /testers-dashboard/backend/package.json
+RUN ln -s /app/node_modules /testers-dashboard/backend/node_modules
 
 # -------------------------
 # Tailscale

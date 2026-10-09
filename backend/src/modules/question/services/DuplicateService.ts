@@ -10,6 +10,7 @@ import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDu
 import {AiService} from '#root/modules/ai/services/AiService.js';
 import {checkDuplicateQuestionHelper} from '../helpers/duplicateQuestionHelper.js';
 import {runDuplicateCheckPipeline} from './helpers/duplicatePipeline.js';
+import {IRoleAssigneeService} from '../interfaces/IRoleAssigneeService.js';
 
 /**
  * Duplicate-detection workflow extracted from QuestionService: the reusable
@@ -30,7 +31,26 @@ export class DuplicateService {
 
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,
+
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
   ) {}
+
+  /**
+   * Event-driven gate-keeper / auditor queue allocation. Call after manually marking a
+   * question `duplicate` / `queue_duplicate` (a gate-keeper status) so a free gate keeper
+   * picks it up. Fire-and-forget and idempotent — never affects the caller's write.
+   */
+  private triggerRoleQueueAllocation(context: string): void {
+    void this.roleAssigneeService
+      .runGateKeeperAuditorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven gate-keeper/auditor allocation failed:`,
+          err?.message,
+        ),
+      );
+  }
 
     async checkDuplicateQuestion(
     baseQuestion: IQuestion,
@@ -82,6 +102,14 @@ export class DuplicateService {
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
 
+      // Prevent question from being marked as duplicate of itself
+      if (refId && refId.toString() === questionId) {
+        return {
+          message: 'Cannot mark question as duplicate of itself.',
+          isDuplicate: false,
+        };
+      }
+
       // Get submission to check queue length
       const questionSubmission =
         await this.questionSubmissionRepo.getByQuestionId(questionId);
@@ -102,6 +130,8 @@ export class DuplicateService {
         isDuplicateChecked: true,
         ...(result.isExact !== undefined ? {isExact: result.isExact} : {}),
       });
+      // Entered a gate-keeper status → fill the gate-keeper queue now.
+      if (canMarkDuplicate) this.triggerRoleQueueAllocation('manualCheckDuplicate');
       return {
         message: canMarkDuplicate
           ? 'Duplicate detected and question updated.'
@@ -118,6 +148,15 @@ export class DuplicateService {
           : result.referenceQuestionId
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
+
+      // Prevent question from being marked as duplicate of itself
+      if (refId && refId.toString() === questionId) {
+        return {
+          message: 'Cannot mark question as duplicate of itself.',
+          isDuplicate: false,
+        };
+      }
+
       const canMarkQueue =
         question.status === 'open' || question.status === 'delayed';
       await this.questionRepo.updateQuestion(questionId, {
@@ -130,6 +169,8 @@ export class DuplicateService {
         referenceSource: result.referenceSource,
         isDuplicateChecked: true,
       });
+      // Entered a gate-keeper status → fill the gate-keeper queue now.
+      if (canMarkQueue) this.triggerRoleQueueAllocation('manualCheckDuplicate');
       return {
         message: canMarkQueue
           ? 'Found in the GDB pending-duplicate queue.'
