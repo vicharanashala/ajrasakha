@@ -136,15 +136,38 @@ describe("TesterLogSummary component", () => {
         const customButton = screen.getByRole("button", { name: "Custom" });
         fireEvent.click(customButton);
 
-        // Enter single date in From input
-        const fromInput = container.querySelector('input[type="date"]') as HTMLInputElement;
-        expect(fromInput).not.toBeNull();
-        fireEvent.change(fromInput, { target: { value: "2026-10-08" } });
+        // Enter single date in From and To inputs
+        const dateInputs = container.querySelectorAll('input[type="date"]');
+        expect(dateInputs.length).toBe(2);
+        fireEvent.change(dateInputs[0], { target: { value: "2026-10-08" } });
+        fireEvent.change(dateInputs[1], { target: { value: "2026-10-08" } });
 
         // Header tracker badge should display Target Tracker for that specific single date
         expect(screen.getByText("Target Tracker (2026-10-08)")).toBeTruthy();
         expect(screen.getByText(/Daily testing targets for 2026-10-08 \(54 total: 27 Web App, 27 WhatsApp\)/)).toBeTruthy();
         expect(screen.getByText("Target vs. Achieved Comparison Analytics")).toBeTruthy();
+    });
+
+    it("displays auto-swap message when custom From date is after To date", () => {
+        const { container } = render(<TesterLogSummary />);
+        const customButton = screen.getByRole("button", { name: "Custom" });
+        fireEvent.click(customButton);
+
+        const dateInputs = container.querySelectorAll('input[type="date"]');
+        fireEvent.change(dateInputs[0], { target: { value: "2026-10-09" } });
+        fireEvent.change(dateInputs[1], { target: { value: "2026-10-03" } });
+
+        expect(screen.getByText("Note: From is after To (dates auto-swapped)")).toBeTruthy();
+    });
+
+    it("treats custom with empty dates as breakdown view without daily target tracker", () => {
+        render(<TesterLogSummary />);
+        const customButton = screen.getByRole("button", { name: "Custom" });
+        fireEvent.click(customButton);
+
+        expect(screen.getByText("(Select dates to track targets)")).toBeTruthy();
+        expect(screen.getByText("Test Execution Breakdown")).toBeTruthy();
+        expect(screen.queryByText("Today's Target Tracker")).toBeNull();
     });
 
     it("does not render obsolete sprintCycle or dbPersistence fields", () => {

@@ -37,6 +37,19 @@ logger = logging.getLogger(__name__)
 
 def is_crop_advisory_query(plan: dict, query: str) -> bool:
     """Check if query is asking for crop advisory, disease, pest, or field management."""
+    
+    # Quick domain-based exclusion: pure Weather or Market queries are never crop advisory
+    domain = str(plan.get("domain") or "").lower()
+    domains = [str(d).lower() for d in (plan.get("domains") or [])]
+    
+    # If primary domain is Weather or Market-related, this is NOT a crop advisory query
+    # Weather queries (current, forecast, rainfall, temperature) are answered by specialist tools
+    # and should NOT be deferred to the 2-hour expert queue
+    if domain == "weather" or (domains and domains[0] == "weather"):
+        return False
+    if domain in ("market information", "market prices") or (domains and domains[0] in ("market information", "market prices")):
+        return False
+    
     q = (query or "").lower()
 
     # Agronomic and pathological indicators
@@ -52,8 +65,6 @@ def is_crop_advisory_query(plan: dict, query: str) -> bool:
     if any(k in q for k in agri_keywords):
         return True
 
-    domain = str(plan.get("domain") or "").lower()
-    domains = [str(d).lower() for d in (plan.get("domains") or [])]
     entities = plan.get("entities") or {}
     has_crop = bool(entities.get("crop")) or any(c in q for c in ("crop", "plant", "paddy", "rice", "wheat", "cotton", "maize", "sugarcane", "soybean", "groundnut", "mustard", "chilli", "tomato", "potato", "onion"))
 

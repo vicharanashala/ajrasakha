@@ -67,7 +67,7 @@ def test_merge_uses_stored_location_when_query_has_no_state():
     assert sources["state_source"] == "stored_user_location"
 
 
-def test_merge_query_overrides_stored_location():
+def test_merge_stored_location_overrides_the_query():
     plan = {
         "rephrased_query": "Weather in Ambala, Haryana",
         "entities": {"state": "Haryana", "district": "Ambala"},
@@ -82,8 +82,8 @@ def test_merge_query_overrides_stored_location():
         stored_location=stored,
         sources_out=sources,
     )
-    assert entities["district"] == "Ambala"
-    assert sources["state_source"] in ("plan.entities.state (llm)", "rephrased_query_text")
+    assert entities["district"] == "Sirsa"
+    assert sources["state_source"] == "stored_user_location"
 
 
 def test_merge_prefers_stored_over_prev_entities():
@@ -159,7 +159,12 @@ def test_maybe_persist_only_on_explicit_source(mock_save):
     )
 
 
-@patch("ajrasakha.agents.user_location.get_user_location")
+@patch("ajrasakha.agents.user_location.fetch_farmer_profile_location")
 def test_load_user_location_sanitizes_invalid(mock_get):
     mock_get.return_value = {"state": "all", "district": "Sirsa"}
+    assert load_user_location("919876543210") is None
+
+
+@patch("ajrasakha.agents.user_location.fetch_farmer_profile_location", return_value=None)
+def test_no_profile_means_no_location_never_a_location_saved_from_old_chats(_mock):
     assert load_user_location("919876543210") is None

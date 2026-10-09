@@ -56,6 +56,25 @@ export function hmsDiff(start?: string, end?: string, defaultDate?: string): str
     return `${hh}:${mm}:${ss}`;
 }
 
+export function getMinutesDiff(start?: string, end?: string, defaultDate?: string): number | null {
+    const sMs = parseToMs(start, defaultDate);
+    const eMs = parseToMs(end, defaultDate);
+    if (sMs === null || eMs === null) return null;
+
+    let diffMs = eMs - sMs;
+    const isTimeOnly = (!start?.includes("-") && !start?.includes("/")) &&
+                       (!end?.includes("-") && !end?.includes("/"));
+    if (diffMs < 0 && isTimeOnly) {
+        const rolloverDiff = diffMs + 24 * 3600 * 1000;
+        if (rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000) {
+            diffMs = rolloverDiff;
+        }
+    }
+
+    if (diffMs < 0) return null;
+    return diffMs / (60 * 1000);
+}
+
 export function isMidnightRollover(start?: string, end?: string): boolean {
     if (!start || !end) return false;
     const isTimeOnly = (!start.includes("-") && !start.includes("/")) &&

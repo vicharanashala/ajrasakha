@@ -680,7 +680,8 @@ async def test_new_question_instead_of_location_reply_is_not_merged():
     assert "sugarcane" not in plan["rephrased_query"].lower()
     assert "Location:" not in plan["rephrased_query"]
     assert plan["entities"]["crop"] == "Wheat"
-    assert plan["entities"]["state"] == "Punjab"
+    # The location is never taken from the query (only the farmer profile).
+    assert plan["entities"].get("state") is None
 
 
 @pytest.mark.asyncio

@@ -41,9 +41,11 @@ function FractionDisplay({
     size?: "sm" | "md" | "lg";
 }) {
     const hasTarget = target > 0;
-    const pct = hasTarget ? Math.round((achieved / target) * 1000) / 10 : 0;
+    const rawPct = hasTarget ? Math.round((achieved / target) * 1000) / 10 : 0;
     const isComplete = hasTarget && achieved >= target;
-    const isWarning = hasTarget && pct < 50;
+    const isOverTarget = hasTarget && achieved > target;
+    const pct = Math.min(100, Math.round(rawPct));
+    const isWarning = hasTarget && rawPct < 50;
 
     const colorClass = !hasTarget
         ? achieved > 0
@@ -80,6 +82,8 @@ function FractionDisplay({
                             ? achieved > 0
                                 ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
                                 : "bg-muted text-muted-foreground"
+                            : isOverTarget
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold"
                             : isComplete
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                             : isWarning
@@ -87,13 +91,17 @@ function FractionDisplay({
                             : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
                     }`}
                 >
-                    {hasTarget ? `${pct}%` : achieved > 0 ? "Logged" : "No Target"}
+                    {!hasTarget
+                        ? achieved > 0 ? "Logged" : "No Target"
+                        : isOverTarget
+                        ? "100% (Over Target)"
+                        : `${pct}%`}
                 </span>
             </div>
             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                 <div
                     className={`h-full ${barColor} rounded-full transition-all duration-300`}
-                    style={{ width: !hasTarget ? (achieved > 0 ? "100%" : "0%") : `${Math.min(100, pct)}%` }}
+                    style={{ width: !hasTarget ? (achieved > 0 ? "100%" : "0%") : `${pct}%` }}
                 />
             </div>
         </div>
@@ -384,23 +392,31 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         if (preset === "custom") {
             const s = customStart?.trim() || undefined;
             const e = customEnd?.trim() || undefined;
-            // If only one date is picked in custom filter, treat as single date filter
+            if (!s && !e) {
+                return { startDate: undefined, endDate: undefined };
+            }
             if (s && !e) {
-                return { startDate: s, endDate: s };
+                return { startDate: s, endDate: undefined };
             }
             if (!s && e) {
-                return { startDate: e, endDate: e };
+                return { startDate: undefined, endDate: e };
             }
-            return {
-                startDate: s,
-                endDate: e,
-            };
+            if (s && e) {
+                const [actualStart, actualEnd] = s > e ? [e, s] : [s, e];
+                return {
+                    startDate: actualStart,
+                    endDate: actualEnd,
+                };
+            }
         }
         return { startDate: undefined, endDate: undefined };
     }, [preset, customStart, customEnd]);
 
+    const isCustomEmpty = preset === "custom" && !customStart?.trim() && !customEnd?.trim();
+    const isCustomDateInverted = Boolean(customStart?.trim() && customEnd?.trim() && customStart.trim() > customEnd.trim());
     const isSingleDay = preset === "today" || Boolean(startDate && endDate && startDate === endDate);
     const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd);
+    const showAllTimeView = preset === "all" || isCustomEmpty || (!startDate && Boolean(endDate));
 
     // Fetch summary metrics
     const {
@@ -443,6 +459,14 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         if (startDate && endDate) {
             const start = new Date(startDate.trim().slice(0, 10));
             const end = new Date(endDate.trim().slice(0, 10));
+            const diff = end.getTime() - start.getTime();
+            if (!isNaN(diff) && diff >= 0) {
+                return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
+            }
+        }
+        if (startDate && !endDate) {
+            const start = new Date(startDate.trim().slice(0, 10));
+            const end = new Date();
             const diff = end.getTime() - start.getTime();
             if (!isNaN(diff) && diff >= 0) {
                 return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
@@ -642,6 +666,16 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                 className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                         </div>
+                        {isCustomDateInverted && (
+                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
+                                Note: From is after To (dates auto-swapped)
+                            </span>
+                        )}
+                        {isCustomEmpty && (
+                            <span className="text-[11px] text-muted-foreground italic">
+                                (Select dates to track targets)
+                            </span>
+                        )}
                     </div>
                 )}
 
@@ -673,7 +707,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                 <>
                     {/* Target vs. Achieved Analytics Section OR All-Time Test Breakdown */}
                     <div className="p-5 bg-card border border-border rounded-xl shadow-xs space-y-4">
-                        {preset === "all" ? (
+                        {showAllTimeView ? (
                             <>
                                 {/* All-Time Section Header */}
                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -683,14 +717,16 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                 <Layers className="h-4 w-4" />
                                             </div>
                                             <h3 className="text-base font-semibold text-foreground">
-                                                All-Time Test Execution Breakdown
+                                                {preset === "all" ? "All-Time Test Execution Breakdown" : "Test Execution Breakdown"}
                                             </h3>
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
                                                 Achieved Counts
                                             </span>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            Total tests conducted by you across question categories and channels over all time.
+                                            {preset === "all"
+                                                ? "Total tests conducted by you across question categories and channels over all time."
+                                                : "Select dates in the Custom filter above to track targets for a specific period."}
                                         </p>
                                     </div>
 
@@ -913,8 +949,8 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                         {targetTotalRow.achievedTotal} of {targetTotalRow.targetTotal} test cases completed
                                                     </strong>{" "}
                                                     ({Math.max(0, targetTotalRow.targetTotal - targetTotalRow.achievedTotal)} remaining
-                                                    {targetTotalRow.rawAchievedTotal && targetTotalRow.rawAchievedTotal > targetTotalRow.achievedTotal
-                                                        ? ` · ${targetTotalRow.rawAchievedTotal} total logged`
+                                                    {totalTests > targetTotalRow.achievedTotal
+                                                        ? ` · ${totalTests} total logged`
                                                         : ""}
                                                     ).
                                                 </span>

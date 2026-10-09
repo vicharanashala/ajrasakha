@@ -20,6 +20,7 @@ from ajrasakha.agents.translation_catalog import (
 TEXT_FIELDS = {
     "two_hour_disclaimer": "two-hour",
     "state_follow_up": "state",
+    "invalid_location_follow_up": "invalid-location",
     "crop_follow_up": "crop",
     "testing_disclaimer": "testing",
     "late_night_disclaimer": "late-night",

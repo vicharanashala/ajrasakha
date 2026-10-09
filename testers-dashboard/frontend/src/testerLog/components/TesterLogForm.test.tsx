@@ -121,6 +121,244 @@ describe("validateTesterLogForm", () => {
         const errors = validateTesterLogForm(data, { isCross: false, excludeReviewerWorkflow: true });
         expect(errors.testerRemarksNotes).toBe("Remarks Details is required");
     });
+
+    it("validates Author Name format even when Allocated to Author? is NA", () => {
+        const data: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:05:00",
+            slaStatus: "Within SLA",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            tagging: "Correct",
+            allocatedToReviewer: "NA",
+            authorsName: "Author123",
+            followUpQInReviewModel: "Yes",
+            answerScientificallyCorrect: "Yes",
+            retrievalAccuracy: "Accurate",
+            expertNameDisplayed: "Yes",
+            correctSourceLinksProvided: "Yes",
+            msg120MinShownToUser: "Yes",
+            notificationReceived: "Received",
+            notificationOnSameThread: "Yes",
+            notificationLinkedCorrectQId: "Yes",
+            voiceInputWorking: "Yes",
+            voiceOutputWorking: "Yes",
+            overallTestStatus: "Pass",
+        };
+
+        const errors = validateTesterLogForm(data, { isCross: false, excludeReviewerWorkflow: false });
+        expect(errors.authorsName).toBe("Author Name must be 2-100 characters and contain letters only");
+
+        // When authorsName is empty and allocatedToReviewer is NA, no error is thrown
+        data.authorsName = "";
+        const errorsValid = validateTesterLogForm(data, { isCross: false, excludeReviewerWorkflow: false });
+        expect(errorsValid.authorsName).toBeUndefined();
+    });
+
+    it("validates SLA status against response time (Issue #2)", () => {
+        const baseData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:05:00", // 5 mins response
+            slaStatus: "SLA Breached",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            tagging: "Correct",
+            overallTestStatus: "Pass",
+        };
+
+        const err1 = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(err1.slaStatus).toBe("Response time is within 120 minutes; SLA Status cannot be 'SLA Breached'");
+
+        // Over SLA test (e.g. 150 mins)
+        baseData.timeAnswerReceived = "12:30:00"; // 150 mins
+        baseData.slaStatus = "Within SLA";
+        const err2 = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(err2.slaStatus).toBe("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+    });
+
+    it("rejects contradictory notification answers when notification is Not Received (Issue #3)", () => {
+        const baseData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:05:00",
+            slaStatus: "Within SLA",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            tagging: "Correct",
+            notificationReceived: "Not Received",
+            notificationOnSameThread: "Yes - on same thread",
+            notificationLinkedCorrectQId: "Yes",
+            overallTestStatus: "Pass",
+        };
+
+        const err = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(err.notificationOnSameThread).toBe("Notification was not received; thread comparison cannot be 'Yes' or 'No'");
+        expect(err.notificationLinkedCorrectQId).toBe("Notification was not received; cannot be linked to Q-ID");
+    });
+
+    it("rejects good quality rating when voice is marked not working (Issue #4)", () => {
+        const baseData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:05:00",
+            slaStatus: "Within SLA",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            tagging: "Correct",
+            voiceInputWorking: "No",
+            voiceInputQuality: "Correct",
+            voiceOutputWorking: "No",
+            voiceOutputQuality: "Clear",
+            overallTestStatus: "Pass",
+        };
+
+        const err = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(err.voiceInputQuality).toBe("Voice Input is not working; quality cannot be rated 'Correct'");
+        expect(err.voiceOutputQuality).toBe("Voice Output is not working; quality cannot be rated 'Clear'");
+    });
+
+    it("validates Zoho Desk ticket URLs and rejects non-Zoho URLs (Issue #5)", () => {
+        const baseData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:05:00",
+            slaStatus: "Within SLA",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            tagging: "Correct",
+            overallTestStatus: "Fail",
+            defectSeverity: "Major",
+            testerRemarks: "Defect Logged",
+            testerRemarksNotes: "Critical defect found in output",
+            defectIdBugRef: "https://example.com/not-a-zoho-ticket",
+        };
+
+        const err = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(err.defectIdBugRef).toBe("Please enter a valid Zoho Desk ticket URL (e.g. https://desk.zoho.in/...)");
+
+        // Valid desk url passes
+        baseData.defectIdBugRef = "https://desk.zoho.in/support/org/ShowHomePage.do#Cases/dv/12345";
+        const errValid = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(errValid.defectIdBugRef).toBeUndefined();
+    });
+
+    it("requires defect severity and remarks when overallTestStatus is Fail (Issue #6)", () => {
+        const baseData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:05:00",
+            slaStatus: "Within SLA",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            tagging: "Correct",
+            overallTestStatus: "Fail",
+            defectSeverity: "NA",
+            testerRemarks: "No Action Required",
+            testerRemarksNotes: "",
+        };
+
+        const err = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(err.defectSeverity).toBe("A failed test case requires a valid Defect Severity (cannot be 'NA')");
+        expect(err.testerRemarks).toBe("A failed test case requires an actionable remark (cannot be 'No Action Required')");
+
+        // When actionable remark is selected but notes are empty
+        baseData.testerRemarks = "Defect Logged";
+        const errNotes = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
+        expect(errNotes.testerRemarksNotes).toBe("Remarks Details is required");
+    });
+
+    it("validates chronological ordering of review workflow stages (Issue #15)", () => {
+        const baseData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "13:00",
+            timeAnswerReceived: "13:30",
+            slaStatus: "Within SLA",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            tagging: "Correct",
+            allocatedToReviewer: "Yes",
+            authorsName: "Author One",
+            authorAssignmentTime: "09:00", // earlier than Question Asked 13:00!
+            authorCompletionTime: "09:30",
+            reviewer1Name: "Rev One",
+            reviewer1AssignmentTime: "08:00", // earlier than Author!
+            reviewer1CompletionTime: "08:10",
+            moderatorName: "Mod One",
+            moderatorAssignmentTime: "07:00", // earlier than Rev 1!
+            moderatorCompletionTime: "07:05",
+            overallTestStatus: "Pass",
+        };
+
+        const err = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: false });
+        expect(err.authorAssignmentTime).toBe("Author Assignment Time cannot be earlier than Time Question Asked");
+        expect(err.reviewer1AssignmentTime).toBe("Reviewer 1 Assignment Time cannot be earlier than Author Completion Time");
+        expect(err.moderatorAssignmentTime).toBe("Moderator Assignment Time cannot be earlier than Reviewer 1 Completion Time");
+    });
 });
 
 describe("TesterLogForm component", () => {

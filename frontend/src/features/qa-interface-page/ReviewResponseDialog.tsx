@@ -65,6 +65,12 @@ interface ReviewResponseDialogProps {
   setConfirmOpen: (value: boolean) => void;
   remarks: string;
   setRemarks: (value: string) => void;
+  currentReviewingAnswer?: {
+    _id: string;
+    answer: string;
+    sources: SourceItem[];
+    remarks: string;
+  } | null;
 }
 
 export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
@@ -95,6 +101,7 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
     setConfirmOpen,
     remarks,
     setRemarks,
+    currentReviewingAnswer,
   } = props;
   const [tempRejectAnswer, setTempRejectAnswer] = useState("");
   const [tempSources, setTempSources] = useState<SourceItem[]>([]);
@@ -104,7 +111,11 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
     if (isOpen)
       if (type === "modify") {
         setTempRejectAnswer(newAnswer);
-        setTempSources(sources);
+        // Use sources from currentReviewingAnswer if available, otherwise fallback to props.sources
+        const sourcesToUse = currentReviewingAnswer?.sources?.length
+          ? currentReviewingAnswer.sources
+          : sources;
+        setTempSources(sourcesToUse);
         onChecklistChange({
           ...checklist,
           valueInsight: true,
@@ -121,7 +132,7 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
         setTempRejectAnswer("");
         setTempSources([]);
       }
-  }, [isOpen, type]);
+  }, [isOpen, type, currentReviewingAnswer]);
 
   useEffect(() => {
     const msg = getReviewSuggestion(checklist);
