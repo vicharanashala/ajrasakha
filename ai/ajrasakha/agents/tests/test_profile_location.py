@@ -155,6 +155,15 @@ async def test_weather_and_mandi_get_only_the_profile_location():
 
 
 @pytest.mark.asyncio
+async def test_village_and_block_are_sent_without_profile_coordinates():
+    plan = _tool_plan(profile_coordinates={"latitude": None, "longitude": None, "village": "chinnawaltair", "block": "seethammadhara"})
+    calls, _ = await build_specialist_tool_calls_from_plan(plan, plan["rephrased_query"], {})
+    for args in (_args(calls, "new_weather"), _args(calls, "daily_price")):
+        assert (args["village"], args["block"]) == ("chinnawaltair", "seethammadhara")
+        assert (args["latitude"], args["longitude"]) == (None, None)
+
+
+@pytest.mark.asyncio
 async def test_no_state_is_read_from_the_query_text():
     plan = _tool_plan(profile_coordinates=None)
     plan["entities"].update(state=None, district=None)

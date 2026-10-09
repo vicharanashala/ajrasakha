@@ -1027,11 +1027,10 @@ async def planner_node(
             plan["follow_up_question"] = await _translate_profile_location_message(plan, config)
         # Every answer is for the farmer profile location.
         plan["location_from_profile"] = bool(stored_location)
+        # Village/block are sent even without profile lat/long (the tools then geocode).
         plan["profile_coordinates"] = (
             {k: stored_location.get(k) for k in ("latitude", "longitude", "village", "block")}
             if stored_location
-            and stored_location.get("latitude") is not None
-            and stored_location.get("longitude") is not None
             else None
         )
 
