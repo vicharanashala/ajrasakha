@@ -446,7 +446,13 @@ async def _apply_domain_and_crop_async(
     plan["domains"] = domains
     plan["domain"] = domains[0]
 
+    # Preserve the LLM's explicit weather decision - the domain-based flag
+    # derivation should NOT override it. The LLM is the source of truth for
+    # whether live weather data is actually required.
+    llm_weather = plan.get("weather")
     plan.update(apply_tool_flags_from_domains(domains))
+    if llm_weather is not None:
+        plan["weather"] = llm_weather
     if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker", False):
         plan["chemical_checker"] = True
     else:
