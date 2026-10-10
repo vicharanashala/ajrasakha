@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as XLSX from 'xlsx';
-import { TesterLogService, incrementTestId } from '../services/TesterLogService.js';
+import { TesterLogService, incrementTestId, validateNotFuture, validateTestDateNotFuture, parseEpochMs, validateTranslationMapping, validateTextFields, TEXT_FIELD_LIMITS } from '../services/TesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
 
 describe('TesterLogService date filtering', () => {
@@ -116,6 +116,27 @@ describe('TesterLogService date filtering', () => {
 
         expect(mockFind).toHaveBeenCalledWith(expectedFilter);
         expect(mockCountDocuments).toHaveBeenCalledWith(expectedFilter);
+    });
+
+    it('applies free-text search across multiple fields in getMyEntries', async () => {
+        await service.getMyEntries('user-1', 1, 20, undefined, undefined, undefined, 'tl-0054');
+
+        const callArg = mockFind.mock.calls[mockFind.mock.calls.length - 1][0];
+        expect(callArg.submittedByUserId).toBe('user-1');
+        expect(callArg.$and).toBeDefined();
+        const searchCondition = callArg.$and[0];
+        expect(searchCondition.$or).toBeDefined();
+        expect(searchCondition.$or.length).toBe(7); // queryText, threadId, webThreadId, waThreadId, testId, typeOfQuestion, defectIdBugRef
+    });
+
+    it('applies status filter in getMyEntries', async () => {
+        await service.getMyEntries('user-1', 1, 20, undefined, undefined, undefined, undefined, 'fail');
+
+        const callArg = mockFind.mock.calls[mockFind.mock.calls.length - 1][0];
+        expect(callArg.submittedByUserId).toBe('user-1');
+        expect(callArg.$and).toBeDefined();
+        const statusCondition = callArg.$and[0];
+        expect(statusCondition.$or).toBeDefined(); // Fail or Anomaly
     });
 
     it('applies date filter in getAllEntries as well', async () => {
@@ -745,36 +766,358 @@ describe('TesterLogService date filtering', () => {
         expect(summary.byChannel['WhatsApp']).toBe(2);
         expect(summary.byLanguage['Hindi']).toBe(2);
         expect(summary.dailyStats.length).toBe(2);
+        expect(summary.dbPersistence.saved).toBe(2);
+        expect(summary.dbPersistence.notSaved).toBe(1);
+        expect(summary.dbPersistence.rate).toBe(66.7);
 
         // Target vs. Achieved assertions
         expect(summary.targetVsAchieved).toBeDefined();
         expect(summary.targetVsAchieved.daysCount).toBe(2);
-        expect(summary.targetVsAchieved.rows.length).toBe(6);
+        expect(summary.targetVsAchieved.rows.length).toBe(7);
         expect(summary.targetVsAchieved.total.targetTotal).toBe(108); // 54 * 2 days
         expect(summary.targetVsAchieved.total.targetWebApp).toBe(54); // 27 * 2 days
         expect(summary.targetVsAchieved.total.targetWhatsApp).toBe(54); // 27 * 2 days
         expect(summary.targetVsAchieved.total.achievedTotal).toBe(3);
     });
 
-    it('computes both Web App and WhatsApp response times in createEntry for cross-platform tests', async () => {
-        mockCollection.insertOne = vi.fn().mockImplementation(async (entry: any) => ({
-            insertedId: 'entry-cp-1',
-        }));
+    it('scales targetVsAchieved targets to exactly 378 across 7 days and 1620 across 30 days', async () => {
+        mockToArray.mockResolvedValue([]);
 
+        // 7 days inclusive: e.g. 2026-10-03 to 2026-10-09
+        const summary7 = await service.getMySummary('user-1', '2026-10-03', '2026-10-09');
+        expect(summary7.targetVsAchieved.daysCount).toBe(7);
+        expect(summary7.targetVsAchieved.total.targetTotal).toBe(378); // 54 * 7
+        expect(summary7.targetVsAchieved.total.targetWebApp).toBe(189); // 27 * 7
+        expect(summary7.targetVsAchieved.total.targetWhatsApp).toBe(189); // 27 * 7
+
+        // 30 days inclusive: e.g. 2026-09-10 to 2026-10-09
+        const summary30 = await service.getMySummary('user-1', '2026-09-10', '2026-10-09');
+        expect(summary30.targetVsAchieved.daysCount).toBe(30);
+        expect(summary30.targetVsAchieved.total.targetTotal).toBe(1620); // 54 * 30
+        expect(summary30.targetVsAchieved.total.targetWebApp).toBe(810); // 27 * 30
+        expect(summary30.targetVsAchieved.total.targetWhatsApp).toBe(810); // 27 * 30
+    });
+
+    it('scales targetVsAchieved targets from startDate to today when endDate is open-ended', async () => {
+        mockToArray.mockResolvedValue([]);
+
+        const now = new Date();
+        const todayStr = getTodayIST(now);
+        const summaryToday = await service.getMySummary('user-1', todayStr);
+        expect(summaryToday.targetVsAchieved.daysCount).toBe(1);
+        expect(summaryToday.targetVsAchieved.total.targetTotal).toBe(54);
+
+        const past2Days = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const summaryPast = await service.getMySummary('user-1', past2Days);
+        expect(summaryPast.targetVsAchieved.daysCount).toBeGreaterThanOrEqual(2);
+        expect(summaryPast.targetVsAchieved.total.targetTotal).toBe(54 * summaryPast.targetVsAchieved.daysCount);
+    });
+
+    it('computes dbPersistence correctly with form dropdown values ("Saved", "Not Saved", "Partial Save")', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Saved',
+                answerSavedInDb: 'Saved',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Saved',
+                answerSavedInDb: 'Not Saved',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Partial Save',
+                answerSavedInDb: 'Saved',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Pass',
+                questionSavedInDb: 'Saved',
+                answerSavedInDb: 'NA',
+            },
+            {
+                testDate: '2026-10-05',
+                overallTestStatus: 'Fail',
+                questionSavedInDb: 'Not Saved',
+                answerSavedInDb: 'Not Saved',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-05', '2026-10-05');
+
+        expect(summary.success).toBe(true);
+        expect(summary.dbPersistence.saved).toBe(2);
+        expect(summary.dbPersistence.notSaved).toBe(3);
+        expect(summary.dbPersistence.rate).toBe(40.0);
+    });
+
+    it('computes SLA status correctly with dropdown values ("Within SLA", "SLA Breached") and cross-platform', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WhatsApp',
+                slaStatus: 'SLA Breached',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'Web',
+                slaStatus: 'Within SLA',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'Both',
+                slaStatus: 'Within SLA',
+                waSlaStatus: 'SLA Breached',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WhatsApp',
+                slaStatus: 'Not Applicable',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-05', '2026-10-05');
+
+        expect(summary.success).toBe(true);
+        // Entry 1: 1 breached
+        // Entry 2: 1 met
+        // Entry 3 (Both): 1 met + 1 breached
+        // Entry 4: Not Applicable (ignored)
+        expect(summary.slaMet).toBe(2);
+        expect(summary.slaBreached).toBe(2);
+        expect(summary.slaMetRate).toBe(50.0);
+    });
+
+    it('computes both Web App and WhatsApp response times in createEntry for cross-platform tests', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            mockCollection.insertOne = vi.fn().mockImplementation(async (entry: any) => ({
+                insertedId: 'entry-cp-1',
+            }));
+
+            const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                testDate: '2026-10-01',
+                channelTested: 'Both',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '10:00:00',
+                timeAnswerReceived: '10:00:15',
+                waTimeQuestionAsked: '10:00:00',
+                waTimeAnswerReceived: '10:00:45',
+                whatsappVsWebAnswerMatch: 'Yes',
+            } as any);
+
+            expect(result.success).toBe(true);
+            expect(result.entry.responseTimeMins).toBe('00:00:15');
+            expect(result.entry.waResponseTimeMins).toBe('00:00:45');
+            expect(result.entry.channelTested).toBe('Both');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects createEntry when timeAnswerReceived is earlier than timeQuestionAsked', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    testDate: '2026-10-01',
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '12:00:00',
+                    timeAnswerReceived: '11:00:00',
+                } as any),
+            ).rejects.toThrow('Time Answer Received cannot be earlier than Time Question Asked');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects createEntry when waTimeAnswerReceived is earlier than waTimeQuestionAsked', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    testDate: '2026-10-01',
+                    channelTested: 'Both',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '10:00:00',
+                    timeAnswerReceived: '10:05:00',
+                    waTimeQuestionAsked: '10:10:00',
+                    waTimeAnswerReceived: '10:00:00',
+                } as any),
+            ).rejects.toThrow('WhatsApp Time Received cannot be earlier than WhatsApp Time Asked');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects createEntry when authorCompletionTime is earlier than authorAssignmentTime', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    testDate: '2026-10-01',
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '10:00:00',
+                    timeAnswerReceived: '10:05:00',
+                    authorAssignmentTime: '11:00:00',
+                    authorCompletionTime: '10:30:00',
+                } as any),
+            ).rejects.toThrow('Author Completion Time cannot be earlier than Author Assignment Time');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects updateEntry when answer time is updated to be earlier than question asked', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '12:00:00',
+            timeAnswerReceived: '12:05:00',
+        });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        await expect(
+            service.updateEntry(ID, { timeAnswerReceived: '11:50:00' }, actor),
+        ).rejects.toThrow('Time Answer Received cannot be earlier than Time Question Asked');
+    });
+
+    it('rejects createEntry when timeQuestionAsked is set to the future (e.g. TL-0058 set to 2030)', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '2030-01-01T10:00:00',
+                timeAnswerReceived: '2030-01-01T10:05:00',
+            } as any),
+        ).rejects.toThrow('Time Question Asked cannot be in the future');
+    });
+
+    it('rejects createEntry when timeAnswerReceived is set to the future', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                timeQuestionAsked: '2026-09-01T10:00:00',
+                timeAnswerReceived: '2030-01-01T10:05:00',
+            } as any),
+        ).rejects.toThrow('Time Answer Received cannot be in the future');
+    });
+
+    it('rejects createEntry when testDate is set to the future', async () => {
+        await expect(
+            service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                testDate: '2030-01-01',
+                timeQuestionAsked: '10:00:00',
+                timeAnswerReceived: '10:05:00',
+            } as any),
+        ).rejects.toThrow('Test date cannot be in the future');
+    });
+
+    it('rejects updateEntry when timestamp is updated to the future', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '2026-09-20T12:00:00',
+            timeAnswerReceived: '2026-09-20T12:05:00',
+        });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        await expect(
+            service.updateEntry(ID, { timeQuestionAsked: '2030-01-01T10:00:00', timeAnswerReceived: '2030-01-01T10:05:00' }, actor),
+        ).rejects.toThrow('Time Question Asked cannot be in the future');
+    });
+
+    it('rejects createEntry when response time exceeds 120 minutes and slaStatus is Not Applicable or Within SLA', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-10-09T18:00:00.000Z'));
+        try {
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '08:00:00',
+                    timeAnswerReceived: '12:00:00', // 4 hours = 240 mins
+                    slaStatus: 'Not Applicable',
+                } as any),
+            ).rejects.toThrow("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+
+            await expect(
+                service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
+                    channelTested: 'WebApp',
+                    typeOfQuestion: 'Unique',
+                    timeQuestionAsked: '08:00:00',
+                    timeAnswerReceived: '12:00:00',
+                    slaStatus: 'Within SLA',
+                } as any),
+            ).rejects.toThrow("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects updateEntry when testDate is updated to the future', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '2026-09-20T12:00:00',
+            timeAnswerReceived: '2026-09-20T12:05:00',
+        });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        await expect(
+            service.updateEntry(ID, { testDate: '2030-01-01' }, actor),
+        ).rejects.toThrow('Test date cannot be in the future');
+    });
+
+    it('allows updateEntry to update remarks on legacy records with existing inverted or future times without failing', async () => {
+        const ID = '507f1f77bcf86cd799439011';
+        mockCollection.findOne = vi.fn().mockResolvedValue({
+            _id: { toString: () => ID },
+            testDate: '2026-09-20',
+            timeQuestionAsked: '12:00:00',
+            timeAnswerReceived: '11:00:00', // legacy reversed time
+            reviewer3AssignmentTime: '2030-01-01T10:00:00', // legacy future time
+            reviewerRemarks: 'Old remarks',
+        });
+        mockCollection.updateOne = vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+        const actor: any = { userId: 'admin-1', email: 'admin@example.com', role: 'admin' };
+        const result = await service.updateEntry(ID, { reviewerRemarks: 'Updated remarks without touching times' }, actor);
+        expect(result).not.toBeNull();
+        expect(result?.entry.reviewerRemarks).toBe('Updated remarks without touching times');
+    });
+
+    it('supports times that cross midnight (e.g. 23:55 to 00:04) in createEntry without rejection', async () => {
+        mockCollection.insertOne = vi.fn().mockResolvedValue({ insertedId: 'entry-midnight-1' });
         const result = await service.createEntry('user-1', 'tester@example.com', 'Tester Name', {
-            channelTested: 'Both',
+            channelTested: 'WebApp',
             typeOfQuestion: 'Unique',
-            timeQuestionAsked: '10:00:00',
-            timeAnswerReceived: '10:00:15',
-            waTimeQuestionAsked: '10:00:00',
-            waTimeAnswerReceived: '10:00:45',
-            whatsappVsWebAnswerMatch: 'Yes',
+            timeQuestionAsked: '23:55:00',
+            timeAnswerReceived: '00:04:00',
         } as any);
 
         expect(result.success).toBe(true);
-        expect(result.entry.responseTimeMins).toBe('00:00:15');
-        expect(result.entry.waResponseTimeMins).toBe('00:00:45');
-        expect(result.entry.channelTested).toBe('Both');
+        expect(result.entry.responseTimeMins).toBe('00:09:00');
     });
 
     it('aggregates cross-platform stats and credits both platforms in getMySummary', async () => {
@@ -819,6 +1162,213 @@ describe('TesterLogService date filtering', () => {
         expect(uniqueRow?.achievedWebApp).toBe(2);
         expect(uniqueRow?.achievedWhatsApp).toBe(1);
         expect(uniqueRow?.achievedTotal).toBe(3);
+    });
+
+    it('excludes entries with NA or blank WhatsApp vs Web Answer Match from crossPlatformStats total', async () => {
+        // Reproduce QA issue: 20 tests with channel "Both", 19 with NA, 1 with Mismatch
+        const mockEntries = [
+            ...Array.from({ length: 19 }, () => ({
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'NA',
+                slaStatus: 'Met',
+            })),
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Fail',
+                whatsappVsWebAnswerMatch: 'Mismatch',
+                slaStatus: 'Met',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-09', '2026-10-09');
+
+        expect(summary.crossPlatformStats).toBeDefined();
+        // Only 1 entry was actually compared (Mismatch). The 19 NA entries must not be counted in total.
+        expect(summary.crossPlatformStats?.totalCrossPlatform).toBe(1);
+        expect(summary.crossPlatformStats?.matchedAnswers).toBe(0);
+        expect(summary.crossPlatformStats?.mismatches).toBe(1);
+        expect(summary.crossPlatformStats?.parityRate).toBe(0);
+    });
+
+    it('correctly credits "Proper Match" in crossPlatformStats', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'Proper Match',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'Partial Match',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                whatsappVsWebAnswerMatch: 'NA',
+                slaStatus: 'Met',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-09', '2026-10-09');
+
+        expect(summary.crossPlatformStats).toBeDefined();
+        // 2 compared (Proper Match + Partial Match), 1 NA ignored
+        expect(summary.crossPlatformStats?.totalCrossPlatform).toBe(2);
+        expect(summary.crossPlatformStats?.matchedAnswers).toBe(1);
+        expect(summary.crossPlatformStats?.partialMatches).toBe(1);
+        expect(summary.crossPlatformStats?.parityRate).toBe(50.0); // 1 / 2 = 50%
+    });
+
+    it('isolates Static Dynamic questions into their own row and does not conflate them with Dynamic - Weather', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-08',
+                typeOfQuestion: 'Weather Dynamic',
+                questionCategory: 'Climate, Weather & Stress Management',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-08',
+                typeOfQuestion: 'Weather Dynamic',
+                questionCategory: 'Climate, Weather & Stress Management',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Met',
+            },
+            {
+                testDate: '2026-10-08',
+                typeOfQuestion: 'Static Dynamic',
+                questionCategory: 'Climate, Weather & Stress Management',
+                channelTested: 'Both',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Met',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-08', '2026-10-08');
+
+        // Top Question Types
+        expect(summary.byQuestionType['Weather Dynamic']).toBe(2);
+        expect(summary.byQuestionType['Static Dynamic']).toBe(1);
+
+        // Weather row: exactly 2 entries tested on 'Both' => 2 Web, 2 WhatsApp, Total 4 (NOT 3 Web / 3 WhatsApp)
+        const weatherRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Dynamic - Weather');
+        expect(weatherRow).toBeDefined();
+        expect(weatherRow?.achievedWebApp).toBe(2);
+        expect(weatherRow?.achievedWhatsApp).toBe(2);
+        expect(weatherRow?.achievedTotal).toBe(4);
+
+        // Static Dynamic row: exactly 1 entry tested on 'Both' => 1 Web, 1 WhatsApp, Total 2
+        const staticDynamicRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Static Dynamic');
+        expect(staticDynamicRow).toBeDefined();
+        expect(staticDynamicRow?.achievedWebApp).toBe(1);
+        expect(staticDynamicRow?.achievedWhatsApp).toBe(1);
+        expect(staticDynamicRow?.achievedTotal).toBe(2);
+        expect(staticDynamicRow?.targetTotal).toBe(0);
+    });
+
+    it('caps target achievement per question type so over-performing in one type does not inflate overall completion rate', async () => {
+        // Reproduces exact user scenario: 26 Unique (target 8), 2 GDB (8), 2 Outreach (11),
+        // 6 Weather (19), 2 Scheme (6), 2 Mandi (2)
+        const entries: any[] = [];
+        const addEntries = (type: string, count: number) => {
+            for (let i = 0; i < count; i++) {
+                entries.push({
+                    testDate: '2026-10-08',
+                    typeOfQuestion: type,
+                    channelTested: 'WebApp', // 1 each
+                    overallTestStatus: 'Pass',
+                    slaStatus: 'Met',
+                });
+            }
+        };
+
+        addEntries('Unique', 26);
+        addEntries('GDB', 2);
+        addEntries('Outreach', 2);
+        addEntries('Weather Dynamic', 6);
+        addEntries('Scheme Dynamic', 2);
+        addEntries('Mandi Dynamic', 2);
+
+        expect(entries.length).toBe(40);
+
+        mockToArray.mockResolvedValue(entries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-08', '2026-10-08');
+
+        // Total target is 54 for 1 day
+        expect(summary.targetVsAchieved.total.targetTotal).toBe(54);
+
+        // Capped achieved total: 8 + 2 + 2 + 6 + 2 + 2 = 22
+        expect(summary.targetVsAchieved.total.achievedTotal).toBe(22);
+
+        // Raw uncapped total: 40
+        expect(summary.targetVsAchieved.total.rawAchievedTotal).toBe(40);
+
+        // Completion rate: 22 / 54 = 40.7% (NOT 40 / 54 = 74.1%)
+        expect(summary.targetVsAchieved.total.completionRate).toBe(40.7);
+    });
+
+    it('calculates scientificAccuracy correctly including Partially Correct answers in denominator', async () => {
+        // User scenario: 20 tests: 18 Correct, 1 Incorrect, 1 Partially Correct => 18 / 20 = 90%
+        const entries: any[] = [];
+        for (let i = 0; i < 18; i++) {
+            entries.push({
+                testDate: '2026-10-09',
+                typeOfQuestion: 'Unique',
+                channelTested: 'WebApp',
+                overallTestStatus: 'Pass',
+                answerScientificallyCorrect: 'Correct',
+            });
+        }
+        entries.push({
+            testDate: '2026-10-09',
+            typeOfQuestion: 'Unique',
+            channelTested: 'WebApp',
+            overallTestStatus: 'Fail',
+            answerScientificallyCorrect: 'Incorrect',
+        });
+        entries.push({
+            testDate: '2026-10-09',
+            typeOfQuestion: 'Unique',
+            channelTested: 'WebApp',
+            overallTestStatus: 'Pass',
+            answerScientificallyCorrect: 'Partially Correct',
+        });
+
+        expect(entries.length).toBe(20);
+
+        mockToArray.mockResolvedValue(entries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-09', '2026-10-09');
+
+        expect(summary.scientificAccuracy.correct).toBe(18);
+        expect(summary.scientificAccuracy.incorrect).toBe(1);
+        expect(summary.scientificAccuracy.partiallyCorrect).toBe(1);
+        expect(summary.scientificAccuracy.totalChecked).toBe(20);
+        expect(summary.scientificAccuracy.rate).toBe(90.0); // 18 / 20 = 90% (NOT 18 / 19 = 94.7%)
     });
 });
 
@@ -1031,6 +1581,55 @@ describe('incrementTestId', () => {
     });
 });
 
+describe('validateNotFuture and validateTestDateNotFuture', () => {
+    const fixedNow = new Date('2026-10-05T12:00:00Z').getTime();
+
+    it('parseEpochMs parses datetime with or without defaultDate and assumes IST when no offset', () => {
+        expect(parseEpochMs('')).toBeNull();
+        expect(parseEpochMs(undefined)).toBeNull();
+        const istEpoch = parseEpochMs('2026-10-05T17:30:00');
+        expect(istEpoch).toBe(new Date('2026-10-05T12:00:00Z').getTime());
+        const timeWithDate = parseEpochMs('17:30:00', '2026-10-05');
+        expect(timeWithDate).toBe(new Date('2026-10-05T12:00:00Z').getTime());
+    });
+
+    it('validateNotFuture does not throw for past timestamps', () => {
+        expect(() => validateNotFuture('2026-10-01T10:00:00', 'Time', undefined, fixedNow)).not.toThrow();
+        expect(() => validateNotFuture('10:00:00', 'Time', '2026-10-01', fixedNow)).not.toThrow();
+    });
+
+    it('validateNotFuture allows timestamps within the 5-minute grace period', () => {
+        // 2 minutes in the future (within 5-min grace)
+        const twoMinsAhead = new Date(fixedNow + 2 * 60 * 1000).toISOString();
+        expect(() => validateNotFuture(twoMinsAhead, 'Time', undefined, fixedNow)).not.toThrow();
+    });
+
+    it('validateNotFuture throws BadRequestError for future timestamps beyond grace period (e.g. 2030)', () => {
+        expect(() => validateNotFuture('2030-01-01T10:00:00', 'Time Question Asked', undefined, fixedNow))
+            .toThrow('Time Question Asked cannot be in the future');
+        expect(() => validateNotFuture('10:00:00', 'Time Answer Received', '2030-01-01', fixedNow))
+            .toThrow('Time Answer Received cannot be in the future');
+    });
+
+    it('validateTestDateNotFuture throws BadRequestError for future testDate', () => {
+        const today = new Date('2026-10-05T12:00:00Z');
+        expect(() => validateTestDateNotFuture('2030-01-01', today)).toThrow('Test date cannot be in the future');
+        expect(() => validateTestDateNotFuture('2026-10-06', today)).toThrow('Test date cannot be in the future');
+    });
+
+    it('validateTestDateNotFuture passes for today or past testDate', () => {
+        const today = new Date('2026-10-05T12:00:00Z');
+        expect(() => validateTestDateNotFuture('2026-10-05', today)).not.toThrow();
+        expect(() => validateTestDateNotFuture('2026-09-01', today)).not.toThrow();
+    });
+
+    it('validateTestDateNotFuture throws BadRequestError for invalid date format (e.g. DD/MM/YYYY)', () => {
+        const today = new Date('2026-10-05T12:00:00Z');
+        expect(() => validateTestDateNotFuture('05/10/2030', today)).toThrow('Test date must be formatted as YYYY-MM-DD');
+        expect(() => validateTestDateNotFuture('not-a-date', today)).toThrow('Test date must be formatted as YYYY-MM-DD');
+    });
+});
+
 describe('TesterLogService getNextTestId and allocateNextTestId', () => {
     let service: TesterLogService;
     let mockCollection: any;
@@ -1148,4 +1747,203 @@ describe('TesterLogService getNextTestId and allocateNextTestId', () => {
         expect(allocatedIds).toContain('TL-0011');
         expect(allocatedIds).toContain('TL-0060');
     });
+
+    describe('Translation Quality to Error Type mapping validation', () => {
+        it('accepts valid translation quality and error type combinations', () => {
+            expect(() => validateTranslationMapping('Good', 'No Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Acceptable', 'Grammar Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Not Acceptable', 'Intent Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Not Acceptable', 'Word Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Not Acceptable', 'Partial Translation')).not.toThrow();
+            expect(() => validateTranslationMapping('NA', 'NA')).not.toThrow();
+        });
+
+        it('rejects invalid combinations with 400 BadRequestError', () => {
+            expect(() => validateTranslationMapping('Good', 'Intent Error')).toThrow(
+                /Translation Error Type "Intent Error" is not valid for Translation Quality "Good"/,
+            );
+            expect(() => validateTranslationMapping('Acceptable', 'No Error')).toThrow(
+                /Translation Error Type "No Error" is not valid for Translation Quality "Acceptable"/,
+            );
+            expect(() => validateTranslationMapping('Not Acceptable', 'No Error')).toThrow(
+                /Translation Error Type "No Error" is not valid for Translation Quality "Not Acceptable"/,
+            );
+            expect(() => validateTranslationMapping('NA', 'No Error')).toThrow(
+                /Translation Error Type "No Error" is not valid for Translation Quality "NA"/,
+            );
+        });
+
+        it('ignores validation when either field is blank or missing', () => {
+            expect(() => validateTranslationMapping('', 'No Error')).not.toThrow();
+            expect(() => validateTranslationMapping('Good', '')).not.toThrow();
+            expect(() => validateTranslationMapping(undefined, undefined)).not.toThrow();
+        });
+    });
+
+    describe('Text field limits and format validation (TL-0059, TL-0063)', () => {
+        describe('Query Text validation (TL-0059)', () => {
+            it('rejects queryText exceeding 1000 characters', () => {
+                const query5000Chars = 'a'.repeat(5000);
+                expect(() => validateTextFields({ queryText: query5000Chars })).toThrow(
+                    /Query Text must not exceed 1000 characters \(received 5000 characters\)/,
+                );
+            });
+
+            it('rejects queryText shorter than 3 characters', () => {
+                expect(() => validateTextFields({ queryText: 'ab' })).toThrow(
+                    /Query Text must be at least 3 characters/,
+                );
+            });
+
+            it('accepts valid queryText within 3 to 1000 characters', () => {
+                expect(() => validateTextFields({ queryText: 'What is the price of wheat in Punjab?' })).not.toThrow();
+                expect(() => validateTextFields({ queryText: 'a'.repeat(1000) })).not.toThrow();
+                expect(() => validateTextFields({ queryText: 'abc' })).not.toThrow();
+            });
+
+            it('rejects 5000-character queryText in service.createEntry', async () => {
+                const query5000Chars = 'x'.repeat(5000);
+                await expect(
+                    service.createEntry('user-1', 'tester@example.com', 'Tester', {
+                        buildVersion: '1.0',
+                        queryText: query5000Chars,
+                    } as any),
+                ).rejects.toThrow(/Query Text must not exceed 1000 characters/);
+            });
+        });
+
+        describe('Build / Version format validation (TL-0063)', () => {
+            it('rejects invalid build versions like not-a-version!@#$%', () => {
+                expect(() => validateTextFields({ buildVersion: 'not-a-version!@#$%' })).toThrow(
+                    /Invalid Build \/ Version "not-a-version!@#\$%". Must be a valid version format containing numbers/,
+                );
+            });
+
+            it('rejects build version without numbers', () => {
+                expect(() => validateTextFields({ buildVersion: 'release' })).toThrow(
+                    /Invalid Build \/ Version/,
+                );
+            });
+
+            it('rejects build version exceeding 50 characters', () => {
+                const longVersion = 'v1.0.' + '0'.repeat(50);
+                expect(() => validateTextFields({ buildVersion: longVersion })).toThrow(
+                    /Invalid Build \/ Version/,
+                );
+            });
+
+            it('accepts valid build versions containing numbers', () => {
+                expect(() => validateTextFields({ buildVersion: '1.0' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: '2.1.0' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: 'v1.0.4' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: 'release-2.0.1' })).not.toThrow();
+                expect(() => validateTextFields({ buildVersion: 'Build 104 (Staging)' })).not.toThrow();
+            });
+
+            it('rejects invalid buildVersion in service.createEntry', async () => {
+                await expect(
+                    service.createEntry('user-1', 'tester@example.com', 'Tester', {
+                        buildVersion: 'not-a-version!@#$%',
+                        queryText: 'Valid query text',
+                    } as any),
+                ).rejects.toThrow(/Invalid Build \/ Version "not-a-version!@#\$%"/);
+            });
+        });
+
+        describe('Thread IDs format validation', () => {
+            it('rejects threadId exceeding 100 characters or with invalid characters', () => {
+                expect(() => validateTextFields({ threadId: 'thread<script>' })).toThrow(
+                    /Thread ID must be between 1 and 100 characters/,
+                );
+                expect(() => validateTextFields({ threadId: 'a'.repeat(101) })).toThrow(
+                    /Thread ID must be between 1 and 100 characters/,
+                );
+            });
+
+            it('accepts valid thread IDs', () => {
+                expect(() => validateTextFields({ threadId: 'thread-12345' })).not.toThrow();
+                expect(() => validateTextFields({ threadId: 'sess_abc.1:xyz' })).not.toThrow();
+            });
+
+            it('rejects waThreadId with invalid characters', () => {
+                expect(() => validateTextFields({ waThreadId: 'bad phone!@#' })).toThrow(
+                    /WhatsApp Thread \/ Phone Number must be a valid phone number or identifier/,
+                );
+            });
+
+            it('accepts valid waThreadId as phone or identifier', () => {
+                expect(() => validateTextFields({ waThreadId: '+919876543210' })).not.toThrow();
+                expect(() => validateTextFields({ waThreadId: '9876543210' })).not.toThrow();
+                expect(() => validateTextFields({ waThreadId: 'wa-session-123' })).not.toThrow();
+            });
+        });
+
+        describe('Person names validation', () => {
+            it('rejects names with numbers or special characters', () => {
+                expect(() => validateTextFields({ authorsName: 'Author 123' })).toThrow(
+                    /Author Name must contain only letters and standard name characters/,
+                );
+                expect(() => validateTextFields({ reviewer1Name: 'Reviewer@#$' })).toThrow(
+                    /Reviewer 1 Name must contain only letters and standard name characters/,
+                );
+                expect(() => validateTextFields({ moderatorName: 'Mod!' })).toThrow(
+                    /Moderator Name must contain only letters and standard name characters/,
+                );
+            });
+
+            it('rejects names shorter than 2 characters or longer than 100 characters', () => {
+                expect(() => validateTextFields({ authorsName: 'A' })).toThrow(/Author Name/);
+                expect(() => validateTextFields({ moderatorName: 'A'.repeat(101) })).toThrow(/Moderator Name/);
+            });
+
+            it('accepts valid names', () => {
+                expect(() => validateTextFields({ authorsName: 'John Doe' })).not.toThrow();
+                expect(() => validateTextFields({ reviewer1Name: 'Mary-Jane' })).not.toThrow();
+                expect(() => validateTextFields({ moderatorName: "Dr. O'Connor" })).not.toThrow();
+            });
+        });
+
+        describe('Remarks and Notes length validation', () => {
+            it('rejects remarks notes < 3 or > 2000 characters', () => {
+                expect(() => validateTextFields({ testerRemarksNotes: 'ab' })).toThrow(
+                    /Remarks Details must be between 3 and 2000 characters/,
+                );
+                expect(() => validateTextFields({ testerRemarksNotes: 'x'.repeat(2001) })).toThrow(
+                    /Remarks Details must be between 3 and 2000 characters/,
+                );
+            });
+
+            it('rejects discrepancy notes > 1000 characters', () => {
+                expect(() => validateTextFields({ crossPlatformDiscrepancyNotes: 'x'.repeat(1001) })).toThrow(
+                    /Discrepancy Notes must not exceed 1000 characters/,
+                );
+            });
+
+            it('accepts valid remarks and discrepancy notes', () => {
+                expect(() => validateTextFields({ testerRemarksNotes: 'Testing completed successfully' })).not.toThrow();
+                expect(() => validateTextFields({ crossPlatformDiscrepancyNotes: 'Slight difference in formatting' })).not.toThrow();
+            });
+        });
+
+        describe('updateEntry text field validation', () => {
+            const VALID_ID = '64b7f0c2a1b2c3d4e5f60718';
+            const testActor = { userId: 'admin-1', email: 'admin@example.com', name: 'Admin One' };
+
+            it('rejects invalid fields in service.updateEntry', async () => {
+                mockCollection.findOne = vi.fn().mockResolvedValue({ _id: VALID_ID, testId: 'TL-0001' });
+                await expect(
+                    service.updateEntry(VALID_ID, {
+                        buildVersion: 'bad-version!@#$',
+                    }, testActor),
+                ).rejects.toThrow(/Invalid Build \/ Version/);
+
+                await expect(
+                    service.updateEntry(VALID_ID, {
+                        queryText: 'a'.repeat(5000),
+                    }, testActor),
+                ).rejects.toThrow(/Query Text must not exceed 1000 characters/);
+            });
+        });
+    });
 });
+

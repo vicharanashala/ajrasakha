@@ -54,6 +54,8 @@ import { ZohoTicketStatusService } from '../../../../testers-dashboard/backend/b
 import { ZohoTicketStatusController } from '../../../../testers-dashboard/backend/build/controllers/ZohoTicketStatusController.js';
 import { TesterLogController } from '../../../../testers-dashboard/backend/build/controllers/TesterLogController.js';
 import { TesterLogService } from '../../../../testers-dashboard/backend/build/services/TesterLogService.js';
+import { TestersDbAnalyticsController } from '../../../../testers-dashboard/backend/build/controllers/TestersDbAnalyticsController.js';
+import { TestersDbAnalyticsService } from '../../../../testers-dashboard/backend/build/services/TestersDbAnalyticsService.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
@@ -87,6 +89,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(TestersDashboardController).toSelf().inSingletonScope();
   options.bind(ZohoTicketStatusController).toSelf().inSingletonScope();
   options.bind(TesterLogController).toSelf().inSingletonScope();
+  options.bind(TestersDbAnalyticsController).toSelf().inSingletonScope();
   options.bind(OrganizationController).toSelf().inSingletonScope();
   options.bind(PopController).toSelf().inSingletonScope();
   options.bind(NewSourceController).toSelf().inSingletonScope();
@@ -165,6 +168,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
   options.bind(CORE_TYPES.TestersDashboardService).to(TestersDashboardService).inSingletonScope();
   options.bind(CORE_TYPES.TesterLogService).to(TesterLogService).inSingletonScope();
+  options.bind(CORE_TYPES.TestersDbAnalyticsService).to(TestersDbAnalyticsService).inSingletonScope();
   options.bind(CORE_TYPES.OrganizationService).to(OrganizationService).inSingletonScope();
   options.bind(CORE_TYPES.PopService).to(PopService).inSingletonScope();
   options.bind(CORE_TYPES.NewSourceService).to(NewSourceService).inSingletonScope();

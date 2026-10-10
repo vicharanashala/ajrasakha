@@ -99,4 +99,12 @@ jobs:
             MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
             MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
             CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
+            TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH=${{ secrets.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH }}
+            TESTERS_DASHBOARD_SHEETS=${{ secrets.TESTERS_DASHBOARD_SHEETS }}
+            ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }}
+            ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }}
+            ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }}
+            ZOHO_ORG_ID=${{ secrets.ZOHO_ORG_ID }}
+            ZOHO_ACCOUNTS_DOMAIN=${{ secrets.ZOHO_ACCOUNTS_DOMAIN }}
+            ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
           flags: --allow-unauthenticated

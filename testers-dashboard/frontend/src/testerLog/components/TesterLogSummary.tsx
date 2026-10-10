@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTesterLogSummary } from "../hooks/useTesterLogSummary";
 import { useTesterLogHistory } from "../hooks/useTesterLogHistory";
 import type { ITesterLogEntry } from "../types";
@@ -16,7 +16,6 @@ import {
     ClipboardList,
     Search,
     ShieldCheck,
-    Database,
     Mic,
     HelpCircle,
     Activity,
@@ -30,7 +29,7 @@ import {
 } from "lucide-react";
 
 type DatePreset = "all" | "today" | "7days" | "30days" | "custom";
-type StatusFilter = "all" | "pass" | "fail" | "partial" | "defects";
+type StatusFilter = "all" | "pass" | "fail" | "defects";
 
 function FractionDisplay({
     achieved,
@@ -41,17 +40,26 @@ function FractionDisplay({
     target: number;
     size?: "sm" | "md" | "lg";
 }) {
-    const pct = target > 0 ? Math.round((achieved / target) * 1000) / 10 : 0;
-    const isComplete = achieved >= target && target > 0;
-    const isWarning = pct < 50;
+    const hasTarget = target > 0;
+    const rawPct = hasTarget ? Math.round((achieved / target) * 1000) / 10 : 0;
+    const isComplete = hasTarget && achieved >= target;
+    const isOverTarget = hasTarget && achieved > target;
+    const pct = Math.min(100, Math.round(rawPct));
+    const isWarning = hasTarget && rawPct < 50;
 
-    const colorClass = isComplete
+    const colorClass = !hasTarget
+        ? achieved > 0
+            ? "text-blue-600 dark:text-blue-400"
+            : "text-muted-foreground"
+        : isComplete
         ? "text-emerald-600 dark:text-emerald-400"
         : isWarning
         ? "text-rose-600 dark:text-rose-400"
         : "text-amber-600 dark:text-amber-400";
 
-    const barColor = isComplete
+    const barColor = !hasTarget
+        ? "bg-blue-500"
+        : isComplete
         ? "bg-emerald-500"
         : isWarning
         ? "bg-rose-500"
@@ -65,25 +73,35 @@ function FractionDisplay({
                         {achieved}
                     </span>
                     <span className="text-xs font-semibold text-muted-foreground">
-                        / {target}
+                        {hasTarget ? `/ ${target}` : "/ —"}
                     </span>
                 </div>
                 <span
                     className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                        isComplete
+                        !hasTarget
+                            ? achieved > 0
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                                : "bg-muted text-muted-foreground"
+                            : isOverTarget
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold"
+                            : isComplete
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                             : isWarning
                             ? "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
                             : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
                     }`}
                 >
-                    {pct}%
+                    {!hasTarget
+                        ? achieved > 0 ? "Logged" : "No Target"
+                        : isOverTarget
+                        ? "100% (Over Target)"
+                        : `${pct}%`}
                 </span>
             </div>
             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                 <div
                     className={`h-full ${barColor} rounded-full transition-all duration-300`}
-                    style={{ width: `${Math.min(100, pct)}%` }}
+                    style={{ width: !hasTarget ? (achieved > 0 ? "100%" : "0%") : `${pct}%` }}
                 />
             </div>
         </div>
@@ -210,13 +228,27 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
                                     <DetailRow label="Web App Thread ID" value={entry.threadId || entry.webThreadId} />
                                     <DetailRow label="WhatsApp Thread ID" value={entry.waThreadId} />
+                                    <DetailRow label="Web Time Question Asked" value={entry.timeQuestionAsked} />
+                                    <DetailRow label="WhatsApp Time Question Asked" value={entry.waTimeQuestionAsked} />
+                                    <DetailRow label="Web Time Answer Received" value={entry.timeAnswerReceived} />
+                                    <DetailRow label="WhatsApp Time Answer Received" value={entry.waTimeAnswerReceived} />
                                     <DetailRow label="Web Response Time" value={entry.responseTimeMins} />
                                     <DetailRow label="WhatsApp Response Time" value={entry.waResponseTimeMins} />
                                     <DetailRow label="Web SLA Status" value={entry.slaStatus} />
                                     <DetailRow label="WhatsApp SLA Status" value={entry.waSlaStatus} />
+                                    <DetailRow label="Web Notification Received?" value={entry.notificationReceived} />
+                                    <DetailRow label="WhatsApp Notification Received?" value={entry.waNotificationReceived} />
+                                    <DetailRow label="Web Voice Input Working?" value={entry.voiceInputWorking} />
+                                    <DetailRow label="WhatsApp Voice Input Working?" value={entry.waVoiceInputWorking} />
+                                    <DetailRow label="Web Voice Output Working?" value={entry.voiceOutputWorking} />
+                                    <DetailRow label="WhatsApp Voice Output Working?" value={entry.waVoiceOutputWorking} />
+                                    <DetailRow label="Web Voice Input Issue Description" value={entry.voiceInputIssueDescription} />
+                                    <DetailRow label="WhatsApp Voice Input Issue Description" value={entry.waVoiceInputIssueDescription} />
+                                    <DetailRow label="Web Voice Output Issue Description" value={entry.voiceIssueDescription} />
+                                    <DetailRow label="WhatsApp Voice Output Issue Description" value={entry.waVoiceIssueDescription} />
                                     <DetailRow label="Web App Test Status" value={entry.webOverallTestStatus} />
                                     <DetailRow label="WhatsApp Test Status" value={entry.waOverallTestStatus} />
-                                    <DetailRow label="WhatsApp vs Web Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
+                                    <DetailRow label="WhatsApp vs Web Application Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
                                     <DetailRow label="Discrepancy Notes" value={entry.crossPlatformDiscrepancyNotes} />
                                 </div>
                             </div>
@@ -225,42 +257,75 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                             <DetailRow label="Test ID" value={entry.testId} />
                             <DetailRow label="Type of Question" value={entry.typeOfQuestion} />
                             <DetailRow label="Build / Version" value={entry.buildVersion} />
-                            <DetailRow label="Sprint / Cycle" value={entry.sprintCycle} />
                             <DetailRow label="Channel Tested" value={entry.channelTested} />
                             <DetailRow label="Language Tested" value={entry.languageTested} />
                             <DetailRow label="Question Category" value={entry.questionCategory} />
+                            <DetailRow label="Query Text (Original)" value={entry.queryText} />
                             <DetailRow label="Time Question Asked" value={entry.timeQuestionAsked} />
                             <DetailRow label="Time Answer Received" value={entry.timeAnswerReceived} />
                             <DetailRow label="Response Time [Auto]" value={entry.responseTimeMins} />
                             <DetailRow label="SLA Status" value={entry.slaStatus} />
-                            <DetailRow label="Question in Review Model?" value={entry.questionInReviewModel} />
-                            <DetailRow label="Question Correctly Framed?" value={entry.questionCorrectlyFramed} />
+                            <DetailRow label="Question Appeared in Review Model?" value={entry.questionInReviewModel} />
+                            <DetailRow label="Question Framed Correctly?" value={entry.questionCorrectlyFramed} />
                             <DetailRow label="Original Language" value={entry.originalLanguage} />
                             <DetailRow label="Translated Language" value={entry.translatedLanguage} />
                             <DetailRow label="Translation Quality" value={entry.translationQuality} />
                             <DetailRow label="Translation Error Type" value={entry.translationErrorType} />
                             <DetailRow label="Tagging" value={entry.tagging} />
-                            <DetailRow label="Allocated to Reviewer?" value={entry.allocatedToReviewer} />
+                            <DetailRow label="Allocated to Author?" value={entry.allocatedToReviewer} />
                             <DetailRow label="Author Name" value={entry.authorsName} />
+                            <DetailRow label="Author Assignment Time" value={entry.authorAssignmentTime} />
+                            <DetailRow label="Author Completion Time" value={entry.authorCompletionTime} />
                             <DetailRow label="Author TAT" value={entry.authorTatMins} />
-                            <DetailRow label="Reviewer1 Name" value={entry.reviewer1Name} />
-                            <DetailRow label="Review1 TAT" value={entry.review1TatMins} />
+                            <DetailRow label="Reviewer 1 Name" value={entry.reviewer1Name} />
+                            <DetailRow label="Reviewer 1 Assignment Time" value={entry.reviewer1AssignmentTime} />
+                            <DetailRow label="Reviewer 1 Completion Time" value={entry.reviewer1CompletionTime} />
+                            <DetailRow label="Review 1 TAT" value={entry.review1TatMins} />
+                            <DetailRow label="Reviewer 2 Name" value={entry.reviewer2Name} />
+                            <DetailRow label="Reviewer 2 Assignment Time" value={entry.reviewer2AssignmentTime} />
+                            <DetailRow label="Reviewer 2 Completion Time" value={entry.reviewer2CompletionTime} />
+                            <DetailRow label="Review 2 TAT" value={entry.review2TatMins} />
+                            <DetailRow label="Reviewer 3 Name" value={entry.reviewer3Name} />
+                            <DetailRow label="Reviewer 3 Assignment Time" value={entry.reviewer3AssignmentTime} />
+                            <DetailRow label="Reviewer 3 Completion Time" value={entry.reviewer3CompletionTime} />
+                            <DetailRow label="Review 3 TAT" value={entry.review3TatMins} />
+                            <DetailRow label="Reviewer 4 Name" value={entry.reviewer4Name} />
+                            <DetailRow label="Reviewer 4 Assignment Time" value={entry.reviewer4AssignmentTime} />
+                            <DetailRow label="Reviewer 4 Completion Time" value={entry.reviewer4CompletionTime} />
+                            <DetailRow label="Review 4 TAT" value={entry.review4TatMins} />
+                            <DetailRow label="Reviewer 5 Name" value={entry.reviewer5Name} />
+                            <DetailRow label="Reviewer 5 Assignment Time" value={entry.reviewer5AssignmentTime} />
+                            <DetailRow label="Reviewer 5 Completion Time" value={entry.reviewer5CompletionTime} />
+                            <DetailRow label="Review 5 TAT" value={entry.review5TatMins} />
+                            <DetailRow label="Moderator Name" value={entry.moderatorName} />
+                            <DetailRow label="Moderator Assignment Time" value={entry.moderatorAssignmentTime} />
+                            <DetailRow label="Moderator Completion Time" value={entry.moderatorCompletionTime} />
+                            <DetailRow label="Moderator TAT" value={entry.moderatorTatMins} />
                             <DetailRow label="Follow-up Q in Review Model?" value={entry.followUpQInReviewModel} />
-                            <DetailRow label="Answer Scientifically Correct?" value={entry.answerScientificallyCorrect} />
+                            <DetailRow label="Scientific Accuracy" value={entry.answerScientificallyCorrect} />
+                            <DetailRow label="Retrieval Accuracy" value={entry.retrievalAccuracy} />
                             <DetailRow label="Expert Name Displayed?" value={entry.expertNameDisplayed} />
-                            <DetailRow label="Correct Expert Name Displayed?" value={entry.correctExpertNameDisplayed} />
                             <DetailRow label="Correct Source Links Provided?" value={entry.correctSourceLinksProvided} />
-                            <DetailRow label="120-min Msg Shown?" value={entry.msg120MinShownToUser} />
+                            <DetailRow label="120-min Disclaimer Received?" value={entry.msg120MinShownToUser} />
                             <DetailRow label="Notification Received?" value={entry.notificationReceived} />
+                            <DetailRow label="Notification on Same Thread?" value={entry.notificationOnSameThread} />
+                            <DetailRow label="Notification Linked to Correct Q-ID?" value={entry.notificationLinkedCorrectQId} />
                             <DetailRow label="Voice Input Working?" value={entry.voiceInputWorking} />
                             <DetailRow label="Voice Output Working?" value={entry.voiceOutputWorking} />
-                            <DetailRow label="Voice Issue Description" value={entry.voiceIssueDescription} />
-                            <DetailRow label="Question Saved in DB?" value={entry.questionSavedInDb} />
-                            <DetailRow label="Answer Saved in DB?" value={entry.answerSavedInDb} />
+                            <DetailRow label="Voice Input Quality" value={entry.voiceInputQuality} />
+                            <DetailRow label="Voice Input Issue Description" value={entry.voiceInputIssueDescription} />
+                            <DetailRow label="Voice Output Quality" value={entry.voiceOutputQuality} />
+                            <DetailRow label="Voice Output Issue Description" value={entry.voiceIssueDescription} />
+                            <DetailRow label="Weather Q Answered Correctly?" value={entry.weatherQAnsweredCorrectly} />
+                            <DetailRow label="Mandi Price Q Correct?" value={entry.mandiPriceQCorrect} />
+                            <DetailRow label="Scheme Q Correct?" value={entry.schemeQCorrect} />
+                            <DetailRow label="WhatsApp vs Web Application Answer Match?" value={entry.whatsappVsWebAnswerMatch} />
                             <DetailRow label="Defect Severity" value={entry.defectSeverity} />
                             <DetailRow label="Defect ID / Bug Ref" value={entry.defectIdBugRef} />
-                            <DetailRow label="Reviewer Remarks" value={entry.reviewerRemarks} />
                             <DetailRow label="Tester Remarks" value={entry.testerRemarks} />
+                            {entry.testerRemarksNotes && (
+                                <DetailRow label="Remarks Details" value={entry.testerRemarksNotes} />
+                            )}
                         </div>
                     </td>
                 </tr>
@@ -276,6 +341,7 @@ const DAILY_TARGET_SPECS = [
     { questionType: "Dynamic - Weather", targetTotal: 19, targetWebApp: 9, targetWhatsApp: 10 },
     { questionType: "Dynamic - Scheme", targetTotal: 6, targetWebApp: 3, targetWhatsApp: 3 },
     { questionType: "Dynamic - Mandi", targetTotal: 2, targetWebApp: 1, targetWhatsApp: 1 },
+    { questionType: "Static Dynamic", targetTotal: 0, targetWebApp: 0, targetWhatsApp: 0 },
 ] as const;
 
 interface TesterLogSummaryProps {
@@ -290,35 +356,81 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
 
     // Table search & status filter state
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [targetViewMode, setTargetViewMode] = useState<"period" | "daily">("period");
     const [page, setPage] = useState(1);
     const LIMIT = 15;
 
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, statusFilter, preset, customStart, customEnd]);
+
+    const todayStr = useMemo(() => {
+        const d = new Date();
+        try {
+            const formatter = new Intl.DateTimeFormat("en-CA", {
+                timeZone: "Asia/Kolkata",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+            });
+            return formatter.format(d);
+        } catch {
+            return d.toISOString().slice(0, 10);
+        }
+    }, []);
+
     const { startDate, endDate } = useMemo(() => {
         const now = new Date();
-        const todayStr = now.toISOString().slice(0, 10);
         if (preset === "today") {
             return { startDate: todayStr, endDate: todayStr };
         }
+        // N-1 days back so "Last 7 Days" spans exactly 7 calendar days inclusive, not 8
         if (preset === "7days") {
-            const past7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            const past7 = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
             return { startDate: past7, endDate: todayStr };
         }
+        // N-1 days back so "Last 30 Days" spans exactly 30 calendar days inclusive, not 31
         if (preset === "30days") {
-            const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            const past30 = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
             return { startDate: past30, endDate: todayStr };
         }
         if (preset === "custom") {
-            return {
-                startDate: customStart || undefined,
-                endDate: customEnd || undefined,
-            };
+            const s = customStart?.trim() || undefined;
+            const e = customEnd?.trim() || undefined;
+            if (!s && !e) {
+                return { startDate: undefined, endDate: undefined };
+            }
+            if (s && !e) {
+                return { startDate: s, endDate: undefined };
+            }
+            if (!s && e) {
+                return { startDate: undefined, endDate: e };
+            }
+            if (s && e) {
+                const [actualStart, actualEnd] = s > e ? [e, s] : [s, e];
+                return {
+                    startDate: actualStart,
+                    endDate: actualEnd,
+                };
+            }
         }
         return { startDate: undefined, endDate: undefined };
-    }, [preset, customStart, customEnd]);
+    }, [preset, customStart, customEnd, todayStr]);
 
+    const isCustomEmpty = preset === "custom" && !customStart?.trim() && !customEnd?.trim();
+    const isCustomDateInverted = Boolean(customStart?.trim() && customEnd?.trim() && customStart.trim() > customEnd.trim());
+    const isSingleDay = preset === "today" || Boolean(startDate && endDate && startDate === endDate) || Boolean(startDate && !endDate && startDate === todayStr);
     const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd);
+    const showAllTimeView = preset === "all" || isCustomEmpty || (!startDate && Boolean(endDate));
 
     // Fetch summary metrics
     const {
@@ -327,12 +439,20 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         isError: summaryError,
     } = useTesterLogSummary(startDate, endDate, dateField);
 
-    // Fetch individual test history records for this tester and date filter
+    // Fetch individual test history records for this tester and date filter with search & status filters applied server-side
     const {
         data: historyData,
         isLoading: historyLoading,
         isError: historyError,
-    } = useTesterLogHistory(page, LIMIT, startDate, endDate, dateField);
+    } = useTesterLogHistory(
+        page,
+        LIMIT,
+        startDate,
+        endDate,
+        dateField,
+        debouncedSearch,
+        statusFilter !== "all" ? statusFilter : undefined
+    );
 
     const clearFilter = () => {
         setPreset("all");
@@ -344,46 +464,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         setStatusFilter("all");
     };
 
-    // Filter individual entries locally by search query and status filter tab
-    const filteredEntries = useMemo(() => {
-        if (!historyData?.entries) return [];
-        let list = historyData.entries;
-
-        if (statusFilter === "pass") {
-            list = list.filter(e => {
-                const s = (e.overallTestStatus || "").toLowerCase();
-                return s === "pass" || s === "expected output";
-            });
-        } else if (statusFilter === "fail") {
-            list = list.filter(e => {
-                const s = (e.overallTestStatus || "").toLowerCase();
-                return s === "fail" || s.includes("anomaly");
-            });
-        } else if (statusFilter === "partial") {
-            list = list.filter(e => (e.overallTestStatus || "").toLowerCase() === "partial");
-        } else if (statusFilter === "defects") {
-            list = list.filter(e => {
-                const sev = (e.defectSeverity || "").trim().toLowerCase();
-                return Boolean(
-                    (sev && !["na", "nil", "no defect", "none"].includes(sev)) ||
-                    (e.defectIdBugRef && e.defectIdBugRef.trim() && !["na", "nil", "none"].includes(e.defectIdBugRef.trim().toLowerCase()))
-                );
-            });
-        }
-
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            list = list.filter(e =>
-                (e.queryText || "").toLowerCase().includes(q) ||
-                (e.threadId || "").toLowerCase().includes(q) ||
-                (e.testId || "").toLowerCase().includes(q) ||
-                (e.typeOfQuestion || "").toLowerCase().includes(q) ||
-                (e.defectIdBugRef || "").toLowerCase().includes(q)
-            );
-        }
-
-        return list;
-    }, [historyData?.entries, statusFilter, searchQuery]);
+    const filteredEntries = historyData?.entries ?? [];
 
     const daysCount = useMemo(() => {
         if (summaryData?.targetVsAchieved?.daysCount) {
@@ -397,14 +478,22 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                 return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
             }
         }
+        if (startDate && !endDate) {
+            const start = new Date(startDate.trim().slice(0, 10));
+            const end = new Date(todayStr);
+            const diff = end.getTime() - start.getTime();
+            if (!isNaN(diff) && diff >= 0) {
+                return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
+            }
+        }
         return 1;
-    }, [summaryData?.targetVsAchieved?.daysCount, startDate, endDate]);
+    }, [summaryData?.targetVsAchieved?.daysCount, startDate, endDate, todayStr]);
 
     const targetRows = useMemo(() => {
         const backendRows = summaryData?.targetVsAchieved?.rows;
         const multiplier = targetViewMode === "period" ? daysCount : 1;
 
-        return DAILY_TARGET_SPECS.map(spec => {
+        const specRows = DAILY_TARGET_SPECS.map(spec => {
             const bRow = backendRows?.find(r => r.questionType === spec.questionType);
             const achievedTotal = bRow ? bRow.achievedTotal : 0;
             const achievedWebApp = bRow ? bRow.achievedWebApp : 0;
@@ -439,6 +528,31 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                 completionRate,
             };
         });
+
+        const extraRows = (backendRows || [])
+            .filter(b => !DAILY_TARGET_SPECS.some(s => s.questionType === b.questionType))
+            .map(b => {
+                const targetTotal = (b.targetTotal || 0) * multiplier;
+                const effectiveAchievedTotal = targetViewMode === "daily" && daysCount > 1
+                    ? Math.round((b.achievedTotal / daysCount) * 10) / 10
+                    : b.achievedTotal;
+                return {
+                    questionType: b.questionType,
+                    targetTotal,
+                    achievedTotal: effectiveAchievedTotal,
+                    targetWebApp: (b.targetWebApp || 0) * multiplier,
+                    achievedWebApp: targetViewMode === "daily" && daysCount > 1
+                        ? Math.round((b.achievedWebApp / daysCount) * 10) / 10
+                        : b.achievedWebApp,
+                    targetWhatsApp: (b.targetWhatsApp || 0) * multiplier,
+                    achievedWhatsApp: targetViewMode === "daily" && daysCount > 1
+                        ? Math.round((b.achievedWhatsApp / daysCount) * 10) / 10
+                        : b.achievedWhatsApp,
+                    completionRate: b.completionRate || 0,
+                };
+            });
+
+        return [...specRows, ...extraRows];
     }, [summaryData?.targetVsAchieved, targetViewMode, daysCount]);
 
     const targetTotalRow = useMemo(() => {
@@ -447,19 +561,38 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         const targetWebApp = 27 * multiplier;
         const targetWhatsApp = 27 * multiplier;
 
-        const achievedTotal = targetRows.reduce((sum, r) => sum + r.achievedTotal, 0);
-        const achievedWebApp = targetRows.reduce((sum, r) => sum + r.achievedWebApp, 0);
-        const achievedWhatsApp = targetRows.reduce((sum, r) => sum + r.achievedWhatsApp, 0);
-        const completionRate = targetTotal > 0 ? Math.round((achievedTotal / targetTotal) * 1000) / 10 : 0;
+        const rawAchievedTotal = targetRows.reduce((sum, r) => sum + r.achievedTotal, 0);
+        const rawAchievedWebApp = targetRows.reduce((sum, r) => sum + r.achievedWebApp, 0);
+        const rawAchievedWhatsApp = targetRows.reduce((sum, r) => sum + r.achievedWhatsApp, 0);
+
+        // Target progress is capped per question type:
+        // Exceeding one category's quota does not fulfill targets for other categories.
+        const cappedAchievedTotal = targetRows.reduce(
+            (sum, r) => sum + (r.targetTotal > 0 ? Math.min(r.achievedTotal, r.targetTotal) : 0),
+            0
+        );
+        const cappedAchievedWebApp = targetRows.reduce(
+            (sum, r) => sum + (r.targetWebApp > 0 ? Math.min(r.achievedWebApp, r.targetWebApp) : 0),
+            0
+        );
+        const cappedAchievedWhatsApp = targetRows.reduce(
+            (sum, r) => sum + (r.targetWhatsApp > 0 ? Math.min(r.achievedWhatsApp, r.targetWhatsApp) : 0),
+            0
+        );
+
+        const completionRate = targetTotal > 0 ? Math.round((cappedAchievedTotal / targetTotal) * 1000) / 10 : 0;
 
         return {
             questionType: "Total",
             targetTotal,
-            achievedTotal: Math.round(achievedTotal * 10) / 10,
+            achievedTotal: Math.round(cappedAchievedTotal * 10) / 10,
+            rawAchievedTotal: Math.round(rawAchievedTotal * 10) / 10,
             targetWebApp,
-            achievedWebApp: Math.round(achievedWebApp * 10) / 10,
+            achievedWebApp: Math.round(cappedAchievedWebApp * 10) / 10,
+            rawAchievedWebApp: Math.round(rawAchievedWebApp * 10) / 10,
             targetWhatsApp,
-            achievedWhatsApp: Math.round(achievedWhatsApp * 10) / 10,
+            achievedWhatsApp: Math.round(cappedAchievedWhatsApp * 10) / 10,
+            rawAchievedWhatsApp: Math.round(rawAchievedWhatsApp * 10) / 10,
             completionRate,
         };
     }, [targetRows, targetViewMode, daysCount]);
@@ -547,6 +680,16 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                 className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                         </div>
+                        {isCustomDateInverted && (
+                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
+                                Note: From is after To (dates auto-swapped)
+                            </span>
+                        )}
+                        {isCustomEmpty && (
+                            <span className="text-[11px] text-muted-foreground italic">
+                                (Select dates to track targets)
+                            </span>
+                        )}
                     </div>
                 )}
 
@@ -578,7 +721,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                 <>
                     {/* Target vs. Achieved Analytics Section OR All-Time Test Breakdown */}
                     <div className="p-5 bg-card border border-border rounded-xl shadow-xs space-y-4">
-                        {preset === "all" ? (
+                        {showAllTimeView ? (
                             <>
                                 {/* All-Time Section Header */}
                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -588,14 +731,16 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                 <Layers className="h-4 w-4" />
                                             </div>
                                             <h3 className="text-base font-semibold text-foreground">
-                                                All-Time Test Execution Breakdown
+                                                {preset === "all" ? "All-Time Test Execution Breakdown" : "Test Execution Breakdown"}
                                             </h3>
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
                                                 Achieved Counts
                                             </span>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            Total tests conducted by you across question categories and channels over all time.
+                                            {preset === "all"
+                                                ? "Total tests conducted by you across question categories and channels over all time."
+                                                : "Select dates in the Custom filter above to track targets for a specific period."}
                                         </p>
                                     </div>
 
@@ -622,7 +767,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             </span>
                                         </div>
                                         <div className="text-2xl font-bold text-foreground">
-                                            {targetTotalRow.achievedTotal}
+                                            {targetTotalRow.rawAchievedTotal ?? targetTotalRow.achievedTotal}
                                         </div>
                                         <p className="text-xs text-muted-foreground">Cumulative tests conducted</p>
                                     </div>
@@ -635,7 +780,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             </span>
                                         </div>
                                         <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                            {targetTotalRow.achievedWebApp}
+                                            {targetTotalRow.rawAchievedWebApp ?? targetTotalRow.achievedWebApp}
                                         </div>
                                         <p className="text-xs text-muted-foreground">Tests conducted on Web App</p>
                                     </div>
@@ -648,7 +793,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             </span>
                                         </div>
                                         <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                                            {targetTotalRow.achievedWhatsApp}
+                                            {targetTotalRow.rawAchievedWhatsApp ?? targetTotalRow.achievedWhatsApp}
                                         </div>
                                         <p className="text-xs text-muted-foreground">Tests conducted on WhatsApp</p>
                                     </div>
@@ -668,8 +813,9 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         </thead>
                                         <tbody>
                                             {targetRows.map(row => {
-                                                const sharePct = targetTotalRow.achievedTotal > 0
-                                                    ? Math.round((row.achievedTotal / targetTotalRow.achievedTotal) * 1000) / 10
+                                                const allTimeTotal = targetTotalRow.rawAchievedTotal ?? targetTotalRow.achievedTotal;
+                                                const sharePct = allTimeTotal > 0
+                                                    ? Math.round((row.achievedTotal / allTimeTotal) * 1000) / 10
                                                     : 0;
                                                 return (
                                                     <tr
@@ -701,13 +847,13 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                     Total
                                                 </td>
                                                 <td className="px-4 py-3 font-extrabold text-foreground text-base">
-                                                    {targetTotalRow.achievedTotal}
+                                                    {targetTotalRow.rawAchievedTotal ?? targetTotalRow.achievedTotal}
                                                 </td>
                                                 <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400 text-base">
-                                                    {targetTotalRow.achievedWebApp}
+                                                    {targetTotalRow.rawAchievedWebApp ?? targetTotalRow.achievedWebApp}
                                                 </td>
                                                 <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400 text-base">
-                                                    {targetTotalRow.achievedWhatsApp}
+                                                    {targetTotalRow.rawAchievedWhatsApp ?? targetTotalRow.achievedWhatsApp}
                                                 </td>
                                                 <td className="px-4 py-3 text-right font-bold text-xs text-muted-foreground">
                                                     100%
@@ -728,15 +874,15 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             <h3 className="text-base font-semibold text-foreground">
                                                 Target vs. Achieved Comparison Analytics
                                             </h3>
-                                            {preset === "today" && (
+                                            {isSingleDay && (
                                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/15 text-primary">
-                                                    Today&apos;s Target Tracker
+                                                    {preset === "today" ? "Today's Target Tracker" : `Target Tracker (${startDate})`}
                                                 </span>
                                             )}
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            {preset === "today"
-                                                ? "Daily testing targets for today (54 total: 27 Web App, 27 WhatsApp) compared against actual test execution today."
+                                            {isSingleDay
+                                                ? `Daily testing targets for ${preset === "today" ? "today" : startDate} (54 total: 27 Web App, 27 WhatsApp) compared against actual test execution${preset === "today" ? " today" : ""}.`
                                                 : `Daily testing targets per tester (54 total: 27 Web App, 27 WhatsApp) compared against actual test execution${
                                                       daysCount > 1
                                                           ? targetViewMode === "period"
@@ -775,16 +921,20 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                     )}
                                 </div>
 
-                                {/* Today banner: No tests yet today */}
-                                {preset === "today" && totalTests === 0 && (
+                                {/* Single-day banner: No tests yet */}
+                                {isSingleDay && totalTests === 0 && (
                                     <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-lg text-xs text-blue-900 dark:bg-blue-950/30 dark:border-blue-900/50 dark:text-blue-200">
                                         <div className="flex items-center gap-2">
                                             <ClipboardList className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
                                             <span>
-                                                You haven&apos;t conducted or logged any test cases today yet. Your daily target is <strong>54 tests</strong> (27 Web App, 27 WhatsApp).
+                                                {preset === "today" ? (
+                                                    <>You haven&apos;t conducted or logged any test cases today yet. Your daily target is <strong>54 tests</strong> (27 Web App, 27 WhatsApp).</>
+                                                ) : (
+                                                    <>No test cases were conducted or logged on <strong>{startDate}</strong>. Daily target was <strong>54 tests</strong> (27 Web App, 27 WhatsApp).</>
+                                                )}
                                             </span>
                                         </div>
-                                        {onLogNewTest && (
+                                        {preset === "today" && onLogNewTest && (
                                             <button
                                                 type="button"
                                                 onClick={onLogNewTest}
@@ -797,8 +947,8 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                     </div>
                                 )}
 
-                                {/* Today banner: Tests logged today */}
-                                {preset === "today" && totalTests > 0 && (
+                                {/* Single-day banner: Tests logged */}
+                                {isSingleDay && totalTests > 0 && (
                                     <div className="flex items-center justify-between gap-2 p-2.5 bg-primary/5 border border-primary/20 rounded-lg text-xs text-foreground">
                                         <span className="flex items-center gap-1.5">
                                             <Target className="h-3.5 w-3.5 text-primary" />
@@ -808,15 +958,19 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                 </strong>
                                             ) : (
                                                 <span>
-                                                    Today&apos;s Progress:{" "}
+                                                    {preset === "today" ? "Today's Progress: " : `Progress for ${startDate}: `}
                                                     <strong>
                                                         {targetTotalRow.achievedTotal} of {targetTotalRow.targetTotal} test cases completed
                                                     </strong>{" "}
-                                                    ({Math.max(0, targetTotalRow.targetTotal - targetTotalRow.achievedTotal)} remaining).
+                                                    ({Math.max(0, targetTotalRow.targetTotal - targetTotalRow.achievedTotal)} remaining
+                                                    {totalTests > targetTotalRow.achievedTotal
+                                                        ? ` · ${totalTests} total logged`
+                                                        : ""}
+                                                    ).
                                                 </span>
                                             )}
                                         </span>
-                                        {onLogNewTest && targetTotalRow.achievedTotal < targetTotalRow.targetTotal && (
+                                        {preset === "today" && onLogNewTest && targetTotalRow.achievedTotal < targetTotalRow.targetTotal && (
                                             <button
                                                 type="button"
                                                 onClick={onLogNewTest}
@@ -894,8 +1048,9 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         </thead>
                                         <tbody>
                                             {targetRows.map(row => {
-                                                const isDone = row.achievedTotal >= row.targetTotal && row.targetTotal > 0;
-                                                const isPartial = row.completionRate >= 50;
+                                                const hasTarget = row.targetTotal > 0;
+                                                const isDone = hasTarget && row.achievedTotal >= row.targetTotal;
+                                                const isPartial = hasTarget && row.completionRate >= 50;
                                                 const isPending = row.achievedTotal === 0;
                                                 return (
                                                     <tr
@@ -926,7 +1081,11 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                         <td className="px-4 py-3 text-right whitespace-nowrap">
                                                             <span
                                                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                                    isDone
+                                                                    !hasTarget
+                                                                        ? row.achievedTotal > 0
+                                                                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                                                                            : "bg-muted text-muted-foreground"
+                                                                        : isDone
                                                                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                                                                         : isPartial
                                                                         ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
@@ -935,7 +1094,11 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                                         : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
                                                                 }`}
                                                             >
-                                                                {isDone
+                                                                {!hasTarget
+                                                                    ? row.achievedTotal > 0
+                                                                        ? "Logged"
+                                                                        : "No Target"
+                                                                    : isDone
                                                                     ? "Target Met"
                                                                     : isPartial
                                                                     ? "In Progress"
@@ -1117,7 +1280,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                 </div>
                                 <div className="space-y-2 text-xs">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-muted-foreground">Pass / Expected Output</span>
+                                        <span className="text-muted-foreground">Pass</span>
                                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                                             {(summaryData.passed || 0) + (summaryData.expectedOutput || 0)} ({summaryData.passRate}%)
                                         </span>
@@ -1130,7 +1293,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                     </div>
 
                                     <div className="flex justify-between items-center pt-1">
-                                        <span className="text-muted-foreground">Fail / Anomaly</span>
+                                        <span className="text-muted-foreground">Fail</span>
                                         <span className="font-semibold text-red-600 dark:text-red-400">
                                             {(summaryData.failed || 0) + (summaryData.anomalyFound || 0)} ({summaryData.failRate}%)
                                         </span>
@@ -1139,21 +1302,6 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         <div
                                             className="h-full bg-red-500 rounded-full"
                                             style={{ width: `${Math.min(100, summaryData.failRate)}%` }}
-                                        />
-                                    </div>
-
-                                    <div className="flex justify-between items-center pt-1">
-                                        <span className="text-muted-foreground">Partial</span>
-                                        <span className="font-semibold text-yellow-600 dark:text-yellow-400">
-                                            {summaryData.partial || 0}
-                                        </span>
-                                    </div>
-                                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-yellow-500 rounded-full"
-                                            style={{
-                                                width: `${Math.min(100, summaryData.totalTests > 0 ? ((summaryData.partial || 0) / summaryData.totalTests) * 100 : 0)}%`,
-                                            }}
                                         />
                                     </div>
                                 </div>
@@ -1237,19 +1385,10 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             Scientific Accuracy:
                                         </span>
                                         <span className="font-semibold text-foreground">
-                                            {summaryData.scientificAccuracy.rate}% ({summaryData.scientificAccuracy.correct} / {summaryData.scientificAccuracy.correct + summaryData.scientificAccuracy.incorrect})
+                                            {summaryData.scientificAccuracy.rate}% ({summaryData.scientificAccuracy.correct} / {summaryData.scientificAccuracy.totalChecked ?? (summaryData.scientificAccuracy.correct + summaryData.scientificAccuracy.incorrect + (summaryData.scientificAccuracy.partiallyCorrect ?? 0))})
                                         </span>
                                     </div>
 
-                                    <div className="flex justify-between items-center">
-                                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                                            <Database className="h-3.5 w-3.5 text-emerald-500" />
-                                            Saved in Database:
-                                        </span>
-                                        <span className="font-semibold text-foreground">
-                                            {summaryData.dbPersistence.rate}% ({summaryData.dbPersistence.saved})
-                                        </span>
-                                    </div>
 
                                     <div className="flex justify-between items-center">
                                         <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -1337,7 +1476,6 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         { key: "all" as const, label: "All" },
                                         { key: "pass" as const, label: "Pass" },
                                         { key: "fail" as const, label: "Fail" },
-                                        { key: "partial" as const, label: "Partial" },
                                         { key: "defects" as const, label: "Defects" },
                                     ].map(tab => (
                                         <button
@@ -1398,6 +1536,10 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                     )}
                                 </div>
                             </div>
+                        ) : historyLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
                         ) : filteredEntries.length === 0 ? (
                             <div className="text-center py-10 bg-muted/20 rounded-lg border border-dashed border-border text-sm text-muted-foreground">
                                 {searchQuery || statusFilter !== "all"
@@ -1417,7 +1559,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                 "Category / Type",
                                                 "Channel / Lang",
                                                 "SLA",
-                                                "Status",
+                                                "Overall Status",
                                                 "Defect",
                                                 "Submitted At",
                                                 "",
@@ -1441,31 +1583,33 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                         )}
 
                         {/* Pagination */}
-                        {historyData && historyData.totalPages > 1 && (
+                        {historyData && historyData.total > 0 && (
                             <div className="flex items-center justify-between pt-2">
                                 <p className="text-xs text-muted-foreground">
                                     Showing {filteredEntries.length} of {historyData.total} entries
-                                    {hasActiveFilter ? " (filtered)" : ""}
+                                    {hasActiveFilter || searchQuery || statusFilter !== "all" ? " (filtered)" : ""}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
-                                    >
-                                        ← Previous
-                                    </button>
-                                    <span className="text-xs text-muted-foreground">
-                                        Page {page} of {historyData.totalPages}
-                                    </span>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(historyData.totalPages, p + 1))}
-                                        disabled={page === historyData.totalPages}
-                                        className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
-                                    >
-                                        Next →
-                                    </button>
-                                </div>
+                                {historyData.totalPages > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                            className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                                        >
+                                            ← Previous
+                                        </button>
+                                        <span className="text-xs text-muted-foreground">
+                                            Page {page} of {historyData.totalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => setPage(p => Math.min(historyData.totalPages, p + 1))}
+                                            disabled={page === historyData.totalPages}
+                                            className="px-3 py-1.5 rounded-md border border-border text-xs disabled:opacity-40 hover:bg-accent transition-colors cursor-pointer"
+                                        >
+                                            Next →
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

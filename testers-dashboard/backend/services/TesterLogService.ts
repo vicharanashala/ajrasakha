@@ -1,5 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { ObjectId } from 'mongodb';
+import { BadRequestError } from 'routing-controllers';
 import * as XLSX from 'xlsx';
 import {
     ITesterLogService,
@@ -155,7 +156,10 @@ const EXPORT_COLUMNS: { key: keyof TesterLogEntry; header: string }[] = [
     { key: 'status', header: 'Status' },
 ];
 
-function formatExportValue(key: keyof TesterLogEntry, value: unknown): string {
+function formatExportValue(key: keyof TesterLogEntry, value: unknown, entry?: TesterLogEntry): string {
+    if (key === 'testerRemarks' && entry?.testerRemarksNotes) {
+        return entry.testerRemarks ? `${entry.testerRemarks} - ${entry.testerRemarksNotes}` : entry.testerRemarksNotes;
+    }
     if (value === undefined || value === null) return '';
     if (value instanceof Date) return value.toISOString();
     return String(value);
@@ -165,23 +169,56 @@ function formatExportValue(key: keyof TesterLogEntry, value: unknown): string {
  * Compute HH:MM:SS difference between two HH:MM:SS strings.
  * Returns '' if either value is missing or result is negative.
  */
+export function parseEpochMs(str?: string, defaultDate?: string): number | null {
+    if (!str || !str.trim()) return null;
+    const s = str.trim();
+
+    let fullStr: string | null = null;
+    const dmyMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})([ T].*)?$/);
+    if (dmyMatch) {
+        const day = String(dmyMatch[1]).padStart(2, '0');
+        const month = String(dmyMatch[2]).padStart(2, '0');
+        const year = dmyMatch[3];
+        const rest = dmyMatch[4] ? dmyMatch[4].trim() : '';
+        const timePart = rest ? (rest.startsWith('T') ? rest : `T${rest}`) : 'T00:00:00';
+        fullStr = `${year}-${month}-${day}${timePart}`;
+    } else if (s.includes('-') || s.includes('/')) {
+        fullStr = s.includes('T') ? s : s.replace(' ', 'T');
+    } else {
+        const parts = s.split(':').map(Number);
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            const dateStr = defaultDate?.trim();
+            if (dateStr && (dateStr.includes('-') || dateStr.includes('/'))) {
+                const timeStr = `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}:${String(parts[2] || 0).padStart(2, '0')}`;
+                fullStr = `${dateStr}T${timeStr}`;
+            }
+        }
+    }
+
+    if (!fullStr) return null;
+
+    const hasTz = /([zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(fullStr);
+    const withTz = hasTz ? fullStr : `${fullStr}+05:30`;
+    const parsed = Date.parse(withTz);
+    return isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * Unified parser: returns epoch milliseconds for datetimes (always anchored to IST +05:30),
+ * or milliseconds since midnight for time-only strings without defaultDate.
+ */
 function parseToMs(str?: string, defaultDate?: string): number | null {
     if (!str || !str.trim()) return null;
     const s = str.trim();
 
-    if (s.includes('-') || s.includes('/')) {
-        const parsed = Date.parse(s.includes('T') ? s : s.replace(' ', 'T'));
-        if (!isNaN(parsed)) return parsed;
+    // If date is present in string or defaultDate is provided, delegate to IST-aware parseEpochMs
+    if (s.includes('-') || s.includes('/') || (defaultDate && (defaultDate.includes('-') || defaultDate.includes('/')))) {
+        return parseEpochMs(str, defaultDate);
     }
 
+    // Time-only string (HH:MM:SS or HH:MM) without date: milliseconds of the day
     const parts = s.split(':').map(Number);
     if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        if (defaultDate && (defaultDate.includes('-') || defaultDate.includes('/'))) {
-            const dateStr = defaultDate.trim();
-            const timeStr = `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}:${String(parts[2] || 0).padStart(2, '0')}`;
-            const combined = Date.parse(`${dateStr}T${timeStr}`);
-            if (!isNaN(combined)) return combined;
-        }
         const secs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
         return secs * 1000;
     }
@@ -192,9 +229,21 @@ function parseToMs(str?: string, defaultDate?: string): number | null {
 function computeHmsDiff(start?: string, end?: string, defaultDate?: string): string {
     const sMs = parseToMs(start, defaultDate);
     const eMs = parseToMs(end, defaultDate);
-    if (sMs === null || eMs === null || eMs < sMs) return '';
+    if (sMs === null || eMs === null) return '';
 
-    const diffSecs = Math.floor((eMs - sMs) / 1000);
+    let diffMs = eMs - sMs;
+    const isTimeOnly = (!start?.includes('-') && !start?.includes('/')) &&
+                       (!end?.includes('-') && !end?.includes('/'));
+    if (diffMs < 0 && isTimeOnly) {
+        const rolloverDiff = diffMs + 24 * 3600 * 1000;
+        if (rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000) {
+            diffMs = rolloverDiff;
+        }
+    }
+
+    if (diffMs < 0) return '';
+
+    const diffSecs = Math.floor(diffMs / 1000);
     const h = Math.floor(diffSecs / 3600);
     const m = Math.floor((diffSecs % 3600) / 60);
     const sec = diffSecs % 60;
@@ -202,6 +251,353 @@ function computeHmsDiff(start?: string, end?: string, defaultDate?: string): str
     const mm = String(m).padStart(2, '0');
     const ss = String(sec).padStart(2, '0');
     return `${hh}:${mm}:${ss}`;
+}
+
+export function validateNotFuture(
+    time?: string,
+    label: string = 'Time',
+    defaultDate?: string,
+    nowMs: number = Date.now(),
+    graceMs: number = 5 * 60 * 1000,
+): void {
+    if (!time || !time.trim()) return;
+    const ms = parseEpochMs(time, defaultDate);
+    if (ms !== null && ms > nowMs + graceMs) {
+        throw new BadRequestError(`${label} cannot be in the future`);
+    }
+}
+
+const YYYY_MM_DD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function validateTestDateNotFuture(testDate?: string, now: Date = new Date()): void {
+    if (!testDate || !testDate.trim()) return;
+    const trimmed = testDate.trim();
+    if (!YYYY_MM_DD_RE.test(trimmed)) {
+        throw new BadRequestError('Test date must be formatted as YYYY-MM-DD');
+    }
+    const todayIST = getTodayIST(now);
+    if (trimmed > todayIST) {
+        throw new BadRequestError('Test date cannot be in the future');
+    }
+}
+
+export const TRANSLATION_ERROR_MAP: Record<string, string[]> = {
+    Good: ['No Error'],
+    Acceptable: ['Grammar Error'],
+    'Not Acceptable': ['Intent Error', 'Word Error', 'Partial Translation'],
+    NA: ['NA'],
+};
+
+export function validateTranslationMapping(quality?: string, errorType?: string): void {
+    if (!quality || !errorType) return;
+    const trimmedQ = quality.trim();
+    const trimmedE = errorType.trim();
+    if (!trimmedQ || !trimmedE) return;
+    const allowed = TRANSLATION_ERROR_MAP[trimmedQ];
+    if (allowed && !allowed.includes(trimmedE)) {
+        throw new BadRequestError(
+            `Translation Error Type "${trimmedE}" is not valid for Translation Quality "${trimmedQ}". Allowed: ${allowed.join(', ')}`,
+        );
+    }
+}
+
+export const TEXT_FIELD_LIMITS = {
+    QUERY_TEXT_MIN: 3,
+    QUERY_TEXT_MAX: 1000,
+    BUILD_VERSION_MAX: 50,
+    THREAD_ID_MAX: 100,
+    WA_THREAD_ID_MAX: 50,
+    NAME_MIN: 2,
+    NAME_MAX: 100,
+    DISCREPANCY_NOTES_MAX: 1000,
+    REMARKS_NOTES_MIN: 3,
+    REMARKS_NOTES_MAX: 2000,
+    LANGUAGE_MAX: 50,
+    DEFECT_URL_MAX: 500,
+    TEST_ID_MAX: 30,
+    SPRINT_CYCLE_MAX: 50,
+} as const;
+
+export const BUILD_VERSION_REGEX = /^(?=.*\d)[a-zA-Z0-9][a-zA-Z0-9.\-_/\s()]{0,49}$/;
+export const THREAD_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._:\-\/]{0,99}$/;
+export const WA_THREAD_ID_REGEX = /^(\+?[0-9]{7,15}|[a-zA-Z0-9._\-]{1,50})$/;
+export const PERSON_NAME_REGEX = /^[a-zA-Z\s.'\-]{2,100}$/;
+export const LANGUAGE_NAME_REGEX = /^[a-zA-Z\s,+/.\-]{2,50}$/;
+export const TEST_ID_REGEX = /^[a-zA-Z0-9._\-]{1,30}$/;
+export const HTTP_URL_REGEX = /^https?:\/\/.+/i;
+
+export function validateTextFields(e: Partial<TesterLogEntry>): void {
+    if (e.buildVersion !== undefined && e.buildVersion !== null) {
+        const bv = e.buildVersion.trim();
+        if (bv) {
+            if (bv.length > TEXT_FIELD_LIMITS.BUILD_VERSION_MAX || !BUILD_VERSION_REGEX.test(bv)) {
+                throw new BadRequestError(
+                    `Invalid Build / Version "${bv}". Must be a valid version format containing numbers (e.g. 1.0, 2.1.0, v1.0.1) and up to ${TEXT_FIELD_LIMITS.BUILD_VERSION_MAX} characters.`,
+                );
+            }
+        }
+    }
+
+    if (e.queryText !== undefined && e.queryText !== null) {
+        const q = e.queryText.trim();
+        if (q) {
+            if (q.length < TEXT_FIELD_LIMITS.QUERY_TEXT_MIN) {
+                throw new BadRequestError(`Query Text must be at least ${TEXT_FIELD_LIMITS.QUERY_TEXT_MIN} characters.`);
+            }
+            if (q.length > TEXT_FIELD_LIMITS.QUERY_TEXT_MAX) {
+                throw new BadRequestError(
+                    `Query Text must not exceed ${TEXT_FIELD_LIMITS.QUERY_TEXT_MAX} characters (received ${q.length} characters).`,
+                );
+            }
+        }
+    }
+
+    if (e.threadId !== undefined && e.threadId !== null) {
+        const t = e.threadId.trim();
+        if (t) {
+            if (t.length > TEXT_FIELD_LIMITS.THREAD_ID_MAX || !THREAD_ID_REGEX.test(t)) {
+                throw new BadRequestError(
+                    `Thread ID must be between 1 and ${TEXT_FIELD_LIMITS.THREAD_ID_MAX} characters and contain valid identifier characters.`,
+                );
+            }
+        }
+    }
+
+    if (e.waThreadId !== undefined && e.waThreadId !== null) {
+        const wt = e.waThreadId.trim();
+        if (wt) {
+            if (wt.length > TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX || !WA_THREAD_ID_REGEX.test(wt)) {
+                throw new BadRequestError(
+                    `WhatsApp Thread / Phone Number must be a valid phone number or identifier up to ${TEXT_FIELD_LIMITS.WA_THREAD_ID_MAX} characters.`,
+                );
+            }
+        }
+    }
+
+    const nameFields: [keyof TesterLogEntry, string][] = [
+        ['authorsName', 'Author Name'],
+        ['reviewer1Name', 'Reviewer 1 Name'],
+        ['reviewer2Name', 'Reviewer 2 Name'],
+        ['reviewer3Name', 'Reviewer 3 Name'],
+        ['reviewer4Name', 'Reviewer 4 Name'],
+        ['reviewer5Name', 'Reviewer 5 Name'],
+        ['moderatorName', 'Moderator Name'],
+    ];
+    for (const [key, label] of nameFields) {
+        const val = e[key] as string | undefined;
+        if (val !== undefined && val !== null) {
+            const trimmed = val.trim();
+            if (trimmed && (trimmed.length < TEXT_FIELD_LIMITS.NAME_MIN || trimmed.length > TEXT_FIELD_LIMITS.NAME_MAX || !PERSON_NAME_REGEX.test(trimmed))) {
+                throw new BadRequestError(
+                    `${label} must contain only letters and standard name characters (${TEXT_FIELD_LIMITS.NAME_MIN} to ${TEXT_FIELD_LIMITS.NAME_MAX} characters).`,
+                );
+            }
+        }
+    }
+
+    if (e.testerRemarksNotes !== undefined && e.testerRemarksNotes !== null) {
+        const notes = e.testerRemarksNotes.trim();
+        if (notes && (notes.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN || notes.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX)) {
+            throw new BadRequestError(
+                `Remarks Details must be between ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} and ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters.`,
+            );
+        }
+    }
+
+    if (e.crossPlatformDiscrepancyNotes !== undefined && e.crossPlatformDiscrepancyNotes !== null) {
+        const disc = e.crossPlatformDiscrepancyNotes.trim();
+        if (disc && disc.length > TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX) {
+            throw new BadRequestError(
+                `Discrepancy Notes must not exceed ${TEXT_FIELD_LIMITS.DISCREPANCY_NOTES_MAX} characters.`,
+            );
+        }
+    }
+
+    const langFields: [keyof TesterLogEntry, string][] = [
+        ['languageTested', 'Language Tested'],
+        ['originalLanguage', 'Original Language'],
+        ['translatedLanguage', 'Translated Language'],
+    ];
+    for (const [key, label] of langFields) {
+        const l = e[key] as string | undefined;
+        if (l !== undefined && l !== null) {
+            const trimmed = l.trim();
+            if (trimmed && (trimmed.length > TEXT_FIELD_LIMITS.LANGUAGE_MAX || !LANGUAGE_NAME_REGEX.test(trimmed))) {
+                throw new BadRequestError(
+                    `${label} must be a valid language name up to ${TEXT_FIELD_LIMITS.LANGUAGE_MAX} characters.`,
+                );
+            }
+        }
+    }
+
+    if (e.defectIdBugRef !== undefined && e.defectIdBugRef !== null) {
+        const bugRef = e.defectIdBugRef.trim();
+        if (bugRef && bugRef !== 'NA' && bugRef.toLowerCase() !== 'na') {
+            if (bugRef.startsWith('http://') || bugRef.startsWith('https://')) {
+                if (bugRef.length > TEXT_FIELD_LIMITS.DEFECT_URL_MAX) {
+                    throw new BadRequestError(
+                        `Defect ID / Zoho Ticket URL must not exceed ${TEXT_FIELD_LIMITS.DEFECT_URL_MAX} characters.`,
+                    );
+                }
+            }
+        }
+    }
+
+    if (e.testId !== undefined && e.testId !== null) {
+        const tid = e.testId.trim();
+        if (tid && (tid.length > TEXT_FIELD_LIMITS.TEST_ID_MAX || !TEST_ID_REGEX.test(tid))) {
+            throw new BadRequestError(
+                `Test ID must be a valid identifier up to ${TEXT_FIELD_LIMITS.TEST_ID_MAX} characters.`,
+            );
+        }
+    }
+}
+
+export function validateTimingPair(
+    start?: string,
+    end?: string,
+    startLabel: string = 'Time Question Asked',
+    endLabel: string = 'Time Answer Received',
+    defaultDate?: string,
+): void {
+    if (!start || !end) return;
+    const sMs = parseToMs(start, defaultDate);
+    const eMs = parseToMs(end, defaultDate);
+    if (sMs === null || eMs === null) return;
+
+    if (eMs < sMs) {
+        const isTimeOnly = (!start.includes('-') && !start.includes('/')) &&
+                           (!end.includes('-') && !end.includes('/'));
+        if (isTimeOnly) {
+            const rolloverDiff = (eMs + 24 * 3600 * 1000) - sMs;
+            if (rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000) {
+                return;
+            }
+        }
+        throw new BadRequestError(`${endLabel} cannot be earlier than ${startLabel}`);
+    }
+}
+
+export const TIMING_PAIRS: { startKey: keyof TesterLogEntry; endKey: keyof TesterLogEntry; startLabel: string; endLabel: string }[] = [
+    { startKey: 'timeQuestionAsked', endKey: 'timeAnswerReceived', startLabel: 'Time Question Asked', endLabel: 'Time Answer Received' },
+    { startKey: 'waTimeQuestionAsked', endKey: 'waTimeAnswerReceived', startLabel: 'WhatsApp Time Asked', endLabel: 'WhatsApp Time Received' },
+    { startKey: 'authorAssignmentTime', endKey: 'authorCompletionTime', startLabel: 'Author Assignment Time', endLabel: 'Author Completion Time' },
+    { startKey: 'reviewer1AssignmentTime', endKey: 'reviewer1CompletionTime', startLabel: 'Reviewer 1 Assignment Time', endLabel: 'Reviewer 1 Completion Time' },
+    { startKey: 'reviewer2AssignmentTime', endKey: 'reviewer2CompletionTime', startLabel: 'Reviewer 2 Assignment Time', endLabel: 'Reviewer 2 Completion Time' },
+    { startKey: 'reviewer3AssignmentTime', endKey: 'reviewer3CompletionTime', startLabel: 'Reviewer 3 Assignment Time', endLabel: 'Reviewer 3 Completion Time' },
+    { startKey: 'reviewer4AssignmentTime', endKey: 'reviewer4CompletionTime', startLabel: 'Reviewer 4 Assignment Time', endLabel: 'Reviewer 4 Completion Time' },
+    { startKey: 'reviewer5AssignmentTime', endKey: 'reviewer5CompletionTime', startLabel: 'Reviewer 5 Assignment Time', endLabel: 'Reviewer 5 Completion Time' },
+    { startKey: 'moderatorAssignmentTime', endKey: 'moderatorCompletionTime', startLabel: 'Moderator Assignment Time', endLabel: 'Moderator Completion Time' },
+];
+
+export const TIMING_FIELDS: { key: keyof TesterLogEntry; label: string }[] = [
+    { key: 'timeQuestionAsked', label: 'Time Question Asked' },
+    { key: 'timeAnswerReceived', label: 'Time Answer Received' },
+    { key: 'waTimeQuestionAsked', label: 'WhatsApp Time Asked' },
+    { key: 'waTimeAnswerReceived', label: 'WhatsApp Time Received' },
+    { key: 'authorAssignmentTime', label: 'Author Assignment Time' },
+    { key: 'authorCompletionTime', label: 'Author Completion Time' },
+    { key: 'reviewer1AssignmentTime', label: 'Reviewer 1 Assignment Time' },
+    { key: 'reviewer1CompletionTime', label: 'Reviewer 1 Completion Time' },
+    { key: 'reviewer2AssignmentTime', label: 'Reviewer 2 Assignment Time' },
+    { key: 'reviewer2CompletionTime', label: 'Reviewer 2 Completion Time' },
+    { key: 'reviewer3AssignmentTime', label: 'Reviewer 3 Assignment Time' },
+    { key: 'reviewer3CompletionTime', label: 'Reviewer 3 Completion Time' },
+    { key: 'reviewer4AssignmentTime', label: 'Reviewer 4 Assignment Time' },
+    { key: 'reviewer4CompletionTime', label: 'Reviewer 4 Completion Time' },
+    { key: 'reviewer5AssignmentTime', label: 'Reviewer 5 Assignment Time' },
+    { key: 'reviewer5CompletionTime', label: 'Reviewer 5 Completion Time' },
+    { key: 'moderatorAssignmentTime', label: 'Moderator Assignment Time' },
+    { key: 'moderatorCompletionTime', label: 'Moderator Completion Time' },
+];
+
+export function isMidnightRollover(start?: string, end?: string): boolean {
+    if (!start || !end) return false;
+    const isTimeOnly = (!start.includes('-') && !start.includes('/')) &&
+                       (!end.includes('-') && !end.includes('/'));
+    if (!isTimeOnly) return false;
+    const sMs = parseToMs(start);
+    const eMs = parseToMs(end);
+    if (sMs === null || eMs === null || eMs >= sMs) return false;
+    const rolloverDiff = (eMs + 24 * 3600 * 1000) - sMs;
+    return rolloverDiff > 0 && rolloverDiff < 14 * 3600 * 1000;
+}
+
+export function validateTimingPairWithFuture(
+    start?: string,
+    end?: string,
+    startLabel: string = 'Time Question Asked',
+    endLabel: string = 'Time Answer Received',
+    defaultDate?: string,
+    nowMs: number = Date.now(),
+): void {
+    const isRollover = isMidnightRollover(start, end);
+
+    if (start && end && !isRollover) {
+        validateTimingPair(start, end, startLabel, endLabel, defaultDate);
+    }
+
+    if (start && !isRollover) {
+        validateNotFuture(start, startLabel, defaultDate, nowMs);
+    }
+
+    if (end) {
+        validateNotFuture(end, endLabel, defaultDate, nowMs);
+    }
+}
+
+export function validateAllTimingPairs(e: Partial<TesterLogEntry>, testDate?: string, nowMs: number = Date.now()): void {
+    for (const pair of TIMING_PAIRS) {
+        validateTimingPairWithFuture(
+            e[pair.startKey] as string | undefined,
+            e[pair.endKey] as string | undefined,
+            pair.startLabel,
+            pair.endLabel,
+            testDate,
+            nowMs,
+        );
+    }
+}
+
+export function validateSlaStatus(e: Partial<TesterLogEntry>, testDate?: string): void {
+    if (e.timeQuestionAsked && e.timeAnswerReceived && e.slaStatus) {
+        const sMs = parseToMs(e.timeQuestionAsked, testDate);
+        const eMs = parseToMs(e.timeAnswerReceived, testDate);
+        if (sMs !== null && eMs !== null) {
+            let diffMs = eMs - sMs;
+            if (diffMs < 0 && isMidnightRollover(e.timeQuestionAsked, e.timeAnswerReceived)) {
+                diffMs += 24 * 3600 * 1000;
+            }
+            if (diffMs >= 0) {
+                const diffMins = diffMs / (1000 * 60);
+                if (diffMins > 120 && e.slaStatus !== 'SLA Breached') {
+                    throw new BadRequestError("Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+                }
+                if (diffMins <= 120 && e.slaStatus === 'SLA Breached') {
+                    throw new BadRequestError("Response time is within 120 minutes; SLA Status cannot be 'SLA Breached'");
+                }
+            }
+        }
+    }
+    if (e.waTimeQuestionAsked && e.waTimeAnswerReceived && e.waSlaStatus) {
+        const sMs = parseToMs(e.waTimeQuestionAsked, testDate);
+        const eMs = parseToMs(e.waTimeAnswerReceived, testDate);
+        if (sMs !== null && eMs !== null) {
+            let diffMs = eMs - sMs;
+            if (diffMs < 0 && isMidnightRollover(e.waTimeQuestionAsked, e.waTimeAnswerReceived)) {
+                diffMs += 24 * 3600 * 1000;
+            }
+            if (diffMs >= 0) {
+                const diffMins = diffMs / (1000 * 60);
+                if (diffMins > 120 && e.waSlaStatus !== 'SLA Breached') {
+                    throw new BadRequestError("WhatsApp response time exceeds 120 minutes; SLA Status must be 'SLA Breached'");
+                }
+                if (diffMins <= 120 && e.waSlaStatus === 'SLA Breached') {
+                    throw new BadRequestError("WhatsApp response time is within 120 minutes; SLA Status cannot be 'SLA Breached'");
+                }
+            }
+        }
+    }
 }
 
 // The [Auto] duration fields - computed here from their start/end pair
@@ -487,7 +883,25 @@ export class TesterLogService implements ITesterLogService {
         body: Omit<TesterLogEntry, '_id' | 'submittedByUserId' | 'submittedByEmail' | 'testerName' | 'createdAt' | 'updatedAt' | 'testDate'> & { testDate?: string },
     ): Promise<CreateTesterLogEntryResponse> {
         const now = new Date();
-        const testDate = getTodayIST(now);
+        const todayIST = getTodayIST(now);
+
+        // Validate client testDate format/future if provided, but server enforces todayIST for new submissions
+        if (body.testDate?.trim()) {
+            validateTestDateNotFuture(body.testDate, now);
+        }
+        const testDate = todayIST;
+
+        // Reject inverted or future timestamps
+        validateAllTimingPairs(body, testDate, now.getTime());
+
+        // Reject contradictory SLA statuses
+        validateSlaStatus(body, testDate);
+
+        // Validate translation quality to error type mapping
+        validateTranslationMapping(body.translationQuality, body.translationErrorType);
+
+        // Validate text fields for format and length limits
+        validateTextFields(body);
 
         let testId = body.testId?.trim();
         if (!testId) {
@@ -547,6 +961,47 @@ export class TesterLogService implements ITesterLogService {
             if (body[key] !== undefined) (changes as any)[key] = body[key];
         }
         const merged = { ...before, ...changes };
+
+        // Only validate testDate if it was modified
+        if (changes.testDate !== undefined) {
+            validateTestDateNotFuture(changes.testDate);
+        }
+
+        const nowMs = Date.now();
+        // Only validate timing pairs where at least one field of the pair was modified
+        for (const pair of TIMING_PAIRS) {
+            if (changes[pair.startKey] !== undefined || changes[pair.endKey] !== undefined) {
+                validateTimingPairWithFuture(
+                    merged[pair.startKey] as string | undefined,
+                    merged[pair.endKey] as string | undefined,
+                    pair.startLabel,
+                    pair.endLabel,
+                    merged.testDate,
+                    nowMs,
+                );
+            }
+        }
+
+        // Only validate translation mapping if quality or error type was modified
+        if (changes.translationQuality !== undefined || changes.translationErrorType !== undefined) {
+            validateTranslationMapping(merged.translationQuality, merged.translationErrorType);
+        }
+
+        // Validate modified text fields for format and length limits
+        validateTextFields(changes);
+
+        // Validate SLA status if SLA or timing fields were modified
+        if (
+            changes.slaStatus !== undefined ||
+            changes.timeQuestionAsked !== undefined ||
+            changes.timeAnswerReceived !== undefined ||
+            changes.waSlaStatus !== undefined ||
+            changes.waTimeQuestionAsked !== undefined ||
+            changes.waTimeAnswerReceived !== undefined
+        ) {
+            validateSlaStatus(merged, merged.testDate);
+        }
+
         const $set: Partial<TesterLogEntry> = {
             ...changes,
             ...computeDurations(merged, merged.testDate),
@@ -597,14 +1052,23 @@ export class TesterLogService implements ITesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries> {
         await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
-        const filter: Record<string, any> = { submittedByUserId: userId };
-        const dateFilter = buildDateFilter(startDate, endDate, dateField);
-        if (dateFilter) {
-            Object.assign(filter, dateFilter);
-        }
+        const filter = this.buildEntryFilter(
+            userId,
+            startDate,
+            endDate,
+            dateField,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            search,
+            status,
+        );
 
         const [entries, total] = await Promise.all([
             collection
@@ -626,10 +1090,8 @@ export class TesterLogService implements ITesterLogService {
         };
     }
 
-    // Shared by getAllEntries/getSummary/exportEntries - equality match on
-    // each of the 4 dropdown-backed fields (typed selections in the tester
-    // form, not free text, so exact match is correct here - no sheet-style
-    // normalization needed) plus the existing testerId/date filtering.
+    // Shared by getMyEntries/getAllEntries/getSummary/exportEntries - equality match on
+    // each of the 4 dropdown-backed fields plus date filtering, free-text search, and status.
     private buildEntryFilter(
         testerId?: string,
         startDate?: string,
@@ -639,6 +1101,8 @@ export class TesterLogService implements ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        search?: string,
+        status?: string,
     ): Record<string, any> {
         const filter: Record<string, any> = testerId ? { submittedByUserId: testerId } : {};
         const dateFilter = buildDateFilter(startDate, endDate, dateField);
@@ -649,6 +1113,56 @@ export class TesterLogService implements ITesterLogService {
         if (channelTested) filter.channelTested = channelTested;
         if (overallTestStatus) filter.overallTestStatus = overallTestStatus;
         if (defectSeverity) filter.defectSeverity = defectSeverity;
+
+        const extraConditions: any[] = [];
+        if (status && status !== 'all') {
+            const s = status.trim().toLowerCase();
+            if (s === 'pass') {
+                extraConditions.push({
+                    $or: [
+                        { overallTestStatus: { $regex: /^pass$/i } },
+                        { overallTestStatus: { $regex: /^expected output$/i } },
+                    ],
+                });
+            } else if (s === 'fail') {
+                extraConditions.push({
+                    $or: [
+                        { overallTestStatus: { $regex: /^fail$/i } },
+                        { overallTestStatus: { $regex: /anomaly/i } },
+                    ],
+                });
+            } else if (s === 'partial') {
+                extraConditions.push({ overallTestStatus: { $regex: /^partial$/i } });
+            } else if (s === 'defects') {
+                extraConditions.push({
+                    $or: [
+                        { defectSeverity: { $nin: [null, '', 'NA', 'na', 'nil', 'Nil', 'no defect', 'none', 'None'] } },
+                        { defectIdBugRef: { $nin: [null, '', 'NA', 'na', 'nil', 'Nil', 'none', 'None'] } },
+                    ],
+                });
+            }
+        }
+
+        if (search && search.trim()) {
+            const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const sRegex = new RegExp(escaped, 'i');
+            extraConditions.push({
+                $or: [
+                    { queryText: sRegex },
+                    { threadId: sRegex },
+                    { webThreadId: sRegex },
+                    { waThreadId: sRegex },
+                    { testId: sRegex },
+                    { typeOfQuestion: sRegex },
+                    { defectIdBugRef: sRegex },
+                ],
+            });
+        }
+
+        if (extraConditions.length > 0) {
+            filter.$and = extraConditions;
+        }
+
         return filter;
     }
 
@@ -663,12 +1177,22 @@ export class TesterLogService implements ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries> {
         await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
         const filter = this.buildEntryFilter(
-            testerId, startDate, endDate, dateField,
-            typeOfQuestion, channelTested, overallTestStatus, defectSeverity,
+            testerId,
+            startDate,
+            endDate,
+            dateField,
+            typeOfQuestion,
+            channelTested,
+            overallTestStatus,
+            defectSeverity,
+            search,
+            status,
         );
 
         const [entries, total] = await Promise.all([
@@ -757,7 +1281,7 @@ export class TesterLogService implements ITesterLogService {
         const rows = entries.map((e: any) => {
             const row: Record<string, string> = {};
             for (const col of EXPORT_COLUMNS) {
-                row[col.header] = formatExportValue(col.key, e[col.key]);
+                row[col.header] = formatExportValue(col.key, e[col.key], e);
             }
             return row;
         });
@@ -943,6 +1467,7 @@ export class TesterLogService implements ITesterLogService {
 
         let sciCorrect = 0;
         let sciIncorrect = 0;
+        let sciPartiallyCorrect = 0;
 
         let dbSaved = 0;
         let dbNotSaved = 0;
@@ -953,6 +1478,8 @@ export class TesterLogService implements ITesterLogService {
 
         let totalCrossPlatform = 0;
         let matchedAnswers = 0;
+        let partialMatches = 0;
+        let mismatchedAnswers = 0;
 
         for (const entry of entries) {
             const overall = (entry.overallTestStatus || '').trim().toLowerCase();
@@ -970,11 +1497,22 @@ export class TesterLogService implements ITesterLogService {
                 otherStatus++;
             }
 
-            const sla = (entry.slaStatus || '').trim().toLowerCase();
-            if (sla === 'met' || sla === 'within sla' || sla === 'pass') {
-                slaMet++;
-            } else if (sla === 'breached' || sla === 'fail') {
-                slaBreached++;
+            const checkSla = (statusStr?: string) => {
+                const s = (statusStr || '').trim().toLowerCase();
+                if (s === 'met' || s === 'within sla' || s === 'pass' || s.includes('within')) {
+                    slaMet++;
+                } else if (s === 'breached' || s === 'fail' || s.includes('breach')) {
+                    slaBreached++;
+                }
+            };
+
+            const chSla = (entry.channelTested || '').trim().toLowerCase();
+            const isBothSla = chSla.includes('both') || chSla.includes('cross');
+            if (isBothSla) {
+                checkSla(entry.slaStatus);
+                checkSla(entry.waSlaStatus);
+            } else {
+                checkSla(entry.slaStatus || entry.waSlaStatus);
             }
 
             if (entry.responseTimeMins) {
@@ -1045,14 +1583,19 @@ export class TesterLogService implements ITesterLogService {
                 sciCorrect++;
             } else if (sci === 'no' || sci === 'incorrect') {
                 sciIncorrect++;
+            } else if (sci === 'partially correct' || sci.includes('partial')) {
+                sciPartiallyCorrect++;
             }
+
+            const isSaved = (v: string) => v === 'saved' || v === 'yes';
+            const isNotSaved = (v: string) => v === 'not saved' || v === 'no' || v === 'partial save';
 
             const qSaved = (entry.questionSavedInDb || '').trim().toLowerCase();
             const aSaved = (entry.answerSavedInDb || '').trim().toLowerCase();
-            if (qSaved === 'yes' || aSaved === 'yes') {
-                dbSaved++;
-            } else if (qSaved === 'no' || aSaved === 'no') {
+            if (isNotSaved(qSaved) || isNotSaved(aSaved)) {
                 dbNotSaved++;
+            } else if (isSaved(qSaved) || isSaved(aSaved)) {
+                dbSaved++;
             }
 
             const vIn = (entry.voiceInputWorking || '').trim().toLowerCase();
@@ -1063,11 +1606,24 @@ export class TesterLogService implements ITesterLogService {
             if (vOut === 'yes') voiceOutputWorking++;
 
             const ch = (entry.channelTested || '').trim().toLowerCase();
-            if (ch.includes('both') || ch.includes('cross')) {
-                totalCrossPlatform++;
-                const match = (entry.whatsappVsWebAnswerMatch || '').trim().toLowerCase();
-                if (match === 'yes' || match === 'match' || match === 'true') {
-                    matchedAnswers++;
+            const isCross = ch.includes('both') || ch.includes('cross');
+            if (isCross) {
+                const rawMatch = (entry.whatsappVsWebAnswerMatch || '').trim().toLowerCase();
+                const compactMatch = rawMatch.replace(/[^a-z]/g, '');
+
+                const isMatch = compactMatch === 'propermatch' || compactMatch === 'match' || compactMatch === 'yes' || compactMatch === 'y' || compactMatch === 'true' || compactMatch === 'proper';
+                const isPartial = compactMatch === 'partialmatch' || compactMatch === 'partial';
+                const isMismatch = compactMatch === 'mismatch' || compactMatch === 'no' || compactMatch === 'n' || compactMatch === 'false';
+
+                if (isMatch || isPartial || isMismatch) {
+                    totalCrossPlatform++;
+                    if (isMatch) {
+                        matchedAnswers++;
+                    } else if (isPartial) {
+                        partialMatches++;
+                    } else if (isMismatch) {
+                        mismatchedAnswers++;
+                    }
                 }
             }
         }
@@ -1079,7 +1635,7 @@ export class TesterLogService implements ITesterLogService {
         const slaMetRate = totalSla > 0 ? Math.round((slaMet / totalSla) * 1000) / 10 : 0;
         const avgResponseMinutes = responseTimeCount > 0 ? Math.round((responseTimeSum / responseTimeCount) * 10) / 10 : null;
 
-        const totalSci = sciCorrect + sciIncorrect;
+        const totalSci = sciCorrect + sciIncorrect + sciPartiallyCorrect;
         const sciRate = totalSci > 0 ? Math.round((sciCorrect / totalSci) * 1000) / 10 : 0;
 
         const totalDb = dbSaved + dbNotSaved;
@@ -1103,6 +1659,15 @@ export class TesterLogService implements ITesterLogService {
             if (!isNaN(diffMs) && diffMs >= 0) {
                 daysCount = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
             }
+        } else if (startDate && !endDate) {
+            const start = new Date(startDate.trim().slice(0, 10));
+            const now = new Date();
+            const todayIST = getTodayIST(now);
+            const end = new Date(todayIST);
+            const diffMs = end.getTime() - start.getTime();
+            if (!isNaN(diffMs) && diffMs >= 0) {
+                daysCount = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+            }
         }
 
         const categoryCounts: Record<string, { total: number; webApp: number; whatsApp: number }> = {
@@ -1112,14 +1677,18 @@ export class TesterLogService implements ITesterLogService {
             'Dynamic - Weather': { total: 0, webApp: 0, whatsApp: 0 },
             'Dynamic - Scheme': { total: 0, webApp: 0, whatsApp: 0 },
             'Dynamic - Mandi': { total: 0, webApp: 0, whatsApp: 0 },
+            'Static Dynamic': { total: 0, webApp: 0, whatsApp: 0 },
         };
 
         for (const entry of entries) {
             const qType = (entry.typeOfQuestion || '').trim().toLowerCase();
             const cat = (entry.questionCategory || '').trim().toLowerCase();
+            const compactQType = qType.replace(/[^a-z]/g, '');
 
             let targetType: string | null = null;
-            if (qType === 'unique') {
+            if (compactQType === 'staticdynamic' || qType.includes('static dynamic')) {
+                targetType = 'Static Dynamic';
+            } else if (qType === 'unique') {
                 targetType = 'Unique';
             } else if (qType === 'gdb' || qType === 'gdp') {
                 targetType = 'GDB';
@@ -1157,6 +1726,7 @@ export class TesterLogService implements ITesterLogService {
             { questionType: 'Dynamic - Weather', targetTotal: 19, targetWebApp: 9, targetWhatsApp: 10 },
             { questionType: 'Dynamic - Scheme', targetTotal: 6, targetWebApp: 3, targetWhatsApp: 3 },
             { questionType: 'Dynamic - Mandi', targetTotal: 2, targetWebApp: 1, targetWhatsApp: 1 },
+            { questionType: 'Static Dynamic', targetTotal: 0, targetWebApp: 0, targetWhatsApp: 0 },
         ];
 
         const targetRows = DAILY_TARGET_DEFINITIONS.map(def => {
@@ -1177,13 +1747,20 @@ export class TesterLogService implements ITesterLogService {
             };
         });
 
-        const totalAchievedTotal = targetRows.reduce((sum, r) => sum + r.achievedTotal, 0);
-        const totalAchievedWebApp = targetRows.reduce((sum, r) => sum + r.achievedWebApp, 0);
-        const totalAchievedWhatsApp = targetRows.reduce((sum, r) => sum + r.achievedWhatsApp, 0);
+        const rawAchievedTotal = targetRows.reduce((sum, r) => sum + r.achievedTotal, 0);
+        const rawAchievedWebApp = targetRows.reduce((sum, r) => sum + r.achievedWebApp, 0);
+        const rawAchievedWhatsApp = targetRows.reduce((sum, r) => sum + r.achievedWhatsApp, 0);
+
+        // Target progress is capped per question type:
+        // Exceeding one category's quota does not fulfill targets for other categories.
+        const cappedAchievedTotal = targetRows.reduce((sum, r) => sum + (r.targetTotal > 0 ? Math.min(r.achievedTotal, r.targetTotal) : 0), 0);
+        const cappedAchievedWebApp = targetRows.reduce((sum, r) => sum + (r.targetWebApp > 0 ? Math.min(r.achievedWebApp, r.targetWebApp) : 0), 0);
+        const cappedAchievedWhatsApp = targetRows.reduce((sum, r) => sum + (r.targetWhatsApp > 0 ? Math.min(r.achievedWhatsApp, r.targetWhatsApp) : 0), 0);
+
         const totalTargetTotal = 54 * daysCount;
         const totalTargetWebApp = 27 * daysCount;
         const totalTargetWhatsApp = 27 * daysCount;
-        const totalCompletionRate = totalTargetTotal > 0 ? Math.round((totalAchievedTotal / totalTargetTotal) * 1000) / 10 : 0;
+        const totalCompletionRate = totalTargetTotal > 0 ? Math.round((cappedAchievedTotal / totalTargetTotal) * 1000) / 10 : 0;
 
         const targetVsAchieved = {
             daysCount,
@@ -1191,11 +1768,14 @@ export class TesterLogService implements ITesterLogService {
             total: {
                 questionType: 'Total',
                 targetTotal: totalTargetTotal,
-                achievedTotal: totalAchievedTotal,
+                achievedTotal: cappedAchievedTotal,
+                rawAchievedTotal,
                 targetWebApp: totalTargetWebApp,
-                achievedWebApp: totalAchievedWebApp,
+                achievedWebApp: cappedAchievedWebApp,
+                rawAchievedWebApp,
                 targetWhatsApp: totalTargetWhatsApp,
-                achievedWhatsApp: totalAchievedWhatsApp,
+                achievedWhatsApp: cappedAchievedWhatsApp,
+                rawAchievedWhatsApp,
                 completionRate: totalCompletionRate,
             },
         };
@@ -1224,6 +1804,8 @@ export class TesterLogService implements ITesterLogService {
             scientificAccuracy: {
                 correct: sciCorrect,
                 incorrect: sciIncorrect,
+                partiallyCorrect: sciPartiallyCorrect,
+                totalChecked: totalSci,
                 rate: sciRate,
             },
             dbPersistence: {
@@ -1239,6 +1821,8 @@ export class TesterLogService implements ITesterLogService {
             crossPlatformStats: {
                 totalCrossPlatform,
                 matchedAnswers,
+                partialMatches,
+                mismatches: mismatchedAnswers,
                 parityRate: totalCrossPlatform > 0 ? Math.round((matchedAnswers / totalCrossPlatform) * 1000) / 10 : 0,
             },
             targetVsAchieved,
