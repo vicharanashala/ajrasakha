@@ -543,6 +543,16 @@ class UpdateAnswerBody {
   closeIntent?: 'gdb' | 'notify';
 }
 
+class DetectChemicalsBody {
+  @JSONSchema({
+    description: 'Text to scan for chemicals',
+    example: 'Apply Aldrin 30 EC or Chlorpyrifos on the affected crops.',
+  })
+  @IsNotEmpty()
+  @IsString()
+  text: string;
+}
+
 export const ANSWER_VALIDATORS = [
   AddAnswerBody,
   AnswerResponse,
@@ -552,6 +562,7 @@ export const ANSWER_VALIDATORS = [
   SubmissionResponse,
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
+  DetectChemicalsBody,
 ];
 
 export {
@@ -563,4 +574,5 @@ export {
   SubmissionResponse,
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
+  DetectChemicalsBody,
 };
