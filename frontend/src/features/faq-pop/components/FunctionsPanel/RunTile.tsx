@@ -97,14 +97,14 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" className={inputClass} placeholder={placeholder} value={search}
+        <input type="text" autoComplete="off" className={inputClass} placeholder={placeholder} value={search}
           onChange={(e) => { computePos(); setSearch(e.target.value); setOpen(true); setHighlightedIndex(-1); }}
           onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
           onKeyDown={handleKeyDown} />
         {open && filtered.length > 0 && !expanded && dropdownPos && createPortal(
           <div ref={dropdownRef}
-            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-lg"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40">
@@ -119,8 +119,8 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
       </div>
       {expanded && open && filtered.length > 0 && createPortal(
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={closeAll} />
-          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999 }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'auto' }} onMouseDown={closeAll} />
+          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-xl flex flex-col"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40 shrink-0">
@@ -230,7 +230,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" className={inputClass} placeholder={placeholder} value={displayText}
+        <input type="text" autoComplete="off" className={inputClass} placeholder={placeholder} value={displayText}
           onChange={handleInput} onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
           onKeyDown={handleKeyDown} />
@@ -239,7 +239,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
         )}
         {open && filtered.length > 0 && !expanded && dropdownPos && createPortal(
           <div ref={dropdownRef}
-            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-lg"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40">
@@ -254,8 +254,8 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
       </div>
       {expanded && open && filtered.length > 0 && createPortal(
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={closeAll} />
-          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999 }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'auto' }} onMouseDown={closeAll} />
+          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-xl flex flex-col"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40 shrink-0">

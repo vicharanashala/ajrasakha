@@ -29,16 +29,6 @@ const MODES = [
   { id: "unique-documents", label: "Documents" },
 ];
 
-function TimeAgo({ ts }) {
-  const [, force] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  if (!ts) return null;
-  return <span>{Math.max(0, Math.round((Date.now() - ts) / 1000))}s ago</span>;
-}
-
 // Document Management dashboard (docs/first_render_frontend.md) — third mode alongside
 // FAQ-Cluster/POP-Translation, wired in as a TABS entry in ../../DataProcessingDashboard.tsx.
 //
@@ -84,7 +74,6 @@ export default function DocumentManagementPanel() {
   // stream is unavailable, not the primary refresh mechanism.
   const [queueItems, setQueueItems] = useState([]);
   const [translationJobs, setTranslationJobs] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [busyUploadId, setBusyUploadId] = useState(null);
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
   // "New" is async — a real Zoho upload happens server-side, and the item stays at
@@ -170,7 +159,6 @@ export default function DocumentManagementPanel() {
       refetchTranslationJobs(),
       ...(showFinishedJobs ? [refetchFinishedJobs()] : []),
     ]);
-    setLastUpdated(Date.now());
   }
 
   // Both queues load up front regardless of which sub-mode is active.
@@ -220,7 +208,6 @@ export default function DocumentManagementPanel() {
           }
           return prev;
         });
-        setLastUpdated(Date.now());
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
@@ -247,7 +234,6 @@ export default function DocumentManagementPanel() {
             return job.deleted ? filtered : [...filtered, job];
           });
         }
-        setLastUpdated(Date.now());
       },
       document: () => bumpRefresh(),
     });
@@ -271,11 +257,16 @@ export default function DocumentManagementPanel() {
     }
   }
 
-  async function handleAddUpload(item, documentId) {
+  async function handleAddUpload(item, documentId, candidate) {
     setBusyUploadId(item.id);
     try {
       const res = await addUploadToMatch(item.id, documentId);
-      toast.success(`Linked — ${res?.placements_created ?? 0} new placement(s) created`);
+      // The upload moves to status "uploading" right away and the worker creates placements
+      // afterward, so created_row_ids (and placements_created) in this reply is always empty —
+      // count from the candidate's own new_placements, what the row already showed as "would
+      // file it under N new place(s)".
+      const count = candidate?.new_placements?.length ?? res?.placements_created ?? 0;
+      toast.success(`Linked — ${count} new placement(s) created`);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
       bumpRefresh();
     } catch (err) {
@@ -364,7 +355,6 @@ export default function DocumentManagementPanel() {
           <div className="w-full min-w-0 flex flex-col gap-2">
             <div className="flex items-center justify-end">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">Updated <TimeAgo ts={lastUpdated} /></span>
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   onClick={refetchAll}
