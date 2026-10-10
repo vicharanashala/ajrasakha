@@ -18,7 +18,7 @@ import ServerPagination from "./ServerPagination";
 import StatusBadge from "./StatusBadge";
 import TextFilter from "./TextFilter";
 import TopScrollbar from "./TopScrollbar";
-import { ADVISORY_TYPE_OPTIONS } from "./fields";
+import { ADVISORY_TYPE_OPTIONS, folderDisplayLabel } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
 const LANGUAGE_SOURCE_OPTIONS = ["detected", "state", "ambiguous", "manual"];
@@ -145,7 +145,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
   const selectedFolderIds = [...(filters.crop_id || []), ...(filters.organization_id || [])];
   const folderFilterUiOptions = folderFilterOptions.map((f) => ({
     value: f.id,
-    label: f.name || "(no folder)",
+    label: folderDisplayLabel(f, folderFilterOptions),
   }));
   const hasActiveFilters = Object.values(filters).some((v) => Array.isArray(v) && v.length > 0);
   function clearFilters() {
@@ -197,7 +197,9 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
     try {
       const editStateId = stateOptions.find((s) => s.name === editState)?.id || "";
       const payload = { state_id: editStateId };
-      const opt = editFolderOptions.find((f) => (f.name || "(no folder)") === editFolder);
+      const opt = editFolderOptions.find(
+        (f) => folderDisplayLabel(f, editFolderOptions) === editFolder || (f.name || "(no folder)") === editFolder,
+      );
       // Only sent when the folder was actually resolved against a loaded option (has both a name
       // match and its id/kind) — if it wasn't touched or the fetch hasn't landed yet, leaving it
       // out of the payload means PATCH just doesn't touch that field, which is the correct
@@ -528,7 +530,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                       <StateSelector
                         value={editFolder}
                         onChange={setEditFolder}
-                        stateNames={editFolderOptions.map((f) => f.name || "(no folder)")}
+                        stateNames={editFolderOptions.map((f) => folderDisplayLabel(f, editFolderOptions))}
                         placeholder="Search folder…"
                       />
                     ) : (

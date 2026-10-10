@@ -37,6 +37,7 @@ import {
   FORMAT_ORIGINAL_OPTIONS,
   VERIFICATION_STATUS_OPTIONS,
   DOCUMENT_STATUS_OPTIONS,
+  folderDisplayLabel,
 } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
@@ -201,7 +202,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const selectedFolderIds = [...(filters.crop_id || []), ...(filters.organization_id || [])];
   const folderFilterUiOptions = folderFilterOptions.map((f) => ({
     value: f.id,
-    label: f.name || "(no folder)",
+    label: folderDisplayLabel(f, folderFilterOptions),
   }));
 
   // Cascades the same way MainTable.tsx's identical filters do — District narrows by the State

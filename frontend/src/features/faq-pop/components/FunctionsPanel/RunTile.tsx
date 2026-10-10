@@ -97,7 +97,7 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" className={inputClass} placeholder={placeholder} value={search}
+        <input type="text" autoComplete="off" className={inputClass} placeholder={placeholder} value={search}
           onChange={(e) => { computePos(); setSearch(e.target.value); setOpen(true); setHighlightedIndex(-1); }}
           onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
@@ -230,7 +230,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" className={inputClass} placeholder={placeholder} value={displayText}
+        <input type="text" autoComplete="off" className={inputClass} placeholder={placeholder} value={displayText}
           onChange={handleInput} onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
           onKeyDown={handleKeyDown} />

@@ -192,6 +192,18 @@ export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
   { key: "placement_count", label: "Placement Count", type: "number", group: "File Info" },
 ];
 
+// "Beans" (and maybe others) legitimately appears twice in the folder vocabulary — once as a crop,
+// once as an organisation of the same name (a real data situation, not something to dedupe here).
+// The Folder pickers that select by name string (AddDocumentForm/DocumentDetailModal/MainTable's
+// inline edit — unlike the Folder COLUMN FILTER, which already selects by id) can't otherwise tell
+// the two apart, so append "(crop)"/"(organisation)" only when a name collides within the given
+// folder list, leaving every non-colliding name exactly as-is.
+export function folderDisplayLabel(folder: { name?: string; kind?: string }, allFolders: { name?: string }[]) {
+  const name = folder.name || "(no folder)";
+  const isDup = (allFolders || []).filter((f) => (f.name || "(no folder)") === name).length > 1;
+  return isDup ? `${name} (${folder.kind === "organization" ? "organisation" : "crop"})` : name;
+}
+
 export const ALL_UNIQUE_DOCUMENT_FIELDS: FieldDef[] = [
   ...DOCUMENT_METADATA_FIELDS,
   ...EDITABLE_DOCUMENT_ONLY_FIELDS,

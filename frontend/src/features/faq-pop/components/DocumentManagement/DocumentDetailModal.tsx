@@ -11,7 +11,6 @@ import {
 import {
   getDashboardUniqueDocument,
   getUniqueDocumentPlacements,
-  updateDashboardUniqueDocument,
   deleteDashboardDocument,
   findDuplicatesForDocument,
   mergeUniqueDocuments,
@@ -21,13 +20,24 @@ import {
   addDocumentPlacement,
 } from "../../api";
 import { formatDate } from "@/utils/formatDate";
-import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
+import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS, folderDisplayLabel } from "./fields";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
 import UniqueDocumentEditForm from "./UniqueDocumentEditForm";
 import { StateSelector } from "../FunctionsPanel/RunTile";
 
-const DETAIL_GRID_FIELDS = [...DOCUMENT_METADATA_FIELDS, ...DISPLAY_ONLY_FIELDS];
+// Language/District/KVK are document-level fields the unique-document response always carries
+// (language, district, kvk — names; district_id/kvk_id alongside) but aren't in
+// DOCUMENT_METADATA_FIELDS/DISPLAY_ONLY_FIELDS (those live in EDITABLE_DOCUMENT_ONLY_FIELDS, which
+// this grid doesn't spread since it's keyed for the edit form, not display) — added here, read-only,
+// so the grid doesn't show Language Source with no Language next to it.
+const DETAIL_GRID_FIELDS = [
+  ...DOCUMENT_METADATA_FIELDS,
+  { key: "language", label: "Language", type: "text", group: "Language" },
+  { key: "district", label: "District", type: "text", group: "Location" },
+  { key: "kvk", label: "KVK", type: "text", group: "Location" },
+  ...DISPLAY_ONLY_FIELDS,
+];
 
 // Document Detail — replaces the old inline row-expand + separate cascade-delete flow. Opened as
 // a modal from a placement row (Main Table), a document row (Documents tab), or a jump-link
@@ -135,12 +145,12 @@ export default function DocumentDetailModal({
   }, [addPlacementOpen]);
 
   const placementStateNames = placementStates.map((s) => s.name);
-  const placementFolderLabels = placementFolders.map((f) => f.name || "(no folder)");
+  const placementFolderLabels = placementFolders.map((f) => folderDisplayLabel(f, placementFolders));
 
   async function handleAddPlacement() {
     const stateOpt = placementStates.find((s) => s.name === newPlacementState);
     const folder = placementFolders.find(
-      (f) => (f.name || "(no folder)") === newPlacementFolder,
+      (f) => folderDisplayLabel(f, placementFolders) === newPlacementFolder,
     );
     if (!stateOpt || !folder) {
       toast.error("Pick a state and a folder");
@@ -165,22 +175,6 @@ export default function DocumentDetailModal({
       toast.error(err.message || "Failed to add placement");
     } finally {
       setAddingPlacement(false);
-    }
-  }
-
-  const [anchoring, setAnchoring] = useState(null);
-  async function handleSetAnchor(link) {
-    setAnchoring(link.zoho_file_id);
-    try {
-      const updated = await updateDashboardUniqueDocument(documentId, {
-        representative_file_id: link.zoho_file_id,
-      });
-      setDoc((prev) => ({ ...prev, ...updated }));
-      toast.success("Anchor updated");
-    } catch (err) {
-      toast.error(err.message || "Failed to re-anchor");
-    } finally {
-      setAnchoring(null);
     }
   }
 
@@ -423,50 +417,39 @@ export default function DocumentDetailModal({
                   <div className="text-xs text-muted-foreground italic py-1">No copies on record.</div>
                 ) : (
                   <div className="flex flex-col gap-1">
-                    {(() => {
-                      const hasChoice = doc.duplicate_links.length > 1;
-                      return doc.duplicate_links.map((link) => {
-                        const isAnchor = link.zoho_file_id === doc.representative_file_id;
-                        return (
-                          <div
-                            key={link.zoho_file_id}
-                            className="flex items-center justify-between gap-2 rounded border border-border/50 px-2.5 py-1.5"
+                    {doc.duplicate_links.map((link) => {
+                      const isAnchor = link.zoho_file_id === doc.representative_file_id;
+                      return (
+                        <div
+                          key={link.zoho_file_id}
+                          className="flex items-center justify-between gap-2 rounded border border-border/50 px-2.5 py-1.5"
+                        >
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">
+                            {link.row_id}
+                          </span>
+                          <a
+                            href={link.shareable_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline truncate"
+                            title={link.shareable_name}
                           >
-                            <span className="text-xs font-mono text-muted-foreground shrink-0">
-                              {link.row_id}
+                            {link.shareable_name}
+                          </a>
+                          <span
+                            className="text-[10px] text-muted-foreground truncate"
+                            title="The placement this copy was first filed under — not necessarily where the file lives now"
+                          >
+                            filed: {link.state} / {link.crop}
+                          </span>
+                          {isAnchor && (
+                            <span className="flex items-center gap-1 text-[10px] text-primary shrink-0">
+                              <Anchor size={10} /> anchor
                             </span>
-                            <a
-                              href={link.shareable_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline truncate"
-                              title={link.shareable_name}
-                            >
-                              {link.shareable_name}
-                            </a>
-                            <span
-                              className="text-[10px] text-muted-foreground truncate"
-                              title="The placement this copy was first filed under — not necessarily where the file lives now"
-                            >
-                              filed: {link.state} / {link.crop}
-                            </span>
-                            {isAnchor || !hasChoice ? (
-                              <span className="flex items-center gap-1 text-[10px] text-primary shrink-0">
-                                <Anchor size={10} /> anchor
-                              </span>
-                            ) : (
-                              <button
-                                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 shrink-0"
-                                onClick={() => handleSetAnchor(link)}
-                                disabled={anchoring === link.zoho_file_id}
-                              >
-                                <Anchor size={10} /> Set as anchor
-                              </button>
-                            )}
-                          </div>
-                        );
-                      });
-                    })()}
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

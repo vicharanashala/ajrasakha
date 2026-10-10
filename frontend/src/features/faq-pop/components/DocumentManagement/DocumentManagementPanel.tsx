@@ -257,11 +257,16 @@ export default function DocumentManagementPanel() {
     }
   }
 
-  async function handleAddUpload(item, documentId) {
+  async function handleAddUpload(item, documentId, candidate) {
     setBusyUploadId(item.id);
     try {
       const res = await addUploadToMatch(item.id, documentId);
-      toast.success(`Linked — ${res?.placements_created ?? 0} new placement(s) created`);
+      // The upload moves to status "uploading" right away and the worker creates placements
+      // afterward, so created_row_ids (and placements_created) in this reply is always empty —
+      // count from the candidate's own new_placements, what the row already showed as "would
+      // file it under N new place(s)".
+      const count = candidate?.new_placements?.length ?? res?.placements_created ?? 0;
+      toast.success(`Linked — ${count} new placement(s) created`);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
       bumpRefresh();
     } catch (err) {

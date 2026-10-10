@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import {
@@ -12,7 +12,7 @@ import {
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
-import { DOCUMENT_METADATA_FIELDS } from "./fields";
+import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 
 const inputClass =
@@ -41,7 +41,7 @@ const selectClass =
 // never on a group's own state (see the form-level comment).
 function PlacementGroupRow({ group, folderOptions, stateOptions, onChange, onRemove, removable }) {
   const stateNames = stateOptions.map((s) => s.name);
-  const folderLabels = folderOptions.map((f) => f.name || "(no folder)");
+  const folderLabels = folderOptions.map((f) => folderDisplayLabel(f, folderOptions));
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border/50 p-2">
@@ -90,6 +90,7 @@ function PlacementGroupRow({ group, folderOptions, stateOptions, onChange, onRem
 export default function AddDocumentForm({ onUploadQueued }) {
   const [values, setValues] = useState(emptyValues);
   const [file, setFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [groups, setGroups] = useState(() => [emptyGroup()]);
   const [language, setLanguage] = useState("");
   const [districtId, setDistrictId] = useState("");
@@ -123,7 +124,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
         setGroups((prev) =>
           prev.map((g) => ({
             ...g,
-            folders: g.folders.filter((f) => list.some((o) => (o.name || "(no folder)") === f)),
+            folders: g.folders.filter((f) => list.some((o) => folderDisplayLabel(o, list) === f)),
           })),
         );
       })
@@ -188,7 +189,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
         const crop_ids = [];
         const organization_ids = [];
         for (const label of g.folders) {
-          const opt = folderOptions.find((f) => (f.name || "(no folder)") === label);
+          const opt = folderOptions.find((f) => folderDisplayLabel(f, folderOptions) === label);
           if (!opt) continue;
           (opt.kind === "organization" ? organization_ids : crop_ids).push(opt.id);
         }
@@ -232,6 +233,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
       toast.success("Upload queued");
       setValues(emptyValues());
       setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setGroups([emptyGroup()]);
       setLanguage("");
       setDistrictId("");
@@ -365,6 +367,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
       <div className="flex flex-col gap-1 border-t border-border/50 pt-4">
         <label className={labelClass}>File (PDF)</label>
         <input
+          ref={fileInputRef}
           type="file"
           accept=".pdf"
           className="text-sm text-foreground file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border file:border-border file:bg-transparent file:text-xs file:text-foreground hover:file:bg-accent file:cursor-pointer cursor-pointer"
