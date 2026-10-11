@@ -26,6 +26,19 @@ export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
 const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
+  if (import.meta.env.VITE_ENABLE_MOCKS === 'true') {
+    return {
+      user: {
+        uid: "507f1f77bcf86cd799439011",
+        email: email,
+        displayName: "Mock User",
+        photoURL: "",
+        getIdToken: async () => "mock-token"
+      },
+      appUser: { _id: "507f1f77bcf86cd799439011", role: "coordinator" }
+    };
+  }
+
   try {
     const user = await userService.Getuser(email)
     // Moderators and Experts are gated by activity status (isBlocked is their check-in/
@@ -35,6 +48,7 @@ export const loginWithEmail = async (email: string, password: string) => {
     if (deniedLogin) {
       throw new Error("User marked as Inactive Please Contact Moderator")
     }
+
     if (!deniedLogin || user === null) {
       const result = await signInWithEmailAndPassword(auth, email, password);
 

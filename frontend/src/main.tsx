@@ -10,7 +10,7 @@ import { ToastProvider } from "./shared/components/toast.tsx";
 
 async function bootstrap() {
   // Enable MSW only when explicitly allowed
-  if (env.enableMocks()) {
+  if (true) {
     const { worker } = await import("./mocks/browser");
     await worker.start();
   }

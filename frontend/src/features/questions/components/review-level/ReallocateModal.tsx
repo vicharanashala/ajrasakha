@@ -65,8 +65,8 @@ export function ReallocateModal({
 
   const filteredExperts = experts.filter(
     (expert) =>
-      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      (expert.userName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (expert.email?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   );
 
   const handleSelectExpert = (expertId: string) => {

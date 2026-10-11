@@ -489,7 +489,7 @@ class AddQuestionBodyDto {
 
 class GenerateQuestionsBody {
   @IsString()
-  @MinLength(10)
+  @MinLength(2)
   query!: string;
 
   @IsOptional()
@@ -499,6 +499,10 @@ class GenerateQuestionsBody {
   @IsOptional()
   @IsString()
   crop?: string;
+
+  @IsOptional()
+  @IsString()
+  language?: string;
 }
 class ExpertInput {
   @IsString()

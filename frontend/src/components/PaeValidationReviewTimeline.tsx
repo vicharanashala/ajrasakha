@@ -143,7 +143,7 @@ export const PaeValidationReviewTimeline = ({
 
     // "Select Reviewer" shows when auto is OFF (to assign/change), for non-experts.
     const showSelect = canManage && !autoOn;
-    const openRound = timeline?.reviews.find(
+    const openRound = timeline?.reviews?.find(
         (r) => r.paeStatus === "in-progress",
     );
     const openRoundIndex = openRound?.index;

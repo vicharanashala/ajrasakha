@@ -60,7 +60,7 @@ export const FeedbackReviewTimeline = ({
   // Auto-allocation is ON only when explicitly true; a missing/false field = OFF
   // (matches the backend strict rule).
   const autoOn = timeline?.autoAllocateFeedback === true;
-  const hasOpenRound = !!timeline?.reviews.some((r) => !r.finishedAt);
+  const hasOpenRound = !!timeline?.reviews?.some((r) => !r.finishedAt);
 
   const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -147,7 +147,7 @@ export const FeedbackReviewTimeline = ({
 
   // "Select Reviewer" shows when auto is OFF (to assign/change), for non-experts.
   const showSelect = canManage && !autoOn;
-  const openRound = timeline.reviews.find((r) => !r.finishedAt);
+  const openRound = timeline?.reviews?.find((r) => !r.finishedAt);
   const openRoundIndex = openRound?.index;
   // The current reviewer has already submitted some feedback — replacing them risks
   // erasing that completed work, so confirm first.

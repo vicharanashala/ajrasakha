@@ -58,12 +58,12 @@ export function BulkUploadAllocationModal({
   }, [open, paeOnly]);
 
   const paeExperts =
-    usersData?.users.filter((u) => u.role === "pae_expert" && u.isTrainingUser!==true) ?? [];
+    usersData?.users?.filter((u) => u.role === "pae_expert" && u.isTrainingUser !== true) ?? [];
 
   const filteredPaeExperts = paeExperts.filter(
     (e) =>
-      e.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      (e.userName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (e.email?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   );
 
   const handleConfirm = () => {

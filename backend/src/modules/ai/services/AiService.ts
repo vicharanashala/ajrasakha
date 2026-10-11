@@ -150,157 +150,131 @@ export class AiService {
   async getAnswerByQuestionDetails(
     questionDoc: IQuestion
   ): Promise<{ question: string; answer: string }> {
+    const apiKey = process.env.GEMINI_API_KEY || aiConfig.geminiApiKey;
+    if (!apiKey) {
+      throw new InternalServerError("GEMINI_API_KEY is not configured on the server");
+    }
+
+    const model = process.env.GEMINI_MODEL || aiConfig.geminiModel || "gemini-3.1-flash-lite";
+
+    const targetLang = (questionDoc.details as any)?.language;
+    const langInstruction = targetLang && targetLang !== 'English' && targetLang !== 'en-IN' && targetLang !== 'en' && targetLang !== 'auto'
+      ? `\n- Language Requirement: The farmer requested the answer in ${targetLang}. Generate the ENTIRE answer fluently and naturally in ${targetLang} script (e.g. Kannada script for Kannada, Devanagari script for Hindi). Do NOT reply in English.`
+      : '';
+
+    const systemPrompt = `
+You are AjraSakha, an intelligent agricultural AI assistant powered exclusively by Google Gemini (${model}).
+
+Your goals:
+- Provide accurate, practical, and helpful answers in clear, natural paragraphs.
+- If the user asks about your identity, underlying model, or technology (e.g. "Which LLM are you using?"), answer truthfully and directly that you are powered by Google Gemini (${model}).
+- For agricultural questions (crops, diseases, pests, soil, weather, farming practices), provide specific, practical recommendations tailored to the farmer's crop, region, and symptoms.
+- For general, conversational, or non-agricultural questions, answer directly, accurately, and politely without fabricating unnecessary agricultural advice or crop symptoms.
+- If a target language is requested, generate the complete answer fluently and naturally in that requested language and its native script.
+- Avoid headings like "Cause:", "Symptoms:" or code formatting unless necessary.
+    `.trim();
+
+    const userPrompt = `
+User Query:
+"${questionDoc.question}"
+
+Context (if available):
+- State: ${questionDoc.details?.state || "Unknown"}
+- District: ${questionDoc.details?.district || "Unknown"}
+- Crop: ${questionDoc.details?.crop || "Unknown"}
+- Season: ${questionDoc.details?.season || "Unknown"}
+- Domain: ${questionDoc.details?.domain || "General"}
+${targetLang ? `- Preferred Language: ${targetLang}` : ''}
+
+Instructions:
+- If this is an agricultural question, provide a clear, practical advisory addressing the specific crop, symptoms, prevention, and treatment steps.
+- If this is a question about your identity, model, or a general non-agricultural topic, answer it directly and truthfully without forcing agricultural advice.
+- Write naturally in clear paragraph form without bullet points or artificial headings.${langInstruction}
+    `.trim();
+
+    const fullUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    let response: Response;
     try {
-      const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
-
-      const systemPrompt = `
-        You are an expert agricultural advisor helping farmers.
-
-        Your goal:
-        - Provide accurate, practical, and easy-to-understand answers
-        - Write in simple language suitable for farmers
-        - Focus on real-world solutions
-
-        Rules:
-        - Avoid bullet points unless necessary
-        - Write in clear, natural paragraphs
-        - Do not use headings like "Cause", "Symptoms", etc.
-        - Be concise but informative
-        `;
-
-      const userPrompt = `
-        Farmer Question:
-        "${questionDoc.question}"
-
-        Context:
-        - State: ${questionDoc.details?.state || "Unknown"}
-        - District: ${questionDoc.details?.district || "Unknown"}
-        - Crop: ${questionDoc.details?.crop || "Unknown"}
-        - Season: ${questionDoc.details?.season || "Unknown"}
-        - Domain: ${questionDoc.details?.domain || "General"}
-
-        Instructions:
-        Provide a clear and meaningful answer in paragraph form.
-
-        The answer should:
-        - Explain the likely issue
-        - Describe what the farmer might observe
-        - Suggest practical prevention and treatment steps
-        - Be easy to understand and actionable
-
-        Do not use structured sections or bullet formatting.
-        Write as a natural explanation.
-        `;
-
-      const response = await fetch(fullUrl, {
+      response = await fetch(fullUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "Qwen/Qwen3-30B-A3B",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          contents: [
+            {
+              parts: [{ text: userPrompt }],
+            },
           ],
-          temperature: 0.4,
-          max_tokens: 700,
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 800,
+          },
         }),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new InternalServerError(
-          `Failed to get LLM response: ${response.status} ${response.statusText} - ${errorText}`
-        );
-      }
-
-      type LLMResponse = {
-        choices?: {
-          message?: {
-            content?: string;
-          };
-        }[];
-      };
-
-      let data: LLMResponse;
-
-      try {
-        data = (await response.json()) as LLMResponse;
-      } catch (err) {
-        throw new InternalServerError("Failed to parse LLM response JSON");
-      }
-
-      if (!data || !Array.isArray(data.choices) || data.choices.length === 0) {
-        throw new InternalServerError("Invalid LLM response: missing choices");
-      }
-
-      const firstChoice = data.choices[0];
-
-      if (!firstChoice?.message?.content) {
-        throw new InternalServerError("Invalid LLM response: missing content");
-      }
-
-      let answer = firstChoice.message.content;
-
-      answer = answer
-        .replace(/```[\s\S]*?```/g, "") // remove code blocks fully
-        .replace(/```/g, "")            // fallback cleanup
-        .replace(/\*\*/g, "")           // remove bold markdown
-        .replace(/^\s+/, "")            // remove leading whitespace/newlines
-        .replace(/\n{3,}/g, "\n\n")     // normalize excessive line breaks
-        .trim();
-
-      if (!answer || answer.length < 10) {
-        throw new InternalServerError("LLM returned insufficient content");
-      }
-
-      return {
-        question: questionDoc.question,
-        answer,
-      };
-
-    } catch (error) {
-      console.warn("❌ Primary LLM request failed, falling back to Gemini 3.5 Flash Lite API:", error);
-      try {
-        const apiKey = process.env.GEMINI_API_KEY || "AIzaSyDhDFCNvBQDzWEGis3CR2i4oYL8NI5zXAQ";
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    {
-                      text: `You are AjraSakha, an expert agricultural AI assistant helping Indian farmers. Provide a clear, practical answer for the following question:\n\nQuestion: ${questionDoc.question}\nCrop: ${questionDoc.details?.crop || "Unknown"}\nState: ${questionDoc.details?.state || "Unknown"}`
-                    }
-                  ]
-                }
-              ]
-            })
-          }
-        );
-        if (geminiRes.ok) {
-          const gData = (await geminiRes.json()) as any;
-          const text = gData?.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text || gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            return {
-              question: questionDoc.question,
-              answer: text.replace(/\*\*/g, "").trim(),
-            };
-          }
-        }
-      } catch (geminiErr) {
-        console.error("❌ Gemini API fallback failed:", geminiErr);
-      }
-
-      return {
-        question: questionDoc.question,
-        answer: "For optimal agricultural yield, perform a soil test before sowing and follow recommended Package of Practices (PoP) guidelines for " + (questionDoc.details?.crop || "your crop") + ".",
-      };
+    } catch (fetchErr: any) {
+      console.error("❌ Gemini network request failed:", fetchErr?.message || fetchErr);
+      throw new InternalServerError(`Failed to connect to Gemini API: ${fetchErr?.message || "Network error"}`);
     }
+
+    if (!response.ok) {
+      let errorDetail = "";
+      try {
+        const errorJson = (await response.json()) as any;
+        errorDetail = errorJson?.error?.message || JSON.stringify(errorJson);
+      } catch {
+        errorDetail = await response.text().catch(() => "");
+      }
+      console.error(`❌ Gemini API error [${response.status} ${response.statusText}]:`, errorDetail);
+      throw new InternalServerError(`Gemini API failed with status ${response.status}: ${errorDetail || response.statusText}`);
+    }
+
+    type GeminiApiResponse = {
+      candidates?: {
+        content?: {
+          parts?: { text?: string }[];
+        };
+      }[];
+    };
+
+    let data: GeminiApiResponse;
+    try {
+      data = (await response.json()) as GeminiApiResponse;
+    } catch (parseErr) {
+      console.error("❌ Failed to parse Gemini response JSON");
+      throw new InternalServerError("Failed to parse Gemini API response JSON");
+    }
+
+    const candidate = data.candidates?.[0];
+    const textPart =
+      candidate?.content?.parts?.find((p) => p.text)?.text ||
+      candidate?.content?.parts?.[0]?.text;
+
+    if (!textPart || !textPart.trim()) {
+      console.error("❌ Gemini returned an empty response or missing content");
+      throw new InternalServerError("Gemini returned an empty response");
+    }
+
+    const answer = textPart
+      .replace(/```[\s\S]*?```/g, "") // remove code blocks fully
+      .replace(/```/g, "")            // fallback cleanup
+      .replace(/\*\*/g, "")           // remove bold markdown
+      .replace(/^\s+/, "")            // remove leading whitespace/newlines
+      .replace(/\n{3,}/g, "\n\n")     // normalize excessive line breaks
+      .trim();
+
+    if (!answer || answer.length < 10) {
+      throw new InternalServerError("Gemini returned insufficient content");
+    }
+
+    return {
+      question: questionDoc.question,
+      answer,
+    };
   }
 
   async fetchWhatsAppMessage(

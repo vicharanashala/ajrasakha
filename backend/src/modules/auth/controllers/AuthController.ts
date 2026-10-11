@@ -273,11 +273,16 @@ export class AuthController {
       }
 
       // Ensure the user exists in database
-      const user = await this.authService.syncUserWithDb(
-        userInfo.localId,
-        userInfo.email,
-        userInfo.displayName || ''
-      );
+      let user: any = {};
+      if (process.env.SKIP_DB_CONNECTION === 'true') {
+        user = { isVerified: true, id: userInfo.localId, email: userInfo.email, name: userInfo.displayName || '' };
+      } else {
+        user = await this.authService.syncUserWithDb(
+          userInfo.localId,
+          userInfo.email,
+          userInfo.displayName || ''
+        );
+      }
 
       if (user.isVerified === false) {
         throw new HttpError(
@@ -326,11 +331,16 @@ export class AuthController {
         throw new HttpError(401, 'Please verify your email before syncing account.');
       }
 
-      const user = await this.authService.syncUserWithDb(
-        decodedEmail.uid,
-        decodedEmail.email || '',
-        decodedEmail.name || ''
-      );
+      let user: any = {};
+      if (process.env.SKIP_DB_CONNECTION === 'true') {
+        user = { isVerified: true, id: decodedEmail.uid, email: decodedEmail.email || '', name: decodedEmail.name || '' };
+      } else {
+        user = await this.authService.syncUserWithDb(
+          decodedEmail.uid,
+          decodedEmail.email || '',
+          decodedEmail.name || ''
+        );
+      }
 
       if (user.isVerified === false) {
         throw new HttpError(

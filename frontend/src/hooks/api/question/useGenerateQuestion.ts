@@ -8,9 +8,12 @@ export const useGenerateQuestion = () => {
   return useMutation({
     mutationKey: ["generateQuestions"],
     mutationFn: async (
-      transcript: string
+      payload: string | { transcript: string; language?: string }
     ): Promise<GeneratedQuestion[] | null> => {
-      return await questionService.generateQuestions(transcript);
+      if (typeof payload === "string") {
+        return await questionService.generateQuestions(payload);
+      }
+      return await questionService.generateQuestions(payload.transcript, payload.language);
     },
   });
 };

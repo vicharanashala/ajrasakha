@@ -171,10 +171,10 @@ export const ReviewLevelComponent = () => {
     .sort((a, b) => a.userName.localeCompare(b.userName))
     .filter((ele) => ele.role === "expert");
 
-  const chartData = reviewLevel?.map((level: any) => ({
+  const chartData = Array.isArray(reviewLevel) ? reviewLevel.map((level: any) => ({
     reviewLevel: level.Review_level, // X-axis label
     completedTasks: level.count, // Bar value
-  }));
+  })) : [];
 
   const getDescription = () => {
     const parts: string[] = [];

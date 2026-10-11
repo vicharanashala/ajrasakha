@@ -284,7 +284,7 @@ export const RequestListItem = ({
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {requestDiff?.responses.map((response, index) => (
+                  {requestDiff?.responses?.map((response, index) => (
                     <div key={index} className="relative">
                       {index !== requestDiff?.responses.length - 1 && (
                         <div className="absolute left-[18px] top-[40px] bottom-[-24px] w-[2px] border-l-2 border-dashed border-border" />

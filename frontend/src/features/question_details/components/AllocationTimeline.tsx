@@ -37,8 +37,8 @@ interface AllocationTimelineProps {
 
 export const AllocationTimeline = ({
   currentUser,
-  queue,
-  history,
+  queue = [],
+  history = [],
   question,
 }: AllocationTimelineProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -87,7 +87,7 @@ export const AllocationTimeline = ({
   ): ISubmissionHistory | undefined => {
     const user = queue[index];
     if (!user) return undefined;
-    const entries = history.filter((h) => h.updatedBy?._id === user._id);
+    const entries = (history || []).filter((h) => h?.updatedBy?._id === user?._id);
     if (entries.length <= 1) return entries[0];
     if (index === 0) {
       return entries.find((h) => h.answer) ?? entries[0];
@@ -182,15 +182,15 @@ export const AllocationTimeline = ({
   );
 
   const submittedUserIds = new Set(
-    history
-      .filter((entry) => entry.answer || entry.status == "reviewed")
-      .map((entry) => entry.updatedBy?._id)
+    (history || [])
+      .filter((entry) => entry?.answer || entry?.status == "reviewed")
+      .map((entry) => entry?.updatedBy?._id)
   );
 
   const submittedUserEmails = new Set(
-    history
-      .filter((entry) => entry.answer || entry.status == "reviewed")
-      .map((entry) => entry.updatedBy?.email)
+    (history || [])
+      .filter((entry) => entry?.answer || entry?.status == "reviewed")
+      .map((entry) => entry?.updatedBy?.email)
   );
 
   // const unSubmittedExpertsCount = queue?.filter(

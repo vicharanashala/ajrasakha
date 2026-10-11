@@ -472,8 +472,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   // ── AI / ACC-agent helpers delegate to QuestionAiService ──
-  async getQuestionFromRawContext(context: string) {
-    return this.questionAiService.getQuestionFromRawContext(context);
+  async getQuestionFromRawContext(context: string, language?: string) {
+    return this.questionAiService.getQuestionFromRawContext(context, language);
   }
 
   async getQuestionFromCallContext(

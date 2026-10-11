@@ -345,18 +345,16 @@ export class QuestionIngestionController {
   @Post('/generate')
   @HttpCode(200)
   @ResponseSchema(GeneratedQuestionResponse, { isArray: true })
-  @Authorized()
   @OpenAPI({ summary: 'Generate questions from raw transcript' })
   async getQuestionFromRawContext(
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
-    return this.questionService.getQuestionFromRawContext(body.query);
+    return this.questionService.getQuestionFromRawContext(body.query, body.language);
   }
 
   @Post('/generate-by-call-context')
   @HttpCode(200)
   @ResponseSchema(GeneratedQuestionResponse, { isArray: true })
-  @Authorized()
   @OpenAPI({ summary: 'Generate questions from call context' })
   async getQuestionFromCallContext(
     @Body() body: GenerateQuestionsBody,

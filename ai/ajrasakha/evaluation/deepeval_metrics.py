@@ -18,41 +18,61 @@ except ImportError:
 
 
 
+def _get_judge_model():
+    """
+    Resolve the judge model for DeepEval metrics.
+    Prefers available Gemini / OpenAI-compatible endpoint with active free-tier models.
+    Supports Anthropic if configured.
+    """
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    if anthropic_key:
+        try:
+            from deepeval.models import AnthropicModel
+
+            return AnthropicModel(
+                model=os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+            )
+        except Exception:
+            pass
+
+    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if openai_key:
+        try:
+            from deepeval.models import OpenAIModel
+
+            model_name = (
+                os.getenv("DEEPEVAL_MODEL_NAME")
+                or os.getenv("OPENAI_MODEL_NAME")
+                or "gemini-3.5-flash-lite"
+            )
+            if model_name in ("gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-2.5-flash"):
+                model_name = "gemini-3.5-flash-lite"
+
+            base_url = os.getenv(
+                "OPENAI_BASE_URL",
+                "https://generativelanguage.googleapis.com/v1beta/openai/",
+            )
+            return OpenAIModel(
+                model=model_name,
+                base_url=base_url,
+                api_key=openai_key,
+            )
+        except Exception:
+            pass
+
+    return None
+
+
 def _build_metric(metric_cls, threshold: float = 0.5):
     """
     Build a standard DeepEval metric.
-
-    DeepEval defaults to OpenAI unless a model is provided.
-    Our project mainly has ANTHROPIC_API_KEY, so we try to use Claude.
-    If ClaudeModel is not available in this DeepEval version, we fall back
-    to default DeepEval behavior.
     """
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
-
-    if anthropic_key:
-        try:
-            from deepeval.models import ClaudeModel
-
-            judge_model = ClaudeModel(
-                model="claude-3-5-sonnet-20241022"
-            )
-
-            return metric_cls(
-                threshold=threshold,
-                model=judge_model,
-            )
-
-        except Exception:
-            return metric_cls(
-                threshold=threshold,
-            )
-
-    if openai_key:
+    judge_model = _get_judge_model()
+    if judge_model:
         return metric_cls(
             threshold=threshold,
+            model=judge_model,
         )
-
     return metric_cls(
         threshold=threshold,
     )
@@ -72,23 +92,15 @@ def _build_correctness_metric(threshold: float = 0.5):
         "complete, and semantically aligned with the expected expert reference output."
     )
 
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    if anthropic_key:
-        try:
-            from deepeval.models import ClaudeModel
-
-            judge_model = ClaudeModel(
-                model="claude-3-5-sonnet-20241022"
-            )
-            return GEval(
-                name="AnswerCorrectness",
-                criteria=criteria,
-                evaluation_params=params,
-                threshold=threshold,
-                model=judge_model,
-            )
-        except Exception:
-            pass
+    judge_model = _get_judge_model()
+    if judge_model:
+        return GEval(
+            name="AnswerCorrectness",
+            criteria=criteria,
+            evaluation_params=params,
+            threshold=threshold,
+            model=judge_model,
+        )
 
     return GEval(
         name="AnswerCorrectness",
@@ -204,20 +216,15 @@ def _build_treatment_metric(threshold: float = 0.6):
         "the verified expert reference output."
     )
 
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    if anthropic_key:
-        try:
-            from deepeval.models import ClaudeModel
-            judge_model = ClaudeModel(model="claude-3-5-sonnet-20241022")
-            return GEval(
-                name="TreatmentCorrectness",
-                criteria=criteria,
-                evaluation_params=params,
-                threshold=threshold,
-                model=judge_model,
-            )
-        except Exception:
-            pass
+    judge_model = _get_judge_model()
+    if judge_model:
+        return GEval(
+            name="TreatmentCorrectness",
+            criteria=criteria,
+            evaluation_params=params,
+            threshold=threshold,
+            model=judge_model,
+        )
 
     return GEval(
         name="TreatmentCorrectness",

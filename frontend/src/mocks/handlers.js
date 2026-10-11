@@ -321,10 +321,14 @@ export const handlers = [
       ],
     );
   }),
+  http.get(`${baseURL}/api/users/me`, async () => {
+    return HttpResponse.json(
+      getUserControllerGetUserById200Response()
+    );
+  }),
   http.get(`${baseURL}/api/users/:userId`, async () => {
     const resultArray = [
       [getUserControllerGetUserById200Response(), { status: 200 }],
-      [getUserControllerGetUserById404Response(), { status: 404 }],
     ];
 
     return HttpResponse.json(
@@ -1849,12 +1853,12 @@ export function getProgressControllerGetWatchTime500Response() {
 
 export function getUserControllerGetUserById200Response() {
   return {
-    _id: "60d5ec49b3f1c8e4a8f8b8d1",
-    firebaseUID: "firebase-uid-123456",
+    _id: "507f1f77bcf86cd799439011",
+    firebaseUID: "mock-token",
     email: "user@example.com",
-    firstName: "John",
-    lastName: "Doe",
-    roles: "user",
+    firstName: "Mock",
+    lastName: "User",
+    role: "coordinator",
   };
 }
 

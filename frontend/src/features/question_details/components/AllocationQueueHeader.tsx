@@ -58,7 +58,7 @@ export const AllocationQueueHeader = ({
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
 
   const experts =
-    usersData?.users.filter(
+    usersData?.users?.filter(
       (user) => {
         // Base filter: must be an expert and not already in queue
         if (user.role !== "expert" || expertsIdsInQueue.has(user._id)) {

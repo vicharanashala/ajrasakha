@@ -69,7 +69,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
     clearPlaygroundTabs();
     onLogout();
   };
-  if (!user) return;
+  if (!user) return null;
   const getInitials = (name: string) => {
     return name
       .split(" ")

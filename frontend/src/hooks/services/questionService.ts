@@ -552,10 +552,10 @@ export class QuestionService {
     );
   }
 
-  async generateQuestions(query: string): Promise<GeneratedQuestion[] | null> {
+  async generateQuestions(query: string, language?: string): Promise<GeneratedQuestion[] | null> {
     return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate`, {
       method: "POST",
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, language }),
     });
   }
 

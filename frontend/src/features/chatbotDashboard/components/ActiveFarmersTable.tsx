@@ -58,7 +58,7 @@ export function ActiveFarmersTable({
     );
   }
 
-  const activeUsersToday = data?.users.filter((u) => u.totalQuestions > 0) || [];
+  const activeUsersToday = data?.users?.filter((u) => u.totalQuestions > 0) || [];
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
