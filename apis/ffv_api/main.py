@@ -158,25 +158,23 @@ def generate_ffv(request: FFVRequest):
             detail="Server is not configured with a valid ANTHROPIC_API_KEY.",
         )
 
-    # classify_domain always returns a key present in DOMAIN_ANGLES (falls back
-    # to the first domain on any failure), and select_angles already filters its
-    # result to angles valid for that domain and caps it to 6 - so neither of
-    # these can raise, and the DOMAIN_ANGLES lookup below can't KeyError.
-    if request.domain and request.domain.strip():
-        domain = request.domain.strip()
-        if domain not in generate_ffvs.DOMAIN_ANGLES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown domain '{domain}'. Valid domains: {list(generate_ffvs.DOMAIN_ANGLES)}",
-            )
-    else:
-        domain = generate_ffvs.classify_domain(client, question, answer)
-        # on an API failure classify_domain silently returns the first domain,
-        # which would be wrong - fail instead of returning it
-        if api_errors:
-            _raise_upstream_error(api_errors)
-    angles = generate_ffvs.select_angles(client, domain, question, answer)
-    if api_errors:
+    # classify_domain always returns a key present in DOMAIN_ANGLES (falling back
+    # to the first domain only when the model's JSON can't be parsed), and
+    # select_angles filters its result to valid angles and caps it to 6, so the
+    # DOMAIN_ANGLES lookup below can't KeyError. Both let API errors propagate
+    # though, so map those to HTTP errors here.
+    try:
+        if request.domain and request.domain.strip():
+            domain = request.domain.strip()
+            if domain not in generate_ffvs.DOMAIN_ANGLES:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown domain '{domain}'. Valid domains: {list(generate_ffvs.DOMAIN_ANGLES)}",
+                )
+        else:
+            domain = generate_ffvs.classify_domain(client, question, answer)
+        angles = generate_ffvs.select_angles(client, domain, question, answer)
+    except anthropic.APIError:
         _raise_upstream_error(api_errors)
 
     versions: list[FFVVersion] = []
