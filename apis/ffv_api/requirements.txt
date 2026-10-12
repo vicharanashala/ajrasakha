@@ -2,5 +2,5 @@ fastapi
 uvicorn[standard]
 pydantic
 python-dotenv
-anthropic
+anthropic==0.125.0
 pymongo
