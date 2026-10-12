@@ -92,7 +92,6 @@ BATCH_MAX_WAIT_HOURS = float(os.getenv("BATCH_MAX_WAIT_HOURS", "24"))
 BATCH_MAX_REQUESTS = int(os.getenv("BATCH_MAX_REQUESTS", "100000"))
 BATCH_MAX_BYTES = int(os.getenv("BATCH_MAX_BYTES", str(256 * 1024 * 1024)))
 BATCH_MAX_TOKENS = int(os.getenv("BATCH_MAX_TOKENS_PER_REQUEST", "4000"))
-BATCH_TEMPERATURE = float(os.getenv("BATCH_TEMPERATURE", "0.7"))
 
 STATE_FILE = Path(".batch_state.json")
 LOG_FILE = "ffv_generation.log"
@@ -591,6 +590,16 @@ def build_anthropic_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
+def _call_text(client: anthropic.Anthropic, prompt: str, max_tokens: int) -> str:
+    """Single-turn Claude call returning the concatenated text blocks."""
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "".join(b.text for b in response.content if b.type == "text").strip()
+
+
 def classify_domain(
     client: anthropic.Anthropic,
     question: str,
@@ -602,28 +611,25 @@ def classify_domain(
         question=question[:500],
         answer=answer[:2000],
     )
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=256,
-        temperature=0.0,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = response.content[0].text.strip()
+    # anthropic>=1.0 no longer accepts temperature/top_p/top_k on messages.create()
+    raw = _call_text(client, prompt, max_tokens=256)
     try:
         obj = parse_json_or_raise(raw)
-        domain = obj.get("domain", "").strip()
+        domain = str(obj.get("domain", "")).strip()
         # Validate domain is in our list
         if domain not in DOMAIN_ANGLES:
-            # Try fuzzy match
-            for known in DOMAIN_ANGLES:
-                if known.lower() in domain.lower() or domain.lower() in known.lower():
-                    domain = known
-                    break
-            else:
+            # Try fuzzy match (guard against "" which is a substring of everything)
+            lowered = domain.lower()
+            match = next(
+                (k for k in DOMAIN_ANGLES if lowered and (k.lower() in lowered or lowered in k.lower())),
+                None,
+            )
+            if match is None:
                 log.warning("Unknown domain '%s', using first domain", domain)
-                domain = DOMAIN_LIST[0]
+                match = DOMAIN_LIST[0]
+            domain = match
         return domain
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, AttributeError) as exc:
         log.warning("Domain classification failed: %s. Raw: %s", exc, raw[:200])
         return DOMAIN_LIST[0]
 
@@ -643,13 +649,7 @@ def select_angles(
         question=question[:500],
         answer=answer[:2000],
     )
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=512,
-        temperature=0.0,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = response.content[0].text.strip()
+    raw = _call_text(client, prompt, max_tokens=512)
     try:
         obj = parse_json_or_raise(raw)
         if isinstance(obj, list):
@@ -686,14 +686,10 @@ def generate_ffv_for_angle(
         answer=answer,
     )
     try:
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=BATCH_MAX_TOKENS,
-            temperature=BATCH_TEMPERATURE,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
+        raw = _call_text(client, prompt, max_tokens=BATCH_MAX_TOKENS)
         ffv = parse_json_or_raise(raw)
+        if ffv is None:  # prompt allows null when the angle isn't covered
+            return None
         # Basic validation
         if not ffv.get("question") or not ffv.get("answer"):
             raise ValueError("Missing question or answer in FFV")
@@ -796,7 +792,6 @@ def build_batch_requests(
                 "params": {
                     "model": CLAUDE_MODEL,
                     "max_tokens": BATCH_MAX_TOKENS,
-                    "temperature": BATCH_TEMPERATURE,
                     "messages": [{"role": "user", "content": prompt}],
                 },
             }

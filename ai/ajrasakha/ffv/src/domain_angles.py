@@ -1,4 +1,4 @@
-agriculture_domains = [
+agricultural_domains = [
     {
         "Domain_Name": "Soil Health and Nutrient Management",
         "Angles": {
@@ -418,3 +418,5 @@ agriculture_domains = [
         }
     }
 ]
+
+DOMAIN_ANGLES = {d["Domain_Name"]: d["Angles"] for d in agricultural_domains}
