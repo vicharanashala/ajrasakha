@@ -1828,4 +1828,104 @@ export class TesterLogService implements ITesterLogService {
             targetVsAchieved,
         };
     }
+
+    async formatRemarks(
+        text: string,
+        category?: string,
+        language?: string,
+    ): Promise<{ formattedText: string; originalText: string }> {
+        const raw = (text || '').trim();
+        if (!raw) {
+            throw new BadRequestError('Remarks text is required');
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            console.warn('[TesterLogService] GEMINI_API_KEY not configured, returning raw remarks');
+            return {
+                originalText: raw,
+                formattedText: raw,
+            };
+        }
+
+        const categoryContext = category ? `The tester tagged this remark under category: "${category}".` : '';
+        const langContext = language ? `Spoken language context: "${language}".` : '';
+
+        const systemPrompt = `You are an elite Senior QA Lead and defect triage expert.
+A software tester spoke or typed a raw note describing a test case observation or defect.
+Your goal is to transform this raw note into a clean, professional, grammatically correct, and structured QA defect remark.
+
+Input Context:
+${categoryContext}
+${langContext}
+
+Rules:
+1. Fix all grammar, spelling, punctuation, and remove speech disfluencies (e.g. "um", "uh", "you know", "like", "bro", repetitions).
+2. Understand and preserve technical terms, error/HTTP status codes (e.g., 500, 404), question IDs, channel references (Web App, WhatsApp), and specific UI elements.
+3. Structure the remark clearly into concise, professional observations. If the note describes a defect, format it cleanly with:
+   - Issue / Observed Behavior
+   - Steps / Context (if mentioned)
+   - Expected Behavior (if implied or mentioned)
+   If it is a general positive or informational remark, structure it as a clean, concise professional statement.
+4. DO NOT invent or hallucinate facts, error codes, or steps that the tester never mentioned.
+5. Return ONLY the polished remark text. Do NOT include any conversational preamble or meta-text (do NOT say "Here is the formatted remark:").`;
+
+        const requestBody = {
+            contents: [
+                {
+                    parts: [
+                        {
+                            text: `${systemPrompt}\n\nRaw Tester Note:\n"""\n${raw}\n"""\n\nPolished QA Remark:`,
+                        },
+                    ],
+                },
+            ],
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 1024,
+            },
+        };
+
+        const modelsToTry = ['gemini-flash-latest', 'gemini-3.5-flash'];
+        let lastError: any = null;
+
+        for (const model of modelsToTry) {
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody),
+                    },
+                );
+
+                if (!response.ok) {
+                    const errText = await response.text().catch(() => response.statusText);
+                    console.warn(`[TesterLogService] Gemini (${model}) error ${response.status}: ${errText}`);
+                    lastError = new Error(`Gemini error ${response.status}: ${errText}`);
+                    continue;
+                }
+
+                const data = (await response.json()) as any;
+                const formatted = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+                if (formatted) {
+                    return {
+                        originalText: raw,
+                        formattedText: formatted,
+                    };
+                }
+            } catch (err: any) {
+                console.warn(`[TesterLogService] Failed calling Gemini model ${model}:`, err);
+                lastError = err;
+            }
+        }
+
+        console.error('[TesterLogService] All Gemini models failed, falling back to original text:', lastError);
+        return {
+            originalText: raw,
+            formattedText: raw,
+        };
+    }
 }

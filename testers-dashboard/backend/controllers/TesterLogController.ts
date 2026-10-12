@@ -21,7 +21,7 @@ import { OpenAPI } from 'routing-controllers-openapi';
 import { DASHBOARD_TYPES } from '../types.js';
 import { ITesterLogService, TesterLogActor } from '../interfaces/ITesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
-import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto } from '../validators/TesterLogValidators.js';
+import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto, FormatRemarksDto } from '../validators/TesterLogValidators.js';
 
 interface AuthenticatedUser {
     _id?: { toString(): string } | string;
@@ -266,5 +266,18 @@ export class TesterLogController {
         const deleted = await this.testerLogService.deleteEntry(id, actor);
         if (!deleted) throw new NotFoundError('Tester entry not found');
         return { success: true };
+    }
+
+    @OpenAPI({
+        summary: 'Format & organize tester remarks with AI',
+        description: 'Transforms raw spoken or typed notes into structured, grammatically correct QA remarks using Google Gemini Flash.',
+    })
+    @Authorized()
+    @Post('/format-remarks')
+    @HttpCode(200)
+    async formatRemarks(
+        @Body() body: FormatRemarksDto,
+    ) {
+        return this.testerLogService.formatRemarks(body.text, body.category, body.language);
     }
 }

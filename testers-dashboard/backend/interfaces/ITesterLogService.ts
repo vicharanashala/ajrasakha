@@ -439,5 +439,11 @@ export interface ITesterLogService {
         endDate?: string,
         dateField?: string,
     ): Promise<TesterLogSummaryResponse>;
+
+    formatRemarks(
+        text: string,
+        category?: string,
+        language?: string,
+    ): Promise<{ formattedText: string; originalText: string }>;
 }
 

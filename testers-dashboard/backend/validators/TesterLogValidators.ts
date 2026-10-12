@@ -308,4 +308,25 @@ export class CreateZohoTicketDto {
     }[];
 }
 
-export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, UpdateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto];
+export class FormatRemarksDto {
+    @JSONSchema({ description: 'Raw spoken or typed remarks text to organize' })
+    @IsString()
+    @IsNotEmpty()
+    @MinLength(1)
+    @MaxLength(4000)
+    text: string;
+
+    @JSONSchema({ description: 'Selected category or defect type context, e.g. Bug, UI Issue, Translation Issue' })
+    @IsString()
+    @IsOptional()
+    @MaxLength(100)
+    category?: string;
+
+    @JSONSchema({ description: 'Spoken language code, e.g. en-IN, hi-IN' })
+    @IsString()
+    @IsOptional()
+    @MaxLength(50)
+    language?: string;
+}
+
+export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, UpdateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto, FormatRemarksDto];

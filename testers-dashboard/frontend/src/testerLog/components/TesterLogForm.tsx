@@ -7,6 +7,7 @@ import { useNextTestId } from "../hooks/useTesterLogHistory";
 import { Plus, ExternalLink, Laptop, Smartphone, Check, Trash2 } from "lucide-react";
 import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
+import { VoiceRemarksInput } from "./VoiceRemarksInput";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { hmsDiff, isTimeEarlier, isTimeInFuture, isMidnightRollover, getLocalDatetimeMax, getMinutesDiff } from "../utils/timingUtils";
@@ -2018,14 +2019,18 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     })}
                 />
                 {testerRemarks && testerRemarks !== "No Action Required" && (
-                    <TextareaInput
+                    <VoiceRemarksInput
                         label="Remarks Details"
                         placeholder="Write down your detailed remarks..."
                         maxLength={TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}
-                        helper={`${(testerRemarksNotes || "").length} / ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}`}
                         required
+                        category={testerRemarks}
                         error={formErrors.testerRemarksNotes}
-                        {...register("testerRemarksNotes", { onChange: () => clearError("testerRemarksNotes") })}
+                        value={testerRemarksNotes || ""}
+                        onChange={(val) => {
+                            setValue("testerRemarksNotes", val);
+                            clearError("testerRemarksNotes");
+                        }}
                     />
                 )}
             </FormSection>
