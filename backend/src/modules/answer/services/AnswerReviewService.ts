@@ -375,7 +375,23 @@ export class AnswerReviewService extends BaseService implements IAnswerReviewSer
         });
 
         // -----------------------------------------------------------
-        // 8. Handle submission by status
+        // 8. Chemical Detection Check
+        // -----------------------------------------------------------
+        // if (answer) {
+        //   const chemicalCheckResult = await this.aiService.detectChemicals(answer);
+        //   if (chemicalCheckResult && chemicalCheckResult.matches && chemicalCheckResult.matches.length > 0) {
+        //     const chemicalDetails = chemicalCheckResult.matches
+        //       .map(c => `${c.name} (${c.status})`)
+        //       .join(', ');
+        //     throw new BadRequestError(
+        //       `The answer contains restricted chemicals: ${chemicalDetails}`
+        //     );
+        //   }
+        //   console.log("Chemcial result ",chemicalCheckResult)
+        // }
+
+        // -----------------------------------------------------------
+        // 9. Handle submission by status
         // -----------------------------------------------------------
         if (!status) {
           // -------------------- FIRST SUBMISSION --------------------------------

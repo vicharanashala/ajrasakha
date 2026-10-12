@@ -534,8 +534,9 @@ export const PlaygroundPage = () => {
               {user && canLogTestCases(user.role) && (
                 <TabsContent
                   value="tester_log"
+                  forceMount
                   className={cn(
-                    "mt-0 border-0 outline-none",
+                    "mt-0 border-0 outline-none data-[state=inactive]:hidden",
                     "data-[state=active]:animate-in",
                     "data-[state=active]:fade-in-0",
                     "data-[state=active]:zoom-in-[0.98]",

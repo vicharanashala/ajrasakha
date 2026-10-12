@@ -160,6 +160,7 @@ jobs:
             ZOHO_ORG_ID=${{ secrets.ZOHO_ORG_ID }}
             ZOHO_ACCOUNTS_DOMAIN=${{ secrets.ZOHO_ACCOUNTS_DOMAIN }}
             ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
+            CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────

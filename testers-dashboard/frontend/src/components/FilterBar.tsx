@@ -55,7 +55,9 @@ export interface IFilterBarFiltersState {
 
 export interface IFilterField {
   key: keyof IFilterBarFiltersState;
-  csvKey: string;
+  // Sheet column the field reads (Google Sheet fields only - DB fields'
+  // options and counts come from the backend's dbFilterOptions).
+  csvKey?: string;
   label: string;
   normalize?: (value?: string) => string;
   // Most fields treat NA/NIL as missing data, excluded from the dropdown.
@@ -87,6 +89,28 @@ export interface ITypeBranchState {
   typeSummaryLabel: () => string;
 }
 
+// One option with an optional record count, shown as "Label (count)".
+export interface IFilterOptionDetail {
+  value: string;
+  label: string;
+  count?: number;
+}
+
+// The Type of Question tree's sub-type options and optional branch counts.
+export interface ITypeTreeOptions {
+  dynamic: IFilterOptionDetail[];
+  static: IFilterOptionDetail[];
+  dynamicCount?: number;
+  staticCount?: number;
+}
+
+// Google Sheet Analytics' tree - no counts.
+const DEFAULT_TYPE_TREE: ITypeTreeOptions = { dynamic: DYNAMIC_SUB_TYPE_OPTIONS, static: STATIC_SUB_TYPE_OPTIONS };
+
+function withCount(label: string, count?: number): string {
+  return count === undefined ? label : `${label} (${count})`;
+}
+
 export interface FilterBarProps {
   filters: IFilterBarFiltersState;
   setFilters: (value: IFilterBarFiltersState | ((prev: IFilterBarFiltersState) => IFilterBarFiltersState)) => void;
@@ -97,6 +121,12 @@ export interface FilterBarProps {
   customEnd: string;
   setCustomEnd: (value: string) => void;
   typeBranchState: ITypeBranchState;
+  // Optional per-field options with counts (Database Logs Analytics). A field
+  // listed here renders these instead of its plain filterOptions values.
+  optionDetails?: Record<string, IFilterOptionDetail[]>;
+  // Optional Type of Question tree options (Database Logs Analytics);
+  // defaults to the Google Sheet tree.
+  typeTree?: ITypeTreeOptions;
 }
 
 // flex-wrap (not grid-cols-N) so the layout self-corrects as filter cells
@@ -114,6 +144,8 @@ export function FilterBar({
   customEnd,
   setCustomEnd,
   typeBranchState,
+  optionDetails,
+  typeTree = DEFAULT_TYPE_TREE,
 }: FilterBarProps) {
   const {
     typeBranch,
@@ -214,7 +246,7 @@ export function FilterBar({
                       typeBranch === "Dynamic" ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"
                     }`}
                   >
-                    Dynamic
+                    {withCount("Dynamic", typeTree.dynamicCount)}
                   </button>
                   <button
                     type="button"
@@ -232,14 +264,14 @@ export function FilterBar({
                   <div className="pl-3 pb-1 space-y-0.5">
                     <TreeCheckbox
                       label="Select All"
-                      checked={dynamicWholeBranchSelected || dynamicSubTypes.length === DYNAMIC_SUB_TYPE_OPTIONS.length}
-                      indeterminate={dynamicSubTypes.length > 0 && dynamicSubTypes.length < DYNAMIC_SUB_TYPE_OPTIONS.length}
+                      checked={dynamicWholeBranchSelected || dynamicSubTypes.length === typeTree.dynamic.length}
+                      indeterminate={dynamicSubTypes.length > 0 && dynamicSubTypes.length < typeTree.dynamic.length}
                       onChange={toggleDynamicSelectAll}
                     />
-                    {DYNAMIC_SUB_TYPE_OPTIONS.map((opt) => (
+                    {typeTree.dynamic.map((opt) => (
                       <TreeCheckbox
                         key={opt.value}
-                        label={opt.label}
+                        label={withCount(opt.label, opt.count)}
                         checked={dynamicWholeBranchSelected || dynamicSubTypes.includes(opt.value)}
                         onChange={() => toggleDynamicSubType(opt.value)}
                       />
@@ -258,7 +290,7 @@ export function FilterBar({
                       typeBranch === "Static" ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"
                     }`}
                   >
-                    Static
+                    {withCount("Static", typeTree.staticCount)}
                   </button>
                   <button
                     type="button"
@@ -276,14 +308,14 @@ export function FilterBar({
                   <div className="pl-3 pb-1 space-y-0.5">
                     <TreeCheckbox
                       label="Select All"
-                      checked={staticWholeBranchSelected || staticSubTypes.length === STATIC_SUB_TYPE_OPTIONS.length}
-                      indeterminate={staticSubTypes.length > 0 && staticSubTypes.length < STATIC_SUB_TYPE_OPTIONS.length}
+                      checked={staticWholeBranchSelected || staticSubTypes.length === typeTree.static.length}
+                      indeterminate={staticSubTypes.length > 0 && staticSubTypes.length < typeTree.static.length}
                       onChange={toggleStaticSelectAll}
                     />
-                    {STATIC_SUB_TYPE_OPTIONS.map((opt) => (
+                    {typeTree.static.map((opt) => (
                       <TreeCheckbox
                         key={opt.value}
-                        label={opt.label}
+                        label={withCount(opt.label, opt.count)}
                         checked={staticWholeBranchSelected || staticSubTypes.includes(opt.value)}
                         onChange={() => toggleStaticSubType(opt.value)}
                       />
@@ -312,11 +344,17 @@ export function FilterBar({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              {filterOptions[field.key]?.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {field.formatOption ? field.formatOption(option) : option}
-                </SelectItem>
-              ))}
+              {optionDetails?.[field.key]
+                ? optionDetails[field.key].map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {withCount(field.formatOption ? field.formatOption(option.label) : option.label, option.count)}
+                    </SelectItem>
+                  ))
+                : filterOptions[field.key]?.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {field.formatOption ? field.formatOption(option) : option}
+                    </SelectItem>
+                  ))}
             </SelectContent>
           </Select>
         </div>

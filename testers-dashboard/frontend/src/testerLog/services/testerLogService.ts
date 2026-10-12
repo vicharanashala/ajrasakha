@@ -27,6 +27,8 @@ function buildAdminFilterParams(filters: ITesterLogAdminFilters): URLSearchParam
     if (filters.channelTested) params.set("channelTested", filters.channelTested);
     if (filters.overallTestStatus) params.set("overallTestStatus", filters.overallTestStatus);
     if (filters.defectSeverity) params.set("defectSeverity", filters.defectSeverity);
+    if (filters.search) params.set("search", filters.search);
+    if (filters.status) params.set("status", filters.status);
     return params;
 }
 
@@ -75,11 +77,15 @@ export class TesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        search?: string,
+        status?: string,
     ): Promise<IPaginatedTesterLogEntries> {
         const params = new URLSearchParams({ page: String(page), limit: String(limit) });
         if (startDate) params.set("startDate", startDate);
         if (endDate) params.set("endDate", endDate);
         if (dateField) params.set("dateField", dateField);
+        if (search && search.trim()) params.set("search", search.trim());
+        if (status && status !== "all") params.set("status", status);
         const url = `${this.baseUrl}/my?${params.toString()}`;
         const response = await apiFetch<IPaginatedTesterLogEntries>(url);
         if (!response) throw new Error("Failed to fetch test case history");

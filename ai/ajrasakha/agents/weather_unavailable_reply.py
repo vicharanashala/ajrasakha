@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.answer_footers import build_weather_unavailable_content
 from ajrasakha.agents.state import AjraSakhaState
 from ajrasakha.agents.thread_logging import end_conversation_turn
 from ajrasakha.agents.thread_trace import trace_event
+from ajrasakha.agents.translate_answer import add_profile_location_prefix
 from ajrasakha.agents.translation_catalog import language_pair_from_plan
 
 
-async def weather_unavailable_reply_node(state: AjraSakhaState) -> dict:
+async def weather_unavailable_reply_node(state: AjraSakhaState, config: RunnableConfig = None) -> dict:
     """Return localized catalog text and testing notice without invoking an LLM."""
     script, vocal = language_pair_from_plan(state.get("plan"))
     content = build_weather_unavailable_content(script, vocal)
@@ -21,6 +23,7 @@ async def weather_unavailable_reply_node(state: AjraSakhaState) -> dict:
         script_language=script,
         vocal_language=vocal,
     )
+    content = await add_profile_location_prefix(content, state.get("plan") or {}, config)
     end_conversation_turn(content, outcome="weather_unavailable")
     return {
         "messages": [AIMessage(content=content)],
