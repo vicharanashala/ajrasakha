@@ -5,7 +5,7 @@ from pathlib import Path
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # basic logging setup so we can see what's happening in the logs
 logging.basicConfig(
@@ -42,26 +42,74 @@ if _scripts_dir is None:
 sys.path.insert(0, str(_scripts_dir))
 import generate_ffvs  # noqa: E402 - must come after load_dotenv() above
 
-app = FastAPI(title="FFV Generator")
+app = FastAPI(
+    title="FFV Generator",
+    description="Generates farmer-friendly versions (FFVs) of an expert question/answer pair, one per relevant angle.",
+)
 
 
 class FFVRequest(BaseModel):
-    question: str
-    answer: str
+    question: str = Field(..., description="The original question. Must not be empty.")
+    answer: str = Field(..., description="The detailed expert answer. Must not be empty.")
+    domain: str | None = Field(
+        None,
+        description=(
+            "Optional. Exact domain name (case-sensitive), e.g. 'Irrigation and Water Management'. "
+            "If omitted or blank, the domain is classified automatically by the model. "
+            "An unknown name returns 400 with the list of valid domains."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "question": "How often should I irrigate wheat?",
+                "answer": "Wheat needs about 4-6 irrigations, at crown root initiation, tillering, jointing, flowering and grain filling stages.",
+                "domain": "Irrigation and Water Management",
+            }
+        }
+    }
 
 
 class FFVVersion(BaseModel):
-    angle: str
-    question: str
-    answer: str
+    angle: str = Field(..., description="The angle this version covers, e.g. 'Irrigation Scheduling'.")
+    question: str = Field(..., description="Farmer-friendly question for this angle.")
+    answer: str = Field(..., description="Short farmer-friendly answer for this angle.")
 
 
 class FFVResponse(BaseModel):
-    domain: str
-    versions: list[FFVVersion]
+    domain: str = Field(..., description="The domain used: the one supplied in the request, or the auto-detected one.")
+    versions: list[FFVVersion] = Field(
+        ..., description="One entry per selected angle (up to 6). Angles that fail to generate are omitted."
+    )
 
 
-@app.post("/generate-ffv", response_model=FFVResponse)
+def _drop_temperature(client) -> None:
+    # generate_ffvs.py passes temperature= to messages.create, which the
+    # installed anthropic SDK / model rejects. We can't change that script from
+    # here, so strip the argument on this client instead.
+    original_create = client.messages.create
+
+    def create(*args, **kwargs):
+        kwargs.pop("temperature", None)
+        return original_create(*args, **kwargs)
+
+    client.messages.create = create
+
+
+@app.post(
+    "/generate-ffv",
+    response_model=FFVResponse,
+    summary="Generate farmer-friendly versions of a Q&A pair",
+    description=(
+        "Takes an expert question and answer (and optionally a domain), picks the relevant angles "
+        "for that domain, and returns one farmer-friendly question/answer per angle."
+    ),
+    responses={
+        400: {"description": "Empty question/answer, or an unknown domain name."},
+        500: {"description": "Server is not configured with a valid ANTHROPIC_API_KEY."},
+    },
+)
 def generate_ffv(request: FFVRequest):
     question = request.question.strip()
     answer = request.answer.strip()
@@ -72,6 +120,7 @@ def generate_ffv(request: FFVRequest):
 
     try:
         client = generate_ffvs.build_anthropic_client()
+        _drop_temperature(client)
     except ValueError as exc:
         log.error("Anthropic client init failed: %s", exc)
         raise HTTPException(
@@ -83,7 +132,15 @@ def generate_ffv(request: FFVRequest):
     # to the first domain on any failure), and select_angles already filters its
     # result to angles valid for that domain and caps it to 6 - so neither of
     # these can raise, and the DOMAIN_ANGLES lookup below can't KeyError.
-    domain = generate_ffvs.classify_domain(client, question, answer)
+    if request.domain and request.domain.strip():
+        domain = request.domain.strip()
+        if domain not in generate_ffvs.DOMAIN_ANGLES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown domain '{domain}'. Valid domains: {list(generate_ffvs.DOMAIN_ANGLES)}",
+            )
+    else:
+        domain = generate_ffvs.classify_domain(client, question, answer)
     angles = generate_ffvs.select_angles(client, domain, question, answer)
 
     versions: list[FFVVersion] = []
