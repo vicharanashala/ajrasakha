@@ -2,6 +2,7 @@ import logging
 import sys
 from pathlib import Path
 
+import anthropic
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -84,17 +85,43 @@ class FFVResponse(BaseModel):
     )
 
 
-def _drop_temperature(client) -> None:
-    # generate_ffvs.py passes temperature= to messages.create, which the
-    # installed anthropic SDK / model rejects. We can't change that script from
-    # here, so strip the argument on this client instead.
+def _instrument_client(client) -> list[anthropic.APIError]:
+    """Patch client.messages.create and return a list that collects API errors.
+
+    - generate_ffvs.py passes temperature= to messages.create, which the
+      installed anthropic SDK / model rejects. We can't change that script from
+      here, so strip the argument on this client instead.
+    - generate_ffvs.py catches every exception from the API and falls back
+      (e.g. to the first domain), so errors never reach us. We record them here
+      (and still re-raise, so the script's own fallback behaviour is unchanged)
+      so the endpoint can tell a real failure from a normal result.
+    """
+    errors: list[anthropic.APIError] = []
     original_create = client.messages.create
 
     def create(*args, **kwargs):
         kwargs.pop("temperature", None)
-        return original_create(*args, **kwargs)
+        try:
+            return original_create(*args, **kwargs)
+        except anthropic.APIError as exc:
+            log.error("Anthropic API call failed: %s: %s", type(exc).__name__, exc)
+            errors.append(exc)
+            raise
 
     client.messages.create = create
+    return errors
+
+
+def _raise_upstream_error(errors: list[anthropic.APIError]) -> None:
+    """Turn the first recorded Anthropic error into an HTTP error."""
+    first = errors[0]
+    if isinstance(first, anthropic.RateLimitError):
+        raise HTTPException(status_code=429, detail="Rate limited by the AI provider. Please retry shortly.")
+    if isinstance(first, anthropic.APITimeoutError):
+        raise HTTPException(status_code=504, detail="The AI provider timed out. Please retry.")
+    if isinstance(first, anthropic.AuthenticationError):
+        raise HTTPException(status_code=502, detail="AI provider rejected the server's credentials.")
+    raise HTTPException(status_code=502, detail=f"AI provider error: {type(first).__name__}.")
 
 
 @app.post(
@@ -107,7 +134,10 @@ def _drop_temperature(client) -> None:
     ),
     responses={
         400: {"description": "Empty question/answer, or an unknown domain name."},
+        429: {"description": "Rate limited by the AI provider."},
         500: {"description": "Server is not configured with a valid ANTHROPIC_API_KEY."},
+        502: {"description": "AI provider error, or no versions could be generated."},
+        504: {"description": "The AI provider timed out."},
     },
 )
 def generate_ffv(request: FFVRequest):
@@ -120,7 +150,7 @@ def generate_ffv(request: FFVRequest):
 
     try:
         client = generate_ffvs.build_anthropic_client()
-        _drop_temperature(client)
+        api_errors = _instrument_client(client)
     except ValueError as exc:
         log.error("Anthropic client init failed: %s", exc)
         raise HTTPException(
@@ -141,7 +171,13 @@ def generate_ffv(request: FFVRequest):
             )
     else:
         domain = generate_ffvs.classify_domain(client, question, answer)
+        # on an API failure classify_domain silently returns the first domain,
+        # which would be wrong - fail instead of returning it
+        if api_errors:
+            _raise_upstream_error(api_errors)
     angles = generate_ffvs.select_angles(client, domain, question, answer)
+    if api_errors:
+        _raise_upstream_error(api_errors)
 
     versions: list[FFVVersion] = []
     for angle in angles:
@@ -149,6 +185,16 @@ def generate_ffv(request: FFVRequest):
         ffv = generate_ffvs.generate_ffv_for_angle(client, question, answer, angle, angle_description)
         if ffv is not None:
             versions.append(FFVVersion(angle=angle, question=ffv["question"], answer=ffv["answer"]))
+        else:
+            log.warning("No FFV generated for angle '%s' (domain '%s')", angle, domain)
+
+    if not versions:
+        if api_errors:
+            _raise_upstream_error(api_errors)
+        raise HTTPException(
+            status_code=502,
+            detail="Could not generate any farmer-friendly versions for this question/answer.",
+        )
 
     return FFVResponse(domain=domain, versions=versions)
 
