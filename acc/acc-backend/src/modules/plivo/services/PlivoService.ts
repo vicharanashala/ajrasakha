@@ -380,6 +380,22 @@ export class PlivoService {
         console.error(`[PLIVO-SERVICE] Error parsing reconnected transcribe WS message for ${key}:`, err);
       }
     });
+
+    newWs.on('error', (err) => {
+      console.error(`❌ [PLIVO-SERVICE] Reconnected transcribe WS error for call ${callId} (${track}):`, err);
+    });
+
+    newWs.on('close', (code, reason) => {
+      console.log(`🔌 [PLIVO-SERVICE] Reconnected transcribe WS closed for call ${callId} (${track}). Code: ${code}, Reason: ${reason}`);
+      wsSession.isOpen = false;
+      if (this.activeStreams.has(key)) {
+        setTimeout(() => {
+          if (this.activeStreams.has(key)) {
+            this.reconnectTrackWs(callId, track);
+          }
+        }, 2000);
+      }
+    });
   }
 
   private flushQueue(wsSession: WsSession): void {

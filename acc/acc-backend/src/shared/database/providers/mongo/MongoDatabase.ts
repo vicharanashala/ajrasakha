@@ -93,6 +93,9 @@ export class MongoDatabase implements IDatabase<Db> {
             db.collection('call_queries').createIndex({ callUuid: 1 }).catch((err) => {
               console.warn(`[${this.dbIdentifier}] Index create warning for call_queries:`, err.message);
             });
+            db.collection('users').createIndex({ currentCallUuid: 1 }, { sparse: true }).catch((err) => {
+              console.warn(`[${this.dbIdentifier}] Index create warning for users currentCallUuid:`, err.message);
+            });
           }
           return this.database!;
         } catch (err) {

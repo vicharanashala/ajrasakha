@@ -510,15 +510,29 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       if (details.duration !== undefined) updateDoc.duration = details.duration;
       if (details.status !== undefined) updateDoc.status = details.status;
       if (details.direction !== undefined) updateDoc.direction = details.direction;
-      if (details.caller !== undefined) updateDoc.caller = details.caller;
+      if (details.caller !== undefined) {
+        if (!details.caller.detectedLanguage || details.caller.detectedLanguage === 'unknown') {
+          const existingCaller = await this.callDetailsCollection.findOne(
+            { callUuid },
+            { projection: { 'caller.detectedLanguage': 1 }, session }
+          );
+          if (existingCaller?.caller?.detectedLanguage && existingCaller.caller.detectedLanguage !== 'unknown') {
+            details.caller.detectedLanguage = existingCaller.caller.detectedLanguage;
+          }
+        }
+        updateDoc.caller = details.caller;
+      }
       if (details.agent !== undefined) {
-        if (!details.agent.userid) {
+        if (!details.agent.userid || !details.agent.username) {
           const existing = await this.callDetailsCollection.findOne(
             { callUuid },
-            { projection: { 'agent.userid': 1 }, session }
+            { projection: { 'agent.userid': 1, 'agent.username': 1 }, session }
           );
-          if (existing?.agent?.userid) {
+          if (!details.agent.userid && existing?.agent?.userid) {
             details.agent.userid = existing.agent.userid;
+          }
+          if (!details.agent.username && existing?.agent?.username) {
+            details.agent.username = existing.agent.username;
           }
         }
         updateDoc.agent = details.agent;

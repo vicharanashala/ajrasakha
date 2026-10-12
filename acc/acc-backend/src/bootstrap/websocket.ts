@@ -5,6 +5,8 @@ import type { PlivoService } from '../modules/plivo/services/PlivoService.js';
 import { getContainer } from './loadModules.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { UserService } from '#root/modules/user/services/UserService.js';
+import type { ICallDetailsRepository } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import type { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import { getFromContainer } from 'routing-controllers';
 import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
 
@@ -31,6 +33,8 @@ export const initWebSocket = (server: Server) => {
 
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
   const userService = getContainer().get<UserService>(GLOBAL_TYPES.UserService);
+  const callDetailsRepository = getContainer().get<ICallDetailsRepository>(PLIVO_TYPES.CallDetailsRepository);
+  const userRepository = getContainer().get<IUserRepository>(GLOBAL_TYPES.UserRepository);
 
   const sendTargeted = (targetCallId: string, payload: any) => {
     const assignedAgentId = plivoService.getCallAgent(targetCallId);
@@ -153,7 +157,23 @@ export const initWebSocket = (server: Server) => {
         console.error('Final transcript failed:', finalError);
       }
 
-      const agentUserId = plivoService.getCallAgent(callId.toString());
+      let agentUserId = plivoService.getCallAgent(callId.toString());
+      if (!agentUserId) {
+        // Fallback: recover agent from DB if memory had a cache miss across Cloud Run instances
+        try {
+          const doc = await callDetailsRepository.getByCallUuid(callId.toString());
+          if (doc?.agent?.userid) {
+            agentUserId = doc.agent.userid.toString();
+          } else {
+            const assignedUser = await userRepository.findByCurrentCallUuid(callId.toString());
+            if (assignedUser) {
+              agentUserId = assignedUser._id.toString();
+            }
+          }
+        } catch (recoverErr) {
+          console.warn(`[WEBSOCKET] Failed to recover agent for call ${callId} at call end:`, recoverErr);
+        }
+      }
 
       try {
         await plivoService.saveCallDetails(callId.toString());
@@ -188,6 +208,58 @@ export const initWebSocket = (server: Server) => {
           (ws as any).isMediaStream = true;
           callId = msg.start.callId;
           console.log('📞 Call started:', msg.start);
+
+          // Database fallback for cross-instance agent mapping
+          let assignedAgentId = plivoService.getCallAgent(callId);
+          if (!assignedAgentId) {
+            console.log(`🔍 [WEBSOCKET] Cache miss in memory for call ${callId}. Querying DB fallback...`);
+            try {
+              let recoveredAgentUserId: string | undefined;
+              let recoveredAgentNumber: string | undefined;
+              let recoveredFrom: string | undefined;
+              let recoveredTo: string | undefined;
+              let recoveredDirection: 'inbound' | 'outbound' = 'inbound';
+              let recoveredStartTime = new Date();
+
+              const callDoc = await callDetailsRepository.getByCallUuid(callId);
+              if (callDoc) {
+                recoveredFrom = callDoc.from;
+                recoveredTo = callDoc.to;
+                recoveredDirection = (callDoc.direction as any) || 'inbound';
+                if (callDoc.createdAt) recoveredStartTime = new Date(callDoc.createdAt);
+                if (callDoc.agent?.userid) {
+                  recoveredAgentUserId = callDoc.agent.userid.toString();
+                  recoveredAgentNumber = callDoc.agent.username;
+                }
+              }
+
+              if (!recoveredAgentUserId) {
+                const assignedUser = await userRepository.findByCurrentCallUuid(callId);
+                if (assignedUser) {
+                  recoveredAgentUserId = assignedUser._id.toString();
+                  recoveredAgentNumber = assignedUser.agent;
+                  recoveredFrom = assignedUser.currentCallPhoneNumber || recoveredFrom;
+                }
+              }
+
+              if (recoveredAgentUserId) {
+                console.log(`✅ [WEBSOCKET] Successfully recovered agent ${recoveredAgentUserId} (${recoveredAgentNumber || 'unknown'}) from DB for call ${callId}`);
+                plivoService.registerCall(callId, {
+                  from: recoveredFrom,
+                  to: recoveredTo,
+                  agentUserId: recoveredAgentUserId,
+                  agentNumber: recoveredAgentNumber,
+                  direction: recoveredDirection,
+                  startTime: recoveredStartTime,
+                });
+                assignedAgentId = recoveredAgentUserId;
+              } else {
+                console.warn(`⚠️ [WEBSOCKET] Could not recover agent from DB for call ${callId}`);
+              }
+            } catch (dbFallbackErr) {
+              console.error(`❌ [WEBSOCKET] Error during DB fallback agent recovery for call ${callId}:`, dbFallbackErr);
+            }
+          }
 
           plivoService.initializeStreams(callId, (result) => {
             const transcriptMessage = {

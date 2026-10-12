@@ -235,6 +235,21 @@ export class UserRepository implements IUserRepository {
     } as IUser;
   }
 
+  async findByCurrentCallUuid(callUuid: string, session?: ClientSession): Promise<IUser | null> {
+    await this.init();
+    const user = await this.usersCollection.findOne(
+      { currentCallUuid: callUuid },
+      { session }
+    );
+    if (!user) {
+      return null;
+    }
+    return {
+      ...user,
+      _id: user._id.toString(),
+    } as IUser;
+  }
+
   async findAllUsers(
     page: number = 1,
     limit: number = 100,

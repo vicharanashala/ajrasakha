@@ -246,6 +246,13 @@ export class AccAgentController {
               console.log(`🔗 [AccAgentController] Redirected query from bridge leg ${targetCallUuid} to parent ${parentUuid}`);
               targetCallUuid = parentUuid;
               existingCallDetails = await this.callDetailsRepository.getByCallUuid(targetCallUuid);
+            } else if (currentUser?.currentCallUuid && currentUser.currentCallUuid !== targetCallUuid) {
+              const dbParent = await this.callDetailsRepository.getByCallUuid(currentUser.currentCallUuid);
+              if (dbParent) {
+                console.log(`🔗 [AccAgentController] Redirected query from bridge leg ${targetCallUuid} to DB parent ${currentUser.currentCallUuid}`);
+                targetCallUuid = currentUser.currentCallUuid;
+                existingCallDetails = dbParent;
+              }
             }
           }
         }

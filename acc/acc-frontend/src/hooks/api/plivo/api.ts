@@ -319,8 +319,8 @@ export class PlivoService {
   }): Promise<CallHistoryItem[]> {
     const queryParams = new URLSearchParams();
 
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.offset) queryParams.append('offset', params.offset.toString());
+    if (params.limit !== undefined && params.limit !== null) queryParams.append('limit', params.limit.toString());
+    if (params.offset !== undefined && params.offset !== null) queryParams.append('offset', params.offset.toString());
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
     if (params.status) queryParams.append('status', params.status);
@@ -334,8 +334,7 @@ export class PlivoService {
       throw new Error('Failed to fetch call history: No response received');
     }
 
-    const list = Array.isArray(response) ? response : [];
-    return mergeAndCleanCallHistory(list);
+    return Array.isArray(response) ? response : [];
   }
 
   async getFarmerByPhoneNo(phoneNo: string): Promise<CallFarmer | null> {

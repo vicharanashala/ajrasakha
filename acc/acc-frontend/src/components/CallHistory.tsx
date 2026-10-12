@@ -1444,11 +1444,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
             </div>
 
             {/* Pagination */}
-            {calls.length > 0 && (
+            {(calls.length > 0 || page > 0) && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span>
-                    Showing {page * limit + 1} to {page * limit + calls.length} calls
+                    Showing {calls.length > 0 ? page * limit + 1 : 0} to {page * limit + calls.length} calls
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs">Per page:</span>

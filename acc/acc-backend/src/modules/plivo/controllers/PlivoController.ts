@@ -211,6 +211,36 @@ export class PlivoController {
           startTime: new Date(),
         });
 
+        // Immediate call_details Creation (T = 0s)
+        try {
+          const agentObjId = agentUser._id ? new ObjectId(agentUser._id.toString()) : undefined;
+          await this.callDetailsRepository.create({
+            callUuid,
+            from: effectiveCallerId,
+            to: destination,
+            direction: 'outbound',
+            status: 'ringing',
+            duration: 0,
+            caller: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            agent: {
+              userid: agentObjId,
+              username: agentUser.agent || undefined,
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          console.log(`✅ [PLIVO-CONTROLLER] [T=0s] Created initial call_details document for outbound call ${callUuid}`);
+        } catch (dbErr) {
+          console.error(`❌ [PLIVO-CONTROLLER] Failed to create call_details at T=0s for outbound call ${callUuid}:`, dbErr);
+        }
+
         console.log(`✅ [PLIVO-CONTROLLER] Outbound call ${callUuid} to ${destination} registered for agent ${agentUser.agent || 'unknown'}`);
 
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -246,6 +276,37 @@ export class PlivoController {
           direction: 'inbound',
           startTime: new Date(),
         });
+
+        // Immediate call_details Creation (T = 0s)
+        try {
+          const agentObjId = availableAgent._id ? new ObjectId(availableAgent._id.toString()) : undefined;
+          await this.callDetailsRepository.create({
+            callUuid,
+            from: callerNumber,
+            to: myPlivoNumber,
+            direction: 'inbound',
+            status: 'ringing',
+            duration: 0,
+            caller: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            agent: {
+              userid: agentObjId,
+              username: agentNumber,
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          console.log(`✅ [PLIVO-CONTROLLER] [T=0s] Created initial call_details document for inbound call ${callUuid} (agent: ${agentNumber})`);
+        } catch (dbErr) {
+          console.error(`❌ [PLIVO-CONTROLLER] Failed to create call_details at T=0s for inbound call ${callUuid}:`, dbErr);
+        }
+
         // console.log(`✅ [PLIVO-CONTROLLER] Assigned agent ${agentNumber} (userId=${availableAgent._id}, endpoint=${endpointUser}) to call ${callUuid}`);
         fallbackMessage = 'The specialist is busy. Please stay on the line.';
       } else {
@@ -629,12 +690,29 @@ export class PlivoController {
       const isAlreadyRegisteredParent = !isOutbound && !isTestCall && !!this.plivoService.getCallMetadata(callUuid);
 
       if (!existingCall && !isOutbound && !isTestCall && !isAlreadyRegisteredParent) {
-        // Fallback: Check in-memory metadata in PlivoService for legs where SIP header was unavailable
+        // Fallback 1: Check in-memory metadata in PlivoService for legs where SIP header was unavailable
         const inMemoryParentUuid = this.plivoService.findParentCallUuid(phoneNumber, effectiveAgentId);
         if (inMemoryParentUuid && inMemoryParentUuid !== callUuid) {
           console.log(`🔗 [PLIVO-CONTROLLER] Correlated bridge leg ${callUuid} to in-memory parent ${inMemoryParentUuid}`);
           effectiveCallUuid = inMemoryParentUuid;
           existingCall = await this.callDetailsRepository.getByCallUuid(effectiveCallUuid);
+        }
+
+        // Fallback 2: Check MongoDB user's currentCallUuid for cross-instance correlation
+        if (!existingCall && effectiveAgentId) {
+          try {
+            const userDoc = await this.userRepository.findById(effectiveAgentId);
+            if (userDoc?.currentCallUuid && userDoc.currentCallUuid !== callUuid) {
+              const parentDoc = await this.callDetailsRepository.getByCallUuid(userDoc.currentCallUuid);
+              if (parentDoc) {
+                console.log(`🔗 [PLIVO-CONTROLLER] Correlated bridge leg ${callUuid} to DB parent ${userDoc.currentCallUuid} via agent currentCallUuid`);
+                effectiveCallUuid = userDoc.currentCallUuid;
+                existingCall = parentDoc;
+              }
+            }
+          } catch (lookupErr) {
+            console.warn(`[PLIVO-CONTROLLER] Failed DB agent correlation for leg ${callUuid}:`, lookupErr);
+          }
         }
       }
 
@@ -649,16 +727,22 @@ export class PlivoController {
         : (existingCall?.to || inMemoryMeta?.to || myPlivoNumber);
 
       const agentId = effectiveAgentId || existingCall?.agent?.userid?.toString();
+      let agentObjId: ObjectId | undefined = undefined;
+      if (agentId && ObjectId.isValid(agentId) && agentId.length === 24) {
+        agentObjId = new ObjectId(agentId);
+      }
       const agentObj: any = {
         transcript: existingCall?.agent?.transcript || '',
         translation: existingCall?.agent?.translation || '',
         detectedLanguage: existingCall?.agent?.detectedLanguage || '',
+        username: existingCall?.agent?.username || undefined,
       };
-      if (agentId) {
-        agentObj.userid = agentId;
+      if (agentObjId) {
+        agentObj.userid = agentObjId;
       }
 
       if (!existingCall) {
+        console.warn(`⚠️ [PLIVO-CONTROLLER] No existing call_details found for ${effectiveCallUuid} at answer time; creating fallback document`);
         await this.callDetailsRepository.create({
           callUuid: effectiveCallUuid,
           from: fromNumber,
@@ -673,6 +757,7 @@ export class PlivoController {
           agent: agentObj,
         });
       } else {
+        console.log(`✅ [PLIVO-CONTROLLER] Updating existing call_details document for ${effectiveCallUuid} to connected`);
         await this.callDetailsRepository.updateCallDetails(effectiveCallUuid, {
           status: 'connected',
           ...(fromNumber ? { from: fromNumber } : {}),
