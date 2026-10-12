@@ -660,7 +660,13 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
     - If the query asks "what pests/diseases/problems occur during [weather condition]", that weather is just context describing when problems happen → weather=false
     - If the query asks about actual weather data (current, forecast, rainfall, temperature), that IS the question → weather=true
     - Do NOT confuse "mentions weather in the question" with "needs weather data to answer"
+    - A weather question that also asks "why" / "what is the reason" is STILL a live-weather question (the explanation needs the live temperature, humidity, rain and sky data) → weather=true, domain `Weather`. Do NOT treat it as general knowledge.
+    - Time-of-day words (tonight, this evening, overnight, tomorrow morning) about temperature, rain, wind or humidity ask for a forecast → weather=true
   - Examples (follow these patterns):
+    - "Will the temperature decrease tonight? what is the reason" → weather=true
+    - "Why is it so hot today in Jaipur?" → weather=true
+    - "Will it be colder tomorrow morning and why?" → weather=true
+    - "Is frost likely tonight? what is the reason" → weather=true
     - "Will it rain tomorrow?" → weather=true
     - "What is the current weather in Ludhiana?" → weather=true
     - "Current temperature in Punjab" → weather=true
@@ -752,6 +758,11 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 
 **Agriculture relevance (`is_agriculture_related`) — REQUIRED bool:**
 - Set **`true`** when the farmer's **primary** question is about farming: weather for crops/fields, mandi prices, soil/fertilizer, crop pests/diseases, farming government schemes (PM-KISAN, subsidies for farmers), crop cultivation, etc.
+- **Plain weather questions are always agriculture-related → `true`.** Farmers ask about temperature, rain, frost, wind, humidity or forecasts for their own location even when no crop or field is named, and the weather tool answers them. Never set `false` just because the question has no crop, farming word or explicit location:
+  - "Will the temperature decrease tonight? what is the reason" → **true**
+  - "Will it rain tomorrow?" → **true**
+  - "Is frost likely tonight?" → **true**
+  - "Why is it so hot today?" → **true**
 - Set **`false`** when the primary intent is **not** farming, or when the farmer's question is about animal husbandry, livestock, veterinary science, animal health, fisheries, or aquaculture, even if agriculture words appear:
   - "How can I make money?" → **false**
   - "What is weather here? Which bike should I buy?" → **false** (bike purchase dominates)

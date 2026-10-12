@@ -263,6 +263,24 @@ def is_greeting_message(text: str) -> bool:
     return bool(_GREETING_RE.match(t))
 
 
+_PLAIN_WEATHER_RE = re.compile(
+    r"\b(?:weather|temperature|temp|rain|rainfall|frost|fog|humidity|wind|hot|cold|heat|"
+    r"cool|colder|hotter|forecast|monsoon|storm|hail|cyclone|tonight|barish|baarish|garmi|thanda|mausam)\b",
+    re.IGNORECASE,
+)
+_OFF_TOPIC_RE = re.compile(
+    r"\b(?:bike|car|buy|purchase|invest|investment|loan|money|shopping|movie|cricket|"
+    r"cattle|cow|buffalo|goat|livestock|fish|poultry)\b",
+    re.IGNORECASE,
+)
+
+
+def is_plain_weather_question(text: str) -> bool:
+    """True for a bare weather question with no off-topic goal ("Will it be colder tonight? why?")."""
+    t = text or ""
+    return bool(_PLAIN_WEATHER_RE.search(t)) and not _OFF_TOPIC_RE.search(t)
+
+
 def _compute_tools_used_from_output(output: PlannerOutput) -> list[str]:
     """Compute tools_used list from PlannerOutput flags."""
     if output.is_agriculture_related is False:
@@ -813,6 +831,27 @@ async def planner_node(
         )
 
         plan = planner_output_to_plan(output)
+
+        # The LLM sometimes marks a bare weather question ("Will the temperature decrease tonight?
+        # what is the reason") as non-agriculture or as knowledge-only, which skips the weather tool
+        # and ends in the expert-queue reply. A plain weather question is always a weather turn.
+        if (
+            not plan.get("is_greeting")
+            and not plan.get("is_follow_up")
+            and is_plain_weather_question(user_text)
+            and (not plan.get("is_agriculture_related", True) or not plan.get("weather"))
+        ):
+            logger.info(
+                "Planner: plain weather question overrides LLM routing "
+                "(was agri=%s weather=%s domains=%s)",
+                plan.get("is_agriculture_related"),
+                plan.get("weather"),
+                plan.get("domains"),
+            )
+            plan["is_agriculture_related"] = True
+            plan["weather"] = True
+            plan["domains"] = ["Weather"]
+            plan["domain"] = "Weather"
 
         if clarification_query and output.is_new_question:
             # The farmer ignored our location/crop request and asked a new

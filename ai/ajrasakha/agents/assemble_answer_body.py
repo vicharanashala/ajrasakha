@@ -251,6 +251,18 @@ async def assemble_answer_body_node(
                 "weather", "temperature", "rain", "forecast", "climate"
             ]
             
+            # On a weather-only turn with no crop, words like "decrease" or "cause" describe the
+            # weather ("Will the temperature decrease tonight? what is the reason"), not crop
+            # advice, so they must not send a complete weather answer to the expert queue.
+            entities = plan.get("entities") or {}
+            no_crop = str(entities.get("crop") or "").strip().lower() in {"", "all", "none", "not specified"}
+            weather_only_turn = bool(plan.get("weather")) and no_crop and not (
+                plan.get("mandi") or plan.get("soil") or plan.get("schemes") or plan.get("knowledge_base")
+            )
+            if weather_only_turn:
+                generic_words = {"increase", "decrease", "affect", "effect", "cause", "impact", "spread", "risk"}
+                complex_indicators = [ind for ind in complex_indicators if ind not in generic_words]
+
             has_complex_intent = any(ind in query_lower for ind in complex_indicators)
             is_weather_query_only = all(ind in query_lower for ind in weather_only_indicators) and not has_complex_intent
             
