@@ -18,6 +18,10 @@ export type FieldDef = {
   // Display-only fields whose value is an ISO timestamp — DocumentDetailModal.tsx renders these
   // with the shared formatDate() util instead of the raw string.
   formatDate?: boolean;
+  // Which section of UniqueDocumentEditForm's combined edit+view modal this field renders under
+  // (2026-10-05) — purely a UI grouping label, doesn't affect what's sent on save. Every field in
+  // DOCUMENT_METADATA_FIELDS/EDITABLE_DOCUMENT_ONLY_FIELDS/DISPLAY_ONLY_FIELDS carries one.
+  group?: string;
 };
 
 // Hardcoded dropdown vocabularies (requested 2026-09-11) — these are UI-only constraints, not a
@@ -118,32 +122,52 @@ export const DOCUMENT_STATUS_OPTIONS = [
 // instead, only when a real date was actually entered — never overwriting an existing
 // independently-set month/year with nothing just because the date field was left blank.
 export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
-  { key: "advisory_type", label: "Advisory Type", type: "select", options: ADVISORY_TYPE_OPTIONS },
-  { key: "advisory_scope", label: "Advisory Scope", type: "select", options: ADVISORY_SCOPE_OPTIONS },
-  { key: "season", label: "Season", type: "select", options: SEASON_OPTIONS },
-  { key: "edition_revision_volume", label: "Edition/Revision/Volume", type: "text" },
-  { key: "date_of_release", label: "Date of Release", type: "date" },
-  { key: "date_of_collection", label: "Date of Collection", type: "date" },
-  { key: "advisory_name", label: "Advisory Name", type: "text" },
-  { key: "advisory_released_org", label: "Advisory Released Organization", type: "text" },
-  { key: "advisory_org_address", label: "Address of Advisory Released Organization", type: "text" },
-  { key: "live_source_link", label: "Live Source Link", type: "text" },
-  { key: "domain", label: "Domain", type: "select", options: DOMAIN_OPTIONS },
+  { key: "advisory_type", label: "Advisory Type", type: "select", options: ADVISORY_TYPE_OPTIONS, group: "Advisory Classification" },
+  { key: "advisory_scope", label: "Advisory Scope", type: "select", options: ADVISORY_SCOPE_OPTIONS, group: "Advisory Classification" },
+  { key: "season", label: "Season", type: "select", options: SEASON_OPTIONS, group: "Advisory Classification" },
+  { key: "domain", label: "Domain", type: "select", options: DOMAIN_OPTIONS, group: "Advisory Classification" },
   // On upload, blank = auto-detect from the file extension (uploadDashboardDocument only appends
   // non-empty fields to the form, so a blank pick sends nothing). On PATCH (the edit form), blank
   // sends null and CLEARS the field — UniqueDocumentEditForm.tsx hides the blank option here for
   // that reason, since format is essentially always already set and clearing it isn't a real use
   // case.
-  { key: "format_original", label: "Form/Format of Advisory (Original)", type: "select", options: FORMAT_ORIGINAL_OPTIONS },
-  { key: "verification_status", label: "Verification Status", type: "select", options: VERIFICATION_STATUS_OPTIONS },
-  { key: "document_status", label: "Document Status", type: "select", options: DOCUMENT_STATUS_OPTIONS },
+  { key: "format_original", label: "Form/Format of Advisory (Original)", type: "select", options: FORMAT_ORIGINAL_OPTIONS, group: "Advisory Classification" },
+  { key: "edition_revision_volume", label: "Edition/Revision/Volume", type: "text", group: "Advisory Details" },
+  { key: "advisory_name", label: "Advisory Name", type: "text", group: "Advisory Details" },
+  { key: "advisory_released_org", label: "Advisory Released Organization", type: "text", group: "Advisory Details" },
+  { key: "advisory_org_address", label: "Address of Advisory Released Organization", type: "text", group: "Advisory Details" },
+  { key: "live_source_link", label: "Live Source Link", type: "text", group: "Advisory Details" },
+  { key: "date_of_release", label: "Date of Release", type: "date", group: "Release & Collection" },
+  { key: "date_of_collection", label: "Date of Collection", type: "date", group: "Release & Collection" },
+  { key: "verification_status", label: "Verification Status", type: "select", options: VERIFICATION_STATUS_OPTIONS, group: "Status" },
+  { key: "document_status", label: "Document Status", type: "select", options: DOCUMENT_STATUS_OPTIONS, group: "Status" },
 ];
 
-// Editable, but not part of the upload form or DOCUMENT_METADATA_FIELDS — `language` is
-// PATCH-able on the document (validated against GET /languages, 400 on an unknown code) and
-// setting it stamps language_source: "manual", so it always needs the dropdown, never free text.
+// Editable, but not part of the upload form or DOCUMENT_METADATA_FIELDS.
+// `shareable_name` is the document's display name in the catalogue — confirmed PATCH-able
+// (`PATCH /unique-documents/{id}` accepts it, 2026-09-29) and purely cosmetic: renaming it does
+// NOT touch the file's actual name in WorkDrive. It's kept out of DOCUMENT_METADATA_FIELDS because
+// that array also drives AddDocumentForm.tsx's upload fields, and a name isn't something you type
+// on upload — it comes from the uploaded file. One caveat carried over from the backend: it's also
+// what the named translation/review downloads build their saved filename from, so renaming a
+// document changes what those download as. `language` is PATCH-able on the document (validated
+// against GET /languages, 400 on an unknown code) and setting it stamps
+// language_source: "manual", so it always needs the dropdown, never free text.
+// district_id/kvk_id — DOCUMENT-level fields (moved off the placement 2026-10-06; every placement
+// of a document now reports the same pair, derived from this one stored value). Added here so
+// UniqueDocumentEditForm's generic save loop picks them up: an explicit "" sends "" (clears), a
+// picked id sends that id, omitted (untouched) is left out of the payload entirely — same as every
+// other non-"language" field in this list. Confirmed live on PATCH /unique-documents/{id}.
+// `PATCH /dashboard/documents/{row_id}` (the placement-level route) no longer accepts either field
+// — Pydantic silently drops unknown fields, so sending them there 200s and changes nothing; only
+// send them via updateDashboardUniqueDocument. Rendered manually in UniqueDocumentEditForm (not via
+// MetadataFieldInput) since their options are fetched dynamically, scoped to the document's anchor
+// placement's state — same reason `language` is rendered manually there too.
 export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
-  { key: "language", label: "Language", type: "select", optionsSource: "language" },
+  { key: "shareable_name", label: "Document Name", type: "text", group: "Identity" },
+  { key: "language", label: "Language", type: "select", optionsSource: "language", group: "Language" },
+  { key: "district_id", label: "District", type: "text", group: "Location" },
+  { key: "kvk_id", label: "KVK", type: "text", group: "Location" },
 ];
 
 // Backend-derived, read-only — shown in the details grid but never submitted.
@@ -156,18 +180,29 @@ export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
 // timestamp fields so the modal renders them with the shared formatDate() util instead of the raw
 // ISO string.
 export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
-  { key: "shareable_name", label: "Shareable Name", type: "text" },
-  { key: "shareable_link", label: "Shareable Link", type: "text" },
-  { key: "language_source", label: "Language Source", type: "text" },
-  { key: "num_pages", label: "No. of Pages", type: "number" },
-  { key: "sha256", label: "SHA-256", type: "text" },
-  { key: "placement_count", label: "Placement Count", type: "number" },
-  { key: "uploaded_by", label: "Uploaded By", type: "text" },
-  { key: "translated_by", label: "Translated By", type: "text" },
-  { key: "translated_at", label: "Translated At", type: "text", formatDate: true },
-  { key: "reviewed_by", label: "Reviewed By", type: "text" },
-  { key: "reviewed_at", label: "Reviewed At", type: "text", formatDate: true },
+  { key: "shareable_link", label: "Shareable Link", type: "text", group: "Advisory Details" },
+  { key: "num_pages", label: "No. of Pages", type: "number", group: "Advisory Details" },
+  { key: "language_source", label: "Language Source", type: "text", group: "Language" },
+  { key: "uploaded_by", label: "Uploaded By", type: "text", group: "Status" },
+  { key: "translated_by", label: "Translated By", type: "text", group: "Translation & Review" },
+  { key: "translated_at", label: "Translated At", type: "text", formatDate: true, group: "Translation & Review" },
+  { key: "reviewed_by", label: "Reviewed By", type: "text", group: "Translation & Review" },
+  { key: "reviewed_at", label: "Reviewed At", type: "text", formatDate: true, group: "Translation & Review" },
+  { key: "sha256", label: "SHA-256", type: "text", group: "File Info" },
+  { key: "placement_count", label: "Placement Count", type: "number", group: "File Info" },
 ];
+
+// "Beans" (and maybe others) legitimately appears twice in the folder vocabulary — once as a crop,
+// once as an organisation of the same name (a real data situation, not something to dedupe here).
+// The Folder pickers that select by name string (AddDocumentForm/DocumentDetailModal/MainTable's
+// inline edit — unlike the Folder COLUMN FILTER, which already selects by id) can't otherwise tell
+// the two apart, so append "(crop)"/"(organisation)" only when a name collides within the given
+// folder list, leaving every non-colliding name exactly as-is.
+export function folderDisplayLabel(folder: { name?: string; kind?: string }, allFolders: { name?: string }[]) {
+  const name = folder.name || "(no folder)";
+  const isDup = (allFolders || []).filter((f) => (f.name || "(no folder)") === name).length > 1;
+  return isDup ? `${name} (${folder.kind === "organization" ? "organisation" : "crop"})` : name;
+}
 
 export const ALL_UNIQUE_DOCUMENT_FIELDS: FieldDef[] = [
   ...DOCUMENT_METADATA_FIELDS,
