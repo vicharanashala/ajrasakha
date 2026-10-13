@@ -512,7 +512,7 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard userRole={user.role} />
+                  <DataProcessingDashboard userRole={user.role} userId={user._id} />
                 </TabsContent>
               )}
               {user && user.role === "admin" && (

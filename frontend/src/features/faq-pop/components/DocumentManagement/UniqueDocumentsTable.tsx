@@ -136,7 +136,7 @@ const MULTI_PLACEMENT_OPTIONS = [
   { key: "false", label: "Single-placement" },
 ];
 
-export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, refreshKey, onDataChanged }) {
+export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, refreshKey, onDataChanged, canEdit = true }) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -755,16 +755,18 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                     />
                   </td>
                   <td className="px-3 py-2 align-middle">
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
-                        onClick={() => handleDeleteRow(row)}
-                        disabled={deletingRowId === row.id}
-                        title="Delete this document — permanently removes it, all its placements, and every file it owns"
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
+                          onClick={() => handleDeleteRow(row)}
+                          disabled={deletingRowId === row.id}
+                          title="Delete this document — permanently removes it, all its placements, and every file it owns"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))

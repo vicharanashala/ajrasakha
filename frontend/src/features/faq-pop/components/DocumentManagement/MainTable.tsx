@@ -48,7 +48,7 @@ const COL_COUNT = 13; // Row ID, Document ID, Document, Advisory Type, State, Fo
 // reimplement it here. PATCH now wants crop_id/organization_id (not a bare name) to disambiguate
 // which kind was picked, and dropdown filters send ids too since organisation names routinely
 // contain commas that would otherwise split a name-based multi-select filter.
-export default function MainTable({ onOpenDetail, refreshKey }) {
+export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -565,7 +565,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                     <StatusBadge status={row.review_status} />
                   </td>
                   <td className="px-3 py-2 align-middle whitespace-nowrap">
-                    {editingId === row.id ? (
+                    {!canEdit ? null : editingId === row.id ? (
                       <div className="flex items-center gap-1">
                         <button
                           className="text-[10px] px-1.5 py-0.5 rounded border border-primary text-primary hover:bg-primary/10 cursor-pointer disabled:opacity-40"

@@ -39,7 +39,7 @@ const selectClass =
 // districts as it had folders. `folderOptions` is passed down from the form (see below): all
 // groups share the SAME options, because Folder options depend only on the form's Advisory Type,
 // never on a group's own state (see the form-level comment).
-function PlacementGroupRow({ group, folderOptions, stateOptions, onChange, onRemove, removable }) {
+export function PlacementGroupRow({ group, folderOptions, stateOptions, onChange, onRemove, removable }) {
   const stateNames = stateOptions.map((s) => s.name);
   const folderLabels = folderOptions.map((f) => folderDisplayLabel(f, folderOptions));
 
