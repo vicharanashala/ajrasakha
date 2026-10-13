@@ -632,7 +632,6 @@ export async function getDashboardStates() {
 }
 
 // `state_id` narrows to crops actually used in that state. Crops are now READ-ONLY (2026-09-15) —
-// `state_id` narrows to crops actually used in that state. Crops are now READ-ONLY (2026-09-15) —
 // they come from a crop master another application maintains; POST/PATCH/merge/DELETE on /crops
 // all 403. There is no createDashboardCrop anymore — don't add one back. Vocabulary is matched by
 // id only now (2026-10-05 backend change) — `?state=<name>` is ignored server-side, so this takes
@@ -671,25 +670,6 @@ export async function getDashboardKvks(districtId?: string) {
   return _handleResponse(res);
 }
 
-// District/KVK — placement-level fields, id-referenced like state/crop. Synced from the official
-// LGD registry (2026-10-02) — districts narrow by PARENT (`state_id`), KVKs narrow by their own
-// parent (`district_id`, NOT state_id — a KVK belongs to one district, not directly to a state,
-// even though every KVK row also carries a `state_id` for convenience). Omitting the id entirely
-// returns the FULL list (823 districts / 1,550 KVKs) — the right call for a column filter, which
-// already has its own search and isn't trying to replicate the form's state→district→KVK cascade.
-// States/districts/KVKs are now read-only (synced data) — POST/PATCH/merge/DELETE all 403.
-export async function getDashboardDistricts(stateId?: string) {
-  const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
-  const res = await fetch(`${POP_API}/dashboard/districts${qs}`);
-  return _handleResponse(res);
-}
-
-export async function getDashboardKvks(districtId?: string) {
-  const qs = districtId ? `?district_id=${encodeURIComponent(districtId)}` : "";
-  const res = await fetch(`${POP_API}/dashboard/kvks${qs}`);
-  return _handleResponse(res);
-}
-
 export async function createDashboardState(name: string) {
   const res = await popFetch(`${POP_API}/dashboard/states`, {
     method: "POST",
@@ -716,20 +696,14 @@ export async function createDashboardOrganization(name: string) {
 // getDashboardCrops/getDashboardOrganizations — leave it out for the full, unscoped vocabulary
 // (needed when the caller wants to pick a folder nobody has used under that state yet, e.g. filing
 // a new placement).
-// document_count}] pre-filtered. `state_id` narrows to folders actually used there, same as
-// getDashboardCrops/getDashboardOrganizations — leave it out for the full, unscoped vocabulary
-// (needed when the caller wants to pick a folder nobody has used under that state yet, e.g. filing
-// a new placement).
 //
 // /folders isn't deployed yet as of 2026-09-15 (404 until the next image) — falls back to fetching
 // /crops and/or /organizations directly and tagging each with its `kind`, applying the same
 // Comprehensive/Crop Advisory/Non-Crop Advisory/General classification locally. Once /folders is
 // live this fallback simply never triggers (no need to remove it).
 export async function getDashboardFolders(advisoryType?: string, stateId?: string) {
-export async function getDashboardFolders(advisoryType?: string, stateId?: string) {
   const params = new URLSearchParams();
   if (advisoryType) params.set("advisory_type", advisoryType);
-  if (stateId) params.set("state_id", stateId);
   if (stateId) params.set("state_id", stateId);
   const qs = params.toString();
   const res = await popFetch(`${POP_API}/dashboard/folders${qs ? `?${qs}` : ""}`);
@@ -784,13 +758,15 @@ export async function getDashboardReviewedByOptions(): Promise<string[]> {
   const res = await popFetch(`${POP_API}/dashboard/reviewed-by`);
   return (await _handleResponse(res)) || [];
 }
+export async function getDashboardApprovedByApproverOptions(): Promise<string[]> {
+  const res = await popFetch(`${POP_API}/dashboard/approved-by-approver`);
+  return (await _handleResponse(res)) || [];
+}
+export async function getDashboardApprovedByAdminOptions(): Promise<string[]> {
+  const res = await popFetch(`${POP_API}/dashboard/approved-by-admin`);
+  return (await _handleResponse(res)) || [];
+}
 
-// `placements` is the per-state folder-group shape: [{state_id, crop_ids: [...],
-// organization_ids: [...]}, ...] — sent as placements_json. Each group needs at least one id
-// across the two lists; AddDocumentForm.tsx resolves its Folder picks (crop or organization) into
-// these before calling this. District/KVK are NOT placement fields (moved to the document itself,
-// 2026-10-06) — a group carrying either now 400s ("not a placement field any more"), so they're
-// passed via `fields` as plain `district_id`/`kvk_id` form fields instead, same as `language`.
 // `placements` is the per-state folder-group shape: [{state_id, crop_ids: [...],
 // organization_ids: [...]}, ...] — sent as placements_json. Each group needs at least one id
 // across the two lists; AddDocumentForm.tsx resolves its Folder picks (crop or organization) into
@@ -800,7 +776,6 @@ export async function getDashboardReviewedByOptions(): Promise<string[]> {
 export async function uploadDashboardDocument(
   file: File,
   fields: Record<string, string>,
-  placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
   placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
   language: string,
 ) {
@@ -842,22 +817,28 @@ export async function cancelDashboardUpload(id: string) {
 // can_add/can_create_new/new_placements. `documentId` picks which candidate this is ("this IS the
 // matched document") — may be omitted only when there's exactly one candidate. Links the new
 // placement(s) onto it and removes the item from the queue. 409 if that candidate can't be added.
-export async function addUploadToMatch(id: string, documentId?: string) {
+export async function addUploadToMatch(id: string, documentId?: string, approvedBy?: string) {
+  const body: Record<string, string> = {};
+  if (documentId) body.document_id = documentId;
+  if (approvedBy) body.approved_by = approvedBy;
   const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/add`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(documentId ? { document_id: documentId } : {}),
+    body: JSON.stringify(body),
   });
   return _handleResponse(res);
 }
 
-export async function addUploadAsNew(id: string) {
+export async function addUploadAsNew(id: string, approvedBy?: string) {
   // "This is actually a different document" (or there was no candidate at all) — creates it as
   // its own document. Async — a real Zoho upload happens server-side — keep polling
   // getDashboardUploads()/getDashboardUpload(id) until the item disappears (succeeded) or shows
   // status: "failed". 409 if the top candidate is an exact sha match (can_create_new: false).
   const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/new`, {
     method: "POST",
+    ...(approvedBy
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved_by: approvedBy }) }
+      : {}),
   });
   return _handleResponse(res);
 }
@@ -884,9 +865,12 @@ export async function updateDashboardUpload(id: string, fields: Record<string, u
 }
 
 // Upload approver action: moves an expert's upload from stage "approver" to "admin".
-export async function approveDashboardUpload(id: string) {
+export async function approveDashboardUpload(id: string, approvedBy?: string) {
   const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/approve`, {
     method: "POST",
+    ...(approvedBy
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved_by: approvedBy }) }
+      : {}),
   });
   return _handleResponse(res);
 }
@@ -899,6 +883,17 @@ export async function declineDashboardUpload(id: string, note: string) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ note }),
+  });
+  return _handleResponse(res);
+}
+
+// The uploader sending their declined upload (stage "expert", status awaiting_review) back to the
+// approvers — offered whenever actions.can_resubmit is true. No body; approver_note/admin_note
+// stay on the item so the approver can see what they asked for. 404 if the caller can't see it,
+// 403 if it's not at the expert stage / not theirs, 409 if someone else acted first (refetch).
+export async function resubmitDashboardUpload(id: string) {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/resubmit`, {
+    method: "POST",
   });
   return _handleResponse(res);
 }
@@ -1109,20 +1104,11 @@ export function getFileDownloadUrl(fileId: string) {
 // it off the response rather than guessing the name itself). `getOriginalDownloadUrl` mirrors
 // translation/review (added 2026-09-29) — confirmed by the backend to support `?inline=1` the same
 // way. Translation/review 404 when the document has none yet.
-// Named-download endpoints — unlike getFileDownloadUrl, these name the file after the DOCUMENT's
-// shareable_name (e.g. "Paddy_KA_2021.pdf" -> "Paddy_KA_2021_translation.docx" / "..._reviewed.docx"
-// / plain "Paddy_KA_2021.pdf" for the original), via Content-Disposition (FileActionIcons.tsx reads
-// it off the response rather than guessing the name itself). `getOriginalDownloadUrl` mirrors
-// translation/review (added 2026-09-29) — confirmed by the backend to support `?inline=1` the same
-// way. Translation/review 404 when the document has none yet.
 export function getTranslationDownloadUrl(documentId: string, inline = false) {
   return `${POP_API}/dashboard/unique-documents/${documentId}/translation/download${inline ? "?inline=1" : ""}`;
 }
 export function getReviewDownloadUrl(documentId: string, inline = false) {
   return `${POP_API}/dashboard/unique-documents/${documentId}/review/download${inline ? "?inline=1" : ""}`;
-}
-export function getOriginalDownloadUrl(documentId: string, inline = false) {
-  return `${POP_API}/dashboard/unique-documents/${documentId}/original/download${inline ? "?inline=1" : ""}`;
 }
 export function getOriginalDownloadUrl(documentId: string, inline = false) {
   return `${POP_API}/dashboard/unique-documents/${documentId}/original/download${inline ? "?inline=1" : ""}`;

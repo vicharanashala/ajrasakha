@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
-import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil } from "lucide-react";
+import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send } from "lucide-react";
 import { getDashboardUploadFileBlob } from "../../api";
 import { DOCUMENT_METADATA_FIELDS } from "./fields";
 import UploadEditForm from "./UploadEditForm";
@@ -18,29 +18,14 @@ const STAGE_LABELS = {
   expert: "Returned to you",
 };
 
-// Lazy-loaded, revoked-on-collapse object URL for the uploaded file's own preview (GET
-// /dashboard/uploads/{id}/file — identity-checked like everything else, so it has to go through
-// popFetch and come back as a blob rather than a plain <img src>).
-function FilePreview({ uploadId }) {
-  const [url, setUrl] = useState(null);
-  const [error, setError] = useState(null);
-  useEffect(() => {
-    let revoked = null;
-    getDashboardUploadFileBlob(uploadId)
-      .then((blob) => {
-        const objUrl = URL.createObjectURL(blob);
-        revoked = objUrl;
-        setUrl(objUrl);
-      })
-      .catch((err) => setError(err.message || "Failed to load preview"));
-    return () => {
-      if (revoked) URL.revokeObjectURL(revoked);
-    };
-  }, [uploadId]);
-
-  if (error) return <span className="text-[11px] text-destructive">{error}</span>;
-  if (!url) return <span className="text-[11px] text-muted-foreground italic">Loading preview…</span>;
-  return <iframe src={url} className="w-full h-72 rounded border border-border/50 bg-white" title="Upload preview" />;
+// GET /dashboard/uploads/{id}/file is identity-checked like everything else, so it has to go
+// through popFetch and come back as a blob rather than a plain <a href> — fetched on click, opened
+// in a new tab, not embedded inline (expanding a row shows the edit box, not a document viewer).
+async function viewUploadFile(uploadId) {
+  const blob = await getDashboardUploadFileBlob(uploadId);
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 // Upload Queue panel — top half of the right-side split in Add Document mode. Present by default
@@ -75,6 +60,7 @@ export default function UploadQueuePanel({
   onApprove,
   onDecline,
   onEdit,
+  onResubmit,
   onDiscard,
   onRemove,
   onOpenDetail,
@@ -153,7 +139,7 @@ export default function UploadQueuePanel({
                     type="button"
                     className="flex items-center gap-1 min-w-0 cursor-pointer text-left"
                     onClick={() => toggleExpanded(item.id)}
-                    title={isExpanded ? "Collapse" : "Expand — preview, matches, metadata"}
+                    title={isExpanded ? "Collapse" : "Expand — matches, metadata"}
                   >
                     {isExpanded ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}
                     <span className="text-xs font-medium text-foreground truncate" title={item.filename}>
@@ -161,6 +147,14 @@ export default function UploadQueuePanel({
                     </span>
                   </button>
                   <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                      onClick={() => viewUploadFile(item.id)}
+                      title="View the uploaded file"
+                    >
+                      <Eye size={12} />
+                    </button>
                     {item.expert && (
                       <span className="text-[10px] text-muted-foreground/80 truncate" title="Uploader">
                         {item.expert}
@@ -203,7 +197,6 @@ export default function UploadQueuePanel({
 
                 {isExpanded && (
                   <div className="flex flex-col gap-2 mt-1.5 rounded border border-border/40 bg-background/40 p-2">
-                    <FilePreview uploadId={item.id} />
 
                     {candidates.length > 0 && (
                       <div className="flex flex-col gap-1">
@@ -361,6 +354,16 @@ export default function UploadQueuePanel({
                         <Undo2 size={10} /> Decline
                       </button>
                     )}
+                    {actions.can_resubmit && (
+                      <button
+                        className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-40"
+                        onClick={() => onResubmit(item)}
+                        disabled={disabled}
+                        title="Send this back to the upload approvers"
+                      >
+                        <Send size={10} /> Resubmit
+                      </button>
+                    )}
                     {canAdd && (
                       <button
                         className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-40"
@@ -391,7 +394,7 @@ export default function UploadQueuePanel({
                         <Ban size={10} /> Discard
                       </button>
                     )}
-                    {actions.can_remove && (
+                    {actions.can_remove && !actions.can_discard && (
                       <button
                         className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40"
                         onClick={() => onRemove(item)}

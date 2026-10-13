@@ -295,15 +295,15 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
       )}
 
       <TopScrollbar containerRef={scrollRef} />
-      <div className="relative overflow-x-auto rounded-lg border border-border" ref={scrollRef}>
+      <div className="relative overflow-auto max-h-[70vh] rounded-lg border border-border" ref={scrollRef}>
         {loading && (
           <div className="absolute inset-0 bg-background/40 flex items-start justify-center pt-4 pointer-events-none z-10">
             <RefreshCw size={16} className="animate-spin text-muted-foreground" />
           </div>
         )}
         <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-muted/30">
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b border-border bg-muted">
               <th className="text-left px-3 py-2 whitespace-nowrap">
                 <div className="flex items-center gap-1">
                   <div className="min-w-0">
@@ -474,7 +474,7 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                   onClick={(e) => handleRowClick(e, row)}
                   onDoubleClick={(e) => handleRowDoubleClick(e, row)}
                   className={`border-b border-border/50 transition-colors cursor-pointer ${
-                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                    selectedRowId === row.id ? "bg-primary/20" : idx % 2 === 0 ? "" : "bg-muted/10"
                   }`}
                 >
                   <td className="px-3 py-2 align-middle font-mono text-[10px] text-muted-foreground">

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   getDashboardConfig,
   getStats,
@@ -12,6 +13,7 @@ import {
   updateDashboardUpload,
   approveDashboardUpload,
   declineDashboardUpload,
+  resubmitDashboardUpload,
   removeDashboardUpload,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
@@ -49,6 +51,9 @@ export default function DocumentManagementPanel({
   isAdmin = false,
 }) {
   const [activeMode, setActiveMode] = useState("main-table");
+  // approved_by (approver/admin columns) — the signed-in user's display name, same source as
+  // uploaded_by/translated_by (see TranslateReviewCell.tsx).
+  const currentUserName = useAuthStore((s) => s.user?.name);
 
   const [translationAvailable, setTranslationAvailable] = useState(false);
   useEffect(() => {
@@ -81,6 +86,24 @@ export default function DocumentManagementPanel({
   // /dashboard/events); the interval further down is now just a slow fallback in case that
   // stream is unavailable, not the primary refresh mechanism.
   const [queueItems, setQueueItems] = useState([]);
+  // GET /dashboard/uploads returns, per caller: own uploads at ANY level, plus level 1 (approver)
+  // items if an upload approver, plus level 2 (admin) items if admin — but each queue should only
+  // show items that are actually THIS person's turn to act on right now, not every level they can
+  // merely see. `level` (0=with the uploader, 1=with the approvers, 2=with the admins) moves on
+  // every add/decline/resubmit, so this is re-derived from the live item on every render, not
+  // cached. `stage` is the same thing as a label, still sent — used here only as a fallback for an
+  // item that hasn't been re-fetched with `level` yet.
+  const LEVEL_BY_STAGE = { expert: 0, approver: 1, admin: 2 };
+  function itemLevel(i) {
+    return typeof i.level === "number" ? i.level : LEVEL_BY_STAGE[i.stage];
+  }
+  const visibleQueueItems = queueItems.filter((i) => {
+    const level = itemLevel(i);
+    if (canApproveUploads && isAdmin) return level === 1 || level === 2;
+    if (canApproveUploads) return level === 1;
+    if (isAdmin) return level === 2;
+    return level === 0;
+  });
   const [translationJobs, setTranslationJobs] = useState([]);
   const [busyUploadId, setBusyUploadId] = useState(null);
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
@@ -270,7 +293,7 @@ export default function DocumentManagementPanel({
   async function handleAddUpload(item, documentId, candidate) {
     setBusyUploadId(item.id);
     try {
-      const res = await addUploadToMatch(item.id, documentId);
+      const res = await addUploadToMatch(item.id, documentId, currentUserName);
       // The upload moves to status "uploading" right away and the worker creates placements
       // afterward, so created_row_ids (and placements_created) in this reply is always empty —
       // count from the candidate's own new_placements, what the row already showed as "would
@@ -293,7 +316,7 @@ export default function DocumentManagementPanel({
   async function handleNewUpload(item) {
     setBusyUploadId(item.id);
     try {
-      await addUploadAsNew(item.id);
+      await addUploadAsNew(item.id, currentUserName);
       setProcessingUploadIds((prev) => new Set(prev).add(item.id));
     } catch (err) {
       toast.error(err.message || "Failed to process as a new document");
@@ -307,7 +330,7 @@ export default function DocumentManagementPanel({
   async function handleApproveUpload(item) {
     setBusyUploadId(item.id);
     try {
-      const updated = await approveDashboardUpload(item.id);
+      const updated = await approveDashboardUpload(item.id, currentUserName);
       setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
       toast.success("Approved");
     } catch (err) {
@@ -347,6 +370,24 @@ export default function DocumentManagementPanel({
       toast.success("Saved");
     } catch (err) {
       toast.error(err.message || "Failed to save");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // The uploading expert sending their declined upload back to the approvers — offered while
+  // actions.can_resubmit is true (stage "expert", status awaiting_review only). The item stays in
+  // the expert's own list afterward (they always see their own uploads) but moves to stage
+  // "approver", with no actions left for them until it's decided again.
+  async function handleResubmitUpload(item) {
+    setBusyUploadId(item.id);
+    try {
+      const updated = await resubmitDashboardUpload(item.id);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Resubmitted");
+    } catch (err) {
+      toast.error(err.message || "Failed to resubmit");
       if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
@@ -446,13 +487,14 @@ export default function DocumentManagementPanel({
             <ResizableSplitPanel
               top={
                 <UploadQueuePanel
-                  items={queueItems}
+                  items={visibleQueueItems}
                   onCancelQueued={handleCancelUpload}
                   onAdd={handleAddUpload}
                   onNew={handleNewUpload}
                   onApprove={handleApproveUpload}
                   onDecline={handleDeclineUpload}
                   onEdit={handleEditUpload}
+                  onResubmit={handleResubmitUpload}
                   onDiscard={handleDiscardUpload}
                   onRemove={handleRemoveUpload}
                   onOpenDetail={openDetail}
@@ -490,6 +532,7 @@ export default function DocumentManagementPanel({
         <UniqueDocumentsTable
           onOpenDetail={openDetail}
           translationAvailable={translationAvailable}
+          canTranslate={canTranslate}
           refreshKey={refreshKey}
           onDataChanged={bumpRefresh}
           canEdit={canEdit}
@@ -506,6 +549,7 @@ export default function DocumentManagementPanel({
           }
         }}
         translationAvailable={translationAvailable}
+        canTranslate={canTranslate}
         onTranslationStarted={refetchTranslationJobs}
         onPlacementsChanged={bumpRefresh}
         canEdit={canEdit}

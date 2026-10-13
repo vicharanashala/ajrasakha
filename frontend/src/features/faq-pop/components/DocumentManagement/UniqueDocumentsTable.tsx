@@ -9,6 +9,8 @@ import {
   deleteDashboardUniqueDocument,
   getDashboardLanguages,
   getDashboardUploadedByOptions,
+  getDashboardApprovedByApproverOptions,
+  getDashboardApprovedByAdminOptions,
   getDashboardTranslatedByOptions,
   getDashboardReviewedByOptions,
   getUniqueDocumentPlacements,
@@ -102,6 +104,11 @@ const FIELD_COLUMNS = [
   // upload — no longer user-editable (see fields.ts/AddDocumentForm.tsx), but still filterable
   // here the same way verified_by was.
   { key: "uploaded_by", label: "Uploaded By", filterType: "users" },
+  // Who approved this document so far — written only when an admin picks NEW (filing into an
+  // existing document via ADD leaves these unchanged); approver stays null when an admin/approver
+  // uploads their own document (the approver step is skipped). Not editable (same as uploaded_by).
+  { key: "approved_by_approver", label: "Approved by (approver)", filterType: "users" },
+  { key: "approved_by_admin", label: "Approved by (admin)", filterType: "users" },
   { key: "document_status", label: "Doc Status", filterable: true, options: DOCUMENT_STATUS_OPTIONS },
   // translated_by/reviewed_by are the signed-in user's display name, unverified (see
   // TranslateReviewCell.tsx) — null on every document translated/reviewed before 2026-09-16, and
@@ -136,7 +143,7 @@ const MULTI_PLACEMENT_OPTIONS = [
   { key: "false", label: "Single-placement" },
 ];
 
-export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, refreshKey, onDataChanged, canEdit = true }) {
+export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, canTranslate = false, refreshKey, onDataChanged, canEdit = true }) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -160,6 +167,8 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const [uploadedByOptions, setUploadedByOptions] = useState([]);
   const [translatedByOptions, setTranslatedByOptions] = useState([]);
   const [reviewedByOptions, setReviewedByOptions] = useState([]);
+  const [approvedByApproverOptions, setApprovedByApproverOptions] = useState([]);
+  const [approvedByAdminOptions, setApprovedByAdminOptions] = useState([]);
   useEffect(() => {
     getDashboardLanguages()
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
@@ -169,6 +178,8 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     getDashboardUploadedByOptions().then(setUploadedByOptions).catch(() => {});
     getDashboardTranslatedByOptions().then(setTranslatedByOptions).catch(() => {});
     getDashboardReviewedByOptions().then(setReviewedByOptions).catch(() => {});
+    getDashboardApprovedByApproverOptions().then(setApprovedByApproverOptions).catch(() => {});
+    getDashboardApprovedByAdminOptions().then(setApprovedByAdminOptions).catch(() => {});
   }, [refreshKey]);
 
   // State/Folder/District/KVK filter dropdowns — id-based, same convention as MainTable.tsx's
@@ -281,6 +292,8 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     uploaded_by: uploadedByOptions,
     translated_by: translatedByOptions,
     reviewed_by: reviewedByOptions,
+    approved_by_approver: approvedByApproverOptions,
+    approved_by_admin: approvedByAdminOptions,
   };
 
   // Backs both numberRange (suffixes "min"/"max") and dateRange ("from"/"to") columns — two
@@ -461,15 +474,15 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
       )}
 
       <TopScrollbar containerRef={scrollRef} />
-      <div className="relative overflow-x-auto rounded-lg border border-border" ref={scrollRef}>
+      <div className="relative overflow-auto max-h-[70vh] rounded-lg border border-border" ref={scrollRef}>
         {loading && (
           <div className="absolute inset-0 bg-background/40 flex items-start justify-center pt-4 pointer-events-none z-10">
             <RefreshCw size={16} className="animate-spin text-muted-foreground" />
           </div>
         )}
         <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-muted/30">
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b border-border bg-muted">
               {FIELD_COLUMNS.map((col) => {
                 const filterControl =
                   col.vocab === "state" ? (
@@ -652,7 +665,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                   onClick={(e) => handleRowClick(e, row)}
                   onDoubleClick={(e) => handleRowDoubleClick(e, row)}
                   className={`border-b border-border/50 transition-colors cursor-pointer ${
-                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                    selectedRowId === row.id ? "bg-primary/20" : idx % 2 === 0 ? "" : "bg-muted/10"
                   }`}
                 >
                   {FIELD_COLUMNS.map((col) => {
@@ -699,13 +712,15 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                             >
                               <Eye size={11} />
                             </button>
-                            <button
-                              className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                              onClick={() => setEditingRow(row)}
-                              title="Edit document"
-                            >
-                              <Pencil size={11} />
-                            </button>
+                            {canEdit && (
+                              <button
+                                className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                                onClick={() => setEditingRow(row)}
+                                title="Edit document"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       );
@@ -735,6 +750,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       doc={row}
                       scope="document"
                       translationAvailable={translationAvailable}
+                      canTranslate={canTranslate}
                       resolvePlacementId={() => resolvePlacementId(row.id)}
                       onChanged={(fresh) => {
                         patchRow(row.id, fresh);

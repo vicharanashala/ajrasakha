@@ -15,6 +15,22 @@ import PipelineOutput, {
 const inputClass =
   'w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow';
 
+// Widest option's rendered text width, so a dropdown's popup can size itself to its longest
+// value instead of just inheriting its (often narrow, table-cell) trigger width.
+let _measureCanvas = null;
+function measureMaxTextWidth(texts, font) {
+  if (!texts || texts.length === 0) return 0;
+  if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
+  const ctx = _measureCanvas.getContext('2d');
+  ctx.font = font;
+  let max = 0;
+  for (const t of texts) {
+    const w = ctx.measureText(t).width;
+    if (w > max) max = w;
+  }
+  return max;
+}
+
 // ── MultiSelector ──────────────────────────────────────────────────────────────
 
 export function MultiSelector({ value, onChange, names, placeholder }) {
@@ -186,10 +202,16 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
 
   // See MultiSelector's computePos above — same narrow-trigger problem (this is used as the
   // inline state/crop editor in a table cell), same fix: floor the width, keep it on-screen.
+  // Also widened to fit the longest option's own text (e.g. a long organization/folder name),
+  // so the popup isn't stuck at the trigger's width with every long value truncated.
   function computePos() {
     if (containerRef.current) {
       const r = containerRef.current.getBoundingClientRect();
-      const width = Math.max(r.width, 260);
+      const input = containerRef.current.querySelector('input');
+      const font = input ? getComputedStyle(input).font : '14px sans-serif';
+      const textWidth = measureMaxTextWidth(stateNames, font);
+      const idealWidth = Math.max(r.width * 2, textWidth + 56, 260);
+      const width = Math.min(idealWidth, window.innerWidth - 16);
       const left = Math.min(r.left, window.innerWidth - width - 8);
       setDropdownPos({ top: r.bottom + 2, left, width });
     }
@@ -212,7 +234,11 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
     e.preventDefault();
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const width = Math.max(rect.width, 320);
+      const input = containerRef.current.querySelector('input');
+      const font = input ? getComputedStyle(input).font : '14px sans-serif';
+      const textWidth = measureMaxTextWidth(stateNames, font);
+      const idealWidth = Math.max(rect.width * 2, textWidth + 56, 320);
+      const width = Math.min(idealWidth, window.innerWidth - 16);
       const left = Math.min(rect.left, window.innerWidth - width - 8);
       setExpandedRect({ left, width });
     }

@@ -56,7 +56,7 @@ function ManagementList({ title, description, list }: { title: string; descripti
 
   const { data: searchResult, isLoading: searching } = useAdminGetAllUsers(
     1,
-    8,
+    200,
     debouncedSearch,
     "",
     "",
@@ -65,7 +65,7 @@ function ManagementList({ title, description, list }: { title: string; descripti
     "",
     "",
     "",
-    { enabled: debouncedSearch.length >= 2 },
+    { enabled: open },
   );
   const existingIds = new Set(entries.map((e) => e.user_id));
   const matches = (searchResult?.users || []).filter((u) => !existingIds.has(u._id));
@@ -128,13 +128,8 @@ function ManagementList({ title, description, list }: { title: string; descripti
         >
           <Command shouldFilter={false}>
             <CommandList className="max-h-56">
-              {debouncedSearch.length < 2 && (
-                <CommandEmpty>Type at least 2 characters…</CommandEmpty>
-              )}
-              {debouncedSearch.length >= 2 && searching && (
-                <CommandEmpty>Searching…</CommandEmpty>
-              )}
-              {debouncedSearch.length >= 2 && !searching && matches.length === 0 && (
+              {searching && <CommandEmpty>Searching…</CommandEmpty>}
+              {!searching && matches.length === 0 && (
                 <CommandEmpty>No matching users</CommandEmpty>
               )}
               <CommandGroup>

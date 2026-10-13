@@ -198,10 +198,24 @@ export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
 // inline edit — unlike the Folder COLUMN FILTER, which already selects by id) can't otherwise tell
 // the two apart, so append "(crop)"/"(organisation)" only when a name collides within the given
 // folder list, leaving every non-colliding name exactly as-is.
-export function folderDisplayLabel(folder: { name?: string; kind?: string }, allFolders: { name?: string }[]) {
+//
+// Organisations additionally always carry a "Type · State" suffix (2026-10-13 backend change —
+// GET /dashboard/organizations and /dashboard/folders now send `type` ("central"|"state"|
+// "district") and `state`, a state NAME not id; crop items have both null) — 17 organisation
+// names appear more than once in the master (e.g. "DMR,RS", "DWR,RS"), and type+state is how a
+// person tells them apart, so this is shown for every organisation, not just on a name collision.
+// Crops are unaffected.
+export function folderDisplayLabel(
+  folder: { name?: string; kind?: string; type?: string | null; state?: string | null },
+  allFolders: { name?: string }[],
+) {
   const name = folder.name || "(no folder)";
   const isDup = (allFolders || []).filter((f) => (f.name || "(no folder)") === name).length > 1;
-  return isDup ? `${name} (${folder.kind === "organization" ? "organisation" : "crop"})` : name;
+  const base = isDup ? `${name} (${folder.kind === "organization" ? "organisation" : "crop"})` : name;
+  if (folder.kind !== "organization") return base;
+  const typeLabel = folder.type ? folder.type.charAt(0).toUpperCase() + folder.type.slice(1) : null;
+  const suffix = [typeLabel, folder.state].filter(Boolean).join(" · ");
+  return suffix ? `${base} — ${suffix}` : base;
 }
 
 export const ALL_UNIQUE_DOCUMENT_FIELDS: FieldDef[] = [
