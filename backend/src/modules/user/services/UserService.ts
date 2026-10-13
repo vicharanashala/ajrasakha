@@ -1615,9 +1615,28 @@ export class UserService extends BaseService {
       const customStartTime = query.customStartDateTime;
       const customEndTime = query.customEndDateTime;
 
-      if (query.startDate && query.endDate) {
-        startDate = new Date(query.startDate);
-        endDate = new Date(query.endDate);
+      if (query.startDate || query.endDate) {
+        const parseDate = (val?: string, isEnd = false) => {
+          if (!val) {
+            return isEnd ? new Date() : new Date(0);
+          }
+          if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            return isEnd
+              ? new Date(`${val}T23:59:59.999+05:30`)
+              : new Date(`${val}T00:00:00.000+05:30`);
+          }
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? (isEnd ? new Date() : new Date(0)) : d;
+        };
+
+        startDate = parseDate(query.startDate, false);
+        endDate = parseDate(query.endDate, true);
+
+        if (startDate > endDate) {
+          const temp = startDate;
+          startDate = endDate;
+          endDate = temp;
+        }
       } else {
         const viewType = query.viewType || 'year';
         const yearNum = Number(query.selectedYear || currentYear);
@@ -1973,6 +1992,22 @@ export class UserService extends BaseService {
       sheet.getCell('A2').value = 'Designation';
       sheet.getCell('A2').font = { bold: true };
       sheet.getCell('B2').value = userDesignation;
+
+      // Row 3
+      sheet.getCell('A3').value = 'Period';
+      sheet.getCell('A3').font = { bold: true };
+      const formatISTPeriod = (d: Date) => {
+        return d.toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+      };
+      sheet.getCell('B3').value = `${formatISTPeriod(startDate)} to ${formatISTPeriod(endDate)}`;
 
       // Row 4
       sheet.getCell('A4').value = 'Total Hours in Rev Cycle';
