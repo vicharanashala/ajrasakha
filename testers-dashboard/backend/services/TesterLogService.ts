@@ -718,6 +718,7 @@ export function incrementTestId(lastId?: string | null): string {
 @injectable()
 export class TesterLogService implements ITesterLogService {
     private indexesEnsured = false;
+    private counterInitialized = false;
 
     constructor(
         @inject(DATABASE_TOKEN)
@@ -749,10 +750,14 @@ export class TesterLogService implements ITesterLogService {
     }
 
     private async ensureCounterInitialized(): Promise<void> {
+        if (this.counterInitialized) return;
         try {
             const counters = await this.db.getCollection(COUNTER_COLLECTION);
             const existing = await counters.findOne({ _id: TEST_CASE_COUNTER_ID });
-            if (existing) return;
+            if (existing) {
+                this.counterInitialized = true;
+                return;
+            }
 
             // Determine starting seq from existing entries in tester_test_cases
             let startSeq = 0;
@@ -874,6 +879,13 @@ export class TesterLogService implements ITesterLogService {
 
         const lastId = await this.getLastTestId();
         return incrementTestId(lastId);
+    }
+
+    async getEntryById(id: string): Promise<TesterLogEntry | null> {
+        const _id = toObjectId(id);
+        if (!_id) return null;
+        const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
+        return collection.findOne({ _id });
     }
 
     async createEntry(
@@ -1133,6 +1145,13 @@ export class TesterLogService implements ITesterLogService {
                 });
             } else if (s === 'partial') {
                 extraConditions.push({ overallTestStatus: { $regex: /^partial$/i } });
+            } else if (s === 'onhold' || s === 'on hold') {
+                extraConditions.push({
+                    $or: [
+                        { status: { $regex: /^on hold$/i } },
+                        { overallTestStatus: { $regex: /^on hold$/i } },
+                    ],
+                });
             } else if (s === 'defects') {
                 extraConditions.push({
                     $or: [
@@ -1256,16 +1275,20 @@ export class TesterLogService implements ITesterLogService {
             typeOfQuestion, channelTested, undefined, defectSeverity,
         );
 
-        const [totalEntries, entriesInRange, passCount, statusRecordedCount] = await Promise.all([
+        const [totalEntries, entriesInRange, passCount, statusRecordedCount, onHoldCount] = await Promise.all([
             collection.countDocuments(totalFilter),
             collection.countDocuments(fullFilter),
             collection.countDocuments({ ...filterForPassRate, overallTestStatus: 'Pass' }),
             collection.countDocuments({ ...filterForPassRate, overallTestStatus: { $nin: [null, ''] } }),
+            collection.countDocuments({
+                ...fullFilter,
+                $or: [{ overallTestStatus: 'On Hold' }, { status: 'On Hold' }],
+            }),
         ]);
 
         const passRate = statusRecordedCount > 0 ? Math.round((passCount / statusRecordedCount) * 1000) / 10 : null;
 
-        return { totalEntries, entriesInRange, passRate, passCount, statusRecordedCount };
+        return { totalEntries, entriesInRange, passRate, passCount, statusRecordedCount, onHoldCount };
     }
 
     // Excel is the only export format - no format param, since there's
@@ -1445,6 +1468,7 @@ export class TesterLogService implements ITesterLogService {
         let expectedOutput = 0;
         let anomalyFound = 0;
         let otherStatus = 0;
+        let onHold = 0;
 
         let slaMet = 0;
         let slaBreached = 0;
@@ -1483,7 +1507,12 @@ export class TesterLogService implements ITesterLogService {
 
         for (const entry of entries) {
             const overall = (entry.overallTestStatus || '').trim().toLowerCase();
-            if (overall === 'pass') {
+            const eStatus = (entry.status || '').trim().toLowerCase();
+            const isOnHold = eStatus === 'on hold' || overall === 'on hold';
+
+            if (isOnHold) {
+                onHold++;
+            } else if (overall === 'pass') {
                 passed++;
             } else if (overall === 'fail') {
                 failed++;
@@ -1629,8 +1658,9 @@ export class TesterLogService implements ITesterLogService {
         }
 
         const totalTests = entries.length;
-        const passRate = totalTests > 0 ? Math.round(((passed + expectedOutput) / totalTests) * 1000) / 10 : 0;
-        const failRate = totalTests > 0 ? Math.round(((failed + anomalyFound) / totalTests) * 1000) / 10 : 0;
+        const completedTests = totalTests - onHold;
+        const passRate = completedTests > 0 ? Math.round(((passed + expectedOutput) / completedTests) * 1000) / 10 : 0;
+        const failRate = completedTests > 0 ? Math.round(((failed + anomalyFound) / completedTests) * 1000) / 10 : 0;
         const totalSla = slaMet + slaBreached;
         const slaMetRate = totalSla > 0 ? Math.round((slaMet / totalSla) * 1000) / 10 : 0;
         const avgResponseMinutes = responseTimeCount > 0 ? Math.round((responseTimeSum / responseTimeCount) * 10) / 10 : null;
@@ -1783,6 +1813,7 @@ export class TesterLogService implements ITesterLogService {
         return {
             success: true,
             totalTests,
+            onHold,
             passed,
             failed,
             partial,
