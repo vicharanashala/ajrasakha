@@ -28,11 +28,15 @@ if len(_parents) > 2:
 
 # generate_ffvs.py (ai/ajrasakha/ffv/scripts/) has no ai/__init__.py chain
 # that would make it importable as a dotted package, so we bridge to it via
-# sys.path plus a flat import instead. Two candidate locations: a local/dev
-# monorepo checkout, or the Docker image (see Dockerfile, which copies the
-# script into a sibling "ffv_scripts" folder next to this file).
+# sys.path plus a flat import instead. Candidate locations:
+# - local/dev monorepo checkout: <repo>/ai/ajrasakha/ffv/scripts/
+# - Docker image: <app_dir>/ffv_scripts/ (see Dockerfile, which copies the
+#   script into "ffv_scripts" folder next to main.py)
+_parents = Path(__file__).resolve().parents
 _CANDIDATE_DIRS = [
-    Path(__file__).resolve().parents[2] / "ai" / "ajrasakha" / "ffv" / "scripts",
+    # Only add repo-root-relative path if we're actually in a deep enough structure
+    *([_parents[2] / "ai" / "ajrasakha" / "ffv" / "scripts"] if len(_parents) > 2 else []),
+    # Always check the local "ffv_scripts" folder (works for Docker and local runs)
     Path(__file__).resolve().parent / "ffv_scripts",
 ]
 _scripts_dir = next((d for d in _CANDIDATE_DIRS if d.is_dir()), None)
