@@ -19,15 +19,7 @@ export interface VoiceRemarksInputProps {
     className?: string;
 }
 
-const SUPPORTED_SPEECH_LANGUAGES = [
-    { code: "en-IN", label: "English (India)" },
-    { code: "hi-IN", label: "Hindi (हिन्दी)" },
-    { code: "en-US", label: "English (US)" },
-    { code: "te-IN", label: "Telugu (తెలుగు)" },
-    { code: "ta-IN", label: "Tamil (தமிழ்)" },
-    { code: "mr-IN", label: "Marathi (मराठी)" },
-    { code: "bn-IN", label: "Bengali (বাংলা)" },
-];
+const SPEECH_LANGUAGE = "en-IN";
 
 export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
     label = "Remarks Details",
@@ -43,7 +35,6 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
 }) => {
     const [isListening, setIsListening] = useState(false);
     const [isFormatting, setIsFormatting] = useState(false);
-    const [speechLanguage, setSpeechLanguage] = useState("en-IN");
     const [autoOrganize, setAutoOrganize] = useState(true);
     const [speechSupported, setSpeechSupported] = useState(true);
     const [interimTranscript, setInterimTranscript] = useState("");
@@ -51,6 +42,7 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
 
     const recognitionRef = useRef<any>(null);
     const currentValueRef = useRef(value);
+    const baseTextOnStartRef = useRef("");
     const autoOrganizeRef = useRef(autoOrganize);
     const isListeningRef = useRef(isListening);
 
@@ -101,7 +93,7 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
             const result = await testerLogService.formatRemarks(
                 textToFormat,
                 category,
-                speechLanguage,
+                SPEECH_LANGUAGE,
             );
 
             if (result?.formattedText && result.formattedText.trim() !== textToFormat) {
@@ -134,17 +126,21 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                 recognitionRef.current.abort();
             }
 
+            // Snapshot existing textarea content before recording starts
+            const baseText = (currentValueRef.current || "").trim();
+            baseTextOnStartRef.current = baseText;
+
             const recognition = new SpeechRecognition();
             recognition.continuous = true;
             recognition.interimResults = true;
-            recognition.lang = speechLanguage;
+            recognition.lang = SPEECH_LANGUAGE;
 
             let finalAccumulated = "";
 
             recognition.onstart = () => {
                 setIsListening(true);
                 setInterimTranscript("");
-                toast.info("Microphone active. Speak your remarks clearly...");
+                toast.info("Microphone active. Speak your remarks in English...");
             };
 
             recognition.onresult = (event: any) => {
@@ -160,13 +156,12 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
 
                 setInterimTranscript(interim);
 
-                // Update text field progressively with spoken text
-                const baseText = currentValueRef.current.trim();
-                const totalText = finalAccumulated
-                    ? (baseText ? `${baseText} ${finalAccumulated}` : finalAccumulated)
-                    : baseText;
+                // Progressively append new spoken words to existing base text
+                const base = baseTextOnStartRef.current;
+                const spoken = finalAccumulated.trim();
+                const totalText = base ? (spoken ? `${base} ${spoken}` : base) : spoken;
 
-                if (totalText !== currentValueRef.current && finalAccumulated) {
+                if (spoken && totalText !== currentValueRef.current) {
                     onChange(totalText);
                 }
             };
@@ -186,10 +181,17 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                 setIsListening(false);
                 setInterimTranscript("");
 
-                // If auto-organize is enabled and we captured text, trigger AI formatting
-                const latestText = currentValueRef.current.trim();
-                if (autoOrganizeRef.current && latestText && latestText.length >= 5) {
-                    triggerAiFormatting(latestText);
+                const base = baseTextOnStartRef.current;
+                const spoken = finalAccumulated.trim();
+                const fullText = base ? (spoken ? `${base} ${spoken}` : base) : spoken;
+
+                if (spoken && fullText !== currentValueRef.current) {
+                    onChange(fullText);
+                }
+
+                // If auto-organize is enabled and new text was actually dictated, format the combined text
+                if (autoOrganizeRef.current && spoken && fullText.length >= 3) {
+                    triggerAiFormatting(fullText);
                 }
             };
 
@@ -247,21 +249,6 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
 
                 {/* Toolbar Controls */}
                 <div className="flex flex-wrap items-center gap-2">
-                    {/* Language selector */}
-                    <select
-                        aria-label="Speech language"
-                        value={speechLanguage}
-                        onChange={(e) => setSpeechLanguage(e.target.value)}
-                        disabled={isListening || isFormatting || disabled}
-                        className="text-xs h-7 px-2 py-0.5 rounded border border-border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                        {SUPPORTED_SPEECH_LANGUAGES.map((lang) => (
-                            <option key={lang.code} value={lang.code}>
-                                {lang.label}
-                            </option>
-                        ))}
-                    </select>
-
                     {/* Auto-organize Toggle */}
                     <label
                         className="flex items-center gap-1.5 text-xs text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors"

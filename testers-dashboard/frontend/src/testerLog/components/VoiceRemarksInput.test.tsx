@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { VoiceRemarksInput } from "./VoiceRemarksInput";
 import { TesterLogService } from "../services/testerLogService";
 
@@ -160,5 +160,62 @@ describe("VoiceRemarksInput", () => {
         );
 
         expect(screen.getByText(/Native speech recognition is not available/i)).toBeTruthy();
+    });
+
+    it("appends dictated speech to existing remarks without duplication", () => {
+        let recognitionInstance: any;
+        (window as any).SpeechRecognition = class MockSpeechRecognition {
+            continuous = true;
+            interimResults = true;
+            lang = "";
+            onstart: any = null;
+            onresult: any = null;
+            onerror: any = null;
+            onend: any = null;
+
+            constructor() {
+                recognitionInstance = this;
+            }
+
+            start() {
+                if (this.onstart) this.onstart();
+            }
+            stop() {
+                if (this.onend) this.onend();
+            }
+            abort() {
+                if (this.onend) this.onend();
+            }
+        };
+
+        const onChange = vi.fn();
+        render(
+            <VoiceRemarksInput
+                value="Initial typed defect."
+                onChange={onChange}
+            />
+        );
+
+        const micBtn = screen.getByRole("button", { name: /Speak Note/i });
+        fireEvent.click(micBtn);
+
+        // Simulate incoming final speech result
+        const mockResultEvent = {
+            resultIndex: 0,
+            results: [
+                Object.assign([{ transcript: "Server returned 500 error." }], { isFinal: true }),
+            ],
+        };
+
+        act(() => {
+            recognitionInstance.onresult(mockResultEvent);
+        });
+        expect(onChange).toHaveBeenCalledWith("Initial typed defect. Server returned 500 error.");
+
+        // Simulate onend
+        act(() => {
+            recognitionInstance.onend();
+        });
+        expect(onChange).toHaveBeenLastCalledWith("Initial typed defect. Server returned 500 error.");
     });
 });
