@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   ClipboardList,
+  ListChecks,
   Database,
   History,
   List,
@@ -176,6 +177,7 @@ export const MobileSidebar = ({
       ? [
           { id: "manage_agents", label: "Manage Agents", icon: Users },
           { id: "testers_dashboard", label: "Testers Dashboard", icon: ClipboardList },
+          { id: "gdb_cleaning", label: "GDB Cleaning", icon: ListChecks },
         ]
       : []),
 
