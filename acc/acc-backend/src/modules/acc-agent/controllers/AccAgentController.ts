@@ -175,12 +175,12 @@ export class AccAgentController {
             const queryToMatch = (body.metadata?.extracted_query || '').trim().toLowerCase();
             const matched = queryToMatch
               ? answersList.find((a: any) =>
-                  a?.query && (
-                    a.query.trim().toLowerCase() === queryToMatch ||
-                    a.query.trim().toLowerCase().includes(queryToMatch) ||
-                    queryToMatch.includes(a.query.trim().toLowerCase())
-                  )
+                a?.query && (
+                  a.query.trim().toLowerCase() === queryToMatch ||
+                  a.query.trim().toLowerCase().includes(queryToMatch) ||
+                  queryToMatch.includes(a.query.trim().toLowerCase())
                 )
+              )
               : null;
 
             if (matched?.answer) {
@@ -200,7 +200,7 @@ export class AccAgentController {
             weather = typeof finalAnswerObj.weather_response === 'string'
               ? JSON.parse(finalAnswerObj.weather_response)
               : finalAnswerObj.weather_response;
-          } catch (e) {}
+          } catch (e) { }
         }
 
         let gdbData = finalAnswerObj?.gdb || null;
@@ -209,7 +209,7 @@ export class AccAgentController {
             gdbData = typeof finalAnswerObj.gdb_response === 'string'
               ? JSON.parse(finalAnswerObj.gdb_response)
               : finalAnswerObj.gdb_response;
-          } catch (e) {}
+          } catch (e) { }
         }
         const similarPair = gdbData?.similar_pair1 || gdbData?.exact_match || null;
         const authorName = similarPair?.details?.[0]?.author_name || "";
@@ -249,7 +249,7 @@ export class AccAgentController {
             } else if (currentUser?.currentCallUuid && currentUser.currentCallUuid !== targetCallUuid) {
               const dbParent = await this.callDetailsRepository.getByCallUuid(currentUser.currentCallUuid);
               if (dbParent) {
-                console.log(`🔗 [AccAgentController] Redirected query from bridge leg ${targetCallUuid} to DB parent ${currentUser.currentCallUuid}`);
+                console.log(`[AccAgentController] Redirected query from bridge leg ${targetCallUuid} to DB parent ${currentUser.currentCallUuid}`);
                 targetCallUuid = currentUser.currentCallUuid;
                 existingCallDetails = dbParent;
               }
