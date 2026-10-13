@@ -50,6 +50,7 @@ interface QuestionAndContextPanelProps {
   fetchNextPage?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
+  hasTimeboundQuestions?: boolean;
 }
 export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = ({
   question,
@@ -71,6 +72,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   fetchNextPage,
   hasNextPage = false,
   isFetchingNextPage = false,
+  hasTimeboundQuestions = false,
 }) => {
   const [activeTab, setActiveTab] = useState<"current" | "queue">("current");
   const [showAllMetadata, setShowAllMetadata] = useState(false);
@@ -97,12 +99,63 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
     }
   };
 
+  // Source-based color themes (matching QaHeader.tsx)
+  const sourceStyles = {
+    AJRASAKHA: {
+      border: "border-blue-500",
+      bg: "bg-blue-50/40 dark:bg-blue-950/20",
+      hover: "hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-100/40 dark:hover:bg-blue-950/30",
+      selected: "border-blue-500 bg-blue-500/5 dark:bg-blue-500/10 ring-1 ring-blue-500/50",
+      indicator: "bg-blue-500",
+    },
+    WHATSAPP: {
+      border: "border-green-500",
+      bg: "bg-green-50/40 dark:bg-green-950/20",
+      hover: "hover:border-green-300 dark:hover:border-green-800 hover:bg-green-100/40 dark:hover:bg-green-950/30",
+      selected: "border-green-500 bg-green-500/5 dark:bg-green-500/10 ring-1 ring-green-500/50",
+      indicator: "bg-green-500",
+    },
+    OUTREACH: {
+      border: "border-orange-500",
+      bg: "bg-orange-50/40 dark:bg-orange-950/20",
+      hover: "hover:border-orange-300 dark:hover:border-orange-800 hover:bg-orange-100/40 dark:hover:bg-orange-950/30",
+      selected: "border-orange-500 bg-orange-500/5 dark:bg-orange-500/10 ring-1 ring-orange-500/50",
+      indicator: "bg-orange-500",
+    },
+    AGRI_EXPERT: {
+      border: "border-gray-500",
+      bg: "bg-gray-50/40 dark:bg-gray-950/20",
+      hover: "hover:border-gray-300 dark:hover:border-gray-800 hover:bg-gray-100/40 dark:hover:bg-gray-950/30",
+      selected: "border-gray-500 bg-gray-500/5 dark:bg-gray-500/10 ring-1 ring-gray-500/50",
+      indicator: "bg-gray-500",
+    },
+    DEFAULT: {
+      border: "border-yellow-500",
+      bg: "bg-yellow-50/40 dark:bg-yellow-950/20",
+      hover: "hover:border-yellow-300 dark:hover:border-yellow-800 hover:bg-yellow-100/40 dark:hover:bg-yellow-950/30",
+      selected: "border-yellow-500 bg-yellow-500/5 dark:bg-yellow-500/10 ring-1 ring-yellow-500/50",
+      indicator: "bg-yellow-500",
+    },
+  };
+
+  // Get source style for a question
+  const getSourceStyle = (source: string) => {
+    return sourceStyles[source as keyof typeof sourceStyles] || sourceStyles.DEFAULT;
+  };
+
   // Question card component for queue items
   const QuestionCard = ({ q }: { q: IQuestionContextData }) => {
     if (!q) return null;
     const qId = q?.id || (q as any)?._id;
     const isSelected = selectedQuestionId === qId;
+    const currentSourceStyle = getSourceStyle(q?.source);
+
+    // Check if this is a non-timebound question that should be disabled
+    const isTimeboundQuestion = q?.source === "AJRASAKHA" || q?.source === "WHATSAPP";
+    const shouldDisable = hasTimeboundQuestions && !isTimeboundQuestion;
+
     const handleSelect = () => {
+      if (shouldDisable) return;
       // Switch to current tab and notify parent to select question
       setActiveTab("current");
       onQuestionSelect?.(qId);
@@ -118,12 +171,17 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
       <button
         type="button"
         onClick={handleSelect}
-        className={`w-full text-left p-3.5 rounded-xl border transition-all space-y-2.5 ${
+        disabled={shouldDisable}
+        className={`w-full text-left p-3.5 rounded-xl border border-l-4 transition-all space-y-2.5 relative ${currentSourceStyle.border} ${
           isSelected
-            ? "border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary"
-            : "border-blue-100 dark:border-blue-950 bg-blue-50/40 dark:bg-blue-950/20 hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-100/40 dark:hover:bg-blue-950/30"
-        }`}
+            ? currentSourceStyle.selected
+            : `${currentSourceStyle.bg} ${shouldDisable ? "" : currentSourceStyle.hover}`
+        } ${shouldDisable ? "opacity-50 cursor-not-allowed select-none" : ""}`}
       >
+        {/* Left accent bar for selected state */}
+        {isSelected && (
+          <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${currentSourceStyle.indicator}`} />
+        )}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Badge
@@ -149,6 +207,12 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
         <p className="text-sm font-medium text-foreground leading-relaxed line-clamp-2">
           {questionText}
         </p>
+        {shouldDisable && (
+          <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 mt-1">
+            <Info className="w-3 h-3" />
+            Frozen - Complete timebound questions first
+          </div>
+        )}
       </button>
     );
   };

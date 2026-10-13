@@ -70,6 +70,11 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
 
   const questions = (questionPages?.pages?.flat() || []).filter(Boolean) as any[];
 
+  // Check if there are any timebound questions in the list
+  const hasTimeboundQuestions = questions.some(
+    (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+  );
+
   // Auto-select first question or timebound question with priority
   useEffect(() => {
     if (questions.length > 0 && !selectedQuestionId) {
@@ -340,6 +345,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               fetchNextPage={fetchNextPage}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}
+              hasTimeboundQuestions={hasTimeboundQuestions}
             />
           </div>
 
