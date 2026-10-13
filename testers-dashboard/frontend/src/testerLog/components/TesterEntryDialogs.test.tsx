@@ -337,6 +337,24 @@ describe("Edit", () => {
         save();
         expect(mutate.mock.calls[0][0].changes).toEqual({ waThreadId: "wa-new" });
     });
+
+    it("disables testerRemarks and sets it to 'No Action Required' when overallTestStatus is Pass", () => {
+        openEdit(webOnly);
+        expect((input("testerRemarks") as HTMLSelectElement).disabled).toBe(false);
+
+        fireEvent.change(input("overallTestStatus")!, { target: { value: "Pass" } });
+        expect(input("overallTestStatus")!.value).toBe("Pass");
+        expect(input("testerRemarks")!.value).toBe("No Action Required");
+        expect((input("testerRemarks") as HTMLSelectElement).disabled).toBe(true);
+        expect((input("defectSeverity") as HTMLSelectElement).disabled).toBe(true);
+        expect((input("defectIdBugRef") as HTMLInputElement).disabled).toBe(true);
+
+        // Switching back to Fail re-enables remarks and clears No Action Required
+        fireEvent.change(input("overallTestStatus")!, { target: { value: "Fail" } });
+        expect(input("overallTestStatus")!.value).toBe("Fail");
+        expect(input("testerRemarks")!.value).toBe("");
+        expect((input("testerRemarks") as HTMLSelectElement).disabled).toBe(false);
+    });
 });
 
 describe("Tester Data table", () => {

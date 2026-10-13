@@ -30,6 +30,7 @@ export interface ITesterLogEntry {
     translationQuality?: string;
     translationErrorType?: string;
     tagging?: string;
+    retrievalAccuracy?: string;
 
     allocatedToReviewer?: string;
     authorsName?: string;
@@ -79,6 +80,7 @@ export interface ITesterLogEntry {
     notificationLinkedCorrectQId?: string;
     voiceInputWorking?: string;
     voiceOutputWorking?: string;
+    voiceInputIssueDescription?: string;
     voiceInputQuality?: string;
     voiceOutputQuality?: string;
     voiceIssueDescription?: string;
@@ -96,6 +98,7 @@ export interface ITesterLogEntry {
     defectIdBugRef?: string;
     reviewerRemarks?: string;
     testerRemarks?: string;
+    testerRemarksNotes?: string;
     status?: string;
 
     // Cross-Platform Dual-Channel Fields (Used when channelTested === 'Both')
@@ -107,6 +110,7 @@ export interface ITesterLogEntry {
     waSlaStatus?: string;
     waVoiceInputWorking?: string;
     waVoiceOutputWorking?: string;
+    waVoiceInputIssueDescription?: string;
     waVoiceInputQuality?: string;
     waVoiceOutputQuality?: string;
     waVoiceIssueDescription?: string;
@@ -151,6 +155,8 @@ export interface ITesterLogAdminFilters {
     channelTested?: string;
     overallTestStatus?: string;
     defectSeverity?: string;
+    search?: string;
+    status?: string;
 }
 
 export interface ICreateTesterLogEntryResponse {
@@ -273,6 +279,8 @@ export interface ITesterLogSummaryResponse {
     scientificAccuracy: {
         correct: number;
         incorrect: number;
+        partiallyCorrect?: number;
+        totalChecked?: number;
         rate: number;
     };
     dbPersistence: {
@@ -288,6 +296,8 @@ export interface ITesterLogSummaryResponse {
     crossPlatformStats?: {
         totalCrossPlatform: number;
         matchedAnswers: number;
+        partialMatches?: number;
+        mismatches?: number;
         parityRate: number;
     };
     targetVsAchieved?: ITargetVsAchievedSummary;
@@ -297,10 +307,13 @@ export interface ITargetAchievedRow {
     questionType: string;
     targetTotal: number;
     achievedTotal: number;
+    rawAchievedTotal?: number;
     targetWebApp: number;
     achievedWebApp: number;
+    rawAchievedWebApp?: number;
     targetWhatsApp: number;
     achievedWhatsApp: number;
+    rawAchievedWhatsApp?: number;
     completionRate: number;
 }
 
@@ -314,6 +327,7 @@ export interface ITargetVsAchievedSummary {
 export const TYPE_OF_QUESTION_OPTIONS = [
     'Unique', 'GDB', 'Outreach',
     'Weather Dynamic', 'Scheme Dynamic', 'Mandi Dynamic',
+    'Static Dynamic',
 ];
 
 /**
@@ -330,6 +344,23 @@ export function isDynamicQuestionType(type?: string): boolean {
         lower.includes('mandi') ||
         lower.includes('market')
     );
+}
+
+/**
+ * Returns true if tagging indicates a dynamic question.
+ * The logic to exclude Section 4 reviewer workflow moves from Question Type to Tagging.
+ */
+export function isDynamicTagging(tagging?: string): boolean {
+    if (!tagging) return false;
+    return tagging.toLowerCase().includes('dynamic');
+}
+
+/**
+ * Returns true if tagging indicates a duplicate question.
+ */
+export function isDuplicateTagging(tagging?: string): boolean {
+    if (!tagging) return false;
+    return tagging.toLowerCase().includes('duplicate');
 }
 
 export function isCrossPlatform(channel?: string): boolean {
@@ -349,70 +380,81 @@ export function synthesizeOverallTestStatus(webStatus?: string, waStatus?: strin
     const w1 = webStatus.toLowerCase();
     const w2 = waStatus.toLowerCase();
     if (w1 === "pass" && w2 === "pass") return "Pass";
-    if (w1 === "fail" && w2 === "fail") return "Fail";
-    if (w1 === "na" && w2 === "na") return "NA";
-    return "Partial";
+    return "Fail";
 }
 
 export const CHANNEL_OPTIONS = ['WhatsApp', 'WebApp', 'Both'];
 
 export const QUESTION_CATEGORY_OPTIONS = [
-    'Weed Management',
-    'Agricultural Schemes and Subsidies',
-    'Climate, Weather and Stress Management',
-    'Credit, Loan and Insurance',
-    'Cultural and Crop management practices',
-    'Disease Management',
-    'Farm Tools and Mechanisation',
-    'Insect-Pest Management',
+    'Soil Health and Nutrient Management',
     'Irrigation and Water Management',
-    'Market Prices, MSP and Marketing',
-    'Organic and Natural farming',
-    'Post-Harvest Management and Storage',
+    'Insect-Pest Management',
+    'Disease Management',
     'Seed and Variety Selection',
-    'Soil Health and Nutrient management',
-    'Plant Protection',
-    'Bio-Fertilizers and Bio-pesticides',
-    'Extension and Capacity Building',
-    'Live Stock and Animal Husbandry',
-    'Horticulture and allied agriculture',
-    'Sowing time and weather',
-    'Fertiliser use and Availability',
-    'Financial and Institutional services',
-    'Market Information',
-    'Field Preparation',
-    'Yield and Plant Population',
-    'Agriculture Mechanisation',
-    'Wild animal',
-    'Soil Testing',
-    'Infrastructure and utilities',
+    'Cultural and Crop Management Practices',
+    'Organic and Natural Farming',
+    'Weed Management',
+    'Climate, Weather & Stress Management',
+    'Farm Tools & Mechanisation',
+    'Post-Harvest Management & Storage',
+    'Market Prices, MSP & Marketing',
+    'Agricultural Schemes & Subsidies',
+    'Credit, Loan & Insurance',
+    'Capacity Building, Extension and Communication',
+    'Rural Infrastructure',
+    'Animal Husbandry & Livestock',
+    'Fisheries & Aquaculture',
+    'Allied Agricultural Activities',
 ];
 
 export const SLA_STATUS_OPTIONS = ['Within SLA', 'SLA Breached', 'Not Applicable'];
 
-export const REVIEW_MODEL_OPTIONS = [
-    'Yes', 'No', 'NA', 'Successfully Identified as duplicate', 'Wrongly Identified as duplicate',
-];
+export const REVIEW_MODEL_OPTIONS = ['Yes', 'No', 'NA'];
 
-export const QUESTION_FRAMED_OPTIONS = ['Well Framed', 'Ambiguous', 'Incorrectly Framed', 'NA'];
+export const QUESTION_FRAMED_OPTIONS = ['Yes', 'No', 'Partially Correct', 'NA'];
 
-export const ALLOCATED_TO_REVIEWER_OPTIONS = ['Yes', 'No', 'NA', 'Duplicate'];
+export const ALLOCATED_TO_AUTHOR_OPTIONS = ['Yes', 'No', 'NA'];
+export const ALLOCATED_TO_REVIEWER_OPTIONS = ALLOCATED_TO_AUTHOR_OPTIONS;
 
-export const FOLLOW_UP_MODEL_OPTIONS = [
-    'Yes', 'No', 'NA', 'Successfully identified as Duplicate', 'wrongly identified as duplicate',
-];
+export const FOLLOW_UP_MODEL_OPTIONS = ['Yes', 'No', 'NA'];
 
 export const ANSWER_CORRECT_OPTIONS = ['Correct', 'Incorrect', 'Partially Correct'];
 
-export const EXPERT_DISPLAYED_OPTIONS = ['Displayed', 'Not Displayed', 'Wrong Expert', 'NA'];
+export const EXPERT_DISPLAYED_OPTIONS = ['Displayed', 'Not Displayed', 'Expert Name Mismatch', 'NA'];
+
+export const SOURCE_LINKS_OPTIONS = [
+    'Correct link provided',
+    'Incorrect Link provided',
+    'Link not provided',
+    'Link not accessible',
+    'NA',
+];
 
 export const YES_NO_NA_DUP_OPTIONS = [
     'Yes', 'No', 'NA', 'Successfully identified as Duplicate', 'wrongly identified as duplicate',
 ];
 
-export const MSG_120_OPTIONS = ['Yes', 'No', 'NA', 'Duplicate'];
+export const DISCLAIMER_120_OPTIONS = ['Received', 'Not Received', 'NA'];
+export const MSG_120_OPTIONS = DISCLAIMER_120_OPTIONS;
 
-export const NOTIFICATION_OPTIONS = ['Yes', 'No', 'Received on time', 'Received Late', 'Not Received', 'NA'];
+export const NOTIFICATION_RECEIVED_OPTIONS = ['Received', 'Not Received', 'NA'];
+export const NOTIFICATION_OPTIONS = NOTIFICATION_RECEIVED_OPTIONS;
+
+export const NOTIFICATION_SAME_THREAD_OPTIONS = [
+    'Yes - on same thread',
+    'No - on Different Thread',
+    'Notification not received',
+    'NA',
+];
+
+export const NOTIFICATION_LINKED_QID_OPTIONS = [
+    'Yes',
+    'Incorrect Q-ID',
+    'Q-ID missing',
+    'NA',
+];
+
+export const YES_NO_NA_OPTIONS = ['Yes', 'No', 'NA'];
 
 export const YES_NO_PARTIAL_NA_OPTIONS = ['Yes', 'No', 'Partial', 'NA'];
 
@@ -422,13 +464,48 @@ export const QID_CONSISTENT_OPTIONS = [
     'Yes', 'No', 'NA', 'Successfully Identified as duplicate', 'Wrongly Identified as duplicate',
 ];
 
-export const OVERALL_STATUS_OPTIONS = ['Pass', 'Fail', 'NA', 'Partial'];
+export const OVERALL_STATUS_OPTIONS = ['Pass', 'Fail'];
 
 export const STATUS_OPTIONS = ['Anomaly Found in Output', 'Expected Output', 'Pending'];
 
-export const TRANSLATION_QUALITY_OPTIONS = ['Good', 'Fair', 'Poor', 'NA'];
+export const TRANSLATION_QUALITY_OPTIONS = ['Good', 'Acceptable', 'Not Acceptable', 'NA'];
 
-export const DEFECT_SEVERITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low', 'Nil'];
+export const TRANSLATION_ERROR_TYPE_OPTIONS = [
+    'No Error',
+    'Intent Error',
+    'Word Error',
+    'Grammar Error',
+    'Partial Translation',
+    'NA',
+];
+
+export const TRANSLATION_ERROR_MAP: Record<string, string[]> = {
+    Good: ['No Error'],
+    Acceptable: ['Grammar Error'],
+    'Not Acceptable': ['Intent Error', 'Word Error', 'Partial Translation'],
+    NA: ['NA'],
+};
+
+export function getTranslationErrorOptions(quality?: string): string[] {
+    if (!quality) return [];
+    return TRANSLATION_ERROR_MAP[quality.trim()] || [];
+}
+
+export const DEFECT_SEVERITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low', 'NA'];
+
+export const VOICE_ISSUE_OPTIONS = [
+    'Speech Not Recognized',
+    'Incorrect Transcription',
+    'Words Missing',
+    'Wrong/Extra Words',
+    'Local Language/Dialect Not Recognized',
+    'Background Noise',
+    'N/A',
+];
+
+export const VOICE_INPUT_QUALITY_OPTIONS = ['Correct', 'Incorrect', 'Error Displayed', 'NA'];
+
+export const VOICE_OUTPUT_QUALITY_OPTIONS = ['Clear', 'Unclear', 'Error Displayed', 'NA'];
 
 export const VOICE_QUALITY_OPTIONS = [
     'Clear',
@@ -437,6 +514,15 @@ export const VOICE_QUALITY_OPTIONS = [
     'High Volume',
     'No Output',
     'NA',
+];
+
+export const WHATSAPP_VS_WEB_MATCH_OPTIONS = ['Proper Match', 'Partial Match', 'Mismatch', 'NA'];
+
+export const TESTER_REMARKS_OPTIONS = [
+    'No Action Required',
+    'Minor Modification',
+    'Major Modification',
+    'Needs Review',
 ];
 
 export const INDIAN_LANGUAGES_OPTIONS = [
@@ -466,4 +552,50 @@ export const INDIAN_LANGUAGES_OPTIONS = [
     'Others',
 ];
 
-export const TAGGING_OPTIONS = ['Tagged as Duplicate', 'Other'];
+export const TAGGING_OPTIONS = [
+    'Correctly tagged as duplicate',
+    'Wrongly tagged as duplicate',
+    'Duplicate but not tagged',
+    'Queue Duplicate',
+    'Correctly tagged as dynamic',
+    'Wrongly tagged as dynamic',
+    'Dynamic but not tagged',
+    'New Question',
+    'Correctly tagged as Static Dynamic',
+    'Wrongly tagged as Static Dynamic',
+    'Static Dynamic but not tagged',
+];
+
+export const RETRIEVAL_ACCURACY_OPTIONS = [
+    'Correct Retrieval',
+    'Incorrect Retrieval',
+    'Partial Retrieval',
+    'No Retrieval',
+];
+
+export const TEXT_FIELD_LIMITS = {
+    QUERY_TEXT_MIN: 3,
+    QUERY_TEXT_MAX: 1000,
+    BUILD_VERSION_MAX: 50,
+    THREAD_ID_MAX: 100,
+    WA_THREAD_ID_MAX: 50,
+    NAME_MIN: 2,
+    NAME_MAX: 100,
+    DISCREPANCY_NOTES_MAX: 1000,
+    REMARKS_NOTES_MIN: 3,
+    REMARKS_NOTES_MAX: 2000,
+    LANGUAGE_MAX: 50,
+    DEFECT_URL_MAX: 500,
+    TEST_ID_MAX: 30,
+    SPRINT_CYCLE_MAX: 50,
+} as const;
+
+export const BUILD_VERSION_REGEX = /^(?=.*\d)[a-zA-Z0-9][a-zA-Z0-9.\-_/\s()]{0,49}$/;
+export const THREAD_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._:\-\/]{0,99}$/;
+export const WA_THREAD_ID_REGEX = /^(\+?[0-9]{7,15}|[a-zA-Z0-9._\-]{1,50})$/;
+export const PERSON_NAME_REGEX = /^[a-zA-Z\s.'\-]{2,100}$/;
+export const LANGUAGE_NAME_REGEX = /^[a-zA-Z\s,+/.\-]{2,50}$/;
+export const TEST_ID_REGEX = /^[a-zA-Z0-9._\-]{1,30}$/;
+export const HTTP_URL_REGEX = /^https?:\/\/.+/i;
+export const ZOHO_DESK_URL_REGEX = /^https?:\/\/(desk\.zoho\.(in|com|eu|com\.cn|com\.au)|([a-zA-Z0-9-]+\.)?zoho\.(in|com|eu)\/desk)\/.+$/i;
+

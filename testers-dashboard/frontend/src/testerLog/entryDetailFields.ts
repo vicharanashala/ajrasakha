@@ -72,8 +72,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "Question Quality",
         icon: MessageCircleQuestion,
         fields: [
-            { key: "questionInReviewModel", label: "Question in Review Model?" },
-            { key: "questionCorrectlyFramed", label: "Question Correctly Framed?" },
+            { key: "questionInReviewModel", label: "Question Appeared in Review Model?" },
+            { key: "questionCorrectlyFramed", label: "Question Framed Correctly?" },
             { key: "originalLanguage", label: "Original Language" },
             { key: "translatedLanguage", label: "Translated Language" },
             { key: "translationQuality", label: "Translation Quality" },
@@ -85,7 +85,7 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "Reviewer Workflow — Author",
         icon: Users,
         fields: [
-            { key: "allocatedToReviewer", label: "Allocated to Reviewer?" },
+            { key: "allocatedToReviewer", label: "Allocated to Author?" },
             { key: "authorsName", label: "Author Name" },
             { key: "authorAssignmentTime", label: "Author Assignment Time", isDateTime: true },
             { key: "authorCompletionTime", label: "Author Completion Time", isDateTime: true },
@@ -157,9 +157,9 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         icon: CircleCheckBig,
         fields: [
             { key: "followUpQInReviewModel", label: "Follow-up Q in Review Model?" },
-            { key: "answerScientificallyCorrect", label: "Answer Scientifically Correct?" },
+            { key: "answerScientificallyCorrect", label: "Scientific Accuracy" },
+            { key: "retrievalAccuracy", label: "Retrieval Accuracy" },
             { key: "expertNameDisplayed", label: "Expert Name Displayed?" },
-            { key: "correctExpertNameDisplayed", label: "Correct Expert Name Displayed?" },
             { key: "correctSourceLinksProvided", label: "Correct Source Links Provided?" },
         ],
     },
@@ -167,15 +167,16 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
         title: "Notifications & Voice",
         icon: Bell,
         fields: [
-            { key: "msg120MinShownToUser", label: "120-min Msg Shown to User?" },
+            { key: "msg120MinShownToUser", label: "120-min Disclaimer Received by the User?" },
             { key: "notificationReceived", label: "Notification Received?" },
             { key: "notificationOnSameThread", label: "Notification on Same Thread?" },
-            { key: "notificationLinkedCorrectQId", label: "Notification Linked Correct Q-ID?" },
+            { key: "notificationLinkedCorrectQId", label: "Notification Linked to Correct Q-ID?" },
             { key: "voiceInputWorking", label: "Voice Input Working?" },
             { key: "voiceOutputWorking", label: "Voice Output Working?" },
+            { key: "voiceInputIssueDescription", label: "Voice Input Issue Description" },
             { key: "voiceInputQuality", label: "Voice Input Quality" },
             { key: "voiceOutputQuality", label: "Voice Output Quality" },
-            { key: "voiceIssueDescription", label: "Voice Issue Description" },
+            { key: "voiceIssueDescription", label: "Voice Output Issue Description" },
         ],
     },
     {
@@ -185,10 +186,7 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
             { key: "weatherQAnsweredCorrectly", label: "Weather Q Answered Correctly?" },
             { key: "mandiPriceQCorrect", label: "Mandi Price Q Correct?" },
             { key: "schemeQCorrect", label: "Scheme Q Correct?" },
-            { key: "questionSavedInDb", label: "Question Saved in DB?" },
-            { key: "answerSavedInDb", label: "Answer Saved in DB?" },
-            { key: "qIdConsistentAcrossSystems", label: "Q-ID Consistent Across Systems?" },
-            { key: "whatsappVsWebAnswerMatch", label: "WhatsApp vs Web Answer Match?" },
+            { key: "whatsappVsWebAnswerMatch", label: "WhatsApp vs Web Application Answer Match?" },
         ],
     },
     {
@@ -198,9 +196,8 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
             { key: "overallTestStatus", label: "Overall Test Status" },
             { key: "defectSeverity", label: "Defect Severity" },
             { key: "defectIdBugRef", label: "Defect ID / Bug Ref" },
-            { key: "reviewerRemarks", label: "Reviewer Remarks" },
             { key: "testerRemarks", label: "Tester Remarks" },
-            { key: "status", label: "Status" },
+            { key: "testerRemarksNotes", label: "Remarks Details" },
         ],
     },
 ];
@@ -247,6 +244,14 @@ export const CROSS_PLATFORM_FIELD_PAIRS: ICrossPlatformFieldPair[] = [
     {
         webKey: "voiceOutputWorking", webLabel: "Voice Output Working?",
         waKey: "waVoiceOutputWorking", waLabel: "WhatsApp Voice Output Working?",
+    },
+    {
+        webKey: "voiceInputIssueDescription", webLabel: "Voice Input Issue Description",
+        waKey: "waVoiceInputIssueDescription", waLabel: "WhatsApp Voice Input Issue Description",
+    },
+    {
+        webKey: "voiceIssueDescription", webLabel: "Voice Output Issue Description",
+        waKey: "waVoiceIssueDescription", waLabel: "WhatsApp Voice Output Issue Description",
     },
     {
         webKey: "webOverallTestStatus", webLabel: "Web Overall Test Status",

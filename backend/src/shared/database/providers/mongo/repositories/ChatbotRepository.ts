@@ -20436,6 +20436,7 @@ async getAllUserMessageIds(
             _id: 1,
           },
         })
+          .sort({createdAt: -1, _id: -1})
           .skip((page - 1) * limit)
           .limit(limit)
           .map(x => x._id.toString())
@@ -20494,6 +20495,9 @@ async getAllUserMessageIds(
                 ],
               },
             },
+          },
+          {
+            $sort: {createdAt: -1, _id: -1},
           },
           {
             $project: {
@@ -20569,6 +20573,9 @@ async getAllUserMessageIds(
             },
           },
           {
+            $sort: {createdAt: -1, _id: -1},
+          },
+          {
             $project: {
               _id: 1,
             },
@@ -20588,6 +20595,7 @@ async getAllUserMessageIds(
             _id: 1,
           },
         })
+          .sort({createdAt: -1, _id: -1})
           .skip((page - 1) * limit)
           .limit(limit)
           .map(x => x._id.toString())
@@ -20608,6 +20616,7 @@ async getAllUserMessageIds(
             _id: 1,
           },
         })
+          .sort({createdAt: -1, _id: -1})
           .skip((page - 1) * limit)
           .limit(limit)
           .map(x => x._id.toString())

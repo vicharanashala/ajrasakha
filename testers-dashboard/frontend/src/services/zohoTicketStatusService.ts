@@ -16,9 +16,18 @@ export interface IZohoTicketStatus {
     lastCheckedAt: string;
 }
 
+// GET /dashboard/testers/zoho-status - every Zoho Desk Bugs Tracker ticket,
+// fetched directly from Zoho by the backend on request (no scheduled sync).
 export interface IZohoTicketStatusResponse {
     success: boolean;
     statuses: Record<string, IZohoTicketStatus>;
+    // When the backend fetched these from Zoho (null if never fetched).
+    fetchedAt?: string | null;
+    // True when Zoho couldn't be reached and these are the previous fetch's statuses.
+    stale?: boolean;
+    // False when the backend has no Zoho credentials configured.
+    configured?: boolean;
+    error?: string;
 }
 
 export interface ZohoTeam {

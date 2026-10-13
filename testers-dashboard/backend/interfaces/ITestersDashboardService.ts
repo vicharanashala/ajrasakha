@@ -2,6 +2,7 @@ import type { KpiSummary, PreviousPeriodStats, ChannelPerformanceStat, LanguageP
 import type { DiagnosticsResult } from '../testersDashboard/diagnostics.js';
 import type { ChartData } from '../testersDashboard/chartData.js';
 import type { GetTestersDashboardQuery } from '../validators/TestersDashboardValidators.js';
+import type { DbFilterOptions } from '../services/dbFilterOptions.js';
 
 export interface TestersDashboardRecord {
     [key: string]: string;
@@ -26,6 +27,9 @@ export interface TestersDashboardSummaryResponse {
     chartData: ChartData;
     previousPeriodStats: PreviousPeriodStats | null;
     filterOptions: Record<string, string[]>;
+    // DB source only: Tester UI-based filter options with per-option counts
+    // from stored entries, zero-count options included (see dbFilterOptions.ts).
+    dbFilterOptions?: DbFilterOptions;
     lastSyncedAt: string | null;
     // Channel-wise Performance / Language Performance cards (see kpis.ts). Computed over the
     // same filtered row set as kpis/diagnostics/chartData above, so they react to every filter

@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ZohoTicketStatusService, mapZohoPriorityToSeverity, ZOHO_BUGS_TRACKER_LAYOUT_ID } from '../services/ZohoTicketStatusService.js';
 
@@ -45,6 +48,10 @@ describe('ZohoTicketStatusService.createTicket', () => {
             json: async () => ({ access_token: 'mock-access-token', expires_in: 3600 }),
         });
 
+        // A ticket list fetch has already happened (the ticket card loaded) -
+        // one empty page.
+        mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: [] }) });
+
         // Mock ticket creation API call
         mockFetch.mockResolvedValueOnce({
             ok: true,
@@ -58,6 +65,7 @@ describe('ZohoTicketStatusService.createTicket', () => {
 
         // Temporarily stub isConfigured by checking token fetch
         (service as any).isConfigured = () => true;
+        expect((await service.getTicketStatuses()).statuses).toEqual({});
 
         const result = await service.createTicket({
             subject: '[QA Defect] Incorrect Mandi Price',
@@ -73,11 +81,15 @@ describe('ZohoTicketStatusService.createTicket', () => {
         expect(result.ticket?.status).toBe('Open');
         expect(result.ticket?.url).toContain('202216000001888999');
 
-        // Check cached status
-        const cached = service.getCachedStatuses()['202216000001888999'];
-        expect(cached).toBeDefined();
-        expect(cached.ticketNumber).toBe('540');
-        expect(cached.status).toBe('Open');
+        // The new ticket shows on the ticket card right away - added to the
+        // current ticket snapshot, no Zoho refetch needed.
+        const callsBefore = mockFetch.mock.calls.length;
+        const created = (await service.getTicketStatuses()).statuses['202216000001888999'];
+        expect(mockFetch.mock.calls.length).toBe(callsBefore);
+        expect(created).toBeDefined();
+        expect(created.ticketNumber).toBe('540');
+        expect(created.status).toBe('Open');
+        expect(created.severity).toBe('High');
     });
 
     it('gracefully handles scope mismatch / permission error and sets requiresScopeUpgrade', async () => {
@@ -110,6 +122,19 @@ describe('ZohoTicketStatusService.createTicket', () => {
         expect(result.success).toBe(false);
         expect(result.requiresScopeUpgrade).toBe(true);
         expect(result.error).toContain('Desk.tickets.CREATE');
+    });
+
+    it('rejects dueDate in the past (Issue #16)', async () => {
+        (service as any).isConfigured = () => true;
+
+        const result = await service.createTicket({
+            subject: '[QA Defect] Past Due Date Test',
+            description: 'Testing past due date rejection',
+            dueDate: '2020-01-01',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('Due Date cannot be earlier than today.');
     });
 });
 
@@ -145,7 +170,9 @@ describe('mapZohoPriorityToSeverity', () => {
     });
 });
 
-describe('ZohoTicketStatusService.syncAllBugsTrackerTickets', () => {
+// The ticket card's tickets come straight from Zoho when a request needs
+// them - no cron/scheduled sync and no QA sheet/CSV.
+describe('ZohoTicketStatusService.getTicketStatuses - direct Zoho fetch', () => {
     let service: ZohoTicketStatusService;
     const originalFetch = global.fetch;
 
@@ -177,141 +204,176 @@ describe('ZohoTicketStatusService.syncAllBugsTrackerTickets', () => {
         };
     }
 
+    const page = (data: unknown[]) => ({ ok: true, status: 200, json: async () => ({ data }) });
+
+    it('fetches from Zoho on the first request - nothing has to have run beforehand', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        mockFetch.mockResolvedValueOnce(page([ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'P0 - Critical' })]));
+
+        const result = await service.getTicketStatuses();
+
+        expect(mockFetch).toHaveBeenCalledTimes(2); // token + 1 page
+        expect(mockFetch.mock.calls[1]![0]).toContain('/api/v1/tickets?include=team&from=0&limit=100');
+        expect(result).toMatchObject({ configured: true, stale: false });
+        expect(Object.keys(result.statuses)).toEqual(['1']);
+        expect(result.fetchedAt).not.toBeNull();
+    });
+
     it('keeps only Bugs Tracker tickets (by layoutId), excluding other layouts (Annam.ai/Anveshan)', async () => {
         const mockFetch = vi.fn();
         global.fetch = mockFetch;
         mockTokenRefresh(mockFetch);
-        mockFetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-                data: [
-                    ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'P0 - Critical' }),
-                    ticket({ id: '2', layoutId: OTHER_LAYOUT_ID_1, priority: 'P0 - Critical' }),
-                    ticket({ id: '3', layoutId: OTHER_LAYOUT_ID_2, priority: 'P0 - Critical' }),
-                    ticket({ id: '4', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'High' }),
-                ],
-            }),
-        });
-
-        await service.syncAllBugsTrackerTickets();
-
-        const cached = service.getCachedStatuses();
-        expect(Object.keys(cached).sort()).toEqual(['1', '4']);
-        expect(cached['2']).toBeUndefined();
-        expect(cached['3']).toBeUndefined();
-    });
-
-    it('maps priority to severity and carries status/team/ticketNumber through for every cached ticket', async () => {
-        const mockFetch = vi.fn();
-        global.fetch = mockFetch;
-        mockTokenRefresh(mockFetch);
-        mockFetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-                data: [
-                    ticket({ id: '10', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'P0 - Critical', status: 'Open', teamName: 'QA Team', ticketNumber: '900' }),
-                    ticket({ id: '11', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: null, status: 'Closed' }),
-                ],
-            }),
-        });
-
-        await service.syncAllBugsTrackerTickets();
-
-        const cached = service.getCachedStatuses();
-        expect(cached['10']).toMatchObject({
-            ticketId: '10',
-            status: 'Open',
-            team: 'QA Team',
-            ticketNumber: '900',
-            priority: 'P0 - Critical',
-            severity: 'Critical',
-        });
-        expect(cached['11']).toMatchObject({
-            ticketId: '11',
-            status: 'Closed',
-            team: null,
-            priority: null,
-            severity: 'No priority',
-        });
-        expect(cached['11']!.url).toContain('11');
-    });
-
-    it('pages through the ticket list until a short page signals the end', async () => {
-        const mockFetch = vi.fn();
-        global.fetch = mockFetch;
-        mockTokenRefresh(mockFetch);
-
-        const firstPage = Array.from({ length: 100 }, (_, i) =>
-            ticket({ id: String(i + 1), layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Medium' }),
+        mockFetch.mockResolvedValueOnce(
+            page([
+                ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'P0 - Critical' }),
+                ticket({ id: '2', layoutId: OTHER_LAYOUT_ID_1, priority: 'P0 - Critical' }),
+                ticket({ id: '3', layoutId: OTHER_LAYOUT_ID_2, priority: 'P0 - Critical' }),
+                ticket({ id: '4', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'High' }),
+            ]),
         );
-        const secondPage = [ticket({ id: '101', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Low' })];
 
-        mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: firstPage }) });
-        mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: secondPage }) });
-
-        await service.syncAllBugsTrackerTickets();
-
-        expect(mockFetch).toHaveBeenCalledTimes(3); // token + 2 pages
-        expect(mockFetch.mock.calls[1]![0]).toContain('from=0');
-        expect(mockFetch.mock.calls[2]![0]).toContain('from=100');
-        expect(Object.keys(service.getCachedStatuses()).length).toBe(101);
-    });
-
-    it('leaves the previous cache untouched when a page fetch fails mid-sync (no partial overwrite)', async () => {
-        // First, a successful sync populates the cache.
-        const mockFetch = vi.fn();
-        global.fetch = mockFetch;
-        mockTokenRefresh(mockFetch);
-        mockFetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ data: [ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Critical' })] }),
-        });
-        await service.syncAllBugsTrackerTickets();
-        expect(Object.keys(service.getCachedStatuses())).toEqual(['1']);
-
-        // Second sync: token refresh succeeds (still cached from before, so
-        // no new token call), but the ticket page fails.
-        mockFetch.mockResolvedValueOnce({
-            ok: false,
-            status: 500,
-            text: async () => 'Internal Server Error',
-        });
-        await service.syncAllBugsTrackerTickets();
-
-        // The failed sync must not have wiped out ticket "1".
-        expect(Object.keys(service.getCachedStatuses())).toEqual(['1']);
+        const { statuses } = await service.getTicketStatuses();
+        expect(Object.keys(statuses).sort()).toEqual(['1', '4']);
     });
 
     it('excludes tickets assigned to the Agent Calling Center Team, even though they are Bugs Tracker layout', async () => {
         const mockFetch = vi.fn();
         global.fetch = mockFetch;
         mockTokenRefresh(mockFetch);
-        mockFetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-                data: [
-                    ticket({ id: '20', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'P0 - Critical', teamName: 'Agent Calling Center Team' }),
-                    ticket({ id: '21', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'High', teamName: 'QA Team' }),
-                    ticket({ id: '22', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Low', teamName: null }),
-                ],
-            }),
-        });
+        mockFetch.mockResolvedValueOnce(
+            page([
+                ticket({ id: '20', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'P0 - Critical', teamName: 'Agent Calling Center Team' }),
+                ticket({ id: '21', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'High', teamName: 'QA Team' }),
+                ticket({ id: '22', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Low', teamName: null }),
+            ]),
+        );
 
-        await service.syncAllBugsTrackerTickets();
-
-        const cached = service.getCachedStatuses();
-        expect(Object.keys(cached).sort()).toEqual(['21', '22']);
-        expect(cached['20']).toBeUndefined();
+        const { statuses } = await service.getTicketStatuses();
+        expect(Object.keys(statuses).sort()).toEqual(['21', '22']);
     });
 
-    it('does nothing when Zoho is not configured', async () => {
+    it('maps priority to severity and carries status/team/ticketNumber through for every ticket', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        mockFetch.mockResolvedValueOnce(
+            page([
+                ticket({ id: '10', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'P0 - Critical', status: 'Open', teamName: 'QA Team', ticketNumber: '900' }),
+                ticket({ id: '11', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: null, status: 'Closed' }),
+            ]),
+        );
+
+        const { statuses } = await service.getTicketStatuses();
+        expect(statuses['10']).toMatchObject({ ticketId: '10', status: 'Open', team: 'QA Team', ticketNumber: '900', priority: 'P0 - Critical', severity: 'Critical' });
+        expect(statuses['11']).toMatchObject({ ticketId: '11', status: 'Closed', team: null, priority: null, severity: 'No priority' });
+        expect(statuses['11']!.url).toContain('11');
+    });
+
+    it('pages through the whole ticket list, so "all tickets" is every page', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        const full = (start: number) =>
+            Array.from({ length: 100 }, (_, i) => ticket({ id: String(start + i), layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Medium' }));
+        mockFetch.mockResolvedValueOnce(page(full(1)));
+        mockFetch.mockResolvedValueOnce(page(full(101)));
+        mockFetch.mockResolvedValueOnce(page([ticket({ id: '201', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Low' })]));
+
+        const { statuses } = await service.getTicketStatuses();
+
+        expect(mockFetch).toHaveBeenCalledTimes(4); // token + 3 pages
+        expect(mockFetch.mock.calls.slice(1).map((c) => String(c[0]).match(/from=(\d+)/)![1])).toEqual(['0', '100', '200']);
+        expect(Object.keys(statuses).length).toBe(201);
+    });
+
+    it('treats an empty 204 page as the end of the list', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        mockFetch.mockResolvedValueOnce(page(Array.from({ length: 100 }, (_, i) => ticket({ id: String(i + 1), layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID }))));
+        mockFetch.mockResolvedValueOnce({ ok: true, status: 204, json: async () => { throw new Error('no body'); } });
+
+        const result = await service.getTicketStatuses();
+        expect(result.error).toBeUndefined();
+        expect(Object.keys(result.statuses).length).toBe(100);
+    });
+
+    it('reuses a fetch younger than maxAgeMs, and fetches from Zoho again once it is older', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        mockFetch.mockResolvedValueOnce(page([ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, status: 'Open' })]));
+        await service.getTicketStatuses();
+
+        // Within the max age: no new Zoho call.
+        await service.getTicketStatuses({ maxAgeMs: 60_000 });
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+
+        // Older than the max age: fetched directly again, with the current state.
+        mockFetch.mockResolvedValueOnce(page([ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, status: 'Closed' })]));
+        const fresh = await service.getTicketStatuses({ maxAgeMs: 0 });
+        expect(mockFetch).toHaveBeenCalledTimes(3); // token still valid - just the page
+        expect(fresh.statuses['1']!.status).toBe('Closed');
+    });
+
+    it('shares one Zoho fetch between concurrent requests', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        mockFetch.mockResolvedValueOnce(page([ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID })]));
+
+        const results = await Promise.all([service.getTicketStatuses(), service.getTicketStatuses(), service.getTicketStatuses()]);
+
+        expect(mockFetch).toHaveBeenCalledTimes(2); // one token refresh + one page, not three of each
+        expect(results.every((r) => Object.keys(r.statuses).join() === '1')).toBe(true);
+    });
+
+    it('returns the previous fetch marked stale when Zoho fails (never a partial list)', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        mockFetch.mockResolvedValueOnce(page([ticket({ id: '1', layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID, priority: 'Critical' })]));
+        await service.getTicketStatuses();
+
+        // Page 1 succeeds, page 2 fails - the half-fetched list must not be used.
+        mockFetch.mockResolvedValueOnce(page(Array.from({ length: 100 }, (_, i) => ticket({ id: String(i + 50), layoutId: ZOHO_BUGS_TRACKER_LAYOUT_ID }))));
+        mockFetch.mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'Internal Server Error' });
+        const result = await service.getTicketStatuses({ maxAgeMs: 0 });
+
+        expect(result.stale).toBe(true);
+        expect(result.error).toContain('500');
+        expect(Object.keys(result.statuses)).toEqual(['1']);
+    });
+
+    it('returns an empty, non-stale result with an error when the first fetch fails', async () => {
+        const mockFetch = vi.fn();
+        global.fetch = mockFetch;
+        mockTokenRefresh(mockFetch);
+        mockFetch.mockResolvedValueOnce({ ok: false, status: 429, text: async () => 'Too Many Requests' });
+
+        const result = await service.getTicketStatuses();
+        expect(result).toMatchObject({ statuses: {}, stale: false, fetchedAt: null });
+        expect(result.error).toContain('429');
+    });
+
+    it('does not call Zoho when it is not configured', async () => {
         const freshService = new ZohoTicketStatusService();
         const mockFetch = vi.fn();
         global.fetch = mockFetch;
 
-        await freshService.syncAllBugsTrackerTickets();
+        const result = await freshService.getTicketStatuses();
 
         expect(mockFetch).not.toHaveBeenCalled();
-        expect(freshService.getCachedStatuses()).toEqual({});
+        expect(result).toMatchObject({ configured: false, statuses: {}, stale: false });
+    });
+
+    it('needs no cron and no CSV: the service has no scheduled sync method and reads no files', () => {
+        expect((service as any).syncAllBugsTrackerTickets).toBeUndefined();
+        expect((service as any).getCachedStatuses).toBeUndefined();
+        const dir = path.dirname(fileURLToPath(import.meta.url));
+        const source = fs.readFileSync(path.join(dir, '../services/ZohoTicketStatusService.ts'), 'utf8');
+        expect(source).not.toMatch(/from 'fs'|from 'csv-parser'|TESTERS_DASHBOARD_CSV_PATH|updated\.csv/);
     });
 });
