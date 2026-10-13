@@ -131,13 +131,14 @@ def test_success_response_shape(api):
     assert all(set(v) == {"angle", "question", "answer"} for v in versions)
 
 
-# ---------------- temperature workaround ----------------
+# ---------------- temperature preservation ----------------
 
-def test_temperature_is_stripped_from_api_calls(api):
+def test_temperature_is_preserved_in_api_calls(api):
     client, state = api
     assert client.post("/generate-ffv", json=BODY).status_code == 200
     assert state["client"].messages.calls
-    assert all("temperature" not in c for c in state["client"].messages.calls)
+    # Verify temperature was passed to API calls as defined in generate_ffvs.py
+    assert all("temperature" in c.get("extra_body", {}) or "temperature" in c for c in state["client"].messages.calls)
 
 
 # ---------------- error handling ----------------

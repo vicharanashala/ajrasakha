@@ -92,9 +92,6 @@ class FFVResponse(BaseModel):
 def _instrument_client(client) -> list[anthropic.APIError]:
     """Patch client.messages.create and return a list that collects API errors.
 
-    - generate_ffvs.py passes temperature= to messages.create, which the
-      installed anthropic SDK / model rejects. We can't change that script from
-      here, so strip the argument on this client instead.
     - generate_ffvs.py catches every exception from the API and falls back
       (e.g. to the first domain), so errors never reach us. We record them here
       (and still re-raise, so the script's own fallback behaviour is unchanged)
@@ -104,7 +101,11 @@ def _instrument_client(client) -> list[anthropic.APIError]:
     original_create = client.messages.create
 
     def create(*args, **kwargs):
-        kwargs.pop("temperature", None)
+        temp = kwargs.pop("temperature", None)
+        if temp is not None:
+            extra_body = dict(kwargs.get("extra_body") or {})
+            extra_body["temperature"] = temp
+            kwargs["extra_body"] = extra_body
         try:
             return original_create(*args, **kwargs)
         except anthropic.APIError as exc:
