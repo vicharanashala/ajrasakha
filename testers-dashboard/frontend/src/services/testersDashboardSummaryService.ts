@@ -16,7 +16,8 @@ export interface ITestersDashboardSummaryQuery {
     tester?: string;
     status?: string;
     severity?: string;
-    excludeFailures?: boolean;
+    // No excludeFailures: Exclude Failures is Google Sheet-only and applied
+    // client-side, while this request only serves Database Logs Analytics.
     // Comma-separated list of dynamicSubBucketFor values (Weather, Mandi
     // Prices, Government Schemes). See TestersDashboardValidators.ts.
     dynamicSubTypes?: string;
@@ -122,8 +123,10 @@ export interface ITestersDashboardKpiSummary {
     notificationSuccess: number;
     notificationSuccessOnTimeCount: number;
     notificationSuccessTotalCount: number;
-    criticalFailuresToday: number;
-    criticalBreakdown: {
+    // Google Sheet / legacy source=db summary only - not displayed, and not
+    // part of the DB-native summary (its DB-save/Q-ID counts no longer exist).
+    criticalFailuresToday?: number;
+    criticalBreakdown?: {
         countIncorrect: number;
         countWeatherIncorrect: number;
         countMandiIncorrect: number;
@@ -163,11 +166,18 @@ export interface ITestersDashboardKpiSummary {
             // build) where a TS type can't guarantee runtime presence.
             // Render accordingly - see AdditionalMetrics.tsx.
             applicableCount?: number;
+            // DB-native summary only: tester-entered Test IDs of the failing
+            // entries (never the MongoDB _id).
+            failureTestIds?: string[];
         }[];
         failuresTotal: number;
         successesTotal: number;
         distinctFailureRows: number;
         distinctSuccessRows: number;
+        // DB-native summary only: entries failing no category - the card's
+        // Successes headline there (DB Pass/Fail comes from Overall Test
+        // Status, so totalPassed is not "no failures" for DB).
+        noFailureRows?: number;
     };
     releaseHealth: number;
     // Mirrors backend's ReleaseHealthResult - the 6-bucket weighted model.
@@ -321,8 +331,33 @@ export interface ITestersDashboardLanguageStat {
     translationAcc: number;
 }
 
+// Mirrors backend's DbFilterOption/DbFilterOptions
+// (testers-dashboard/backend/services/dbFilterOptions.ts) - DB source only.
+export interface IDbFilterOption {
+    value: string;
+    label: string;
+    count: number;
+    // A stored value that matches no current Tester UI option.
+    legacy?: boolean;
+}
+
+export interface IDbFilterOptions {
+    fields: Record<string, IDbFilterOption[]>;
+    typeTree: {
+        dynamic: IDbFilterOption[];
+        static: IDbFilterOption[];
+        dynamicTotal: number;
+        staticTotal: number;
+    };
+}
+
 export interface ITestersDashboardSummaryResponse {
     success: boolean;
+    // Which pipeline produced a Database Logs Analytics summary:
+    // 'db-native' (GET /dashboard/testers/db/summary) or 'legacy-source-db'
+    // (the old GET /dashboard/testers/summary?source=db fallback). Absent for
+    // Google Sheet Analytics.
+    calculation?: "db-native" | "legacy-source-db";
     syncing?: boolean;
     needClientData?: boolean;
     message?: string;
@@ -332,6 +367,8 @@ export interface ITestersDashboardSummaryResponse {
     chartData: ITestersDashboardChartData;
     previousPeriodStats: ITestersDashboardPreviousPeriodStats | null;
     filterOptions: Record<string, string[]>;
+    // DB source only - Tester UI-based options with counts (zero included).
+    dbFilterOptions?: IDbFilterOptions;
     lastSyncedAt: string | null;
     channelStats: ITestersDashboardChannelStat[];
     languageStats: ITestersDashboardLanguageStat[];
@@ -358,11 +395,6 @@ export class TestersDashboardSummaryService {
         if (query.dynamicSubTypes) params.append("dynamicSubTypes", query.dynamicSubTypes);
         if (query.typeBranch) params.append("typeBranch", query.typeBranch);
         if (query.staticSubTypes) params.append("staticSubTypes", query.staticSubTypes);
-        // Backend expects the literal string "true" (see
-        // TestersDashboardValidators.ts's @IsBooleanString() - query params
-        // are always strings, not real booleans), so "false"/omitted both
-        // mean "don't exclude" and are left unsent.
-        if (query.excludeFailures) params.append("excludeFailures", "true");
 
         const response = await apiFetch<ITestersDashboardSummaryResponse>(
             `${this._baseUrl}/summary?${params.toString()}`,

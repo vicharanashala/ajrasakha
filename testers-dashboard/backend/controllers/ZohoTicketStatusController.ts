@@ -18,16 +18,23 @@ export class ZohoTicketStatusController {
     ) { }
 
     @OpenAPI({
-        summary: 'Get cached Zoho ticket statuses',
+        summary: 'Get current Zoho ticket statuses',
         description:
-            'Returns the most recently synced status (Open/Closed/etc.) for each Zoho ticket linked from the QA tracking sheet.',
+            'Returns every Zoho Desk Bugs Tracker ticket (status, team, priority/severity, ticket number), fetched ' +
+            'directly from Zoho on request (a fetch from the last minute is reused). `stale` is true when Zoho could ' +
+            'not be reached and the previous fetch is returned instead.',
     })
     @Authorized(['admin', 'tester'])
     @Get('/zoho-status')
     async getZohoStatuses() {
+        const snapshot = await this.zohoTicketStatusService.getTicketStatuses();
         return {
             success: true,
-            statuses: this.zohoTicketStatusService.getCachedStatuses(),
+            statuses: snapshot.statuses,
+            fetchedAt: snapshot.fetchedAt,
+            stale: snapshot.stale,
+            configured: snapshot.configured,
+            ...(snapshot.error ? { error: snapshot.error } : {}),
         };
     }
 

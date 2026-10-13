@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Anchor, Pencil, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Anchor, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,18 +11,33 @@ import {
 import {
   getDashboardUniqueDocument,
   getUniqueDocumentPlacements,
-  updateDashboardUniqueDocument,
   deleteDashboardDocument,
   findDuplicatesForDocument,
   mergeUniqueDocuments,
+  getOriginalDownloadUrl,
+  getDashboardStates,
+  getDashboardFolders,
+  addDocumentPlacement,
 } from "../../api";
 import { formatDate } from "@/utils/formatDate";
-import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
+import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS, folderDisplayLabel } from "./fields";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
 import UniqueDocumentEditForm from "./UniqueDocumentEditForm";
+import { StateSelector } from "../FunctionsPanel/RunTile";
 
-const DETAIL_GRID_FIELDS = [...DOCUMENT_METADATA_FIELDS, ...DISPLAY_ONLY_FIELDS];
+// Language/District/KVK are document-level fields the unique-document response always carries
+// (language, district, kvk — names; district_id/kvk_id alongside) but aren't in
+// DOCUMENT_METADATA_FIELDS/DISPLAY_ONLY_FIELDS (those live in EDITABLE_DOCUMENT_ONLY_FIELDS, which
+// this grid doesn't spread since it's keyed for the edit form, not display) — added here, read-only,
+// so the grid doesn't show Language Source with no Language next to it.
+const DETAIL_GRID_FIELDS = [
+  ...DOCUMENT_METADATA_FIELDS,
+  { key: "language", label: "Language", type: "text", group: "Language" },
+  { key: "district", label: "District", type: "text", group: "Location" },
+  { key: "kvk", label: "KVK", type: "text", group: "Location" },
+  ...DISPLAY_ONLY_FIELDS,
+];
 
 // Document Detail — replaces the old inline row-expand + separate cascade-delete flow. Opened as
 // a modal from a placement row (Main Table), a document row (Documents tab), or a jump-link
@@ -101,19 +116,65 @@ export default function DocumentDetailModal({
     }
   }
 
-  const [anchoring, setAnchoring] = useState(null);
-  async function handleSetAnchor(link) {
-    setAnchoring(link.zoho_file_id);
+  // Add Placement — files this EXISTING document under another state/folder (2026-10-05 backend
+  // endpoint). Purely document-level: no restriction on which table/placement launched this modal.
+  // State/folder options are fetched UNSCOPED (no state_id on the folders call) rather than reused
+  // from anywhere scoped — a state_id-scoped crops/organizations/folders list only contains
+  // folders ALREADY USED under that state, which is too narrow for a new filing (the whole point
+  // is often to use a folder nobody's used there yet).
+  const [addPlacementOpen, setAddPlacementOpen] = useState(false);
+  const [placementStates, setPlacementStates] = useState([]);
+  const [placementFolders, setPlacementFolders] = useState([]);
+  // StateSelector (reused here for both State and Folder — it's really a generic searchable
+  // single-select over a string list, same combobox used by Add Document's own State/Folder
+  // pickers) works in NAMES, so the picked name is resolved back to an id just before submit —
+  // same pattern AddDocumentForm.tsx and MainTable's inline editor already use.
+  const [newPlacementState, setNewPlacementState] = useState("");
+  const [newPlacementFolder, setNewPlacementFolder] = useState("");
+  const [addingPlacement, setAddingPlacement] = useState(false);
+
+  useEffect(() => {
+    if (!addPlacementOpen) return;
+    getDashboardStates()
+      .then((d) => setPlacementStates(d || []))
+      .catch(() => {});
+    getDashboardFolders(doc?.advisory_type)
+      .then((d) => setPlacementFolders(d || []))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addPlacementOpen]);
+
+  const placementStateNames = placementStates.map((s) => s.name);
+  const placementFolderLabels = placementFolders.map((f) => folderDisplayLabel(f, placementFolders));
+
+  async function handleAddPlacement() {
+    const stateOpt = placementStates.find((s) => s.name === newPlacementState);
+    const folder = placementFolders.find(
+      (f) => folderDisplayLabel(f, placementFolders) === newPlacementFolder,
+    );
+    if (!stateOpt || !folder) {
+      toast.error("Pick a state and a folder");
+      return;
+    }
+    const body = { state_id: stateOpt.id };
+    if (folder.kind === "organization") body.organization_id = folder.id;
+    else body.crop_id = folder.id;
+    setAddingPlacement(true);
     try {
-      const updated = await updateDashboardUniqueDocument(documentId, {
-        representative_file_id: link.zoho_file_id,
-      });
-      setDoc((prev) => ({ ...prev, ...updated }));
-      toast.success("Anchor updated");
+      const row = await addDocumentPlacement(documentId, body);
+      setPlacements((prev) => [...(prev || []), row]);
+      loadDoc();
+      onPlacementsChanged?.();
+      toast.success(`Filed as ${row.row_id}`);
+      setNewPlacementState("");
+      setNewPlacementFolder("");
+      setAddPlacementOpen(false);
     } catch (err) {
-      toast.error(err.message || "Failed to re-anchor");
+      // 409 names the existing row the document is already filed under there — the message is
+      // written to be shown as-is, same as every other error surfaced via toast in this modal.
+      toast.error(err.message || "Failed to add placement");
     } finally {
-      setAnchoring(null);
+      setAddingPlacement(false);
     }
   }
 
@@ -198,6 +259,7 @@ export default function DocumentDetailModal({
                   <FileActionIcons
                     shareableLink={doc.shareable_link}
                     fileId={doc.representative_file_id}
+                    downloadUrl={getOriginalDownloadUrl(doc.id)}
                     filename={doc.shareable_name}
                   />
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide ml-2">
@@ -258,7 +320,53 @@ export default function DocumentDetailModal({
                   <h3 className="text-xs font-semibold text-foreground">
                     Placements ({placements?.length ?? "…"})
                   </h3>
+                  <button
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    onClick={() => setAddPlacementOpen((v) => !v)}
+                  >
+                    <Plus size={12} /> Add placement
+                  </button>
                 </div>
+                {addPlacementOpen && (
+                  <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/50 bg-muted/10 p-2 mb-2">
+                    <div className="flex flex-col gap-1 min-w-[180px]">
+                      <span className="text-[10px] text-muted-foreground">State</span>
+                      <StateSelector
+                        value={newPlacementState}
+                        onChange={setNewPlacementState}
+                        stateNames={placementStateNames}
+                        placeholder="Search state…"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 min-w-[220px]">
+                      <span className="text-[10px] text-muted-foreground">Folder — crop or organisation</span>
+                      <StateSelector
+                        value={newPlacementFolder}
+                        onChange={setNewPlacementFolder}
+                        stateNames={placementFolderLabels}
+                        placeholder="Search folder…"
+                      />
+                    </div>
+                    <button
+                      className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40"
+                      onClick={handleAddPlacement}
+                      disabled={addingPlacement || !newPlacementState || !newPlacementFolder}
+                    >
+                      {addingPlacement ? "Adding…" : "Add"}
+                    </button>
+                    <button
+                      className="px-2.5 py-1 rounded-md border border-border text-xs text-foreground hover:bg-accent transition-colors cursor-pointer"
+                      onClick={() => {
+                        setAddPlacementOpen(false);
+                        setNewPlacementState("");
+                        setNewPlacementFolder("");
+                      }}
+                      disabled={addingPlacement}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 {placementsLoading ? (
                   <div className="text-xs text-muted-foreground italic py-2">Loading…</div>
                 ) : !placements || placements.length === 0 ? (
@@ -309,50 +417,39 @@ export default function DocumentDetailModal({
                   <div className="text-xs text-muted-foreground italic py-1">No copies on record.</div>
                 ) : (
                   <div className="flex flex-col gap-1">
-                    {(() => {
-                      const hasChoice = doc.duplicate_links.length > 1;
-                      return doc.duplicate_links.map((link) => {
-                        const isAnchor = link.zoho_file_id === doc.representative_file_id;
-                        return (
-                          <div
-                            key={link.zoho_file_id}
-                            className="flex items-center justify-between gap-2 rounded border border-border/50 px-2.5 py-1.5"
+                    {doc.duplicate_links.map((link) => {
+                      const isAnchor = link.zoho_file_id === doc.representative_file_id;
+                      return (
+                        <div
+                          key={link.zoho_file_id}
+                          className="flex items-center justify-between gap-2 rounded border border-border/50 px-2.5 py-1.5"
+                        >
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">
+                            {link.row_id}
+                          </span>
+                          <a
+                            href={link.shareable_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline truncate"
+                            title={link.shareable_name}
                           >
-                            <span className="text-xs font-mono text-muted-foreground shrink-0">
-                              {link.row_id}
+                            {link.shareable_name}
+                          </a>
+                          <span
+                            className="text-[10px] text-muted-foreground truncate"
+                            title="The placement this copy was first filed under — not necessarily where the file lives now"
+                          >
+                            filed: {link.state} / {link.crop}
+                          </span>
+                          {isAnchor && (
+                            <span className="flex items-center gap-1 text-[10px] text-primary shrink-0">
+                              <Anchor size={10} /> anchor
                             </span>
-                            <a
-                              href={link.shareable_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline truncate"
-                              title={link.shareable_name}
-                            >
-                              {link.shareable_name}
-                            </a>
-                            <span
-                              className="text-[10px] text-muted-foreground truncate"
-                              title="The placement this copy was first filed under — not necessarily where the file lives now"
-                            >
-                              filed: {link.state} / {link.crop}
-                            </span>
-                            {isAnchor || !hasChoice ? (
-                              <span className="flex items-center gap-1 text-[10px] text-primary shrink-0">
-                                <Anchor size={10} /> anchor
-                              </span>
-                            ) : (
-                              <button
-                                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 shrink-0"
-                                onClick={() => handleSetAnchor(link)}
-                                disabled={anchoring === link.zoho_file_id}
-                              >
-                                <Anchor size={10} /> Set as anchor
-                              </button>
-                            )}
-                          </div>
-                        );
-                      });
-                    })()}
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

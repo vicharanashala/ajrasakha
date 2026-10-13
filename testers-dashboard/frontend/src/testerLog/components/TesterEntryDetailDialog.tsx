@@ -45,10 +45,11 @@ const OUTCOME_KEYS = new Set<EntryKey>([
     "questionInReviewModel",
     "questionCorrectlyFramed",
     "translationQuality",
+    "translationErrorType",
+    "retrievalAccuracy",
     "followUpQInReviewModel",
     "answerScientificallyCorrect",
     "expertNameDisplayed",
-    "correctExpertNameDisplayed",
     "correctSourceLinksProvided",
     "notificationReceived",
     "notificationOnSameThread",
@@ -58,31 +59,29 @@ const OUTCOME_KEYS = new Set<EntryKey>([
     "waNotificationReceived",
     "waVoiceInputWorking",
     "waVoiceOutputWorking",
+    "voiceInputIssueDescription",
+    "waVoiceInputIssueDescription",
     "voiceInputQuality",
     "voiceOutputQuality",
+    "voiceIssueDescription",
     "weatherQAnsweredCorrectly",
     "mandiPriceQCorrect",
     "schemeQCorrect",
-    "questionSavedInDb",
-    "answerSavedInDb",
-    "qIdConsistentAcrossSystems",
     "whatsappVsWebAnswerMatch",
-    "status",
+    "testerRemarks",
 ]);
 
 // Pass/Fail/Partial/NA - badged like the table's Overall Test Status column.
 const TEST_STATUS_KEYS = new Set<EntryKey>(["overallTestStatus", "webOverallTestStatus", "waOverallTestStatus"]);
 
 // Free-text fields that are only filled in when something went wrong.
-const PROBLEM_TEXT_KEYS = new Set<EntryKey>(["translationErrorType", "voiceIssueDescription", "defectIdBugRef"]);
+const PROBLEM_TEXT_KEYS = new Set<EntryKey>(["defectIdBugRef"]);
 
 // Long free text gets two grid columns so it reads as a paragraph, not a
 // narrow strip.
 const WIDE_KEYS = new Set<EntryKey>([
     "queryText",
-    "reviewerRemarks",
-    "testerRemarks",
-    "voiceIssueDescription",
+    "testerRemarksNotes",
     "crossPlatformDiscrepancyNotes",
 ]);
 

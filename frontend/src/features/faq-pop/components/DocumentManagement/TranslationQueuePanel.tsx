@@ -37,7 +37,7 @@ export default function TranslationQueuePanel({
             // the backend has deployed the unique_document_id field yet.
             onClick={() => onOpenDetail(job.unique_document_id || job.document_id)}
           >
-            {job.document_id}
+            {job.document_code || job.document_id}
             {job.shareable_name ? ` — ${job.shareable_name}` : ""}
           </button>
           {(job.status === "queued" || job.status === "running") && (

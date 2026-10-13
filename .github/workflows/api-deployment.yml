@@ -15,6 +15,7 @@ on:
           - answer_shortener
           - answer_scoring
           - chemical_detector
+          - ffv_api
 
 permissions:
   contents: read
@@ -117,3 +118,15 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/chemical_detector:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/chemical_detector:${{ github.sha }}
+
+      - name: Build & Push ffv_api
+        if: github.event.inputs.target_api == 'ffv_api'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apis/ffv_api/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/ffv_api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/ffv_api:${{ github.sha }}
