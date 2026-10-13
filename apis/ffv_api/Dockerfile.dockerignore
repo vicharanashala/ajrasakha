@@ -1,0 +1,8 @@
+# The build context is the repo root, whose .dockerignore excludes ai/ and apis/
+# entirely - which would make the COPY lines in Dockerfile fail. BuildKit uses
+# this file instead of the root one for this Dockerfile: exclude everything,
+# then allow only what the Dockerfile copies.
+*
+!apis/ffv_api/requirements.txt
+!apis/ffv_api/main.py
+!ai/ajrasakha/ffv/scripts/generate_ffvs.py

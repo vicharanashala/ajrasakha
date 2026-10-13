@@ -1,4 +1,4 @@
-import { useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
@@ -117,6 +117,8 @@ interface QuestionActivityModalProps {
   emptyMessage?: ReactNode;
   duplicateEmptyMessage?: ReactNode;
 }
+
+const CLIENT_PAGE_SIZE = 10;
 
 const formatDateTime = (value?: string) => {
   if (!value) return "N/A";
@@ -612,6 +614,47 @@ export function QuestionActivityModal({
 
   const ActiveTabIcon = VIEW_TYPE_ICONS[viewType];
 
+  // Details and duplicate groups arrive as full lists, so they are paged here.
+  const isClientPaged = mode === "details" || mode === "duplicateGroups";
+  const clientItemCount =
+    mode === "details" ? detailItems.length : duplicateGroups.length;
+  const [clientPage, setClientPage] = useState(1);
+  const listTopRef = useRef<HTMLDivElement>(null);
+  const clientTotalPages = Math.max(
+    1,
+    Math.ceil(clientItemCount / CLIENT_PAGE_SIZE),
+  );
+  const safeClientPage = Math.min(clientPage, clientTotalPages);
+  const clientPageStart = (safeClientPage - 1) * CLIENT_PAGE_SIZE;
+  const pagedDetailItems = detailItems.slice(
+    clientPageStart,
+    clientPageStart + CLIENT_PAGE_SIZE,
+  );
+  const pagedDuplicateGroups = duplicateGroups.slice(
+    clientPageStart,
+    clientPageStart + CLIENT_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setClientPage(1);
+  }, [open, mode, clientItemCount]);
+
+  // Changes the local page and returns the list to the top.
+  const handleClientPageChange = (page: number) => {
+    setClientPage(page);
+    listTopRef.current?.scrollIntoView({ block: "start" });
+  };
+
+  const footerPage = isClientPaged ? safeClientPage : currentPage;
+  const footerTotalPages = isClientPaged ? clientTotalPages : totalPages;
+  const handleFooterPageChange = isClientPaged
+    ? handleClientPageChange
+    : onPageChange;
+  const showPagination =
+    (mode === "activity" || isClientPaged) &&
+    footerTotalPages > 1 &&
+    Boolean(handleFooterPageChange);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent  ref={dialogContentRef} className="!max-w-6xl flex h-[90vh] max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
@@ -748,11 +791,12 @@ export function QuestionActivityModal({
         ) : (
         <ScrollArea className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-2.5 px-6 py-4">
+            <div ref={listTopRef} />
             {isLoading ? (
               <LoadingState />
             ) : mode === "duplicateGroups" ? (
               duplicateGroups.length ? (
-                duplicateGroups.map((group) => (
+                pagedDuplicateGroups.map((group) => (
                   <DuplicateGroupCard key={group.key} group={group} />
                 ))
               ) : (
@@ -760,7 +804,7 @@ export function QuestionActivityModal({
               )
             ) : mode === "details" ? (
               detailItems.length ? (
-                detailItems.map((question) => (
+                pagedDetailItems.map((question) => (
                   <QuestionDetailCard
                     key={question.questionId}
                     question={question}
@@ -787,21 +831,21 @@ export function QuestionActivityModal({
 
         {footerContent}
 
-        {mode === "activity" && totalPages > 1 && onPageChange && (
+        {showPagination && handleFooterPageChange && (
           <div className="flex shrink-0 items-center justify-between border-t bg-muted/20 px-6 py-3.5">
             <Button
               variant="outline"
               size="sm"
               className="gap-1.5 rounded-full"
-              disabled={currentPage === 1}
-              onClick={() => onPageChange(currentPage - 1)}
+              disabled={footerPage === 1}
+              onClick={() => handleFooterPageChange(footerPage - 1)}
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               Previous
             </Button>
 
             <span className="rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-              Page {currentPage} of {totalPages}
+              Page {footerPage} of {footerTotalPages}
             </span>
 
             <div className="flex items-center gap-2">
@@ -810,8 +854,8 @@ export function QuestionActivityModal({
                 variant="outline"
                 size="sm"
                 className="gap-1.5 rounded-full"
-                disabled={currentPage === totalPages}
-                onClick={() => onPageChange(currentPage + 1)}
+                disabled={footerPage === footerTotalPages}
+                onClick={() => handleFooterPageChange(footerPage + 1)}
               >
                 Next
                 <ChevronRight className="h-3.5 w-3.5" />

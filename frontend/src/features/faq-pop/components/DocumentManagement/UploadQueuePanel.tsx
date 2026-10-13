@@ -152,7 +152,7 @@ export default function UploadQueuePanel({
                         {canAdd && (
                           <button
                             className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-40"
-                            onClick={() => onAdd(item, selectedCandidate.document_id)}
+                            onClick={() => onAdd(item, selectedCandidate.document_id, selectedCandidate)}
                             disabled={disabled}
                             title="This is the same document — link the new placement(s) onto it"
                           >
