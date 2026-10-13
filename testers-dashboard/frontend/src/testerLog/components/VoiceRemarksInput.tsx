@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Sparkles, Undo2, Loader2, AlertCircle } from "lucide-react";
+import { Mic, MicOff, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { TesterLogService } from "../services/testerLogService";
-
-const testerLogService = new TesterLogService();
 
 export interface VoiceRemarksInputProps {
     label?: string;
@@ -29,34 +26,21 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
     maxLength = 2000,
     required = false,
     error,
-    category,
+    category: _category,
     disabled = false,
     className,
 }) => {
     const [isListening, setIsListening] = useState(false);
-    const [isFormatting, setIsFormatting] = useState(false);
-    const [autoOrganize, setAutoOrganize] = useState(true);
     const [speechSupported, setSpeechSupported] = useState(true);
     const [interimTranscript, setInterimTranscript] = useState("");
-    const [originalTranscript, setOriginalTranscript] = useState<string | null>(null);
 
     const recognitionRef = useRef<any>(null);
     const currentValueRef = useRef(value);
     const baseTextOnStartRef = useRef("");
-    const autoOrganizeRef = useRef(autoOrganize);
-    const isListeningRef = useRef(isListening);
 
     useEffect(() => {
         currentValueRef.current = value;
     }, [value]);
-
-    useEffect(() => {
-        autoOrganizeRef.current = autoOrganize;
-    }, [autoOrganize]);
-
-    useEffect(() => {
-        isListeningRef.current = isListening;
-    }, [isListening]);
 
     // Check Web Speech API availability
     useEffect(() => {
@@ -79,36 +63,6 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
             }
         };
     }, []);
-
-    const triggerAiFormatting = async (rawText: string) => {
-        const textToFormat = rawText.trim();
-        if (!textToFormat) {
-            toast.error("Please enter or speak remarks before organizing.");
-            return;
-        }
-
-        setIsFormatting(true);
-        try {
-            setOriginalTranscript(rawText);
-            const result = await testerLogService.formatRemarks(
-                textToFormat,
-                category,
-                SPEECH_LANGUAGE,
-            );
-
-            if (result?.formattedText && result.formattedText.trim() !== textToFormat) {
-                onChange(result.formattedText.trim());
-                toast.success("Remarks organized and polished with AI!");
-            } else {
-                toast.info("Remarks are already well-structured.");
-            }
-        } catch (err: any) {
-            console.error("AI Formatting error:", err);
-            toast.error(err?.message || "Failed to organize remarks with AI.");
-        } finally {
-            setIsFormatting(false);
-        }
-    };
 
     const startListening = () => {
         if (!speechSupported) {
@@ -188,11 +142,6 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                 if (spoken && fullText !== currentValueRef.current) {
                     onChange(fullText);
                 }
-
-                // If auto-organize is enabled and new text was actually dictated, format the combined text
-                if (autoOrganizeRef.current && spoken && fullText.length >= 3) {
-                    triggerAiFormatting(fullText);
-                }
             };
 
             recognitionRef.current = recognition;
@@ -224,14 +173,6 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
         }
     };
 
-    const handleUndo = () => {
-        if (originalTranscript !== null) {
-            onChange(originalTranscript);
-            setOriginalTranscript(null);
-            toast.info("Restored original remarks.");
-        }
-    };
-
     return (
         <div className={cn("flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3", className)}>
             {/* Field Header */}
@@ -248,66 +189,12 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                 ) : <div />}
 
                 {/* Toolbar Controls */}
-                <div className="flex flex-wrap items-center gap-2">
-                    {/* Auto-organize Toggle */}
-                    <label
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors"
-                        title="Automatically organize and fix grammar with AI when you finish speaking"
-                    >
-                        <input
-                            type="checkbox"
-                            checked={autoOrganize}
-                            onChange={(e) => setAutoOrganize(e.target.checked)}
-                            disabled={disabled || isFormatting}
-                            className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5"
-                        />
-                        <span>Auto-organize</span>
-                    </label>
-
-                    {/* Organize with AI Button */}
-                    <button
-                        type="button"
-                        onClick={() => triggerAiFormatting(value)}
-                        disabled={disabled || isFormatting || isListening || !value.trim()}
-                        className={cn(
-                            "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all shadow-xs",
-                            "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:border-primary/40 active:scale-95",
-                            "disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none",
-                        )}
-                        title="Organize into structured QA defect remarks and fix grammar using AI"
-                    >
-                        {isFormatting ? (
-                            <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                <span>Organizing...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
-                                <span>Organize with AI</span>
-                            </>
-                        )}
-                    </button>
-
-                    {/* Undo AI Action */}
-                    {originalTranscript !== null && (
-                        <button
-                            type="button"
-                            onClick={handleUndo}
-                            disabled={disabled || isFormatting}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                            title="Revert to original text prior to AI organizing"
-                        >
-                            <Undo2 className="w-3 h-3" />
-                            <span>Undo AI</span>
-                        </button>
-                    )}
-
+                <div className="flex items-center gap-2">
                     {/* Microphone Toggle Button */}
                     <button
                         type="button"
                         onClick={toggleListening}
-                        disabled={disabled || isFormatting || !speechSupported}
+                        disabled={disabled || !speechSupported}
                         className={cn(
                             "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all shadow-xs",
                             isListening
@@ -368,7 +255,7 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={placeholder}
                     maxLength={maxLength}
-                    disabled={disabled || isFormatting}
+                    disabled={disabled}
                     className={cn(
                         "flex w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm shadow-xs transition-colors resize-y",
                         "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
@@ -377,15 +264,6 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                         isListening && "ring-1 ring-red-500/50 border-red-500",
                     )}
                 />
-
-                {isFormatting && (
-                    <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center rounded-md">
-                        <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-full shadow-md border border-border text-xs text-foreground font-medium">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-spin" />
-                            <span>AI is organizing & fixing grammar...</span>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Character count & error message */}

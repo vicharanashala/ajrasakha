@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { VoiceRemarksInput } from "./VoiceRemarksInput";
-import { TesterLogService } from "../services/testerLogService";
 
 vi.mock("sonner", () => ({
     toast: {
@@ -13,14 +12,7 @@ vi.mock("sonner", () => ({
 }));
 
 describe("VoiceRemarksInput", () => {
-    let mockFormatRemarks: any;
-
     beforeEach(() => {
-        mockFormatRemarks = vi.spyOn(TesterLogService.prototype, "formatRemarks").mockResolvedValue({
-            originalText: "button not working",
-            formattedText: "Issue: Submit button is unresponsive.",
-        });
-
         // Mock Web Speech API
         (window as any).SpeechRecognition = class MockSpeechRecognition {
             continuous = false;
@@ -93,33 +85,6 @@ describe("VoiceRemarksInput", () => {
         );
 
         expect(screen.getByText("Remarks must be at least 3 characters")).toBeTruthy();
-    });
-
-    it("triggers AI formatting when clicking 'Organize with AI'", async () => {
-        const onChange = vi.fn();
-        render(
-            <VoiceRemarksInput
-                value="button not working"
-                category="Bug"
-                onChange={onChange}
-            />
-        );
-
-        const organizeBtn = screen.getByRole("button", { name: /Organize with AI/i });
-        fireEvent.click(organizeBtn);
-
-        await waitFor(() => {
-            expect(mockFormatRemarks).toHaveBeenCalledWith("button not working", "Bug", "en-IN");
-            expect(onChange).toHaveBeenCalledWith("Issue: Submit button is unresponsive.");
-        });
-
-        // Undo button should now be visible
-        const undoBtn = screen.getByRole("button", { name: /Undo AI/i });
-        expect(undoBtn).toBeTruthy();
-
-        // Clicking undo should revert to original
-        fireEvent.click(undoBtn);
-        expect(onChange).toHaveBeenCalledWith("button not working");
     });
 
     it("toggles microphone on/off when clicking Speak Note", async () => {
