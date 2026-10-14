@@ -12,6 +12,21 @@ def classify_failure(result: dict) -> dict:
     elif result.get("routing_pass") is False:
         reason = "routing_validation_failed"
 
+    elif result.get("tool_pass") is False:
+        reason = "tool_validation_failed"
+
+    elif result.get("plan_pass") is False:
+        reason = "plan_validation_failed"
+
+    elif result.get("source_attribution_pass") is False:
+        reason = "source_attribution_failed"
+
+    elif result.get("source_url_pass") is False:
+        reason = "source_url_validation_failed"
+
+    elif result.get("disclaimer_language_pass") is False:
+        reason = "disclaimer_language_failed"
+
     else:
         reason = ""
 
