@@ -1,6 +1,7 @@
 import {
   IReview,
   IReviewParmeters,
+  IReviewQualityAnalyticsResponse,
   ReviewAction,
   ReviewType,
 } from '#root/shared/interfaces/models.js';
@@ -61,4 +62,22 @@ export interface IReviewRepository {
    * @returns A promise that resolves to the review object if found, else null.
    */
   findById(id: string | ObjectId): Promise<IReview | null>;
+
+  /**
+   * Aggregates answer-review quality checklist results (contextRelevance, technicalAccuracy,
+   * practicalUtility, valueInsight, credibilityTrust, readabilityCommunication) to surface how
+   * often each quality dimension is marked as failing, optionally scoped to a date range.
+   *
+   * @param startTime - Optional ISO date string; only reviews created on/after this time are included.
+   * @param endTime - Optional ISO date string; only reviews created on/before this time are included.
+   * @param isTrainingUser - Restricts results to training-question reviews when true and not admin.
+   * @param isAdmin - Admins see all reviews regardless of the training-question flag.
+   * @returns A promise resolving to total reviewed count plus per-dimension failure counts/rates.
+   */
+  getQualityDimensionStats(
+    startTime?: string,
+    endTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<IReviewQualityAnalyticsResponse>;
 }
