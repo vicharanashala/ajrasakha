@@ -1,0 +1,23 @@
+{
+  "name": "reviewer-system-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Playwright + TypeScript E2E suite for the Reviewer System (desk.vicharanashala.ai)",
+  "packageManager": "pnpm@10.4.1",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test tests/common/smoke.spec.ts",
+    "test:report": "playwright show-report",
+    "test:ci": "playwright test --reporter=line,github"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.5",
+    "dotenv": "^16.4.7",
+    "firebase-admin": "^14.2.0",
+    "mongodb": "^7.5.0",
+    "typescript": "^5.7.2"
+  }
+}

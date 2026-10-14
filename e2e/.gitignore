@@ -1,0 +1,14 @@
+# Secrets / local state — never commit
+.env
+.env.*
+!.env.example
+
+# Playwright outputs
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Saved browser sessions (Firebase tokens + localStorage)
+.auth/

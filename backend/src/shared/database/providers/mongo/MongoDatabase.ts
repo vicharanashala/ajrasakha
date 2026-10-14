@@ -42,9 +42,11 @@ export class MongoDatabase implements IDatabase<Db> {
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
 
+    const tlsEnabled = process.env.DB_TLS !== 'false';
+
     this.client = new MongoClient(uri, {
-      ssl: true,
-      tls: true,
+      ssl: tlsEnabled,
+      tls: tlsEnabled,
       tlsAllowInvalidCertificates: false,
       tlsAllowInvalidHostnames: false,
       retryWrites: true,

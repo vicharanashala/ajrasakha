@@ -1,4 +1,5 @@
 import AvatarComponent from "./avatar-component";
+import { SourceItemDisplay } from "./source-item-display";
 import type { ReRouteStatus, SourceItem } from "@/types";
 import { useState } from "react";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
@@ -242,9 +243,7 @@ export default function SelectedAnswerPanel({
                   <span className="border-gray-400 border-2 rounded-lg bg-gray-400 p-2 mr-5">
                     {capatalize}:&nbsp;{s.sourceName}
                   </span>
-                  <a href={s.source} className="text-blue-500">
-                    {s.source}
-                  </a>
+                  <SourceItemDisplay source={s} />
                 </li>
               );
             })}
