@@ -84,6 +84,13 @@ const supportedLanguages: {
   { code: "sd-IN", label: "Sindhi" },
 ];
 
+const quickPrompts = [
+  "What is the best spray for aphids on cotton?",
+  "When should I apply urea for paddy crop?",
+  "How do I protect tomato plants from leaf curl disease?",
+  "What should I do if my crop leaves turn yellow suddenly?",
+];
+
 export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState(``);
@@ -294,6 +301,17 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
     setQuestions([]);
   };
 
+  const handleUsePrompt = (prompt: string) => {
+    if (isRecordingRef.current) {
+      toast.error("Stop recording before using a quick prompt.");
+      return;
+    }
+    lastTranscriptRef.current = "";
+    setTranscript(prompt);
+    setQuestions([]);
+    toast.success("Prompt added to transcript.");
+  };
+
   return (
     <div className=" bg-background p-4">
       <div className=" mx-auto">
@@ -332,6 +350,36 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
             </CardHeader>
 
             <CardContent className="space-y-4">
+              <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Quick farmer prompts
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Tap a common question to start faster, then submit it or add your own words.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {quickPrompts.map((prompt) => (
+                    <Button
+                      key={prompt}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isRecording}
+                      onClick={() => handleUsePrompt(prompt)}
+                      className="h-auto justify-start whitespace-normal text-left leading-snug py-2.5"
+                    >
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-3 border rounded-lg bg-muted/30">
                 <Button
                   onClick={() => handleRecordingToggle()}
