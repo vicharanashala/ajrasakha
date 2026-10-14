@@ -31,6 +31,7 @@ import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthServi
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
+import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
@@ -1592,8 +1593,9 @@ export class UserService extends BaseService {
       customEndDateTime?: string;
       startDate?: string;
       endDate?: string;
+      sendToEmail?: boolean;
     },
-  ): Promise<Buffer> {
+  ): Promise<Buffer | { success: boolean; message: string }> {
     const user = await this.userRepo.findById(userId);
     if (!user) {
       throw new NotFoundError(`User with ID ${userId} not found`);
@@ -1732,7 +1734,8 @@ export class UserService extends BaseService {
       endDate,
     );
 
-    return await buildUserActivityPdfReport({
+    // Build PDF buffer
+    const pdfBuffer = await buildUserActivityPdfReport({
       userName,
       userDesignation,
       userRole: user.role,
@@ -1753,5 +1756,46 @@ export class UserService extends BaseService {
       gdbPushedCount: metrics.gdbPushedCount,
       sessions,
     });
+
+    // If sendToEmail flag is set, send the report via email
+    if (query.sendToEmail) {
+      const emails = appConfig.individualReportEmails;
+      if (!emails) {
+        throw new BadRequestError('INDIVIDUAL_REPORT_EMAILS environment variable is not configured');
+      }
+
+      const emailList = emails.split(',').map((e) => e.trim()).filter(Boolean);
+      if (emailList.length === 0) {
+        throw new BadRequestError('No valid emails configured in INDIVIDUAL_REPORT_EMAILS');
+      }
+
+      const cleanName = userName.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const startStr = query.startDate ? query.startDate.replace(/[^a-zA-Z0-9]/g, '_') : 'start';
+      const endStr = query.endDate ? query.endDate.replace(/[^a-zA-Z0-9]/g, '_') : 'end';
+      const filename = `${cleanName}_Activity_Report_${startStr}_to_${endStr}.pdf`;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #16a34a;">Activity Report Generated</h2>
+          <p>Hello,</p>
+          <p>Please find attached the user activity report for <strong>${userName}</strong>.</p>
+          <p>This report was generated on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST).</p>
+          <p>Best regards,<br/>Review System Team</p>
+        </div>
+      `;
+
+      await sendEmailWithAttachment(
+        emailList,
+        `User Activity Report - ${userName}`,
+        html,
+        pdfBuffer,
+        filename,
+        'application/pdf',
+      );
+
+      return { success: true, message: 'Report email sent successfully' };
+    }
+
+    return pdfBuffer;
   }
 }
