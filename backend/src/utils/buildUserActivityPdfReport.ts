@@ -1,6 +1,18 @@
 import PDFDocument from 'pdfkit';
 import { annamLogoInlineAttachment } from './emailAssets.js';
 
+export interface UserSessionLog {
+  sessionIndex: number;
+  dateStr: string;
+  checkInTime: string;
+  checkOutTime: string;
+  sessionHours: string;
+  sessionMs: number;
+  cumulativeHours: string;
+  cumulativeMs: number;
+  isActiveNow?: boolean;
+}
+
 export interface UserActivityReportData {
   userName: string;
   userDesignation: string;
@@ -20,6 +32,7 @@ export interface UserActivityReportData {
   gatekeepedCount: number;
   totalGatekeepingMs: number;
   gdbPushedCount: number;
+  sessions?: UserSessionLog[];
   generatedAt?: Date;
 }
 
@@ -67,6 +80,7 @@ export async function buildUserActivityPdfReport(
   const doc = new PDFDocument({
     size: 'A4',
     margin: 36,
+    bufferPages: true,
     info: {
       Title: `Activity Report - ${data.userName}`,
       Author: 'AjraSakha System',
@@ -524,24 +538,214 @@ export async function buildUserActivityPdfReport(
   doc.moveTo(pageMargin, currentY + rowH).lineTo(pageMargin + contentWidth, currentY + rowH)
     .strokeColor('#10B981').lineWidth(1).stroke();
 
-  // 7. FOOTER BAR
-  const footerY = 790;
-  doc.moveTo(pageMargin, footerY).lineTo(pageMargin + contentWidth, footerY)
-    .strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+  // 7. CHECK-IN / CHECK-OUT SESSIONS & CUMULATIVE TIME
+  const sessions = data.sessions || [];
+  currentY += rowH + 10;
 
-  doc.fillColor('#94A3B8').fontSize(6.5).font('Helvetica').text(
-    'AjraSakha System • Confidential Individual Activity Report',
-    pageMargin,
-    footerY + 6,
-    { width: 300 },
+  // Prominent Header Bar for Cumulative Working Hours
+  const sessionHeaderH = 24;
+  doc.roundedRect(pageMargin, currentY, contentWidth, sessionHeaderH, 4)
+    .fillAndStroke('#F8FAFC', '#E2E8F0');
+
+  doc.fillColor('#0F172A').fontSize(8.5).font('Helvetica-Bold').text(
+    'CHECK-IN & CHECK-OUT SESSIONS',
+    pageMargin + 10,
+    currentY + 5,
+  );
+  doc.fillColor('#64748B').fontSize(6).font('Helvetica').text(
+    'Detailed review cycle attendance log (excluding breaks)',
+    pageMargin + 10,
+    currentY + 14,
   );
 
-  doc.fillColor('#94A3B8').fontSize(6.5).font('Helvetica').text(
-    'Page 1 of 1',
-    pageMargin + contentWidth - 100,
-    footerY + 6,
-    { width: 100, align: 'right' },
+  // Main Prominent Metric: Cumulative Working Time Banner on Right
+  const cumBoxW = 210;
+  const cumBoxX = pageMargin + contentWidth - cumBoxW - 6;
+  const cumBoxY = currentY + 3;
+  const cumBoxH = 18;
+
+  doc.roundedRect(cumBoxX, cumBoxY, cumBoxW, cumBoxH, 3)
+    .fillAndStroke('#ECFDF5', '#A7F3D0');
+
+  doc.fillColor('#065F46').fontSize(6.5).font('Helvetica-Bold').text(
+    'CUMULATIVE WORKING TIME:',
+    cumBoxX + 8,
+    cumBoxY + 5,
   );
+  doc.fillColor('#047857').fontSize(8.5).font('Helvetica-Bold').text(
+    formatHours(data.totalHoursInRevCycle),
+    cumBoxX + cumBoxW - 65,
+    cumBoxY + 4,
+    { width: 58, align: 'right' },
+  );
+
+  currentY += sessionHeaderH + 6;
+
+  // Session Table Header Setup
+  const sessionColWidths = [45, 80, 95, 95, 100, 108.28];
+  const sessionColX = [
+    pageMargin + 8,
+    pageMargin + 45,
+    pageMargin + 125,
+    pageMargin + 220,
+    pageMargin + 315,
+    pageMargin + 415,
+  ];
+
+  const drawSessionTableHeader = (y: number) => {
+    doc.roundedRect(pageMargin, y, contentWidth, 16, 2).fill('#1E293B');
+    doc.fillColor('#FFFFFF').fontSize(6.5).font('Helvetica-Bold');
+    doc.text('SESSION', sessionColX[0], y + 4.5, { width: sessionColWidths[0] - 8, align: 'center' });
+    doc.text('DATE', sessionColX[1], y + 4.5, { width: sessionColWidths[1] });
+    doc.text('CHECK-IN (FROM)', sessionColX[2], y + 4.5, { width: sessionColWidths[2], align: 'center' });
+    doc.text('CHECK-OUT (TO)', sessionColX[3], y + 4.5, { width: sessionColWidths[3], align: 'center' });
+    doc.text('WORKING HOURS', sessionColX[4], y + 4.5, { width: sessionColWidths[4], align: 'center' });
+    doc.text('CUMULATIVE HOURS', sessionColX[5], y + 4.5, { width: sessionColWidths[5] - 8, align: 'center' });
+  };
+
+  drawSessionTableHeader(currentY);
+  currentY += 16;
+
+  const sessionRowH = 15;
+  const maxContentY = 765;
+
+  if (sessions.length === 0) {
+    doc.rect(pageMargin, currentY, contentWidth, 18).fill('#F8FAFC');
+    doc.fillColor('#64748B').fontSize(7).font('Helvetica').text(
+      'No check-in / check-out records found for the selected period.',
+      pageMargin,
+      currentY + 5,
+      { width: contentWidth, align: 'center' },
+    );
+    doc.moveTo(pageMargin, currentY + 18).lineTo(pageMargin + contentWidth, currentY + 18)
+      .strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+    currentY += 18;
+  } else {
+    sessions.forEach((s, sIdx) => {
+      if (currentY + sessionRowH > maxContentY) {
+        doc.addPage();
+        doc.rect(0, 0, pageWidth, 5).fill('#059669');
+        currentY = 40;
+        drawSessionTableHeader(currentY);
+        currentY += 16;
+      }
+
+      const isEven = sIdx % 2 === 1;
+      if (isEven) {
+        doc.rect(pageMargin, currentY, contentWidth, sessionRowH).fill('#F8FAFC');
+      }
+
+      // Session index
+      doc.fillColor('#64748B').fontSize(6.5).font('Helvetica').text(
+        `#${s.sessionIndex}`,
+        sessionColX[0],
+        currentY + 4,
+        { width: sessionColWidths[0] - 8, align: 'center' },
+      );
+
+      // Date
+      doc.fillColor('#1E293B').fontSize(6.5).font('Helvetica-Bold').text(
+        s.dateStr,
+        sessionColX[1],
+        currentY + 4,
+        { width: sessionColWidths[1] },
+      );
+
+      // Check-in
+      doc.fillColor('#0F172A').fontSize(6.5).font('Helvetica').text(
+        s.checkInTime,
+        sessionColX[2],
+        currentY + 4,
+        { width: sessionColWidths[2], align: 'center' },
+      );
+
+      // Check-out
+      if (s.isActiveNow) {
+        doc.fillColor('#059669').fontSize(6.5).font('Helvetica-Bold').text(
+          'Active Now',
+          sessionColX[3],
+          currentY + 4,
+          { width: sessionColWidths[3], align: 'center' },
+        );
+      } else {
+        doc.fillColor('#0F172A').fontSize(6.5).font('Helvetica').text(
+          s.checkOutTime,
+          sessionColX[3],
+          currentY + 4,
+          { width: sessionColWidths[3], align: 'center' },
+        );
+      }
+
+      // Session hours
+      doc.fillColor('#334155').fontSize(6.5).font('Helvetica').text(
+        s.sessionHours,
+        sessionColX[4],
+        currentY + 4,
+        { width: sessionColWidths[4], align: 'center' },
+      );
+
+      // Cumulative hours (main highlighted column)
+      doc.fillColor('#047857').fontSize(7).font('Helvetica-Bold').text(
+        s.cumulativeHours,
+        sessionColX[5],
+        currentY + 4,
+        { width: sessionColWidths[5] - 8, align: 'center' },
+      );
+
+      // Row divider
+      doc.moveTo(pageMargin, currentY + sessionRowH).lineTo(pageMargin + contentWidth, currentY + sessionRowH)
+        .strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+
+      currentY += sessionRowH;
+    });
+
+    // Session Table Summary Row
+    if (currentY + 16 > maxContentY) {
+      doc.addPage();
+      doc.rect(0, 0, pageWidth, 5).fill('#059669');
+      currentY = 40;
+    }
+
+    doc.rect(pageMargin, currentY, contentWidth, 16).fill('#ECFDF5');
+    doc.fillColor('#065F46').fontSize(7).font('Helvetica-Bold').text(
+      'TOTAL CUMULATIVE WORKING HOURS',
+      sessionColX[0],
+      currentY + 4.5,
+      { width: 300 },
+    );
+    doc.fillColor('#047857').fontSize(8).font('Helvetica-Bold').text(
+      formatHours(data.totalHoursInRevCycle),
+      sessionColX[5],
+      currentY + 4,
+      { width: sessionColWidths[5] - 8, align: 'center' },
+    );
+
+    doc.moveTo(pageMargin, currentY + 16).lineTo(pageMargin + contentWidth, currentY + 16)
+      .strokeColor('#10B981').lineWidth(1).stroke();
+  }
+
+  // 8. FOOTER BAR (Rendered on all pages using bufferPages)
+  const range = doc.bufferedPageRange();
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    const footerY = 790;
+    doc.moveTo(pageMargin, footerY).lineTo(pageMargin + contentWidth, footerY)
+      .strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+
+    doc.fillColor('#94A3B8').fontSize(6.5).font('Helvetica').text(
+      'AjraSakha System • Confidential Individual Activity Report',
+      pageMargin,
+      footerY + 6,
+      { width: 300 },
+    );
+
+    doc.fillColor('#94A3B8').fontSize(6.5).font('Helvetica').text(
+      `Page ${i + 1} of ${range.count}`,
+      pageMargin + contentWidth - 100,
+      footerY + 6,
+      { width: 100, align: 'right' },
+    );
+  }
 
   doc.end();
   return pdfPromise;

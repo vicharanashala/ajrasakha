@@ -35,7 +35,7 @@ import { NotificationService } from '#root/modules/notification/services/Notific
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
-import { buildUserActivityPdfReport } from '#root/utils/buildUserActivityPdfReport.js';
+import { buildUserActivityPdfReport, UserSessionLog } from '#root/utils/buildUserActivityPdfReport.js';
 
 
 @injectable()
@@ -1655,28 +1655,72 @@ export class UserService extends BaseService {
     };
     const userDesignation = roleDisplayMap[user.role] || user.role;
 
-    // 1. Total Hours in Rev Cycle via userRepo
+    // 1. Total Hours in Rev Cycle via userRepo & build session logs
     const history = await this.userRepo.getUserHistory({
       userId,
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
     });
 
+    const sessions: UserSessionLog[] = [];
     let totalRevCycleMs = 0;
     const nowMs = Date.now();
     const startLimitMs = startDate.getTime();
     const endLimitMs = endDate.getTime();
 
-    for (const item of history.roleHistory || []) {
-      if (item.isBlocked === true) continue;
-      const fromTime = item.from ? new Date(item.from).getTime() : null;
-      if (!fromTime) continue;
+    const formatDateIST = (d: Date) =>
+      d.toLocaleDateString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+
+    const formatTimeIST = (d: Date) =>
+      d.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+    // Active working sessions only (breaks with isBlocked === true are excluded)
+    const activeRoleItems = (history.roleHistory || [])
+      .filter((item: any) => item.isBlocked !== true && item.from)
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.from).getTime() - new Date(b.from).getTime(),
+      );
+
+    for (const item of activeRoleItems) {
+      const fromTime = new Date(item.from).getTime();
+      const isActiveNow = !item.to;
       const toTime = item.to ? new Date(item.to).getTime() : nowMs;
 
       const start = Math.max(fromTime, startLimitMs);
       const end = Math.min(toTime, endLimitMs);
+
       if (end > start) {
-        totalRevCycleMs += end - start;
+        const sessionMs = end - start;
+        totalRevCycleMs += sessionMs;
+
+        const startDateObj = new Date(start);
+        const endDateObj = new Date(end);
+
+        sessions.push({
+          sessionIndex: sessions.length + 1,
+          dateStr: formatDateIST(startDateObj),
+          checkInTime: formatTimeIST(startDateObj),
+          checkOutTime:
+            isActiveNow && !item.to && toTime === nowMs
+              ? 'Active Now'
+              : formatTimeIST(endDateObj),
+          sessionHours: `${(sessionMs / (1000 * 60 * 60)).toFixed(2)} hrs`,
+          sessionMs,
+          cumulativeHours: `${(totalRevCycleMs / (1000 * 60 * 60)).toFixed(2)} hrs`,
+          cumulativeMs: totalRevCycleMs,
+          isActiveNow,
+        });
       }
     }
     const totalHoursInRevCycle = totalRevCycleMs / (1000 * 60 * 60);
@@ -1707,6 +1751,7 @@ export class UserService extends BaseService {
       gatekeepedCount: metrics.gatekeepedCount,
       totalGatekeepingMs: metrics.totalGatekeepingMs,
       gdbPushedCount: metrics.gdbPushedCount,
+      sessions,
     });
   }
 }
