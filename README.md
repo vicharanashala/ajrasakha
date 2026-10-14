@@ -22,6 +22,13 @@ This ensures farmers always get a helpful response — whether from verified exp
 - **Real-time delivery** — instant answers from the knowledge base or AI models.
 - Built on **LibreChat**, offering a modern, reliable experience tailored for agricultural needs.
 
+### GDB Coverage Gap Detector
+
+To intelligently scale our Golden Dataset, the platform includes a **Coverage Gap Detector pipeline**:
+- **Continuous Analysis**: Automatically pulls disclaimer-triggered (unanswered) queries from the system.
+- **Semantic Clustering**: Uses `sentence-transformers` and `scikit-learn` (DBSCAN) to group unanswerable questions by intent.
+- **Heatmap Dashboard**: A sleek, React-based dashboard displaying a coverage heatmap across crops and states, allowing the outreach team to prioritize which farming domains lack GDB coverage.
+
 ## Technologies Used
 
 - **Frontend:** React + TypeScript
