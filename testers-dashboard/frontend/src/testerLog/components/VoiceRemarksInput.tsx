@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, AlertCircle } from "lucide-react";
+import { Mic, MicOff, AlertCircle, CheckCircle2, Loader2, Undo2, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { TesterLogService } from "../services/testerLogService";
+import type { IGrammarCorrection } from "../types";
+
+const testerLogService = new TesterLogService();
 
 export interface VoiceRemarksInputProps {
     label?: string;
@@ -34,13 +38,25 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
     const [speechSupported, setSpeechSupported] = useState(true);
     const [interimTranscript, setInterimTranscript] = useState("");
 
+    // Grammar validation state
+    const [isValidatingGrammar, setIsValidatingGrammar] = useState(false);
+    const [autoCheckGrammar, setAutoCheckGrammar] = useState(true);
+    const [suggestions, setSuggestions] = useState<IGrammarCorrection[]>([]);
+    const [isGrammarValid, setIsGrammarValid] = useState<boolean | null>(null);
+    const [previousText, setPreviousText] = useState<string | null>(null);
+
     const recognitionRef = useRef<any>(null);
     const currentValueRef = useRef(value);
     const baseTextOnStartRef = useRef("");
+    const autoCheckGrammarRef = useRef(autoCheckGrammar);
 
     useEffect(() => {
         currentValueRef.current = value;
     }, [value]);
+
+    useEffect(() => {
+        autoCheckGrammarRef.current = autoCheckGrammar;
+    }, [autoCheckGrammar]);
 
     // Check Web Speech API availability
     useEffect(() => {
@@ -63,6 +79,95 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
             }
         };
     }, []);
+
+    const triggerGrammarValidation = async (textToValidate?: string) => {
+        const text = (textToValidate !== undefined ? textToValidate : currentValueRef.current || "").trim();
+        if (!text || text.length < 2) {
+            toast.error("Please enter or dictate remarks before checking grammar.");
+            return;
+        }
+
+        setIsValidatingGrammar(true);
+        try {
+            const res = await testerLogService.validateGrammar(text);
+
+            if (res.isUnavailable) {
+                if (textToValidate === undefined) {
+                    toast.info("In-house grammar validator service is currently unreachable.");
+                }
+                return;
+            }
+
+            if (res.isValid && (!res.suggestions || res.suggestions.length === 0)) {
+                setIsGrammarValid(true);
+                setSuggestions([]);
+                toast.success("Grammar is valid!");
+            } else {
+                setIsGrammarValid(false);
+                const fetchedSuggestions = res.suggestions || [];
+                setSuggestions(fetchedSuggestions);
+                if (fetchedSuggestions.length > 0) {
+                    toast.info(`Found ${fetchedSuggestions.length} grammar suggestion${fetchedSuggestions.length > 1 ? "s" : ""}`);
+                }
+            }
+        } catch (err: any) {
+            console.warn("Grammar validation error:", err);
+            toast.error(err?.message || "Failed to validate grammar.");
+        } finally {
+            setIsValidatingGrammar(false);
+        }
+    };
+
+    const applySuggestion = (suggestion: IGrammarCorrection) => {
+        const current = currentValueRef.current;
+        setPreviousText(current);
+        let next = current;
+        if (current === suggestion.original) {
+            next = suggestion.corrected;
+        } else if (suggestion.original && current.includes(suggestion.original)) {
+            next = current.replace(suggestion.original, suggestion.corrected);
+        } else if (suggestion.corrected) {
+            next = suggestion.corrected;
+        }
+        onChange(next);
+        setSuggestions((prev) => prev.filter((s) => s !== suggestion));
+        setIsGrammarValid(true);
+        toast.success("Grammar correction applied!");
+    };
+
+    const applyAllSuggestions = () => {
+        const current = currentValueRef.current;
+        setPreviousText(current);
+        let next = current;
+        for (const s of suggestions) {
+            if (next === s.original) {
+                next = s.corrected;
+            } else if (s.original && next.includes(s.original)) {
+                next = next.replace(s.original, s.corrected);
+            } else if (s.corrected && suggestions.length === 1) {
+                next = s.corrected;
+            }
+        }
+        onChange(next);
+        setSuggestions([]);
+        setIsGrammarValid(true);
+        toast.success("All grammar corrections applied!");
+    };
+
+    const dismissSuggestions = () => {
+        setSuggestions([]);
+        setIsGrammarValid(null);
+    };
+
+    const handleUndo = () => {
+        if (previousText !== null) {
+            onChange(previousText);
+            setPreviousText(null);
+            setSuggestions([]);
+            setIsGrammarValid(null);
+            toast.info("Reverted grammar fix.");
+        }
+    };
 
     const startListening = () => {
         if (!speechSupported) {
@@ -142,6 +247,11 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                 if (spoken && fullText !== currentValueRef.current) {
                     onChange(fullText);
                 }
+
+                // If auto-check grammar is enabled and speech was transcribed, trigger validation
+                if (autoCheckGrammarRef.current && spoken && fullText.trim().length >= 3) {
+                    triggerGrammarValidation(fullText);
+                }
             };
 
             recognitionRef.current = recognition;
@@ -189,7 +299,61 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                 ) : <div />}
 
                 {/* Toolbar Controls */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Auto-check toggle */}
+                    <label
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors"
+                        title="Automatically check grammar with in-house AI when you finish speaking"
+                    >
+                        <input
+                            type="checkbox"
+                            checked={autoCheckGrammar}
+                            onChange={(e) => setAutoCheckGrammar(e.target.checked)}
+                            disabled={disabled || isValidatingGrammar}
+                            className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5"
+                        />
+                        <span>Auto-check</span>
+                    </label>
+
+                    {/* Check Grammar Button */}
+                    <button
+                        type="button"
+                        onClick={() => triggerGrammarValidation()}
+                        disabled={disabled || isValidatingGrammar || isListening || !value.trim()}
+                        className={cn(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-all shadow-xs",
+                            "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:border-primary/40 active:scale-95",
+                            "disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none",
+                        )}
+                        title="Validate remarks grammar using in-house AI model"
+                    >
+                        {isValidatingGrammar ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Checking...</span>
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                                <span>Check Grammar</span>
+                            </>
+                        )}
+                    </button>
+
+                    {/* Undo Fix Button */}
+                    {previousText !== null && (
+                        <button
+                            type="button"
+                            onClick={handleUndo}
+                            disabled={disabled || isValidatingGrammar}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            title="Revert to original text prior to grammar fix"
+                        >
+                            <Undo2 className="w-3 h-3" />
+                            <span>Undo Fix</span>
+                        </button>
+                    )}
+
                     {/* Microphone Toggle Button */}
                     <button
                         type="button"
@@ -252,7 +416,11 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                 <textarea
                     rows={4}
                     value={value}
-                    onChange={(e) => onChange(e.target.value)}
+                    onChange={(e) => {
+                        onChange(e.target.value);
+                        if (suggestions.length > 0) setSuggestions([]);
+                        if (isGrammarValid !== null) setIsGrammarValid(null);
+                    }}
                     placeholder={placeholder}
                     maxLength={maxLength}
                     disabled={disabled}
@@ -265,6 +433,71 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                     )}
                 />
             </div>
+
+            {/* Grammar Suggestions Card */}
+            {suggestions.length > 0 && (
+                <div className="flex flex-col gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs text-foreground animate-fadeIn">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>Grammar Suggestions ({suggestions.length})</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            {suggestions.length > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={applyAllSuggestions}
+                                    className="px-2 py-0.5 rounded bg-amber-600 text-white hover:bg-amber-700 font-medium transition-colors"
+                                >
+                                    Apply All
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={dismissSuggestions}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-amber-500/20 transition-colors"
+                                title="Dismiss suggestions"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        {suggestions.map((s, idx) => (
+                            <div key={idx} className="flex flex-wrap items-start justify-between gap-2 p-2 rounded bg-background/80 border border-border/60">
+                                <div className="flex-1 space-y-0.5 min-w-[200px]">
+                                    {s.explanation && (
+                                        <p className="text-muted-foreground text-[11px] italic">{s.explanation}</p>
+                                    )}
+                                    <div className="flex flex-wrap items-center gap-1.5 font-mono text-[12px]">
+                                        {s.original && s.original !== s.corrected && (
+                                            <span className="line-through text-red-500/80 dark:text-red-400/80 mr-1">{s.original}</span>
+                                        )}
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{s.corrected}</span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => applySuggestion(s)}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium transition-colors shrink-0"
+                                >
+                                    <Check className="w-3 h-3" />
+                                    <span>Apply</span>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Grammar Valid Indicator */}
+            {isGrammarValid === true && suggestions.length === 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 animate-fadeIn">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Grammar validated with in-house AI model.</span>
+                </div>
+            )}
 
             {/* Character count & error message */}
             <div className="flex items-center justify-between text-xs">

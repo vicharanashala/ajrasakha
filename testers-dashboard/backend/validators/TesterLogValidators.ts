@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNotEmpty, IsNumberString, IsArray, IsBoolean, MaxLength, MinLength, Matches, ValidateIf } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsNumberString, IsArray, IsBoolean, IsInt, Min, Max, MaxLength, MinLength, Matches, ValidateIf } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 import {
     TEXT_FIELD_LIMITS,
@@ -329,4 +329,20 @@ export class FormatRemarksDto {
     language?: string;
 }
 
-export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, UpdateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto, FormatRemarksDto];
+export class ValidateGrammarDto {
+    @JSONSchema({ description: 'Raw remarks text to validate' })
+    @IsString()
+    @IsNotEmpty()
+    @MinLength(1)
+    @MaxLength(4000)
+    text: string;
+
+    @JSONSchema({ description: 'Maximum suggestions to return (1-10, default 3)' })
+    @IsInt()
+    @IsOptional()
+    @Min(1)
+    @Max(10)
+    maxSuggestions?: number;
+}
+
+export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, UpdateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto, FormatRemarksDto, ValidateGrammarDto];

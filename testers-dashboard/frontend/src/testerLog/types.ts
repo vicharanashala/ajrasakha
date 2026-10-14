@@ -613,3 +613,17 @@ export const TEST_ID_REGEX = /^[a-zA-Z0-9._\-]{1,30}$/;
 export const HTTP_URL_REGEX = /^https?:\/\/.+/i;
 export const ZOHO_DESK_URL_REGEX = /^https?:\/\/(desk\.zoho\.(in|com|eu|com\.cn|com\.au)|([a-zA-Z0-9-]+\.)?zoho\.(in|com|eu)\/desk)\/.+$/i;
 
+export interface IGrammarCorrection {
+    original: string;
+    corrected: string;
+    explanation?: string;
+}
+
+export interface IGrammarValidationResult {
+    isValid: boolean;
+    originalText: string;
+    suggestions: IGrammarCorrection[];
+    validationErrors?: any[];
+    isUnavailable?: boolean;
+}
+

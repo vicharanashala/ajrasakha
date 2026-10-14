@@ -61,4 +61,5 @@ export const appConfig = {
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),
   },
+  grammarValidatorUrl: env('GRAMMAR_VALIDATOR_URL') || 'http://100.100.108.44:8008',
 };

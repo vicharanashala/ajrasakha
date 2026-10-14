@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { VoiceRemarksInput } from "./VoiceRemarksInput";
+import { TesterLogService } from "../services/testerLogService";
 
 vi.mock("sonner", () => ({
     toast: {
@@ -12,7 +13,16 @@ vi.mock("sonner", () => ({
 }));
 
 describe("VoiceRemarksInput", () => {
+    let mockValidateGrammar: any;
+
     beforeEach(() => {
+        mockValidateGrammar = vi.spyOn(TesterLogService.prototype, "validateGrammar").mockResolvedValue({
+            isValid: true,
+            originalText: "The application is working correctly.",
+            suggestions: [],
+            validationErrors: [],
+        });
+
         // Mock Web Speech API
         (window as any).SpeechRecognition = class MockSpeechRecognition {
             continuous = false;
@@ -182,5 +192,75 @@ describe("VoiceRemarksInput", () => {
             recognitionInstance.onend();
         });
         expect(onChange).toHaveBeenLastCalledWith("Initial typed defect. Server returned 500 error.");
+    });
+
+    it("validates grammar using in-house AI model when clicking 'Check Grammar'", async () => {
+        mockValidateGrammar.mockResolvedValueOnce({
+            isValid: false,
+            originalText: "She go to school yesterday.",
+            suggestions: [
+                {
+                    original: "She go to school yesterday.",
+                    corrected: "She went to school yesterday.",
+                    explanation: "Use past tense 'went' instead of 'go'.",
+                },
+            ],
+            validationErrors: [],
+        });
+
+        const onChange = vi.fn();
+        render(
+            <VoiceRemarksInput
+                value="She go to school yesterday."
+                onChange={onChange}
+            />
+        );
+
+        const checkBtn = screen.getByRole("button", { name: /Check Grammar/i });
+        fireEvent.click(checkBtn);
+
+        await waitFor(() => {
+            expect(mockValidateGrammar).toHaveBeenCalledWith("She go to school yesterday.");
+            expect(screen.getByText(/Grammar Suggestions \(1\)/i)).toBeTruthy();
+            expect(screen.getByText("Use past tense 'went' instead of 'go'.")).toBeTruthy();
+            expect(screen.getByText("She went to school yesterday.")).toBeTruthy();
+        });
+
+        // Click Apply
+        const applyBtn = screen.getByRole("button", { name: /Apply/i });
+        fireEvent.click(applyBtn);
+
+        expect(onChange).toHaveBeenCalledWith("She went to school yesterday.");
+
+        // Undo Fix should now be available
+        const undoBtn = screen.getByRole("button", { name: /Undo Fix/i });
+        expect(undoBtn).toBeTruthy();
+
+        // Click Undo Fix
+        fireEvent.click(undoBtn);
+        expect(onChange).toHaveBeenCalledWith("She go to school yesterday.");
+    });
+
+    it("displays valid grammar confirmation when text is grammatically correct", async () => {
+        mockValidateGrammar.mockResolvedValueOnce({
+            isValid: true,
+            originalText: "The application is working correctly.",
+            suggestions: [],
+            validationErrors: [],
+        });
+
+        render(
+            <VoiceRemarksInput
+                value="The application is working correctly."
+                onChange={vi.fn()}
+            />
+        );
+
+        const checkBtn = screen.getByRole("button", { name: /Check Grammar/i });
+        fireEvent.click(checkBtn);
+
+        await waitFor(() => {
+            expect(screen.getByText(/Grammar validated with in-house AI model/i)).toBeTruthy();
+        });
     });
 });

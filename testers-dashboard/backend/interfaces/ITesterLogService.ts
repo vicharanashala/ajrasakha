@@ -450,5 +450,24 @@ export interface ITesterLogService {
         category?: string,
         language?: string,
     ): Promise<{ formattedText: string; originalText: string }>;
+
+    validateGrammar(
+        text: string,
+        maxSuggestions?: number,
+    ): Promise<GrammarValidationResponse>;
+}
+
+export interface GrammarCorrection {
+    original: string;
+    corrected: string;
+    explanation?: string;
+}
+
+export interface GrammarValidationResponse {
+    isValid: boolean;
+    originalText: string;
+    suggestions: GrammarCorrection[];
+    validationErrors?: any[];
+    isUnavailable?: boolean;
 }
 
