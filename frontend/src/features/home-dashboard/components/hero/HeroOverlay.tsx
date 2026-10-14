@@ -1,4 +1,4 @@
-import React, { type ReactNode, memo, useRef, useState, useEffect, type RefObject } from 'react';
+import React, { type ReactNode, memo, useRef, useState, useEffect } from 'react';
 import {
   Play, ArrowRight, ChevronDown, Sprout, ShieldCheck, Lock, Users,
   FlaskConical, GraduationCap, Landmark,
@@ -136,6 +136,7 @@ const HeroOverlay: React.FC<HeroOverlayProps> = memo(({ metrics, onWatchStory })
   const badge2Ref = useRef<HTMLDivElement>(null);
   const badge3Ref = useRef<HTMLDivElement>(null);
   const farmerBadgeRef = useRef<HTMLDivElement>(null);
+  const phoneAnchorRef = useRef<HTMLDivElement>(null);
 
   // Stable array of badge refs for KnowledgeNetwork (index matches BADGES order)
   const badgeRefList = useRef([badge0Ref, badge1Ref, badge2Ref, badge3Ref]).current;
@@ -179,12 +180,13 @@ const HeroOverlay: React.FC<HeroOverlayProps> = memo(({ metrics, onWatchStory })
       {/* ── 2. Visual stage container (reference for SVG coords) ── */}
       <div className="hc-visual-stage" ref={layoutRef}>
 
-        {/* ── 3. Knowledge Network SVG — lines connect to Ramesh Kumar badge ── */}
+        {/* ── 3. Knowledge Network SVG — lines connect to destination (badge on PC, phone on mobile) ── */}
         {networkVisible && (
           <KnowledgeNetwork
             progress={progress}
             badgeRefs={badgeRefList}
             phoneRef={farmerBadgeRef}
+            phoneFallbackRef={phoneAnchorRef}
             containerRef={layoutRef}
           />
         )}
@@ -199,7 +201,7 @@ const HeroOverlay: React.FC<HeroOverlayProps> = memo(({ metrics, onWatchStory })
             <div
               key={id}
               ref={badgeDomRefs[i]}
-              className={`hc-badge${connActive ? ' hc-badge--conn-active' : ''}`}
+              className={`hc-badge hc-badge--${id}${connActive ? ' hc-badge--conn-active' : ''}`}
               style={{
                 ...css,
                 opacity: badgeP,
@@ -224,19 +226,31 @@ const HeroOverlay: React.FC<HeroOverlayProps> = memo(({ metrics, onWatchStory })
           className="hc-farmer-wrapper"
           style={{
             opacity: farmerOpacity,
-            transform: `translateY(${farmerY.toFixed(1)}px) scale(${farmerScale.toFixed(3)})`,
           }}
         >
-          <img
-            src="/assets/farmer.png"
-            alt="Farmer using ANNam.AI on smartphone"
-            className="hc-farmer-img"
-            draggable={false}
-          />
-          <div className="hc-farmer-shadow" aria-hidden="true" />
+          <div
+            className="hc-farmer-inner"
+            style={{
+              transform: `translateY(${farmerY.toFixed(1)}px) scale(${farmerScale.toFixed(3)})`,
+              height: "100%",
+              width: "auto",
+              position: "relative",
+              display: "inline-block",
+            }}
+          >
+            <img
+              src="/assets/farmer.png"
+              alt="Farmer using ANNam.AI on smartphone"
+              className="hc-farmer-img"
+              draggable={false}
+            />
+            {/* Phone anchor marks the phone in farmer's hands for SVG connection lines */}
+            <div ref={phoneAnchorRef} className="hc-phone-anchor" />
+            <div className="hc-farmer-shadow" aria-hidden="true" />
+          </div>
         </div>
 
-        {/* ── 6. Farmer Ramesh Kumar Badge (The Convergence Destination) ── */}
+        {/* ── 6. Farmer Ramesh Kumar Badge (Visible on PC / Desktop) ── */}
         <div
           ref={farmerBadgeRef}
           className={`hc-farmer-label${showFarmerBadge ? ' hc-farmer-label--visible' : ''}${allConnected ? ' hc-farmer-label--connected' : ''}`}

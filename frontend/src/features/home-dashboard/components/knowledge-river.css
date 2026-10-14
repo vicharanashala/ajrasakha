@@ -138,6 +138,7 @@
   left: 50%;
   transform: translateX(-50%) translateY(28px);
   width: 230px;
+  max-width: calc(100vw - 32px);
   padding: 12px 14px;
   background: rgba(6, 20, 11, 0.95);
   border: 1px solid var(--node-accent, rgba(252, 211, 77, 0.4));
@@ -350,12 +351,6 @@
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
-  .kr-badge-stream-field {
-    top: 210px;
-  }
-}
-
-@media (max-width: 768px) {
   .knowledge-river-section {
     padding: 80px 0 100px;
     min-height: 110vh;
@@ -390,7 +385,7 @@
   }
 
   .glass-card {
-    padding: 28px 24px 26px;
+    padding: 24px 20px 22px;
     border-radius: 20px;
   }
 

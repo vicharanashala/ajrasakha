@@ -37,50 +37,92 @@ export const ReviewWorkflowCanvas: React.FC<ReviewWorkflowCanvasProps> = ({
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
-  const [displayFrameIdx, setDisplayFrameIdx] = useState(1);
 
-  // Construct frame paths (/assets/review-workflow/ezgif-frame-001.png ...)
+  // Construct frame paths (/assets/review-workflow/ezgif-frame-001.webp ...)
   const framePaths = React.useMemo(() => {
     return Array.from({ length: totalFrames }, (_, i) => {
       const numStr = String(i + 1).padStart(3, "0");
-      return `/assets/review-workflow/ezgif-frame-${numStr}.png`;
+      return `/assets/review-workflow/ezgif-frame-${numStr}.webp`;
     });
   }, [totalFrames]);
 
-  // Preload frame images
+  // Progressive Preloading of WebP frame images with Viewport Intersection
   useEffect(() => {
     let isCancelled = false;
-    const loadedImages: HTMLImageElement[] = new Array(totalFrames);
+    const loadedImages: (HTMLImageElement | null)[] = new Array(totalFrames).fill(null);
+    imagesRef.current = loadedImages;
     let count = 0;
     setIsLoaded(false);
     setLoadedCount(0);
 
-    framePaths.forEach((path, idx) => {
-      const img = new Image();
-      img.src = path;
-      img.onload = () => {
-        if (isCancelled) return;
-        loadedImages[idx] = img;
-        count++;
-        setLoadedCount(count);
-        if (count === totalFrames) {
-          imagesRef.current = loadedImages;
-          setIsLoaded(true);
-        }
-      };
-      img.onerror = () => {
-        if (isCancelled) return;
-        count++;
-        setLoadedCount(count);
-        if (count === totalFrames) {
-          imagesRef.current = loadedImages;
-          setIsLoaded(true);
-        }
-      };
-    });
+    // 1. Immediately preload Frame 1 for zero-latency initial canvas painting
+    const firstImg = new Image();
+    firstImg.src = framePaths[0];
+    firstImg.onload = () => {
+      if (isCancelled) return;
+      loadedImages[0] = firstImg;
+      count++;
+      setLoadedCount(count);
+      setIsLoaded(true); // Enable canvas rendering immediately on Frame 1!
+    };
+
+    // 2. Start preloading the remaining frames when near viewport
+    let observer: IntersectionObserver | null = null;
+    const startLoadingRemaining = () => {
+      // Load milestone keyframes first for smooth stage skipping
+      const keyIndices = [
+        0,
+        Math.floor(totalFrames * 0.25),
+        Math.floor(totalFrames * 0.5),
+        Math.floor(totalFrames * 0.75),
+        totalFrames - 1,
+      ];
+
+      const queue = [
+        ...keyIndices,
+        ...Array.from({ length: totalFrames }, (_, i) => i).filter(
+          (i) => !keyIndices.includes(i)
+        ),
+      ];
+
+      // Stream frames concurrently with browser cache
+      queue.forEach((idx) => {
+        if (idx === 0) return; // already loaded above
+        const img = new Image();
+        img.src = framePaths[idx];
+        img.onload = () => {
+          if (isCancelled) return;
+          loadedImages[idx] = img;
+          count++;
+          setLoadedCount(count);
+        };
+        img.onerror = () => {
+          if (isCancelled) return;
+          count++;
+          setLoadedCount(count);
+        };
+      });
+    };
+
+    const container = containerRef.current;
+    if (container && "IntersectionObserver" in window) {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            startLoadingRemaining();
+            observer?.disconnect();
+          }
+        },
+        { rootMargin: "500px" } // Start preloading 500px before section arrives
+      );
+      observer.observe(container);
+    } else {
+      startLoadingRemaining();
+    }
 
     return () => {
       isCancelled = true;
+      if (observer) observer.disconnect();
     };
   }, [framePaths, totalFrames]);
 
@@ -89,7 +131,27 @@ export const ReviewWorkflowCanvas: React.FC<ReviewWorkflowCanvasProps> = ({
     targetFrameRef.current = progress * (totalFrames - 1);
   }, [progress, totalFrames]);
 
-  // Continuous RAF Render Loop with Lerp Smoothing
+  // Helper to find closest available loaded frame if target frame is still downloading
+  const getBestFrame = (targetIdx: number): HTMLImageElement | null => {
+    const images = imagesRef.current;
+    if (images[targetIdx] && images[targetIdx]?.complete) {
+      return images[targetIdx];
+    }
+    // Search outwards for the closest cached frame
+    for (let offset = 1; offset < totalFrames; offset++) {
+      const left = targetIdx - offset;
+      const right = targetIdx + offset;
+      if (left >= 0 && images[left] && images[left]?.complete) {
+        return images[left];
+      }
+      if (right < totalFrames && images[right] && images[right]?.complete) {
+        return images[right];
+      }
+    }
+    return null;
+  };
+
+  // Continuous RAF Render Loop with Lerp Smoothing & Nearest Frame Fallback
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -115,7 +177,6 @@ export const ReviewWorkflowCanvas: React.FC<ReviewWorkflowCanvasProps> = ({
 
         if (activeFrameIdxStateRef.current !== frameIdx) {
           activeFrameIdxStateRef.current = frameIdx;
-          setDisplayFrameIdx(frameIdx + 1);
         }
 
         const ctx = canvas.getContext("2d");
@@ -131,7 +192,7 @@ export const ReviewWorkflowCanvas: React.FC<ReviewWorkflowCanvasProps> = ({
           ctx.save();
           ctx.scale(dpr, dpr);
 
-          const img = imagesRef.current[frameIdx];
+          const img = getBestFrame(frameIdx);
           if (img && img.complete && img.naturalWidth > 0) {
             ctx.clearRect(0, 0, rect.width, rect.height);
 

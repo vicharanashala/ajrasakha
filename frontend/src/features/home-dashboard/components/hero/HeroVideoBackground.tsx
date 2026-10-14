@@ -35,11 +35,12 @@ const HeroVideoBackground: React.FC = () => {
         ref={videoRef}
         className="hc-video"
         src="/assets/hero-bg.mp4"
+        poster="/assets/hero-poster.webp"
         autoPlay
         muted
         loop
         playsInline
-        preload="metadata"
+        preload="auto"
         disablePictureInPicture
         tabIndex={-1}
       />
