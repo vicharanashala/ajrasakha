@@ -31,7 +31,7 @@ LLM_API_URL = os.getenv(
 )
 LLM_MODEL = os.getenv(
     "LLM_MODEL",
-    "MiniMaxAI/MiniMax-M2"
+    "MiniMaxAI/MiniMax-M2.7"
 )
 LLM_API_KEY = os.getenv(
     "LLM_API_KEY",
@@ -140,7 +140,8 @@ Rules:
                         "Invalid response from LLM: no choices in response"
                     )
 
-                content = result["choices"][0].get("message", {}).get("content", "")
+                message = result["choices"][0].get("message", {})
+                content = message.get("content") or message.get("reasoning") or ""
                 if not content:
                     raise GrammarValidatorClientError(
                         "Invalid response from LLM: empty content"

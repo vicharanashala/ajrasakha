@@ -22,7 +22,7 @@ LLM_API_URL = os.getenv(
 )
 LLM_MODEL = os.getenv(
     "LLM_MODEL",
-    "MiniMaxAI/MiniMax-M2"
+    "MiniMaxAI/MiniMax-M2.7"
 )
 LLM_API_KEY = os.getenv(
     "LLM_API_KEY",
