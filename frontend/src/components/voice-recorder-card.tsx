@@ -309,7 +309,6 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
                 </CardTitle>
                 <Select
                   value={language}
-                  disabled
                   onValueChange={(value) =>
                     setLanguage(value as SupportedLanguage)
                   }
