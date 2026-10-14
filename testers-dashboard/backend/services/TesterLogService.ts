@@ -2015,7 +2015,8 @@ Rules:
                 validationErrors: Array.isArray(data?.validationErrors) ? data.validationErrors : [],
             };
         } catch (err: any) {
-            console.warn('[TesterLogService] Grammar validator unreachable or timed out:', err?.message || err);
+            const cause = err?.cause?.message || err?.cause?.code || err?.cause || err?.message || err;
+            console.warn(`[TesterLogService] Grammar validator (${targetUrl}) unreachable or timed out:`, cause);
             return {
                 isValid: true,
                 originalText: raw,
