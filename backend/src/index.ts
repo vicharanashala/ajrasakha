@@ -62,7 +62,7 @@ app.use((req, res, next) => {
 
   res.header(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Requested-With'
+    'Content-Type, Authorization, X-Requested-With, X-User-Id, X-User-Role'
   );
 
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -81,7 +81,7 @@ const { controllers, validators } = await loadAppModules(
 const corsOptions: CorsOptions = {
   origin: appConfig.origins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-internal-api-key'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-internal-api-key', 'X-User-Id', 'X-User-Role'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
