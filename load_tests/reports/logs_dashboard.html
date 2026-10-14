@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ajrasakha Load Test — Logs Dashboard</title>
+  <meta name="description" content="Real-time observability dashboard for the Ajrasakha Reviewer System load testing suite. Monitor failures, warnings, SLA breaches and system events." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Tokens ──────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0a0c10;
+      --surface:     #111318;
+      --surface2:    #181c24;
+      --surface3:    #1f2433;
+      --border:      rgba(255,255,255,.07);
+      --border2:     rgba(255,255,255,.13);
+      --text:        #e2e8f0;
+      --text-muted:  #7c8ca0;
+      --text-dim:    #4a5568;
+
+      --success:  #22c55e;
+      --info:     #38bdf8;
+      --warning:  #f59e0b;
+      --error:    #f43f5e;
+      --critical: #c026d3;
+      --debug:    #a78bfa;
+
+      --success-bg:  rgba(34,197,94,.10);
+      --info-bg:     rgba(56,189,248,.10);
+      --warning-bg:  rgba(245,158,11,.10);
+      --error-bg:    rgba(244,63,94,.10);
+      --critical-bg: rgba(192,38,211,.12);
+      --debug-bg:    rgba(167,139,250,.10);
+
+      --radius-sm: 6px;
+      --radius:    10px;
+      --radius-lg: 16px;
+      --shadow:    0 4px 24px rgba(0,0,0,.45);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: -.3px;
+    }
+
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(34,197,94,.15);
+      color: var(--success);
+      border: 1px solid rgba(34,197,94,.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .live-dot {
+      width: 7px; height: 7px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .4; transform: scale(.8); }
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--text);
+      transition: all .15s;
+    }
+    .btn:hover { background: var(--surface3); border-color: rgba(255,255,255,.22); }
+    .btn-primary { background: #6366f1; border-color: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #5457e0; }
+
+    main { flex: 1; padding: 28px; max-width: 1600px; margin: 0 auto; width: 100%; }
+
+    /* ── Summary Cards ───────────────────────────────────────────────────── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      transition: border-color .2s;
+    }
+    .metric-card:hover { border-color: var(--border2); }
+
+    .metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); margin-bottom: 8px; }
+    .metric-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+    .metric-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    .metric-card.success .metric-value { color: var(--success); }
+    .metric-card.error   .metric-value { color: var(--error); }
+    .metric-card.warning .metric-value { color: var(--warning); }
+    .metric-card.critical .metric-value { color: var(--critical); }
+    .metric-card.info    .metric-value { color: var(--info); }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────── */
+    .toolbar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .search-box {
+      flex: 1; min-width: 220px;
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+    }
+
+    .search-box input {
+      flex: 1;
+      background: none; border: none; outline: none;
+      color: var(--text); font-size: 13px; font-family: inherit;
+    }
+    .search-box input::placeholder { color: var(--text-dim); }
+
+    select, .filter-input {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 12px;
+      outline: none;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    select option { background: var(--surface2); }
+
+    /* ── Level Filter Pills ──────────────────────────────────────────────── */
+    .level-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+    .pill {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all .15s;
+      user-select: none;
+    }
+    .pill[data-active="true"] { border-color: currentColor; }
+
+    .pill-all      { color: var(--text-muted); background: var(--surface2); }
+    .pill-all[data-active="true"] { color: var(--text); background: var(--surface3); }
+    .pill-SUCCESS  { color: var(--success); background: var(--success-bg); }
+    .pill-INFO     { color: var(--info);    background: var(--info-bg); }
+    .pill-WARNING  { color: var(--warning); background: var(--warning-bg); }
+    .pill-ERROR    { color: var(--error);   background: var(--error-bg); }
+    .pill-CRITICAL { color: var(--critical);background: var(--critical-bg); }
+    .pill-DEBUG    { color: var(--debug);   background: var(--debug-bg); }
+
+    /* ── Log Table ───────────────────────────────────────────────────────── */
+    .log-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .log-panel-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .log-count { color: var(--text-muted); font-weight: 400; font-size: 12px; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    thead th:hover { color: var(--text); }
+    thead th .sort-icon { margin-left: 4px; opacity: .4; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+      cursor: pointer;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody tr.expanded { background: var(--surface2); }
+
+    td {
+      padding: 11px 16px;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    .ts {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* level badge */
+    .level-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      white-space: nowrap;
+    }
+    .badge-icon { font-size: 11px; }
+
+    .level-SUCCESS  { color: var(--success); background: var(--success-bg); }
+    .level-INFO     { color: var(--info);    background: var(--info-bg); }
+    .level-WARNING  { color: var(--warning); background: var(--warning-bg); }
+    .level-ERROR    { color: var(--error);   background: var(--error-bg); }
+    .level-CRITICAL { color: var(--critical);background: var(--critical-bg); }
+    .level-DEBUG    { color: var(--debug);   background: var(--debug-bg); }
+
+    .action-cell {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--info);
+    }
+
+    .msg-cell {
+      max-width: 340px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+    }
+
+    .module-badge {
+      display: inline-block;
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .rt-cell {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .rt-fast   { color: var(--success); }
+    .rt-medium { color: var(--warning); }
+    .rt-slow   { color: var(--error); }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+
+    /* ── Expanded Detail Panel ───────────────────────────────────────────── */
+    .detail-row { display: none; }
+    .detail-row.open { display: table-row; }
+
+    .detail-panel {
+      background: var(--surface2);
+      border-top: 1px solid var(--border2);
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .detail-inner {
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .detail-section h4 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-kv { display: flex; gap: 10px; margin-bottom: 8px; align-items: baseline; flex-wrap: wrap; }
+    .detail-key { font-size: 11px; color: var(--text-muted); min-width: 120px; flex-shrink: 0; }
+    .detail-val { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text); word-break: break-all; }
+
+    .stack-trace {
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--error);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+
+    .fix-box {
+      background: rgba(245,158,11,.08);
+      border: 1px solid rgba(245,158,11,.25);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--warning);
+      margin-top: 6px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    /* ── Empty / Loading / Error states ─────────────────────────────────── */
+    .state-box {
+      padding: 64px 32px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+    .state-box .icon { font-size: 48px; margin-bottom: 16px; }
+    .state-box p { font-size: 14px; }
+    .state-box small { font-size: 12px; color: var(--text-dim); }
+
+    /* ── Pagination ──────────────────────────────────────────────────────── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .page-btns { display: flex; gap: 6px; }
+
+    .page-btn {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      cursor: pointer;
+      color: var(--text);
+      font-size: 13px;
+      transition: all .12s;
+    }
+    .page-btn:hover   { background: var(--surface3); }
+    .page-btn.active  { background: #6366f1; border-color: #6366f1; color: #fff; }
+    .page-btn:disabled{ opacity: .35; cursor: default; }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      font-size: 13px;
+      color: var(--text);
+      box-shadow: var(--shadow);
+      transform: translateY(20px); opacity: 0;
+      transition: all .25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media(max-width: 768px) {
+      main { padding: 16px; }
+      .detail-inner { grid-template-columns: 1fr; }
+      .metrics-grid { grid-template-columns: repeat(2,1fr); }
+      thead th:nth-child(n+5) { display: none; }
+      td:nth-child(n+5)       { display: none; }
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📋</div>
+      Ajrasakha · Logs Dashboard
+    </div>
+    <div class="header-right">
+      <div class="live-badge" id="liveBadge">
+        <div class="live-dot"></div>
+        <span>Live</span>
+      </div>
+      <button class="btn" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn" onclick="exportJSON()">⬇ JSON</button>
+      <button class="btn btn-primary" onclick="loadLogs()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Summary Metrics -->
+    <div class="metrics-grid" id="metricsGrid">
+      <div class="metric-card">
+        <div class="metric-label">Total Requests</div>
+        <div class="metric-value" id="mTotal">—</div>
+        <div class="metric-sub">all log entries</div>
+      </div>
+      <div class="metric-card success">
+        <div class="metric-label">Successful</div>
+        <div class="metric-value" id="mSuccess">—</div>
+        <div class="metric-sub">HTTP 2xx responses</div>
+      </div>
+      <div class="metric-card error">
+        <div class="metric-label">Failed</div>
+        <div class="metric-value" id="mFailed">—</div>
+        <div class="metric-sub">4xx / 5xx errors</div>
+      </div>
+      <div class="metric-card warning">
+        <div class="metric-label">Warnings</div>
+        <div class="metric-value" id="mWarnings">—</div>
+        <div class="metric-sub">slow responses</div>
+      </div>
+      <div class="metric-card critical">
+        <div class="metric-label">Critical</div>
+        <div class="metric-value" id="mCritical">—</div>
+        <div class="metric-sub">5xx server errors</div>
+      </div>
+      <div class="metric-card info">
+        <div class="metric-label">Avg Response</div>
+        <div class="metric-value" id="mAvgRT">—</div>
+        <div class="metric-sub">ms (P50 median)</div>
+      </div>
+      <div class="metric-card success">
+        <div class="metric-label">Success Rate</div>
+        <div class="metric-value" id="mSuccessRate">—</div>
+        <div class="metric-sub">of total requests</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-box">
+        <span>🔍</span>
+        <input type="text" id="searchInput" placeholder="Search by keyword, error message, request ID, user…" oninput="applyFilters()" />
+      </div>
+
+      <select id="moduleFilter" onchange="applyFilters()">
+        <option value="">All Modules</option>
+        <option>ReviewerExpertUser</option>
+        <option>ModeratorUser</option>
+        <option>LocustRunner</option>
+      </select>
+
+      <select id="sortFilter" onchange="applyFilters()">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="severity">By Severity</option>
+        <option value="rt_desc">Slowest First</option>
+        <option value="rt_asc">Fastest First</option>
+      </select>
+
+      <input type="datetime-local" id="dateFrom" class="filter-input" onchange="applyFilters()" title="From date/time" />
+      <input type="datetime-local" id="dateTo"   class="filter-input" onchange="applyFilters()" title="To date/time" />
+
+      <div class="level-filters" id="levelFilters">
+        <span class="pill pill-all" data-level="ALL" data-active="true" onclick="toggleLevel(this)">All</span>
+        <span class="pill pill-SUCCESS"  data-level="SUCCESS"  data-active="false" onclick="toggleLevel(this)">✓ Success</span>
+        <span class="pill pill-INFO"     data-level="INFO"     data-active="false" onclick="toggleLevel(this)">ℹ Info</span>
+        <span class="pill pill-WARNING"  data-level="WARNING"  data-active="false" onclick="toggleLevel(this)">⚠ Warning</span>
+        <span class="pill pill-ERROR"    data-level="ERROR"    data-active="false" onclick="toggleLevel(this)">✕ Error</span>
+        <span class="pill pill-CRITICAL" data-level="CRITICAL" data-active="false" onclick="toggleLevel(this)">🔥 Critical</span>
+        <span class="pill pill-DEBUG"    data-level="DEBUG"    data-active="false" onclick="toggleLevel(this)">⚙ Debug</span>
+      </div>
+    </div>
+
+    <!-- Log Panel -->
+    <div class="log-panel">
+      <div class="log-panel-header">
+        <span>Log Entries</span>
+        <span class="log-count" id="logCount">Loading…</span>
+      </div>
+
+      <div id="logTableWrap">
+        <div class="state-box" id="loadingState">
+          <div class="icon">⏳</div>
+          <p>Loading logs…</p>
+          <small>Reading from reports/structured_logs.json</small>
+        </div>
+      </div>
+
+      <div class="pagination" id="paginationBar" style="display:none">
+        <span id="pageInfo"></span>
+        <div class="page-btns" id="pageBtns"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+let ALL_LOGS      = [];
+let FILTERED_LOGS = [];
+let currentPage   = 1;
+const PAGE_SIZE   = 50;
+let activeLevel   = 'ALL';
+let expandedId    = null;
+let autoRefreshId = null;
+
+const SEVERITY_ORDER = { CRITICAL: 0, ERROR: 1, WARNING: 2, INFO: 3, SUCCESS: 4, DEBUG: 5 };
+
+const ICONS = {
+  SUCCESS: '✓', INFO: 'ℹ', WARNING: '⚠', ERROR: '✕', CRITICAL: '🔥', DEBUG: '⚙'
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-GB', { hour12: false }) + '.' +
+         String(d.getMilliseconds()).padStart(3,'0');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toISOString().replace('T', ' ').slice(0, 23);
+}
+
+function rtClass(ms) {
+  if (!ms && ms !== 0) return '';
+  if (ms < 200)  return 'rt-fast';
+  if (ms < 1000) return 'rt-medium';
+  return 'rt-slow';
+}
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load logs from JSON file (via fetch – works with live-server or VS Code Live)
+// Falls back to demo data when running directly from filesystem
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  try {
+    const res = await fetch('structured_logs.json?ts=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    ALL_LOGS = Array.isArray(data) ? data : [];
+    if (ALL_LOGS.length === 0) injectDemoData();
+  } catch(e) {
+    // If no server / no file yet → show demo data
+    injectDemoData();
+  }
+  updateMetrics();
+  applyFilters();
+}
+
+function injectDemoData() {
+  const now = Date.now();
+  const modules  = ['ReviewerExpertUser','ModeratorUser','LocustRunner'];
+  const actions  = [
+    'GET /api/health','POST /api/auth/login','GET /api/questions/all-questions',
+    'GET /api/questions/unassigned','POST /api/answers/submit',
+    'POST /api/questions/allocate','POST /api/ai/query','GET /api/mcp/market'
+  ];
+  const levels   = ['SUCCESS','SUCCESS','SUCCESS','SUCCESS','WARNING','ERROR','CRITICAL','INFO','DEBUG'];
+  const fixes    = {
+    ERROR:    'Check authentication token. Re-login may be required.',
+    CRITICAL: 'Inspect backend server logs for an unhandled exception.',
+    WARNING:  'Consider caching or query optimisation.'
+  };
+
+  ALL_LOGS = Array.from({length: 120}, (_,i) => {
+    const lvl  = levels[Math.floor(Math.random()*levels.length)];
+    const rt   = lvl === 'CRITICAL' ? 3200 + Math.random()*800
+               : lvl === 'ERROR'    ? 400  + Math.random()*400
+               : lvl === 'WARNING'  ? 1100 + Math.random()*500
+               : 10  + Math.random()*190;
+    return {
+      id:            'demo-' + i,
+      timestamp:     new Date(now - (120-i)*8000).toISOString(),
+      level:         lvl,
+      module:        modules[Math.floor(Math.random()*modules.length)],
+      action:        actions[Math.floor(Math.random()*actions.length)],
+      message:       lvl === 'SUCCESS' ? 'Request completed successfully'
+                   : lvl === 'WARNING' ? `Slow response detected (${rt.toFixed(0)}ms)`
+                   : lvl === 'INFO'    ? 'Load test lifecycle event'
+                   : lvl === 'DEBUG'   ? 'New user session started'
+                   : 'Request FAILED: ' + (lvl==='CRITICAL'?'Internal Server Error':'Unauthorized'),
+      response_time: rt,
+      status_code:   lvl==='SUCCESS'||lvl==='WARNING'?200
+                   : lvl==='ERROR'?401
+                   : lvl==='CRITICAL'?500
+                   : null,
+      user_id:       `expert_${Math.floor(Math.random()*50)+1}`,
+      request_id:    Math.random().toString(36).slice(2,10),
+      error_detail:  lvl==='ERROR'||lvl==='CRITICAL'
+                     ? 'Token validation failed. Firebase auth returned 401 Unauthorized.'
+                     : null,
+      stack_trace:   lvl==='CRITICAL'
+                     ? 'Error: Internal Server Error\n  at MongoDatabase.connect (MongoDatabase.js:68)\n  at async AuthController.login (AuthController.js:42)'
+                     : null,
+      suggested_fix: fixes[lvl] || null,
+      environment:   'development',
+    };
+  });
+  toast('Demo data loaded — run a Locust test to see real logs!');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Metrics
+// ─────────────────────────────────────────────────────────────────────────────
+function updateMetrics() {
+  const total    = ALL_LOGS.length;
+  const success  = ALL_LOGS.filter(l => l.level === 'SUCCESS').length;
+  const failed   = ALL_LOGS.filter(l => l.level === 'ERROR').length;
+  const warnings = ALL_LOGS.filter(l => l.level === 'WARNING').length;
+  const critical = ALL_LOGS.filter(l => l.level === 'CRITICAL').length;
+
+  const rtVals = ALL_LOGS.map(l => l.response_time).filter(v => v != null);
+  const avgRT  = rtVals.length ? Math.round(rtVals.reduce((a,b)=>a+b,0)/rtVals.length) : null;
+  const rate   = total ? ((success / total)*100).toFixed(1) + '%' : '—';
+
+  document.getElementById('mTotal').textContent       = total;
+  document.getElementById('mSuccess').textContent     = success;
+  document.getElementById('mFailed').textContent      = failed;
+  document.getElementById('mWarnings').textContent    = warnings;
+  document.getElementById('mCritical').textContent    = critical;
+  document.getElementById('mAvgRT').textContent       = avgRT != null ? avgRT + 'ms' : '—';
+  document.getElementById('mSuccessRate').textContent = rate;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Level Filter Pills
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleLevel(el) {
+  document.querySelectorAll('.pill').forEach(p => p.setAttribute('data-active','false'));
+  el.setAttribute('data-active','true');
+  activeLevel = el.dataset.level;
+  currentPage = 1;
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter + Sort
+// ─────────────────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const q      = document.getElementById('searchInput').value.toLowerCase();
+  const mod    = document.getElementById('moduleFilter').value;
+  const sort   = document.getElementById('sortFilter').value;
+  const dfrom  = document.getElementById('dateFrom').value;
+  const dto    = document.getElementById('dateTo').value;
+
+  let filtered = ALL_LOGS.slice();
+
+  // Level
+  if (activeLevel !== 'ALL') filtered = filtered.filter(l => l.level === activeLevel);
+
+  // Module
+  if (mod) filtered = filtered.filter(l => l.module === mod);
+
+  // Date range
+  if (dfrom) filtered = filtered.filter(l => l.timestamp >= new Date(dfrom).toISOString());
+  if (dto)   filtered = filtered.filter(l => l.timestamp <= new Date(dto).toISOString());
+
+  // Search
+  if (q) {
+    filtered = filtered.filter(l =>
+      JSON.stringify(l).toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  if (sort === 'newest')  filtered.sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+  if (sort === 'oldest')  filtered.sort((a,b) => a.timestamp.localeCompare(b.timestamp));
+  if (sort === 'severity')filtered.sort((a,b) => (SEVERITY_ORDER[a.level]||9) - (SEVERITY_ORDER[b.level]||9));
+  if (sort === 'rt_desc') filtered.sort((a,b) => (b.response_time||0) - (a.response_time||0));
+  if (sort === 'rt_asc')  filtered.sort((a,b) => (a.response_time||0) - (b.response_time||0));
+
+  FILTERED_LOGS = filtered;
+  renderTable();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render
+// ─────────────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const wrap  = document.getElementById('logTableWrap');
+  const total = FILTERED_LOGS.length;
+  document.getElementById('logCount').textContent =
+    total + ' entr' + (total === 1 ? 'y' : 'ies');
+
+  if (total === 0) {
+    wrap.innerHTML = `<div class="state-box">
+      <div class="icon">🔍</div>
+      <p>No log entries match your filters.</p>
+      <small>Try changing the search query or level filter.</small>
+    </div>`;
+    document.getElementById('paginationBar').style.display = 'none';
+    return;
+  }
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page  = FILTERED_LOGS.slice(start, start + PAGE_SIZE);
+
+  const rows = page.map(log => buildRow(log)).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th onclick="setSort('newest')">Timestamp <span class="sort-icon">↕</span></th>
+          <th>Level</th>
+          <th>Action / Endpoint</th>
+          <th>Message</th>
+          <th>Module</th>
+          <th onclick="setSort('rt_desc')">Response Time <span class="sort-icon">↕</span></th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="logBody">
+        ${rows}
+      </tbody>
+    </table>`;
+
+  renderPagination(totalPages);
+}
+
+function setSort(v) {
+  document.getElementById('sortFilter').value = v;
+  applyFilters();
+}
+
+function buildRow(log) {
+  const lvlBadge = `<span class="level-badge level-${log.level}">
+    <span class="badge-icon">${ICONS[log.level]||'•'}</span>${log.level}
+  </span>`;
+
+  const rt = log.response_time != null
+    ? `<span class="rt-cell ${rtClass(log.response_time)}">${log.response_time}ms</span>`
+    : '<span style="color:var(--text-dim)">—</span>';
+
+  const statusDot = log.status_code
+    ? `<span class="status-dot" style="background:${log.status_code < 300 ? 'var(--success)' : log.status_code < 500 ? 'var(--warning)' : 'var(--error)'}"></span>${log.status_code}`
+    : '—';
+
+  return `
+    <tr onclick="toggleExpand('${log.id}')" id="row-${log.id}">
+      <td class="ts">${fmtTime(log.timestamp)}</td>
+      <td>${lvlBadge}</td>
+      <td class="action-cell">${esc(log.action)}</td>
+      <td class="msg-cell" title="${esc(log.message)}">${esc(log.message)}</td>
+      <td><span class="module-badge">${esc(log.module)}</span></td>
+      <td>${rt}</td>
+      <td class="ts">${statusDot}</td>
+    </tr>
+    <tr class="detail-row" id="detail-${log.id}">
+      <td colspan="7" class="detail-panel">
+        ${buildDetail(log)}
+      </td>
+    </tr>`;
+}
+
+function buildDetail(log) {
+  const left = `
+    <div class="detail-section">
+      <h4>Request Details</h4>
+      ${kv('Timestamp',   fmtDate(log.timestamp))}
+      ${kv('Request ID',  log.request_id)}
+      ${kv('User / Session', log.user_id)}
+      ${kv('Module',      log.module)}
+      ${kv('Action',      log.action)}
+      ${kv('Status Code', log.status_code ?? '—')}
+      ${kv('Response Time', log.response_time != null ? log.response_time + 'ms' : '—')}
+      ${kv('Environment', log.environment)}
+    </div>`;
+
+  const stackSection = log.stack_trace
+    ? `<h4>Stack Trace</h4><div class="stack-trace">${esc(log.stack_trace)}</div>`
+    : '';
+
+  const fixSection = log.suggested_fix
+    ? `<div class="fix-box"><span>💡</span><span>${esc(log.suggested_fix)}</span></div>`
+    : '';
+
+  const right = `
+    <div class="detail-section">
+      <h4>Error Details</h4>
+      ${log.error_detail
+        ? `<div class="stack-trace" style="color:var(--warning);max-height:100px">${esc(log.error_detail)}</div>`
+        : `<span style="color:var(--text-dim);font-size:12px">No error details.</span>`}
+      ${stackSection}
+      ${fixSection}
+    </div>`;
+
+  return `<div class="detail-inner">${left}${right}</div>`;
+}
+
+function kv(key, val) {
+  return `<div class="detail-kv">
+    <span class="detail-key">${esc(key)}</span>
+    <span class="detail-val">${esc(val)}</span>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Expand / collapse
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleExpand(id) {
+  const detail = document.getElementById('detail-' + id);
+  const row    = document.getElementById('row-' + id);
+  if (!detail) return;
+
+  if (expandedId && expandedId !== id) {
+    const prev = document.getElementById('detail-' + expandedId);
+    const prevRow = document.getElementById('row-' + expandedId);
+    if (prev) prev.classList.remove('open');
+    if (prevRow) prevRow.classList.remove('expanded');
+  }
+
+  const isOpen = detail.classList.contains('open');
+  detail.classList.toggle('open', !isOpen);
+  row.classList.toggle('expanded', !isOpen);
+  expandedId = isOpen ? null : id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pagination
+// ─────────────────────────────────────────────────────────────────────────────
+function renderPagination(totalPages) {
+  const bar = document.getElementById('paginationBar');
+  bar.style.display = 'flex';
+
+  const start = (currentPage - 1) * PAGE_SIZE + 1;
+  const end   = Math.min(currentPage * PAGE_SIZE, FILTERED_LOGS.length);
+  document.getElementById('pageInfo').textContent =
+    `Showing ${start}–${end} of ${FILTERED_LOGS.length}`;
+
+  const btns = document.getElementById('pageBtns');
+  btns.innerHTML = '';
+
+  const prev = document.createElement('button');
+  prev.className = 'page-btn';
+  prev.textContent = '‹';
+  prev.disabled = currentPage === 1;
+  prev.onclick = () => goPage(currentPage - 1);
+  btns.appendChild(prev);
+
+  let from = Math.max(1, currentPage - 2);
+  let to   = Math.min(totalPages, from + 4);
+  from     = Math.max(1, to - 4);
+
+  for (let p = from; p <= to; p++) {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (p === currentPage ? ' active' : '');
+    b.textContent = p;
+    b.onclick = () => goPage(p);
+    btns.appendChild(b);
+  }
+
+  const next = document.createElement('button');
+  next.className = 'page-btn';
+  next.textContent = '›';
+  next.disabled = currentPage === totalPages;
+  next.onclick = () => goPage(currentPage + 1);
+  btns.appendChild(next);
+}
+
+function goPage(p) {
+  currentPage = p;
+  expandedId  = null;
+  renderTable();
+  document.querySelector('.log-panel').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export
+// ─────────────────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const keys = ['timestamp','level','module','action','message','response_time','status_code','user_id','request_id','error_detail','environment'];
+  const head = keys.join(',');
+  const rows = FILTERED_LOGS.map(l =>
+    keys.map(k => '"' + String(l[k] ?? '').replace(/"/g,'""') + '"').join(',')
+  );
+  download('logs_export.csv', [head, ...rows].join('\n'), 'text/csv');
+  toast('CSV exported successfully!');
+}
+
+function exportJSON() {
+  download('logs_export.json', JSON.stringify(FILTERED_LOGS, null, 2), 'application/json');
+  toast('JSON exported successfully!');
+}
+
+function download(filename, content, mime) {
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([content], {type: mime})),
+    download: filename
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto Refresh every 8 seconds
+// ─────────────────────────────────────────────────────────────────────────────
+function startAutoRefresh() {
+  autoRefreshId = setInterval(async () => {
+    const prevCount = ALL_LOGS.length;
+    await loadLogs();
+    if (ALL_LOGS.length !== prevCount) {
+      toast(`↻ ${ALL_LOGS.length - prevCount} new log entries`);
+    }
+  }, 8000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+loadLogs().then(startAutoRefresh);
+</script>
+</body>
+</html>

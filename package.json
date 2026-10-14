@@ -9,5 +9,10 @@
     "bcryptjs": "^3.0.3",
     "http-proxy-middleware": "^4.0.0",
     "pdfkit": "^0.18.0"
+  },
+  "scripts": {
+    "test:load": "locust -f load_tests/locustfile.py --host=http://localhost:3000",
+    "test:load:headless": "locust -f load_tests/locustfile.py --headless -u 50 -r 10 --run-time 1m --host=http://localhost:3000 --csv=load_tests/reports/report --html=load_tests/reports/report.html",
+    "test:load:sla": "python load_tests/sla_checker.py load_tests/reports/report_stats.csv"
   }
 }
