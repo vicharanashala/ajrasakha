@@ -1,0 +1,557 @@
+{
+  "metadata": {
+    "total_entries": 60,
+    "domains": [
+      "weather",
+      "market",
+      "soil",
+      "schemes",
+      "pest",
+      "greetings"
+    ],
+    "entries_per_domain": 10,
+    "note": "Mock GDB dataset for Answer Evaluation Pipeline (Project 3). Represents a sample of the 20,000+ entry Golden Database."
+  },
+  "entries": [
+    {
+      "id": "W001",
+      "domain": "weather",
+      "crop": "wheat",
+      "region": "Punjab",
+      "question": "When should I sow wheat in Punjab?",
+      "answer": "Wheat sowing in Punjab should ideally be done between November 1st and November 25th. Sowing before this window risks lodging due to warmer temperatures, while late sowing reduces yield. The optimal soil temperature for germination is between 20–22°C.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "W002",
+      "domain": "weather",
+      "crop": "rice",
+      "region": "West Bengal",
+      "question": "How does delayed monsoon affect paddy transplantation in West Bengal?",
+      "answer": "A delayed monsoon pushes transplantation beyond the ideal July 1–15 window. Each week of delay after July 15 can reduce yield by 8–10% in Aman paddy. Farmers should prepare raised nursery beds and use short-duration varieties like MTU 7029 if delay exceeds 3 weeks.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "W003",
+      "domain": "weather",
+      "crop": "cotton",
+      "region": "Gujarat",
+      "question": "What temperature is too hot for cotton flowering in Gujarat?",
+      "answer": "Cotton flowering is severely affected when daytime temperatures exceed 40°C. At this range, pollen viability drops significantly leading to boll shedding. Farmers in Saurashtra region should irrigate early morning during peak summer to moderate canopy temperature.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "W004",
+      "domain": "weather",
+      "crop": "maize",
+      "region": "Karnataka",
+      "question": "Will unseasonal rain damage my standing maize crop?",
+      "answer": "Unseasonal rain during the dough stage (R4) can cause fungal ear rots, particularly Fusarium and Gibberella. Ensure proper drainage channels in the field. If rain persists for more than 3 days, apply Propiconazole 25% EC at 1ml per litre as a preventive spray.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "W005",
+      "domain": "weather",
+      "crop": "mustard",
+      "region": "Rajasthan",
+      "question": "How many rainy days are ideal during mustard growing season?",
+      "answer": "Mustard is largely a rainfed rabi crop in Rajasthan and requires 25–40 cm of total rainfall. It needs 3–4 light rains well distributed through the season. Excess rain or waterlogging during flowering causes siliqua drop and reduces oil content significantly.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "W006",
+      "domain": "weather",
+      "crop": "sugarcane",
+      "region": "Maharashtra",
+      "question": "Does fog affect sugarcane in Marathwada region?",
+      "answer": "Dense fog during December–January reduces photosynthesis in sugarcane and can slow sucrose accumulation. However, light fog combined with cool nights actually improves juice quality. If fog persists beyond 10 AM, consider delaying harvesting by 2–3 weeks to maximise sugar recovery.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "W007",
+      "domain": "weather",
+      "crop": "tomato",
+      "region": "Himachal Pradesh",
+      "question": "At what temperature does tomato stop setting fruit?",
+      "answer": "Tomato fails to set fruit when night temperatures fall below 10°C or rise above 35°C. In Himachal Pradesh hill regions, late September to October nights can drop below this threshold. Use of plastic mulch and row covers can extend productive fruiting by 3–4 weeks.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "W008",
+      "domain": "weather",
+      "crop": "groundnut",
+      "region": "Andhra Pradesh",
+      "question": "How much rainfall does groundnut need during pod filling stage?",
+      "answer": "Groundnut requires 50–60 mm of well distributed rainfall during the pod filling stage (60–90 days after sowing). Water stress during this critical period reduces pod weight by up to 30%. If rains fail, provide one supplemental irrigation of 40mm at 65 days after sowing.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "W009",
+      "domain": "weather",
+      "crop": "onion",
+      "region": "Nashik",
+      "question": "What weather causes purple blotch in onion?",
+      "answer": "Purple blotch caused by Alternaria porri is favoured by warm temperatures of 25–30°C combined with high humidity above 80% and frequent light drizzles. Nashik farmers should monitor closely during February–March. Spray Mancozeb 75 WP at 2g per litre at first sign of infection.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "W010",
+      "domain": "weather",
+      "crop": "soybean",
+      "region": "Madhya Pradesh",
+      "question": "Is soybean sensitive to frost?",
+      "answer": "Yes, soybean is highly sensitive to frost at all growth stages. Even a light frost of -2°C can kill seedlings and damage pods at maturity. In Madhya Pradesh, Kharif soybean is generally harvested before October end to avoid early winter frost in elevated areas like Malwa plateau.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "M001",
+      "domain": "market",
+      "crop": "tomato",
+      "region": "General",
+      "question": "Why does tomato price crash every year after December?",
+      "answer": "Tomato prices typically fall between January and March due to simultaneous harvesting across major producing states including Karnataka, Andhra Pradesh, and Maharashtra. This seasonal glut in supply with steady demand causes price crashes. Farmers can mitigate this by staggering sowing dates or exploring contract farming arrangements.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "M002",
+      "domain": "market",
+      "crop": "wheat",
+      "region": "Haryana",
+      "question": "What is the MSP for wheat this year and where do I sell?",
+      "answer": "The Minimum Support Price for wheat is announced annually by the Government of India before the Rabi season. Farmers in Haryana can sell at government procurement centres (mandis) run by HAFED and FCI. Bring your land records, Aadhaar card, and bank passbook to register for MSP procurement.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "M003",
+      "domain": "market",
+      "crop": "onion",
+      "region": "Maharashtra",
+      "question": "How do I get better price for my onion without selling at mandi?",
+      "answer": "Farmers can explore direct selling through Farmer Producer Organisations (FPOs), e-NAM platform for online bidding, or direct contracts with retail chains like Reliance Fresh and Big Bazaar. Proper grading and sorting of onions into A, B, and C grade before sale can increase realisation by 15–20%.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "M004",
+      "domain": "market",
+      "crop": "cotton",
+      "region": "Telangana",
+      "question": "When is the best time to sell cotton for maximum price?",
+      "answer": "Cotton prices are typically lowest immediately after harvest (October–November) due to high supply. Prices generally rise between February and May when supply tightens. Farmers with proper storage facilities and low debt obligations can benefit from holding stock for 3–4 months post-harvest.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "M005",
+      "domain": "market",
+      "crop": "banana",
+      "region": "Tamil Nadu",
+      "question": "How does export demand affect banana price in Tamil Nadu?",
+      "answer": "Tamil Nadu's Poovan and Robusta varieties are exported primarily to Middle East and Southeast Asia. When export demand rises, farm gate prices can increase by 20–30%. Farmers near Theni and Trichy districts can register with APEDA to access export channels and receive premium pricing.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "M006",
+      "domain": "market",
+      "crop": "maize",
+      "region": "Bihar",
+      "question": "Can I sell my maize to poultry companies directly?",
+      "answer": "Yes. Several poultry integrators like Suguna, Venky's, and Godrej Agrovet procure maize directly from farmers. The maize must meet quality specifications: moisture below 14%, aflatoxin below 10 ppb, and foreign matter below 1%. Contact your district agriculture officer to get a list of registered buyers in your area.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "M007",
+      "domain": "market",
+      "crop": "turmeric",
+      "region": "Erode",
+      "question": "What is the difference between finger and bulb turmeric price at Erode mandi?",
+      "answer": "At Erode mandi, finger turmeric (longer rhizomes) commands a premium of Rs 500–800 per quintal over bulb turmeric because of its higher curcumin content and better appearance. Farmers should sort and separate fingers from bulbs before bringing produce to market to maximise earnings.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "M008",
+      "domain": "market",
+      "crop": "rice",
+      "region": "Chhattisgarh",
+      "question": "What documents do I need for paddy MSP procurement in Chhattisgarh?",
+      "answer": "For paddy MSP procurement in Chhattisgarh, farmers need: Aadhaar card, bank account linked to Aadhaar, land record (B1 khasra), and registration on the state agriculture portal. Registration must be done before the procurement window opens, typically in November. Contact your nearest Lambardar or Patwari for assistance.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "M009",
+      "domain": "market",
+      "crop": "soybean",
+      "region": "Madhya Pradesh",
+      "question": "Is it better to sell soybean or convert it to oil at local expeller?",
+      "answer": "Converting soybean to oil at a local expeller can yield higher net returns if raw soybean prices are below Rs 4000 per quintal. At current oil prices, expelling 100 kg soybean yields roughly 17–18 litres of oil and 75 kg of de-oiled cake. However, factor in expelling charges of Rs 300–400 per quintal before deciding.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "M010",
+      "domain": "market",
+      "crop": "grapes",
+      "region": "Sangli",
+      "question": "How do I register for grape export from Sangli?",
+      "answer": "Grape exporters from Sangli must register with APEDA (Agricultural and Processed Food Products Export Development Authority). The vineyard must be GLOBALG.A.P certified or obtain an APEDA certificate. Grapes must pass pesticide residue testing at NABL accredited labs. Contact the APEDA regional office in Pune for registration assistance.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "S001",
+      "domain": "soil",
+      "crop": "general",
+      "region": "General",
+      "question": "How do I know if my soil is acidic?",
+      "answer": "Acidic soil has a pH below 6.5. Signs include yellowing of young leaves, poor crop growth despite adequate fertiliser, and presence of weeds like sorrel. You can confirm by getting a soil test done at your nearest Krishi Vigyan Kendra or using a simple pH kit available at agri input shops for Rs 150–200.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "S002",
+      "domain": "soil",
+      "crop": "paddy",
+      "region": "Assam",
+      "question": "How do I correct acidic soil before paddy sowing in Assam?",
+      "answer": "Apply agricultural lime (calcium carbonate) at 2–4 tonnes per hectare, 3–4 weeks before transplantation. This raises pH to 5.5–6.5 which is ideal for paddy. In Assam's heavily leached soils, also apply 25 kg per hectare of dolomite to address magnesium deficiency common in acidic soils.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "S003",
+      "domain": "soil",
+      "crop": "cotton",
+      "region": "Vidarbha",
+      "question": "What is the ideal soil for growing cotton in Vidarbha?",
+      "answer": "Cotton in Vidarbha grows best in deep black cotton soil (vertisols) with good water holding capacity, pH between 6.0 and 8.0, and good drainage. These soils can hold moisture for 30–40 days after rain, which suits cotton's deep rooting system. Avoid fields with hardpan within 45 cm of the surface.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "S004",
+      "domain": "soil",
+      "crop": "wheat",
+      "region": "Uttar Pradesh",
+      "question": "My wheat leaves are turning yellow from the tip. What soil problem could cause this?",
+      "answer": "Yellowing from leaf tips in wheat often indicates potassium deficiency. This is common in sandy loam soils in western Uttar Pradesh. Apply muriate of potash (MOP) at 30–40 kg per hectare as a top dressing with the first irrigation. Get a soil test to confirm before the next season for accurate micronutrient management.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "S005",
+      "domain": "soil",
+      "crop": "sugarcane",
+      "region": "Uttar Pradesh",
+      "question": "How often should I do soil testing for my sugarcane field?",
+      "answer": "Soil testing for sugarcane fields should be done once every 3 years for major nutrients (NPK) and once every 5 years for micronutrients. Always test before planting a new crop cycle. In UP, soil testing is available free of cost at government labs. Collect samples from 15–20 spots across the field at 0–20 cm and 20–40 cm depths for accurate results.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "S006",
+      "domain": "soil",
+      "crop": "vegetables",
+      "region": "Kerala",
+      "question": "How do I improve laterite soil for vegetable farming in Kerala?",
+      "answer": "Laterite soil in Kerala is acidic, low in phosphorus, and has poor water retention. Improve it by adding 25–30 tonnes per hectare of well-decomposed farmyard manure, applying lime at 2 tonnes per hectare to correct pH, and incorporating 100 kg per hectare of rock phosphate for phosphorus enrichment. Raised beds help manage waterlogging during monsoon.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "S007",
+      "domain": "soil",
+      "crop": "groundnut",
+      "region": "Tamil Nadu",
+      "question": "Does groundnut need calcium in soil and how do I provide it?",
+      "answer": "Yes, groundnut has a high calcium demand particularly during pod filling. Calcium deficiency causes empty pods (pops) and affects kernel quality. Apply gypsum at 500 kg per hectare at the time of pegging (35–40 days after sowing) by broadcasting in the root zone. This is especially important in red sandy loam soils of Tamil Nadu.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "S008",
+      "domain": "soil",
+      "crop": "mango",
+      "region": "Uttar Pradesh",
+      "question": "What soil depth does mango need for good root development?",
+      "answer": "Mango requires a minimum soil depth of 1.5–2 metres for good root development and long-term productivity. Shallow soils lead to poor anchorage, drought stress, and reduced yield. In alluvial soils of UP, avoid planting in low-lying areas with high water table as this leads to root rot.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "S009",
+      "domain": "soil",
+      "crop": "rice",
+      "region": "Odisha",
+      "question": "Why does my paddy show zinc deficiency even after applying zinc?",
+      "answer": "Zinc deficiency can persist despite application due to alkaline soil pH above 7.5 which locks zinc in unavailable forms, waterlogged conditions that reduce zinc mobility, or high phosphorus levels that interfere with zinc uptake. In Odisha coastal soils, apply zinc sulphate as a foliar spray at 0.5% solution rather than soil application for faster correction.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "S010",
+      "domain": "soil",
+      "crop": "chickpea",
+      "region": "Rajasthan",
+      "question": "Can I grow chickpea in saline soil?",
+      "answer": "Chickpea is moderately sensitive to salinity with an EC threshold of 3.3 dS/m. Beyond this, yield decreases by approximately 19% per unit increase in EC. In saline soils of Rajasthan, use tolerant varieties like RSG 963 or GNG 1581, apply gypsum at 5 tonnes per hectare, and provide pre-sowing flood irrigation to leach salts below the root zone.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "SC001",
+      "domain": "schemes",
+      "crop": "general",
+      "region": "General",
+      "question": "What is PM Kisan and how do I apply?",
+      "answer": "PM-KISAN (Pradhan Mantri Kisan Samman Nidhi) provides Rs 6000 per year in three instalments of Rs 2000 directly to farmers' bank accounts. All landholding farmer families are eligible except those who are income tax payers, institutional landholders, or government employees. Register at pmkisan.gov.in or visit your nearest Common Service Centre with Aadhaar, land records, and bank passbook.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "SC002",
+      "domain": "schemes",
+      "crop": "general",
+      "region": "General",
+      "question": "How does crop insurance work under PMFBY?",
+      "answer": "Under Pradhan Mantri Fasal Bima Yojana (PMFBY), farmers pay a premium of 2% for Kharif crops, 1.5% for Rabi crops, and 5% for commercial crops. The government pays the remaining premium. In case of crop loss due to natural calamities, pest attack, or disease, claims are settled based on area-level yield data from crop cutting experiments. Enrol through your bank or CSC before the cutoff date for each season.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "SC003",
+      "domain": "schemes",
+      "crop": "general",
+      "region": "General",
+      "question": "What is the Kisan Credit Card and what can I use it for?",
+      "answer": "Kisan Credit Card (KCC) provides farmers with revolving credit up to Rs 3 lakh at 4% interest rate (after government subvention of 2%). It can be used for purchasing seeds, fertilisers, pesticides, fuel, maintenance of farm equipment, and meeting post-harvest expenses. Apply through any nationalised bank, cooperative bank, or regional rural bank with land records and Aadhaar.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "SC004",
+      "domain": "schemes",
+      "crop": "drip irrigation",
+      "region": "Maharashtra",
+      "question": "How much subsidy can I get for drip irrigation in Maharashtra?",
+      "answer": "Under the Pradhan Mantri Krishi Sinchayee Yojana (PMKSY), Maharashtra provides subsidy on drip irrigation of 55% for small and marginal farmers and 45% for other farmers. The subsidy is directly deposited to the farmer's bank account after installation is verified. Apply through the Maharashtra government's MahaDrip portal or contact your district agriculture office.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "SC005",
+      "domain": "schemes",
+      "crop": "general",
+      "region": "Bihar",
+      "question": "Is there any scheme for buying a tractor in Bihar?",
+      "answer": "Under the Bihar Agriculture Mechanisation Scheme (Krishi Yantra Subsidy), farmers can receive 40–50% subsidy on purchasing tractors up to 35 HP. SC/ST and women farmers receive higher subsidy rates. Applications are made online through the DBT Agriculture Bihar portal. The subsidy is limited and released on a first-come first-served basis annually.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "SC006",
+      "domain": "schemes",
+      "crop": "general",
+      "region": "General",
+      "question": "What is eNAM and how does it help me get better price for my crop?",
+      "answer": "eNAM (Electronic National Agriculture Market) is an online trading platform that connects farmers with buyers across India through their local mandi. By listing your produce on eNAM, you can receive bids from buyers in other states, which increases competition and can improve your price realisation by 5–15%. Register at enam.gov.in or through your APMC mandi office.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "SC007",
+      "domain": "schemes",
+      "crop": "general",
+      "region": "General",
+      "question": "Can tenant farmers apply for PM Kisan?",
+      "answer": "No, PM-KISAN is available only to landholding farmers. Tenant farmers and sharecroppers are not eligible under the current scheme guidelines because the benefit is linked to land records. However, several state governments like Odisha (KALIA scheme) and Telangana (Rythu Bandhu) have state-specific schemes that include tenant farmers. Check with your state agriculture department.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "SC008",
+      "domain": "schemes",
+      "crop": "organic",
+      "region": "General",
+      "question": "Is there a scheme for farmers who want to shift to organic farming?",
+      "answer": "Yes. Paramparagat Krishi Vikas Yojana (PKVY) promotes organic farming in cluster mode. Farmers receive Rs 50,000 per hectare over 3 years for inputs, certification, and marketing. Groups of minimum 50 farmers covering 50 acres are eligible. Apply through your district agriculture office. The scheme covers transition costs during the 3-year conversion period when yields are lower.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "SC009",
+      "domain": "schemes",
+      "crop": "general",
+      "region": "Uttarakhand",
+      "question": "Are there special schemes for hill farmers in Uttarakhand?",
+      "answer": "Yes. The Uttarakhand government runs the Parvatiya Krishi Vikas Yojana which provides special subsidies for hill-specific crops like rajma, mandua, and jhangora. Additionally, MSME grants are available for value addition units in remote areas. The Uttarakhand Organic Commodity Board provides certification support for high-value organic produce from hill regions.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "SC010",
+      "domain": "schemes",
+      "crop": "fishery",
+      "region": "General",
+      "question": "What scheme helps inland fishery farmers?",
+      "answer": "Pradhan Mantri Matsya Sampada Yojana (PMMSY) supports inland fishery development with subsidies up to 60% for SC/ST and women beneficiaries and 40% for general category on fish seed production units, fish feed mills, and refrigerated transport vehicles. Apply through your state fisheries department. The scheme also covers insurance for fishing boats and equipment.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "P001",
+      "domain": "pest",
+      "crop": "rice",
+      "region": "General",
+      "question": "How do I identify and control blast disease in rice?",
+      "answer": "Rice blast caused by Magnaporthe oryzae shows as diamond-shaped spots with grey centres and brown borders on leaves. In severe cases it attacks the neck of the panicle causing neck rot. Control by applying Tricyclazole 75 WP at 0.6g per litre or Isoprothiolane 40 EC at 1.5ml per litre. Avoid excess nitrogen application which increases susceptibility.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "P002",
+      "domain": "pest",
+      "crop": "cotton",
+      "region": "General",
+      "question": "What is pink bollworm and how do I manage it in Bt cotton?",
+      "answer": "Pink bollworm (Pectinophora gossypiella) larvae bore into cotton bolls and feed on seeds. In Bt cotton, resistance to pink bollworm has developed in several regions. Management includes pheromone traps at 5 per acre for monitoring, releasing Trichogramma egg parasitoids, and spraying Emamectin Benzoate 5 SG at 0.5g per litre when trap catches exceed 8 moths per trap per week.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "P003",
+      "domain": "pest",
+      "crop": "wheat",
+      "region": "Punjab",
+      "question": "Yellow rust appeared in my wheat field. What should I spray?",
+      "answer": "Yellow rust (Puccinia striiformis) appears as yellow stripe-like pustules on leaves and is most severe in cool humid conditions. Spray Propiconazole 25 EC at 1ml per litre or Tebuconazole 25.9 EC at 1ml per litre immediately on first appearance. Repeat after 15 days if disease pressure is high. Avoid late sowing and use resistant varieties like HD 2967 in future.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "P004",
+      "domain": "pest",
+      "crop": "tomato",
+      "region": "General",
+      "question": "My tomato has curling leaves and white flies. What should I do?",
+      "answer": "Whitefly (Bemisia tabaci) causes direct damage by sucking sap and also transmits Tomato Leaf Curl Virus (ToLCV). Use yellow sticky traps at 10 per acre for monitoring. Spray Imidacloprid 17.8 SL at 0.3ml per litre or Thiamethoxam 25 WG at 0.3g per litre. Remove and destroy virus-infected plants immediately as there is no cure once infected.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "P005",
+      "domain": "pest",
+      "crop": "maize",
+      "region": "General",
+      "question": "What is fall armyworm and how do I identify it?",
+      "answer": "Fall armyworm (Spodoptera frugiperda) is an invasive pest that feeds on maize whorls leaving a characteristic window pane damage with ragged holes. The larva has an inverted Y mark on its head and four spots arranged in a square on the last abdominal segment. Apply Emamectin Benzoate 5 SG at 0.4g per litre into the whorl at first sign of infestation. Early morning or evening spray is most effective.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "P006",
+      "domain": "pest",
+      "crop": "mango",
+      "region": "General",
+      "question": "How do I prevent mango hopper from damaging my orchard?",
+      "answer": "Mango hopper (Amritodus atkinsoni) sucks sap from inflorescences causing flower drop and reducing fruit set. Spray Imidacloprid 17.8 SL at 0.5ml per litre or Deltamethrin 2.8 EC at 1ml per litre at pink bud stage before flowering. A second spray at pea stage fruit helps. Avoid spraying during open flower stage to protect pollinators.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "P007",
+      "domain": "pest",
+      "crop": "chickpea",
+      "region": "Madhya Pradesh",
+      "question": "Pod borer is destroying my gram crop. What is the most effective spray?",
+      "answer": "Gram pod borer (Helicoverpa armigera) is the most damaging pest of chickpea. Monitor using pheromone traps and spray when 1–2 larvae per metre row are observed. Emamectin Benzoate 5 SG at 0.4g per litre or Chlorantraniliprole 18.5 SC at 0.3ml per litre give good control. Do not spray the same insecticide family consecutively to prevent resistance development.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "P008",
+      "domain": "pest",
+      "crop": "sugarcane",
+      "region": "Tamil Nadu",
+      "question": "How do I manage early shoot borer in sugarcane organically?",
+      "answer": "Early shoot borer (Chilo infuscatellus) causes deadheart in young cane. Organic management includes releasing Trichogramma chilonis egg cards at 50,000 eggs per acre weekly for 6 weeks, applying neem cake at 250 kg per acre at planting, and using light traps at 1 per acre. Remove and destroy deadhearts to prevent secondary spread.",
+      "difficulty": "specific"
+    },
+    {
+      "id": "P009",
+      "domain": "pest",
+      "crop": "potato",
+      "region": "Uttar Pradesh",
+      "question": "How do I prevent late blight from destroying my potato crop?",
+      "answer": "Late blight caused by Phytophthora infestans is the most serious potato disease. Begin protective sprays with Mancozeb 75 WP at 2g per litre before disease onset. Once infection appears, switch to Metalaxyl + Mancozeb 72 WP at 2g per litre or Cymoxanil + Mancozeb at 2.5g per litre. Spray every 7–10 days during foggy cool weather. Destroy infected haulms before harvest.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "P010",
+      "domain": "pest",
+      "crop": "brinjal",
+      "region": "West Bengal",
+      "question": "What is shoot and fruit borer in brinjal and how to control it?",
+      "answer": "Brinjal shoot and fruit borer (Leucinodes orbonalis) larvae bore into shoots causing wilting and into fruits making them unmarketable. Use pheromone traps at 5 per acre. Remove and destroy bored shoots weekly. Spray Spinosad 45 SC at 0.3ml per litre or Chlorpyrifos 20 EC at 2ml per litre alternately. Avoid growing brinjal continuously in the same field for more than 2 seasons.",
+      "difficulty": "moderate"
+    },
+    {
+      "id": "G001",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "Hello",
+      "answer": "Namaste! Welcome to AjraSakha, your agricultural advisory assistant. You can ask me questions about crops, weather, soil, pest control, government schemes, and market prices. How can I help you today?",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G002",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "Who are you?",
+      "answer": "I am AjraSakha, an AI-powered agricultural advisory assistant built to help Indian farmers with expert guidance on crops, weather, market prices, soil health, pest management, and government schemes. My answers are based on expert-verified knowledge from agricultural specialists.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G003",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "Can you help me with farming?",
+      "answer": "Absolutely! I can assist you with a wide range of farming topics including choosing the right crop for your region and season, pest and disease identification and control, soil testing and improvement, government scheme eligibility, and market price guidance. Please share your specific question and I will do my best to help.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G004",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "Thank you",
+      "answer": "You are welcome! Feel free to ask any time you have a farming question. Good luck with your crops!",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G005",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "What languages do you support?",
+      "answer": "AjraSakha supports 22 Indic languages including Hindi, Kannada, Tamil, Telugu, Punjabi, Marathi, Gujarati, Bengali, Odia, Malayalam, and more. You can ask your question in your preferred language and I will respond in the same language.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G006",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "Is this service free?",
+      "answer": "Yes, AjraSakha is completely free for farmers. It is built to make expert agricultural knowledge accessible to every farmer in India regardless of their location or economic situation.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G007",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "I am a new farmer and don't know much. Can you still help?",
+      "answer": "Of course! AjraSakha is designed for farmers of all experience levels. Whether you are starting your first crop or have been farming for decades, you can ask me anything from the most basic to the most specific questions. There are no wrong questions here.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G008",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "My crop is failing and I am very stressed. What do I do?",
+      "answer": "I understand how difficult and stressful crop failure can be. Please tell me more about your crop, what symptoms you are seeing, and your region. The sooner I have details, the faster I can help you find a solution. Many problems that look severe can still be managed with the right intervention at the right time.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G009",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "Good morning",
+      "answer": "Good morning! Hope your fields are looking well today. Feel free to ask me anything about your crops, soil, weather, or any farming concern you have.",
+      "difficulty": "generic"
+    },
+    {
+      "id": "G010",
+      "domain": "greetings",
+      "crop": null,
+      "region": null,
+      "question": "I don't understand what you said. Please explain simply.",
+      "answer": "I apologise for any confusion. Please ask me your question again and I will try to explain in simpler terms. You can also ask me to give examples or break down any technical terms I use.",
+      "difficulty": "generic"
+    }
+  ]
+}
