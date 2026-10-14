@@ -292,7 +292,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       const message =
         error?.response?.data?.message ||
         error?.message ||
-        "Something went wrong";
+        "An unexpected error occurred while processing your request.";
       toast.error(message);
     } finally {
       setIsRejectDialogOpen(false);

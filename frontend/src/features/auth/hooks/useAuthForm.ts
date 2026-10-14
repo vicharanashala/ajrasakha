@@ -173,9 +173,9 @@ export const useAuthForm = (
       ) {
         toast.error("Invalid Credentials");
       } else {
-        // toast.error("Something went wrong. Please try again.");
+        // toast.error("An unexpected error occurred. Please check your connection and try again.");
         let message =
-          authError.message || "Something went wrong. Please try again.";
+          authError.message || "An unexpected error occurred. Please check your connection and try again.";
 
         try {
           // Look for embedded JSON in error message
