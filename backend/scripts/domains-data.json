@@ -1,0 +1,22 @@
+[
+ {
+  "question": "How to control Termites in Wheat?Test QuestionThursday",
+  "priority": "High",
+  "state": "MADHYA PRADESH",
+  "district": "HOSHANGABAD",
+  "crop": "TomotesABEEEyz",
+  "season": "Rabi",
+  "domain": "Plant Protection Test one",
+  "aiInitialAnswer":" your Answer Test Question one"
+ },
+ {
+  "question": "How to control weeds in Wheat crop? Rest Question QuestionThursday",
+  "priority": "High",
+  "state": "MADHYA PRADESH",
+  "district": "SAGAR",
+  "crop": "TomotesABcEEEEyz",
+  "season": "Rabi",
+  "domain": "Plant Protection Test one",
+  "aiInitialAnswer":" your Answer Test Question Two"
+ }
+ ]
