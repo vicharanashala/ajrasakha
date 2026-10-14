@@ -60,7 +60,7 @@ For the given text:
 - If the text is grammatically correct AND written in English, return is_valid=true with empty suggestions
 - If there are issues, return is_valid=false with specific correction suggestions
 
-Response format (JSON only, no markdown or extra text):
+Response format:
 {
   "is_valid": true/false,
   "original_text": "the original text",
@@ -80,13 +80,12 @@ Response format (JSON only, no markdown or extra text):
   ]
 }
 
-Rules:
-- Only respond with valid JSON
-- Do not include any explanation outside the JSON structure
-- validation_errors should describe each issue found
-- suggestions should provide concrete corrections
-- If text contains non-English content, mark it as language error
-"""
+CRITICAL RULES:
+- Respond with ONLY valid JSON. No explanations, no preamble, no text before or after.
+- Do not wrap the JSON in markdown code blocks.
+- Do not add "Here is the JSON" or any other prefix.
+- The response must start with '{' and end with '}'.
+- If text contains non-English content, mark it as language error."""
 
     def __init__(self):
         self.base_url = LLM_API_URL
@@ -149,13 +148,28 @@ Rules:
 
                 # Parse the JSON response
                 try:
-                    # Try to extract JSON from the response if it's wrapped in markdown
-                    json_str = content
+                    # Try to extract JSON from the response
+                    json_str = content.strip()
+                    
+                    # Try direct parse first
+                    try:
+                        return json.loads(json_str)
+                    except json.JSONDecodeError:
+                        pass
+                    
+                    # Try markdown code blocks
                     if "```json" in content:
                         json_str = content.split("```json")[1].split("```")[0].strip()
                     elif "```" in content:
                         json_str = content.split("```")[1].split("```")[0].strip()
-
+                    else:
+                        # Try to find JSON object in the text using regex-like approach
+                        # Look for first { and last }
+                        first_brace = content.find('{')
+                        last_brace = content.rfind('}')
+                        if first_brace != -1 and last_brace != -1 and first_brace < last_brace:
+                            json_str = content[first_brace:last_brace + 1]
+                    
                     return json.loads(json_str)
                 except json.JSONDecodeError as exc:
                     log.error("Failed to parse LLM response as JSON: %s", exc)
