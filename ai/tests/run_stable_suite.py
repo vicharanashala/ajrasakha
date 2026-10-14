@@ -33,8 +33,20 @@ COMMANDS = [
         "command": [sys.executable, "-m", "ajrasakha.evaluation.run", "--mode", "live", "--stable-only"],
         "report": ROOT / "evaluation_report_live.csv",
     },
-
-   
+    {
+        "layer": "Layer 4 - Multilingual Mock Suite",
+        "name": "multilingual_mock",
+        "command": [
+            sys.executable, "-m",
+            "ajrasakha.evaluation.multilingual.run_multilingual",
+            "--mode", "mock",
+            "--stable-only",
+            "--output-dir", str(ROOT / "multilingual_reports"),
+        ],
+        # The runner writes timestamped files; we use a stable symlink-style path.
+        # read_report_rows() handles "not found" gracefully with a FAIL row.
+        "report": ROOT / "multilingual_reports" / "multilingual_matrix_mock_latest.csv",
+    },
 ]
 
 
