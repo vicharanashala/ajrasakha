@@ -2,14 +2,16 @@ import { useState } from "react";
 import { TesterLogForm } from "./components/TesterLogForm";
 import { TesterLogHistory } from "./components/TesterLogHistory";
 import { TesterLogSummary } from "./components/TesterLogSummary";
-import { ClipboardList, History, BarChart3 } from "lucide-react";
+import { ClipboardList, History, BarChart3, Clock } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { cn } from "@/lib/utils";
+import type { ITesterLogEntry } from "./types";
 
 type Tab = "form" | "history" | "summary";
 
 export function TesterLogPage() {
     const [activeTab, setActiveTab] = useState<Tab>("form");
+    const [resumeEntry, setResumeEntry] = useState<ITesterLogEntry | null>(null);
     const { data: user } = useGetCurrentUser({});
 
     const testerName =
@@ -18,7 +20,11 @@ export function TesterLogPage() {
         "Tester";
 
     const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-        { key: "form", label: "Log New Test Case", icon: <ClipboardList className="h-4 w-4" /> },
+        {
+            key: "form",
+            label: resumeEntry ? `Resume (${resumeEntry.testId || "On Hold"})` : "Log New Test Case",
+            icon: resumeEntry ? <Clock className="h-4 w-4 text-amber-500" /> : <ClipboardList className="h-4 w-4" />,
+        },
         { key: "history", label: "My History", icon: <History className="h-4 w-4" /> },
         { key: "summary", label: "My Summary", icon: <BarChart3 className="h-4 w-4" /> },
     ];
@@ -40,7 +46,7 @@ export function TesterLogPage() {
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
                         className={cn(
-                            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+                            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px cursor-pointer",
                             activeTab === tab.key
                                 ? "border-primary text-primary"
                                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40",
@@ -58,17 +64,32 @@ export function TesterLogPage() {
                     <TesterLogForm
                         testerName={testerName}
                         userEmail={user?.email}
-                        onSuccess={() => setActiveTab("history")}
+                        editingEntry={resumeEntry}
+                        onCancelEdit={() => setResumeEntry(null)}
+                        onSuccess={() => {
+                            setResumeEntry(null);
+                            setActiveTab("history");
+                        }}
                     />
                 </div>
                 {activeTab === "history" && (
                     <div>
-                        <TesterLogHistory />
+                        <TesterLogHistory
+                            onResumeEntry={(entry) => {
+                                setResumeEntry(entry);
+                                setActiveTab("form");
+                            }}
+                        />
                     </div>
                 )}
                 {activeTab === "summary" && (
                     <div>
-                        <TesterLogSummary onLogNewTest={() => setActiveTab("form")} />
+                        <TesterLogSummary
+                            onLogNewTest={() => {
+                                setResumeEntry(null);
+                                setActiveTab("form");
+                            }}
+                        />
                     </div>
                 )}
             </div>

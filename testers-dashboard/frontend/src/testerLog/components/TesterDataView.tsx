@@ -391,7 +391,7 @@ export function TesterDataView() {
                     iconClassName="bg-emerald-100 text-emerald-700"
                     label="Pass Rate"
                     value={summary?.passRate !== null && summary?.passRate !== undefined ? `${summary.passRate}%` : "No data"}
-                    description={`Pass ÷ status recorded (${summary?.passCount ?? 0} of ${summary?.statusRecordedCount ?? 0}).`}
+                    description={`Pass ÷ status recorded (${summary?.passCount ?? 0} of ${summary?.statusRecordedCount ?? 0})${summary?.onHoldCount ? ` • ${summary.onHoldCount} on hold` : ""}.`}
                 />
             </div>
 
