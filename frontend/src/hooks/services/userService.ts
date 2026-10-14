@@ -361,7 +361,7 @@ export class UserService {
     return apiFetch<PaeValidationExpert[]>(`${this._baseUrl}/pae-val-experts`);
   }
 
-  /** Export an individual user's activity report matching the given time filters as an .xlsx blob. */
+  /** Export an individual user's activity report matching the given time filters as a PDF blob. */
   async exportUserActivityReport(
     userId: string,
     params: {

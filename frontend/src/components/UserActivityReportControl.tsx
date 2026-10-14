@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileSpreadsheet, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { Button } from "./atoms/button";
 import { UserService } from "@/hooks/services/userService";
 import { toast } from "sonner";
@@ -58,7 +58,7 @@ export const UserActivityReportControl = ({
       const cleanName = (userName || "User").replace(/[^a-zA-Z0-9_-]/g, "_");
       const startTag = `${range.startDate}_${(range.startTime || "00:00").replace(":", "")}`;
       const endTag = `${range.endDate}_${(range.endTime || "23:59").replace(":", "")}`;
-      link.download = `${cleanName}_Activity_Report_${startTag}_to_${endTag}.xlsx`;
+      link.download = `${cleanName}_Activity_Report_${startTag}_to_${endTag}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -89,12 +89,12 @@ export const UserActivityReportControl = ({
         onClick={handleExport}
         disabled={isExporting}
         className="h-9 px-3 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-medium rounded-md transition-all shrink-0 cursor-pointer"
-        title="Download individual activity report in Excel"
+        title="Download individual activity report in PDF"
       >
         {isExporting ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
         ) : (
-          <FileSpreadsheet className="w-3.5 h-3.5" />
+          <FileText className="w-3.5 h-3.5" />
         )}
         <span>{isExporting ? "Exporting..." : "Report"}</span>
       </Button>
