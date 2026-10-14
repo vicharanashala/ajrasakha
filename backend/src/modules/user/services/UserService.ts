@@ -35,6 +35,8 @@ import { NotificationService } from '#root/modules/notification/services/Notific
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
+import { buildUserActivityPdfReport } from '#root/utils/buildUserActivityPdfReport.js';
+
 
 @injectable()
 export class UserService extends BaseService {
@@ -1686,242 +1688,25 @@ export class UserService extends BaseService {
       endDate,
     );
 
-    const {
-      authoredCount,
-      totalAuthoringMs,
-      reviewedCount,
-      totalReviewingMs,
-      revCounts,
-      moderatedCount,
-      totalModeratingMs,
-      auditedCount,
-      totalAuditingMs,
-      gatekeepedCount,
-      totalGatekeepingMs,
-      gdbPushedCount,
-    } = metrics;
-
-    // Helper formatters
-    const formatMsToHMS = (ms: number): string => {
-      if (!ms || ms <= 0 || isNaN(ms)) return '00:00:00';
-      const totalSec = Math.floor(ms / 1000);
-      const hrs = Math.floor(totalSec / 3600);
-      const mins = Math.floor((totalSec % 3600) / 60);
-      const secs = totalSec % 60;
-      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const formatHours = (hrs: number): string => {
-      if (!hrs || hrs <= 0 || isNaN(hrs)) return '0.00 hrs';
-      return `${hrs.toFixed(2)} hrs`;
-    };
-
-    // Create Excel Workbook
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('User Activity Report');
-
-    sheet.columns = [
-      { key: 'col1', width: 32 },
-      { key: 'col2', width: 22 },
-      { key: 'col3', width: 34 },
-      { key: 'col4', width: 22 },
-      { key: 'col5', width: 18 },
-      { key: 'col6', width: 18 },
-      { key: 'col7', width: 18 },
-      { key: 'col8', width: 18 },
-      { key: 'col9', width: 18 },
-      { key: 'col10', width: 18 },
-      { key: 'col11', width: 18 },
-      { key: 'col12', width: 18 },
-      { key: 'col13', width: 18 },
-      { key: 'col14', width: 18 },
-      { key: 'col15', width: 18 },
-      { key: 'col16', width: 38 },
-    ];
-
-    const THIN_BORDER: Partial<ExcelJS.Borders> = {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' },
-    };
-
-    // Row 1
-    sheet.getCell('A1').value = 'Name';
-    sheet.getCell('A1').font = { bold: true };
-    sheet.getCell('B1').value = userName;
-
-    // Row 2
-    sheet.getCell('A2').value = 'Designation';
-    sheet.getCell('A2').font = { bold: true };
-    sheet.getCell('B2').value = userDesignation;
-
-    // Row 3
-    sheet.getCell('A3').value = 'Period';
-    sheet.getCell('A3').font = { bold: true };
-    const formatISTPeriod = (d: Date) => {
-      return d.toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
-    };
-    sheet.getCell('B3').value = `${formatISTPeriod(startDate)} to ${formatISTPeriod(endDate)}`;
-
-    // Row 4
-    sheet.getCell('A4').value = 'Total Hours in Rev Cycle';
-    sheet.getCell('A4').font = { bold: true };
-    sheet.getCell('A4').border = THIN_BORDER;
-    sheet.getCell('B4').value = formatHours(totalHoursInRevCycle);
-    sheet.getCell('B4').border = THIN_BORDER;
-    sheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Row 5: Authoring
-    sheet.getCell('A5').value = 'Avg time for Authoring';
-    sheet.getCell('A5').border = THIN_BORDER;
-    sheet.getCell('B5').value = formatMsToHMS(
-      authoredCount > 0 ? totalAuthoringMs / authoredCount : 0,
-    );
-    sheet.getCell('B5').border = THIN_BORDER;
-    sheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
-    sheet.getCell('C5').value = 'Total Hours involved in Authoring';
-    sheet.getCell('C5').border = THIN_BORDER;
-    sheet.getCell('D5').value = formatHours(totalAuthoringMs / (1000 * 60 * 60));
-    sheet.getCell('D5').border = THIN_BORDER;
-    sheet.getCell('D5').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Row 6: Reviewing
-    sheet.getCell('A6').value = 'Avg time for Revieweing';
-    sheet.getCell('A6').border = THIN_BORDER;
-    sheet.getCell('B6').value = formatMsToHMS(
-      reviewedCount > 0 ? totalReviewingMs / reviewedCount : 0,
-    );
-    sheet.getCell('B6').border = THIN_BORDER;
-    sheet.getCell('B6').alignment = { horizontal: 'center', vertical: 'middle' };
-    sheet.getCell('C6').value = 'Total Hours involved in Reviewing';
-    sheet.getCell('C6').border = THIN_BORDER;
-    sheet.getCell('D6').value = formatHours(totalReviewingMs / (1000 * 60 * 60));
-    sheet.getCell('D6').border = THIN_BORDER;
-    sheet.getCell('D6').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Row 7: Moderating
-    sheet.getCell('A7').value = 'Avg time for Moderating';
-    sheet.getCell('A7').border = THIN_BORDER;
-    sheet.getCell('B7').value = formatMsToHMS(
-      moderatedCount > 0 ? totalModeratingMs / moderatedCount : 0,
-    );
-    sheet.getCell('B7').border = THIN_BORDER;
-    sheet.getCell('B7').alignment = { horizontal: 'center', vertical: 'middle' };
-    sheet.getCell('C7').value = 'Total Hours involved in Moderating';
-    sheet.getCell('C7').border = THIN_BORDER;
-    sheet.getCell('D7').value = formatHours(totalModeratingMs / (1000 * 60 * 60));
-    sheet.getCell('D7').border = THIN_BORDER;
-    sheet.getCell('D7').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Row 8: Auditing
-    sheet.getCell('A8').value = 'Avg time for Auditing';
-    sheet.getCell('A8').border = THIN_BORDER;
-    sheet.getCell('B8').value = formatMsToHMS(
-      auditedCount > 0 ? totalAuditingMs / auditedCount : 0,
-    );
-    sheet.getCell('B8').border = THIN_BORDER;
-    sheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
-    sheet.getCell('C8').value = 'Total Hours involved in Auditing';
-    sheet.getCell('C8').border = THIN_BORDER;
-    sheet.getCell('D8').value = formatHours(totalAuditingMs / (1000 * 60 * 60));
-    sheet.getCell('D8').border = THIN_BORDER;
-    sheet.getCell('D8').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Row 9: Gatekeeping
-    sheet.getCell('A9').value = 'Avg time for Gatekeeping';
-    sheet.getCell('A9').border = THIN_BORDER;
-    sheet.getCell('B9').value = formatMsToHMS(
-      gatekeepedCount > 0 ? totalGatekeepingMs / gatekeepedCount : 0,
-    );
-    sheet.getCell('B9').border = THIN_BORDER;
-    sheet.getCell('B9').alignment = { horizontal: 'center', vertical: 'middle' };
-    sheet.getCell('C9').value = 'Total Hours involved in Gatekeeping';
-    sheet.getCell('C9').border = THIN_BORDER;
-    sheet.getCell('D9').value = formatHours(
-      totalGatekeepingMs / (1000 * 60 * 60),
-    );
-    sheet.getCell('D9').border = THIN_BORDER;
-    sheet.getCell('D9').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Row 11: Main Table Headers
-    const tableHeaders = [
-      'Agri Proffesional Name',
-      'Authored',
-      'Reviewed',
-      'Reviewed as Rev1',
-      'Reviewed as Rev2',
-      'Reviewed as Rev3',
-      'Reviewed as Rev4',
-      'Reviewed as Rev5',
-      'Reviewed as Rev6',
-      'Reviewed as Rev7',
-      'Reviewed as Rev8',
-      'Reviewed as Rev9',
-      'Moderated',
-      'Audited',
-      'Gatekeeped',
-      'GDB Pushed (Authored / GDB Pushed)',
-    ];
-
-    const headerRow = sheet.getRow(11);
-    tableHeaders.forEach((th, idx) => {
-      const cell = headerRow.getCell(idx + 1);
-      cell.value = th;
-      cell.font = { bold: true };
-      cell.border = THIN_BORDER;
-      cell.alignment = {
-        horizontal: 'center',
-        vertical: 'middle',
-        wrapText: true,
-      };
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFF2F2F2' },
-      };
-    });
-
-    // Row 12: Data Row
-    const dataRowValues = [
+    return await buildUserActivityPdfReport({
       userName,
-      authoredCount,
-      reviewedCount,
-      revCounts[1] || 0,
-      revCounts[2] || 0,
-      revCounts[3] || 0,
-      revCounts[4] || 0,
-      revCounts[5] || 0,
-      revCounts[6] || 0,
-      revCounts[7] || 0,
-      revCounts[8] || 0,
-      revCounts[9] || 0,
-      moderatedCount,
-      auditedCount,
-      gatekeepedCount,
-      gdbPushedCount,
-    ];
-
-    const dataRow = sheet.getRow(12);
-    dataRowValues.forEach((val, idx) => {
-      const cell = dataRow.getCell(idx + 1);
-      cell.value = val;
-      cell.border = THIN_BORDER;
-      cell.alignment = {
-        horizontal: idx === 0 ? 'left' : 'center',
-        vertical: 'middle',
-      };
+      userDesignation,
+      userRole: user.role,
+      startDate,
+      endDate,
+      totalHoursInRevCycle,
+      authoredCount: metrics.authoredCount,
+      totalAuthoringMs: metrics.totalAuthoringMs,
+      reviewedCount: metrics.reviewedCount,
+      totalReviewingMs: metrics.totalReviewingMs,
+      revCounts: metrics.revCounts,
+      moderatedCount: metrics.moderatedCount,
+      totalModeratingMs: metrics.totalModeratingMs,
+      auditedCount: metrics.auditedCount,
+      totalAuditingMs: metrics.totalAuditingMs,
+      gatekeepedCount: metrics.gatekeepedCount,
+      totalGatekeepingMs: metrics.totalGatekeepingMs,
+      gdbPushedCount: metrics.gdbPushedCount,
     });
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
   }
 }
