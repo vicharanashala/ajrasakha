@@ -374,6 +374,7 @@ export default function SelectedAnswerPanel({
             handleUpdateAnswer={handleUpdateAnswer}
             lastReroutedTo={lastReroutedTo}
             approvalCount={answer.approvalCount}
+            isStaticDynamic={question.tag === "static_dynamic"}
           />
         )}
         {(answer.approvalCount >= 3 || showActions) &&
