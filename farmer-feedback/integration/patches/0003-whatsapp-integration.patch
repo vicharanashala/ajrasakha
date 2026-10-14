@@ -1,0 +1,101 @@
+diff --git a/whatsapp-integration/whatsapp-feedback.js b/whatsapp-integration/whatsapp-feedback.js
+new file mode 100644
+--- /dev/null
++++ b/whatsapp-integration/whatsapp-feedback.js
+@@ -0,0 +1,100 @@
++/**
++ * WhatsApp Feedback Integration for LangGraph
++ *
++ * Add feedback collection to WhatsApp conversations.
++ * After answer is sent, track message and ask for feedback.
++ * When farmer replies 1 or 2, capture feedback.
++ */
++
++const FEEDBACK_QUESTION = 'Was this helpful? Reply 1 for Yes, 2 for No';
++
++/**
++ * Track outgoing message for feedback
++ * Call after sending answer via WhatsApp
++ *
++ * @param {Object} params
++ * @param {string} params.messageId - WhatsApp message SID
++ * @param {string} params.gdbEntryId - GDB entry ID
++ * @param {string} params.farmerPhone - Farmer's phone number
++ * @param {Object} db - MongoDB connection
++ */
++async function trackOutgoingMessage({ messageId, gdbEntryId, farmerPhone, db }) {
++  const expiresAt = new Date();
++  expiresAt.setHours(expiresAt.getHours() + 48);
++
++  await db.collection('whatsapp_feedback_tracking').insertOne({
++    message_id: messageId,
++    gdb_entry_id: gdbEntryId,
++    farmer_phone: farmerPhone,
++    answer_sent_at: new Date(),
++    feedback_received: false,
++    feedback_response: null,
++    expires_at: expiresAt
++  });
++}
++
++/**
++ * Handle feedback response from farmer
++ * Call when farmer sends 1 or 2
++ */
++async function handleFeedbackResponse({ farmerPhone, response, db }) {
++  const pending = await db.collection('whatsapp_feedback_tracking').findOne({
++    farmer_phone: farmerPhone,
++    feedback_received: false,
++    expires_at: { $gt: new Date() }
++  }).sort({ answer_sent_at: -1 });
++
++  if (!pending) return null;
++
++  await db.collection('whatsapp_feedback_tracking').updateOne(
++    { _id: pending._id },
++    { $set: { feedback_received: true, feedback_response: response, feedback_received_at: new Date() } }
++  );
++
++  const feedbackDoc = {
++    gdb_entry_id: pending.gdb_entry_id,
++    farmer_id: farmerPhone,
++    message_id: pending.message_id,
++    response: response,
++    source: 'whatsapp',
++    timestamp: new Date(),
++    status: 'captured'
++  };
++
++  await db.collection('feedbacks').insertOne(feedbackDoc);
++  return { message_id: pending.message_id, gdb_entry_id: pending.gdb_entry_id, response };
++}
++
++/**
++ * Check if message is feedback response
++ */
++function isFeedbackResponse(messageBody) {
++  return messageBody === '1' || messageBody === '2';
++}
++
++/**
++ * Express middleware for WhatsApp webhook
++ *
++ * Usage:
++ * const { feedbackMiddleware } = require('./whatsapp-feedback');
++ * app.post('/api/webhooks/whatsapp', feedbackMiddleware(db), (req, res) => { ... });
++ */
++function feedbackMiddleware(db) {
++  return async (req, res, next) => {
++    const { Body, From } = req.body || {};
++    if (Body && From && isFeedbackResponse(Body)) {
++      try {
++        await handleFeedbackResponse({ farmerPhone: From, response: Body, db });
++      } catch (err) {
++        console.error('WhatsApp feedback error:', err);
++      }
++    }
++    next();
++  };
++}
++
++module.exports = { trackOutgoingMessage, handleFeedbackResponse, isFeedbackResponse, feedbackMiddleware, FEEDBACK_QUESTION };
