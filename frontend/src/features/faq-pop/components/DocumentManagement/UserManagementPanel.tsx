@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Trash2, UserPlus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAdminGetAllUsers } from "@/hooks/api/Admin/useAdminGetAllUsers";
 import {
   Command,
@@ -33,6 +34,8 @@ function ManagementList({ title, description, list }: { title: string; descripti
   const [open, setOpen] = useState(false);
   const [addingId, setAddingId] = useState(null);
   const [removingId, setRemovingId] = useState(null);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState(null);
+  const queryClient = useQueryClient();
 
   async function refetch() {
     try {
@@ -91,10 +94,14 @@ function ManagementList({ title, description, list }: { title: string; descripti
     try {
       await removeUserManagementEntry(list, entry.user_id);
       setEntries((prev) => prev.filter((e) => e.user_id !== entry.user_id));
+      // Force the add-search to drop any cached result that still reflects the old membership,
+      // instead of relying on it going stale on its own (UM-010).
+      await queryClient.invalidateQueries({ queryKey: ["admin"] });
     } catch (err) {
       toast.error(err.message || "Failed to remove");
     } finally {
       setRemovingId(null);
+      setConfirmingRemoveId(null);
     }
   }
 
@@ -168,15 +175,34 @@ function ManagementList({ title, description, list }: { title: string; descripti
               <div className="text-xs font-medium text-foreground truncate">{e.name}</div>
               <div className="text-[11px] text-muted-foreground truncate">{e.email}</div>
             </div>
-            <button
-              type="button"
-              disabled={removingId === e.user_id}
-              onClick={() => handleRemove(e)}
-              className="flex-shrink-0 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 cursor-pointer"
-              title="Remove"
-            >
-              <Trash2 size={13} />
-            </button>
+            {confirmingRemoveId === e.user_id ? (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  type="button"
+                  disabled={removingId === e.user_id}
+                  onClick={() => handleRemove(e)}
+                  className="px-2 py-0.5 rounded bg-destructive text-destructive-foreground text-[10px] font-medium hover:bg-destructive/90 disabled:opacity-50 cursor-pointer"
+                >
+                  Remove
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingRemoveId(null)}
+                  className="px-2 py-0.5 rounded border border-border text-[10px] text-muted-foreground hover:bg-accent cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingRemoveId(e.user_id)}
+                className="flex-shrink-0 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                title="Remove"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
           </div>
         ))}
       </div>

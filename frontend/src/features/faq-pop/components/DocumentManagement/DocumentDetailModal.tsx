@@ -20,7 +20,12 @@ import {
   addDocumentPlacement,
 } from "../../api";
 import { formatDate } from "@/utils/formatDate";
-import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS, folderDisplayLabel } from "./fields";
+import {
+  DOCUMENT_METADATA_FIELDS,
+  DISPLAY_ONLY_FIELDS,
+  folderDisplayLabel,
+  filterFoldersByAdvisoryScope,
+} from "./fields";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
 import UniqueDocumentEditForm from "./UniqueDocumentEditForm";
@@ -143,11 +148,22 @@ export default function DocumentDetailModal({
     getDashboardFolders(doc?.advisory_type)
       .then((d) => setPlacementFolders(d || []))
       .catch(() => {});
+    // This document's own Advisory Scope is Central → auto-select the real "Central" state
+    // (backend-confirmed real state, not a pseudo one) rather than making the user pick it.
+    if (doc?.advisory_scope === "Central") setNewPlacementState("Central");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addPlacementOpen]);
 
-  const placementStateNames = placementStates.map((s) => s.name);
-  const placementFolderLabels = placementFolders.map((f) => folderDisplayLabel(f, placementFolders));
+  // "Central" is a real backend state (getDashboardStates, api.ts) but never worth offering as a
+  // pick here — auto-filled instead whenever this document's own Advisory Scope is Central (see
+  // the effect above and the static "Central" display below), same rule as the Add/Edit forms.
+  const placementStateNames = placementStates.map((s) => s.name).filter((n) => n !== "Central");
+  // Organisations offered here are narrowed to THIS document's own Advisory Scope (type == scope,
+  // same rule as the Add/Edit forms) — crops are unaffected. Labels are still disambiguated
+  // against the full placementFolders list (not the narrowed one) so a label picked from the
+  // narrowed list matches exactly what handleAddPlacement's own full-list lookup below expects.
+  const visiblePlacementFolders = filterFoldersByAdvisoryScope(placementFolders, doc?.advisory_scope);
+  const placementFolderLabels = visiblePlacementFolders.map((f) => folderDisplayLabel(f, placementFolders));
 
   async function handleAddPlacement() {
     const stateOpt = placementStates.find((s) => s.name === newPlacementState);
@@ -337,13 +353,21 @@ export default function DocumentDetailModal({
                 {canEdit && addPlacementOpen && (
                   <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/50 bg-muted/10 p-2 mb-2">
                     <div className="flex flex-col gap-1 min-w-[180px]">
-                      <span className="text-[10px] text-muted-foreground">State</span>
-                      <StateSelector
-                        value={newPlacementState}
-                        onChange={setNewPlacementState}
-                        stateNames={placementStateNames}
-                        placeholder="Search state…"
-                      />
+                      {doc?.advisory_scope !== "Central" && (
+                        <span className="text-[10px] text-muted-foreground">State</span>
+                      )}
+                      {doc?.advisory_scope === "Central" ? (
+                        <div className="bg-input border border-border rounded-md px-2 py-1.5 text-sm text-muted-foreground">
+                          Central
+                        </div>
+                      ) : (
+                        <StateSelector
+                          value={newPlacementState}
+                          onChange={setNewPlacementState}
+                          stateNames={placementStateNames}
+                          placeholder="Search state…"
+                        />
+                      )}
                     </div>
                     <div className="flex flex-col gap-1 min-w-[220px]">
                       <span className="text-[10px] text-muted-foreground">Folder — crop or organisation</span>

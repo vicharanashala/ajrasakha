@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import {
@@ -9,7 +9,7 @@ import {
   getDashboardDistricts,
   getDashboardKvks,
 } from "../../api";
-import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel } from "./fields";
+import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 import { PlacementGroupRow } from "./AddDocumentForm";
 
@@ -122,6 +122,40 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
   useEffect(() => {
     refetchFolders();
   }, [values.advisory_type]);
+
+  // Organisations narrowed to this document's Advisory Scope (type == scope) — same rule as
+  // AddDocumentForm.tsx. Crops pass through untouched.
+  const visibleFolderOptions = useMemo(
+    () => filterFoldersByAdvisoryScope(folderOptions, values.advisory_scope),
+    [folderOptions, values.advisory_scope],
+  );
+  useEffect(() => {
+    setGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        folders: g.folders.filter((f) =>
+          visibleFolderOptions.some((o) => folderDisplayLabel(o, folderOptions) === f),
+        ),
+      })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleFolderOptions]);
+
+  // Central-scope advisory → auto-select the real "Central" state on every group, same as
+  // AddDocumentForm.tsx (shares PlacementGroupRow, including its static "Central" display in
+  // place of the dropdown). Moving the scope back off Central clears it back out. Guarded by
+  // whether a group actually needs changing so this doesn't mark placementsTouched (and so send a
+  // placements payload) on every mount/Advisory Type-driven refetch — only on a real flip.
+  useEffect(() => {
+    const isCentral = values.advisory_scope === "Central";
+    const needsChange = groups.some((g) => (isCentral ? g.state !== "Central" : g.state === "Central"));
+    if (!needsChange) return;
+    setGroups((prev) =>
+      prev.map((g) => ({ ...g, state: isCentral ? "Central" : g.state === "Central" ? "" : g.state })),
+    );
+    setPlacementsTouched(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.advisory_scope]);
 
   const primaryStateId = stateOptions.find((s) => s.name === groups[0]?.state)?.id || "";
   const [districtOptions, setDistrictOptions] = useState([]);
@@ -260,8 +294,10 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
           <PlacementGroupRow
             key={g.key}
             group={g}
-            folderOptions={folderOptions}
+            folderOptions={visibleFolderOptions}
+            allFolderOptions={folderOptions}
             stateOptions={stateOptions}
+            scopeIsCentral={values.advisory_scope === "Central"}
             onChange={(patch) => updateGroup(g.key, patch)}
             onRemove={() => removeGroup(g.key)}
             removable={groups.length > 1}

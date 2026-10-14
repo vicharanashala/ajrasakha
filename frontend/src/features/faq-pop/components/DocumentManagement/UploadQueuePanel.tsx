@@ -70,6 +70,7 @@ export default function UploadQueuePanel({
   const [selected, setSelected] = useState({});
   const [expanded, setExpanded] = useState(() => new Set());
   const [declining, setDeclining] = useState({}); // itemId -> note draft, while the note box is open
+  const [confirmingDiscard, setConfirmingDiscard] = useState(() => new Set()); // itemIds pending a Discard confirmation
   const [editingIds, setEditingIds] = useState(() => new Set());
   const [savingEditId, setSavingEditId] = useState(null);
 
@@ -127,6 +128,7 @@ export default function UploadQueuePanel({
               .join(", ");
             const isExpanded = expanded.has(item.id);
             const declineNote = declining[item.id];
+            const isConfirmingDiscard = confirmingDiscard.has(item.id);
             const isEditing = editingIds.has(item.id);
             const ready = Boolean(item.stage); // has reached a stage, not still queued/hashing/etc.
             const metadata = item.metadata || {};
@@ -155,9 +157,9 @@ export default function UploadQueuePanel({
                     >
                       <Eye size={12} />
                     </button>
-                    {item.expert && (
+                    {item.uploaded_by && (
                       <span className="text-[10px] text-muted-foreground/80 truncate" title="Uploader">
-                        {item.expert}
+                        {item.uploaded_by}
                       </span>
                     )}
                     {item.status === "queued" && (
@@ -186,6 +188,11 @@ export default function UploadQueuePanel({
                 {ready && (
                   <span className="text-[10px] font-medium text-primary">
                     {STAGE_LABELS[item.stage] || item.stage}
+                  </span>
+                )}
+                {item.approved_by_approver && (
+                  <span className="text-[10px] text-muted-foreground/80">
+                    Approved by: {item.approved_by_approver}
                   </span>
                 )}
                 {item.approver_note && (
@@ -307,7 +314,7 @@ export default function UploadQueuePanel({
                     />
                     <div className="flex items-center gap-1.5">
                       <button
-                        className="px-2 py-0.5 rounded border border-destructive text-destructive text-[10px] hover:bg-destructive/10 cursor-pointer disabled:opacity-40"
+                        className="px-2.5 py-1 rounded bg-destructive text-destructive-foreground text-[11px] font-medium hover:bg-destructive/90 cursor-pointer disabled:opacity-40"
                         disabled={disabled || !declineNote.trim()}
                         onClick={async () => {
                           await onDecline(item, declineNote.trim());
@@ -333,6 +340,38 @@ export default function UploadQueuePanel({
                         Cancel
                       </button>
                     </div>
+                  </div>
+                ) : isConfirmingDiscard ? (
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span className="text-[11px] text-destructive">
+                      Discard this upload? This cannot be undone.
+                    </span>
+                    <button
+                      className="px-2.5 py-1 rounded bg-destructive text-destructive-foreground text-[11px] font-medium hover:bg-destructive/90 cursor-pointer disabled:opacity-40"
+                      disabled={disabled}
+                      onClick={async () => {
+                        await onDiscard(item);
+                        setConfirmingDiscard((prev) => {
+                          const next = new Set(prev);
+                          next.delete(item.id);
+                          return next;
+                        });
+                      }}
+                    >
+                      Confirm discard
+                    </button>
+                    <button
+                      className="px-2 py-0.5 rounded border border-border text-[10px] text-muted-foreground hover:bg-accent cursor-pointer"
+                      onClick={() =>
+                        setConfirmingDiscard((prev) => {
+                          const next = new Set(prev);
+                          next.delete(item.id);
+                          return next;
+                        })
+                      }
+                    >
+                      Cancel
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -387,7 +426,13 @@ export default function UploadQueuePanel({
                     {actions.can_discard && (
                       <button
                         className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40"
-                        onClick={() => onDiscard(item)}
+                        onClick={() =>
+                          setConfirmingDiscard((prev) => {
+                            const next = new Set(prev);
+                            next.add(item.id);
+                            return next;
+                          })
+                        }
                         disabled={disabled}
                         title="Discard — leave any matched document untouched"
                       >

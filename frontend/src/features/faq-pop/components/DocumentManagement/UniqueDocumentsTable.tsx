@@ -40,6 +40,8 @@ import {
   VERIFICATION_STATUS_OPTIONS,
   DOCUMENT_STATUS_OPTIONS,
   folderDisplayLabel,
+  filterFoldersByAdvisoryScope,
+  displayStateName,
 } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
@@ -211,7 +213,14 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     setPage(1);
   }
   const selectedFolderIds = [...(filters.crop_id || []), ...(filters.organization_id || [])];
-  const folderFilterUiOptions = folderFilterOptions.map((f) => ({
+  // Organisations offered in the Folder filter are narrowed to the Advisory Scope filter's value
+  // (type == scope, same rule as the Add/Edit forms) — crops are unaffected. No scope filter set →
+  // every organisation stays offered. Matched by id (not label), so an already-selected filter id
+  // that's no longer offered after narrowing stays applied (clearable via "Clear all filters"),
+  // same as the Advisory Type → Folder narrowing already does.
+  const advisoryScopeFilterValue = filters.advisory_scope?.[0] || "";
+  const visibleFolderFilterOptions = filterFoldersByAdvisoryScope(folderFilterOptions, advisoryScopeFilterValue);
+  const folderFilterUiOptions = visibleFolderFilterOptions.map((f) => ({
     value: f.id,
     label: folderDisplayLabel(f, folderFilterOptions),
   }));
@@ -245,7 +254,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     const anchor = item.duplicate_links?.find((l) => l.zoho_file_id === item.representative_file_id);
     return {
       ...item,
-      _anchor_state: anchor?.state,
+      _anchor_state: displayStateName(anchor?.state),
       _anchor_crop: anchor?.crop,
     };
   }
@@ -488,7 +497,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                   col.vocab === "state" ? (
                     <ColumnFilter
                       label="State"
-                      options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
+                      options={stateOptions.filter((s) => s.name !== "Central").map((s) => ({ value: s.id, label: s.name }))}
                       selected={filters.state_id || []}
                       onChange={(v) => {
                         // Changing State invalidates whatever District/KVK was selected under the

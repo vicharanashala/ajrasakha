@@ -271,10 +271,12 @@ export default function DocumentManagementPanel({
   }
 
   // 404 means this upload isn't (or is no longer) visible to this caller at all; 409 means
-  // someone else just moved it to another stage — either way the locally-held item is stale, so
-  // resync from the server instead of leaving a dead row the next click will just 404/409 again.
+  // someone else just moved it to another stage; 403 covers losing standing to act on it (e.g.
+  // removed as an approver, or it moved to a stage that isn't this caller's) — in every case the
+  // locally-held item/queue is stale, so resync from the server instead of leaving a dead row the
+  // next click will just 403/404/409 again.
   function isStaleUploadError(err) {
-    return err?.status === 404 || err?.status === 409;
+    return err?.status === 403 || err?.status === 404 || err?.status === 409;
   }
 
   async function handleCancelUpload(item) {

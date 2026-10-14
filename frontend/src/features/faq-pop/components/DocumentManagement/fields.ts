@@ -37,6 +37,17 @@ export const ADVISORY_TYPE_OPTIONS = ["Comprehensive", "Crop Advisory", "Non-Cro
 
 export const ADVISORY_SCOPE_OPTIONS = ["Central", "State", "District", "Town", "Village"];
 
+// "Central" is a real, backend-confirmed state (not a pseudo one — see getDashboardStates in
+// api.ts) used to file Advisory Scope = Central documents, since every placement needs a real
+// state. It's still picked/sent as "Central" under the hood everywhere, and shown as "Central"
+// almost everywhere too — this blanking is ONLY for Main Table's and the Documents tab's own State
+// column (the dense, high-row-count grids), per the user's explicit call: every other place a
+// state is shown (Document Detail's placements/merge lists, the Upload Queue) keeps "Central" as
+// plain text. Don't reuse this beyond those two tables.
+export function displayStateName(name?: string | null) {
+  return name === "Central" ? "" : name || "";
+}
+
 export const SEASON_OPTIONS = [
   "Kharif",
   "Rabi",
@@ -216,6 +227,22 @@ export function folderDisplayLabel(
   const typeLabel = folder.type ? folder.type.charAt(0).toUpperCase() + folder.type.slice(1) : null;
   const suffix = [typeLabel, folder.state].filter(Boolean).join(" · ");
   return suffix ? `${base} — ${suffix}` : base;
+}
+
+// An organisation's `type` ("central"|"state"|"district") should match the document's Advisory
+// Scope (Central/State/District/Town/Village, see ADVISORY_SCOPE_OPTIONS) — only offer orgs of the
+// matching type once a scope is picked. No scope picked yet → don't filter (every org stays
+// offered). A scope with no matching org type (Town/Village) correctly leaves no organisations
+// offered — crops pass through untouched either way, this only ever narrows organisations.
+export function filterFoldersByAdvisoryScope(
+  folders: { kind?: string; type?: string | null }[],
+  advisoryScope?: string,
+) {
+  const scope = (advisoryScope || "").trim().toLowerCase();
+  if (!scope) return folders || [];
+  return (folders || []).filter(
+    (f) => f.kind !== "organization" || (f.type || "").toLowerCase() === scope,
+  );
 }
 
 export const ALL_UNIQUE_DOCUMENT_FIELDS: FieldDef[] = [

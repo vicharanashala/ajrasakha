@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import {
@@ -12,7 +12,7 @@ import {
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
-import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel } from "./fields";
+import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 
 const inputClass =
@@ -39,16 +39,40 @@ const selectClass =
 // districts as it had folders. `folderOptions` is passed down from the form (see below): all
 // groups share the SAME options, because Folder options depend only on the form's Advisory Type,
 // never on a group's own state (see the form-level comment).
-export function PlacementGroupRow({ group, folderOptions, stateOptions, onChange, onRemove, removable }) {
-  const stateNames = stateOptions.map((s) => s.name);
-  const folderLabels = folderOptions.map((f) => folderDisplayLabel(f, folderOptions));
+export function PlacementGroupRow({
+  group,
+  folderOptions,
+  allFolderOptions,
+  stateOptions,
+  scopeIsCentral,
+  onChange,
+  onRemove,
+  removable,
+}) {
+  // "Central" is a real backend state (see getDashboardStates in api.ts) but never worth offering
+  // as a pick — it's auto-filled whenever the form's Advisory Scope is Central (see the
+  // scope-driven effect in AddDocumentForm.tsx/UploadEditForm.tsx), and not a real place to pick
+  // otherwise. `stateOptions` itself (used for id lookups by the parent form) is untouched; this
+  // only narrows what's rendered here.
+  const stateNames = stateOptions.map((s) => s.name).filter((n) => n !== "Central");
+  // Labels are disambiguated against allFolderOptions (the full, unfiltered list), not the
+  // (possibly narrower) folderOptions actually offered here — so a label picked from a
+  // scope-filtered subset still matches exactly what the form's own full-list lookup expects at
+  // submit time (see AddDocumentForm/UploadEditForm's folderOptions.find(...) calls).
+  const folderLabels = folderOptions.map((f) => folderDisplayLabel(f, allFolderOptions || folderOptions));
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border/50 p-2">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-start">
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] text-muted-foreground">State</span>
-          <StateSelector value={group.state} onChange={(v) => onChange({ state: v })} stateNames={stateNames} />
+          {!scopeIsCentral && <span className="text-[10px] text-muted-foreground">State</span>}
+          {scopeIsCentral ? (
+            <div className="w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-muted-foreground">
+              Central
+            </div>
+          ) : (
+            <StateSelector value={group.state} onChange={(v) => onChange({ state: v })} stateNames={stateNames} />
+          )}
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-[10px] text-muted-foreground">Folder(s) — crop or organisation</span>
@@ -134,6 +158,41 @@ export default function AddDocumentForm({ onUploadQueued }) {
   useEffect(() => {
     refetchFolders();
   }, [values.advisory_type]);
+
+  // Organisations are narrowed to this document's Advisory Scope (type == scope, see
+  // filterFoldersByAdvisoryScope) — crops pass through untouched. Derived, not stored: recomputed
+  // whenever either the raw folderOptions or the scope changes, no extra fetch involved.
+  const visibleFolderOptions = useMemo(
+    () => filterFoldersByAdvisoryScope(folderOptions, values.advisory_scope),
+    [folderOptions, values.advisory_scope],
+  );
+  // Drop any group's selected folder that's no longer offered once narrowed by scope — same
+  // reasoning as refetchFolders' own drop-on-Advisory-Type-change above.
+  useEffect(() => {
+    setGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        folders: g.folders.filter((f) =>
+          visibleFolderOptions.some((o) => folderDisplayLabel(o, folderOptions) === f),
+        ),
+      })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleFolderOptions]);
+
+  // A Central-scope advisory is filed under the real "Central" state (backend-confirmed: a real
+  // state with real id, not a pseudo one — see getDashboardStates in api.ts) — auto-select it on
+  // every group the moment the scope becomes Central, rather than making the uploader pick it
+  // manually. PlacementGroupRow hides the State dropdown entirely for a Central-scope group
+  // (scopeIsCentral prop), showing a static "Central" in its place instead. Moving the scope back
+  // off Central clears it back out — "Central" is never a real pick once the dropdown returns.
+  useEffect(() => {
+    if (values.advisory_scope === "Central") {
+      setGroups((prev) => prev.map((g) => (g.state === "Central" ? g : { ...g, state: "Central" })));
+    } else {
+      setGroups((prev) => prev.map((g) => (g.state === "Central" ? { ...g, state: "" } : g)));
+    }
+  }, [values.advisory_scope]);
 
   // District/KVK (2026-10-06: document-level, not per-placement — see the district_id/kvk_id form
   // fields in handleSubmit below). District's dropdown is scoped by the FIRST placement group's
@@ -299,8 +358,10 @@ export default function AddDocumentForm({ onUploadQueued }) {
           <PlacementGroupRow
             key={g.key}
             group={g}
-            folderOptions={folderOptions}
+            folderOptions={visibleFolderOptions}
+            allFolderOptions={folderOptions}
             stateOptions={stateOptions}
+            scopeIsCentral={values.advisory_scope === "Central"}
             onChange={(patch) => updateGroup(g.key, patch)}
             onRemove={() => removeGroup(g.key)}
             removable={groups.length > 1}
