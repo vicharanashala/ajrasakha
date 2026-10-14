@@ -5,7 +5,7 @@ import { QuestionService } from '#root/modules/core/index.js';
 import { appConfig } from '#root/config/app.js';
 
 // Run every 1 minutes — assigns in-review questions to available moderators (one per moderator at a time)
-const ENABLE_INPROCESS_CRON = false;
+const ENABLE_INPROCESS_CRON = true;
 if (ENABLE_INPROCESS_CRON) {
   cron.schedule(
     '0 */1 * * * *',
