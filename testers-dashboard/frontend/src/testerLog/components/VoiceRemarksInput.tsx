@@ -93,7 +93,7 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
 
             if (res.isUnavailable) {
                 if (textToValidate === undefined) {
-                    toast.info("In-house grammar validator service is currently unreachable.");
+                    toast.info("Grammar validator service is currently unreachable.");
                 }
                 return;
             }
@@ -303,7 +303,7 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                     {/* Auto-check toggle */}
                     <label
                         className="flex items-center gap-1.5 text-xs text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors"
-                        title="Automatically check grammar with in-house AI when you finish speaking"
+                        title="Automatically check grammar when you finish speaking"
                     >
                         <input
                             type="checkbox"
@@ -325,7 +325,7 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
                             "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:border-primary/40 active:scale-95",
                             "disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none",
                         )}
-                        title="Validate remarks grammar using in-house AI model"
+                        title="Validate remarks grammar"
                     >
                         {isValidatingGrammar ? (
                             <>
@@ -495,7 +495,7 @@ export const VoiceRemarksInput: React.FC<VoiceRemarksInputProps> = ({
             {isGrammarValid === true && suggestions.length === 0 && (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 animate-fadeIn">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>Grammar validated with in-house AI model.</span>
+                    <span>Grammar validated.</span>
                 </div>
             )}
 

@@ -260,7 +260,7 @@ describe("VoiceRemarksInput", () => {
         fireEvent.click(checkBtn);
 
         await waitFor(() => {
-            expect(screen.getByText(/Grammar validated with in-house AI model/i)).toBeTruthy();
+            expect(screen.getByText(/Grammar validated\./i)).toBeTruthy();
         });
     });
 });
