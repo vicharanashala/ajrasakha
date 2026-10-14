@@ -120,7 +120,7 @@ export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-56 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border z-50 backdrop-blur-sm">
           <div className="px-3 py-2 border-b border-border bg-muted/30">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Select Language
             </p>
           </div>

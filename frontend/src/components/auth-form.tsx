@@ -329,6 +329,7 @@ export const AuthForm = ({
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
                         className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
                       >
                         {showPassword ? (
                           <EyeOff className="w-5 h-5" />
@@ -366,6 +367,7 @@ export const AuthForm = ({
                           type="button"
                           onClick={() => setShowConfirmPassword((prev) => !prev)}
                           className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer"
+                          aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                         >
                           {showConfirmPassword ? (
                             <EyeOff className="w-5 h-5" />
@@ -495,25 +497,16 @@ export const AuthForm = ({
                   )}
 
                   <Button
-                    className={`w-full h-12 rounded-md font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary ${mode == "signup" && !Object.keys(errors).length && "mt-3"
+                    className={`w-full h-12 rounded-md font-semibold text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary border-none ${mode == "signup" && !Object.keys(errors).length && "mt-3"
                       } `}
                     style={{
-                      color: "#FFFFFF",
-                      border: "none",
                       opacity: isLoading ? 0.7 : 1,
                       pointerEvents: isLoading ? "none" : "auto",
                     }}
-                    // onClick={!isLoading ? handleEmailAuth : undefined}
                     type="submit"
                     disabled={isLoading}
                   >
-                    <span
-                      style={{
-                        // color: "#FFFFFF",
-                        fontWeight: "600",
-                        fontSize: "14px",
-                      }}
-                    >
+                    <span className="font-semibold text-sm">
                       {isLoading
                         ? "Please wait..."
                         : mode === "login"

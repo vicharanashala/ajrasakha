@@ -19,7 +19,6 @@ import {
   type QuestionPriorityFilter,
   type QuestionSourceFilter,
 } from "../../components/advanced-question-filter";
-import type { } from "../../components/questions-page";
 import type {
   IReviewParmeters,
   SourceItem
@@ -38,7 +37,6 @@ import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
-import { useToast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 export type QuestionFilter =
@@ -642,7 +640,7 @@ export const QAInterface = ({
               variant="ghost"
               size="sm"
               onClick={() => setIsSidebarCollapsed(false)}
-              className="absolute -left-12  h-full text-center ml-2 px-2 z-10  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0"
+              className="absolute -left-12  h-full text-center ml-2 px-2 z-10  border border-border shadow-sm rounded-lg bg-transparent mb-3 md:mb-0"
               title="Expand Questions"
             >
               <ChevronsRight className="w-4 h-4" />
@@ -679,8 +677,8 @@ export const QAInterface = ({
           {selectedQuestionData &&
             selectedQuestionData?.history?.length == 0 && (
               <div className={`transition-all duration-300 w-full`}>
-                <Card className="w-full h-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-                  <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
+                <Card className="w-full h-full  border border-border shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+                  <CardHeader className="flex items-center gap-2 border-b border-border">
                     <div className="p-2 rounded-lg bg-primary/10">
                       <FileText className="w-5 h-5 text-primary" />
                     </div>
@@ -720,7 +718,7 @@ export const QAInterface = ({
                             }
                           </div>
 
-                          <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
+                          <p className="text-sm mt-1 p-3 rounded-md border border-border break-words">
                             {translatedText || selectedQuestionData.text}
                           </p>
                         </div>
@@ -792,7 +790,7 @@ export const QAInterface = ({
                                 selectedQuestionData?.aiInitialAnswer &&
                                 selectedQuestionData.aiInitialAnswer
                                 ? "border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 italic"
-                                : "border-gray-200 dark:border-gray-600"
+                                : "border-border"
                               }`}
                           />
 
@@ -809,7 +807,7 @@ export const QAInterface = ({
                               placeholder="Enter remarks..."
                               value={remarks}
                               onChange={(e) => setRemarks(e.target.value)}
-                              className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[80px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
+                              className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[80px] resize-y border border-border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
                             />
                           </div>
 

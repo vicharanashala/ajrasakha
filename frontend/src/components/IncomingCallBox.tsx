@@ -4,6 +4,13 @@ import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import { Switch } from "./atoms/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./atoms/select";
+import {
   Phone,
   PhoneOff,
   Pause,
@@ -922,25 +929,29 @@ export const IncomingCallBox = ({
                     </span>
                   </div>
                   <div className="mt-2">
-                    <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
                       Select Target Language:
                     </label>
-                    <select
+                    <Select
                       value={selectedLanguage}
-                      onChange={(e) => {
-                        setSelectedLanguage(e.target.value);
+                      onValueChange={(val) => {
+                        setSelectedLanguage(val);
                         languageManuallyChangedRef.current = true;
                         setTranslatedText(null);
                         setSendTranslated(false);
                       }}
-                      className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
-                      {SARVAM_LANGUAGES.map((lang) => (
-                        <option key={lang.code} value={lang.code}>
-                          {lang.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <SelectValue placeholder="Select language" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SARVAM_LANGUAGES.map((lang) => (
+                          <SelectItem key={lang.code} value={lang.code}>
+                            {lang.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex justify-end gap-2 mt-2">
                     <Button
@@ -1213,25 +1224,29 @@ export const IncomingCallBox = ({
                       </span>
                     </div>
                     <div className="mt-2">
-                      <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">
                         Select Target Language:
                       </label>
-                      <select
+                      <Select
                         value={selectedLanguage}
-                        onChange={(e) => {
-                          setSelectedLanguage(e.target.value);
+                        onValueChange={(val) => {
+                          setSelectedLanguage(val);
                           languageManuallyChangedRef.current = true;
                           setTranslatedText(null);
                           setSendTranslated(false);
                         }}
-                        className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
                       >
-                        {SARVAM_LANGUAGES.map((lang) => (
-                          <option key={lang.code} value={lang.code}>
-                            {lang.name}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                          <SelectValue placeholder="Select language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SARVAM_LANGUAGES.map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              {lang.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex justify-end gap-2 mt-2">
                       <Button
