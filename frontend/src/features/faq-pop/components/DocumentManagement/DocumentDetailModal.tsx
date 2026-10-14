@@ -49,8 +49,10 @@ export default function DocumentDetailModal({
   open,
   onOpenChange,
   translationAvailable,
+  canTranslate = false,
   onTranslationStarted,
   onPlacementsChanged,
+  canEdit = true,
 }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -240,12 +242,14 @@ export default function DocumentDetailModal({
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                   Filed in {doc.placement_count ?? "?"} place{doc.placement_count === 1 ? "" : "s"}
                 </span>
-                <button
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  onClick={() => setEditOpen(true)}
-                >
-                  <Pencil size={12} /> Edit metadata
-                </button>
+                {canEdit && (
+                  <button
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    onClick={() => setEditOpen(true)}
+                  >
+                    <Pencil size={12} /> Edit metadata
+                  </button>
+                )}
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   onClick={loadDoc}
@@ -270,6 +274,7 @@ export default function DocumentDetailModal({
                     doc={doc}
                     scope="document"
                     translationAvailable={translationAvailable}
+                    canTranslate={canTranslate}
                     resolvePlacementId={() => {
                       // placements load in parallel with doc, on a separate request — guard the
                       // window where doc has already rendered but placements haven't landed yet.
@@ -320,14 +325,16 @@ export default function DocumentDetailModal({
                   <h3 className="text-xs font-semibold text-foreground">
                     Placements ({placements?.length ?? "…"})
                   </h3>
-                  <button
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    onClick={() => setAddPlacementOpen((v) => !v)}
-                  >
-                    <Plus size={12} /> Add placement
-                  </button>
+                  {canEdit && (
+                    <button
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      onClick={() => setAddPlacementOpen((v) => !v)}
+                    >
+                      <Plus size={12} /> Add placement
+                    </button>
+                  )}
                 </div>
-                {addPlacementOpen && (
+                {canEdit && addPlacementOpen && (
                   <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/50 bg-muted/10 p-2 mb-2">
                     <div className="flex flex-col gap-1 min-w-[180px]">
                       <span className="text-[10px] text-muted-foreground">State</span>
@@ -389,14 +396,16 @@ export default function DocumentDetailModal({
                               /documents/{row_id}/review resolves to the document regardless of
                               which placement's id is used, so one per row was just a way to
                               overwrite what the previous row's upload had stored. */}
-                          <button
-                            className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
-                            onClick={() => handleDeletePlacement(p)}
-                            disabled={deletingPlacementId === p.id}
-                            title="Remove placement"
-                          >
-                            <Trash2 size={11} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
+                              onClick={() => handleDeletePlacement(p)}
+                              disabled={deletingPlacementId === p.id}
+                              title="Remove placement"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -454,48 +463,52 @@ export default function DocumentDetailModal({
                 )}
               </div>
 
-              <div className="border-t border-border/50 pt-3">
-                <h3 className="text-xs font-semibold text-foreground mb-1.5">Duplicate check</h3>
-                <button
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40"
-                  onClick={handleFindDuplicates}
-                  disabled={findingDuplicates}
-                >
-                  <Search size={12} /> {findingDuplicates ? "Checking…" : "Find duplicates"}
-                </button>
-                {findDuplicatesNote && (
-                  <p className="text-[11px] text-muted-foreground mt-1.5">{findDuplicatesNote}</p>
-                )}
-              </div>
-
-              <div className="border-t border-border/50 pt-3">
-                <h3 className="text-xs font-semibold text-foreground mb-1">Merge</h3>
-                <p className="text-[11px] text-muted-foreground mb-1.5">
-                  Absorb other documents into this one — their placements are repointed here, they
-                  are deleted, and their copies join this document's duplicate copies above.
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 bg-input border border-border rounded-md px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
-                    placeholder="ANNAM_00123, ANNAM_00456…"
-                    value={mergeInput}
-                    onChange={(e) => setMergeInput(e.target.value)}
-                  />
+              {canEdit && (
+                <div className="border-t border-border/50 pt-3">
+                  <h3 className="text-xs font-semibold text-foreground mb-1.5">Duplicate check</h3>
                   <button
-                    className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40"
-                    onClick={handleMerge}
-                    disabled={merging || !mergeInput.trim()}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40"
+                    onClick={handleFindDuplicates}
+                    disabled={findingDuplicates}
                   >
-                    {merging ? "Merging…" : "Merge in"}
+                    <Search size={12} /> {findingDuplicates ? "Checking…" : "Find duplicates"}
                   </button>
+                  {findDuplicatesNote && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">{findDuplicatesNote}</p>
+                  )}
                 </div>
-                {doc.merged_from?.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground mt-1.5">
-                    Already absorbed: {doc.merged_from.join(", ")}
+              )}
+
+              {canEdit && (
+                <div className="border-t border-border/50 pt-3">
+                  <h3 className="text-xs font-semibold text-foreground mb-1">Merge</h3>
+                  <p className="text-[11px] text-muted-foreground mb-1.5">
+                    Absorb other documents into this one — their placements are repointed here, they
+                    are deleted, and their copies join this document's duplicate copies above.
                   </p>
-                )}
-              </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 bg-input border border-border rounded-md px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+                      placeholder="ANNAM_00123, ANNAM_00456…"
+                      value={mergeInput}
+                      onChange={(e) => setMergeInput(e.target.value)}
+                    />
+                    <button
+                      className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40"
+                      onClick={handleMerge}
+                      disabled={merging || !mergeInput.trim()}
+                    >
+                      {merging ? "Merging…" : "Merge in"}
+                    </button>
+                  </div>
+                  {doc.merged_from?.length > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Already absorbed: {doc.merged_from.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

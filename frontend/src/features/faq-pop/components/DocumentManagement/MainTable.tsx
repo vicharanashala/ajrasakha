@@ -48,7 +48,7 @@ const COL_COUNT = 13; // Row ID, Document ID, Document, Advisory Type, State, Fo
 // reimplement it here. PATCH now wants crop_id/organization_id (not a bare name) to disambiguate
 // which kind was picked, and dropdown filters send ids too since organisation names routinely
 // contain commas that would otherwise split a name-based multi-select filter.
-export default function MainTable({ onOpenDetail, refreshKey }) {
+export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -295,15 +295,15 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       )}
 
       <TopScrollbar containerRef={scrollRef} />
-      <div className="relative overflow-x-auto rounded-lg border border-border" ref={scrollRef}>
+      <div className="relative overflow-auto max-h-[70vh] rounded-lg border border-border" ref={scrollRef}>
         {loading && (
           <div className="absolute inset-0 bg-background/40 flex items-start justify-center pt-4 pointer-events-none z-10">
             <RefreshCw size={16} className="animate-spin text-muted-foreground" />
           </div>
         )}
         <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-muted/30">
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b border-border bg-muted">
               <th className="text-left px-3 py-2 whitespace-nowrap">
                 <div className="flex items-center gap-1">
                   <div className="min-w-0">
@@ -474,7 +474,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                   onClick={(e) => handleRowClick(e, row)}
                   onDoubleClick={(e) => handleRowDoubleClick(e, row)}
                   className={`border-b border-border/50 transition-colors cursor-pointer ${
-                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                    selectedRowId === row.id ? "bg-primary/20" : idx % 2 === 0 ? "" : "bg-muted/10"
                   }`}
                 >
                   <td className="px-3 py-2 align-middle font-mono text-[10px] text-muted-foreground">
@@ -565,7 +565,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                     <StatusBadge status={row.review_status} />
                   </td>
                   <td className="px-3 py-2 align-middle whitespace-nowrap">
-                    {editingId === row.id ? (
+                    {!canEdit ? null : editingId === row.id ? (
                       <div className="flex items-center gap-1">
                         <button
                           className="text-[10px] px-1.5 py-0.5 rounded border border-primary text-primary hover:bg-primary/10 cursor-pointer disabled:opacity-40"
