@@ -17,7 +17,7 @@ export function buildHoldCountdownOptions(q: {
   };
 }
 
-function computeRemainingMs(
+export function computeRemainingMs(
   createdAt: string,
   durationHours: number,
   accumulatedHoldMs: number,
