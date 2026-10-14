@@ -223,7 +223,7 @@ export async function buildUserActivityPdfReport(
       accentColor: '#059669',
       bgColor: '#ECFDF5',
       borderColor: '#A7F3D0',
-      badgeText: 'Moderated / Rerouted',
+      badgeText: 'Questions Moderated',
     },
     {
       title: 'Auditing',
@@ -395,11 +395,11 @@ export async function buildUserActivityPdfReport(
       notes: `Active across Rev 1 - Rev 9 levels`,
     },
     {
-      role: 'Moderation / Rerouting',
+      role: 'Question Moderation',
       count: data.moderatedCount,
       avg: formatMsToHMS(data.moderatedCount > 0 ? data.totalModeratingMs / data.moderatedCount : 0),
       hours: formatHours(data.totalModeratingMs / (1000 * 60 * 60)),
-      notes: 'Includes question reviews & reroute actions',
+      notes: 'Moderation review completions',
     },
     {
       role: 'Question Auditing',

@@ -10502,28 +10502,6 @@ export class QuestionRepository implements IQuestionRepository {
       }
     }
 
-    // Moderated reroutes
-    const reroutes = await this.ReRouteCollection.find({
-      'reroutes.reroutedTo': userObjectId,
-      'reroutes.updatedAt': { $gte: startDate, $lte: endDate },
-    }).toArray();
-
-    for (const doc of reroutes) {
-      for (const r of (doc as any).reroutes || []) {
-        if (r.reroutedTo?.toString() === userId && r.updatedAt) {
-          const endAt = new Date(r.updatedAt);
-          if (endAt >= startDate && endAt <= endDate) {
-            moderatedCount++;
-            const startAt = new Date(r.reroutedAt);
-            const diff = endAt.getTime() - startAt.getTime();
-            if (diff > 0 && diff < MAX_DURATION_MS) {
-              totalModeratingMs += diff;
-            }
-          }
-        }
-      }
-    }
-
     // 4. Auditing: questions finished in date range
     let auditedCount = 0;
     let totalAuditingMs = 0;
