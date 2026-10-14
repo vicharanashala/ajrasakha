@@ -1529,6 +1529,9 @@ export class TesterLogService implements ITesterLogService {
 
             const checkSla = (statusStr?: string) => {
                 const s = (statusStr || '').trim().toLowerCase();
+                if (s === 'pending' || s === 'na' || s === 'not applicable' || !s) {
+                    return;
+                }
                 if (s === 'met' || s === 'within sla' || s === 'pass' || s.includes('within')) {
                     slaMet++;
                 } else if (s === 'breached' || s === 'fail' || s.includes('breach')) {
@@ -1536,29 +1539,31 @@ export class TesterLogService implements ITesterLogService {
                 }
             };
 
-            const chSla = (entry.channelTested || '').trim().toLowerCase();
-            const isBothSla = chSla.includes('both') || chSla.includes('cross');
-            if (isBothSla) {
-                checkSla(entry.slaStatus);
-                checkSla(entry.waSlaStatus);
-            } else {
-                checkSla(entry.slaStatus || entry.waSlaStatus);
-            }
-
-            if (entry.responseTimeMins) {
-                const trimmed = entry.responseTimeMins.trim();
-                let mins: number | null = null;
-                if (trimmed.includes(':')) {
-                    const parts = trimmed.split(':').map(Number);
-                    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                        mins = parts[0] * 60 + parts[1] + (parts[2] || 0) / 60;
-                    }
-                } else if (!isNaN(Number(trimmed))) {
-                    mins = parseFloat(trimmed);
+            if (!isOnHold) {
+                const chSla = (entry.channelTested || '').trim().toLowerCase();
+                const isBothSla = chSla.includes('both') || chSla.includes('cross');
+                if (isBothSla) {
+                    checkSla(entry.slaStatus);
+                    checkSla(entry.waSlaStatus);
+                } else {
+                    checkSla(entry.slaStatus || entry.waSlaStatus);
                 }
-                if (mins !== null && mins >= 0 && mins < 100000) {
-                    responseTimeSum += mins;
-                    responseTimeCount++;
+
+                if (entry.responseTimeMins) {
+                    const trimmed = entry.responseTimeMins.trim();
+                    let mins: number | null = null;
+                    if (trimmed.includes(':')) {
+                        const parts = trimmed.split(':').map(Number);
+                        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                            mins = parts[0] * 60 + parts[1] + (parts[2] || 0) / 60;
+                        }
+                    } else if (!isNaN(Number(trimmed))) {
+                        mins = parseFloat(trimmed);
+                    }
+                    if (mins !== null && mins >= 0 && mins < 100000) {
+                        responseTimeSum += mins;
+                        responseTimeCount++;
+                    }
                 }
             }
 
@@ -1712,6 +1717,11 @@ export class TesterLogService implements ITesterLogService {
         };
 
         for (const entry of entries) {
+            const overall = (entry.overallTestStatus || '').trim().toLowerCase();
+            const eStatus = (entry.status || '').trim().toLowerCase();
+            const isOnHold = eStatus === 'on hold' || overall === 'on hold';
+            if (isOnHold) continue;
+
             const qType = (entry.typeOfQuestion || '').trim().toLowerCase();
             const cat = (entry.questionCategory || '').trim().toLowerCase();
             const compactQType = qType.replace(/[^a-z]/g, '');

@@ -89,7 +89,7 @@ export class CreateTesterLogDto {
     @IsOptional()
     timeAnswerReceived?: string;
 
-    @JSONSchema({ description: 'SLA status: Within SLA, SLA Breached, Not Applicable' })
+    @JSONSchema({ description: 'SLA status: Within SLA, SLA Breached, Pending, Not Applicable' })
     @IsString()
     @IsOptional()
     slaStatus?: string;
@@ -171,6 +171,7 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() waTimeQuestionAsked?: string;
     @IsString() @IsOptional() waTimeAnswerReceived?: string;
     @IsString() @IsOptional() waResponseTimeMins?: string;
+    @JSONSchema({ description: 'WhatsApp SLA status: Within SLA, SLA Breached, Pending, Not Applicable' })
     @IsString() @IsOptional() waSlaStatus?: string;
     @IsString() @IsOptional() waVoiceInputWorking?: string;
     @IsString() @IsOptional() waVoiceOutputWorking?: string;

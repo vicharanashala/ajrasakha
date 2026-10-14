@@ -421,7 +421,7 @@ export const QUESTION_CATEGORY_OPTIONS = [
     'Allied Agricultural Activities',
 ];
 
-export const SLA_STATUS_OPTIONS = ['Within SLA', 'SLA Breached', 'Not Applicable'];
+export const SLA_STATUS_OPTIONS = ['Within SLA', 'SLA Breached', 'Pending', 'Not Applicable'];
 
 export const REVIEW_MODEL_OPTIONS = ['Yes', 'No', 'NA'];
 

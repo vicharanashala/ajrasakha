@@ -390,11 +390,36 @@ describe("validateTesterLogForm", () => {
             translationQuality: "Excellent",
             translationErrorType: "NA - Translation is accurate",
             tagging: "New Question",
-            msg120MinShownToUser: "Yes",
+            msg120MinShownToUser: "Not Received",
         };
 
         const errors = validateTesterLogForm(onHoldData, { isCross: false, excludeReviewerWorkflow: false, isSavingOnHold: true });
         expect(Object.keys(errors)).toHaveLength(0);
+    });
+
+    it("rejects saving on hold if timeAnswerReceived is already filled", () => {
+        const onHoldWithAnswer: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:20:00",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            translationErrorType: "NA - Translation is accurate",
+            tagging: "New Question",
+            msg120MinShownToUser: "Not Received",
+        };
+
+        const errors = validateTesterLogForm(onHoldWithAnswer, { isCross: false, excludeReviewerWorkflow: false, isSavingOnHold: true });
+        expect(errors.timeAnswerReceived).toBe("Answer has already arrived; please complete and submit the test case instead of saving on hold");
     });
 
     it("rejects completed submission if overallTestStatus is left as 'On Hold'", () => {
@@ -457,6 +482,23 @@ describe("TesterLogForm component", () => {
         }
         expect(getAllByText(/Save as On Hold/).length).toBeGreaterThanOrEqual(1);
         expect(getByText(/New Question Detected \(2-Hour SLA Window\)/)).not.toBeNull();
+    });
+
+    it("hides Save as On Hold button and 2-hour SLA banner when answer time is entered", async () => {
+        const { getByText, queryByText } = render(<TesterLogForm testerName="Tester A" userEmail="tester@example.com" />);
+        const typeSelect = document.querySelector('select[name="typeOfQuestion"]') as HTMLSelectElement;
+        if (typeSelect) {
+            fireEvent.change(typeSelect, { target: { value: "Unique" } });
+        }
+        expect(getByText(/New Question Detected \(2-Hour SLA Window\)/)).not.toBeNull();
+
+        const timeAnswerInput = document.querySelector('input[name="timeAnswerReceived"]') as HTMLInputElement;
+        if (timeAnswerInput) {
+            fireEvent.change(timeAnswerInput, { target: { value: "2026-10-14T10:20:00" } });
+        }
+
+        expect(queryByText(/New Question Detected \(2-Hour SLA Window\)/)).toBeNull();
+        expect(queryByText("Save as On Hold (Awaiting Expert)")).toBeNull();
     });
 
     it("renders Resuming banner and Complete & Submit button when editing an On Hold entry", async () => {

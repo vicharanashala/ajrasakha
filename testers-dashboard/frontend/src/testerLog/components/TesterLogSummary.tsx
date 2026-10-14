@@ -967,6 +967,9 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                     {totalTests > targetTotalRow.achievedTotal
                                                         ? ` · ${totalTests} total logged`
                                                         : ""}
+                                                    {summaryData?.onHold
+                                                        ? ` · ${summaryData.onHold} on hold`
+                                                        : ""}
                                                     ).
                                                 </span>
                                             )}

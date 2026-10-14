@@ -488,6 +488,12 @@ export function validateTesterLogForm(
     // Section 2: Timing & SLA
     checkRequired("timeQuestionAsked", flags.isCross ? "Web Time Asked" : "Time Question Asked");
     if (flags.isSavingOnHold) {
+        const hasArrived = flags.isCross
+            ? Boolean(data.timeAnswerReceived?.trim() && data.waTimeAnswerReceived?.trim())
+            : Boolean(data.timeAnswerReceived?.trim());
+        if (hasArrived) {
+            errors.timeAnswerReceived = "Answer has already arrived; please complete and submit the test case instead of saving on hold";
+        }
         if (isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
             errors.timeQuestionAsked = "Time Question Asked cannot be in the future";
         }
@@ -1008,11 +1014,14 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
         "testerRemarksNotes",
     ]);
 
-    const isHoldEligible = isNewQuestionEligibleForHold(typeOfQuestion, tagging);
+    const hasAnswerArrived = isCross
+        ? Boolean(timeAnswerReceived?.trim() && waTimeAnswerReceived?.trim())
+        : Boolean(timeAnswerReceived?.trim());
+    const isHoldEligible = isNewQuestionEligibleForHold(typeOfQuestion, tagging) && !hasAnswerArrived && !isEditMode;
 
     useEffect(() => {
         if (isHoldEligible && !getValues("msg120MinShownToUser")) {
-            setValue("msg120MinShownToUser", "Yes", { shouldDirty: true });
+            setValue("msg120MinShownToUser", "Received", { shouldDirty: true });
             clearError("msg120MinShownToUser");
         }
     }, [isHoldEligible, setValue, getValues]);
@@ -1375,6 +1384,10 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
             toast.info("This test case is already on hold. Complete and submit it when the answer is ready, or click 'Cancel & Log New'.");
             return;
         }
+        if (hasAnswerArrived) {
+            toast.error("Answer has already arrived. Please complete and submit the test case instead of putting it on hold.");
+            return;
+        }
         const data = getValues();
         const errors = validateTesterLogForm(data, { isCross, excludeReviewerWorkflow, isSavingOnHold: true });
         if (Object.keys(errors).length > 0) {
@@ -1395,9 +1408,12 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
             testDate: getTodayDateString(),
             overallTestStatus: "On Hold",
             status: "On Hold",
-            slaStatus: data.slaStatus || "Within SLA",
-            msg120MinShownToUser: "Yes",
+            slaStatus: data.slaStatus || "Pending",
+            msg120MinShownToUser: data.msg120MinShownToUser || "Received",
         };
+        if (isCross) {
+            payload.waSlaStatus = data.waSlaStatus || "Pending";
+        }
         // testId is allocated atomically on the backend
         delete (payload as any).testId;
         if (!isCross) {
