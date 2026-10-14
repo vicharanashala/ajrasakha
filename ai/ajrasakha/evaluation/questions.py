@@ -4,6 +4,7 @@ TEST_CASES = [
         "query": "How can I make money quickly?",
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "General",
+        "domain": "greetings",
         "stable": False,
         "expected_nodes": [
             "planner",
@@ -24,6 +25,7 @@ TEST_CASES = [
         "query": "What is the weather today in Ropar district of Punjab state?",
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "Weather",
+        "domain": "weather",
         "stable": True,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
@@ -44,6 +46,7 @@ TEST_CASES = [
         "query": "Will it rain in Delhi today?",
         "location": {"city": "Delhi", "state": "Delhi"},
         "expected_domain": "Weather",
+        "domain": "weather",
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
@@ -61,6 +64,7 @@ TEST_CASES = [
         "location": {"city": "Ludhiana", "state": "Punjab"},
         "stable": False,
         "expected_domain": "Weather",
+        "domain": "weather",
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
         "expected_plan": {
@@ -76,6 +80,9 @@ TEST_CASES = [
         "query": "What is the price of wheat in Sirsa mandi, Haryana?",
         "location": {"city": "Sirsa", "state": "Haryana"},
         "expected_domain": "Market Prices",
+        "domain": "market",
+        "expected_crop": "Wheat",
+        "expected_region": "Haryana",
         "stable": True,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "market"],
@@ -92,6 +99,9 @@ TEST_CASES = [
         "query": "What is the current price of rice in Karnal mandi, Haryana?",
         "location": {"city": "Karnal", "state": "Haryana"},
         "expected_domain": "Market Prices",
+        "domain": "market",
+        "expected_crop": "Paddy",
+        "expected_region": "Haryana",
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "market"],
@@ -107,6 +117,14 @@ TEST_CASES = [
         "query": "My soil test shows Nitrogen 120, Phosphorus 40, Potassium 30, and OC 0.5%. What is the fertilizer dosage for Rice in Ropar, Punjab?",
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "Nutrient Management",
+        "domain": "soil",
+        "expected_crop": "Paddy",
+        "expected_region": "Punjab",
+        # TODO(agri-team): fill with the exact dosage the fertilizer-dosage
+        # tool/PoP formula returns for these NPK+OC inputs, e.g.
+        # "expected_treatment": "Apply 40kg N, 20kg P2O5, 0kg K2O per acre",
+        # so AgriAccuracyMetric can verify the bot didn't drift from it.
+        "expected_treatment": None,
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "gdb"],
@@ -123,6 +141,8 @@ TEST_CASES = [
         "query": "I am a 35-year-old male farmer from Jaipur, Rajasthan. How can I get subsidy for drip irrigation?",
         "location": {"city": "Jaipur", "state": "Rajasthan"},
         "expected_domain": "Government Schemes",
+        "domain": "schemes",
+        "expected_region": "Rajasthan",
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "schemes"],
@@ -139,6 +159,8 @@ TEST_CASES = [
         "query": "I am a 42-year-old female farmer from Nashik, Maharashtra. Which government schemes can help me buy drip irrigation equipment?",
         "location": {"city": "Nashik", "state": "Maharashtra"},
         "expected_domain": "Government Schemes",
+        "domain": "schemes",
+        "expected_region": "Maharashtra",
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "schemes"],
@@ -155,6 +177,14 @@ TEST_CASES = [
         "query": "How to grow paddy in punjab",
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "Cultural Practices",
+        "domain": "gdb",
+        "expected_crop": "Paddy",
+        "expected_region": "Punjab",
+        # Semantic-search question against the Golden Dataset: fetch the
+        # current expert-validated answer live via gdb_search() at eval
+        # time and score GDBMatchScore against it, rather than pinning a
+        # copy here that can drift from the real GDB.
+        "fetch_gdb_ground_truth": True,
         "stable": True,
         "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "gdb"],
@@ -172,6 +202,7 @@ TEST_CASES = [
         "location": None,
         "stable": False,
         "expected_domain": "General",
+        "domain": "greetings",
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": [],
         "expected_plan": {
@@ -185,6 +216,7 @@ TEST_CASES = [
         "location": None,
         "stable": False,
         "expected_domain": "General",
+        "domain": "greetings",
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": [],
         "expected_plan": {
@@ -197,6 +229,7 @@ TEST_CASES = [
         "query": "What is the weather today in Delhi?",
         "location": {"city": "Delhi", "state": "Delhi"},
         "expected_domain": "Weather",
+        "domain": "weather",
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
@@ -212,6 +245,9 @@ TEST_CASES = [
         "query": "What is the weather forecast for Ludhiana, Punjab and what should I do for yellow rust in wheat?",
         "location": {"city": "Ludhiana", "state": "Punjab"},
         "expected_domain": "Plant Protection",
+        "domain": "gdb",
+        "expected_crop": "Wheat",
+        "expected_region": "Punjab",
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather", "gdb"],
@@ -228,6 +264,8 @@ TEST_CASES = [
     "query": "What is the price of paddy in Mandya Mandi?",
     "stable": False,
     "expected_domain": "Market",
+    "domain": "market",
+    "expected_crop": "Paddy",
     "expected_tools": [
         "upload_question_to_reviewer_system",
         "mandi"
