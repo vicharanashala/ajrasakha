@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
+from unittest import mock
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
@@ -20,6 +22,15 @@ from ajrasakha.agents.translation_catalog import (
     get_two_hour_disclaimer,
 )
 from ajrasakha.agents.state import AjraSakhaState
+
+# IST 14:00 — inside the default 2-hour disclaimer window (not 22-23 or 0-5 IST)
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+class _FixedDatetime:
+    @classmethod
+    def now(cls, tz: object = None) -> datetime:
+        return datetime(2026, 1, 1, 14, 0, tzinfo=tz or _IST)
 
 
 def _gdb_json(**overrides) -> str:
@@ -108,11 +119,12 @@ async def test_translate_answer_empty_gdb_path_content():
     state = _state_after_sanitizer_filter()
     placeholder = await empty_gdb_reply_node(state)
     merged = {**state, **placeholder}
-    result = await translate_answer_node(merged, {})
+    with mock.patch("ajrasakha.agents.answer_footers.datetime", _FixedDatetime):
+        result = await translate_answer_node(merged, {})
+        expected = build_expert_queue_content("English", "English")
     text = result["messages"][0].content
     assert EXPERT_QUEUE_REPLY_MARKER in text
     assert "Thank You." in text
-    expected = build_expert_queue_content("English", "English")
     assert text == expected
     assert text == (
         f"{get_two_hour_disclaimer('English', 'English')}\n\n"
