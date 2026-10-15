@@ -36,6 +36,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { ReviewChecklist } from "./ReviewChecklist";
+import { ChemicalVerifiedTextarea } from "@/components/ChemicalVerifiedTextarea";
 
 
 interface ReviewResponseDialogProps {
@@ -337,19 +338,18 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
                 </div> */}
 
                 <div>
-                  <Label htmlFor="new-answer" className="text-sm font-medium">
-                    {type == "modify" && "Draft"} Response *
-                  </Label>
-
-                  <Textarea
+                  <ChemicalVerifiedTextarea
                     id="new-answer"
+                    label={`${type === "modify" ? "Draft " : ""}Response`}
+                    required
                     placeholder="Enter your Response..."
                     value={tempRejectAnswer}
-                    onChange={(e) => {
-                      setTempRejectAnswer(e.target.value);
-                      setNewAnswer(e.target.value);
+                    onChange={(val) => {
+                      setTempRejectAnswer(val);
+                      setNewAnswer(val);
                     }}
-                    className="mt-1 min-h-[100px] p-3 rounded-md"
+                    minHeight="min-h-[140px]"
+                    maxHeight="max-h-[220px]"
                   />
 
                   {type == "reject" && (

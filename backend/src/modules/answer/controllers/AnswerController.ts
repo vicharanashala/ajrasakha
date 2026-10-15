@@ -26,7 +26,7 @@ import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { InternalApiAuth } from '#root/shared/index.js';
 import { AnswerService } from '../services/AnswerService.js';
-import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, DetectChemicalsBody, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -648,4 +648,15 @@ export class AnswerController {
   ) {
     return this.answerService.getAnswerByMessageOrThreadId(id);
   }
+
+  @OpenAPI({ summary: 'Detect banned and restricted chemicals in draft answer text' })
+  @Post('/detect-chemicals')
+  @HttpCode(200)
+  @Authorized()
+  async detectChemicals(
+    @Body() body: DetectChemicalsBody,
+  ) {
+    return await this.answerService.detectChemicals(body.text);
+  }
 }
+
