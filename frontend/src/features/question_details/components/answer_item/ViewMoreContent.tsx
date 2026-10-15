@@ -174,7 +174,7 @@ export const ViewMoreContent = ({
         <div className="rounded-lg border bg-muted/30 h-[30vh]">
           <ScrollArea className="h-full">
             <div className="p-4">
-              <p className="text-foreground">{answer.answer}</p>
+              <p className="text-foreground whitespace-pre-wrap">{answer.answer}</p>
             </div>
           </ScrollArea>
         </div>

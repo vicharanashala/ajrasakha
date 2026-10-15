@@ -1575,7 +1575,7 @@ export class UserController {
   @HttpCode(200)
   @Authorized()
   @OpenAPI({
-    summary: 'Export individual user activity report in Excel format',
+    summary: 'Export individual user activity report in PDF format (or email it)',
   })
   async exportUserActivityReport(
     @CurrentUser() currentUser: IUser,
@@ -1590,18 +1590,21 @@ export class UserController {
       customEndDateTime?: string;
       startDate?: string;
       endDate?: string;
+      sendToEmail?: boolean;
     },
     @Res() response: any,
   ) {
-    const buffer = await this.userService.exportUserActivityReport(userId, query);
-    response.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
+    const result = await this.userService.exportUserActivityReport(userId, query);
+
+    if (query.sendToEmail) {
+      return result;
+    }
+
+    response.setHeader('Content-Type', 'application/pdf');
     response.setHeader(
       'Content-Disposition',
-      `attachment; filename="user-activity-report-${userId}.xlsx"`,
+      `attachment; filename="user-activity-report-${userId}.pdf"`,
     );
-    return buffer;
+    return result;
   }
 }

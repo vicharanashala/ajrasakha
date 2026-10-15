@@ -76,34 +76,45 @@ if (!DEST_DB_NAME) {
 // correctness, since matching is on shared `_id`.
 const COLLECTIONS = ['users', 'questions', 'answers'];
 
+// Number of documents per bulkWrite, keeps memory flat regardless of collection size.
+const BATCH_SIZE = 1000;
+
 /**
  * Syncs one collection from the source db into the destination db.
+ * Streams the source with a cursor and writes in fixed-size batches.
  * Returns { read, upsertedCount, modifiedCount, matchedCount }.
  */
 async function syncCollection(sourceDb, destDb, name) {
-  const sourceDocs = await sourceDb.collection(name).find({}).toArray();
+  const sourceCollection = sourceDb.collection(name);
 
   if (!APPLY) {
+    const total = await sourceCollection.countDocuments({});
     console.log(`\n📦 Collection: ${name}`);
-    console.log(`   Found ${sourceDocs.length} document(s) in the Review System.`);
-    if (sourceDocs.length > 0) {
+    console.log(`   Found ${total} document(s) in the Review System.`);
+    if (total > 0) {
+      const sample = await sourceCollection.findOne({});
       console.log('   Sample document that would be upserted (as-is, minus _id noise):');
-      console.log('  ', JSON.stringify(sourceDocs[0], null, 2).split('\n').join('\n   '));
+      console.log('  ', JSON.stringify(sample, null, 2).split('\n').join('\n   '));
     }
-    return { read: sourceDocs.length, upsertedCount: 0, modifiedCount: 0, matchedCount: 0 };
-  }
-
-  if (sourceDocs.length === 0) {
-    console.log(`\n📦 Collection: ${name} — nothing to sync (source is empty).`);
-    return { read: 0, upsertedCount: 0, modifiedCount: 0, matchedCount: 0 };
+    return { read: total, upsertedCount: 0, modifiedCount: 0, matchedCount: 0 };
   }
 
   const now = new Date();
   const destCollection = destDb.collection(name);
+  const stats = { read: 0, upsertedCount: 0, modifiedCount: 0, matchedCount: 0 };
 
-  const bulkOps = sourceDocs.map(doc => {
+  // Writes one batch and adds its result to the running totals.
+  const flush = async bulkOps => {
+    const result = await destCollection.bulkWrite(bulkOps, { ordered: false });
+    stats.upsertedCount += result.upsertedCount;
+    stats.modifiedCount += result.modifiedCount;
+    stats.matchedCount += result.matchedCount;
+  };
+
+  let bulkOps = [];
+  for await (const doc of sourceCollection.find({}).batchSize(BATCH_SIZE)) {
     const { _id, createdAt, ...rest } = doc;
-    return {
+    bulkOps.push({
       updateOne: {
         filter: { _id },
         update: {
@@ -112,24 +123,28 @@ async function syncCollection(sourceDb, destDb, name) {
         },
         upsert: true,
       },
-    };
-  });
+    });
+    stats.read += 1;
+    if (bulkOps.length >= BATCH_SIZE) {
+      await flush(bulkOps);
+      bulkOps = [];
+    }
+  }
+  if (bulkOps.length > 0) await flush(bulkOps);
 
-  const result = await destCollection.bulkWrite(bulkOps);
+  if (stats.read === 0) {
+    console.log(`\n📦 Collection: ${name} — nothing to sync (source is empty).`);
+    return stats;
+  }
 
   console.log(
     `\n📦 Collection: ${name}` +
-      `\n   Read ${sourceDocs.length} document(s) from the Review System.` +
-      `\n   ✅ Upserted into Dataset Application: ${result.upsertedCount} inserted, ` +
-      `${result.modifiedCount} updated (${result.matchedCount} matched).`,
+      `\n   Read ${stats.read} document(s) from the Review System.` +
+      `\n   ✅ Upserted into Dataset Application: ${stats.upsertedCount} inserted, ` +
+      `${stats.modifiedCount} updated (${stats.matchedCount} matched).`,
   );
 
-  return {
-    read: sourceDocs.length,
-    upsertedCount: result.upsertedCount,
-    modifiedCount: result.modifiedCount,
-    matchedCount: result.matchedCount,
-  };
+  return stats;
 }
 
 const sourceClient = new MongoClient(SOURCE_URL);
