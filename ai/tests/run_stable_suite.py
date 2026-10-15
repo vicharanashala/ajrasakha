@@ -73,9 +73,9 @@ def read_report_rows(layer, report_path):
     with report_path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
 
-        for row in reader:
             passed_value = (
                 row.get("passed")
+                or row.get("quality_overall_passed")
                 or row.get("technical_pass")
                 or row.get("status_pass")
                 or row.get("overall_pass")
@@ -83,6 +83,10 @@ def read_report_rows(layer, report_path):
             )
 
             passed = normalize_bool(passed_value)
+
+            details_text = row.get("triage_category", row.get("response_text", ""))[:400]
+            if row.get("relevance_score"):
+                details_text += f" | Scores: Rel={row.get('relevance_score')}, Faith={row.get('faithfulness_score')}, GDB={row.get('gdb_match_score')}, Agri={row.get('agri_correctness_score')}"
 
             rows.append(
                 {
@@ -93,7 +97,7 @@ def read_report_rows(layer, report_path):
                     "status_code": row.get("status_code", row.get("http_status", "")),
                     "latency_seconds": row.get("latency_seconds", row.get("latency", "")),
                     "error": row.get("error", row.get("failure_reason", "")),
-                    "details": row.get("triage_category", row.get("response_text", ""))[:500],
+                    "details": details_text,
                 }
             )
 

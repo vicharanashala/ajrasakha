@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ajrasakha Evaluation Dashboard | MOCK</title>
+    <style>
+        :root {
+            --bg-primary: #090d16;
+            --bg-secondary: #111827;
+            --bg-card: #1f2937;
+            --border: #374151;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --accent-green: #10b981;
+            --accent-blue: #38bdf8;
+            --accent-purple: #a855f7;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-primary); color: var(--text-main); padding: 2rem; line-height: 1.5; }
+        .container { max-width: 1350px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+        .brand h1 { font-size: 1.8rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
+        .brand p { color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem; }
+
+        .badge { padding: 0.35rem 0.75rem; border-radius: 9999px; font-weight: 700; font-size: 0.75rem; }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
+        .badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+        .kpi-title { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .kpi-val { font-size: 2.2rem; font-weight: 800; color: #fff; }
+        .kpi-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+        .metric-gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem; }
+        .gauge-card { background: linear-gradient(145deg, #1f2937, #111827); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+        .gauge-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .gauge-title { font-size: 0.9rem; font-weight: 600; color: #e5e7eb; }
+        .gauge-score { font-size: 1.7rem; font-weight: 800; color: var(--accent-blue); }
+        .gauge-thresh { font-size: 0.75rem; color: var(--text-muted); }
+
+        .section-title { font-size: 1.3rem; margin-bottom: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+
+        .domain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem; }
+        .domain-card { display: flex; flex-direction: column; justify-content: space-between; gap: 0.75rem; }
+        .domain-header { display: flex; justify-content: space-between; align-items: center; }
+        .domain-title-group { display: flex; align-items: center; gap: 0.5rem; }
+        .domain-icon { font-size: 1.3rem; }
+        .domain-name { font-weight: 700; font-size: 0.95rem; }
+        .domain-badge { font-size: 0.8rem; font-weight: 700; color: var(--accent-green); background: rgba(16, 185, 129, 0.15); padding: 0.2rem 0.5rem; border-radius: 6px; }
+        .domain-score-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); }
+        .domain-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; font-size: 0.75rem; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; text-align: center; }
+        .d-stat span { color: var(--text-muted); display: block; }
+        .d-stat strong { color: #e5e7eb; }
+
+        .progress-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 9999px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent-green); border-radius: 9999px; }
+
+        .controls-bar { display: flex; gap: 1rem; margin-bottom: 1rem; }
+        .search-input { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1rem; color: #fff; font-size: 0.9rem; }
+        .filter-select { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1rem; color: #fff; font-size: 0.9rem; }
+
+        .table-card { padding: 0; overflow: hidden; margin-bottom: 2rem; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+        th { background: #111827; padding: 0.9rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+        td { padding: 1rem; border-bottom: 1px solid var(--border); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+
+        .tag-domain { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+        .btn-diff { background: #374151; color: #fff; border: 1px solid #4b5563; padding: 0.35rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; }
+        .btn-diff:hover { background: #4b5563; }
+
+        /* Modal styling */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); }
+        .modal-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 90%; max-width: 1000px; margin: 3% auto; padding: 2rem; max-height: 90vh; overflow-y: auto; color: var(--text-main); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        .close-btn { font-size: 1.5rem; font-weight: 700; color: var(--text-muted); cursor: pointer; background: none; border: none; }
+        .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem; }
+        .diff-box { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+        .diff-box h4 { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; }
+        .diff-box p { font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
+        .modal-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        .m-card { background: rgba(0,0,0,0.25); border-radius: 8px; padding: 0.75rem; text-align: center; border: 1px solid var(--border); }
+        .m-card span { font-size: 0.75rem; color: var(--text-muted); display: block; }
+        .m-card strong { font-size: 1.2rem; color: var(--accent-blue); }
+
+        footer { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding-top: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="brand">
+                <h1>🌾 Ajrasakha Answer Evaluation Dashboard</h1>
+                <p>Automated Golden Dataset (GDB) Validation, DeepEval Metrics & 6-Domain Tracking</p>
+            </div>
+            <div>
+                <span class="badge badge-success">RUN ID: eval-run-2e0041bfa47d</span>
+            </div>
+        </header>
+
+        <div class="kpi-grid">
+            <div class="card">
+                <div class="kpi-title">Total Test Cases</div>
+                <div class="kpi-val">11</div>
+                <div class="kpi-sub">Across 6 Agricultural Domains</div>
+            </div>
+            <div class="card">
+                <div class="kpi-title">Technical Pass Rate</div>
+                <div class="kpi-val" style="color: var(--accent-green);">100.0%</div>
+                <div class="kpi-sub">11 / 11 Scenarios Executed</div>
+            </div>
+            <div class="card">
+                <div class="kpi-title">Quality Pass Rate</div>
+                <div class="kpi-val" style="color: var(--accent-blue);">0.0%</div>
+                <div class="kpi-sub">0 / 11 Met Quality Thresholds</div>
+            </div>
+            <div class="card">
+                <div class="kpi-title">Execution Mode</div>
+                <div class="kpi-val" style="font-size: 1.8rem; text-transform: uppercase;">mock</div>
+                <div class="kpi-sub">Deterministic Dry-Run Suite</div>
+            </div>
+        </div>
+
+        <h2 class="section-title">📊 4 Core Quality Metrics</h2>
+        <div class="metric-gauges">
+            <div class="gauge-card">
+                <div class="gauge-header">
+                    <span class="gauge-title">1. Answer Relevancy</span>
+                    <span class="gauge-score">0.61</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 61%;"></div></div>
+                <div class="gauge-thresh">Threshold: ≥ 0.70 (Anthropic Claude Judge)</div>
+            </div>
+            <div class="gauge-card">
+                <div class="gauge-header">
+                    <span class="gauge-title">2. Faithfulness</span>
+                    <span class="gauge-score">0.9</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 90%;"></div></div>
+                <div class="gauge-thresh">Threshold: ≥ 0.70 (Hallucination Resistance)</div>
+            </div>
+            <div class="gauge-card">
+                <div class="gauge-header">
+                    <span class="gauge-title">3. GDB Match Score</span>
+                    <span class="gauge-score">0.51</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 51%;"></div></div>
+                <div class="gauge-thresh">Threshold: ≥ 0.70 (Expert Golden Semantic Match)</div>
+            </div>
+            <div class="gauge-card">
+                <div class="gauge-header">
+                    <span class="gauge-title">4. Agricultural Correctness</span>
+                    <span class="gauge-score">0.9</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 90%;"></div></div>
+                <div class="gauge-thresh">Threshold: ≥ 0.75 (Safety & Safe Dosages)</div>
+            </div>
+        </div>
+
+        <h2 class="section-title">🌐 6-Domain Breakdown</h2>
+        <div class="domain-grid">
+            
+        <div class="card domain-card">
+            <div class="domain-header">
+                <div class="domain-title-group">
+                    <span class="domain-icon">🌦️</span>
+                    <span class="domain-name">WEATHER</span>
+                </div>
+                <span class="domain-badge">100.0%</span>
+            </div>
+            <div class="domain-score-row">
+                <span class="score-label">Domain Score:</span>
+                <span class="score-val">0.73 / 1.0</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100.0%;"></div>
+            </div>
+            <div class="domain-stats-grid">
+                <div class="d-stat"><span>Rel:</span> <strong>0.6</strong></div>
+                <div class="d-stat"><span>Faith:</span> <strong>0.9</strong></div>
+                <div class="d-stat"><span>GDB:</span> <strong>0.51</strong></div>
+                <div class="d-stat"><span>Agri:</span> <strong>0.9</strong></div>
+            </div>
+        </div>
+        
+        <div class="card domain-card">
+            <div class="domain-header">
+                <div class="domain-title-group">
+                    <span class="domain-icon">📈</span>
+                    <span class="domain-name">MARKET</span>
+                </div>
+                <span class="domain-badge">100.0%</span>
+            </div>
+            <div class="domain-score-row">
+                <span class="score-label">Domain Score:</span>
+                <span class="score-val">0.73 / 1.0</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100.0%;"></div>
+            </div>
+            <div class="domain-stats-grid">
+                <div class="d-stat"><span>Rel:</span> <strong>0.6</strong></div>
+                <div class="d-stat"><span>Faith:</span> <strong>0.9</strong></div>
+                <div class="d-stat"><span>GDB:</span> <strong>0.51</strong></div>
+                <div class="d-stat"><span>Agri:</span> <strong>0.9</strong></div>
+            </div>
+        </div>
+        
+        <div class="card domain-card">
+            <div class="domain-header">
+                <div class="domain-title-group">
+                    <span class="domain-icon">🌱</span>
+                    <span class="domain-name">SOIL</span>
+                </div>
+                <span class="domain-badge">100.0%</span>
+            </div>
+            <div class="domain-score-row">
+                <span class="score-label">Domain Score:</span>
+                <span class="score-val">0.73 / 1.0</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100.0%;"></div>
+            </div>
+            <div class="domain-stats-grid">
+                <div class="d-stat"><span>Rel:</span> <strong>0.62</strong></div>
+                <div class="d-stat"><span>Faith:</span> <strong>0.9</strong></div>
+                <div class="d-stat"><span>GDB:</span> <strong>0.51</strong></div>
+                <div class="d-stat"><span>Agri:</span> <strong>0.9</strong></div>
+            </div>
+        </div>
+        
+        <div class="card domain-card">
+            <div class="domain-header">
+                <div class="domain-title-group">
+                    <span class="domain-icon">🏛️</span>
+                    <span class="domain-name">SCHEMES</span>
+                </div>
+                <span class="domain-badge">100.0%</span>
+            </div>
+            <div class="domain-score-row">
+                <span class="score-label">Domain Score:</span>
+                <span class="score-val">0.73 / 1.0</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100.0%;"></div>
+            </div>
+            <div class="domain-stats-grid">
+                <div class="d-stat"><span>Rel:</span> <strong>0.61</strong></div>
+                <div class="d-stat"><span>Faith:</span> <strong>0.9</strong></div>
+                <div class="d-stat"><span>GDB:</span> <strong>0.51</strong></div>
+                <div class="d-stat"><span>Agri:</span> <strong>0.9</strong></div>
+            </div>
+        </div>
+        
+        <div class="card domain-card">
+            <div class="domain-header">
+                <div class="domain-title-group">
+                    <span class="domain-icon">🌾</span>
+                    <span class="domain-name">GDB_QUERIES</span>
+                </div>
+                <span class="domain-badge">100.0%</span>
+            </div>
+            <div class="domain-score-row">
+                <span class="score-label">Domain Score:</span>
+                <span class="score-val">0.73 / 1.0</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100.0%;"></div>
+            </div>
+            <div class="domain-stats-grid">
+                <div class="d-stat"><span>Rel:</span> <strong>0.61</strong></div>
+                <div class="d-stat"><span>Faith:</span> <strong>0.9</strong></div>
+                <div class="d-stat"><span>GDB:</span> <strong>0.51</strong></div>
+                <div class="d-stat"><span>Agri:</span> <strong>0.9</strong></div>
+            </div>
+        </div>
+        
+        <div class="card domain-card">
+            <div class="domain-header">
+                <div class="domain-title-group">
+                    <span class="domain-icon">🙏</span>
+                    <span class="domain-name">GREETINGS</span>
+                </div>
+                <span class="domain-badge">100.0%</span>
+            </div>
+            <div class="domain-score-row">
+                <span class="score-label">Domain Score:</span>
+                <span class="score-val">0.72 / 1.0</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100.0%;"></div>
+            </div>
+            <div class="domain-stats-grid">
+                <div class="d-stat"><span>Rel:</span> <strong>0.6</strong></div>
+                <div class="d-stat"><span>Faith:</span> <strong>0.9</strong></div>
+                <div class="d-stat"><span>GDB:</span> <strong>0.5</strong></div>
+                <div class="d-stat"><span>Agri:</span> <strong>0.9</strong></div>
+            </div>
+        </div>
+        
+        </div>
+
+        <h2 class="section-title">📋 Test Case Explorer & Diff Comparator</h2>
+        <div class="controls-bar">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search test cases by query or name..." onkeyup="filterCases()">
+            <select id="domainFilter" class="filter-select" onchange="filterCases()">
+                <option value="all">All Domains</option>
+                <option value="weather">Weather</option>
+                <option value="market">Market Prices</option>
+                <option value="soil">Soil Nutrient</option>
+                <option value="schemes">Govt Schemes</option>
+                <option value="gdb_queries">Cultural & Crop Protection</option>
+                <option value="greetings">Greetings</option>
+            </select>
+        </div>
+
+        <div class="card table-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Case Name</th>
+                        <th>Domain</th>
+                        <th>Technical</th>
+                        <th>Quality</th>
+                        <th>Relevancy</th>
+                        <th>Faithfulness</th>
+                        <th>GDB Match</th>
+                        <th>Agri Safety</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="caseTableBody">
+                    
+        <tr class="test-row" data-domain="greetings">
+            <td class="col-name"><strong>greeting_question_1</strong></td>
+            <td class="col-domain"><span class="tag-domain">greetings</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.5</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "greeting_question_1", "domain": "greetings", "query": "Namaste Ajrasakha!", "actual": "Mock response for greeting_question_1", "expected": "Namaste! I am Ajrasakha, your AI farming assistant. How can I help you with crops, weather, mandi prices, soil health, or government schemes today?", "rel": 0.6, "faith": 0.9, "gdb": 0.5, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="greetings">
+            <td class="col-name"><strong>greeting_question_2</strong></td>
+            <td class="col-domain"><span class="tag-domain">greetings</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.5</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "greeting_question_2", "domain": "greetings", "query": "Hello, who are you and how can you help me?", "actual": "Mock response for greeting_question_2", "expected": "Hello! I am Ajrasakha, an agricultural assistant designed to support Indian farmers with weather forecasts, mandi prices, crop disease management, soil fertilizer dosage, and government subsidy schemes.", "rel": 0.6, "faith": 0.9, "gdb": 0.5, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="weather">
+            <td class="col-name"><strong>weather_question_ropar</strong></td>
+            <td class="col-domain"><span class="tag-domain">weather</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.51</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "weather_question_ropar", "domain": "weather", "query": "What is the weather today in Ropar district of Punjab state?", "actual": "Mock response for weather_question_ropar", "expected": "Today in Ropar, Punjab, expect partly cloudy skies with temperatures between 28\u00b0C and 34\u00b0C, humidity around 65%, and light winds at 8 km/h. No heavy rain is forecast today, making it suitable for field operations.", "rel": 0.6, "faith": 0.9, "gdb": 0.51, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="weather">
+            <td class="col-name"><strong>weather_question_delhi_rain</strong></td>
+            <td class="col-domain"><span class="tag-domain">weather</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.5</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "weather_question_delhi_rain", "domain": "weather", "query": "Will it rain in Delhi today?", "actual": "Mock response for weather_question_delhi_rain", "expected": "According to the latest meteorological forecast, there is a 20% chance of isolated light drizzle in Delhi today, with mostly dry and overcast conditions.", "rel": 0.6, "faith": 0.9, "gdb": 0.5, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="market">
+            <td class="col-name"><strong>market_question_sirsa_wheat</strong></td>
+            <td class="col-domain"><span class="tag-domain">market</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.52</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "market_question_sirsa_wheat", "domain": "market", "query": "What is the price of wheat in Sirsa mandi, Haryana?", "actual": "Mock response for market_question_sirsa_wheat", "expected": "In Sirsa Mandi, Haryana, the modal price for Wheat (Dara/Sharbati) is currently \u20b92,350 to \u20b92,425 per quintal, with arrivals of approximately 1,200 quintals today.", "rel": 0.6, "faith": 0.9, "gdb": 0.52, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="market">
+            <td class="col-name"><strong>market_question_karnal_rice</strong></td>
+            <td class="col-domain"><span class="tag-domain">market</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.5</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "market_question_karnal_rice", "domain": "market", "query": "What is the current price of rice in Karnal mandi, Haryana?", "actual": "Mock response for market_question_karnal_rice", "expected": "In Karnal Mandi, Haryana, Basmati Paddy is trading at \u20b93,850 per quintal, while Non-Basmati Paddy (PR-126/PR-14) is trading at \u20b92,203 per quintal (MSP aligned).", "rel": 0.6, "faith": 0.9, "gdb": 0.5, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="soil">
+            <td class="col-name"><strong>soil_question_rice_fertilizer</strong></td>
+            <td class="col-domain"><span class="tag-domain">soil</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.62</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.51</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "soil_question_rice_fertilizer", "domain": "soil", "query": "My soil test shows Nitrogen 120, Phosphorus 40, Potassium 30, and OC 0.5%. What is the fertilizer dosage for Rice in Ropar, Punjab?", "actual": "Mock response for soil_question_rice_fertilizer", "expected": "Based on your soil test (Low Nitrogen 120 kg/ha, Medium Phosphorus 40 kg/ha, Medium Potassium 30 kg/ha, OC 0.5%) for Rice in Ropar, Punjab: Apply 110 kg Urea per acre in 3 equal splits (1/3rd basal, 1/3rd at active tillering ~21 days, 1/3rd at panicle initiation ~42 days), 55 kg DAP or 150 kg SSP as basal, and 20 kg MOP as basal. Also apply 10 kg Zinc Sulphate (21%) per acre at transplanting.", "rel": 0.62, "faith": 0.9, "gdb": 0.51, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.04", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="schemes">
+            <td class="col-name"><strong>scheme_question_rajasthan_drip</strong></td>
+            <td class="col-domain"><span class="tag-domain">schemes</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.62</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.5</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "scheme_question_rajasthan_drip", "domain": "schemes", "query": "I am a 35-year-old male farmer from Jaipur, Rajasthan. How can I get subsidy for drip irrigation?", "actual": "Mock response for scheme_question_rajasthan_drip", "expected": "Under the Pradhan Mantri Krishi Sinchayee Yojana (PMKSY - Per Drop More Crop) and Rajasthan Micro Irrigation Scheme, small and marginal farmers in Rajasthan receive up to 70% subsidy (55% central + 15% state top-up) on drip irrigation systems. You can apply online via the RajKisan Saathi portal (rajkisan.rajasthan.gov.in) with your Aadhaar, Jamabandi (land records), and bank passbook.", "rel": 0.62, "faith": 0.9, "gdb": 0.5, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.06", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="schemes">
+            <td class="col-name"><strong>scheme_question_maharashtra_drip</strong></td>
+            <td class="col-domain"><span class="tag-domain">schemes</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.51</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "scheme_question_maharashtra_drip", "domain": "schemes", "query": "I am a 42-year-old female farmer from Nashik, Maharashtra. Which government schemes can help me buy drip irrigation equipment?", "actual": "Mock response for scheme_question_maharashtra_drip", "expected": "In Maharashtra, you can apply for drip irrigation subsidy under the MahaDBT Portal (PMKSY Per Drop More Crop). Female and small/marginal farmers receive up to 80% subsidy. Required documents include 7/12 extract, 8-A certificate, Aadhaar card, and an electricity connection bill for your pump.", "rel": 0.6, "faith": 0.9, "gdb": 0.51, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="gdb_queries">
+            <td class="col-name"><strong>gdb_question_paddy_cultivation</strong></td>
+            <td class="col-domain"><span class="tag-domain">gdb_queries</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.6</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.51</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "gdb_question_paddy_cultivation", "domain": "gdb_queries", "query": "How to grow paddy in Punjab?", "actual": "Mock response for gdb_question_paddy_cultivation", "expected": "To grow paddy in Punjab: 1. Variety: Use PR-126 or PR-131 for water efficiency. 2. Nursery Sowing: Sow nursery in late May to early June; transplant 25-30 day old seedlings around June 20-25 as per Punjab state groundwater guidelines. 3. Spacing: 20x15 cm with 2 seedlings per hill. 4. Nutrient Management: 110 kg Urea/acre in 3 splits, 55 kg DAP as basal. 5. Water Management: Maintain standing water (4-5 cm) during first 15 days, then irrigate 2 days after ponded water infiltrates.", "rel": 0.6, "faith": 0.9, "gdb": 0.51, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.00", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+        <tr class="test-row" data-domain="gdb_queries">
+            <td class="col-name"><strong>gdb_question_wheat_yellow_rust</strong></td>
+            <td class="col-domain"><span class="tag-domain">gdb_queries</span></td>
+            <td class="col-tech"><span class="badge badge-success">PASS</span></td>
+            <td class="col-qual"><span class="badge badge-warning">CHECK</span></td>
+            <td class="col-score"><strong>0.62</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-score"><strong>0.51</strong></td>
+            <td class="col-score"><strong>0.9</strong></td>
+            <td class="col-action">
+                <button class="btn-diff" onclick='openDiffModal({"name": "gdb_question_wheat_yellow_rust", "domain": "gdb_queries", "query": "What is the weather forecast for Ludhiana, Punjab and what should I do for yellow rust in wheat?", "actual": "Mock response for gdb_question_wheat_yellow_rust", "expected": "For Yellow Rust in Wheat in Punjab: Spray Propiconazole 25% EC (Tilt) @ 1 ml per liter of water (200 ml in 200 liters of water per acre) or Tebuconazole 25.9% EC @ 200 ml/acre using a knapsack sprayer with hollow cone nozzle. Repeat after 15 days if stripe rust symptoms persist. Ensure protective clothing during spray and observe a 30-day pre-harvest interval (PHI).", "rel": 0.62, "faith": 0.9, "gdb": 0.51, "agri": 0.9, "rel_reason": "Mock relevancy overlap: 0.06", "faith_reason": "Mock faithfulness grounded check.", "gdb_reason": "Mock GDB semantic similarity.", "agri_reason": "Mock agricultural safety rule verification."})'>View Diff</button>
+            </td>
+        </tr>
+        
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            Ajrasakha Evaluation Pipeline • Powered by DeepEval & Anthropic Claude LLM Judge
+        </footer>
+    </div>
+
+    <!-- Diff Modal -->
+    <div id="diffModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modalCaseName" style="font-size: 1.3rem;">Case Details</h3>
+                    <span id="modalDomain" class="tag-domain">Domain</span>
+                </div>
+                <button class="close-btn" onclick="closeDiffModal()">&times;</button>
+            </div>
+
+            <div class="modal-metrics">
+                <div class="m-card"><span>Answer Relevancy</span><strong id="mRel">0.0</strong></div>
+                <div class="m-card"><span>Faithfulness</span><strong id="mFaith">0.0</strong></div>
+                <div class="m-card"><span>GDB Match</span><strong id="mGDB">0.0</strong></div>
+                <div class="m-card"><span>Agricultural Safety</span><strong id="mAgri">0.0</strong></div>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">User Query:</h4>
+                <p id="modalQuery" style="font-weight: 600; font-size: 1.05rem; margin-top: 0.25rem; color: #fff;"></p>
+            </div>
+
+            <div class="diff-grid">
+                <div class="diff-box">
+                    <h4 style="color: var(--accent-blue);">Candidate Actual Output</h4>
+                    <p id="modalActual" style="color: #e2e8f0;"></p>
+                </div>
+                <div class="diff-box">
+                    <h4 style="color: var(--accent-green);">Expert Golden Expected Output (GDB)</h4>
+                    <p id="modalExpected" style="color: #e2e8f0;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function filterCases() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const domain = document.getElementById('domainFilter').value.toLowerCase();
+            const rows = document.querySelectorAll('.test-row');
+
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                const rowDomain = row.getAttribute('data-domain').toLowerCase();
+                const matchSearch = text.includes(search);
+                const matchDomain = (domain === 'all' || rowDomain.includes(domain));
+                row.style.display = (matchSearch && matchDomain) ? '' : 'none';
+            });
+        }
+
+        function openDiffModal(data) {
+            document.getElementById('modalCaseName').innerText = data.name;
+            document.getElementById('modalDomain').innerText = data.domain;
+            document.getElementById('modalQuery').innerText = data.query;
+            document.getElementById('modalActual').innerText = data.actual || '(No response text)';
+            document.getElementById('modalExpected').innerText = data.expected || '(No golden output specified)';
+            document.getElementById('mRel').innerText = data.rel;
+            document.getElementById('mFaith').innerText = data.faith;
+            document.getElementById('mGDB').innerText = data.gdb;
+            document.getElementById('mAgri').innerText = data.agri;
+            document.getElementById('diffModal').style.display = 'block';
+        }
+
+        function closeDiffModal() {
+            document.getElementById('diffModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('diffModal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>
