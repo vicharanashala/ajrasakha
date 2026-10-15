@@ -169,7 +169,7 @@ export const MobileSidebar = ({
         ]
       : []),
 
-    ...(user && (user.role === "admin" || user.role === "moderator" || user.role === "expert")
+    ...(user
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 

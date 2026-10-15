@@ -500,8 +500,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user &&
-                (user.role === "admin" || user.role === "moderator" || user.role === "expert") && (
+              {user && (
                 <TabsContent
                   value="data_processing"
                   className={cn(
