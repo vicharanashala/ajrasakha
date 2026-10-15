@@ -5,24 +5,23 @@ import DocumentManagementPanel from "./components/DocumentManagement/DocumentMan
 import UserManagementPanel from "./components/DocumentManagement/UserManagementPanel";
 import { setPopIdentity, getDashboardMe, type DashboardMe } from "./api";
 
-// Reaching this dashboard at all requires admin/moderator/expert (PlaygroundHeader.tsx,
-// mobile-sidebar.tsx) — FAQ-Cluster narrows further to admin only. POP-Translation (both the
-// legacy file-tree runner here AND every translation-related action inside POP-Management —
-// Translate button, upload/delete translation & review, cancel job) now additionally requires
-// can_translate from GET /dashboard/me (backend 403s otherwise). POP-Management itself stays open
-// to the parent tab's whole audience — everyone gets view/download/filter, edits are gated inside
-// by can_edit. "User Management" is admin-only (is_admin).
+// Reaching this dashboard at all now requires only being signed in (PlaygroundHeader.tsx,
+// play-ground.tsx, mobile-sidebar.tsx — previously admin/moderator/expert only; every role gets
+// whatever access an expert had) — FAQ-Cluster narrows further to admin only. POP-Translation
+// (both the legacy file-tree runner here AND every translation-related action inside
+// POP-Management — Translate button, upload/delete translation & review, cancel job) requires
+// can_translate from GET /dashboard/me (backend 403s otherwise) — a per-user list, not a role.
+// POP-Management itself is open to every role that reaches this dashboard — everyone gets
+// view/download/filter, edits are gated inside by can_edit (also a per-user list). "User
+// Management" is admin-only (is_admin) — unchanged.
 const ALL_TABS = [
   { id: "faq-cluster", label: "FAQ-Cluster", roles: ["admin"] },
-  { id: "pop-translation", label: "POP-Translation", roles: ["admin", "moderator", "expert"] },
-  { id: "document-management", label: "POP-Management", roles: ["admin", "moderator", "expert"] },
+  { id: "pop-translation", label: "POP-Translation" },
+  { id: "document-management", label: "POP-Management" },
 ] as const;
 
 type TabId = (typeof ALL_TABS)[number]["id"] | "user-management";
 
-// userRole/userId come from play-ground.tsx's useGetCurrentUser() — the tab that renders this
-// dashboard is already gated to admin/moderator/expert there, so `role` is always one of those
-// three, but the filter below is written defensively rather than assuming that stays true forever.
 export function DataProcessingDashboard({
   userRole,
   userId,
@@ -47,7 +46,8 @@ export function DataProcessingDashboard({
   const TABS = useMemo(() => {
     const base = ALL_TABS.filter((t) => {
       if (t.id === "pop-translation") return Boolean(me?.can_translate);
-      return t.roles.includes(userRole as any);
+      if (t.id === "document-management") return true;
+      return (t as { roles: readonly string[] }).roles.includes(userRole as any);
     });
     if (me?.is_admin) {
       return [...base, { id: "user-management" as const, label: "User Management" }];

@@ -257,8 +257,7 @@ export function PlaygroundHeader({
                     <span>ChatBot Analytics</span>
                   </TabsTrigger>
                 )}
-              {user &&
-                (user.role === "admin" || user.role === "moderator" || user.role === "expert") && (
+              {user && (
                 <TabsTrigger
                   value="data_processing"
                   className={tabTriggerClassName}
