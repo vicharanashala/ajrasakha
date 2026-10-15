@@ -182,6 +182,7 @@ export interface TesterLogSummary {
     passRate: number | null;
     passCount: number;
     statusRecordedCount: number;
+    onHoldCount?: number;
 }
 
 export interface TesterLogExportResult {
@@ -281,6 +282,7 @@ export interface TesterQuestionTypeSummaryResult {
 export interface TesterLogSummaryResponse {
     success: boolean;
     totalTests: number;
+    onHold?: number;
     passed: number;
     failed: number;
     partial: number;
@@ -370,6 +372,9 @@ export interface ITesterLogService {
     // Atomically increments and allocates the next unique Test ID.
     allocateNextTestId(): Promise<string>;
 
+    // Retrieve single entry by its MongoDB _id string.
+    getEntryById(id: string): Promise<TesterLogEntry | null>;
+
     // Admin edit. Only the form's own input fields are applied - record
     // bookkeeping (_id, submittedBy*, testerName, createdAt) is never
     // touched, and the [Auto] duration fields are recomputed. Returns null
@@ -439,5 +444,11 @@ export interface ITesterLogService {
         endDate?: string,
         dateField?: string,
     ): Promise<TesterLogSummaryResponse>;
+
+    formatRemarks(
+        text: string,
+        category?: string,
+        language?: string,
+    ): Promise<{ formattedText: string; originalText: string }>;
 }
 

@@ -947,4 +947,30 @@ export interface IQuestionRepository {
       normalisedCrop?: string;
     }>,
   ): Promise<{ modifiedCount: number }>;
+
+  /**
+   * Aggregate activity metrics for a specific user across authoring, reviewing,
+   * moderating, auditing, and gatekeeping within a date range.
+   */
+  getUserActivityMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<IUserActivityMetrics>;
 }
+
+export interface IUserActivityMetrics {
+  authoredCount: number;
+  totalAuthoringMs: number;
+  reviewedCount: number;
+  totalReviewingMs: number;
+  revCounts: number[];
+  moderatedCount: number;
+  totalModeratingMs: number;
+  auditedCount: number;
+  totalAuditingMs: number;
+  gatekeepedCount: number;
+  totalGatekeepingMs: number;
+  gdbPushedCount: number;
+}
+

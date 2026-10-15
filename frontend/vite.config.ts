@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -12,10 +12,14 @@ export default defineConfig({
     viteReact(),
     tailwindcss(),
   ],
-  // test: {
-  //   globals: true,
-  //   environment: "jsdom",
-  // },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    include: [
+      "src/**/*.{test,spec}.?(c|m)[jt]s?(x)",
+      "../testers-dashboard/frontend/src/**/*.{test,spec}.?(c|m)[jt]s?(x)",
+    ],
+  },
 
   resolve: {
     alias: {

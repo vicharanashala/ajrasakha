@@ -597,8 +597,11 @@ export class AiService {
    * Returns null if the service call fails.
    */
   async detectChemicals(text: string): Promise<ChemicalDetectionResponse | null> {
+    if (!text || !text.trim()) {
+      return { matches: [] };
+    }
     try {
-      console.log(`${this._chemicalCheckServerUrl}/detect-chemicals`)
+      console.log(`${this._chemicalCheckServerUrl}/detect-chemicals`);
       const response = await fetch(`${this._chemicalCheckServerUrl}/detect-chemicals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -611,6 +614,10 @@ export class AiService {
       }
 
       const data = (await response.json()) as ChemicalDetectionResponse;
+      if (!data || !Array.isArray(data.matches)) {
+        console.error(`[detectChemicals] Unexpected response format:`, data);
+        return null;
+      }
       return data;
     } catch (error) {
       console.error('[detectChemicals] Error:', error);

@@ -179,17 +179,18 @@ export function defectSeverity(e: Entry): string | null {
     return DB_DEFECT_SEVERITY_OPTIONS.includes(v) ? v : null;
 }
 
-// Overall Test Status - Pass / Fail / Partial / NA.
+// Overall Test Status - Pass / Fail / Partial / On Hold / NA.
 // Null when blank or not one of the recognized options.
-export function overallStatus(e: Entry): 'Pass' | 'Fail' | 'Partial' | 'NA' | null {
+export function overallStatus(e: Entry): 'Pass' | 'Fail' | 'Partial' | 'On Hold' | 'NA' | null {
     const raw = (e.overallTestStatus || '').trim().toLowerCase();
     if (!raw) return null;
     if (raw === 'pass') return 'Pass';
     if (raw === 'fail') return 'Fail';
     if (raw === 'partial') return 'Partial';
+    if (raw === 'on hold' || raw === 'onhold') return 'On Hold';
     if (raw === 'na' || raw === 'n/a' || raw === 'not applicable') return 'NA';
     const v = canonicalValue('status', e.overallTestStatus, DB_OVERALL_STATUS_OPTIONS);
-    return DB_OVERALL_STATUS_OPTIONS.includes(v) ? (v as 'Pass' | 'Fail') : null;
+    return DB_OVERALL_STATUS_OPTIONS.includes(v) ? (v as 'Pass' | 'Fail' | 'On Hold') : null;
 }
 
 // ---- Platform fields (temporary until Step 7) ----

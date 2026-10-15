@@ -896,6 +896,81 @@ describe('TesterLogService date filtering', () => {
         expect(summary.slaMetRate).toBe(50.0);
     });
 
+    it('excludes on-hold entries and pending status from SLA Adherence and target tracker in getMySummary', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                status: 'On Hold',
+                overallTestStatus: 'On Hold',
+                slaStatus: 'Pending',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-05', '2026-10-05');
+
+        expect(summary.success).toBe(true);
+        expect(summary.totalTests).toBe(1);
+        expect(summary.onHold).toBe(1);
+        expect(summary.slaMet).toBe(0);
+        expect(summary.slaBreached).toBe(0);
+        expect(summary.slaMetRate).toBe(0);
+        expect(summary.targetVsAchieved?.total.achievedTotal).toBe(0);
+    });
+
+    it('evaluates SLA adherence and target progress only on completed entries when on-hold entries are also present', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                overallTestStatus: 'Pass',
+                slaStatus: 'Within SLA',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WhatsApp',
+                typeOfQuestion: 'GDB',
+                overallTestStatus: 'Fail',
+                slaStatus: 'SLA Breached',
+            },
+            {
+                testDate: '2026-10-05',
+                channelTested: 'WebApp',
+                typeOfQuestion: 'Unique',
+                status: 'On Hold',
+                overallTestStatus: 'On Hold',
+                slaStatus: 'Pending',
+            },
+            {
+                // Even a legacy row saved with 'Within SLA' while On Hold is excluded
+                testDate: '2026-10-05',
+                channelTested: 'WhatsApp',
+                typeOfQuestion: 'Outreach',
+                status: 'On Hold',
+                overallTestStatus: 'On Hold',
+                slaStatus: 'Within SLA',
+            },
+        ];
+
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-10-05', '2026-10-05');
+
+        expect(summary.success).toBe(true);
+        expect(summary.totalTests).toBe(4);
+        expect(summary.onHold).toBe(2);
+        // Only the 2 completed entries are counted: 1 met, 1 breached -> 50%
+        expect(summary.slaMet).toBe(1);
+        expect(summary.slaBreached).toBe(1);
+        expect(summary.slaMetRate).toBe(50.0);
+        // Only the 2 completed entries count toward target progress
+        expect(summary.targetVsAchieved?.total.achievedTotal).toBe(2);
+    });
+
     it('computes both Web App and WhatsApp response times in createEntry for cross-platform tests', async () => {
         vi.useFakeTimers({ toFake: ['Date'] });
         vi.setSystemTime(new Date('2026-10-09T18:00:00+05:30'));
