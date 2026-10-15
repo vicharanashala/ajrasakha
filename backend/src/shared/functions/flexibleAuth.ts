@@ -22,6 +22,7 @@ export class FlexibleAuth implements ExpressMiddlewareInterface {
           process.env.INTERNAL_API_KEY,
           process.env.WEB_WEBHOOK_API_KEY,
           process.env.WA_WEBHOOK_API_KEY,
+          process.env.REVIEW_SYSTEM_AUTH_KEY
         ].filter(Boolean);
 
         if (validKeys.includes(apiKey)) {
