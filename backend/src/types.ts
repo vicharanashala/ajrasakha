@@ -58,6 +58,9 @@ const TYPES = {
   ChemicalService: Symbol.for('ChemicalService'),
   GdbCleaningService: Symbol.for('GdbCleaningService'),
 
+  // Verification (AjraVerify)
+  VerificationService: Symbol.for('VerificationService'),
+
   // Constants
   uri: Symbol.for('dbURI'),
   dbName: Symbol.for('dbName'),

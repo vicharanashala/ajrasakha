@@ -73,6 +73,17 @@ const {NotificationRepository} =
 const {NotificationService} =
   await import('#root/modules/notification/services/NotificationService.js');
 const {AiService} = await import('#root/modules/ai/services/AiService.js');
+// AjraVerify gate — deterministic claim verification over the AI initial answer.
+const {RuleBasedClaimExtractor} =
+  await import('#root/modules/verification/extractors/RuleBasedClaimExtractor.js');
+const {ClaimResolver} =
+  await import('#root/modules/verification/services/ClaimResolver.js');
+const {PolicyEngine} =
+  await import('#root/modules/verification/services/PolicyEngine.js');
+const {VerificationReceiptRepository} =
+  await import('#root/modules/verification/repositories/VerificationReceiptRepository.js');
+const {VerificationService} =
+  await import('#root/modules/verification/services/VerificationService.js');
 const {CropRepository} =
   await import('#root/shared/database/providers/mongo/repositories/CropRepository.js');
 const {normalizeKeysToLower} =
@@ -90,6 +101,39 @@ const cropRepo = new CropRepository(database);
 await (cropRepo as any).init();
 const notificationService = new NotificationService(notificationRepo, database);
 const aiService = new AiService();
+
+// AjraVerify gate instance (enabled via ENABLE_AJRAVERIFY; failures never
+// block ingestion — the pipeline must keep flowing).
+let ajraVerify: InstanceType<typeof VerificationService> | null = null;
+if (appConfig.ENABLE_AJRAVERIFY) {
+  const verificationReceiptRepo = new VerificationReceiptRepository(database);
+  ajraVerify = new VerificationService(
+    new RuleBasedClaimExtractor(),
+    new ClaimResolver(database),
+    new PolicyEngine(),
+    verificationReceiptRepo,
+  );
+  console.log('🛡 AjraVerify gate ENABLED for AI initial answers');
+}
+
+/**
+ * Run the AjraVerify gate over an AI initial answer. Best-effort: any error
+ * is logged and swallowed so ingestion never fails because of verification.
+ */
+async function runAjraVerifyGate(
+  answerText: string,
+  questionId?: string,
+): Promise<{verdict: string; reason: string; receiptId?: string} | null> {
+  if (!ajraVerify || !answerText?.trim()) return null;
+  try {
+    const result = await ajraVerify.verifyAnswer({answerText, questionId: questionId ?? null});
+    console.log(`🛡 AjraVerify verdict: ${result.verdict} (${result.receiptId ?? 'no receipt'})`);
+    return {verdict: result.verdict, reason: result.reason, receiptId: result.receiptId};
+  } catch (error: any) {
+    console.error('🛡 AjraVerify gate failed (non-blocking):', error?.message || error);
+    return null;
+  }
+}
 
 const {DuplicateQuestionRepository} =
   await import('#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js');
@@ -220,8 +264,20 @@ const {checkDuplicateQuestionHelper} =
         }
       }
 
+      // 2b. AjraVerify — deterministic verification of the AI initial answer
+      // (generated above OR supplied with the upload). Attaches the verdict
+      // and receipt to the question document for the review system. The id is
+      // pre-allocated so the receipt is linked to the question it judged —
+      // addQuestion() honours a caller-supplied _id.
+      const questionId = new ObjectId();
+      let aiAnswerVerification: {verdict: string; reason: string; receiptId?: string} | null = null;
+      if (ajraVerify && aiInitialAnswer) {
+        aiAnswerVerification = await runAjraVerifyGate(aiInitialAnswer, questionId.toString());
+      }
+
       // 3. Construct IQuestion object
       const newQuestion: any = {
+        _id: questionId,
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
@@ -231,6 +287,7 @@ const {checkDuplicateQuestionHelper} =
         contextId: null,
         details,
         aiInitialAnswer,
+        ...(aiAnswerVerification && {aiAnswerVerification}),
         isAutoAllocate: allocationMode === 'expert',
         embedding: textEmbedding,
         metrics: null,

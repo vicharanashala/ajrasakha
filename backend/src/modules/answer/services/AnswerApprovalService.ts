@@ -678,6 +678,32 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
       const isAddTextRequired = true;
       const assignedModeratorId = (question as any).moderatorId?.toString();
 
+      // AjraVerify — verify the AI answer before it ships (evidence-only in
+      // M1: verdict + receipt recorded on the question, nothing blocked).
+      // Failures never block approval — the pipeline must keep flowing.
+      let aiAnswerVerification: any = null;
+      if (appConfig.ENABLE_AJRAVERIFY && updates.answer?.trim()) {
+        try {
+          const {VerificationService} = await import(
+            '#root/modules/verification/services/VerificationService.js'
+          );
+          const {getContainer} = await import('#root/bootstrap/loadModules.js');
+          const verificationService = getContainer().get(VerificationService);
+          const result = await verificationService.verifyAnswer({
+            answerText: updates.answer,
+            questionId: updates.questionId,
+          });
+          aiAnswerVerification = {
+            verdict: result.verdict,
+            reason: result.reason,
+            receiptId: result.receiptId,
+          };
+          console.log(`🛡 AjraVerify (approveLLMAnswer): ${result.verdict} — ${result.reason}`);
+        } catch (err: any) {
+          console.error('🛡 AjraVerify gate failed (non-blocking):', err?.message || err);
+        }
+      }
+
       await this.questionRepo.updateQuestion(
         updates.questionId,
         {
@@ -687,6 +713,7 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
           status: 'open',
           moderatorId: null,
           moderatorAssignedAt: null,
+          ...(aiAnswerVerification && {aiAnswerVerification}),
         },
         session,
         isAddTextRequired,
