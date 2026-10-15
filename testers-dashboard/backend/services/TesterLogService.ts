@@ -15,7 +15,6 @@ import {
     TesterQuestionTypeSummaryResult,
     TesterQuestionTypeRow,
     TesterLogSummaryResponse,
-    GrammarValidationResponse,
 } from '../interfaces/ITesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
 import {
@@ -1969,71 +1968,5 @@ Rules:
             originalText: raw,
             formattedText: raw,
         };
-    }
-
-    async validateGrammar(
-        text: string,
-        maxSuggestions: number = 3,
-    ): Promise<GrammarValidationResponse> {
-        const raw = (text || '').trim();
-        if (!raw) {
-            throw new BadRequestError('Text is a required non-empty string');
-        }
-
-        const clampedMaxSuggestions = Math.max(1, Math.min(10, maxSuggestions || 3));
-        const validatorBaseUrl = process.env.GRAMMAR_VALIDATOR_URL || 'http://100.100.108.44:8008';
-        const targetUrl = `${validatorBaseUrl.replace(/\/+$/, '')}/validate`;
-
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-            const response = await fetch(targetUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    text: raw,
-                    maxSuggestions: clampedMaxSuggestions,
-                }),
-                signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errBody = await response.text().catch(() => '');
-                console.warn(`[TesterLogService] Grammar validator responded with status ${response.status}: ${errBody}`);
-                if (response.status === 422) {
-                    throw new BadRequestError(`Grammar validator validation error: ${errBody}`);
-                }
-                return {
-                    isValid: true,
-                    originalText: raw,
-                    suggestions: [],
-                    validationErrors: [],
-                    isUnavailable: true,
-                };
-            }
-
-            const data = (await response.json()) as any;
-            return {
-                isValid: Boolean(data?.isValid),
-                originalText: data?.originalText || raw,
-                suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
-                validationErrors: Array.isArray(data?.validationErrors) ? data.validationErrors : [],
-            };
-        } catch (err: any) {
-            const cause = err?.cause?.message || err?.cause?.code || err?.cause || err?.message || err;
-            console.warn(`[TesterLogService] Grammar validator (${targetUrl}) unreachable or timed out:`, cause);
-            return {
-                isValid: true,
-                originalText: raw,
-                suggestions: [],
-                validationErrors: [],
-                isUnavailable: true,
-            };
-        }
     }
 }

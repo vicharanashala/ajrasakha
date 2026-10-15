@@ -13,7 +13,6 @@ import type {
     ITesterQuestionTypeSummaryFilters,
     ITesterLogSummaryResponse,
     INextTestIdResponse,
-    IGrammarValidationResult,
 } from "../types";
 
 const API_BASE_URL = env.apiBaseUrl();
@@ -59,15 +58,6 @@ export class TesterLogService {
             body: JSON.stringify({ text, category, language }),
         });
         if (!response?.formattedText) throw new Error("Failed to format remarks with AI");
-        return response;
-    }
-
-    async validateGrammar(text: string, maxSuggestions: number = 3): Promise<IGrammarValidationResult> {
-        const response = await apiFetch<IGrammarValidationResult>(`${this.baseUrl}/validate-grammar`, {
-            method: "POST",
-            body: JSON.stringify({ text, maxSuggestions }),
-        });
-        if (!response) throw new Error("Failed to validate grammar");
         return response;
     }
 

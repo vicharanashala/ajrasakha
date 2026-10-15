@@ -21,7 +21,7 @@ import { OpenAPI } from 'routing-controllers-openapi';
 import { DASHBOARD_TYPES } from '../types.js';
 import { ITesterLogService, TesterLogActor } from '../interfaces/ITesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
-import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto, FormatRemarksDto, ValidateGrammarDto } from '../validators/TesterLogValidators.js';
+import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto, FormatRemarksDto } from '../validators/TesterLogValidators.js';
 
 interface AuthenticatedUser {
     _id?: { toString(): string } | string;
@@ -307,18 +307,5 @@ export class TesterLogController {
         @Body() body: FormatRemarksDto,
     ) {
         return this.testerLogService.formatRemarks(body.text, body.category, body.language);
-    }
-
-    @OpenAPI({
-        summary: 'Validate grammar with in-house AI Grammar Validator',
-        description: 'Checks grammar, spelling, and phrasing of remarks via in-house Grammar Validator API.',
-    })
-    @Authorized()
-    @Post('/validate-grammar')
-    @HttpCode(200)
-    async validateGrammar(
-        @Body() body: ValidateGrammarDto,
-    ) {
-        return this.testerLogService.validateGrammar(body.text, body.maxSuggestions);
     }
 }
