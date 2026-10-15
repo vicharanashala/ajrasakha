@@ -12,7 +12,10 @@ export class AccAgentService {
   private readonly checkpointCache = new Map<string, string>();
 
   // SOCKS5 proxy agent for Tailscale network (localhost:1055)
-  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
+  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055', {
+    keepAlive: true,
+    maxSockets: 50,
+  });
 
   private createAxiosInstance(): AxiosInstance {
     return axios.create({
@@ -96,7 +99,7 @@ export class AccAgentService {
         },
         {
           headers: { 'Content-Type': 'application/json' },
-          timeout: Math.min(this.TIMEOUT, 8000),
+          timeout: this.TIMEOUT,
         }
       );
 
@@ -325,9 +328,7 @@ export class AccAgentService {
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
           assistant_id: this.ASSISTANT_ID,
-          checkpoint: {
-            checkpoint_id: checkpointId
-          }
+          ...(checkpointId ? { checkpoint: { checkpoint_id: checkpointId } } : {}),
         },
         {
           headers: { 'Content-Type': 'application/json' },
