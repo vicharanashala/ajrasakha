@@ -12,6 +12,8 @@ import {
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { useReviewAnswer, type IReviewAnswerPayload } from "@/hooks/api/answer/useReviewAnswer";
 import { QuestionService } from "@/hooks/services/questionService";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { setPopIdentity } from "@/features/faq-pop/api";
 import { toast } from "sonner";
 import type { IReviewParmeters, SourceItem } from "@/types";
 
@@ -32,6 +34,15 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     checksPipeline: false,
     ffv: false,
   });
+
+  // Every faq-pop/api.ts request needs X-User-Id/X-User-Role or the backend 401s — this page
+  // never rendered under DataProcessingDashboard.tsx (the only other place that currently sets
+  // this module-level identity), so the Source Reference panel's PoP requests would 401 without
+  // this.
+  const { data: currentUser } = useGetCurrentUser();
+  useEffect(() => {
+    setPopIdentity(currentUser?._id?.toString(), currentUser?.role || undefined);
+  }, [currentUser]);
 
   // Action type state for the question filter (allocated vs reroute)
   const [actionType, setActionType] = useState<"allocated" | "reroute">("allocated");
@@ -406,6 +417,10 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               <SourceReferencePanel
                 isCollapsed={collapsed.sourceReference}
                 onToggleCollapse={() => togglePanel("sourceReference")}
+                questionState={
+                  selectedQuestionData?.details?.state ||
+                  (selectedQuestionData as any)?.question?.details?.state
+                }
               />
             </div>
           </div>
