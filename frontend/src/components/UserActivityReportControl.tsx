@@ -1,23 +1,23 @@
 import { useState } from "react";
-import { FileSpreadsheet, Loader2, Calendar, Clock, Filter } from "lucide-react";
+import { FileText, Loader2, Mail } from "lucide-react";
 import { Button } from "./atoms/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./atoms/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "./atoms/popover";
-import { TimePicker } from "./dashboard/time-picker";
 import { UserService } from "@/hooks/services/userService";
 import { toast } from "sonner";
-
-type ViewType = "year" | "month" | "week" | "day";
+import {
+  DateTimeRangeFilter,
+  getDefaultDateTimeRange,
+  type DateTimeRangeValue,
+} from "./DateTimeRangeFilter";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./atoms/alert-dialog";
 
 interface UserActivityReportControlProps {
   userId: string;
@@ -30,95 +30,48 @@ export const UserActivityReportControl = ({
   userName = "User",
   userRole,
 }: UserActivityReportControlProps) => {
-  const [viewType, setViewType] = useState<ViewType>("year");
-  const [selectedYear, setSelectedYear] = useState(
-    new Date().getFullYear().toString(),
+  const [range, setRange] = useState<DateTimeRangeValue>(() =>
+    getDefaultDateTimeRange()
   );
-
-  const getTodayDefaults = () => {
-    const today = new Date();
-    const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const month = monthNames[today.getMonth()];
-    const weekNumber = Math.ceil(today.getDate() / 7);
-    const week = `Week ${Math.min(weekNumber, 5)}`;
-    const day = dayNames[today.getDay()];
-    return { month, week, day };
-  };
-
-  const todayDefaults = getTodayDefaults();
-  const [selectedMonth, setSelectedMonth] = useState(todayDefaults.month);
-  const [selectedWeek, setSelectedWeek] = useState(todayDefaults.week);
-  const [selectedDay, setSelectedDay] = useState(todayDefaults.day);
-  const [customStartDateTime, setCustomStartDateTime] = useState<string>("");
-  const [customEndDateTime, setCustomEndDateTime] = useState<string>("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isEmailing, setIsEmailing] = useState(false);
+  const [showActionDialog, setShowActionDialog] = useState(false);
+  const [showEmailConfirmDialog, setShowEmailConfirmDialog] = useState(false);
 
-  const getLast10Years = () => {
-    const currentYear = new Date().getFullYear();
-    return Array.from({ length: 10 }, (_, i) => currentYear - i);
+  const buildReportParams = () => {
+    if (!range.startDate || !range.endDate) return null;
+
+    const startIso = `${range.startDate}T${range.startTime || "00:00"}:00+05:30`;
+    const endIso = `${range.endDate}T${range.endTime || "23:59"}:59+05:30`;
+
+    if (new Date(startIso) > new Date(endIso)) {
+      toast.error("'From' date and time cannot be after 'To' date and time");
+      return null;
+    }
+
+    return { startDate: startIso, endDate: endIso };
   };
 
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
-  const handleSetViewType = (v: ViewType) => {
-    const defaults = getTodayDefaults();
-    setSelectedMonth(defaults.month);
-    setSelectedWeek(defaults.week);
-    setSelectedDay(defaults.day);
-    setViewType(v);
-  };
-
-  const handleExport = async () => {
-    if (!userId) {
-      toast.error("User ID is missing");
+  const handleDownloadReport = async () => {
+    setShowActionDialog(false);
+    const params = buildReportParams();
+    if (!params) {
+      toast.error("Please select both start and end date");
       return;
     }
 
     try {
       setIsExporting(true);
       toast.info("Generating activity report...");
-      const blob = await new UserService().exportUserActivityReport(userId, {
-        viewType,
-        selectedYear,
-        selectedMonth,
-        selectedWeek,
-        selectedDay,
-        customStartDateTime: customStartDateTime || undefined,
-        customEndDateTime: customEndDateTime || undefined,
-      });
+      const blob = await new UserService().exportUserActivityReport(userId, params);
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       const cleanName = (userName || "User").replace(/[^a-zA-Z0-9_-]/g, "_");
-      link.download = `${cleanName}_Activity_Report_${viewType}_${selectedYear}.xlsx`;
+      const startTag = `${range.startDate}_${(range.startTime || "00:00").replace(":", "")}`;
+      const endTag = `${range.endDate}_${(range.endTime || "23:59").replace(":", "")}`;
+      link.download = `${cleanName}_Activity_Report_${startTag}_to_${endTag}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -133,158 +86,115 @@ export const UserActivityReportControl = ({
     }
   };
 
+  const handleSendEmailReport = async () => {
+    setShowEmailConfirmDialog(false);
+    const params = buildReportParams();
+    if (!params) {
+      toast.error("Please select both start and end date");
+      return;
+    }
+
+    try {
+      setIsEmailing(true);
+      toast.info("Sending activity report via email...");
+      await new UserService().exportUserActivityReport(userId, { ...params, sendToEmail: true });
+      toast.success("Activity report sent via email successfully");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send report via email",
+      );
+    } finally {
+      setIsEmailing(false);
+    }
+  };
+
+  const handleButtonClick = () => {
+    if (!range.startDate || !range.endDate) {
+      toast.error("Please select both start and end date");
+      return;
+    }
+    setShowActionDialog(true);
+  };
+
   return (
-    <div className="flex flex-wrap items-center gap-2 bg-card border rounded-lg p-2 shadow-sm">
-      {/* View Type Switcher */}
-      <div className="flex items-center bg-muted/60 p-1 rounded-md gap-1">
-        {(["year", "month", "week", "day"] as ViewType[]).map((type) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => handleSetViewType(type)}
-            className={`px-2.5 py-1 text-xs font-semibold rounded capitalize transition-all ${
-              viewType === type
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/60"
-            }`}
-          >
-            {type}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-wrap items-center gap-2 bg-card border rounded-lg p-1.5 shadow-xs">
+      {/* Custom Date and Time Filter */}
+      <DateTimeRangeFilter
+        value={range}
+        onChange={setRange}
+        disabled={isExporting || isEmailing}
+      />
 
-      {/* Year Select */}
-      <Select value={selectedYear} onValueChange={setSelectedYear}>
-        <SelectTrigger className="h-8 w-[95px] text-xs">
-          <SelectValue placeholder="Year" />
-        </SelectTrigger>
-        <SelectContent>
-          {getLast10Years().map((yr) => (
-            <SelectItem key={yr} value={String(yr)} className="text-xs">
-              {yr}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Month Select */}
-      {(viewType === "month" || viewType === "week" || viewType === "day") && (
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="h-8 w-[110px] text-xs">
-            <SelectValue placeholder="Month" />
-          </SelectTrigger>
-          <SelectContent>
-            {monthNames.map((m) => (
-              <SelectItem key={m} value={m} className="text-xs">
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {/* Week Select */}
-      {(viewType === "week" || viewType === "day") && (
-        <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-          <SelectTrigger className="h-8 w-[95px] text-xs">
-            <SelectValue placeholder="Week" />
-          </SelectTrigger>
-          <SelectContent>
-            {["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"].map((w) => (
-              <SelectItem key={w} value={w} className="text-xs">
-                {w}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {/* Day Select */}
-      {viewType === "day" && (
-        <Select value={selectedDay} onValueChange={setSelectedDay}>
-          <SelectTrigger className="h-8 w-[85px] text-xs">
-            <SelectValue placeholder="Day" />
-          </SelectTrigger>
-          <SelectContent>
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-              <SelectItem key={d} value={d} className="text-xs">
-                {d}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {/* Time Filter Popover */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`h-8 px-2.5 text-xs gap-1.5 ${
-              customStartDateTime || customEndDateTime
-                ? "border-primary text-primary bg-primary/5"
-                : "text-muted-foreground"
-            }`}
-            title="Time of day filter"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">
-              {customStartDateTime || customEndDateTime
-                ? `${customStartDateTime || "00:00"} - ${customEndDateTime || "23:59"}`
-                : "Time"}
-            </span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-4 space-y-3" align="end">
-          <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-primary" />
-            <span>Time Range Filter (IST)</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <TimePicker
-              value={customStartDateTime}
-              onChange={setCustomStartDateTime}
-              label="Start Time"
-            />
-            <TimePicker
-              value={customEndDateTime}
-              onChange={setCustomEndDateTime}
-              label="End Time"
-            />
-          </div>
-          {(customStartDateTime || customEndDateTime) && (
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setCustomStartDateTime("");
-                  setCustomEndDateTime("");
-                }}
-              >
-                Clear Time
-              </Button>
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
-
-      {/* Export Button */}
+      {/* Export Report Button */}
       <Button
+        type="button"
         size="sm"
-        onClick={handleExport}
-        disabled={isExporting}
-        className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-medium"
+        onClick={handleButtonClick}
+        disabled={isExporting || isEmailing}
+        className="h-9 px-3 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-medium rounded-md transition-all shrink-0 cursor-pointer"
+        title="Download or email individual activity report in PDF"
       >
-        {isExporting ? (
+        {isExporting || isEmailing ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
         ) : (
-          <FileSpreadsheet className="w-3.5 h-3.5" />
+          <FileText className="w-3.5 h-3.5" />
         )}
-        <span>Report</span>
+        <span>{isExporting ? "Exporting..." : isEmailing ? "Sending..." : "Report"}</span>
       </Button>
+
+      {/* Action Selection Dialog */}
+      <AlertDialog open={showActionDialog} onOpenChange={setShowActionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Activity Report</AlertDialogTitle>
+            <AlertDialogDescription>
+              How would you like to get the activity report for <strong>{userName}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowActionDialog(false);
+                setShowEmailConfirmDialog(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send Email
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={handleDownloadReport}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Download
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Email Confirmation Dialog */}
+      <AlertDialog open={showEmailConfirmDialog} onOpenChange={setShowEmailConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Report via Email?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The activity report for <strong>{userName}</strong> will be sent as a PDF attachment to the configured email addresses. Do you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSendEmailReport}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Yes, Send Email
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

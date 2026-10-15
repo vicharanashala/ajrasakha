@@ -18,7 +18,7 @@ import ServerPagination from "./ServerPagination";
 import StatusBadge from "./StatusBadge";
 import TextFilter from "./TextFilter";
 import TopScrollbar from "./TopScrollbar";
-import { ADVISORY_TYPE_OPTIONS, folderDisplayLabel } from "./fields";
+import { ADVISORY_TYPE_OPTIONS, folderDisplayLabel, filterFoldersByAdvisoryScope, displayStateName } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
 const LANGUAGE_SOURCE_OPTIONS = ["detected", "state", "ambiguous", "manual"];
@@ -48,7 +48,7 @@ const COL_COUNT = 13; // Row ID, Document ID, Document, Advisory Type, State, Fo
 // reimplement it here. PATCH now wants crop_id/organization_id (not a bare name) to disambiguate
 // which kind was picked, and dropdown filters send ids too since organisation names routinely
 // contain commas that would otherwise split a name-based multi-select filter.
-export default function MainTable({ onOpenDetail, refreshKey }) {
+export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -67,7 +67,11 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
       .catch(() => {});
   }, []);
-  const stateNames = stateOptions.map((s) => s.name);
+  // "Central" is a real backend state (getDashboardStates, api.ts) but never worth offering as a
+  // pick in any State dropdown here — it's auto-filled wherever Advisory Scope is Central instead
+  // (see the row-edit State cell below). `stateOptions` itself stays untouched (id lookups still
+  // need it, e.g. saveEdit/the state filter's own value matching).
+  const stateNames = stateOptions.map((s) => s.name).filter((n) => n !== "Central");
 
   // The Folder column filter's options follow the Advisory Type column filter's value, same rule
   // as the Add Document form — "use the Advisory Type column filter's value when one is set,
@@ -157,6 +161,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
   const [editState, setEditState] = useState("");
   const [editFolder, setEditFolder] = useState("");
   const [editAdvisoryType, setEditAdvisoryType] = useState("");
+  const [editAdvisoryScope, setEditAdvisoryScope] = useState("");
   const [editFolderOptions, setEditFolderOptions] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -165,6 +170,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
     setEditState(row.state || "");
     setEditFolder(row.crop || "");
     setEditAdvisoryType(row.advisory_type || "");
+    setEditAdvisoryScope(row.advisory_scope || "");
     setEditFolderOptions([]);
   }
 
@@ -175,13 +181,15 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
   // correction, 2026-09-15 — docs/first_render_frontend.md updated). So this only depends on
   // editingId/editAdvisoryType (captured at startEdit — Advisory Type isn't inline-editable here),
   // not editState; changing the state being edited doesn't refetch or clear the folder pick.
+  // Organisations are additionally narrowed to this row's own Advisory Scope (type == scope,
+  // same rule as AddDocumentForm.tsx) — crops are unaffected.
   useEffect(() => {
     if (!editingId) return;
     let cancelled = false;
     getDashboardFolders(editAdvisoryType)
       .then((d) => {
         if (cancelled) return;
-        const opts = d || [];
+        const opts = filterFoldersByAdvisoryScope(d || [], editAdvisoryScope);
         setEditFolderOptions(opts);
         setEditFolder((prev) => (opts.some((f) => (f.name || "(no folder)") === prev) ? prev : ""));
       })
@@ -190,7 +198,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingId, editAdvisoryType]);
+  }, [editingId, editAdvisoryType, editAdvisoryScope]);
 
   async function saveEdit(row) {
     setSaving(true);
@@ -295,15 +303,15 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
       )}
 
       <TopScrollbar containerRef={scrollRef} />
-      <div className="relative overflow-x-auto rounded-lg border border-border" ref={scrollRef}>
+      <div className="relative overflow-auto max-h-[70vh] rounded-lg border border-border" ref={scrollRef}>
         {loading && (
           <div className="absolute inset-0 bg-background/40 flex items-start justify-center pt-4 pointer-events-none z-10">
             <RefreshCw size={16} className="animate-spin text-muted-foreground" />
           </div>
         )}
         <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-muted/30">
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b border-border bg-muted">
               <th className="text-left px-3 py-2 whitespace-nowrap">
                 <div className="flex items-center gap-1">
                   <div className="min-w-0">
@@ -357,7 +365,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                   <div className="min-w-0">
                     <ColumnFilter
                       label="State"
-                      options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
+                      options={stateOptions.filter((s) => s.name !== "Central").map((s) => ({ value: s.id, label: s.name }))}
                       selected={filters.state_id || []}
                       onChange={(v) => {
                         // Changing State invalidates whatever District/KVK was selected under the
@@ -474,7 +482,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                   onClick={(e) => handleRowClick(e, row)}
                   onDoubleClick={(e) => handleRowDoubleClick(e, row)}
                   className={`border-b border-border/50 transition-colors cursor-pointer ${
-                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                    selectedRowId === row.id ? "bg-primary/20" : idx % 2 === 0 ? "" : "bg-muted/10"
                   }`}
                 >
                   <td className="px-3 py-2 align-middle font-mono text-[10px] text-muted-foreground">
@@ -514,9 +522,15 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.advisory_type || "—"}</td>
                   <td className="px-3 py-2 align-middle">
                     {editingId === row.id ? (
-                      <StateSelector value={editState} onChange={setEditState} stateNames={stateNames} />
+                      editAdvisoryScope === "Central" ? (
+                        <div className="w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-muted-foreground">
+                          Central
+                        </div>
+                      ) : (
+                        <StateSelector value={editState} onChange={setEditState} stateNames={stateNames} />
+                      )
                     ) : (
-                      <span className="text-foreground">{row.state}</span>
+                      <span className="text-foreground">{displayStateName(row.state)}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 align-middle">
@@ -565,7 +579,7 @@ export default function MainTable({ onOpenDetail, refreshKey }) {
                     <StatusBadge status={row.review_status} />
                   </td>
                   <td className="px-3 py-2 align-middle whitespace-nowrap">
-                    {editingId === row.id ? (
+                    {!canEdit ? null : editingId === row.id ? (
                       <div className="flex items-center gap-1">
                         <button
                           className="text-[10px] px-1.5 py-0.5 rounded border border-primary text-primary hover:bg-primary/10 cursor-pointer disabled:opacity-40"
