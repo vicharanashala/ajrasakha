@@ -10,7 +10,6 @@ from ajrasakha.agents.location_context import (
     resolve_state_for_turn,
 )
 from ajrasakha.agents.plan_executor import build_tool_calls_from_plan
-from ajrasakha.agents.planner import _resolve_state_deterministic
 from ajrasakha.agents.planner_rules import apply_planner_completeness_rules
 
 from ajrasakha.agents.state import AjraSakhaState
@@ -45,7 +44,6 @@ def test_state_not_leaked_from_old_karnataka_message():
         AIMessage(content="Here is advice for Karnataka wheat."),
         HumanMessage(content="What is PM-KISAN eligibility?"),
     ]
-    assert _resolve_state_deterministic(messages, None) is None
     plan = apply_planner_completeness_rules(
         {"schemes": True, "is_complete": True, "entities": {}},
         messages,
@@ -62,7 +60,6 @@ def test_current_message_kerala_overrides_old_karnataka():
         AIMessage(content="Answer."),
         HumanMessage(content="How can I grow paddy in kottayam kerla?"),
     ]
-    assert _resolve_state_deterministic(messages, None) == "Kerala"
     assert resolve_state_for_turn(latest_human_text(messages), None) == "Kerala"
 
 
@@ -74,7 +71,6 @@ def test_gps_not_used_when_latest_message_has_no_state():
         "state": "Punjab",
         "city": "Ludhiana",
     }
-    assert _resolve_state_deterministic(messages, location) is None
     plan = apply_planner_completeness_rules(
         {"schemes": True, "is_complete": False, "entities": {}},
         messages,
@@ -161,7 +157,7 @@ async def test_state_does_not_leak_on_new_question_with_gps():
 
 
 @pytest.mark.asyncio
-async def test_state_carries_forward_during_clarify_loop():
+async def test_state_never_carries_forward_during_clarify_loop():
     from ajrasakha.agents.planner import PlannerEntitiesOutput, PlannerOutput, planner_node
     from langchain_core.runnables import RunnableConfig
 
@@ -200,7 +196,8 @@ async def test_state_carries_forward_during_clarify_loop():
     ):
         res = await planner_node(state, RunnableConfig())
     new_plan = res["plan"]
-    assert new_plan["entities"].get("state") == "Karnataka"
+    # The location is the farmer profile only (none here), never the earlier turn's.
+    assert new_plan["entities"].get("state") is None
     assert new_plan["entities"].get("crop") == "Onion"
 
 

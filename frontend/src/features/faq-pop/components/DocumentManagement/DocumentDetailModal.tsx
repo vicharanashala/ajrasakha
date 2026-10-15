@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Anchor, Pencil, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Anchor, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,18 +11,38 @@ import {
 import {
   getDashboardUniqueDocument,
   getUniqueDocumentPlacements,
-  updateDashboardUniqueDocument,
   deleteDashboardDocument,
   findDuplicatesForDocument,
   mergeUniqueDocuments,
+  getOriginalDownloadUrl,
+  getDashboardStates,
+  getDashboardFolders,
+  addDocumentPlacement,
 } from "../../api";
 import { formatDate } from "@/utils/formatDate";
-import { DOCUMENT_METADATA_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
+import {
+  DOCUMENT_METADATA_FIELDS,
+  DISPLAY_ONLY_FIELDS,
+  folderDisplayLabel,
+  filterFoldersByAdvisoryScope,
+} from "./fields";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
 import UniqueDocumentEditForm from "./UniqueDocumentEditForm";
+import { StateSelector } from "../FunctionsPanel/RunTile";
 
-const DETAIL_GRID_FIELDS = [...DOCUMENT_METADATA_FIELDS, ...DISPLAY_ONLY_FIELDS];
+// Language/District/KVK are document-level fields the unique-document response always carries
+// (language, district, kvk — names; district_id/kvk_id alongside) but aren't in
+// DOCUMENT_METADATA_FIELDS/DISPLAY_ONLY_FIELDS (those live in EDITABLE_DOCUMENT_ONLY_FIELDS, which
+// this grid doesn't spread since it's keyed for the edit form, not display) — added here, read-only,
+// so the grid doesn't show Language Source with no Language next to it.
+const DETAIL_GRID_FIELDS = [
+  ...DOCUMENT_METADATA_FIELDS,
+  { key: "language", label: "Language", type: "text", group: "Language" },
+  { key: "district", label: "District", type: "text", group: "Location" },
+  { key: "kvk", label: "KVK", type: "text", group: "Location" },
+  ...DISPLAY_ONLY_FIELDS,
+];
 
 // Document Detail — replaces the old inline row-expand + separate cascade-delete flow. Opened as
 // a modal from a placement row (Main Table), a document row (Documents tab), or a jump-link
@@ -34,8 +54,10 @@ export default function DocumentDetailModal({
   open,
   onOpenChange,
   translationAvailable,
+  canTranslate = false,
   onTranslationStarted,
   onPlacementsChanged,
+  canEdit = true,
 }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -101,19 +123,76 @@ export default function DocumentDetailModal({
     }
   }
 
-  const [anchoring, setAnchoring] = useState(null);
-  async function handleSetAnchor(link) {
-    setAnchoring(link.zoho_file_id);
+  // Add Placement — files this EXISTING document under another state/folder (2026-10-05 backend
+  // endpoint). Purely document-level: no restriction on which table/placement launched this modal.
+  // State/folder options are fetched UNSCOPED (no state_id on the folders call) rather than reused
+  // from anywhere scoped — a state_id-scoped crops/organizations/folders list only contains
+  // folders ALREADY USED under that state, which is too narrow for a new filing (the whole point
+  // is often to use a folder nobody's used there yet).
+  const [addPlacementOpen, setAddPlacementOpen] = useState(false);
+  const [placementStates, setPlacementStates] = useState([]);
+  const [placementFolders, setPlacementFolders] = useState([]);
+  // StateSelector (reused here for both State and Folder — it's really a generic searchable
+  // single-select over a string list, same combobox used by Add Document's own State/Folder
+  // pickers) works in NAMES, so the picked name is resolved back to an id just before submit —
+  // same pattern AddDocumentForm.tsx and MainTable's inline editor already use.
+  const [newPlacementState, setNewPlacementState] = useState("");
+  const [newPlacementFolder, setNewPlacementFolder] = useState("");
+  const [addingPlacement, setAddingPlacement] = useState(false);
+
+  useEffect(() => {
+    if (!addPlacementOpen) return;
+    getDashboardStates()
+      .then((d) => setPlacementStates(d || []))
+      .catch(() => {});
+    getDashboardFolders(doc?.advisory_type)
+      .then((d) => setPlacementFolders(d || []))
+      .catch(() => {});
+    // This document's own Advisory Scope is Central → auto-select the real "Central" state
+    // (backend-confirmed real state, not a pseudo one) rather than making the user pick it.
+    if (doc?.advisory_scope === "Central") setNewPlacementState("Central");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addPlacementOpen]);
+
+  // "Central" is a real backend state (getDashboardStates, api.ts) but never worth offering as a
+  // pick here — auto-filled instead whenever this document's own Advisory Scope is Central (see
+  // the effect above and the static "Central" display below), same rule as the Add/Edit forms.
+  const placementStateNames = placementStates.map((s) => s.name).filter((n) => n !== "Central");
+  // Organisations offered here are narrowed to THIS document's own Advisory Scope (type == scope,
+  // same rule as the Add/Edit forms) — crops are unaffected. Labels are still disambiguated
+  // against the full placementFolders list (not the narrowed one) so a label picked from the
+  // narrowed list matches exactly what handleAddPlacement's own full-list lookup below expects.
+  const visiblePlacementFolders = filterFoldersByAdvisoryScope(placementFolders, doc?.advisory_scope);
+  const placementFolderLabels = visiblePlacementFolders.map((f) => folderDisplayLabel(f, placementFolders));
+
+  async function handleAddPlacement() {
+    const stateOpt = placementStates.find((s) => s.name === newPlacementState);
+    const folder = placementFolders.find(
+      (f) => folderDisplayLabel(f, placementFolders) === newPlacementFolder,
+    );
+    if (!stateOpt || !folder) {
+      toast.error("Pick a state and a folder");
+      return;
+    }
+    const body = { state_id: stateOpt.id };
+    if (folder.kind === "organization") body.organization_id = folder.id;
+    else body.crop_id = folder.id;
+    setAddingPlacement(true);
     try {
-      const updated = await updateDashboardUniqueDocument(documentId, {
-        representative_file_id: link.zoho_file_id,
-      });
-      setDoc((prev) => ({ ...prev, ...updated }));
-      toast.success("Anchor updated");
+      const row = await addDocumentPlacement(documentId, body);
+      setPlacements((prev) => [...(prev || []), row]);
+      loadDoc();
+      onPlacementsChanged?.();
+      toast.success(`Filed as ${row.row_id}`);
+      setNewPlacementState("");
+      setNewPlacementFolder("");
+      setAddPlacementOpen(false);
     } catch (err) {
-      toast.error(err.message || "Failed to re-anchor");
+      // 409 names the existing row the document is already filed under there — the message is
+      // written to be shown as-is, same as every other error surfaced via toast in this modal.
+      toast.error(err.message || "Failed to add placement");
     } finally {
-      setAnchoring(null);
+      setAddingPlacement(false);
     }
   }
 
@@ -179,12 +258,14 @@ export default function DocumentDetailModal({
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                   Filed in {doc.placement_count ?? "?"} place{doc.placement_count === 1 ? "" : "s"}
                 </span>
-                <button
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  onClick={() => setEditOpen(true)}
-                >
-                  <Pencil size={12} /> Edit metadata
-                </button>
+                {canEdit && (
+                  <button
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    onClick={() => setEditOpen(true)}
+                  >
+                    <Pencil size={12} /> Edit metadata
+                  </button>
+                )}
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   onClick={loadDoc}
@@ -198,6 +279,7 @@ export default function DocumentDetailModal({
                   <FileActionIcons
                     shareableLink={doc.shareable_link}
                     fileId={doc.representative_file_id}
+                    downloadUrl={getOriginalDownloadUrl(doc.id)}
                     filename={doc.shareable_name}
                   />
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide ml-2">
@@ -208,6 +290,7 @@ export default function DocumentDetailModal({
                     doc={doc}
                     scope="document"
                     translationAvailable={translationAvailable}
+                    canTranslate={canTranslate}
                     resolvePlacementId={() => {
                       // placements load in parallel with doc, on a separate request — guard the
                       // window where doc has already rendered but placements haven't landed yet.
@@ -258,7 +341,63 @@ export default function DocumentDetailModal({
                   <h3 className="text-xs font-semibold text-foreground">
                     Placements ({placements?.length ?? "…"})
                   </h3>
+                  {canEdit && (
+                    <button
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      onClick={() => setAddPlacementOpen((v) => !v)}
+                    >
+                      <Plus size={12} /> Add placement
+                    </button>
+                  )}
                 </div>
+                {canEdit && addPlacementOpen && (
+                  <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/50 bg-muted/10 p-2 mb-2">
+                    <div className="flex flex-col gap-1 min-w-[180px]">
+                      {doc?.advisory_scope !== "Central" && (
+                        <span className="text-[10px] text-muted-foreground">State</span>
+                      )}
+                      {doc?.advisory_scope === "Central" ? (
+                        <div className="bg-input border border-border rounded-md px-2 py-1.5 text-sm text-muted-foreground">
+                          Central
+                        </div>
+                      ) : (
+                        <StateSelector
+                          value={newPlacementState}
+                          onChange={setNewPlacementState}
+                          stateNames={placementStateNames}
+                          placeholder="Search state…"
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 min-w-[220px]">
+                      <span className="text-[10px] text-muted-foreground">Folder — crop or organisation</span>
+                      <StateSelector
+                        value={newPlacementFolder}
+                        onChange={setNewPlacementFolder}
+                        stateNames={placementFolderLabels}
+                        placeholder="Search folder…"
+                      />
+                    </div>
+                    <button
+                      className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40"
+                      onClick={handleAddPlacement}
+                      disabled={addingPlacement || !newPlacementState || !newPlacementFolder}
+                    >
+                      {addingPlacement ? "Adding…" : "Add"}
+                    </button>
+                    <button
+                      className="px-2.5 py-1 rounded-md border border-border text-xs text-foreground hover:bg-accent transition-colors cursor-pointer"
+                      onClick={() => {
+                        setAddPlacementOpen(false);
+                        setNewPlacementState("");
+                        setNewPlacementFolder("");
+                      }}
+                      disabled={addingPlacement}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 {placementsLoading ? (
                   <div className="text-xs text-muted-foreground italic py-2">Loading…</div>
                 ) : !placements || placements.length === 0 ? (
@@ -281,14 +420,16 @@ export default function DocumentDetailModal({
                               /documents/{row_id}/review resolves to the document regardless of
                               which placement's id is used, so one per row was just a way to
                               overwrite what the previous row's upload had stored. */}
-                          <button
-                            className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
-                            onClick={() => handleDeletePlacement(p)}
-                            disabled={deletingPlacementId === p.id}
-                            title="Remove placement"
-                          >
-                            <Trash2 size={11} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
+                              onClick={() => handleDeletePlacement(p)}
+                              disabled={deletingPlacementId === p.id}
+                              title="Remove placement"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -309,96 +450,89 @@ export default function DocumentDetailModal({
                   <div className="text-xs text-muted-foreground italic py-1">No copies on record.</div>
                 ) : (
                   <div className="flex flex-col gap-1">
-                    {(() => {
-                      const hasChoice = doc.duplicate_links.length > 1;
-                      return doc.duplicate_links.map((link) => {
-                        const isAnchor = link.zoho_file_id === doc.representative_file_id;
-                        return (
-                          <div
-                            key={link.zoho_file_id}
-                            className="flex items-center justify-between gap-2 rounded border border-border/50 px-2.5 py-1.5"
+                    {doc.duplicate_links.map((link) => {
+                      const isAnchor = link.zoho_file_id === doc.representative_file_id;
+                      return (
+                        <div
+                          key={link.zoho_file_id}
+                          className="flex items-center justify-between gap-2 rounded border border-border/50 px-2.5 py-1.5"
+                        >
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">
+                            {link.row_id}
+                          </span>
+                          <a
+                            href={link.shareable_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline truncate"
+                            title={link.shareable_name}
                           >
-                            <span className="text-xs font-mono text-muted-foreground shrink-0">
-                              {link.row_id}
+                            {link.shareable_name}
+                          </a>
+                          <span
+                            className="text-[10px] text-muted-foreground truncate"
+                            title="The placement this copy was first filed under — not necessarily where the file lives now"
+                          >
+                            filed: {link.state} / {link.crop}
+                          </span>
+                          {isAnchor && (
+                            <span className="flex items-center gap-1 text-[10px] text-primary shrink-0">
+                              <Anchor size={10} /> anchor
                             </span>
-                            <a
-                              href={link.shareable_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline truncate"
-                              title={link.shareable_name}
-                            >
-                              {link.shareable_name}
-                            </a>
-                            <span
-                              className="text-[10px] text-muted-foreground truncate"
-                              title="The placement this copy was first filed under — not necessarily where the file lives now"
-                            >
-                              filed: {link.state} / {link.crop}
-                            </span>
-                            {isAnchor || !hasChoice ? (
-                              <span className="flex items-center gap-1 text-[10px] text-primary shrink-0">
-                                <Anchor size={10} /> anchor
-                              </span>
-                            ) : (
-                              <button
-                                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 shrink-0"
-                                onClick={() => handleSetAnchor(link)}
-                                disabled={anchoring === link.zoho_file_id}
-                              >
-                                <Anchor size={10} /> Set as anchor
-                              </button>
-                            )}
-                          </div>
-                        );
-                      });
-                    })()}
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-border/50 pt-3">
-                <h3 className="text-xs font-semibold text-foreground mb-1.5">Duplicate check</h3>
-                <button
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40"
-                  onClick={handleFindDuplicates}
-                  disabled={findingDuplicates}
-                >
-                  <Search size={12} /> {findingDuplicates ? "Checking…" : "Find duplicates"}
-                </button>
-                {findDuplicatesNote && (
-                  <p className="text-[11px] text-muted-foreground mt-1.5">{findDuplicatesNote}</p>
-                )}
-              </div>
-
-              <div className="border-t border-border/50 pt-3">
-                <h3 className="text-xs font-semibold text-foreground mb-1">Merge</h3>
-                <p className="text-[11px] text-muted-foreground mb-1.5">
-                  Absorb other documents into this one — their placements are repointed here, they
-                  are deleted, and their copies join this document's duplicate copies above.
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 bg-input border border-border rounded-md px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
-                    placeholder="ANNAM_00123, ANNAM_00456…"
-                    value={mergeInput}
-                    onChange={(e) => setMergeInput(e.target.value)}
-                  />
+              {canEdit && (
+                <div className="border-t border-border/50 pt-3">
+                  <h3 className="text-xs font-semibold text-foreground mb-1.5">Duplicate check</h3>
                   <button
-                    className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40"
-                    onClick={handleMerge}
-                    disabled={merging || !mergeInput.trim()}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40"
+                    onClick={handleFindDuplicates}
+                    disabled={findingDuplicates}
                   >
-                    {merging ? "Merging…" : "Merge in"}
+                    <Search size={12} /> {findingDuplicates ? "Checking…" : "Find duplicates"}
                   </button>
+                  {findDuplicatesNote && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">{findDuplicatesNote}</p>
+                  )}
                 </div>
-                {doc.merged_from?.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground mt-1.5">
-                    Already absorbed: {doc.merged_from.join(", ")}
+              )}
+
+              {canEdit && (
+                <div className="border-t border-border/50 pt-3">
+                  <h3 className="text-xs font-semibold text-foreground mb-1">Merge</h3>
+                  <p className="text-[11px] text-muted-foreground mb-1.5">
+                    Absorb other documents into this one — their placements are repointed here, they
+                    are deleted, and their copies join this document's duplicate copies above.
                   </p>
-                )}
-              </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 bg-input border border-border rounded-md px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+                      placeholder="ANNAM_00123, ANNAM_00456…"
+                      value={mergeInput}
+                      onChange={(e) => setMergeInput(e.target.value)}
+                    />
+                    <button
+                      className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40"
+                      onClick={handleMerge}
+                      disabled={merging || !mergeInput.trim()}
+                    >
+                      {merging ? "Merging…" : "Merge in"}
+                    </button>
+                  </div>
+                  {doc.merged_from?.length > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Already absorbed: {doc.merged_from.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

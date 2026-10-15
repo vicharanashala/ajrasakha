@@ -1570,4 +1570,38 @@ export class UserController {
   ) {
     return await this.userService.getUsersByRole(query.role ?? []);
   }
+
+  @Get('/:userId/activity-report/export')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Export individual user activity report in Excel format',
+  })
+  async exportUserActivityReport(
+    @CurrentUser() currentUser: IUser,
+    @Param('userId') userId: string,
+    @QueryParams() query: {
+      viewType?: 'year' | 'month' | 'week' | 'day';
+      selectedYear?: string;
+      selectedMonth?: string;
+      selectedWeek?: string;
+      selectedDay?: string;
+      customStartDateTime?: string;
+      customEndDateTime?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+    @Res() response: any,
+  ) {
+    const buffer = await this.userService.exportUserActivityReport(userId, query);
+    response.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="user-activity-report-${userId}.xlsx"`,
+    );
+    return buffer;
+  }
 }

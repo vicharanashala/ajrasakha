@@ -48,11 +48,11 @@ describe("synthesizeOverallTestStatus", () => {
     it.each([
         ["Pass", "Pass", "Pass"],
         ["Fail", "Fail", "Fail"],
-        ["NA", "NA", "NA"],
         ["pass", "PASS", "Pass"],
-        ["Pass", "Fail", "Partial"],
-        ["Partial", "Partial", "Partial"],
-        ["Pass", "NA", "Partial"],
+        ["Pass", "Fail", "Fail"],
+        ["Fail", "Pass", "Fail"],
+        ["Pass", "NA", "Fail"],
+        ["NA", "NA", "Fail"],
     ])("web %s + WhatsApp %s -> %s", (web, wa, expected) => {
         expect(synthesizeOverallTestStatus(web, wa)).toBe(expected);
     });

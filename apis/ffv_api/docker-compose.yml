@@ -1,0 +1,14 @@
+services:
+  api:
+    build:
+      context: ../..   # repo root - needed to reach ai/ajrasakha/ffv/scripts
+      dockerfile: apis/ffv_api/Dockerfile
+    ports:
+      - "8003:8003"   # host:container - hit it locally at localhost:8003
+    env_file:
+      - ../../.env   # repo root - optional fallback (e.g. a shared ANTHROPIC_API_KEY)
+      - .env   # this service's own config, not committed - overrides the root one if both set a key
+    restart: always
+    # no volume bind-mount here on purpose: it would be relative to this
+    # directory on the host, which has no ffv_scripts/ folder, and mounting it
+    # over /app would delete the image's copy of generate_ffvs.py

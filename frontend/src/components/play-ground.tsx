@@ -30,6 +30,7 @@ import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { TestersDashboard } from "@testers-dashboard/TestersDashboard";
+import { GdbCleaningPage } from "@/features/gdb-cleaning/GdbCleaningPage";
 import { TesterLogPage } from "@testers-dashboard/testerLog/TesterLogPage";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
@@ -528,7 +529,7 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard userRole={user.role} />
+                  <DataProcessingDashboard userRole={user.role} userId={user._id} />
                 </TabsContent>
               )}
               {user && user.role === "admin" && (
@@ -546,12 +547,28 @@ export const PlaygroundPage = () => {
                   <TestersDashboard />
                 </TabsContent>
               )}
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="gdb_cleaning"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <GdbCleaningPage />
+                </TabsContent>
+              )}
 
               {user && canLogTestCases(user.role) && (
                 <TabsContent
                   value="tester_log"
+                  forceMount
                   className={cn(
-                    "mt-0 border-0 outline-none",
+                    "mt-0 border-0 outline-none data-[state=inactive]:hidden",
                     "data-[state=active]:animate-in",
                     "data-[state=active]:fade-in-0",
                     "data-[state=active]:zoom-in-[0.98]",

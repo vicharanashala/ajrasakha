@@ -282,6 +282,14 @@ export function PlaygroundHeader({
                   <span>Testers Dashboard</span>
                 </TabsTrigger>
               )}
+              {user && user.role === "admin" && (
+                <TabsTrigger
+                  value="gdb_cleaning"
+                  className={tabTriggerClassName}
+                >
+                  <span>GDB Cleaning</span>
+                </TabsTrigger>
+              )}
               {user && canLogTestCases(user.role) && (
                 <TabsTrigger
                   value="tester_log"

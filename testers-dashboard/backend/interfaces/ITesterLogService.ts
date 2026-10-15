@@ -36,6 +36,7 @@ export interface TesterLogEntry {
     translationQuality?: string;
     translationErrorType?: string;
     tagging?: string;
+    retrievalAccuracy?: string;
 
     // Section 4: Reviewer Workflow
     allocatedToReviewer?: string;
@@ -89,6 +90,7 @@ export interface TesterLogEntry {
     voiceInputWorking?: string;
     voiceOutputWorking?: string;
     voiceInputQuality?: string;
+    voiceInputIssueDescription?: string;
     voiceOutputQuality?: string;
     voiceIssueDescription?: string;
 
@@ -107,6 +109,7 @@ export interface TesterLogEntry {
     defectIdBugRef?: string;
     reviewerRemarks?: string;
     testerRemarks?: string;
+    testerRemarksNotes?: string;
     status?: string;
 
     // Cross-Platform Dual-Channel Fields (Used when channelTested === 'Both')
@@ -119,6 +122,7 @@ export interface TesterLogEntry {
     waVoiceInputWorking?: string;
     waVoiceOutputWorking?: string;
     waVoiceInputQuality?: string;
+    waVoiceInputIssueDescription?: string;
     waVoiceOutputQuality?: string;
     waVoiceIssueDescription?: string;
     waNotificationReceived?: string;
@@ -308,6 +312,8 @@ export interface TesterLogSummaryResponse {
     scientificAccuracy: {
         correct: number;
         incorrect: number;
+        partiallyCorrect?: number;
+        totalChecked?: number;
         rate: number;
     };
     dbPersistence: {
@@ -323,6 +329,8 @@ export interface TesterLogSummaryResponse {
     crossPlatformStats?: {
         totalCrossPlatform: number;
         matchedAnswers: number;
+        partialMatches?: number;
+        mismatches?: number;
         parityRate: number;
     };
     targetVsAchieved: TargetVsAchievedSummary;
@@ -332,10 +340,13 @@ export interface TargetAchievedRow {
     questionType: string;
     targetTotal: number;
     achievedTotal: number;
+    rawAchievedTotal?: number;
     targetWebApp: number;
     achievedWebApp: number;
+    rawAchievedWebApp?: number;
     targetWhatsApp: number;
     achievedWhatsApp: number;
+    rawAchievedWhatsApp?: number;
     completionRate: number;
 }
 
@@ -380,6 +391,8 @@ export interface ITesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries>;
 
     getAllEntries(
@@ -393,6 +406,8 @@ export interface ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        search?: string,
+        status?: string,
     ): Promise<PaginatedTesterLogEntries>;
 
     getTesterOptions(): Promise<TesterOption[]>;

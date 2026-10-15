@@ -2,6 +2,7 @@ import { injectable } from 'inversify';
 import {
     IZohoTicketStatusService,
     ZohoTicketStatus,
+    ZohoTicketsSnapshot,
     ZohoTeam,
     CreateZohoTicketParams,
     CreateZohoTicketResponse,
@@ -14,6 +15,18 @@ const ZOHO_ORG_ID = process.env.ZOHO_ORG_ID || '';
 
 // Zoho Desk's documented max page size for the ticket list endpoint.
 const ZOHO_TICKET_LIST_PAGE_SIZE = 100;
+
+// Safety stop for the paged ticket fetch (500 pages = 50,000 tickets). Hitting
+// it is treated as a failed fetch, never as a complete ticket list.
+const ZOHO_TICKET_LIST_MAX_PAGES = 500;
+
+// How long one direct fetch of the ticket list is reused for subsequent
+// dashboard requests, so a single page load (ticket card + DB summary +
+// tester form) shares one paged Zoho fetch instead of each triggering its own.
+// Not a sync schedule: the first request after it expires fetches from Zoho
+// directly. Override with ZOHO_TICKETS_MAX_AGE_SECONDS.
+const parsedMaxAge = Number(process.env.ZOHO_TICKETS_MAX_AGE_SECONDS);
+export const ZOHO_TICKETS_MAX_AGE_MS = (Number.isFinite(parsedMaxAge) && parsedMaxAge >= 0 ? parsedMaxAge : 60) * 1000;
 
 // Two SEPARATE domains, both taken directly from what Zoho actually
 // returned during the OAuth exchange - not derived/guessed from each other.
@@ -130,9 +143,15 @@ function formatDescriptionToHtml(text: string): string {
 export class ZohoTicketStatusService implements IZohoTicketStatusService {
     private accessToken: string | null = null;
     private accessTokenExpiresAt = 0; // epoch ms
-    private cache: Record<string, ZohoTicketStatus> = {};
+    private inFlightTokenRefresh: Promise<string | null> | null = null;
+    // Last successful direct fetch of the Bugs Tracker ticket list.
+    private snapshot: { statuses: Record<string, ZohoTicketStatus>; fetchedAtMs: number } | null = null;
+    // One paged fetch at a time - concurrent requests share it.
+    private inFlightTicketFetch: Promise<ZohoTicketsSnapshot> | null = null;
     private teamsCache: ZohoTeam[] | null = null;
     private teamsCacheExpiresAt = 0;
+    private inFlightCreateTickets = new Map<string, Promise<CreateZohoTicketResponse>>();
+    private recentCreatedTickets = new Map<string, { result: CreateZohoTicketResponse; timestamp: number }>();
 
     private isConfigured(): boolean {
         return Boolean(ZOHO_CLIENT_ID && ZOHO_CLIENT_SECRET && ZOHO_REFRESH_TOKEN && ZOHO_ORG_ID);
@@ -150,6 +169,16 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
             return this.accessToken;
         }
 
+        // Concurrent callers (ticket fetch + ticket creation) share one refresh.
+        if (!this.inFlightTokenRefresh) {
+            this.inFlightTokenRefresh = this.refreshAccessToken().finally(() => {
+                this.inFlightTokenRefresh = null;
+            });
+        }
+        return this.inFlightTokenRefresh;
+    }
+
+    private async refreshAccessToken(): Promise<string | null> {
         const params = new URLSearchParams({
             grant_type: 'refresh_token',
             client_id: ZOHO_CLIENT_ID,
@@ -183,97 +212,134 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
         return webUrl || `${portalBase}/${ticketId}`;
     }
 
-    // Pages through Zoho Desk's ticket list endpoint (GET /api/v1/tickets),
-    // keeps only Bugs Tracker-layout tickets (see ZOHO_BUGS_TRACKER_LAYOUT_ID
-    // above), and replaces the cache wholesale with the result - this is the
-    // ticket card's ONLY source of tickets. Tickets are NOT sourced from the
-    // sheet's Defect ID / Bug Ref column, since many real tickets (including
-    // Critical ones) are never linked there; querying Zoho directly is the
-    // only way to see every ticket. include=team embeds each ticket's Team
-    // as {id, name} directly, since the dedicated /api/v1/teams resolver
-    // needs a broader OAuth scope than this token has - `include` accepts
-    // only a small fixed set of values for this endpoint; anything else
-    // (e.g. `layoutDetails`) is rejected outright with a 422.
-    async syncAllBugsTrackerTickets(): Promise<void> {
-        const token = await this.getAccessToken();
-        if (!token) return;
-
-        const newCache: Record<string, ZohoTicketStatus> = {};
+    // Pages through Zoho Desk's ticket list endpoint (GET /api/v1/tickets)
+    // and returns every Bugs Tracker-layout ticket (see
+    // ZOHO_BUGS_TRACKER_LAYOUT_ID above), minus excluded teams. This is the
+    // ticket card's ONLY source of tickets - not the QA sheet/CSV's Defect ID
+    // / Bug Ref column, since many real tickets (including Critical ones) are
+    // never linked there. include=team embeds each ticket's Team as
+    // {id, name} directly, since the dedicated /api/v1/teams resolver needs a
+    // broader OAuth scope than this token has - `include` accepts only a small
+    // fixed set of values for this endpoint; anything else (e.g.
+    // `layoutDetails`) is rejected outright with a 422.
+    //
+    // Throws on any failed page, so a partial list is never mistaken for
+    // "all tickets".
+    private async fetchAllBugsTrackerTickets(token: string): Promise<Record<string, ZohoTicketStatus>> {
+        const statuses: Record<string, ZohoTicketStatus> = {};
         let from = 0;
         let totalFetched = 0;
-        let bugsTrackerCount = 0;
 
-        try {
-            // "Last page" is signalled by a page shorter than the requested
-            // limit - Zoho's ticket list endpoint doesn't return a reliable
-            // upfront total count.
-            while (true) {
-                const response = await fetch(
-                    `https://${ZOHO_API_DOMAIN}/api/v1/tickets?include=team&from=${from}&limit=${ZOHO_TICKET_LIST_PAGE_SIZE}`,
-                    {
-                        headers: {
-                            Authorization: `Zoho-oauthtoken ${token}`,
-                            orgId: ZOHO_ORG_ID,
-                        },
+        // "Last page" is signalled by a page shorter than the requested
+        // limit (or an empty 204 response) - Zoho's ticket list endpoint
+        // doesn't return a reliable upfront total count.
+        for (let pageIndex = 0; ; pageIndex++) {
+            if (pageIndex >= ZOHO_TICKET_LIST_MAX_PAGES) {
+                throw new Error(`Ticket list exceeded ${ZOHO_TICKET_LIST_MAX_PAGES} pages - stopping rather than returning a partial list.`);
+            }
+            const response = await fetch(
+                `https://${ZOHO_API_DOMAIN}/api/v1/tickets?include=team&from=${from}&limit=${ZOHO_TICKET_LIST_PAGE_SIZE}`,
+                {
+                    headers: {
+                        Authorization: `Zoho-oauthtoken ${token}`,
+                        orgId: ZOHO_ORG_ID,
                     },
-                );
+                },
+            );
 
-                if (!response.ok) {
-                    const errorBody = await response.text();
-                    throw new Error(`Failed to fetch tickets at offset ${from}: ${response.status} - ${errorBody}`);
-                }
-
-                const page = (await response.json()) as {
-                    data?: {
-                        id: string;
-                        status: string;
-                        priority?: string | null;
-                        ticketNumber?: string;
-                        webUrl?: string;
-                        layoutId?: string | null;
-                        team?: { id: string; name: string } | null;
-                    }[];
-                };
-                const tickets = page.data ?? [];
-                totalFetched += tickets.length;
-
-                tickets.forEach((t) => {
-                    if (!isBugsTrackerLayout(t.layoutId)) return;
-                    if (isExcludedTeam(t.team?.name)) return;
-                    bugsTrackerCount++;
-                    const ticketId = String(t.id);
-                    const priority = t.priority ?? null;
-                    newCache[ticketId] = {
-                        ticketId,
-                        status: t.status,
-                        team: t.team?.name ?? null,
-                        ticketNumber: t.ticketNumber ? String(t.ticketNumber) : null,
-                        priority,
-                        severity: mapZohoPriorityToSeverity(priority),
-                        url: this.buildTicketUrl(ticketId, t.webUrl),
-                        lastCheckedAt: new Date().toISOString(),
-                    };
-                });
-
-                if (tickets.length < ZOHO_TICKET_LIST_PAGE_SIZE) break;
-                from += ZOHO_TICKET_LIST_PAGE_SIZE;
+            if (!response.ok) {
+                if (response.status === 401) this.accessToken = null;
+                const errorBody = await response.text();
+                throw new Error(`Failed to fetch tickets at offset ${from}: ${response.status} - ${errorBody}`);
             }
 
-            // Atomic swap - only replace the cache once the entire paged
-            // fetch has succeeded, so a rate-limit blip partway through
-            // (caught below) can't wipe out a still-valid cache with a
-            // half-fetched one.
-            this.cache = newCache;
-            console.log(
-                `[ZohoTicketStatus] Synced ${bugsTrackerCount} Bugs Tracker ticket(s) (of ${totalFetched} total fetched across all layouts).`,
-            );
-        } catch (err) {
-            console.error('[ZohoTicketStatus] Error syncing Bugs Tracker tickets:', err);
+            const page =
+                response.status === 204
+                    ? {}
+                    : ((await response.json()) as {
+                          data?: {
+                              id: string;
+                              status: string;
+                              priority?: string | null;
+                              ticketNumber?: string;
+                              webUrl?: string;
+                              layoutId?: string | null;
+                              team?: { id: string; name: string } | null;
+                          }[];
+                      });
+            const tickets = page.data ?? [];
+            totalFetched += tickets.length;
+            const checkedAt = new Date().toISOString();
+
+            tickets.forEach((t) => {
+                if (!isBugsTrackerLayout(t.layoutId)) return;
+                if (isExcludedTeam(t.team?.name)) return;
+                const ticketId = String(t.id);
+                const priority = t.priority ?? null;
+                statuses[ticketId] = {
+                    ticketId,
+                    status: t.status,
+                    team: t.team?.name ?? null,
+                    ticketNumber: t.ticketNumber ? String(t.ticketNumber) : null,
+                    priority,
+                    severity: mapZohoPriorityToSeverity(priority),
+                    url: this.buildTicketUrl(ticketId, t.webUrl),
+                    lastCheckedAt: checkedAt,
+                };
+            });
+
+            if (tickets.length < ZOHO_TICKET_LIST_PAGE_SIZE) break;
+            from += ZOHO_TICKET_LIST_PAGE_SIZE;
         }
+
+        console.log(
+            `[ZohoTicketStatus] Fetched ${Object.keys(statuses).length} Bugs Tracker ticket(s) (of ${totalFetched} total across all layouts).`,
+        );
+        return statuses;
     }
 
-    getCachedStatuses(): Record<string, ZohoTicketStatus> {
-        return this.cache;
+    private snapshotResult(stale: boolean, error?: string): ZohoTicketsSnapshot {
+        return {
+            configured: true,
+            statuses: this.snapshot?.statuses ?? {},
+            fetchedAt: this.snapshot ? new Date(this.snapshot.fetchedAtMs).toISOString() : null,
+            stale,
+            ...(error ? { error } : {}),
+        };
+    }
+
+    // Current Bugs Tracker tickets, fetched directly from Zoho on request -
+    // no scheduled sync involved. A fetch completed within the last
+    // `maxAgeMs` (default ZOHO_TICKETS_MAX_AGE_MS) is reused, and concurrent
+    // callers share one in-flight fetch. If Zoho can't be reached, the last
+    // successful fetch is returned marked `stale` (empty if there is none).
+    async getTicketStatuses(options: { maxAgeMs?: number } = {}): Promise<ZohoTicketsSnapshot> {
+        if (!this.isConfigured()) {
+            return { configured: false, statuses: {}, fetchedAt: null, stale: false, error: 'Zoho Desk is not configured.' };
+        }
+        const maxAgeMs = options.maxAgeMs ?? ZOHO_TICKETS_MAX_AGE_MS;
+        if (this.snapshot && Date.now() - this.snapshot.fetchedAtMs < maxAgeMs) {
+            return this.snapshotResult(false);
+        }
+        if (!this.inFlightTicketFetch) {
+            this.inFlightTicketFetch = this.fetchTicketSnapshot().finally(() => {
+                this.inFlightTicketFetch = null;
+            });
+        }
+        return this.inFlightTicketFetch;
+    }
+
+    private async fetchTicketSnapshot(): Promise<ZohoTicketsSnapshot> {
+        try {
+            const token = await this.getAccessToken();
+            if (!token) return this.snapshotResult(this.snapshot !== null, 'Zoho authentication failed.');
+            const statuses = await this.fetchAllBugsTrackerTickets(token);
+            this.snapshot = { statuses, fetchedAtMs: Date.now() };
+            return this.snapshotResult(false);
+        } catch (err: any) {
+            console.error('[ZohoTicketStatus] Error fetching Bugs Tracker tickets:', err);
+            return this.snapshotResult(this.snapshot !== null, err?.message || 'Failed to fetch Zoho tickets.');
+        }
     }
 
     async getTeams(): Promise<ZohoTeam[]> {
@@ -314,6 +380,52 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
     }
 
     async createTicket(params: CreateZohoTicketParams): Promise<CreateZohoTicketResponse> {
+        const dedupeKey = `${(params.subject || '').trim()}|${(params.email || '').trim()}|${(params.appName || '').trim()}|${(params.description || '').trim().slice(0, 150)}`;
+
+        const now = Date.now();
+        const recent = this.recentCreatedTickets.get(dedupeKey);
+        if (recent && now - recent.timestamp < 30000 && recent.result.success) {
+            console.warn(`[ZohoTicketStatus] Duplicate ticket creation request detected within 30s for "${params.subject}". Returning cached ticket.`);
+            return recent.result;
+        }
+
+        const existingPromise = this.inFlightCreateTickets.get(dedupeKey);
+        if (existingPromise) {
+            console.warn(`[ZohoTicketStatus] Concurrent ticket creation already in-flight for "${params.subject}". Reusing in-flight request.`);
+            return existingPromise;
+        }
+
+        const createPromise = this.executeCreateTicket(params);
+        this.inFlightCreateTickets.set(dedupeKey, createPromise);
+
+        try {
+            const result = await createPromise;
+            if (result.success) {
+                this.recentCreatedTickets.set(dedupeKey, { result, timestamp: Date.now() });
+                for (const [key, item] of this.recentCreatedTickets.entries()) {
+                    if (Date.now() - item.timestamp > 120000) {
+                        this.recentCreatedTickets.delete(key);
+                    }
+                }
+            }
+            return result;
+        } finally {
+            this.inFlightCreateTickets.delete(dedupeKey);
+        }
+    }
+
+    private async executeCreateTicket(params: CreateZohoTicketParams): Promise<CreateZohoTicketResponse> {
+        if (params.dueDate && params.dueDate.trim()) {
+            const raw = params.dueDate.trim();
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (raw.length === 10 && raw < todayStr) {
+                return {
+                    success: false,
+                    error: "Due Date cannot be earlier than today.",
+                };
+            }
+        }
+
         const token = await this.getAccessToken();
         if (!token) {
             return {
@@ -389,6 +501,13 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
         let formattedDueDateIso: string | null = null;
         if (params.dueDate && params.dueDate.trim()) {
             const raw = params.dueDate.trim();
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (raw.length === 10 && raw < todayStr) {
+                return {
+                    success: false,
+                    error: "Due Date cannot be earlier than today.",
+                };
+            }
             const d = new Date(raw);
             if (!isNaN(d.getTime())) {
                 // If user selected a plain date like "YYYY-MM-DD", set time to end of day IST (23:59:59 IST = 18:29:59 UTC)
@@ -542,20 +661,22 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
                 }
             }
 
-            // Cache the newly created ticket status immediately - same
-            // priority->severity mapping syncAllBugsTrackerTickets uses, so
-            // a just-created ticket already matches the ticket card's
-            // severity rule before its next full sync even runs.
-            this.cache[ticketId] = {
-                ticketId,
-                status,
-                team: assignedTeamName,
-                ticketNumber,
-                priority: zohoPriority,
-                severity: mapZohoPriorityToSeverity(zohoPriority),
-                url,
-                lastCheckedAt: new Date().toISOString(),
-            };
+            // Add the new ticket to the current ticket snapshot right away -
+            // same priority->severity mapping as the ticket list fetch - so
+            // it shows on the ticket card before that snapshot is next
+            // refetched from Zoho (which will include it anyway).
+            if (this.snapshot) {
+                this.snapshot.statuses[ticketId] = {
+                    ticketId,
+                    status,
+                    team: assignedTeamName,
+                    ticketNumber,
+                    priority: zohoPriority,
+                    severity: mapZohoPriorityToSeverity(zohoPriority),
+                    url,
+                    lastCheckedAt: new Date().toISOString(),
+                };
+            }
 
             return {
                 success: true,
@@ -575,4 +696,4 @@ export class ZohoTicketStatusService implements IZohoTicketStatusService {
             };
         }
     }
-}
+}

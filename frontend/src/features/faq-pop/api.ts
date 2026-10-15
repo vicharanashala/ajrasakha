@@ -3,6 +3,25 @@ import { env } from "@/config/env";
 const FAQ_API = (env.faqApiUrl() || "").replace(/\/$/, "");
 const POP_API = (env.popApiUrl() || "").replace(/\/$/, "");
 
+// Set once (and kept in sync) from the signed-in user — see DataProcessingDashboard.tsx, which
+// calls this from a useEffect on useGetCurrentUser(). Every POP_API request (reads included) needs
+// X-User-Id/X-User-Role or the backend 401s; EventSource can't carry headers, so /dashboard/events
+// deliberately stays unauthenticated on the client side (backend keeps that stream open regardless).
+let _popUserId: string | undefined;
+let _popUserRole: string | undefined;
+
+export function setPopIdentity(userId?: string, role?: string) {
+  _popUserId = userId;
+  _popUserRole = role;
+}
+
+async function popFetch(url: string, options: RequestInit = {}) {
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string> | undefined) };
+  if (_popUserId) headers["X-User-Id"] = _popUserId;
+  if (_popUserRole) headers["X-User-Role"] = _popUserRole;
+  return fetch(url, { ...options, headers });
+}
+
 async function _handleResponse(res: Response) {
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
@@ -12,7 +31,12 @@ async function _handleResponse(res: Response) {
     } catch {
       // ignore parse error
     }
-    throw new Error(detail);
+    const err = new Error(detail) as Error & { status?: number };
+    // The message alone often doesn't carry the status (the backend's `detail` text replaces the
+    // "HTTP {status}" fallback above) — callers that need to distinguish e.g. 409 ("someone else
+    // just moved this") from any other failure read `.status`, not the message.
+    err.status = res.status;
+    throw err;
   }
   // 204 No Content (used by every DELETE in the dashboard API) has no body — res.json() would
   // throw on the empty string.
@@ -226,7 +250,7 @@ export async function stopJob(jobId: string) {
 // ---------------------------------------------------------------------------
 
 export async function getPopStates() {
-  const res = await fetch(`${POP_API}/states`);
+  const res = await popFetch(`${POP_API}/states`);
   const data = await _handleResponse(res);
   return Array.isArray(data) ? { states: data } : data;
 }
@@ -248,34 +272,34 @@ export async function getPopDocs(state: string, crop: string) {
 }
 
 export async function getPopJob(jobId: string) {
-  const res = await fetch(`${POP_API}/jobs/${jobId}`);
+  const res = await popFetch(`${POP_API}/jobs/${jobId}`);
   return _handleResponse(res);
 }
 
 export async function stopPopJob(jobId: string) {
-  const res = await fetch(`${POP_API}/jobs/${jobId}/stop`, {
+  const res = await popFetch(`${POP_API}/jobs/${jobId}/stop`, {
     method: "POST",
   });
   return _handleResponse(res);
 }
 
 export async function getPopDataTree() {
-  const res = await fetch(`${POP_API}/data/tree`);
+  const res = await popFetch(`${POP_API}/data/tree`);
   return _handleResponse(res);
 }
 
 export async function getPopOutputTree() {
-  const res = await fetch(`${POP_API}/output/tree`);
+  const res = await popFetch(`${POP_API}/output/tree`);
   return _handleResponse(res);
 }
 
 export async function getPopStateTable() {
-  const res = await fetch(`${POP_API}/state-table`);
+  const res = await popFetch(`${POP_API}/state-table`);
   return _handleResponse(res);
 }
 
 export async function runPop(body: object) {
-  const res = await fetch(`${POP_API}/run/pop`, {
+  const res = await popFetch(`${POP_API}/run/pop`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -284,7 +308,7 @@ export async function runPop(body: object) {
 }
 
 export async function createPopState(state: string) {
-  const res = await fetch(`${POP_API}/state`, {
+  const res = await popFetch(`${POP_API}/state`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ state }),
@@ -293,7 +317,7 @@ export async function createPopState(state: string) {
 }
 
 export async function createPopCrop(state: string, crop: string) {
-  const res = await fetch(`${POP_API}/crop`, {
+  const res = await popFetch(`${POP_API}/crop`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ state, crop }),
@@ -306,7 +330,7 @@ export async function uploadPopDoc(file: File, state: string, crop: string) {
   fd.append("file", file);
   fd.append("state", state);
   fd.append("crop", crop);
-  const res = await fetch(`${POP_API}/upload-doc`, {
+  const res = await popFetch(`${POP_API}/upload-doc`, {
     method: "POST",
     body: fd,
   });
@@ -319,7 +343,7 @@ export async function deletePopDoc(
   docName: string,
 ) {
   const params = new URLSearchParams({ state, crop, doc_name: docName });
-  const res = await fetch(`${POP_API}/doc?${params}`, {
+  const res = await popFetch(`${POP_API}/doc?${params}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -327,7 +351,7 @@ export async function deletePopDoc(
 
 export async function deleteEmptyPopCrop(state: string, crop: string) {
   const params = new URLSearchParams({ state, crop });
-  const res = await fetch(`${POP_API}/crop?${params}`, {
+  const res = await popFetch(`${POP_API}/crop?${params}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -335,7 +359,7 @@ export async function deleteEmptyPopCrop(state: string, crop: string) {
 
 export async function deleteEmptyPopState(state: string) {
   const params = new URLSearchParams({ state });
-  const res = await fetch(`${POP_API}/state?${params}`, {
+  const res = await popFetch(`${POP_API}/state?${params}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -378,14 +402,14 @@ export async function uploadPopFile(
 }
 
 export async function deletePopFile(path: string) {
-  const res = await fetch(`${POP_API}/files/${path}`, {
+  const res = await popFetch(`${POP_API}/files/${path}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
 }
 
 export async function deletePopFolder(path: string) {
-  const res = await fetch(`${POP_API}/folders/${path}`, {
+  const res = await popFetch(`${POP_API}/folders/${path}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -402,7 +426,7 @@ export async function uploadPopAuditedFile(
   fd.append("state", state);
   fd.append("crop", crop);
   fd.append("doc_name", docName);
-  const res = await fetch(`${POP_API}/upload-audited`, {
+  const res = await popFetch(`${POP_API}/upload-audited`, {
     method: "POST",
     body: fd,
   });
@@ -449,18 +473,18 @@ export async function getDashboardDocuments(
   sort = "",
 ) {
   const params = _buildListParams(page, filters, sort);
-  const res = await fetch(`${POP_API}/dashboard/documents?${params}`);
+  const res = await popFetch(`${POP_API}/dashboard/documents?${params}`);
   return _handleResponse(res);
 }
 
 export async function getDashboardDocument(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/documents/${id}`);
+  const res = await popFetch(`${POP_API}/dashboard/documents/${id}`);
   return _handleResponse(res);
 }
 
 // The document's OTHER placements (this row excluded).
 export async function getDocumentSiblings(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/documents/${id}/siblings`);
+  const res = await popFetch(`${POP_API}/dashboard/documents/${id}/siblings`);
   return _handleResponse(res);
 }
 
@@ -471,7 +495,7 @@ export async function updateDashboardDocument(
   id: string,
   fields: Record<string, unknown>,
 ) {
-  const res = await fetch(`${POP_API}/dashboard/documents/${id}`, {
+  const res = await popFetch(`${POP_API}/dashboard/documents/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fields),
@@ -482,7 +506,7 @@ export async function updateDashboardDocument(
 // Removes the PLACEMENT only — never the document, even on its last placement. Its metadata and
 // any translation survive.
 export async function deleteDashboardDocument(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/documents/${id}`, {
+  const res = await popFetch(`${POP_API}/dashboard/documents/${id}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -491,7 +515,7 @@ export async function deleteDashboardDocument(id: string) {
 // {documents, files, states, crops, translated, reviewed} — `documents` means placements,
 // `files` means documents. The raw key names read backwards; label them for humans on display.
 export async function getStats() {
-  const res = await fetch(`${POP_API}/dashboard/stats`);
+  const res = await popFetch(`${POP_API}/dashboard/stats`);
   return _handleResponse(res);
 }
 
@@ -504,12 +528,12 @@ export async function getDashboardUniqueDocuments(
   sort = "",
 ) {
   const params = _buildListParams(page, filters, sort);
-  const res = await fetch(`${POP_API}/dashboard/unique-documents?${params}`);
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents?${params}`);
   return _handleResponse(res);
 }
 
 export async function getDashboardUniqueDocument(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}`);
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}`);
   return _handleResponse(res);
 }
 
@@ -519,7 +543,7 @@ export async function updateDashboardUniqueDocument(
   id: string,
   fields: Record<string, unknown>,
 ) {
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}`, {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fields),
@@ -537,7 +561,7 @@ export async function updateDashboardUniqueDocument(
 // refuses to delete a file — files are removed before any database row, so a 502 here leaves the
 // database exactly as it was and the call is safely retryable.
 export async function deleteDashboardUniqueDocument(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}`, {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -545,7 +569,29 @@ export async function deleteDashboardUniqueDocument(id: string) {
 
 // Every row using this document.
 export async function getUniqueDocumentPlacements(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}/placements`);
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/placements`);
+  return _handleResponse(res);
+}
+
+// Files an EXISTING document under another state/folder (2026-10-05) — no new file, no new
+// duplicate_links entry; the new row just reuses the document's anchor copy. `id` accepts the
+// unique document's own ObjectId (what we always have here), ANNAM_#####, a placement ObjectId, or
+// POP_#####. `body` is exactly one of `{state_id, crop_id}` / `{state_id, organization_id}` — never
+// both, never neither, and never district_id/kvk_id (those are document-level fields now,
+// 2026-10-06 — set via updateDashboardUniqueDocument, not through a placement). Returns a
+// DocumentOut — a MAIN TABLE (placement-level) row, NOT a
+// UniqueDocumentOut, so don't push the result into a unique-documents list; it belongs in a
+// placements list (e.g. DocumentDetailModal's). 409 if the document is already filed under that
+// exact state+folder, with the existing row named in the message — surface `err.message` as-is.
+export async function addDocumentPlacement(
+  id: string,
+  body: { state_id: string; crop_id?: string; organization_id?: string },
+) {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/placements`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
   return _handleResponse(res);
 }
 
@@ -553,7 +599,7 @@ export async function getUniqueDocumentPlacements(id: string) {
 // documents are deleted; their placements are repointed (never deleted) and their copies join
 // the survivor's duplicate_links. The survivor's anchor does not move.
 export async function mergeUniqueDocuments(id: string, absorb: string[]) {
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}/merge`, {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/merge`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ absorb }),
@@ -564,14 +610,14 @@ export async function mergeUniqueDocuments(id: string, absorb: string[]) {
 // Always returns { document_id, candidates: [], note } today — the chunk-match algorithm isn't
 // connected yet. Show `note` verbatim rather than "no duplicates found", which would be false.
 export async function findDuplicatesForRow(rowId: string) {
-  const res = await fetch(`${POP_API}/dashboard/documents/${rowId}/find-duplicates`, {
+  const res = await popFetch(`${POP_API}/dashboard/documents/${rowId}/find-duplicates`, {
     method: "POST",
   });
   return _handleResponse(res);
 }
 
 export async function findDuplicatesForDocument(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}/find-duplicates`, {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/find-duplicates`, {
     method: "POST",
   });
   return _handleResponse(res);
@@ -581,30 +627,51 @@ export async function findDuplicatesForDocument(id: string) {
 // DELETE, same shape as organizations below, but no management UI for that exists yet (not asked
 // for beyond the Folder-dropdown work this comment sits next to).
 export async function getDashboardStates() {
-  const res = await fetch(`${POP_API}/dashboard/states`);
+  const res = await popFetch(`${POP_API}/dashboard/states`);
   return _handleResponse(res);
 }
 
-// `state` narrows to crops actually used in that state. Crops are now READ-ONLY (2026-09-15) —
+// `state_id` narrows to crops actually used in that state. Crops are now READ-ONLY (2026-09-15) —
 // they come from a crop master another application maintains; POST/PATCH/merge/DELETE on /crops
-// all 403. There is no createDashboardCrop anymore — don't add one back.
-export async function getDashboardCrops(state?: string) {
-  const qs = state ? `?state=${encodeURIComponent(state)}` : "";
-  const res = await fetch(`${POP_API}/dashboard/crops${qs}`);
+// all 403. There is no createDashboardCrop anymore — don't add one back. Vocabulary is matched by
+// id only now (2026-10-05 backend change) — `?state=<name>` is ignored server-side, so this takes
+// an id, not a name.
+export async function getDashboardCrops(stateId?: string) {
+  const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
+  const res = await popFetch(`${POP_API}/dashboard/crops${qs}`);
   return _handleResponse(res);
 }
 
 // Organisations (ICAR institutes, ministries, groupings like "General"/"Pulses") — the other half
 // of what a placement's Folder can be, alongside a crop. Unlike crops, these are ours: fully
 // editable, same shape as states (POST idempotent-creates, PATCH renames, merge, DELETE).
-export async function getDashboardOrganizations(state?: string) {
-  const qs = state ? `?state=${encodeURIComponent(state)}` : "";
-  const res = await fetch(`${POP_API}/dashboard/organizations${qs}`);
+export async function getDashboardOrganizations(stateId?: string) {
+  const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
+  const res = await popFetch(`${POP_API}/dashboard/organizations${qs}`);
+  return _handleResponse(res);
+}
+
+// District/KVK — placement-level fields, id-referenced like state/crop. Synced from the official
+// LGD registry (2026-10-02) — districts narrow by PARENT (`state_id`), KVKs narrow by their own
+// parent (`district_id`, NOT state_id — a KVK belongs to one district, not directly to a state,
+// even though every KVK row also carries a `state_id` for convenience). Omitting the id entirely
+// returns the FULL list (823 districts / 1,550 KVKs) — the right call for a column filter, which
+// already has its own search and isn't trying to replicate the form's state→district→KVK cascade.
+// States/districts/KVKs are now read-only (synced data) — POST/PATCH/merge/DELETE all 403.
+export async function getDashboardDistricts(stateId?: string) {
+  const qs = stateId ? `?state_id=${encodeURIComponent(stateId)}` : "";
+  const res = await popFetch(`${POP_API}/dashboard/districts${qs}`);
+  return _handleResponse(res);
+}
+
+export async function getDashboardKvks(districtId?: string) {
+  const qs = districtId ? `?district_id=${encodeURIComponent(districtId)}` : "";
+  const res = await popFetch(`${POP_API}/dashboard/kvks${qs}`);
   return _handleResponse(res);
 }
 
 export async function createDashboardState(name: string) {
-  const res = await fetch(`${POP_API}/dashboard/states`, {
+  const res = await popFetch(`${POP_API}/dashboard/states`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -613,7 +680,7 @@ export async function createDashboardState(name: string) {
 }
 
 export async function createDashboardOrganization(name: string) {
-  const res = await fetch(`${POP_API}/dashboard/organizations`, {
+  const res = await popFetch(`${POP_API}/dashboard/organizations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -625,20 +692,22 @@ export async function createDashboardOrganization(name: string) {
 // Advisory Type (Comprehensive/Crop Advisory → crops only, Non-Crop Advisory → organizations only,
 // General/blank/anything unrecognized → both). Don't reimplement that rule client-side beyond this
 // fallback: GET /dashboard/folders does it server-side and returns [{id, name, kind,
-// raw_names, document_count}] pre-filtered. `state` narrows to folders actually used there, same
-// as getDashboardCrops/getDashboardOrganizations.
+// document_count}] pre-filtered. `state_id` narrows to folders actually used there, same as
+// getDashboardCrops/getDashboardOrganizations — leave it out for the full, unscoped vocabulary
+// (needed when the caller wants to pick a folder nobody has used under that state yet, e.g. filing
+// a new placement).
 //
 // /folders isn't deployed yet as of 2026-09-15 (404 until the next image) — falls back to fetching
 // /crops and/or /organizations directly and tagging each with its `kind`, applying the same
 // Comprehensive/Crop Advisory/Non-Crop Advisory/General classification locally. Once /folders is
 // live this fallback simply never triggers (no need to remove it).
-export async function getDashboardFolders(advisoryType?: string, state?: string) {
+export async function getDashboardFolders(advisoryType?: string, stateId?: string) {
   const params = new URLSearchParams();
   if (advisoryType) params.set("advisory_type", advisoryType);
-  if (state) params.set("state", state);
+  if (stateId) params.set("state_id", stateId);
   const qs = params.toString();
-  const res = await fetch(`${POP_API}/dashboard/folders${qs ? `?${qs}` : ""}`);
-  if (res.status === 404) return _folderFallback(advisoryType, state);
+  const res = await popFetch(`${POP_API}/dashboard/folders${qs ? `?${qs}` : ""}`);
+  if (res.status === 404) return _folderFallback(advisoryType, stateId);
   return _handleResponse(res);
 }
 
@@ -666,7 +735,7 @@ async function _folderFallback(advisoryType?: string, state?: string) {
 // 14 tessdata languages + non_english — the only valid source for a language dropdown, don't
 // hardcode a list client-side.
 export async function getDashboardLanguages() {
-  const res = await fetch(`${POP_API}/dashboard/languages`);
+  const res = await popFetch(`${POP_API}/dashboard/languages`);
   return _handleResponse(res);
 }
 
@@ -678,29 +747,36 @@ export async function getDashboardLanguages() {
 // the data itself). Every caller treats a failure here as non-fatal and falls back to a free-text
 // filter box (see the "users" branch in UniqueDocumentsTable.tsx).
 export async function getDashboardUploadedByOptions(): Promise<string[]> {
-  const res = await fetch(`${POP_API}/dashboard/uploaded-by`);
+  const res = await popFetch(`${POP_API}/dashboard/uploaded-by`);
   return (await _handleResponse(res)) || [];
 }
 export async function getDashboardTranslatedByOptions(): Promise<string[]> {
-  const res = await fetch(`${POP_API}/dashboard/translated-by`);
+  const res = await popFetch(`${POP_API}/dashboard/translated-by`);
   return (await _handleResponse(res)) || [];
 }
 export async function getDashboardReviewedByOptions(): Promise<string[]> {
-  const res = await fetch(`${POP_API}/dashboard/reviewed-by`);
+  const res = await popFetch(`${POP_API}/dashboard/reviewed-by`);
+  return (await _handleResponse(res)) || [];
+}
+export async function getDashboardApprovedByApproverOptions(): Promise<string[]> {
+  const res = await popFetch(`${POP_API}/dashboard/approved-by-approver`);
+  return (await _handleResponse(res)) || [];
+}
+export async function getDashboardApprovedByAdminOptions(): Promise<string[]> {
+  const res = await popFetch(`${POP_API}/dashboard/approved-by-admin`);
   return (await _handleResponse(res)) || [];
 }
 
-// `placements` is the per-state folder-group shape: [{state, crop_ids: [...], organization_ids:
-// [...]}, ...] — sent as placements_json. Each group needs at least one id across the two lists;
-// AddDocumentForm.tsx resolves its Folder picks (crop or organization) into these before calling
-// this. Ids are preferred — a name under "crops" must already be a crop-master crop (400
-// otherwise), while a name under "organizations" may introduce a new one, so id-based groups avoid
-// that whole distinction. (states_json/crops_json cross-product is also accepted server-side but
-// only makes sense when every state gets the same folder list, so it isn't used here.)
+// `placements` is the per-state folder-group shape: [{state_id, crop_ids: [...],
+// organization_ids: [...]}, ...] — sent as placements_json. Each group needs at least one id
+// across the two lists; AddDocumentForm.tsx resolves its Folder picks (crop or organization) into
+// these before calling this. District/KVK are NOT placement fields (moved to the document itself,
+// 2026-10-06) — a group carrying either now 400s ("not a placement field any more"), so they're
+// passed via `fields` as plain `district_id`/`kvk_id` form fields instead, same as `language`.
 export async function uploadDashboardDocument(
   file: File,
   fields: Record<string, string>,
-  placements: { state: string; crop_ids?: string[]; organization_ids?: string[] }[],
+  placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
   language: string,
 ) {
   const fd = new FormData();
@@ -710,7 +786,7 @@ export async function uploadDashboardDocument(
   for (const [key, value] of Object.entries(fields || {})) {
     if (value !== "" && value != null) fd.append(key, value);
   }
-  const res = await fetch(`${POP_API}/dashboard/uploads`, {
+  const res = await popFetch(`${POP_API}/dashboard/uploads`, {
     method: "POST",
     body: fd,
   });
@@ -721,17 +797,17 @@ export async function uploadDashboardDocument(
 // polling is shown there) — kept as a carried-over assumption since the multi-item Upload Queue
 // panel has no other data source and nothing suggests this list endpoint went away.
 export async function getDashboardUploads() {
-  const res = await fetch(`${POP_API}/dashboard/uploads`);
+  const res = await popFetch(`${POP_API}/dashboard/uploads`);
   return _handleResponse(res);
 }
 
 export async function getDashboardUpload(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/uploads/${id}`);
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}`);
   return _handleResponse(res);
 }
 
 export async function cancelDashboardUpload(id: string) {
-  const res = await fetch(`${POP_API}/dashboard/uploads/${id}`, {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -741,30 +817,166 @@ export async function cancelDashboardUpload(id: string) {
 // can_add/can_create_new/new_placements. `documentId` picks which candidate this is ("this IS the
 // matched document") — may be omitted only when there's exactly one candidate. Links the new
 // placement(s) onto it and removes the item from the queue. 409 if that candidate can't be added.
-export async function addUploadToMatch(id: string, documentId?: string) {
-  const res = await fetch(`${POP_API}/dashboard/uploads/${id}/add`, {
+export async function addUploadToMatch(id: string, documentId?: string, approvedBy?: string) {
+  const body: Record<string, string> = {};
+  if (documentId) body.document_id = documentId;
+  if (approvedBy) body.approved_by = approvedBy;
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/add`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(documentId ? { document_id: documentId } : {}),
+    body: JSON.stringify(body),
   });
   return _handleResponse(res);
 }
 
-export async function addUploadAsNew(id: string) {
+export async function addUploadAsNew(id: string, approvedBy?: string) {
   // "This is actually a different document" (or there was no candidate at all) — creates it as
   // its own document. Async — a real Zoho upload happens server-side — keep polling
   // getDashboardUploads()/getDashboardUpload(id) until the item disappears (succeeded) or shows
   // status: "failed". 409 if the top candidate is an exact sha match (can_create_new: false).
-  const res = await fetch(`${POP_API}/dashboard/uploads/${id}/new`, {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/new`, {
     method: "POST",
+    ...(approvedBy
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved_by: approvedBy }) }
+      : {}),
   });
   return _handleResponse(res);
 }
 
 export async function cancelPendingDuplicateUpload(id: string) {
   // "Discard" — nothing linked or created, any matched document untouched. 204.
-  const res = await fetch(`${POP_API}/dashboard/uploads/${id}/cancel`, {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/cancel`, {
     method: "POST",
+  });
+  return _handleResponse(res);
+}
+
+// Edit the upload's own submitted fields/placements while it's still in the queue (approver or
+// admin stage, whoever actions.can_edit is true for) — any subset: language, placements, district_id,
+// kvk_id, format_original, metadata fields as in the upload form (never uploaded_by). Candidates are
+// recomputed server-side after the edit.
+export async function updateDashboardUpload(id: string, fields: Record<string, unknown>) {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  return _handleResponse(res);
+}
+
+// Upload approver action: moves an expert's upload from stage "approver" to "admin".
+export async function approveDashboardUpload(id: string, approvedBy?: string) {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/approve`, {
+    method: "POST",
+    ...(approvedBy
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved_by: approvedBy }) }
+      : {}),
+  });
+  return _handleResponse(res);
+}
+
+// Decline with a required, non-empty note. From "approver" stage this sends it back to the
+// uploading expert (stage "expert", shows approver_note); from "admin" stage it sends it back to
+// the approvers (stage "approver", shows admin_note).
+export async function declineDashboardUpload(id: string, note: string) {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/decline`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
+  return _handleResponse(res);
+}
+
+// The uploader sending their declined upload (stage "expert", status awaiting_review) back to the
+// approvers — offered whenever actions.can_resubmit is true. No body; approver_note/admin_note
+// stay on the item so the approver can see what they asked for. 404 if the caller can't see it,
+// 403 if it's not at the expert stage / not theirs, 409 if someone else acted first (refetch).
+export async function resubmitDashboardUpload(id: string) {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/resubmit`, {
+    method: "POST",
+  });
+  return _handleResponse(res);
+}
+
+// The uploader removing an item that was returned to them (stage "expert" only) — same DELETE
+// route as cancelDashboardUpload/admin-discard, kept as a separate export so call sites read the
+// intent (Remove vs. Discard) even though the request is identical.
+export async function removeDashboardUpload(id: string) {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}`, {
+    method: "DELETE",
+  });
+  return _handleResponse(res);
+}
+
+// The uploaded file itself (inline), for the queue row's eye/preview toggle — identity-checked
+// like every other POP_API call, so it has to go through popFetch and come back as a blob the
+// caller turns into a local object URL (and revokes when the preview closes).
+export async function getDashboardUploadFileBlob(id: string): Promise<Blob> {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/${id}/file`);
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body.detail) detail = body.detail;
+    } catch {
+      // ignore parse error
+    }
+    const err = new Error(detail) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+  return res.blob();
+}
+
+// GET /dashboard/me -> {user_id, role, is_admin, can_edit, can_approve_uploads, can_translate}.
+// Gate the whole UI off this, not off currentUser.role directly — is_admin/can_edit/
+// can_approve_uploads/can_translate already encode the edit-list/upload-list membership the
+// backend tracks, which a raw role string can't.
+export interface DashboardMe {
+  user_id: string;
+  role: string;
+  is_admin: boolean;
+  can_edit: boolean;
+  can_approve_uploads: boolean;
+  can_translate: boolean;
+}
+
+export async function getDashboardMe(): Promise<DashboardMe> {
+  const res = await popFetch(`${POP_API}/dashboard/me`);
+  return _handleResponse(res);
+}
+
+// User Management (admin-only) — two independent lists, a user can be in both. `name`/`email` are
+// sent on add because the POP backend can't read agriai.users in production and stores them only
+// for display.
+export interface UserManagementEntry {
+  user_id: string;
+  name: string;
+  email: string;
+  added_by: string;
+  added_at: string;
+}
+
+export async function getUserManagementList(list: "edit" | "upload"): Promise<UserManagementEntry[]> {
+  const res = await popFetch(`${POP_API}/dashboard/user-management/${list}`);
+  return (await _handleResponse(res)) || [];
+}
+
+export async function addUserManagementEntry(
+  list: "edit" | "upload",
+  entry: { user_id: string; name: string; email: string },
+) {
+  const res = await popFetch(`${POP_API}/dashboard/user-management/${list}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry),
+  });
+  return _handleResponse(res);
+}
+
+export async function removeUserManagementEntry(list: "edit" | "upload", userId: string) {
+  const res = await popFetch(`${POP_API}/dashboard/user-management/${list}/${userId}`, {
+    method: "DELETE",
   });
   return _handleResponse(res);
 }
@@ -773,12 +985,12 @@ export async function cancelPendingDuplicateUpload(id: string) {
 // cancelled for history.
 export async function getDashboardTranslationJobs(status?: string) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
-  const res = await fetch(`${POP_API}/dashboard/translation-jobs${qs}`);
+  const res = await popFetch(`${POP_API}/dashboard/translation-jobs${qs}`);
   return _handleResponse(res);
 }
 
 export async function cancelDashboardTranslationJob(jobId: string) {
-  const res = await fetch(`${POP_API}/dashboard/translation-jobs/${jobId}/cancel`, {
+  const res = await popFetch(`${POP_API}/dashboard/translation-jobs/${jobId}/cancel`, {
     method: "POST",
   });
   return _handleResponse(res);
@@ -789,7 +1001,7 @@ export async function cancelDashboardTranslationJob(jobId: string) {
 // running). 409 for queued/running ("cancel it first") — cancel, then remove once it shows
 // done/failed/cancelled.
 export async function deleteDashboardTranslationJob(jobId: string) {
-  const res = await fetch(`${POP_API}/dashboard/translation-jobs/${jobId}`, {
+  const res = await popFetch(`${POP_API}/dashboard/translation-jobs/${jobId}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -802,7 +1014,7 @@ export async function deleteDashboardTranslationJob(jobId: string) {
 // backend just stores whatever name it's given (docs/first_render_frontend.md, "Who translated /
 // reviewed, and when").
 export async function translateDashboardDocument(placementId: string, translatedBy?: string) {
-  const res = await fetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
+  const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
     method: "POST",
     ...(translatedBy
       ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
@@ -814,7 +1026,7 @@ export async function translateDashboardDocument(placementId: string, translated
 // Document-addressed equivalent of translateDashboardDocument, for use where no single placement
 // is in scope (e.g. the top level of a document detail view).
 export async function translateUniqueDocument(id: string, translatedBy?: string) {
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
     method: "POST",
     ...(translatedBy
       ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
@@ -824,7 +1036,7 @@ export async function translateUniqueDocument(id: string, translatedBy?: string)
 }
 
 export async function deleteDashboardTranslation(placementId: string) {
-  const res = await fetch(`${POP_API}/dashboard/documents/${placementId}/translation`, {
+  const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translation`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -846,7 +1058,7 @@ export async function uploadDashboardTranslation(placementId: string, file: File
   const fd = new FormData();
   fd.append("file", file);
   if (translatedBy) fd.append("translated_by", translatedBy);
-  const res = await fetch(`${POP_API}/dashboard/documents/${placementId}/translation`, {
+  const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translation`, {
     method: "POST",
     body: fd,
   });
@@ -859,7 +1071,7 @@ export async function uploadUniqueDocumentTranslation(documentId: string, file: 
   const fd = new FormData();
   fd.append("file", file);
   if (translatedBy) fd.append("translated_by", translatedBy);
-  const res = await fetch(`${POP_API}/dashboard/unique-documents/${documentId}/translation`, {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${documentId}/translation`, {
     method: "POST",
     body: fd,
   });
@@ -871,7 +1083,7 @@ export async function uploadDashboardReview(placementId: string, file: File, rev
   const fd = new FormData();
   fd.append("file", file);
   if (reviewedBy) fd.append("reviewed_by", reviewedBy);
-  const res = await fetch(`${POP_API}/dashboard/documents/${placementId}/review`, {
+  const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/review`, {
     method: "POST",
     body: fd,
   });
@@ -886,19 +1098,23 @@ export function getFileDownloadUrl(fileId: string) {
   return `${POP_API}/dashboard/files/${fileId}/download`;
 }
 
-// Named-download endpoints (docs/first_render_frontend.md, "Translation and review, named after
-// the document") — unlike getFileDownloadUrl, these name the file after the DOCUMENT rather than
-// whatever it's called in WorkDrive (e.g. "Paddy_KA_2021.pdf" -> "Paddy_KA_2021_translation.docx"
-// / "..._reviewed.docx"), via Content-Disposition (FileActionIcons.tsx reads it off the response
-// rather than guessing the name itself). 404 when the document has no translation/review yet.
+// Named-download endpoints — unlike getFileDownloadUrl, these name the file after the DOCUMENT's
+// shareable_name (e.g. "Paddy_KA_2021.pdf" -> "Paddy_KA_2021_translation.docx" / "..._reviewed.docx"
+// / plain "Paddy_KA_2021.pdf" for the original), via Content-Disposition (FileActionIcons.tsx reads
+// it off the response rather than guessing the name itself). `getOriginalDownloadUrl` mirrors
+// translation/review (added 2026-09-29) — confirmed by the backend to support `?inline=1` the same
+// way. Translation/review 404 when the document has none yet.
 export function getTranslationDownloadUrl(documentId: string, inline = false) {
   return `${POP_API}/dashboard/unique-documents/${documentId}/translation/download${inline ? "?inline=1" : ""}`;
 }
 export function getReviewDownloadUrl(documentId: string, inline = false) {
   return `${POP_API}/dashboard/unique-documents/${documentId}/review/download${inline ? "?inline=1" : ""}`;
 }
+export function getOriginalDownloadUrl(documentId: string, inline = false) {
+  return `${POP_API}/dashboard/unique-documents/${documentId}/original/download${inline ? "?inline=1" : ""}`;
+}
 
 export async function getDashboardConfig() {
-  const res = await fetch(`${POP_API}/dashboard/config`);
+  const res = await popFetch(`${POP_API}/dashboard/config`);
   return _handleResponse(res);
 }

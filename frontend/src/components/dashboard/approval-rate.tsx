@@ -135,46 +135,19 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({
                 Pending Breakdown
               </span>
               <span className="text-xs text-muted-foreground">
-                Training vs Other
+                Main Module vs Training Module
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {/* Training Questions */}
-              <div className="rounded-lg border border-violet-200/70 bg-violet-50/40 p-2.5 dark:border-violet-900/50 dark:bg-violet-950/20">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">
-                    <GraduationCap className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="text-xs font-medium text-foreground truncate">
-                    Training
-                  </span>
-                </div>
-                <div className="mt-2 flex items-baseline justify-between">
-                  <span className="text-lg font-bold text-foreground">
-                    <CountUp
-                      key={`pending-training-${key}`}
-                      end={pendingTraining}
-                      duration={1.5}
-                      preserveValue
-                    />
-                  </span>
-                  {totalPending > 0 && (
-                    <span className="text-[11px] font-medium text-violet-600 dark:text-violet-400">
-                      {trainingPct}%
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Other / Normal Questions */}
+              {/* Main Module */}
               <div className="rounded-lg border border-sky-200/70 bg-sky-50/40 p-2.5 dark:border-sky-900/50 dark:bg-sky-950/20">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-md bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300">
                     <Layers className="h-3.5 w-3.5" />
                   </div>
                   <span className="text-xs font-medium text-foreground truncate">
-                    Other Questions
+                    Main Module
                   </span>
                 </div>
                 <div className="mt-2 flex items-baseline justify-between">
@@ -193,6 +166,33 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Training Module */}
+              <div className="rounded-lg border border-violet-200/70 bg-violet-50/40 p-2.5 dark:border-violet-900/50 dark:bg-violet-950/20">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">
+                    <GraduationCap className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-xs font-medium text-foreground truncate">
+                    Training Module
+                  </span>
+                </div>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-lg font-bold text-foreground">
+                    <CountUp
+                      key={`pending-training-${key}`}
+                      end={pendingTraining}
+                      duration={1.5}
+                      preserveValue
+                    />
+                  </span>
+                  {totalPending > 0 && (
+                    <span className="text-[11px] font-medium text-violet-600 dark:text-violet-400">
+                      {trainingPct}%
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Ratio bar */}
@@ -200,28 +200,28 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({
               <div className="space-y-1">
                 <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
                   <motion.div
-                    className="bg-violet-500 dark:bg-violet-600 h-full"
-                    key={`training-bar-${key}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${trainingPct}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                  />
-                  <motion.div
                     className="bg-sky-500 dark:bg-sky-600 h-full"
                     key={`other-bar-${key}`}
                     initial={{ width: 0 }}
                     animate={{ width: `${otherPct}%` }}
                     transition={{ duration: 1, ease: "easeOut" }}
                   />
+                  <motion.div
+                    className="bg-violet-500 dark:bg-violet-600 h-full"
+                    key={`training-bar-${key}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${trainingPct}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                  />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
                   <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-                    Training Questions
+                    <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+                    Main Module
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                    Other Questions
+                    <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                    Training Module
                   </span>
                 </div>
               </div>

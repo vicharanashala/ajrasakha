@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   getDashboardConfig,
   getStats,
@@ -9,7 +10,11 @@ import {
   cancelDashboardUpload,
   addUploadToMatch,
   addUploadAsNew,
-  cancelPendingDuplicateUpload,
+  updateDashboardUpload,
+  approveDashboardUpload,
+  declineDashboardUpload,
+  resubmitDashboardUpload,
+  removeDashboardUpload,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
   deleteDashboardTranslationJob,
@@ -29,16 +34,6 @@ const MODES = [
   { id: "unique-documents", label: "Documents" },
 ];
 
-function TimeAgo({ ts }) {
-  const [, force] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  if (!ts) return null;
-  return <span>{Math.max(0, Math.round((Date.now() - ts) / 1000))}s ago</span>;
-}
-
 // Document Management dashboard (docs/first_render_frontend.md) — third mode alongside
 // FAQ-Cluster/POP-Translation, wired in as a TABS entry in ../../DataProcessingDashboard.tsx.
 //
@@ -49,8 +44,16 @@ function TimeAgo({ ts }) {
 // Documents" table row (the old cross-tab jump/pin/focus mechanism). All 3 sub-tables stay
 // mounted permanently — visibility toggles via a `hidden` className, not conditional unmount — so
 // polling is never torn down by a sub-mode switch.
-export default function DocumentManagementPanel() {
+export default function DocumentManagementPanel({
+  canEdit = false,
+  canTranslate = false,
+  canApproveUploads = false,
+  isAdmin = false,
+}) {
   const [activeMode, setActiveMode] = useState("main-table");
+  // approved_by (approver/admin columns) — the signed-in user's display name, same source as
+  // uploaded_by/translated_by (see TranslateReviewCell.tsx).
+  const currentUserName = useAuthStore((s) => s.user?.name);
 
   const [translationAvailable, setTranslationAvailable] = useState(false);
   useEffect(() => {
@@ -83,8 +86,25 @@ export default function DocumentManagementPanel() {
   // /dashboard/events); the interval further down is now just a slow fallback in case that
   // stream is unavailable, not the primary refresh mechanism.
   const [queueItems, setQueueItems] = useState([]);
+  // GET /dashboard/uploads returns, per caller: own uploads at ANY level, plus level 1 (approver)
+  // items if an upload approver, plus level 2 (admin) items if admin — but each queue should only
+  // show items that are actually THIS person's turn to act on right now, not every level they can
+  // merely see. `level` (0=with the uploader, 1=with the approvers, 2=with the admins) moves on
+  // every add/decline/resubmit, so this is re-derived from the live item on every render, not
+  // cached. `stage` is the same thing as a label, still sent — used here only as a fallback for an
+  // item that hasn't been re-fetched with `level` yet.
+  const LEVEL_BY_STAGE = { expert: 0, approver: 1, admin: 2 };
+  function itemLevel(i) {
+    return typeof i.level === "number" ? i.level : LEVEL_BY_STAGE[i.stage];
+  }
+  const visibleQueueItems = queueItems.filter((i) => {
+    const level = itemLevel(i);
+    if (canApproveUploads && isAdmin) return level === 1 || level === 2;
+    if (canApproveUploads) return level === 1;
+    if (isAdmin) return level === 2;
+    return level === 0;
+  });
   const [translationJobs, setTranslationJobs] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [busyUploadId, setBusyUploadId] = useState(null);
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
   // "New" is async — a real Zoho upload happens server-side, and the item stays at
@@ -170,7 +190,6 @@ export default function DocumentManagementPanel() {
       refetchTranslationJobs(),
       ...(showFinishedJobs ? [refetchFinishedJobs()] : []),
     ]);
-    setLastUpdated(Date.now());
   }
 
   // Both queues load up front regardless of which sub-mode is active.
@@ -194,6 +213,10 @@ export default function DocumentManagementPanel() {
   // version instead.
   const refetchAllRef = useRef(refetchAll);
   refetchAllRef.current = refetchAll;
+  const refetchUploadsRef = useRef(refetchUploads);
+  refetchUploadsRef.current = refetchUploads;
+  const uploadRefetchTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(uploadRefetchTimerRef.current), []);
 
   // GET /dashboard/events — one shared SSE connection (see dashboardEvents.ts) driving live
   // updates for both queues, instead of polling. No replay on reconnect, so every (re)connect
@@ -202,25 +225,14 @@ export default function DocumentManagementPanel() {
   useEffect(() => {
     const unsubscribe = subscribeDashboardEvents({
       open: () => refetchAllRef.current(),
-      upload: (item) => {
-        setQueueItems((prev) => {
-          if (item.deleted) return prev.filter((it) => it.id !== item.id);
-          const idx = prev.findIndex((it) => it.id === item.id);
-          if (idx === -1) return [...prev, item];
-          const next = [...prev];
-          next[idx] = item;
-          return next;
-        });
-        setProcessingUploadIds((prev) => {
-          if (!prev.has(item.id)) return prev;
-          if (item.deleted || item.status !== "awaiting_review") {
-            const next = new Set(prev);
-            next.delete(item.id);
-            return next;
-          }
-          return prev;
-        });
-        setLastUpdated(Date.now());
+      // GET /dashboard/uploads is now per-caller (own uploads + approver-stage items if an upload
+      // approver + admin-stage items if admin) rather than one shared list, so the event's own
+      // payload can no longer be upserted into local state directly — it may not even be an item
+      // this caller is allowed to see. Refetch instead (debounced — an upload moving through
+      // several stages fires several events in quick succession).
+      upload: () => {
+        clearTimeout(uploadRefetchTimerRef.current);
+        uploadRefetchTimerRef.current = setTimeout(refetchUploadsRef.current, 300);
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
@@ -247,7 +259,6 @@ export default function DocumentManagementPanel() {
             return job.deleted ? filtered : [...filtered, job];
           });
         }
-        setLastUpdated(Date.now());
       },
       document: () => bumpRefresh(),
     });
@@ -259,6 +270,15 @@ export default function DocumentManagementPanel() {
     refetchUploads();
   }
 
+  // 404 means this upload isn't (or is no longer) visible to this caller at all; 409 means
+  // someone else just moved it to another stage; 403 covers losing standing to act on it (e.g.
+  // removed as an approver, or it moved to a stage that isn't this caller's) — in every case the
+  // locally-held item/queue is stale, so resync from the server instead of leaving a dead row the
+  // next click will just 403/404/409 again.
+  function isStaleUploadError(err) {
+    return err?.status === 403 || err?.status === 404 || err?.status === 409;
+  }
+
   async function handleCancelUpload(item) {
     setBusyUploadId(item.id);
     try {
@@ -266,20 +286,27 @@ export default function DocumentManagementPanel() {
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
     } catch (err) {
       toast.error(err.message || "Failed to cancel");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
   }
 
-  async function handleAddUpload(item, documentId) {
+  async function handleAddUpload(item, documentId, candidate) {
     setBusyUploadId(item.id);
     try {
-      const res = await addUploadToMatch(item.id, documentId);
-      toast.success(`Linked — ${res?.placements_created ?? 0} new placement(s) created`);
+      const res = await addUploadToMatch(item.id, documentId, currentUserName);
+      // The upload moves to status "uploading" right away and the worker creates placements
+      // afterward, so created_row_ids (and placements_created) in this reply is always empty —
+      // count from the candidate's own new_placements, what the row already showed as "would
+      // file it under N new place(s)".
+      const count = candidate?.new_placements?.length ?? res?.placements_created ?? 0;
+      toast.success(`Linked — ${count} new placement(s) created`);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
       bumpRefresh();
     } catch (err) {
       toast.error(err.message || "Failed to add");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
@@ -291,22 +318,109 @@ export default function DocumentManagementPanel() {
   async function handleNewUpload(item) {
     setBusyUploadId(item.id);
     try {
-      await addUploadAsNew(item.id);
+      await addUploadAsNew(item.id, currentUserName);
       setProcessingUploadIds((prev) => new Set(prev).add(item.id));
     } catch (err) {
       toast.error(err.message || "Failed to process as a new document");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
   }
 
-  async function handleCancelDuplicateUpload(item) {
+  // Upload approver: moves the item from stage "approver" to "admin".
+  async function handleApproveUpload(item) {
     setBusyUploadId(item.id);
     try {
-      await cancelPendingDuplicateUpload(item.id);
+      const updated = await approveDashboardUpload(item.id, currentUserName);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Approved");
+    } catch (err) {
+      toast.error(err.message || "Failed to approve");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // Approver or admin declining with a required note — sends it back a stage (approver -> expert,
+  // admin -> approver). The backend 400s on an empty note, so the panel below only calls this once
+  // the note box has content.
+  async function handleDeclineUpload(item, note) {
+    setBusyUploadId(item.id);
+    try {
+      const updated = await declineDashboardUpload(item.id, note);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Declined");
+    } catch (err) {
+      toast.error(err.message || "Failed to decline");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // Editing the upload's own submitted fields/placements — offered while actions.can_edit is true
+  // (approver or admin stage, whoever's turn it is). Only ever called with keys the backend
+  // actually accepts (language/placements/district_id/kvk_id/format_original/an upload-form
+  // metadata field) — it 422s on anything else, uploaded_by included.
+  async function handleEditUpload(item, fields) {
+    setBusyUploadId(item.id);
+    try {
+      const updated = await updateDashboardUpload(item.id, fields);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Saved");
+    } catch (err) {
+      toast.error(err.message || "Failed to save");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // The uploading expert sending their declined upload back to the approvers — offered while
+  // actions.can_resubmit is true (stage "expert", status awaiting_review only). The item stays in
+  // the expert's own list afterward (they always see their own uploads) but moves to stage
+  // "approver", with no actions left for them until it's decided again.
+  async function handleResubmitUpload(item) {
+    setBusyUploadId(item.id);
+    try {
+      const updated = await resubmitDashboardUpload(item.id);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Resubmitted");
+    } catch (err) {
+      toast.error(err.message || "Failed to resubmit");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // Admin discard (stage "admin") — same DELETE route as the uploader's own Remove below, kept as
+  // a separate handler so the two read as distinct actions even though the request is identical.
+  async function handleDiscardUpload(item) {
+    setBusyUploadId(item.id);
+    try {
+      await cancelDashboardUpload(item.id);
+      setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
+      toast.success("Discarded");
+    } catch (err) {
+      toast.error(err.message || "Failed to discard");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // The uploading expert removing an item returned to them (stage "expert" only).
+  async function handleRemoveUpload(item) {
+    setBusyUploadId(item.id);
+    try {
+      await removeDashboardUpload(item.id);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
     } catch (err) {
-      toast.error(err.message || "Failed to cancel");
+      toast.error(err.message || "Failed to remove");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
@@ -364,7 +478,6 @@ export default function DocumentManagementPanel() {
           <div className="w-full min-w-0 flex flex-col gap-2">
             <div className="flex items-center justify-end">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">Updated <TimeAgo ts={lastUpdated} /></span>
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   onClick={refetchAll}
@@ -376,42 +489,55 @@ export default function DocumentManagementPanel() {
             <ResizableSplitPanel
               top={
                 <UploadQueuePanel
-                  items={queueItems}
+                  items={visibleQueueItems}
                   onCancelQueued={handleCancelUpload}
                   onAdd={handleAddUpload}
                   onNew={handleNewUpload}
-                  onCancelDuplicate={handleCancelDuplicateUpload}
+                  onApprove={handleApproveUpload}
+                  onDecline={handleDeclineUpload}
+                  onEdit={handleEditUpload}
+                  onResubmit={handleResubmitUpload}
+                  onDiscard={handleDiscardUpload}
+                  onRemove={handleRemoveUpload}
                   onOpenDetail={openDetail}
                   busyId={busyUploadId}
                   processingIds={processingUploadIds}
                 />
               }
               bottom={
-                <TranslationQueuePanel
-                  jobs={translationJobs}
-                  onCancel={handleCancelTranslationJob}
-                  onOpenDetail={openDetail}
-                  stoppingIds={stoppingJobIds}
-                  finishedJobs={finishedJobs}
-                  showFinished={showFinishedJobs}
-                  onToggleFinished={setShowFinishedJobs}
-                  onRemove={handleRemoveTranslationJob}
-                  removingIds={removingJobIds}
-                />
+                canTranslate ? (
+                  <TranslationQueuePanel
+                    jobs={translationJobs}
+                    onCancel={handleCancelTranslationJob}
+                    onOpenDetail={openDetail}
+                    stoppingIds={stoppingJobIds}
+                    finishedJobs={finishedJobs}
+                    showFinished={showFinishedJobs}
+                    onToggleFinished={setShowFinishedJobs}
+                    onRemove={handleRemoveTranslationJob}
+                    removingIds={removingJobIds}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground italic">
+                    Translation Queue is only visible to admins.
+                  </div>
+                )
               }
             />
           </div>
         </div>
       </div>
       <div className={activeMode === "main-table" ? "" : "hidden"}>
-        <MainTable onOpenDetail={openDetail} refreshKey={refreshKey} />
+        <MainTable onOpenDetail={openDetail} refreshKey={refreshKey} canEdit={canEdit} />
       </div>
       <div className={activeMode === "unique-documents" ? "" : "hidden"}>
         <UniqueDocumentsTable
           onOpenDetail={openDetail}
           translationAvailable={translationAvailable}
+          canTranslate={canTranslate}
           refreshKey={refreshKey}
           onDataChanged={bumpRefresh}
+          canEdit={canEdit}
         />
       </div>
 
@@ -425,8 +551,10 @@ export default function DocumentManagementPanel() {
           }
         }}
         translationAvailable={translationAvailable}
+        canTranslate={canTranslate}
         onTranslationStarted={refetchTranslationJobs}
         onPlacementsChanged={bumpRefresh}
+        canEdit={canEdit}
       />
     </div>
   );

@@ -24,6 +24,9 @@ export class AiService {
   private _minimaxServerUrl = 
     'http://' + aiConfig.minimaxServerIP + ':' + aiConfig.minimaxServerPort;
 
+  private _chemicalCheckServerUrl =
+    'http://' + aiConfig.serverIP + ':' + aiConfig.chemicalCheckPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -588,6 +591,42 @@ export class AiService {
     }
   }
 
+  /**
+   * Detects chemicals in the given text by calling the chemical check service.
+   * Returns the list of matched chemicals (with name and status).
+   * Returns null if the service call fails.
+   */
+  async detectChemicals(text: string): Promise<ChemicalDetectionResponse | null> {
+    try {
+      console.log(`${this._chemicalCheckServerUrl}/detect-chemicals`)
+      const response = await fetch(`${this._chemicalCheckServerUrl}/detect-chemicals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        console.error(`[detectChemicals] Failed: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const data = (await response.json()) as ChemicalDetectionResponse;
+      return data;
+    } catch (error) {
+      console.error('[detectChemicals] Error:', error);
+      return null;
+    }
+  }
+
+}
+
+export interface ChemicalMatch {
+  name: string;
+  status: string;
+}
+
+export interface ChemicalDetectionResponse {
+  matches: ChemicalMatch[];
 }
 
 export interface GdbPendingDuplicateCandidate {
