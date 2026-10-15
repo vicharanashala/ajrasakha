@@ -58,6 +58,9 @@ import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 import { useFetchAnswer } from "@/hooks/api/answer/useGetAiInitialAnswer";
 import { useGetStates } from "@/hooks/api/location/useLocations";
 import type { ILocationState } from "@/hooks/services/locationService";
+import { ChemicalVerifiedTextarea } from "@/components/ChemicalVerifiedTextarea";
+import type { ChemicalDetectionResponse } from "@/hooks/services/answerService";
+import { cn } from "@/lib/utils";
 
 interface AnswerReviewDraftPanelProps {
   selectedQuestionData?: IQuestion | null;
@@ -150,6 +153,14 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   const [translatedAiText, setTranslatedAiText] = useState<string>("");
   const [translatedDraftText, setTranslatedDraftText] = useState<string>("");
 
+  const [chemicalDetectionResult, setChemicalDetectionResult] = useState<ChemicalDetectionResponse | null>(null);
+
+  const hasBannedChemicals = Boolean(
+    chemicalDetectionResult?.matches?.some(
+      (m) => m.status?.toLowerCase() === "banned"
+    )
+  );
+
   const [aiAssistOutput, setAiAssistOutput] = useState<string>("");
   const [activeAiAction, setActiveAiAction] = useState<AiAssistActionType | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -204,6 +215,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     // Reset temporary generated AI state on question switch
     setGeneratedAiAnswer("");
     setGeneratedAiSources([]);
+    setChemicalDetectionResult(null);
 
     const prefill =
       selectedQuestionData.source === "AJRASAKHA"
@@ -332,6 +344,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     setRemarks("");
     setSources([]);
     setTranslatedDraftText("");
+    setChemicalDetectionResult(null);
     toast.info("Draft, remarks, and sources have been cleared.");
   };
 
@@ -397,6 +410,12 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     }
     if (sources.length === 0) {
       toast.error("At least one source is required!");
+      return;
+    }
+    if (hasBannedChemicals) {
+      toast.error(
+        "Answers containing banned chemicals cannot be submitted. Please remove or replace them."
+      );
       return;
     }
 
@@ -621,24 +640,49 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
         )}
 
         {/* ============================================================ */}
+        {/* ============================================================ */}
         {/* TAB: REVIEWER DRAFT (For Author Phase)                       */}
         {/* ============================================================ */}
         {!isLoading && activeTab === "reviewer_draft" && !isReviewPhase && (
           <div className="flex-1 flex flex-col space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <FileCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Reviewer Draft</span>
-              </label>
-
-              {/* Action Button: Reset (Icon only with hover Tooltip) */}
-              <div className="flex items-center gap-1.5">
+            <ChemicalVerifiedTextarea
+              key={questionId || "author-draft"}
+              id="reviewer-draft-answer"
+              label={
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <FileCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Reviewer Draft</span>
+                </label>
+              }
+              placeholder="Type or review the expert response here..."
+              value={translatedDraftText || draftAnswer}
+              onChange={(val) => {
+                setTranslatedDraftText("");
+                setDraftAnswer(val);
+                setChemicalDetectionResult(null);
+              }}
+              onVerificationComplete={(response) => {
+                setChemicalDetectionResult(response);
+              }}
+              minHeight="min-h-[160px]"
+              maxHeight="max-h-[380px]"
+              textSizeClassName="text-xs leading-relaxed"
+              textareaClassName={cn(
+                "resize-none rounded-lg focus-visible:ring-1 focus-visible:ring-primary",
+                aiAnswerText &&
+                  draftAnswer &&
+                  draftAnswer.trim() === aiAnswerText.trim()
+                    ? "border-blue-400/80 bg-blue-50/25 dark:bg-blue-950/20 italic"
+                    : "border-border/80 bg-background"
+              )}
+              actions={
                 <TooltipProvider>
                   <Tooltip delayDuration={200}>
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
+                        type="button"
                         onClick={handleResetDraft}
                         className="h-7 w-7 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         aria-label="Reset draft"
@@ -652,142 +696,142 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              </div>
-            </div>
+              }
+              toolbar={
+                <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg border border-border/80 bg-muted/40">
+                  <select
+                    className="h-6 text-[11px] bg-background border border-border/80 rounded px-1.5 font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    defaultValue="normal"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "h1") setDraftAnswer((prev) => `# ${prev}`);
+                      else if (val === "h2") setDraftAnswer((prev) => `## ${prev}`);
+                      else if (val === "bullet") setDraftAnswer((prev) => `${prev}\n• `);
+                    }}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="h1">Heading 1</option>
+                    <option value="h2">Heading 2</option>
+                    <option value="bullet">Bullet</option>
+                  </select>
 
-            {/* Rich Editor Toolbar */}
-            <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg border border-border/80 bg-muted/40">
-              <select className="h-6 text-[11px] bg-background border border-border/80 rounded px-1.5 font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="normal">Normal</option>
-                <option value="h1">Heading 1</option>
-                <option value="h2">Heading 2</option>
-                <option value="bullet">Bullet</option>
-              </select>
+                  <div className="h-3.5 w-px bg-border/80 mx-0.5" />
 
-              <div className="h-3.5 w-px bg-border/80 mx-0.5" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `**${prev}**`)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Bold"
+                  >
+                    <Bold className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `*${prev}*`)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Italic"
+                  >
+                    <Italic className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `<u>${prev}</u>`)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Underline"
+                  >
+                    <Underline className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `~~${prev}~~`)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Strikethrough"
+                  >
+                    <Strikethrough className="w-3 h-3" />
+                  </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `**${prev}**`)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Bold"
-              >
-                <Bold className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `*${prev}*`)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Italic"
-              >
-                <Italic className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `<u>${prev}</u>`)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Underline"
-              >
-                <Underline className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `~~${prev}~~`)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Strikethrough"
-              >
-                <Strikethrough className="w-3 h-3" />
-              </Button>
+                  <div className="h-3.5 w-px bg-border/80 mx-0.5" />
 
-              <div className="h-3.5 w-px bg-border/80 mx-0.5" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `${prev}\n• `)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Bullet List"
+                  >
+                    <List className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `${prev}\n1. `)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Numbered List"
+                  >
+                    <ListOrdered className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `${prev}\n- [ ] `)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Task List"
+                  >
+                    <ListChecks className="w-3 h-3" />
+                  </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `${prev}\n• `)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Bullet List"
-              >
-                <List className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `${prev}\n1. `)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Numbered List"
-              >
-                <ListOrdered className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `${prev}\n- [ ] `)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Task List"
-              >
-                <ListChecks className="w-3 h-3" />
-              </Button>
+                  <div className="h-3.5 w-px bg-border/80 mx-0.5" />
 
-              <div className="h-3.5 w-px bg-border/80 mx-0.5" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `${prev} [Link Title](https://)`)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Add Link"
+                  >
+                    <Link2 className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setDraftAnswer((prev) => `${prev}\n\`\`\`\n\n\`\`\``)}
+                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
+                    title="Code Block"
+                  >
+                    <Code2 className="w-3 h-3" />
+                  </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `${prev} [Link Title](https://)`)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Add Link"
-              >
-                <Link2 className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDraftAnswer((prev) => `${prev}\n\`\`\`\n\n\`\`\``)}
-                className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                title="Code Block"
-              >
-                <Code2 className="w-3 h-3" />
-              </Button>
-
-              <div className="ml-auto flex items-center gap-2">
-                {draftAnswer?.trim() && !isEnglishCharacters(draftAnswer) && (
-                  <SarvamTranslateDropdown
-                    query={draftAnswer}
-                    onTranslate={(result) => setTranslatedDraftText(result)}
-                  />
-                )}
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {wordCount} words • {charCount} chars
-                </span>
-              </div>
-            </div>
-
-            {/* Answer Draft Textarea */}
-            <div className="relative flex-1 flex flex-col">
-              <Textarea
-                value={translatedDraftText || draftAnswer}
-                onChange={(e) => {
-                  setTranslatedDraftText("");
-                  setDraftAnswer(e.target.value);
-                }}
-                placeholder="Type or review the expert response here..."
-                className={`flex-1 min-h-[160px] p-3 text-xs leading-relaxed resize-none rounded-lg focus-visible:ring-1 focus-visible:ring-primary ${
-                  aiAnswerText &&
-                  draftAnswer &&
-                  draftAnswer.trim() === aiAnswerText.trim()
-                    ? "border-blue-400/80 bg-blue-50/25 dark:bg-blue-950/20 italic"
-                    : "border-border/80 bg-background"
-                }`}
-              />
-              {aiAnswerText &&
+                  <div className="ml-auto flex items-center gap-2">
+                    {draftAnswer?.trim() && !isEnglishCharacters(draftAnswer) && (
+                      <SarvamTranslateDropdown
+                        query={draftAnswer}
+                        onTranslate={(result) => setTranslatedDraftText(result)}
+                      />
+                    )}
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {wordCount} words • {charCount} chars
+                    </span>
+                  </div>
+                </div>
+              }
+              bottomOverlay={
+                aiAnswerText &&
                 draftAnswer &&
-                draftAnswer.trim() === aiAnswerText.trim() && (
-                  <div className="absolute right-3 bottom-3 pointer-events-none">
+                draftAnswer.trim() === aiAnswerText.trim() ? (
+                  <div className="absolute right-3 bottom-3 pointer-events-none z-20">
                     <Badge
                       variant="outline"
                       className="text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-400/40 gap-1 font-medium backdrop-blur-xs"
@@ -796,8 +840,9 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                       AI Pre-filled
                     </Badge>
                   </div>
-                )}
-            </div>
+                ) : null
+              }
+            />
 
             {/* Remarks Section */}
             <div className="space-y-1">
@@ -827,8 +872,18 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 onConfirm={handleAuthorSubmit}
                 trigger={
                   <Button
-                    disabled={!draftAnswer.trim() || isSubmitting}
-                    className="h-8 px-4 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 shadow-xs"
+                    disabled={!draftAnswer.trim() || isSubmitting || hasBannedChemicals}
+                    title={
+                      hasBannedChemicals
+                        ? "Answers containing banned chemicals cannot be submitted. Please remove or replace them."
+                        : undefined
+                    }
+                    className={cn(
+                      "h-8 px-4 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors",
+                      hasBannedChemicals
+                        ? "bg-destructive/80 text-destructive-foreground cursor-not-allowed"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                    )}
                   >
                     {isSubmitting ? (
                       <>

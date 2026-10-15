@@ -22,11 +22,15 @@ export interface ChemicalVerifiedTextareaProps {
   onChange: (value: string) => void;
   className?: string;
   textareaClassName?: string;
+  backdropClassName?: string;
+  textSizeClassName?: string;
   minHeight?: string;
   maxHeight?: string;
   disabled?: boolean;
   required?: boolean;
   actions?: React.ReactNode;
+  toolbar?: React.ReactNode;
+  bottomOverlay?: React.ReactNode;
   onVerificationComplete?: (response: ChemicalDetectionResponse | null) => void;
   showBadges?: boolean;
   helperText?: string;
@@ -44,11 +48,15 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
   onChange,
   className,
   textareaClassName,
+  backdropClassName,
+  textSizeClassName,
   minHeight = "min-h-[210px]",
   maxHeight = "max-h-[240px]",
   disabled = false,
   required = false,
   actions,
+  toolbar,
+  bottomOverlay,
   onVerificationComplete,
   showBadges = true,
   helperText,
@@ -244,14 +252,18 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           {label && (
-            <Label htmlFor={id} className="text-sm font-medium text-foreground">
-              {label}
-              {required && <span className="text-destructive ml-1">*</span>}
-            </Label>
+            typeof label === "string" ? (
+              <Label htmlFor={id} className="text-sm font-medium text-foreground">
+                {label}
+                {required && <span className="text-destructive ml-1">*</span>}
+              </Label>
+            ) : (
+              label
+            )
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {actions}
 
           <Button
@@ -269,7 +281,7 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
             onClick={handleVerify}
             disabled={disabled || isVerifying || !value.trim()}
             className={cn(
-              "h-8 px-2.5 text-xs font-medium gap-1.5 transition-all duration-200 shadow-none",
+              "h-8 px-2.5 text-xs font-medium gap-1.5 transition-all duration-200 shadow-none shrink-0",
               isCurrentTextVerified &&
                 matches.length === 0 &&
                 "text-green-600 dark:text-green-400 border-green-500/40 bg-green-50/50 dark:bg-green-950/30",
@@ -310,6 +322,9 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
         </div>
       </div>
 
+      {/* Toolbar (Optional, e.g. formatting options) */}
+      {toolbar}
+
       {/* Textarea Container with Highlighting Backdrop */}
       <div className="relative w-full rounded-md overflow-hidden">
         {/* Backdrop for highlighted text */}
@@ -317,9 +332,11 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
           ref={backdropRef}
           aria-hidden="true"
           className={cn(
-            "absolute inset-0 pointer-events-none p-3 text-sm md:text-md overflow-y-auto whitespace-pre-wrap break-words text-transparent select-none font-sans leading-relaxed border border-transparent",
+            "absolute inset-0 pointer-events-none p-3 overflow-y-auto whitespace-pre-wrap break-words text-transparent select-none font-sans leading-relaxed border border-transparent",
+            textSizeClassName || "text-sm md:text-base",
             minHeight,
-            maxHeight
+            maxHeight,
+            backdropClassName
           )}
           style={{
             fontFamily: "inherit",
@@ -344,7 +361,8 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "relative z-10 w-full resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 bg-transparent text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring font-sans leading-relaxed transition-colors",
+            "relative z-10 w-full resize-y border rounded-md overflow-y-auto p-3 bg-transparent text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring font-sans leading-relaxed transition-colors",
+            textSizeClassName || "text-sm md:text-base",
             isCurrentTextVerified && bannedMatches.length > 0
               ? "border-red-500/70 focus-visible:ring-red-400 dark:border-red-500/80"
               : isCurrentTextVerified && restrictedMatches.length > 0
@@ -364,6 +382,9 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
             overflowWrap: "break-word",
           }}
         />
+
+        {/* Optional Bottom Overlay (e.g., AI Pre-filled badge) */}
+        {bottomOverlay}
       </div>
 
       {/* Badges / Alerts Section (Only rendered when the CURRENT text is verified) */}
