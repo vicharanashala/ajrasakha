@@ -531,7 +531,7 @@ export const PlaygroundPage = () => {
                   <TestersDashboard />
                 </TabsContent>
               )}
-              {user && user.role === "admin" && (
+              {(user && user.role === "admin") || user?.role === "gate_keeper" ? (
                 <TabsContent
                   value="gdb_cleaning"
                   className={cn(
@@ -545,7 +545,7 @@ export const PlaygroundPage = () => {
                 >
                   <GdbCleaningPage />
                 </TabsContent>
-              )}
+              ) : null}
 
               {user && canLogTestCases(user.role) && (
                 <TabsContent
