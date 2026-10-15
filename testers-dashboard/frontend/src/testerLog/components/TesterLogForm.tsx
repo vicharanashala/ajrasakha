@@ -3,10 +3,12 @@ import { useForm } from "react-hook-form";
 import { FormSection } from "./FormSection";
 import { TimeInput } from "./TimeInput";
 import { useTesterLogSubmit } from "../hooks/useTesterLogSubmit";
+import { useUpdateTesterLogEntry } from "../hooks/useTesterLogAdminActions";
 import { useNextTestId } from "../hooks/useTesterLogHistory";
-import { Plus, ExternalLink, Laptop, Smartphone, Check, Trash2 } from "lucide-react";
+import { Plus, ExternalLink, Laptop, Smartphone, Check, Trash2, PauseCircle, Clock, Info } from "lucide-react";
 import { useZohoTicketStatuses } from "../../hooks/useZohoTicketStatuses";
 import { CreateZohoTicketModal } from "./CreateZohoTicketModal";
+import { VoiceRemarksInput } from "./VoiceRemarksInput";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { hmsDiff, isTimeEarlier, isTimeInFuture, isMidnightRollover, getLocalDatetimeMax, getMinutesDiff } from "../utils/timingUtils";
@@ -15,6 +17,7 @@ import {
     TYPE_OF_QUESTION_OPTIONS,
     isDynamicTagging,
     isDuplicateTagging,
+    isNewQuestionEligibleForHold,
     isCrossPlatform,
     synthesizeOverallTestStatus,
     CHANNEL_OPTIONS,
@@ -267,7 +270,7 @@ function DefectIdBugRefInput({
     onChange: (val: string) => void;
     onOpenCreateModal: () => void;
     zohoStatuses?: Record<string, any>;
-    connectedTicketInfo?: { ticketNumber?: string; status?: string; team?: string } | null;
+    connectedTicketInfo?: { ticketNumber?: string | null; status?: string | null; team?: string | null } | null;
     required?: boolean;
     error?: string;
     disabled?: boolean;
@@ -419,7 +422,7 @@ function DefectIdBugRefInput({
 
 export function validateTesterLogForm(
     data: FormValues,
-    flags: { isCross: boolean; excludeReviewerWorkflow: boolean }
+    flags: { isCross: boolean; excludeReviewerWorkflow: boolean; isSavingOnHold?: boolean }
 ): Record<string, string> {
     const errors: Record<string, string> = {};
 
@@ -484,49 +487,67 @@ export function validateTesterLogForm(
 
     // Section 2: Timing & SLA
     checkRequired("timeQuestionAsked", flags.isCross ? "Web Time Asked" : "Time Question Asked");
-    checkRequired("timeAnswerReceived", flags.isCross ? "Web Time Received" : "Time Answer Received");
-    checkRequired("slaStatus", flags.isCross ? "Web SLA Status" : "SLA Status");
-
-    const isWebRollover = isMidnightRollover(data.timeQuestionAsked, data.timeAnswerReceived);
-    if (!isWebRollover && isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
-        errors.timeQuestionAsked = "Time Question Asked cannot be in the future";
-    }
-    if (isTimeInFuture(data.timeAnswerReceived, data.testDate)) {
-        errors.timeAnswerReceived = "Time Answer Received cannot be in the future";
-    } else if (isTimeEarlier(data.timeAnswerReceived, data.timeQuestionAsked, data.testDate)) {
-        errors.timeAnswerReceived = "Time Answer Received cannot be earlier than Time Question Asked";
-    }
-
-    const webDiffMins = getMinutesDiff(data.timeQuestionAsked, data.timeAnswerReceived, data.testDate);
-    if (webDiffMins !== null && !isNaN(webDiffMins)) {
-        if (webDiffMins <= 120 && data.slaStatus === "SLA Breached") {
-            errors.slaStatus = "Response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
-        } else if (webDiffMins > 120 && data.slaStatus !== "SLA Breached") {
-            errors.slaStatus = "Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
+    if (flags.isSavingOnHold) {
+        const hasArrived = flags.isCross
+            ? Boolean(data.timeAnswerReceived?.trim() && data.waTimeAnswerReceived?.trim())
+            : Boolean(data.timeAnswerReceived?.trim());
+        if (hasArrived) {
+            errors.timeAnswerReceived = "Answer has already arrived; please complete and submit the test case instead of saving on hold";
         }
-    }
-
-    if (flags.isCross) {
-        checkRequired("waTimeQuestionAsked", "WhatsApp Time Asked");
-        checkRequired("waTimeAnswerReceived", "WhatsApp Time Received");
-        checkRequired("waSlaStatus", "WhatsApp SLA Status");
-
-        const isWaRollover = isMidnightRollover(data.waTimeQuestionAsked, data.waTimeAnswerReceived);
-        if (!isWaRollover && isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
-            errors.waTimeQuestionAsked = "WhatsApp Time Asked cannot be in the future";
+        if (isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
+            errors.timeQuestionAsked = "Time Question Asked cannot be in the future";
         }
-        if (isTimeInFuture(data.waTimeAnswerReceived, data.testDate)) {
-            errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be in the future";
-        } else if (isTimeEarlier(data.waTimeAnswerReceived, data.waTimeQuestionAsked, data.testDate)) {
-            errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be earlier than WhatsApp Time Asked";
+        if (flags.isCross) {
+            checkRequired("waTimeQuestionAsked", "WhatsApp Time Asked");
+            if (isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
+                errors.waTimeQuestionAsked = "WhatsApp Time Asked cannot be in the future";
+            }
+        }
+    } else {
+        checkRequired("timeAnswerReceived", flags.isCross ? "Web Time Received" : "Time Answer Received");
+        checkRequired("slaStatus", flags.isCross ? "Web SLA Status" : "SLA Status");
+
+        const isWebRollover = isMidnightRollover(data.timeQuestionAsked, data.timeAnswerReceived);
+        if (!isWebRollover && isTimeInFuture(data.timeQuestionAsked, data.testDate)) {
+            errors.timeQuestionAsked = "Time Question Asked cannot be in the future";
+        }
+        if (isTimeInFuture(data.timeAnswerReceived, data.testDate)) {
+            errors.timeAnswerReceived = "Time Answer Received cannot be in the future";
+        } else if (isTimeEarlier(data.timeAnswerReceived, data.timeQuestionAsked, data.testDate)) {
+            errors.timeAnswerReceived = "Time Answer Received cannot be earlier than Time Question Asked";
         }
 
-        const waDiffMins = getMinutesDiff(data.waTimeQuestionAsked, data.waTimeAnswerReceived, data.testDate);
-        if (waDiffMins !== null && !isNaN(waDiffMins)) {
-            if (waDiffMins <= 120 && data.waSlaStatus === "SLA Breached") {
-                errors.waSlaStatus = "WhatsApp response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
-            } else if (waDiffMins > 120 && data.waSlaStatus !== "SLA Breached") {
-                errors.waSlaStatus = "WhatsApp response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
+        const webDiffMins = getMinutesDiff(data.timeQuestionAsked, data.timeAnswerReceived, data.testDate);
+        if (webDiffMins !== null && !isNaN(webDiffMins)) {
+            if (webDiffMins <= 120 && data.slaStatus === "SLA Breached") {
+                errors.slaStatus = "Response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
+            } else if (webDiffMins > 120 && data.slaStatus !== "SLA Breached") {
+                errors.slaStatus = "Response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
+            }
+        }
+
+        if (flags.isCross) {
+            checkRequired("waTimeQuestionAsked", "WhatsApp Time Asked");
+            checkRequired("waTimeAnswerReceived", "WhatsApp Time Received");
+            checkRequired("waSlaStatus", "WhatsApp SLA Status");
+
+            const isWaRollover = isMidnightRollover(data.waTimeQuestionAsked, data.waTimeAnswerReceived);
+            if (!isWaRollover && isTimeInFuture(data.waTimeQuestionAsked, data.testDate)) {
+                errors.waTimeQuestionAsked = "WhatsApp Time Asked cannot be in the future";
+            }
+            if (isTimeInFuture(data.waTimeAnswerReceived, data.testDate)) {
+                errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be in the future";
+            } else if (isTimeEarlier(data.waTimeAnswerReceived, data.waTimeQuestionAsked, data.testDate)) {
+                errors.waTimeAnswerReceived = "WhatsApp Time Received cannot be earlier than WhatsApp Time Asked";
+            }
+
+            const waDiffMins = getMinutesDiff(data.waTimeQuestionAsked, data.waTimeAnswerReceived, data.testDate);
+            if (waDiffMins !== null && !isNaN(waDiffMins)) {
+                if (waDiffMins <= 120 && data.waSlaStatus === "SLA Breached") {
+                    errors.waSlaStatus = "WhatsApp response time is within 120 minutes; SLA Status cannot be 'SLA Breached'";
+                } else if (waDiffMins > 120 && data.waSlaStatus !== "SLA Breached") {
+                    errors.waSlaStatus = "WhatsApp response time exceeds 120 minutes; SLA Status must be 'SLA Breached'";
+                }
             }
         }
     }
@@ -558,6 +579,12 @@ export function validateTesterLogForm(
         }
     }
     checkRequired("tagging", "Tagging");
+
+    if (flags.isSavingOnHold) {
+        // For On Hold submissions, only Section 1, Question Asked Time, Section 3, and 120-min disclaimer are required
+        checkRequired("msg120MinShownToUser", "120-min Disclaimer Received by the User?");
+        return errors;
+    }
 
     // Section 4: Reviewer Workflow
     if (!flags.excludeReviewerWorkflow) {
@@ -730,6 +757,9 @@ export function validateTesterLogForm(
         checkRequired("waOverallTestStatus", "WhatsApp Status");
     }
     checkRequired("overallTestStatus", "Overall Test Status");
+    if (!flags.isSavingOnHold && (data.overallTestStatus || "").trim().toLowerCase() === "on hold") {
+        errors.overallTestStatus = "Please select Pass or Fail to complete this test case";
+    }
     const isPass = (data.overallTestStatus || "").trim().toLowerCase() === "pass";
     if (isPass) {
         if (!data.defectSeverity) data.defectSeverity = "NA";
@@ -779,6 +809,8 @@ interface TesterLogFormProps {
     testerName: string;
     userEmail?: string;
     onSuccess?: () => void;
+    editingEntry?: ITesterLogEntry | null;
+    onCancelEdit?: () => void;
 }
 
 const DRAFT_STORAGE_PREFIX = "tester_log_form_draft_";
@@ -820,8 +852,10 @@ function getInitialFormValues(userEmail?: string, todayDate: string = getTodayDa
     return { testDate: todayDate };
 }
 
-export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFormProps) {
+export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, onCancelEdit }: TesterLogFormProps) {
     const { mutate, isPending, isSuccess } = useTesterLogSubmit();
+    const updateMutation = useUpdateTesterLogEntry();
+    const isEditMode = Boolean(editingEntry && editingEntry._id);
     const { data: nextTestId, isLoading: isLoadingNextId, refetch: refetchNextId } = useNextTestId();
     const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
     const { data: zohoData } = useZohoTicketStatuses();
@@ -846,18 +880,21 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     };
 
     useEffect(() => {
-        if (nextTestId && !getValues("testId")) {
+        if (!isEditMode && nextTestId) {
             setValue("testId", nextTestId);
         }
-    }, [nextTestId, setValue, getValues]);
+    }, [nextTestId, setValue, isEditMode]);
 
-    // Ensure testDate always reflects today's date even if an existing draft had an older date
+    // Ensure testDate always reflects today's date if not editing
     useEffect(() => {
-        setValue("testDate", todayDate);
-    }, [todayDate, setValue]);
+        if (!isEditMode) {
+            setValue("testDate", todayDate);
+        }
+    }, [todayDate, setValue, isEditMode]);
 
-    // Auto-save form draft to localStorage whenever fields change
+    // Auto-save form draft to localStorage whenever fields change (only when not in edit mode)
     useEffect(() => {
+        if (isEditMode) return;
         const subscription = watch((values) => {
             try {
                 const hasUserInput = Object.entries(values).some(([k, v]) => {
@@ -872,7 +909,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
             }
         });
         return () => subscription.unsubscribe();
-    }, [watch, draftKey, todayDate]);
+    }, [watch, draftKey, todayDate, isEditMode]);
 
     // Watch fields for dynamic workflow and TAT auto-computations
     const [
@@ -903,7 +940,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         "webOverallTestStatus", "waOverallTestStatus",
     ]);
 
-    const [connectedTicketInfo, setConnectedTicketInfo] = useState<{ ticketNumber?: string; status?: string; team?: string } | null>(null);
+    const [connectedTicketInfo, setConnectedTicketInfo] = useState<{ ticketNumber?: string | null; status?: string | null; team?: string | null } | null>(null);
 
     const isCross = isCrossPlatform(channelTested);
 
@@ -952,6 +989,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const moderatorTatMins = watch("moderatorTatMins");
 
     const [
+        typeOfQuestion,
         languageTested,
         originalLanguage,
         translatedLanguage,
@@ -963,6 +1001,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         queryText,
         testerRemarksNotes,
     ] = watch([
+        "typeOfQuestion",
         "languageTested",
         "originalLanguage",
         "translatedLanguage",
@@ -974,6 +1013,18 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         "queryText",
         "testerRemarksNotes",
     ]);
+
+    const hasAnswerArrived = isCross
+        ? Boolean(timeAnswerReceived?.trim() && waTimeAnswerReceived?.trim())
+        : Boolean(timeAnswerReceived?.trim());
+    const isHoldEligible = isNewQuestionEligibleForHold(typeOfQuestion, tagging) && !hasAnswerArrived && !isEditMode;
+
+    useEffect(() => {
+        if (isHoldEligible && !getValues("msg120MinShownToUser")) {
+            setValue("msg120MinShownToUser", "Received", { shouldDirty: true });
+            clearError("msg120MinShownToUser");
+        }
+    }, [isHoldEligible, setValue, getValues]);
 
     const isPass = (overallTestStatus || "").trim().toLowerCase() === "pass";
 
@@ -1159,6 +1210,30 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         }
     };
 
+    const prevEditingEntryIdRef = useRef<string | undefined>(editingEntry?._id);
+    // When editingEntry is supplied, populate the form; when cleared (canceled), reset form for new logging
+    useEffect(() => {
+        if (editingEntry) {
+            reset({
+                ...editingEntry,
+                testDate: editingEntry.testDate || todayDate,
+            });
+            if (editingEntry.defectIdBugRef && editingEntry.defectIdBugRef !== "NA") {
+                const ticketId = extractZohoTicketId(editingEntry.defectIdBugRef);
+                const cachedStatus = ticketId && zohoStatuses ? zohoStatuses[ticketId] : null;
+                setConnectedTicketInfo(cachedStatus || { ticketNumber: ticketId, status: "Connected" });
+            }
+        } else if (prevEditingEntryIdRef.current) {
+            handleReset(false);
+        }
+        prevEditingEntryIdRef.current = editingEntry?._id;
+    }, [editingEntry?._id, reset, todayDate]);
+
+    const handleCancelEditing = () => {
+        handleReset(false);
+        onCancelEdit?.();
+    };
+
     useEffect(() => {
         if (isSuccess) {
             handleReset(false);
@@ -1182,7 +1257,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
     const isAuthorTimingInvalid = !excludeReviewerWorkflow && isTimeEarlier(authorCompletionTime, authorAssignmentTime, testDate);
 
     const onSubmit = (data: FormValues) => {
-        const errors = validateTesterLogForm(data, { isCross, excludeReviewerWorkflow });
+        const errors = validateTesterLogForm(data, { isCross, excludeReviewerWorkflow, isSavingOnHold: false });
         if (Object.keys(errors).length > 0) {
             setFormErrors(errors);
             const firstTimingError =
@@ -1211,10 +1286,15 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
         setFormErrors({});
         const payload: FormValues = {
             ...data,
-            testDate: getTodayDateString(),
+            testDate: isEditMode && editingEntry?.testDate ? editingEntry.testDate : getTodayDateString(),
+            status: "Completed",
         };
-        // testId is automated and allocated atomically on the backend to prevent collisions across concurrent submissions
-        delete (payload as any).testId;
+        if (isEditMode && editingEntry?._id) {
+            payload.testId = editingEntry.testId;
+        } else {
+            // testId is automated and allocated atomically on the backend to prevent collisions across concurrent submissions
+            delete (payload as any).testId;
+        }
         const isPassStatus = (data.overallTestStatus || "").trim().toLowerCase() === "pass";
         if (isPassStatus) {
             payload.defectSeverity = "NA";
@@ -1278,7 +1358,133 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                 delete payload[key];
             }
         });
-        mutate(payload);
+
+        if (isEditMode && editingEntry?._id) {
+            updateMutation.mutate(
+                { id: editingEntry._id, changes: payload },
+                {
+                    onSuccess: () => {
+                        toast.success(`Test case ${editingEntry.testId || ""} completed successfully!`);
+                        handleReset(false);
+                        onCancelEdit?.();
+                        onSuccess?.();
+                    },
+                    onError: (err: any) => {
+                        toast.error(err?.response?.data?.message || err?.message || "Failed to update test case");
+                    },
+                }
+            );
+        } else {
+            mutate(payload);
+        }
+    };
+
+    const handleSaveOnHold = () => {
+        if (isEditMode) {
+            toast.info("This test case is already on hold. Complete and submit it when the answer is ready, or click 'Cancel & Log New'.");
+            return;
+        }
+        if (hasAnswerArrived) {
+            toast.error("Answer has already arrived. Please complete and submit the test case instead of putting it on hold.");
+            return;
+        }
+        const data = getValues();
+        const errors = validateTesterLogForm(data, { isCross, excludeReviewerWorkflow, isSavingOnHold: true });
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            const firstKey = Object.keys(errors)[0];
+            const firstError = errors[firstKey];
+            toast.error(firstError || "Please fill in all required fields before putting on hold.");
+            const el = document.querySelector(`[name="${firstKey}"]`);
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            return;
+        }
+
+        setFormErrors({});
+        const payload: FormValues = {
+            ...data,
+            testDate: getTodayDateString(),
+            overallTestStatus: "On Hold",
+            status: "On Hold",
+            slaStatus: data.slaStatus || "Pending",
+            msg120MinShownToUser: data.msg120MinShownToUser || "Received",
+        };
+        if (isCross) {
+            payload.waSlaStatus = data.waSlaStatus || "Pending";
+        }
+        // testId is allocated atomically on the backend
+        delete (payload as any).testId;
+        if (!isCross) {
+            delete payload.webThreadId;
+            delete payload.waThreadId;
+            delete payload.waTimeQuestionAsked;
+            delete payload.waTimeAnswerReceived;
+            delete payload.waResponseTimeMins;
+            delete payload.waSlaStatus;
+            delete payload.waVoiceInputWorking;
+            delete payload.waVoiceOutputWorking;
+            delete payload.waVoiceInputQuality;
+            delete payload.waVoiceOutputQuality;
+            delete payload.waVoiceInputIssueDescription;
+            delete payload.waVoiceIssueDescription;
+            delete payload.waNotificationReceived;
+            delete payload.webOverallTestStatus;
+            delete payload.waOverallTestStatus;
+            delete payload.crossPlatformDiscrepancyNotes;
+        }
+        if (excludeReviewerWorkflow) {
+            delete payload.allocatedToReviewer;
+            delete payload.authorsName;
+            delete payload.authorAssignmentTime;
+            delete payload.authorCompletionTime;
+            delete payload.authorTatMins;
+            delete payload.reviewer1Name;
+            delete payload.reviewer1AssignmentTime;
+            delete payload.reviewer1CompletionTime;
+            delete payload.review1TatMins;
+            delete payload.reviewer2Name;
+            delete payload.reviewer2AssignmentTime;
+            delete payload.reviewer2CompletionTime;
+            delete payload.review2TatMins;
+            delete payload.reviewer3Name;
+            delete payload.reviewer3AssignmentTime;
+            delete payload.reviewer3CompletionTime;
+            delete payload.review3TatMins;
+            delete payload.reviewer4Name;
+            delete payload.reviewer4AssignmentTime;
+            delete payload.reviewer4CompletionTime;
+            delete payload.review4TatMins;
+            delete payload.reviewer5Name;
+            delete payload.reviewer5AssignmentTime;
+            delete payload.reviewer5CompletionTime;
+            delete payload.review5TatMins;
+            delete payload.moderatorName;
+            delete payload.moderatorAssignmentTime;
+            delete payload.moderatorCompletionTime;
+            delete payload.moderatorTatMins;
+        }
+        (Object.keys(payload) as (keyof FormValues)[]).forEach((key) => {
+            const val = payload[key];
+            if (typeof val === "string" && val.trim() === "") {
+                delete payload[key];
+            }
+        });
+
+        mutate(payload, {
+            onSuccess: () => {
+                toast.success("Test case saved as On Hold! Awaiting expert answer (2h window).");
+                try {
+                    localStorage.removeItem(draftKey);
+                } catch {}
+                handleReset(false);
+                onSuccess?.();
+            },
+            onError: (err: any) => {
+                toast.error(err?.response?.data?.message || err?.message || "Failed to save test case on hold");
+            },
+        });
     };
 
     // Calculate error counts per section to display badges and auto-expand
@@ -1304,6 +1510,25 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
 
     return (
         <>
+            {isEditMode && (
+                <div className="p-4 mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-2.5 text-amber-900 dark:text-amber-200 text-sm font-medium">
+                        <Clock className="h-5 w-5 text-amber-600 shrink-0" />
+                        <span>
+                            Resuming Test Case: <strong className="font-bold underline decoration-amber-500">{editingEntry?.testId}</strong> (Currently On Hold). Fill in the answer received and final status to complete.
+                        </span>
+                    </div>
+                    {onCancelEdit && (
+                        <button
+                            type="button"
+                            onClick={handleCancelEditing}
+                            className="text-xs px-3 py-1.5 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 font-medium transition-colors cursor-pointer shrink-0"
+                        >
+                            Cancel & Log New
+                        </button>
+                    )}
+                </div>
+            )}
             <form
                 onSubmit={handleSubmit(onSubmit)}
                 onKeyDown={(e) => {
@@ -1615,6 +1840,32 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     {...register("tagging", { onChange: () => clearError("tagging") })}
                 />
             </FormSection>
+
+            {/* 2-Hour SLA Banner for New Questions (Eligible for On Hold) */}
+            {isHoldEligible && !isEditMode && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                        <Info className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div>
+                            <p className="font-semibold text-amber-800 dark:text-amber-300">
+                                New Question Detected (2-Hour SLA Window)
+                            </p>
+                            <p className="text-xs text-amber-700/90 dark:text-amber-300/80 mt-0.5">
+                                This question is not in our Golden Database and receives a 2-hour disclaimer. If the expert answer has not yet arrived, you can click <strong>Save as On Hold</strong>. An auto Test ID is allocated and you can resume it anytime from My History.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleSaveOnHold}
+                        disabled={isPending || updateMutation.isPending}
+                        className="shrink-0 px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-60 cursor-pointer"
+                    >
+                        <PauseCircle className="h-4 w-4" />
+                        Save as On Hold Now
+                    </button>
+                </div>
+            )}
 
             {/* Section 4 */}
             {!excludeReviewerWorkflow && (
@@ -2018,34 +2269,74 @@ export function TesterLogForm({ testerName, userEmail, onSuccess }: TesterLogFor
                     })}
                 />
                 {testerRemarks && testerRemarks !== "No Action Required" && (
-                    <TextareaInput
+                    <VoiceRemarksInput
                         label="Remarks Details"
                         placeholder="Write down your detailed remarks..."
                         maxLength={TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}
-                        helper={`${(testerRemarksNotes || "").length} / ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}`}
                         required
+                        category={testerRemarks}
                         error={formErrors.testerRemarksNotes}
-                        {...register("testerRemarksNotes", { onChange: () => clearError("testerRemarksNotes") })}
+                        value={testerRemarksNotes || ""}
+                        onChange={(val) => {
+                            setValue("testerRemarksNotes", val);
+                            clearError("testerRemarksNotes");
+                        }}
                     />
                 )}
             </FormSection>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                    type="button"
-                    onClick={() => handleReset(true)}
-                    className="px-4 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
-                    disabled={isPending}
-                >
-                    Reset Form
-                </button>
-                <button
-                    type="submit"
-                    disabled={isPending}
-                    className="px-6 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                    {isPending ? "Submitting..." : "Submit Test Case"}
-                </button>
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                {isEditMode ? (
+                    <>
+                        {onCancelEdit && (
+                            <button
+                                type="button"
+                                onClick={handleCancelEditing}
+                                className="px-4 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
+                                disabled={updateMutation.isPending}
+                            >
+                                Cancel
+                            </button>
+                        )}
+                        <button
+                            type="submit"
+                            disabled={updateMutation.isPending}
+                            className="px-6 py-2 rounded-md bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer shadow-xs"
+                        >
+                            <Check className="h-4 w-4" />
+                            {updateMutation.isPending ? "Updating..." : "Complete & Submit Test Case"}
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => handleReset(true)}
+                            className="px-4 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors cursor-pointer"
+                            disabled={isPending}
+                        >
+                            Reset Form
+                        </button>
+                        {isHoldEligible && (
+                            <button
+                                type="button"
+                                onClick={handleSaveOnHold}
+                                disabled={isPending || updateMutation.isPending}
+                                className="px-5 py-2 rounded-md bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+                            >
+                                <PauseCircle className="h-4 w-4" />
+                                {isPending ? "Saving..." : "Save as On Hold (Awaiting Expert)"}
+                            </button>
+                        )}
+                        <button
+                            type="submit"
+                            disabled={isPending}
+                            className="px-6 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            {isPending ? "Submitting..." : "Submit Test Case"}
+                        </button>
+                    </>
+                )}
             </div>
         </form>
 

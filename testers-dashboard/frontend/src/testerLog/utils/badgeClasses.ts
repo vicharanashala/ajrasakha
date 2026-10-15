@@ -9,6 +9,8 @@ export function statusBadgeClass(value?: string): string {
             return "bg-red-100 text-red-700";
         case "partial":
             return "bg-yellow-100 text-yellow-700";
+        case "on hold":
+            return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 font-semibold";
         default:
             return "bg-muted text-muted-foreground";
     }

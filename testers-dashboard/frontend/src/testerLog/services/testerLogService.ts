@@ -52,6 +52,15 @@ export class TesterLogService {
         return response;
     }
 
+    async formatRemarks(text: string, category?: string, language?: string): Promise<{ formattedText: string; originalText: string }> {
+        const response = await apiFetch<{ formattedText: string; originalText: string }>(`${this.baseUrl}/format-remarks`, {
+            method: "POST",
+            body: JSON.stringify({ text, category, language }),
+        });
+        if (!response?.formattedText) throw new Error("Failed to format remarks with AI");
+        return response;
+    }
+
     // Admin only. Send just the fields that changed - the server ignores
     // submitter/identity fields and recomputes the [Auto] durations.
     async updateEntry(id: string, changes: Partial<ITesterLogEntry>): Promise<ICreateTesterLogEntryResponse> {

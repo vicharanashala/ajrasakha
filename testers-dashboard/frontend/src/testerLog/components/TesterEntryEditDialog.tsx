@@ -65,6 +65,7 @@ import { formatDateTimeIST } from "../utils/formatIST";
 import { isTimeEarlier, isTimeInFuture, getLocalDatetimeMax } from "../utils/timingUtils";
 import { useUpdateTesterLogEntry } from "../hooks/useTesterLogAdminActions";
 import { CrossPlatformComparison, EntryDetailSection } from "./CrossPlatformComparison";
+import { VoiceRemarksInput } from "./VoiceRemarksInput";
 
 type EntryKey = keyof ITesterLogEntry;
 
@@ -232,6 +233,18 @@ function FieldInput({ fieldKey, isDateTime, value, disabled, onChange, translati
     if (isDateTime && (!value || DATETIME_LOCAL_RE.test(value))) {
         return (
             <input id={id} type="datetime-local" step="1" max={getLocalDatetimeMax()} className={INPUT_CLASS} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+        );
+    }
+    if (fieldKey === "testerRemarksNotes") {
+        return (
+            <VoiceRemarksInput
+                label=""
+                value={value}
+                onChange={onChange}
+                disabled={disabled}
+                maxLength={FIELD_MAX_LENGTHS.testerRemarksNotes}
+                placeholder="Speak or type your remarks details..."
+            />
         );
     }
     if (TEXTAREA_KEYS.has(fieldKey)) {

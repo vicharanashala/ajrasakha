@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 
 type DatePreset = "all" | "today" | "7days" | "30days" | "custom";
-type StatusFilter = "all" | "pass" | "fail" | "defects";
+type StatusFilter = "all" | "pass" | "fail" | "onhold" | "defects";
 
 function FractionDisplay({
     achieved,
@@ -113,6 +113,7 @@ function Badge({ value }: { value?: string }) {
     const colorMap: Record<string, string> = {
         Pass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
         Fail: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+        "On Hold": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-300 dark:border-amber-700/50",
         Partial: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
         "Anomaly Found in Output": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
         "Expected Output": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -966,6 +967,9 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                                     {totalTests > targetTotalRow.achievedTotal
                                                         ? ` · ${totalTests} total logged`
                                                         : ""}
+                                                    {summaryData?.onHold
+                                                        ? ` · ${summaryData.onHold} on hold`
+                                                        : ""}
                                                     ).
                                                 </span>
                                             )}
@@ -1176,7 +1180,14 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                 <div className="text-2xl font-bold text-foreground">
                                     {summaryData?.totalTests ?? historyData?.total ?? 0}
                                 </div>
-                                <p className="text-xs text-muted-foreground">Tests conducted by you</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Tests conducted by you
+                                    {summaryData?.onHold ? (
+                                        <span className="text-amber-600 dark:text-amber-400 font-medium ml-1">
+                                            ({summaryData.onHold} On Hold)
+                                        </span>
+                                    ) : null}
+                                </p>
                             </div>
                         </div>
 
@@ -1304,6 +1315,23 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                             style={{ width: `${Math.min(100, summaryData.failRate)}%` }}
                                         />
                                     </div>
+
+                                    {Boolean(summaryData.onHold) && (
+                                        <>
+                                            <div className="flex justify-between items-center pt-1">
+                                                <span className="text-muted-foreground">On Hold (Awaiting Expert)</span>
+                                                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                                                    {summaryData.onHold}
+                                                </span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-amber-500 rounded-full"
+                                                    style={{ width: `${Math.min(100, Math.round(((summaryData.onHold || 0) / (summaryData.totalTests || 1)) * 100))}%` }}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -1476,6 +1504,7 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                         { key: "all" as const, label: "All" },
                                         { key: "pass" as const, label: "Pass" },
                                         { key: "fail" as const, label: "Fail" },
+                                        { key: "onhold" as const, label: "On Hold" },
                                         { key: "defects" as const, label: "Defects" },
                                     ].map(tab => (
                                         <button

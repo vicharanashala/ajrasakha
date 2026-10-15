@@ -718,6 +718,7 @@ export function incrementTestId(lastId?: string | null): string {
 @injectable()
 export class TesterLogService implements ITesterLogService {
     private indexesEnsured = false;
+    private counterInitialized = false;
 
     constructor(
         @inject(DATABASE_TOKEN)
@@ -749,10 +750,14 @@ export class TesterLogService implements ITesterLogService {
     }
 
     private async ensureCounterInitialized(): Promise<void> {
+        if (this.counterInitialized) return;
         try {
             const counters = await this.db.getCollection(COUNTER_COLLECTION);
             const existing = await counters.findOne({ _id: TEST_CASE_COUNTER_ID });
-            if (existing) return;
+            if (existing) {
+                this.counterInitialized = true;
+                return;
+            }
 
             // Determine starting seq from existing entries in tester_test_cases
             let startSeq = 0;
@@ -874,6 +879,13 @@ export class TesterLogService implements ITesterLogService {
 
         const lastId = await this.getLastTestId();
         return incrementTestId(lastId);
+    }
+
+    async getEntryById(id: string): Promise<TesterLogEntry | null> {
+        const _id = toObjectId(id);
+        if (!_id) return null;
+        const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
+        return collection.findOne({ _id });
     }
 
     async createEntry(
@@ -1133,6 +1145,13 @@ export class TesterLogService implements ITesterLogService {
                 });
             } else if (s === 'partial') {
                 extraConditions.push({ overallTestStatus: { $regex: /^partial$/i } });
+            } else if (s === 'onhold' || s === 'on hold') {
+                extraConditions.push({
+                    $or: [
+                        { status: { $regex: /^on hold$/i } },
+                        { overallTestStatus: { $regex: /^on hold$/i } },
+                    ],
+                });
             } else if (s === 'defects') {
                 extraConditions.push({
                     $or: [
@@ -1256,16 +1275,20 @@ export class TesterLogService implements ITesterLogService {
             typeOfQuestion, channelTested, undefined, defectSeverity,
         );
 
-        const [totalEntries, entriesInRange, passCount, statusRecordedCount] = await Promise.all([
+        const [totalEntries, entriesInRange, passCount, statusRecordedCount, onHoldCount] = await Promise.all([
             collection.countDocuments(totalFilter),
             collection.countDocuments(fullFilter),
             collection.countDocuments({ ...filterForPassRate, overallTestStatus: 'Pass' }),
             collection.countDocuments({ ...filterForPassRate, overallTestStatus: { $nin: [null, ''] } }),
+            collection.countDocuments({
+                ...fullFilter,
+                $or: [{ overallTestStatus: 'On Hold' }, { status: 'On Hold' }],
+            }),
         ]);
 
         const passRate = statusRecordedCount > 0 ? Math.round((passCount / statusRecordedCount) * 1000) / 10 : null;
 
-        return { totalEntries, entriesInRange, passRate, passCount, statusRecordedCount };
+        return { totalEntries, entriesInRange, passRate, passCount, statusRecordedCount, onHoldCount };
     }
 
     // Excel is the only export format - no format param, since there's
@@ -1445,6 +1468,7 @@ export class TesterLogService implements ITesterLogService {
         let expectedOutput = 0;
         let anomalyFound = 0;
         let otherStatus = 0;
+        let onHold = 0;
 
         let slaMet = 0;
         let slaBreached = 0;
@@ -1483,7 +1507,12 @@ export class TesterLogService implements ITesterLogService {
 
         for (const entry of entries) {
             const overall = (entry.overallTestStatus || '').trim().toLowerCase();
-            if (overall === 'pass') {
+            const eStatus = (entry.status || '').trim().toLowerCase();
+            const isOnHold = eStatus === 'on hold' || overall === 'on hold';
+
+            if (isOnHold) {
+                onHold++;
+            } else if (overall === 'pass') {
                 passed++;
             } else if (overall === 'fail') {
                 failed++;
@@ -1499,6 +1528,9 @@ export class TesterLogService implements ITesterLogService {
 
             const checkSla = (statusStr?: string) => {
                 const s = (statusStr || '').trim().toLowerCase();
+                if (s === 'pending' || s === 'na' || s === 'not applicable' || !s) {
+                    return;
+                }
                 if (s === 'met' || s === 'within sla' || s === 'pass' || s.includes('within')) {
                     slaMet++;
                 } else if (s === 'breached' || s === 'fail' || s.includes('breach')) {
@@ -1506,29 +1538,31 @@ export class TesterLogService implements ITesterLogService {
                 }
             };
 
-            const chSla = (entry.channelTested || '').trim().toLowerCase();
-            const isBothSla = chSla.includes('both') || chSla.includes('cross');
-            if (isBothSla) {
-                checkSla(entry.slaStatus);
-                checkSla(entry.waSlaStatus);
-            } else {
-                checkSla(entry.slaStatus || entry.waSlaStatus);
-            }
-
-            if (entry.responseTimeMins) {
-                const trimmed = entry.responseTimeMins.trim();
-                let mins: number | null = null;
-                if (trimmed.includes(':')) {
-                    const parts = trimmed.split(':').map(Number);
-                    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                        mins = parts[0] * 60 + parts[1] + (parts[2] || 0) / 60;
-                    }
-                } else if (!isNaN(Number(trimmed))) {
-                    mins = parseFloat(trimmed);
+            if (!isOnHold) {
+                const chSla = (entry.channelTested || '').trim().toLowerCase();
+                const isBothSla = chSla.includes('both') || chSla.includes('cross');
+                if (isBothSla) {
+                    checkSla(entry.slaStatus);
+                    checkSla(entry.waSlaStatus);
+                } else {
+                    checkSla(entry.slaStatus || entry.waSlaStatus);
                 }
-                if (mins !== null && mins >= 0 && mins < 100000) {
-                    responseTimeSum += mins;
-                    responseTimeCount++;
+
+                if (entry.responseTimeMins) {
+                    const trimmed = entry.responseTimeMins.trim();
+                    let mins: number | null = null;
+                    if (trimmed.includes(':')) {
+                        const parts = trimmed.split(':').map(Number);
+                        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                            mins = parts[0] * 60 + parts[1] + (parts[2] || 0) / 60;
+                        }
+                    } else if (!isNaN(Number(trimmed))) {
+                        mins = parseFloat(trimmed);
+                    }
+                    if (mins !== null && mins >= 0 && mins < 100000) {
+                        responseTimeSum += mins;
+                        responseTimeCount++;
+                    }
                 }
             }
 
@@ -1629,8 +1663,9 @@ export class TesterLogService implements ITesterLogService {
         }
 
         const totalTests = entries.length;
-        const passRate = totalTests > 0 ? Math.round(((passed + expectedOutput) / totalTests) * 1000) / 10 : 0;
-        const failRate = totalTests > 0 ? Math.round(((failed + anomalyFound) / totalTests) * 1000) / 10 : 0;
+        const completedTests = totalTests - onHold;
+        const passRate = completedTests > 0 ? Math.round(((passed + expectedOutput) / completedTests) * 1000) / 10 : 0;
+        const failRate = completedTests > 0 ? Math.round(((failed + anomalyFound) / completedTests) * 1000) / 10 : 0;
         const totalSla = slaMet + slaBreached;
         const slaMetRate = totalSla > 0 ? Math.round((slaMet / totalSla) * 1000) / 10 : 0;
         const avgResponseMinutes = responseTimeCount > 0 ? Math.round((responseTimeSum / responseTimeCount) * 10) / 10 : null;
@@ -1681,6 +1716,11 @@ export class TesterLogService implements ITesterLogService {
         };
 
         for (const entry of entries) {
+            const overall = (entry.overallTestStatus || '').trim().toLowerCase();
+            const eStatus = (entry.status || '').trim().toLowerCase();
+            const isOnHold = eStatus === 'on hold' || overall === 'on hold';
+            if (isOnHold) continue;
+
             const qType = (entry.typeOfQuestion || '').trim().toLowerCase();
             const cat = (entry.questionCategory || '').trim().toLowerCase();
             const compactQType = qType.replace(/[^a-z]/g, '');
@@ -1783,6 +1823,7 @@ export class TesterLogService implements ITesterLogService {
         return {
             success: true,
             totalTests,
+            onHold,
             passed,
             failed,
             partial,
@@ -1826,6 +1867,106 @@ export class TesterLogService implements ITesterLogService {
                 parityRate: totalCrossPlatform > 0 ? Math.round((matchedAnswers / totalCrossPlatform) * 1000) / 10 : 0,
             },
             targetVsAchieved,
+        };
+    }
+
+    async formatRemarks(
+        text: string,
+        category?: string,
+        language?: string,
+    ): Promise<{ formattedText: string; originalText: string }> {
+        const raw = (text || '').trim();
+        if (!raw) {
+            throw new BadRequestError('Remarks text is required');
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            console.warn('[TesterLogService] GEMINI_API_KEY not configured, returning raw remarks');
+            return {
+                originalText: raw,
+                formattedText: raw,
+            };
+        }
+
+        const categoryContext = category ? `The tester tagged this remark under category: "${category}".` : '';
+        const langContext = language ? `Spoken language context: "${language}".` : '';
+
+        const systemPrompt = `You are an elite Senior QA Lead and defect triage expert.
+A software tester spoke or typed a raw note describing a test case observation or defect.
+Your goal is to transform this raw note into a clean, professional, grammatically correct, and structured QA defect remark.
+
+Input Context:
+${categoryContext}
+${langContext}
+
+Rules:
+1. Fix all grammar, spelling, punctuation, and remove speech disfluencies (e.g. "um", "uh", "you know", "like", "bro", repetitions).
+2. Understand and preserve technical terms, error/HTTP status codes (e.g., 500, 404), question IDs, channel references (Web App, WhatsApp), and specific UI elements.
+3. Structure the remark clearly into concise, professional observations. If the note describes a defect, format it cleanly with:
+   - Issue / Observed Behavior
+   - Steps / Context (if mentioned)
+   - Expected Behavior (if implied or mentioned)
+   If it is a general positive or informational remark, structure it as a clean, concise professional statement.
+4. DO NOT invent or hallucinate facts, error codes, or steps that the tester never mentioned.
+5. Return ONLY the polished remark text. Do NOT include any conversational preamble or meta-text (do NOT say "Here is the formatted remark:").`;
+
+        const requestBody = {
+            contents: [
+                {
+                    parts: [
+                        {
+                            text: `${systemPrompt}\n\nRaw Tester Note:\n"""\n${raw}\n"""\n\nPolished QA Remark:`,
+                        },
+                    ],
+                },
+            ],
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 1024,
+            },
+        };
+
+        const modelsToTry = ['gemini-flash-latest', 'gemini-3.5-flash'];
+        let lastError: any = null;
+
+        for (const model of modelsToTry) {
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody),
+                    },
+                );
+
+                if (!response.ok) {
+                    const errText = await response.text().catch(() => response.statusText);
+                    console.warn(`[TesterLogService] Gemini (${model}) error ${response.status}: ${errText}`);
+                    lastError = new Error(`Gemini error ${response.status}: ${errText}`);
+                    continue;
+                }
+
+                const data = (await response.json()) as any;
+                const formatted = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+                if (formatted) {
+                    return {
+                        originalText: raw,
+                        formattedText: formatted,
+                    };
+                }
+            } catch (err: any) {
+                console.warn(`[TesterLogService] Failed calling Gemini model ${model}:`, err);
+                lastError = err;
+            }
+        }
+
+        console.error('[TesterLogService] All Gemini models failed, falling back to original text:', lastError);
+        return {
+            originalText: raw,
+            formattedText: raw,
         };
     }
 }
