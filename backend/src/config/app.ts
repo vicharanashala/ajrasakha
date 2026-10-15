@@ -60,4 +60,5 @@ export const appConfig = {
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),
   },
+  individualReportEmails: env('INDIVIDUAL_REPORT_EMAILS') || '',
 };
