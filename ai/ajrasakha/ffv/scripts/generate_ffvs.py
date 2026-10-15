@@ -379,6 +379,53 @@ ANSWER:
 {answer}"""
 
 
+DOMAINS_CLASSIFICATION_PROMPT_TEMPLATE = """You are an agricultural domain-classification assistant.
+
+Given a question and its detailed expert answer below, classify the topic into 1 to 3 relevant agricultural domains from the following list (ordered by most relevant first):
+
+{DOMAIN_LIST}
+
+CRITICAL RULES:
+- If the question/answer clearly belongs to only one domain, return only that one domain: ["DOMAIN_NAME"]
+- If the question/answer meaningfully touches multiple domains (e.g. both irrigation and soil nutrition, or crop production and pest management), return up to 3 most relevant domains
+- Use EXACT domain names from the list above
+
+Return ONLY a JSON object with this exact structure, no preamble, no markdown:
+{{"domains": ["EXACT_DOMAIN_NAME_1", "EXACT_DOMAIN_NAME_2"]}}
+
+QUESTION:
+{question}
+
+ANSWER:
+{answer}"""
+
+
+MULTI_DOMAIN_ANGLE_SELECTION_PROMPT_TEMPLATE = """You are an agricultural angle-selection assistant.
+
+Given a question, its expert answer, and candidate domains with their angles below, select angles that are DIRECTLY AND CLEARLY addressed with substantial actionable details in this specific answer across the relevant domains.
+
+CRITICAL RULES:
+- ONLY select an angle if the answer contains SUBSTANTIAL content about that topic
+{per_domain_rule}
+- If the answer only briefly mentions something, DO NOT select that angle
+- Angles can come from any of the candidate domains listed below
+
+Candidate Domains and Angles:
+{domains_and_angles}
+
+QUESTION:
+{question}
+
+ANSWER:
+{answer}
+
+Return ONLY a JSON array of objects with "domain" and "angle", no preamble, no markdown:
+[
+  {{"domain": "Exact Domain Name", "angle": "Exact Angle Name"}},
+  ...
+]"""
+
+
 ANGLE_SELECTION_PROMPT_TEMPLATE = """You are an agricultural angle-selection assistant.
 
 Given a question, its expert answer, and a domain, select angles from the list below that are DIRECTLY AND CLEARLY addressed in this specific answer.
@@ -386,7 +433,7 @@ Given a question, its expert answer, and a domain, select angles from the list b
 CRITICAL RULES:
 - ONLY select an angle if the answer contains SUBSTANTIAL content about that topic
 - If no strong angles exist, return an empty array []
-- Minimum 1 angle is fine, maximum 6 - but QUALITY over QUANTITY
+- Minimum 1 angle is fine, maximum 4 - but QUALITY over QUANTITY
 - Do NOT select an angle just to meet a minimum count
 - If the answer only briefly mentions something, DO NOT select that angle
 
@@ -586,18 +633,30 @@ def save_skipped_ids(state: Dict, answer_ids: List[str]) -> None:
 # ==============================================================================
 
 def build_anthropic_client() -> anthropic.Anthropic:
-    if not ANTHROPIC_API_KEY:
+    key = os.getenv("ANTHROPIC_API_KEY") or ANTHROPIC_API_KEY
+    if not key:
         raise ValueError("ANTHROPIC_API_KEY not set")
-    return anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    return anthropic.Anthropic(api_key=key)
 
 
-def classify_domain(
+class ClassificationError(Exception):
+    """Raised when domain classification fails due to malformed output or unknown domain."""
+    pass
+
+
+def classify_domains(
     client: anthropic.Anthropic,
     question: str,
     answer: str,
-) -> str:
-    """Classify a Q&A pair into one of the defined domains."""
-    prompt = DOMAIN_CLASSIFICATION_PROMPT_TEMPLATE.format(
+    max_domains: int = 3,
+) -> List[str]:
+    """Classify a Q&A pair into 1 to max_domains relevant agricultural domains.
+
+    Raises:
+        anthropic.APIError: if the provider request fails.
+        ClassificationError: if the model returns malformed JSON or no supported domains match.
+    """
+    prompt = DOMAINS_CLASSIFICATION_PROMPT_TEMPLATE.format(
         DOMAIN_LIST=DOMAIN_LIST_STR,
         question=question[:500],
         answer=answer[:2000],
@@ -611,31 +670,162 @@ def classify_domain(
     raw = response.content[0].text.strip()
     try:
         obj = parse_json_or_raise(raw)
-        domain = obj.get("domain", "").strip()
-        # Validate domain is in our list
-        if domain not in DOMAIN_ANGLES:
-            # Try fuzzy match
+    except ValueError as exc:
+        log.warning("Domain classification JSON parsing failed: %s. Raw: %s", exc, raw[:200])
+        raise ClassificationError(f"Malformed JSON from domain classification: {exc}") from exc
+
+    raw_domains = []
+    if isinstance(obj, dict):
+        if "domains" in obj and isinstance(obj["domains"], list):
+            raw_domains = obj["domains"]
+        elif "domain" in obj and isinstance(obj["domain"], str):
+            raw_domains = [obj["domain"]]
+    elif isinstance(obj, list):
+        raw_domains = obj
+
+    valid_domains = []
+    for d in raw_domains:
+        d_str = str(d).strip()
+        if d_str in DOMAIN_ANGLES:
+            if d_str not in valid_domains:
+                valid_domains.append(d_str)
+        else:
+            # Fuzzy match against known domains
             for known in DOMAIN_ANGLES:
-                if known.lower() in domain.lower() or domain.lower() in known.lower():
-                    domain = known
+                if (known.lower() in d_str.lower() or d_str.lower() in known.lower()) and known not in valid_domains:
+                    valid_domains.append(known)
                     break
-            else:
-                log.warning("Unknown domain '%s', using first domain", domain)
-                domain = DOMAIN_LIST[0]
-        return domain
+
+    if not valid_domains:
+        log.warning("No valid agricultural domains parsed from raw: %s", raw[:200])
+        raise ClassificationError(f"No recognized agricultural domain found in model response: {raw[:200]}")
+
+    return valid_domains[:max_domains]
+
+
+def classify_domain(
+    client: anthropic.Anthropic,
+    question: str,
+    answer: str,
+) -> str:
+    """Classify a Q&A pair into one domain (backward compatible)."""
+    domains = classify_domains(client, question, answer, max_domains=1)
+    return domains[0]
+
+
+def select_angles_across_domains(
+    client: anthropic.Anthropic,
+    domains: List[str],
+    question: str,
+    answer: str,
+    max_angles: Optional[int] = None,
+) -> List[dict]:
+    """Select relevant angles across multiple candidate domains subject to domain limits:
+    - 1 domain: at most 4 angles
+    - 2 domains: at most 3 angles per domain (up to 6 total)
+    - 3 domains: at most 2 angles per domain (up to 6 total)
+
+    Returns:
+        List[dict] where each item is:
+        {"domain": domain_name, "angle": angle_name, "angle_description": description}
+    """
+    sections = []
+    for d in domains:
+        angles_map = DOMAIN_ANGLES.get(d, {})
+        if not angles_map:
+            continue
+        formatted_angles = "\n".join(f'  - "{name}": {desc}' for name, desc in angles_map.items())
+        sections.append(f"Domain: {d}\n{formatted_angles}")
+
+    if not sections:
+        return []
+
+    num_domains = len(domains)
+    if num_domains == 1:
+        max_per_domain = 4
+        per_domain_rule = "- Select AT MOST 4 angles from this domain (quality over quantity)."
+        default_max_total = 4
+    elif num_domains == 2:
+        max_per_domain = 3
+        per_domain_rule = "- Select AT MOST 3 angles per domain (maximum 3 from each candidate domain, total maximum 6)."
+        default_max_total = 6
+    else:
+        max_per_domain = 2
+        per_domain_rule = "- Select AT MOST 2 angles per domain (maximum 2 from each candidate domain, total maximum 6)."
+        default_max_total = 2 * num_domains
+
+    effective_max_angles = max_angles if max_angles is not None else default_max_total
+
+    domains_and_angles = "\n\n".join(sections)
+    prompt = MULTI_DOMAIN_ANGLE_SELECTION_PROMPT_TEMPLATE.format(
+        domains_and_angles=domains_and_angles,
+        per_domain_rule=per_domain_rule,
+        question=question[:500],
+        answer=answer[:2000],
+    )
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=512,
+        temperature=0.0,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    raw = response.content[0].text.strip()
+    try:
+        obj = parse_json_or_raise(raw)
+        if isinstance(obj, dict) and "angles" in obj:
+            obj = obj["angles"]
+
+        items = []
+        domain_counts: Dict[str, int] = {d: 0 for d in domains}
+        if isinstance(obj, list):
+            for entry in obj:
+                if len(items) >= effective_max_angles:
+                    break
+                if isinstance(entry, dict):
+                    d = entry.get("domain", "").strip()
+                    a = entry.get("angle", "").strip()
+                elif isinstance(entry, str):
+                    a = entry.strip()
+                    d = next((dom for dom in domains if a in DOMAIN_ANGLES.get(dom, {})), "")
+                else:
+                    continue
+
+                if d in DOMAIN_ANGLES and a in DOMAIN_ANGLES[d]:
+                    if domain_counts.get(d, 0) >= max_per_domain:
+                        continue
+                    desc = DOMAIN_ANGLES[d][a]
+                    if not any(it["domain"] == d and it["angle"] == a for it in items):
+                        items.append({"domain": d, "angle": a, "angle_description": desc})
+                        domain_counts[d] = domain_counts.get(d, 0) + 1
+                elif not d:
+                    for dom in domains:
+                        if a in DOMAIN_ANGLES.get(dom, {}):
+                            if domain_counts.get(dom, 0) >= max_per_domain:
+                                continue
+                            desc = DOMAIN_ANGLES[dom][a]
+                            if not any(it["domain"] == dom and it["angle"] == a for it in items):
+                                items.append({"domain": dom, "angle": a, "angle_description": desc})
+                                domain_counts[dom] = domain_counts.get(dom, 0) + 1
+                            break
+
+        return items[:effective_max_angles]
     except (ValueError, KeyError) as exc:
-        log.warning("Domain classification failed: %s. Raw: %s", exc, raw[:200])
-        return DOMAIN_LIST[0]
+        log.warning("Multi-domain angle selection failed: %s. Raw: %s", exc, raw[:200])
+        return []
 
 
 def select_angles(
     client: anthropic.Anthropic,
-    domain: str,
+    domain: Union[str, List[str]],
     question: str,
     answer: str,
-    max_angles: int = 6,
+    max_angles: int = 4,
 ) -> List[str]:
-    """Select 2-max_angles relevant angles for a Q&A pair within a domain."""
+    """Select 1-max_angles relevant angles for a Q&A pair within a domain or domains."""
+    if isinstance(domain, list):
+        items = select_angles_across_domains(client, domain, question, answer, max_angles=max_angles)
+        return [it["angle"] for it in items]
+
     angle_list = format_angle_list_for_prompt(domain)
     prompt = ANGLE_SELECTION_PROMPT_TEMPLATE.format(
         angle_list=angle_list,
@@ -658,17 +848,20 @@ def select_angles(
             angles = obj["angles"]
         else:
             raise ValueError(f"Unexpected angle selection format: {raw[:200]}")
-        # Validate angles exist in domain
         valid_angles = list(DOMAIN_ANGLES.get(domain, {}).keys())
         selected = [a for a in angles if a in valid_angles][:max_angles]
         if not selected:
-            # No strong angles found - return empty, don't force defaults
             log.warning("No strong angles found for question: %s", question[:100])
             return []
         return selected
     except (ValueError, KeyError) as exc:
         log.warning("Angle selection failed: %s. Raw: %s", exc, raw[:200])
-        return []  # Don't force angles on error
+        return []
+
+
+class GenerationError(Exception):
+    """Raised when an angle generation produces an invalid or malformed response."""
+    pass
 
 
 def generate_ffv_for_angle(
@@ -678,29 +871,61 @@ def generate_ffv_for_angle(
     angle: str,
     angle_description: str,
 ) -> Optional[dict]:
-    """Generate a single FFV for one angle."""
+    """Generate a single FFV for one angle.
+
+    Returns:
+        dict: with "question" and "answer" if successfully generated.
+        None: if the model explicitly returned null (angle is not covered in the answer).
+    Raises:
+        anthropic.APIError: if the provider request fails.
+        GenerationError: if the model returns malformed JSON or an invalid structure.
+    """
     prompt = FFV_GENERATION_PROMPT_TEMPLATE.format(
         angle=angle,
         angle_description=angle_description,
         question=question,
         answer=answer,
     )
-    try:
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=BATCH_MAX_TOKENS,
-            temperature=BATCH_TEMPERATURE,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
-        ffv = parse_json_or_raise(raw)
-        # Basic validation
-        if not ffv.get("question") or not ffv.get("answer"):
-            raise ValueError("Missing question or answer in FFV")
-        return ffv
-    except Exception as exc:
-        log.warning("FFV generation failed for angle '%s': %s", angle, exc)
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=BATCH_MAX_TOKENS,
+        temperature=BATCH_TEMPERATURE,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    raw = response.content[0].text.strip()
+    cleaned = _parse_json_fences(raw).strip()
+    if cleaned.lower() in ("null", "none"):
         return None
+
+    try:
+        ffv = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise GenerationError(f"Model returned malformed JSON for angle '{angle}': {exc}. Raw: {raw[:200]}") from exc
+
+    if ffv is None:
+        return None
+
+    if not isinstance(ffv, dict):
+        raise GenerationError(
+            f"Expected JSON object for angle '{angle}', got {type(ffv).__name__}. Raw: {raw[:200]}"
+        )
+
+    q_val = ffv.get("question")
+    a_val = ffv.get("answer")
+
+    if not isinstance(q_val, str) or not q_val.strip():
+        raise GenerationError(f"Missing or non-string 'question' for angle '{angle}'. Raw: {raw[:200]}")
+
+    if not isinstance(a_val, str) or not a_val.strip():
+        raise GenerationError(f"Missing or non-string 'answer' for angle '{angle}'. Raw: {raw[:200]}")
+
+    word_count = len(a_val.strip().split())
+    if word_count < 10:
+        raise GenerationError(
+            f"Generated answer for angle '{angle}' is too short ({word_count} words; minimum 10 words required). Answer: {a_val[:100]}"
+        )
+
+    return {"question": q_val.strip(), "answer": a_val.strip()}
 
 
 # ==============================================================================

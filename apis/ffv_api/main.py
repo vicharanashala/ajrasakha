@@ -1,12 +1,16 @@
+import json
 import logging
 import sys
 from pathlib import Path
+from typing import Literal
 
 import anthropic
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 # basic logging setup so we can see what's happening in the logs
 logging.basicConfig(
@@ -53,51 +57,103 @@ app = FastAPI(
 )
 
 
+class RelaxedJSONMiddleware(BaseHTTPMiddleware):
+    """Tolerates unescaped control characters (e.g. raw newlines in multi-line string pastes in Swagger UI)."""
+
+    async def dispatch(self, request: Request, call_next):
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            raw_body = await request.body()
+            if raw_body:
+                try:
+                    json.loads(raw_body)
+                except json.JSONDecodeError as exc:
+                    if "control character" in str(exc).lower():
+                        try:
+                            obj = json.loads(raw_body.decode("utf-8", errors="replace"), strict=False)
+                            cleaned_body = json.dumps(obj).encode("utf-8")
+                            request._body = cleaned_body
+
+                            async def receive():
+                                return {"type": "http.request", "body": cleaned_body, "more_body": False}
+
+                            request._receive = receive
+                        except Exception:
+                            pass
+        return await call_next(request)
+
+
+app.add_middleware(RelaxedJSONMiddleware)
+
+
 class FFVRequest(BaseModel):
-    question: str = Field(..., description="The original question. Must not be empty.")
-    answer: str = Field(..., description="The detailed expert answer. Must not be empty.")
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        json_schema_extra={
+            "example": {
+                "question": "How should I manage irrigation and fertilizers for my wheat crop?",
+                "answer": "Wheat needs about 4-6 irrigations at crown root initiation, tillering, jointing, flowering and grain filling stages. Apply 120 kg Nitrogen and 60 kg Phosphorus per hectare.",
+                "domains": [
+                    "Irrigation and Water Management",
+                    "Soil Health and Nutrient Management",
+                ],
+            }
+        },
+    )
+
+    question: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="The original farming question. Must be between 1 and 5,000 characters.",
+    )
+    answer: str = Field(
+        ...,
+        min_length=1,
+        max_length=50000,
+        description="The detailed expert answer. Must be between 1 and 50,000 characters.",
+    )
     domain: str | None = Field(
-        None,
+        default=None,
         description=(
-            "Optional. Exact domain name (case-sensitive), e.g. 'Irrigation and Water Management'. "
-            "If omitted or blank, the domain is classified automatically by the model. "
-            "An unknown name returns 400 with the list of valid domains."
+            "Optional. Single exact domain name (case-sensitive), e.g. 'Irrigation and Water Management'. "
+            "If both 'domain' and 'domains' are omitted, the domains are classified automatically."
+        ),
+    )
+    domains: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional. List of exact domain names, e.g. ['Irrigation and Water Management', 'Soil Health and Nutrient Management']. "
+            "If both 'domain' and 'domains' are omitted, the domains are classified automatically."
         ),
     )
 
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "question": "How often should I irrigate wheat?",
-                "answer": "Wheat needs about 4-6 irrigations, at crown root initiation, tillering, jointing, flowering and grain filling stages.",
-                "domain": "Irrigation and Water Management",
-            }
-        }
-    }
-
 
 class FFVVersion(BaseModel):
+    domain: str = Field(..., description="The agricultural domain this version covers.")
     angle: str = Field(..., description="The angle this version covers, e.g. 'Irrigation Scheduling'.")
     question: str = Field(..., description="Farmer-friendly question for this angle.")
     answer: str = Field(..., description="Short farmer-friendly answer for this angle.")
 
 
 class FFVResponse(BaseModel):
-    domain: str = Field(..., description="The domain used: the one supplied in the request, or the auto-detected one.")
+    status: Literal["completed", "partial", "no_angles"] = Field(
+        ...,
+        description="Generation status: 'completed' (all selected angles generated), 'partial' (some versions generated), 'no_angles' (no versions generated).",
+    )
+    domain: str = Field(..., description="Primary domain (for backward compatibility).")
+    domains: list[str] = Field(..., description="All relevant agricultural domains covered.")
     versions: list[FFVVersion] = Field(
-        ..., description="One entry per selected angle (up to 6). Angles that fail to generate are omitted."
+        ..., description="One entry per successfully generated angle version."
+    )
+    failed_angles: list[str] = Field(
+        default_factory=list,
+        description="List of angles that failed during generation due to errors.",
     )
 
 
-def _instrument_client(client) -> list[anthropic.APIError]:
-    """Patch client.messages.create and return a list that collects API errors.
-
-    - generate_ffvs.py catches every exception from the API and falls back
-      (e.g. to the first domain), so errors never reach us. We record them here
-      (and still re-raise, so the script's own fallback behaviour is unchanged)
-      so the endpoint can tell a real failure from a normal result.
-    """
-    errors: list[anthropic.APIError] = []
+def _instrument_client(client):
+    """Ensure client routes temperature to extra_body to satisfy anthropic SDK signature."""
     original_create = client.messages.create
 
     def create(*args, **kwargs):
@@ -106,27 +162,42 @@ def _instrument_client(client) -> list[anthropic.APIError]:
             extra_body = dict(kwargs.get("extra_body") or {})
             extra_body["temperature"] = temp
             kwargs["extra_body"] = extra_body
-        try:
-            return original_create(*args, **kwargs)
-        except anthropic.APIError as exc:
-            log.error("Anthropic API call failed: %s: %s", type(exc).__name__, exc)
-            errors.append(exc)
-            raise
+        return original_create(*args, **kwargs)
 
     client.messages.create = create
-    return errors
+    return client
 
 
-def _raise_upstream_error(errors: list[anthropic.APIError]) -> None:
-    """Turn the first recorded Anthropic error into an HTTP error."""
-    first = errors[0]
-    if isinstance(first, anthropic.RateLimitError):
-        raise HTTPException(status_code=429, detail="Rate limited by the AI provider. Please retry shortly.")
-    if isinstance(first, anthropic.APITimeoutError):
-        raise HTTPException(status_code=504, detail="The AI provider timed out. Please retry.")
-    if isinstance(first, anthropic.AuthenticationError):
-        raise HTTPException(status_code=502, detail="AI provider rejected the server's credentials.")
-    raise HTTPException(status_code=502, detail=f"AI provider error: {type(first).__name__}.")
+def map_anthropic_error(exc: anthropic.APIError) -> HTTPException:
+    """Map Anthropic exceptions directly to appropriate HTTP responses."""
+    if isinstance(exc, anthropic.RateLimitError):
+        return HTTPException(
+            status_code=429,
+            detail="The AI provider is temporarily rate-limited. Please retry shortly.",
+            headers={"Retry-After": "5"},
+        )
+    if isinstance(exc, anthropic.APITimeoutError):
+        return HTTPException(
+            status_code=504,
+            detail="The AI provider timed out. Please retry.",
+        )
+    if isinstance(exc, anthropic.AuthenticationError):
+        return HTTPException(
+            status_code=500,
+            detail="The AI provider credentials are not configured correctly.",
+        )
+
+    msg = getattr(exc, "message", str(exc))
+    if "credit balance is too low" in msg.lower():
+        return HTTPException(
+            status_code=502,
+            detail="The AI provider account credit balance is too low. Please add credits in Anthropic Console Plans & Billing.",
+        )
+
+    return HTTPException(
+        status_code=502,
+        detail=f"The AI provider request failed: {type(exc).__name__}. {msg}",
+    )
 
 
 @app.post(
@@ -134,28 +205,25 @@ def _raise_upstream_error(errors: list[anthropic.APIError]) -> None:
     response_model=FFVResponse,
     summary="Generate farmer-friendly versions of a Q&A pair",
     description=(
-        "Takes an expert question and answer (and optionally a domain), picks the relevant angles "
-        "for that domain, and returns one farmer-friendly question/answer per angle."
+        "Takes an expert question and answer (and optionally domain/domains), picks the relevant angles "
+        "across those domains, and returns one farmer-friendly question/answer per angle (2-6 total)."
     ),
     responses={
-        400: {"description": "Empty question/answer, or an unknown domain name."},
+        400: {"description": "Unknown domain name or more than 3 domains."},
+        422: {"description": "Validation error: missing, empty, or oversized question/answer."},
         429: {"description": "Rate limited by the AI provider."},
         500: {"description": "Server is not configured with a valid ANTHROPIC_API_KEY."},
-        502: {"description": "AI provider error, or no versions could be generated."},
+        502: {"description": "AI provider error."},
         504: {"description": "The AI provider timed out."},
     },
 )
 def generate_ffv(request: FFVRequest):
-    question = request.question.strip()
-    answer = request.answer.strip()
-    if not question:
-        raise HTTPException(status_code=400, detail="Field 'question' must not be empty.")
-    if not answer:
-        raise HTTPException(status_code=400, detail="Field 'answer' must not be empty.")
+    question = request.question
+    answer = request.answer
 
     try:
         client = generate_ffvs.build_anthropic_client()
-        api_errors = _instrument_client(client)
+        _instrument_client(client)
     except ValueError as exc:
         log.error("Anthropic client init failed: %s", exc)
         raise HTTPException(
@@ -163,43 +231,88 @@ def generate_ffv(request: FFVRequest):
             detail="Server is not configured with a valid ANTHROPIC_API_KEY.",
         )
 
-    # classify_domain always returns a key present in DOMAIN_ANGLES (falling back
-    # to the first domain only when the model's JSON can't be parsed), and
-    # select_angles filters its result to valid angles and caps it to 6, so the
-    # DOMAIN_ANGLES lookup below can't KeyError. Both let API errors propagate
-    # though, so map those to HTTP errors here.
+    # Resolve domains from request (or prepare for auto-classification)
+    resolved_domains: list[str] = []
+    if request.domains:
+        for d in request.domains:
+            d_clean = d.strip()
+            if d_clean:
+                if d_clean not in generate_ffvs.DOMAIN_ANGLES:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Unknown domain '{d_clean}'. Valid domains: {list(generate_ffvs.DOMAIN_ANGLES)}",
+                    )
+                if d_clean not in resolved_domains:
+                    resolved_domains.append(d_clean)
+        if len(resolved_domains) > 3:
+            raise HTTPException(
+                status_code=400,
+                detail=f"At most 3 domains can be specified in 'domains'. Received {len(resolved_domains)}.",
+            )
+    elif request.domain and request.domain.strip():
+        d_clean = request.domain.strip()
+        if d_clean not in generate_ffvs.DOMAIN_ANGLES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown domain '{d_clean}'. Valid domains: {list(generate_ffvs.DOMAIN_ANGLES)}",
+            )
+        resolved_domains = [d_clean]
+
     try:
-        if request.domain and request.domain.strip():
-            domain = request.domain.strip()
-            if domain not in generate_ffvs.DOMAIN_ANGLES:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unknown domain '{domain}'. Valid domains: {list(generate_ffvs.DOMAIN_ANGLES)}",
-                )
-        else:
-            domain = generate_ffvs.classify_domain(client, question, answer)
-        angles = generate_ffvs.select_angles(client, domain, question, answer)
-    except anthropic.APIError:
-        _raise_upstream_error(api_errors)
+        if not resolved_domains:
+            # Auto-classify into 1 to 3 relevant agricultural domains
+            resolved_domains = generate_ffvs.classify_domains(client, question, answer, max_domains=3)
 
-    versions: list[FFVVersion] = []
-    for angle in angles:
-        angle_description = generate_ffvs.DOMAIN_ANGLES[domain][angle]
-        ffv = generate_ffvs.generate_ffv_for_angle(client, question, answer, angle, angle_description)
-        if ffv is not None:
-            versions.append(FFVVersion(angle=angle, question=ffv["question"], answer=ffv["answer"]))
-        else:
-            log.warning("No FFV generated for angle '%s' (domain '%s')", angle, domain)
-
-    if not versions:
-        if api_errors:
-            _raise_upstream_error(api_errors)
-        raise HTTPException(
-            status_code=502,
-            detail="Could not generate any farmer-friendly versions for this question/answer.",
+        # Select relevant angles across all resolved domains subject to per-domain limits
+        angle_items = generate_ffvs.select_angles_across_domains(
+            client, resolved_domains, question, answer
         )
 
-    return FFVResponse(domain=domain, versions=versions)
+        versions: list[FFVVersion] = []
+        failed_angles: list[str] = []
+
+        for item in angle_items:
+            d = item["domain"]
+            angle = item["angle"]
+            desc = item["angle_description"]
+            try:
+                ffv = generate_ffvs.generate_ffv_for_angle(client, question, answer, angle, desc)
+                if ffv is not None:
+                    versions.append(
+                        FFVVersion(domain=d, angle=angle, question=ffv["question"], answer=ffv["answer"])
+                    )
+                else:
+                    log.info("Angle '%s' skipped by model (not substantially covered)", angle)
+            except (generate_ffvs.GenerationError, ValueError) as exc:
+                log.warning("Generation failed for angle '%s': %s", angle, exc)
+                failed_angles.append(angle)
+
+    except generate_ffvs.ClassificationError as exc:
+        log.warning("Domain classification failed: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Could not classify question/answer into a supported agricultural domain.",
+        ) from exc
+    except anthropic.APIError as exc:
+        log.exception("Anthropic API request failed: %s", exc)
+        raise map_anthropic_error(exc) from exc
+
+    # Determine status: completed, partial, or no_angles
+    if not versions:
+        status: Literal["completed", "partial", "no_angles"] = "no_angles"
+    elif len(versions) == len(angle_items):
+        status = "completed"
+    else:
+        status = "partial"
+
+    primary_domain = resolved_domains[0] if resolved_domains else "Unknown"
+    return FFVResponse(
+        status=status,
+        domain=primary_domain,
+        domains=resolved_domains,
+        versions=versions,
+        failed_angles=failed_angles,
+    )
 
 
 @app.get("/health")
