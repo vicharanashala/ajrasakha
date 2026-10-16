@@ -40,8 +40,8 @@ REVIEWER_MCP_PORT="${REVIEWER_MCP_PORT:-9007}"
 REVIEWER_MCP_PATH="${REVIEWER_MCP_PATH:-/mcp}"
 export REVIEWER_MCP_HOST REVIEWER_MCP_PORT REVIEWER_MCP_PATH
 
-if [[ -z "${INTERNAL_API_KEY:-}" ]]; then
-  echo "Warning: INTERNAL_API_KEY is not set. Desk API calls will fail authentication."
+if [[ -z "${REVIEW_SYSTEM_API_AUTH_KEY:-}" ]] && [[ -z "${INTERNAL_API_KEY:-}" ]]; then
+  echo "Warning: REVIEW_SYSTEM_API_AUTH_KEY is not set. Desk API calls will fail authentication."
 fi
 
 echo "Reviewer MCP -> http://${REVIEWER_MCP_HOST}:${REVIEWER_MCP_PORT}${REVIEWER_MCP_PATH}"
