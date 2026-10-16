@@ -12,12 +12,14 @@ export const ExpandableText = ({
   onToggle?: () => void;
 }) => {
   if (text.length <= maxLength) {
-    return <span>{text}</span>;
+    return <span className="whitespace-pre-wrap">{text}</span>;
   }
 
   return (
     <div className="space-y-2">
-      <p>{isExpanded ? text : `${text.substring(0, maxLength)}...`}</p>
+      <p className="whitespace-pre-wrap">
+        {isExpanded ? text : `${text.substring(0, maxLength)}...`}
+      </p>
       <button
         onClick={onToggle}
         className="text-sm text-primary hover:underline flex items-center gap-1"

@@ -3,13 +3,29 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, X } from 'lucide-react';
 
+// Widest option label's rendered text width, so the panel can size itself to fit the longest
+// value instead of a fixed 13rem that truncates long folder/organization names.
+let _measureCanvas = null;
+function measureMaxTextWidth(texts, font) {
+  if (!texts || texts.length === 0) return 0;
+  if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
+  const ctx = _measureCanvas.getContext('2d');
+  ctx.font = font;
+  let max = 0;
+  for (const t of texts) {
+    const w = ctx.measureText(t).width;
+    if (w > max) max = w;
+  }
+  return max;
+}
+
 // `options` is normally a plain string[] (value === display label). Pass {value, label}[]
 // instead (e.g. language codes with human-readable names) when the two need to differ — the
 // filter is applied by `value`, the checklist and search show `label`.
 export default function ColumnFilter({ label, options, selected, onChange }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 208 });
   const btnRef = useRef(null);
   const panelRef = useRef(null);
 
@@ -34,7 +50,12 @@ export default function ColumnFilter({ label, options, selected, onChange }) {
   function handleToggle() {
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left });
+      const font = getComputedStyle(btnRef.current).font || '11px sans-serif';
+      const textWidth = measureMaxTextWidth(normalized.map((o) => o.label), font);
+      const idealWidth = Math.max(208 * 2, textWidth + 56);
+      const width = Math.min(idealWidth, window.innerWidth - 16);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setPos({ top: rect.bottom + 4, left, width });
     }
     setOpen(o => !o);
     setSearch('');
@@ -68,7 +89,7 @@ export default function ColumnFilter({ label, options, selected, onChange }) {
       {open && createPortal(
         <div
           ref={panelRef}
-          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, width: '13rem' }}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, width: pos.width || '13rem' }}
           className="rounded-lg border border-border bg-card shadow-xl"
         >
           <div className="p-2 border-b border-border/50">

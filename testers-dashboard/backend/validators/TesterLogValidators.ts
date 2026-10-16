@@ -89,7 +89,7 @@ export class CreateTesterLogDto {
     @IsOptional()
     timeAnswerReceived?: string;
 
-    @JSONSchema({ description: 'SLA status: Within SLA, SLA Breached, Not Applicable' })
+    @JSONSchema({ description: 'SLA status: Within SLA, SLA Breached, Pending, Not Applicable' })
     @IsString()
     @IsOptional()
     slaStatus?: string;
@@ -171,6 +171,7 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() waTimeQuestionAsked?: string;
     @IsString() @IsOptional() waTimeAnswerReceived?: string;
     @IsString() @IsOptional() waResponseTimeMins?: string;
+    @JSONSchema({ description: 'WhatsApp SLA status: Within SLA, SLA Breached, Pending, Not Applicable' })
     @IsString() @IsOptional() waSlaStatus?: string;
     @IsString() @IsOptional() waVoiceInputWorking?: string;
     @IsString() @IsOptional() waVoiceOutputWorking?: string;
@@ -308,4 +309,25 @@ export class CreateZohoTicketDto {
     }[];
 }
 
-export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, UpdateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto];
+export class FormatRemarksDto {
+    @JSONSchema({ description: 'Raw spoken or typed remarks text to organize' })
+    @IsString()
+    @IsNotEmpty()
+    @MinLength(1)
+    @MaxLength(4000)
+    text: string;
+
+    @JSONSchema({ description: 'Selected category or defect type context, e.g. Bug, UI Issue, Translation Issue' })
+    @IsString()
+    @IsOptional()
+    @MaxLength(100)
+    category?: string;
+
+    @JSONSchema({ description: 'Spoken language code, e.g. en-IN, hi-IN' })
+    @IsString()
+    @IsOptional()
+    @MaxLength(50)
+    language?: string;
+}
+
+export const TESTER_LOG_VALIDATORS = [CreateTesterLogDto, UpdateTesterLogDto, GetTesterLogQuery, CreateZohoTicketDto, FormatRemarksDto];

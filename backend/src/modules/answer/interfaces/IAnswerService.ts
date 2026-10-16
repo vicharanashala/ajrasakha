@@ -7,6 +7,8 @@ import type { IAnswerSubmissionService } from './IAnswerSubmissionService.js';
 import type { IAnswerAiService } from './IAnswerAiService.js';
 import type { IAnswerFaqService } from './IAnswerFaqService.js';
 
+import type { ChemicalDetectionResponse } from '#root/modules/ai/services/AiService.js';
+
 /**
  * Main Answer Service interface, combining sub-service surfaces and core CRUD operations.
  */
@@ -29,6 +31,8 @@ export interface IAnswerService
     remarks?: string,
     type?: string,
   ): Promise<{ insertedId: string; isFinalAnswer: boolean }>;
+
+  detectChemicals(text: string): Promise<ChemicalDetectionResponse>;
 
   getAnswerByMessageOrThreadId(
     id: string,

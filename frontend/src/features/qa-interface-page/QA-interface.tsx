@@ -40,6 +40,7 @@ import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useToast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
+import { ChemicalVerifiedTextarea } from "@/components/ChemicalVerifiedTextarea";
 
 export type QuestionFilter =
   | "newest"
@@ -726,74 +727,56 @@ export const QAInterface = ({
                         </div>
 
                         <div>
-                          <div className="flex items-center justify-between">
-                            <Label
-                              htmlFor="new-answer"
-                              className="text-sm font-medium flex items-center gap-1"
-                            >
-                              {selectedQuestionData.aiInitialAnswer &&
-                                newAnswer.trim() ===
-                                selectedQuestionData.aiInitialAnswer ? (
+                          <ChemicalVerifiedTextarea
+                            id="new-answer"
+                            label={
+                              selectedQuestionData.aiInitialAnswer &&
+                              newAnswer.trim() === selectedQuestionData.aiInitialAnswer ? (
                                 <>
-                                  <Bot className="h-4 w-4 text-blue-600" />
+                                  <Bot className="h-4 w-4 text-blue-600 inline mr-1" />
                                   AI Suggested Answer:
                                 </>
                               ) : (
                                 "Draft Response:"
-                              )}
-                            </Label>
-
-                            <div className="flex items-center gap-2">
-                              {
-                                newAnswer?.trim() && !isEnglishCharacters(newAnswer) && (
+                              )
+                            }
+                            placeholder="Enter your answer here..."
+                            value={translatedDraftText || newAnswer}
+                            onChange={(val) => {
+                              setTranslatedDraftText("");
+                              setNewAnswer(val);
+                            }}
+                            minHeight="min-h-[210px]"
+                            maxHeight="md:max-h-[240px] max-h-[170px]"
+                            textareaClassName={
+                              newAnswer.trim() === selectedQuestionData?.aiInitialAnswer &&
+                              selectedQuestionData.aiInitialAnswer
+                                ? "border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 italic"
+                                : ""
+                            }
+                            actions={
+                              <div className="flex items-center gap-2">
+                                {newAnswer?.trim() && !isEnglishCharacters(newAnswer) && (
                                   <SarvamTranslateDropdown
                                     query={newAnswer}
                                     onTranslate={(result) => setTranslatedDraftText(result)}
                                   />
-                                )
-                              }
-                              {selectedQuestionData.aiInitialAnswer &&
-                                !newAnswer && (
+                                )}
+                                {selectedQuestionData.aiInitialAnswer && !newAnswer && (
                                   <button
                                     onClick={() => {
-                                      setNewAnswer(
-                                        selectedQuestionData.aiInitialAnswer || ""
-                                      );
+                                      setNewAnswer(selectedQuestionData.aiInitialAnswer || "");
                                       setTranslatedDraftText("");
                                       setRemarks("AI Suggested Answer");
                                     }}
-                                    // The classes below are the ones you provided, slightly adjusted for square shape
-                                    className="
-                                  inline-flex items-center justify-center 
-                                  text-blue-500 dark:text-blue-400
-                                  bg-transparent
-                                  rounded-lg 
-                                  p-1
-                                  shadow-none
-                                  hover:border-blue-300 hover:text-blue-400
-                                  hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] dark:hover:shadow-[0_0_10px_rgba(96,165,250,0.5)]
-                                  transition-all duration-200 ease-in-out
-                                  active:scale-[0.98]
-                                  focus:outline-none focus:ring-1 focus:ring-blue-300
-                                "
+                                    className="inline-flex items-center justify-center text-blue-500 dark:text-blue-400 bg-transparent rounded-lg p-1 shadow-none hover:border-blue-300 hover:text-blue-400 hover:shadow-[0_0_10px_rgba(59,130,246,0.5)] dark:hover:shadow-[0_0_10px_rgba(96,165,250,0.5)] transition-all duration-200 ease-in-out active:scale-[0.98] focus:outline-none focus:ring-1 focus:ring-blue-300"
                                     aria-label="Apply Suggested AI Answer"
                                   >
                                     <Bot className="h-5 w-5" />
                                   </button>
                                 )}
-                            </div>
-                          </div>
-                          <Textarea
-                            id="new-answer"
-                            placeholder="Enter your answer here..."
-                            value={translatedDraftText || newAnswer}
-                            onChange={(e) => { setTranslatedDraftText(""); setNewAnswer(e.target.value); }}
-                            className={`mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent ${newAnswer.trim() ===
-                                selectedQuestionData?.aiInitialAnswer &&
-                                selectedQuestionData.aiInitialAnswer
-                                ? "border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 italic"
-                                : "border-gray-200 dark:border-gray-600"
-                              }`}
+                              </div>
+                            }
                           />
 
                           {/* Remarks */}

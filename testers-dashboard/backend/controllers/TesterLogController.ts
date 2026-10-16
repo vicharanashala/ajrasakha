@@ -21,7 +21,7 @@ import { OpenAPI } from 'routing-controllers-openapi';
 import { DASHBOARD_TYPES } from '../types.js';
 import { ITesterLogService, TesterLogActor } from '../interfaces/ITesterLogService.js';
 import { getTodayIST } from '../testersDashboard/normalize.js';
-import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto } from '../validators/TesterLogValidators.js';
+import { CreateTesterLogDto, GetTesterLogQuery, UpdateTesterLogDto, FormatRemarksDto } from '../validators/TesterLogValidators.js';
 
 interface AuthenticatedUser {
     _id?: { toString(): string } | string;
@@ -228,17 +228,45 @@ export class TesterLogController {
     }
 
     @OpenAPI({
-        summary: 'Edit a tester submission (admin only)',
+        summary: 'Edit a tester submission (admin or owning tester for on-hold entries)',
         description: 'Updates the form fields sent in the body. Submitter details, the record id and created time cannot be changed; the [Auto] duration fields are recomputed. The previous and new values are recorded in tester_test_cases_audit.',
     })
-    @Authorized(['admin'])
+    @Authorized(['admin', 'tester'])
     @Patch('/:id')
     async updateEntry(
         @CurrentUser() currentUser: AuthenticatedUser,
         @Param('id') id: string,
         @Body() body: UpdateTesterLogDto,
     ) {
-        const actor = requireAdmin(currentUser);
+        const userId = currentUser._id?.toString();
+        if (!userId) throw new BadRequestError('Could not resolve user ID');
+
+        const isAdmin = currentUser?.role === 'admin';
+        let actor: TesterLogActor;
+
+        if (isAdmin) {
+            actor = requireAdmin(currentUser);
+        } else {
+            // Testers can only update their own test cases that are currently On Hold
+            const entry = await this.testerLogService.getEntryById(id);
+            if (!entry) throw new NotFoundError('Tester entry not found');
+            if (entry.submittedByUserId !== userId) {
+                throw new ForbiddenError('You can only update your own test cases');
+            }
+            if (entry.status !== 'On Hold' && entry.overallTestStatus !== 'On Hold') {
+                throw new BadRequestError('Only test cases that are On Hold can be updated by testers');
+            }
+            const testerName =
+                [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ').trim() ||
+                currentUser.email ||
+                'Tester';
+            actor = {
+                userId,
+                email: currentUser.email || '',
+                name: testerName,
+            };
+        }
+
         if (body.testDate !== undefined) {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(body.testDate)) {
                 throw new BadRequestError('testDate must be formatted as YYYY-MM-DD');
@@ -266,5 +294,18 @@ export class TesterLogController {
         const deleted = await this.testerLogService.deleteEntry(id, actor);
         if (!deleted) throw new NotFoundError('Tester entry not found');
         return { success: true };
+    }
+
+    @OpenAPI({
+        summary: 'Format & organize tester remarks with AI',
+        description: 'Transforms raw spoken or typed notes into structured, grammatically correct QA remarks using Google Gemini Flash.',
+    })
+    @Authorized()
+    @Post('/format-remarks')
+    @HttpCode(200)
+    async formatRemarks(
+        @Body() body: FormatRemarksDto,
+    ) {
+        return this.testerLogService.formatRemarks(body.text, body.category, body.language);
     }
 }

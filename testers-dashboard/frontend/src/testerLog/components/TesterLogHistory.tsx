@@ -2,15 +2,16 @@ import { useState, useMemo, useEffect } from "react";
 import { useTesterLogHistory } from "../hooks/useTesterLogHistory";
 import type { ITesterLogEntry } from "../types";
 import { isCrossPlatform } from "../types";
-import { Calendar, ChevronDown, ChevronUp, Loader2, RotateCcw, Search, AlertTriangle } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Loader2, RotateCcw, Search, AlertTriangle, PlayCircle, Clock } from "lucide-react";
 
-type StatusFilter = "all" | "pass" | "fail" | "defects";
+type StatusFilter = "all" | "pass" | "fail" | "onhold" | "defects";
 
 function Badge({ value }: { value?: string }) {
     if (!value) return <span className="text-muted-foreground text-xs">—</span>;
     const colorMap: Record<string, string> = {
         Pass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
         Fail: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+        "On Hold": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-300 dark:border-amber-700/50",
         Partial: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
         "Anomaly Found in Output": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
         "Expected Output": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -48,9 +49,10 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
     );
 }
 
-function EntryRow({ entry }: { entry: ITesterLogEntry }) {
+function EntryRow({ entry, onResume }: { entry: ITesterLogEntry; onResume?: (entry: ITesterLogEntry) => void }) {
     const [expanded, setExpanded] = useState(false);
     const isCross = isCrossPlatform(entry.channelTested);
+    const isOnHold = (entry.overallTestStatus || entry.status || "").trim().toLowerCase() === "on hold";
 
     const submittedAt = entry.createdAt
         ? new Date(entry.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
@@ -64,7 +66,9 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
     return (
         <>
             <tr
-                className="border-b border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                className={`border-b border-border hover:bg-muted/30 cursor-pointer transition-colors ${
+                    isOnHold ? "bg-amber-500/[0.04] hover:bg-amber-500/[0.08]" : ""
+                }`}
                 onClick={() => setExpanded(e => !e)}
             >
                 <td className="px-4 py-3 text-sm whitespace-nowrap">
@@ -84,6 +88,25 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                         <span className="text-muted-foreground">—</span>
                     )}
                 </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                        <Badge value={entry.overallTestStatus} />
+                        {isOnHold && onResume && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onResume(entry);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-xs cursor-pointer shrink-0"
+                                title="Resume and complete this test case"
+                            >
+                                <PlayCircle className="h-3.5 w-3.5" />
+                                Resume
+                            </button>
+                        )}
+                    </div>
+                </td>
                 <td className="px-4 py-3 text-sm font-mono text-muted-foreground whitespace-nowrap">
                     <div>{entry.threadId || entry.webThreadId || "—"}</div>
                     {entry.waThreadId && (
@@ -96,7 +119,6 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                     {[entry.channelTested, entry.languageTested].filter(Boolean).join(" / ") || "—"}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap"><Badge value={entry.slaStatus} /></td>
-                <td className="px-4 py-3 whitespace-nowrap"><Badge value={entry.overallTestStatus} /></td>
                 <td className="px-4 py-3 text-xs whitespace-nowrap">
                     {hasDefect ? (
                         <span className="inline-flex items-center gap-1 font-medium text-red-600 dark:text-red-400">
@@ -109,7 +131,7 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                     )}
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{submittedAt}</td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right whitespace-nowrap">
                     {expanded
                         ? <ChevronUp className="h-4 w-4 text-muted-foreground inline" />
                         : <ChevronDown className="h-4 w-4 text-muted-foreground inline" />}
@@ -118,6 +140,24 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
             {expanded && (
                 <tr className="border-b border-border bg-muted/20">
                     <td colSpan={11} className="px-6 py-4">
+                        {isOnHold && (
+                            <div className="mb-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm">
+                                    <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                                    <span>This test case is currently <strong>On Hold</strong> awaiting expert answer (2-hour SLA window).</span>
+                                </div>
+                                {onResume && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onResume(entry)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-xs cursor-pointer shrink-0"
+                                    >
+                                        <PlayCircle className="h-4 w-4" />
+                                        Resume & Complete Now
+                                    </button>
+                                )}
+                            </div>
+                        )}
                         {isCross && (
                             <div className="mb-4 p-3.5 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
                                 <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
@@ -234,7 +274,11 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
 
 type DatePreset = "all" | "today" | "7days" | "30days" | "custom";
 
-export function TesterLogHistory() {
+interface TesterLogHistoryProps {
+    onResumeEntry?: (entry: ITesterLogEntry) => void;
+}
+
+export function TesterLogHistory({ onResumeEntry }: TesterLogHistoryProps = {}) {
     const [page, setPage] = useState(1);
     const [preset, setPreset] = useState<DatePreset>("all");
     const [customStart, setCustomStart] = useState("");
@@ -429,6 +473,7 @@ export function TesterLogHistory() {
                         { key: "all" as const, label: "All" },
                         { key: "pass" as const, label: "Pass" },
                         { key: "fail" as const, label: "Fail" },
+                        { key: "onhold" as const, label: "On Hold" },
                         { key: "defects" as const, label: "Defects" },
                     ].map(tab => (
                         <button
@@ -497,12 +542,12 @@ export function TesterLogHistory() {
                                     {[
                                         "Test Date",
                                         "Test ID",
+                                        "Overall Status",
                                         "Thread ID",
                                         "Query Text",
                                         "Category / Type",
                                         "Channel / Lang",
                                         "SLA",
-                                        "Overall Status",
                                         "Defect",
                                         "Submitted At",
                                         "",
@@ -515,7 +560,7 @@ export function TesterLogHistory() {
                             </thead>
                             <tbody>
                                 {data.entries.map(entry => (
-                                    <EntryRow key={entry._id} entry={entry} />
+                                    <EntryRow key={entry._id} entry={entry} onResume={onResumeEntry} />
                                 ))}
                             </tbody>
                         </table>

@@ -103,6 +103,7 @@ export interface DbPassFail {
     passed: number;
     failed: number;
     partial: number;
+    onHold?: number;
     recorded: number;
     passRate: number;
     failRate: number;
@@ -112,16 +113,23 @@ export function passFail(entries: Entry[]): DbPassFail {
     let passed = 0;
     let failed = 0;
     let partial = 0;
+    let onHold = 0;
     let recorded = 0;
     for (const e of entries) {
         const status = overallStatus(e);
         if (!status) continue;
+        if (status === 'On Hold') {
+            onHold++;
+            continue;
+        }
         recorded++;
         if (status === 'Pass') passed++;
         else if (status === 'Fail') failed++;
         else if (status === 'Partial') partial++;
     }
-    return { passed, failed, partial, recorded, passRate: rate(passed, recorded).value, failRate: rate(failed, recorded).value };
+    const result: DbPassFail = { passed, failed, partial, recorded, passRate: rate(passed, recorded).value, failRate: rate(failed, recorded).value };
+    if (onHold > 0) result.onHold = onHold;
+    return result;
 }
 
 // ---- Accuracy and quality rates ----

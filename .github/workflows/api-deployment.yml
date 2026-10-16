@@ -16,6 +16,7 @@ on:
           - answer_scoring
           - chemical_detector
           - ffv_api
+          - grammar_validator_api
 
 permissions:
   contents: read
@@ -130,3 +131,15 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/ffv_api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/ffv_api:${{ github.sha }}
+
+      - name: Build & Push grammar_validator_api
+        if: github.event.inputs.target_api == 'grammar_validator_api'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apis/grammar_validator_api
+          file: ./apis/grammar_validator_api/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/grammar_validator_api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/grammar_validator_api:${{ github.sha }}

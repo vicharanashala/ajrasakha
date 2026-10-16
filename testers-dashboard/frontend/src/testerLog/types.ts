@@ -142,6 +142,7 @@ export interface ITesterLogSummary {
     passRate: number | null;
     passCount: number;
     statusRecordedCount: number;
+    onHoldCount?: number;
 }
 
 /** Filters shared by the admin review table, summary, and export - mirrors
@@ -248,6 +249,7 @@ export interface ITesterQuestionTypeSummaryFilters {
 export interface ITesterLogSummaryResponse {
     success: boolean;
     totalTests: number;
+    onHold?: number;
     passed: number;
     failed: number;
     partial: number;
@@ -370,6 +372,18 @@ export function isCrossPlatform(channel?: string): boolean {
 }
 
 /**
+ * Returns true if the question is eligible for the 2-Hour Disclaimer & On Hold workflow.
+ * This applies to:
+ * 1. Questions whose Type of Question is 'Unique'
+ * 2. Questions tagged as 'New Question' (e.g. Outreach questions that are new, or any category with New Question tagging)
+ */
+export function isNewQuestionEligibleForHold(typeOfQuestion?: string, tagging?: string): boolean {
+    const type = (typeOfQuestion || '').trim().toLowerCase();
+    const tag = (tagging || '').trim().toLowerCase();
+    return type === 'unique' || tag === 'new question' || tag.includes('new question');
+}
+
+/**
  * A cross-platform entry's Overall Test Status, derived from its Web App and
  * WhatsApp statuses: Pass/Fail/NA only when both channels agree, otherwise
  * Partial. Returns undefined until both are set. The form and the admin
@@ -407,7 +421,7 @@ export const QUESTION_CATEGORY_OPTIONS = [
     'Allied Agricultural Activities',
 ];
 
-export const SLA_STATUS_OPTIONS = ['Within SLA', 'SLA Breached', 'Not Applicable'];
+export const SLA_STATUS_OPTIONS = ['Within SLA', 'SLA Breached', 'Pending', 'Not Applicable'];
 
 export const REVIEW_MODEL_OPTIONS = ['Yes', 'No', 'NA'];
 
@@ -464,7 +478,7 @@ export const QID_CONSISTENT_OPTIONS = [
     'Yes', 'No', 'NA', 'Successfully Identified as duplicate', 'Wrongly Identified as duplicate',
 ];
 
-export const OVERALL_STATUS_OPTIONS = ['Pass', 'Fail'];
+export const OVERALL_STATUS_OPTIONS = ['Pass', 'Fail', 'On Hold'];
 
 export const STATUS_OPTIONS = ['Anomaly Found in Output', 'Expected Output', 'Pending'];
 

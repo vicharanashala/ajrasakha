@@ -18,7 +18,6 @@ import {
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
 import { useAuthStore } from "@/stores/auth-store";
-import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import FileActionIcons from "./FileActionIcons";
 import StatusBadge from "./StatusBadge";
 
@@ -64,6 +63,7 @@ export default function TranslateReviewCell({
   reviewUploadId,
   resolvePlacementId,
   translationAvailable,
+  canTranslate = false,
   onChanged,
   onTranslationStarted,
 }) {
@@ -74,13 +74,14 @@ export default function TranslateReviewCell({
   // (docs/first_render_frontend.md, "Who translated / reviewed, and when") — per the user's
   // decision, this is the signed-in user's display name (useAuthStore), same as uploaded_by.
   const currentUserName = useAuthStore((s) => s.user?.name);
-  // Translate + manual translation-upload are admin-only inside POP-Management (2026-09-18 batch,
-  // item 7) — review upload stays open to moderator/expert, per the user's explicit decision.
-  // Role isn't on the Firebase-derived AuthUser (useAuthStore) — only name/email/uid/avatar — so
-  // this goes through the same react-query-cached ["user"] fetch play-ground.tsx already uses for
-  // the rest of the app's role gating, not a second/duplicate request.
-  const { data: currentUser } = useGetCurrentUser({});
-  const canTranslate = currentUser?.role === "admin";
+  // Translate + manual translation-upload are gated by the POP identity's own `can_translate`
+  // (GET /dashboard/me, threaded down as the `canTranslate` prop) — NOT the main app's
+  // currentUser.role. Per api.ts's own documented principle: "Gate the whole UI off [/dashboard/me],
+  // not off currentUser.role directly — is_admin/can_edit/can_approve_uploads/can_translate already
+  // encode the edit-list/upload-list membership the backend tracks, which a raw role string can't."
+  // (Was previously `currentUser?.role === "admin"`, the main app's own role — wrong source: it let
+  // any main-app admin translate regardless of their actual POP can_translate flag, and would also
+  // block a non-admin-role user the POP admin list had explicitly granted can_translate to.)
 
   // In a placement context, re-fetch the placement row (translation_status lives there too, since
   // it's joined onto every row of the document); in a document context, re-fetch the document.

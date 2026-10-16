@@ -116,6 +116,10 @@ export function summarizeEntries(
     );
 
     for (const entry of entries) {
+        const overall = (entry.overallTestStatus || '').trim().toLowerCase();
+        const eStatus = (entry.status || '').trim().toLowerCase();
+        if (eStatus === 'on hold' || overall === 'on hold') continue;
+
         const key = questionTypeKeyFor(entry.typeOfQuestion);
         if (!key) {
             uncategorizedCount += 1;

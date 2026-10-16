@@ -1,4 +1,4 @@
-import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { IQuestionRepository, IUserActivityMetrics } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {
   IAnswer,
   IContext,
@@ -10336,5 +10336,231 @@ export class QuestionRepository implements IQuestionRepository {
     );
 
     return { modifiedCount: result.modifiedCount };
+  }
+
+  async getUserActivityMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<IUserActivityMetrics> {
+    await this.init();
+    const userObjectId = new ObjectId(userId);
+    const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
+    let authoredCount = 0;
+    let totalAuthoringMs = 0;
+    let reviewedCount = 0;
+    let totalReviewingMs = 0;
+    const revCounts: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let gdbPushedCount = 0;
+
+    // 1. Authoring: find submissions where author (history[0]) is this user and created within range
+    const authoredSubmissions = await this.QuestionSubmissionCollection.find({
+      'history.0.updatedBy': userObjectId,
+      'history.0.createdAt': { $gte: startDate, $lte: endDate },
+    }).toArray();
+
+    if (authoredSubmissions.length > 0) {
+      const qIds = authoredSubmissions
+        .map((s) => s.questionId)
+        .filter((id): id is ObjectId => id != null);
+
+      const questions =
+        qIds.length > 0
+          ? await this.QuestionCollection.find({ _id: { $in: qIds } }).toArray()
+          : [];
+
+      const qMap = new Map<string, IQuestion>();
+      for (const q of questions) {
+        if (q._id) qMap.set(q._id.toString(), q);
+      }
+
+      for (const sub of authoredSubmissions) {
+        const history = (sub as any).history || [];
+        if (history.length > 0 && history[0].updatedBy?.toString() === userId) {
+          const authorCompletedAt = new Date(history[0].createdAt);
+          authoredCount++;
+
+          const question = sub.questionId
+            ? qMap.get(sub.questionId.toString())
+            : undefined;
+          const allocStart = question?.firstAllocationAt
+            ? new Date(question.firstAllocationAt)
+            : authorCompletedAt;
+          const diff = authorCompletedAt.getTime() - allocStart.getTime();
+          if (diff > 0 && diff < MAX_DURATION_MS) {
+            totalAuthoringMs += diff;
+          }
+
+          if (
+            question &&
+            (question.status === 'closed' ||
+              question.closedAt ||
+              (question as any).isClosed)
+          ) {
+            gdbPushedCount++;
+          }
+        }
+      }
+    }
+
+    // 2. Reviewing: find submissions where user acted as reviewer with a reviewId
+    const reviewingSubmissions = await this.QuestionSubmissionCollection.find({
+      history: {
+        $elemMatch: {
+          updatedBy: userObjectId,
+          reviewId: { $ne: null },
+        },
+      },
+    }).toArray();
+
+    if (reviewingSubmissions.length > 0) {
+      const reviewIds: ObjectId[] = [];
+      for (const sub of reviewingSubmissions) {
+        const history = (sub as any).history || [];
+        for (let i = 1; i < history.length; i++) {
+          const h = history[i];
+          if (h.updatedBy?.toString() === userId && h.reviewId) {
+            const rId =
+              typeof h.reviewId === 'string'
+                ? new ObjectId(h.reviewId)
+                : h.reviewId;
+            reviewIds.push(rId);
+          }
+        }
+      }
+
+      if (reviewIds.length > 0) {
+        const reviews = await this.ReviewCollection.find({
+          _id: { $in: reviewIds },
+          createdAt: { $gte: startDate, $lte: endDate },
+        }).toArray();
+
+        const reviewMap = new Map<string, IReview>();
+        for (const r of reviews) {
+          if (r._id) reviewMap.set(r._id.toString(), r);
+        }
+
+        for (const sub of reviewingSubmissions) {
+          const history = (sub as any).history || [];
+          for (let i = 1; i < history.length; i++) {
+            const h = history[i];
+            if (h.updatedBy?.toString() === userId && h.reviewId) {
+              const rIdStr = h.reviewId.toString();
+              const review = reviewMap.get(rIdStr);
+              if (!review || !review.createdAt) continue;
+
+              const reviewCompletedAt = new Date(review.createdAt);
+              reviewedCount++;
+              if (i >= 1 && i <= 9) {
+                revCounts[i]++;
+              }
+
+              const assignedAt = new Date(h.createdAt);
+              const diff = reviewCompletedAt.getTime() - assignedAt.getTime();
+              if (diff > 0 && diff < MAX_DURATION_MS) {
+                totalReviewingMs += diff;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Moderating: questions completed in date range
+    let moderatedCount = 0;
+    let totalModeratingMs = 0;
+
+    const moderatedQuestions = await this.QuestionCollection.find({
+      moderatorId: userObjectId,
+      moderatorAssignedAt: { $ne: null },
+      $or: [
+        { closedAt: { $gte: startDate, $lte: endDate } },
+        { passedAt: { $gte: startDate, $lte: endDate } },
+        {
+          status: { $in: ['closed', 'pass'] },
+          updatedAt: { $gte: startDate, $lte: endDate },
+        },
+      ],
+    }).toArray();
+
+    for (const q of moderatedQuestions) {
+      const endAt = q.closedAt
+        ? new Date(q.closedAt)
+        : q.passedAt
+          ? new Date(q.passedAt)
+          : q.updatedAt
+            ? new Date(q.updatedAt)
+            : null;
+      if (endAt && endAt >= startDate && endAt <= endDate) {
+        moderatedCount++;
+        const startAt = new Date(q.moderatorAssignedAt!);
+        const diff = endAt.getTime() - startAt.getTime();
+        if (diff > 0 && diff < MAX_DURATION_MS) {
+          totalModeratingMs += diff;
+        }
+      }
+    }
+
+    // 4. Auditing: questions finished in date range
+    let auditedCount = 0;
+    let totalAuditingMs = 0;
+
+    const auditedQuestions = await this.QuestionCollection.find({
+      auditorId: userObjectId,
+      auditorFinishedAt: { $gte: startDate, $lte: endDate },
+    }).toArray();
+
+    for (const q of auditedQuestions) {
+      const endAt = new Date((q as any).auditorFinishedAt);
+      auditedCount++;
+      const startAt = (q as any).auditorAssignedAt
+        ? new Date((q as any).auditorAssignedAt)
+        : null;
+      if (startAt) {
+        const diff = endAt.getTime() - startAt.getTime();
+        if (diff > 0 && diff < MAX_DURATION_MS) {
+          totalAuditingMs += diff;
+        }
+      }
+    }
+
+    // 5. Gatekeeping: questions finished in date range
+    let gatekeepedCount = 0;
+    let totalGatekeepingMs = 0;
+
+    const gatekeepedQuestions = await this.QuestionCollection.find({
+      gateKeeperId: userObjectId,
+      gateKeeperFinishedAt: { $gte: startDate, $lte: endDate },
+    }).toArray();
+
+    for (const q of gatekeepedQuestions) {
+      const endAt = new Date((q as any).gateKeeperFinishedAt);
+      gatekeepedCount++;
+      const startAt = (q as any).gateKeeperAssignedAt
+        ? new Date((q as any).gateKeeperAssignedAt)
+        : null;
+      if (startAt) {
+        const diff = endAt.getTime() - startAt.getTime();
+        if (diff > 0 && diff < MAX_DURATION_MS) {
+          totalGatekeepingMs += diff;
+        }
+      }
+    }
+
+    return {
+      authoredCount,
+      totalAuthoringMs,
+      reviewedCount,
+      totalReviewingMs,
+      revCounts,
+      moderatedCount,
+      totalModeratingMs,
+      auditedCount,
+      totalAuditingMs,
+      gatekeepedCount,
+      totalGatekeepingMs,
+      gdbPushedCount,
+    };
   }
 }

@@ -155,9 +155,10 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         isAutoAllocate: autoAllocate,
       });
       toast.dismiss(toastId);
-      toast.success("Duplicate cancelled. Question reopened. Please refresh the page to see updated changes.");
+      toast.success("Duplicate cancelled. Question reopened.");
       setCancelDuplicateOpen(false);
       resetCancelDuplicate();
+      goBack();
     } catch (error) {
       console.error(error);
       toast.dismiss(toastId);
