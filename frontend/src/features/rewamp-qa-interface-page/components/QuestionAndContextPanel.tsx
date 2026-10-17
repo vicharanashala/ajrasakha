@@ -58,7 +58,6 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   isLoading = false,
   isCollapsed = false,
   onToggleCollapse,
-  progressPercent = 15,
   actionType = "allocated",
   onActionTypeChange,
   selectedQuestionId = null,
@@ -139,7 +138,8 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   };
 
   // Get source style for a question
-  const getSourceStyle = (source: string) => {
+  const getSourceStyle = (source?: string) => {
+    if (!source) return sourceStyles.DEFAULT;
     return sourceStyles[source as keyof typeof sourceStyles] || sourceStyles.DEFAULT;
   };
 

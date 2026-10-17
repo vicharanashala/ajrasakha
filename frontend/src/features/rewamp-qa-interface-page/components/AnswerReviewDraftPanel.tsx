@@ -84,6 +84,7 @@ interface AnswerReviewDraftPanelProps {
   refetchQuestions?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onDraftChange?: (draftAnswer: string, sources?: SourceItem[]) => void;
 }
 
 const normalizeAiAnswerSources = (result: any): SourceItem[] => {
@@ -104,7 +105,6 @@ const normalizeAiAnswerSources = (result: any): SourceItem[] => {
 export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   selectedQuestionData,
   isLoading = false,
-  actionType = "allocated",
   initialAiAnswer,
   initialDraft = "",
   initialRemarks = "",
@@ -115,6 +115,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   refetchQuestions,
   isCollapsed = false,
   onToggleCollapse,
+  onDraftChange,
 }) => {
   // Determine if this question is in the Review Phase (has existing answer history)
   const history = selectedQuestionData?.history || [];
@@ -164,6 +165,12 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   const [aiAssistOutput, setAiAssistOutput] = useState<string>("");
   const [activeAiAction, setActiveAiAction] = useState<AiAssistActionType | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+
+  // Notify parent of live draft answer & sources updates
+  useEffect(() => {
+    const effectiveDraft = translatedDraftText || draftAnswer;
+    onDraftChange?.(effectiveDraft, sources);
+  }, [draftAnswer, translatedDraftText, sources, onDraftChange]);
 
   // Review & History Phase States
   const [rejectionReason, setRejectionReason] = useState("");

@@ -1,6 +1,5 @@
 import React from "react";
 import { Sparkles, Construction, Layers, ShieldCheck, FileSpreadsheet } from "lucide-react";
-import { Card, CardContent } from "@/components/atoms/card";
 import { Badge } from "@/components/atoms/badge";
 
 interface UpcomingFeaturePlaceholderProps {

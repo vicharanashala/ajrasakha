@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { QuestionAndContextPanel } from "./components/QuestionAndContextPanel";
 import { AnswerReviewDraftPanel } from "./components/AnswerReviewDraftPanel";
 import { SourceReferencePanel } from "./components/SourceReferencePanel";
@@ -16,6 +16,8 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { setPopIdentity } from "@/features/faq-pop/api";
 import { toast } from "sonner";
 import type { IReviewParmeters, SourceItem } from "@/types";
+
+const EMPTY_SOURCES: SourceItem[] = [];
 
 interface RevampQaLayoutProps {
   questionData?: IQuestionContextData | null;
@@ -50,6 +52,23 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   // Selected question ID tracking
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
 
+  // Active draft answer & sources tracked across panels
+  const [currentDraftAnswer, setCurrentDraftAnswer] = useState<string>("");
+  const [currentDraftSources, setCurrentDraftSources] = useState<SourceItem[]>(EMPTY_SOURCES);
+
+  const handleDraftChange = useCallback((draft: string, sourcesList?: SourceItem[]) => {
+    setCurrentDraftAnswer(draft);
+    if (sourcesList) {
+      setCurrentDraftSources(sourcesList);
+    }
+  }, []);
+
+  // Reset active draft when question selection changes
+  useEffect(() => {
+    setCurrentDraftAnswer("");
+    setCurrentDraftSources(EMPTY_SOURCES);
+  }, [selectedQuestionId]);
+
   // Preferences state
   const [reviewLevel, setReviewLevel] = useState<string>("all");
   const [source, setSource] = useState<string>("all");
@@ -77,13 +96,17 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, null, reviewLevel);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences as any, actionType, null, reviewLevel);
 
-  const questions = (questionPages?.pages?.flat() || []).filter(Boolean) as any[];
+  const questions = useMemo(
+    () => (questionPages?.pages?.flat() || []).filter(Boolean) as any[],
+    [questionPages?.pages]
+  );
 
   // Check if there are any timebound questions in the list
-  const hasTimeboundQuestions = questions.some(
-    (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+  const hasTimeboundQuestions = useMemo(
+    () => questions.some((q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"),
+    [questions]
   );
 
   // Auto-select first question or timebound question with priority
@@ -104,16 +127,17 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   // Auto-select next question when current question is no longer in the list
   // This handles the case when a question is accepted/rejected/answered
   useEffect(() => {
-    if (questions.length === 0) {
-      setSelectedQuestionId(null);
+    if (!questions || questions.length === 0) {
+      if (selectedQuestionId !== null) {
+        setSelectedQuestionId(null);
+      }
       return;
     }
 
-    const currentId = selectedQuestionId;
-    if (!currentId) return;
+    if (!selectedQuestionId) return;
 
     const currentExists = questions.some(
-      (q) => (q?.id || q?._id) === currentId
+      (q) => (q?.id || q?._id) === selectedQuestionId
     );
 
     if (!currentExists) {
@@ -121,14 +145,14 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
       const timebound = questions.find(
         (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
       );
-      if (timebound) {
-        setSelectedQuestionId(timebound?.id || timebound?._id);
-      } else {
-        const first = questions[0];
-        setSelectedQuestionId(first?.id || first?._id);
+      const nextId = timebound
+        ? (timebound?.id || timebound?._id)
+        : (questions[0]?.id || questions[0]?._id);
+      if (nextId && nextId !== selectedQuestionId) {
+        setSelectedQuestionId(nextId);
       }
     }
-  }, [questions]);
+  }, [questions, selectedQuestionId]);
 
   // Fetch full details of the selected question
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
@@ -197,6 +221,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
 
     const payload: IReviewAnswerPayload = {
       questionId: selectedQuestionId,
+      status: status || ("accepted" as any),
       parameters: parameters || ({} as any),
       remarks: remarksText || "",
       type: actionType,
@@ -268,18 +293,110 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     }));
   };
 
-  const handleExpandAll = () => {
-    setCollapsed({
-      questionContext: false,
-      ocrExtraction: false,
-      answerDraft: false,
-      sourceReference: false,
-      checksPipeline: false,
-      ffv: false,
-    });
-  };
+  const currentQuestionInList = useMemo(
+    () => questions.find((q) => (q?.id || q?._id) === selectedQuestionId),
+    [questions, selectedQuestionId]
+  );
 
-  const isAnyCollapsed = Object.values(collapsed).some((v) => v);
+  const activeQuestionText = useMemo(() => {
+    const fromSelected =
+      selectedQuestionData?.text ||
+      (selectedQuestionData as any)?.question?.text ||
+      (selectedQuestionData as any)?.question?.question ||
+      (typeof (selectedQuestionData as any)?.question === "string"
+        ? (selectedQuestionData as any)?.question
+        : "");
+    if (fromSelected) return fromSelected;
+
+    if (currentQuestionInList) {
+      return (
+        currentQuestionInList.text ||
+        currentQuestionInList.question?.text ||
+        currentQuestionInList.question?.question ||
+        (typeof currentQuestionInList.question === "string"
+          ? currentQuestionInList.question
+          : "") ||
+        ""
+      );
+    }
+    return "";
+  }, [selectedQuestionData, currentQuestionInList]);
+
+  const activeAnswerText = useMemo(() => {
+    if (currentDraftAnswer && currentDraftAnswer.trim()) {
+      return currentDraftAnswer;
+    }
+    return (
+      selectedQuestionData?.aiApprovedAnswer ||
+      selectedQuestionData?.aiInitialAnswer ||
+      (selectedQuestionData as any)?.answers?.[0]?.answer ||
+      currentQuestionInList?.aiApprovedAnswer ||
+      currentQuestionInList?.aiInitialAnswer ||
+      currentQuestionInList?.answers?.[0]?.answer ||
+      ""
+    );
+  }, [currentDraftAnswer, selectedQuestionData, currentQuestionInList]);
+
+  const activeCrop = useMemo(() => {
+    const fromSelected =
+      selectedQuestionData?.details?.crop ||
+      (selectedQuestionData as any)?.question?.details?.crop ||
+      (selectedQuestionData as any)?.crop ||
+      "";
+    if (fromSelected) return fromSelected;
+
+    if (currentQuestionInList) {
+      return (
+        currentQuestionInList.details?.crop ||
+        currentQuestionInList.question?.details?.crop ||
+        currentQuestionInList.crop ||
+        ""
+      );
+    }
+    return "";
+  }, [selectedQuestionData, currentQuestionInList]);
+
+  const activeState = useMemo(() => {
+    const fromSelected =
+      selectedQuestionData?.details?.state ||
+      (selectedQuestionData as any)?.question?.details?.state ||
+      (selectedQuestionData as any)?.state ||
+      "";
+    if (fromSelected) return fromSelected;
+
+    if (currentQuestionInList) {
+      return (
+        currentQuestionInList.details?.state ||
+        currentQuestionInList.question?.details?.state ||
+        currentQuestionInList.state ||
+        ""
+      );
+    }
+    return "";
+  }, [selectedQuestionData, currentQuestionInList]);
+
+  const activeSources = useMemo(() => {
+    if (currentDraftSources && currentDraftSources.length > 0) {
+      return currentDraftSources;
+    }
+    return (
+      (selectedQuestionData as any)?.answers?.[0]?.sources ||
+      selectedQuestionData?.aiApprovedSources ||
+      currentQuestionInList?.answers?.[0]?.sources ||
+      currentQuestionInList?.aiApprovedSources ||
+      EMPTY_SOURCES
+    );
+  }, [currentDraftSources, selectedQuestionData, currentQuestionInList]);
+
+  const activeAnswerId = useMemo(() => {
+    return (
+      (selectedQuestionData as any)?.answers?.[0]?.id ||
+      (selectedQuestionData as any)?.answers?.[0]?._id ||
+      currentQuestionInList?.answers?.[0]?.id ||
+      currentQuestionInList?.answers?.[0]?._id ||
+      undefined
+    );
+  }, [selectedQuestionData, currentQuestionInList]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col p-3 md:p-5 space-y-4">
@@ -313,7 +430,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                       status: selectedQuestionData?.status || (selectedQuestionData as any)?.question?.status,
                       source: selectedQuestionData?.source,
                       assignedAt: selectedQuestionData?.assignedAt,
-                      review_level_number: selectedQuestionData?.review_level_number,
+                      review_level_number: (selectedQuestionData as any)?.review_level_number,
                       aiInitialAnswer: selectedQuestionData?.aiInitialAnswer,
                       aiApprovedAnswer: selectedQuestionData?.aiApprovedAnswer,
                       details: selectedQuestionData?.details
@@ -403,6 +520,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                 refetchQuestions={refetch}
                 isCollapsed={collapsed.answerDraft}
                 onToggleCollapse={() => togglePanel("answerDraft")}
+                onDraftChange={handleDraftChange}
               />
             </div>
 
@@ -417,10 +535,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               <SourceReferencePanel
                 isCollapsed={collapsed.sourceReference}
                 onToggleCollapse={() => togglePanel("sourceReference")}
-                questionState={
-                  selectedQuestionData?.details?.state ||
-                  (selectedQuestionData as any)?.question?.details?.state
-                }
+                questionState={activeState}
               />
             </div>
           </div>
@@ -438,6 +553,13 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               <ChecksPipelinePanel
                 isCollapsed={collapsed.checksPipeline}
                 onToggleCollapse={() => togglePanel("checksPipeline")}
+                questionId={selectedQuestionId || undefined}
+                questionText={activeQuestionText}
+                answerText={activeAnswerText}
+                crop={activeCrop}
+                state={activeState}
+                sources={activeSources}
+                answerId={activeAnswerId}
               />
             </div>
 
