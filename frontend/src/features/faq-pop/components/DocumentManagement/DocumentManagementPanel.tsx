@@ -584,6 +584,8 @@ export default function DocumentManagementPanel({
         onTranslationStarted={refetchTranslationJobs}
         onPlacementsChanged={bumpRefresh}
         canEdit={canEdit}
+        currentUserName={currentUserName}
+        translationJobs={translationJobs}
       />
     </div>
   );

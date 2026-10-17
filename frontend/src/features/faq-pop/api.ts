@@ -595,14 +595,44 @@ export async function addDocumentPlacement(
   return _handleResponse(res);
 }
 
-// Absorbs the documents in `absorb` (ANNAM_ ids or ObjectId hex) into `id`. The absorbed
-// documents are deleted; their placements are repointed (never deleted) and their copies join
-// the survivor's duplicate_links. The survivor's anchor does not move.
-export async function mergeUniqueDocuments(id: string, absorb: string[]) {
+// Absorbs the documents in `absorb` (ANNAM_ ids or ObjectId hex) into `id`. Per placement: if the
+// survivor is already filed in that state+folder the absorbed row is dropped, otherwise it moves
+// to the survivor keeping its own POP id. All of the absorbed documents' files stay in WorkDrive
+// and join the survivor's duplicate_links; translation/review move to the survivor only if it had
+// neither (otherwise those files go to WorkDrive trash — see `not_trashed` on the response). The
+// absorbed documents are deleted. 409s if the survivor or any absorbed id has a translation job
+// queued/running (detail names the busy ANNAM id).
+export async function mergeUniqueDocuments(id: string, absorb: string[], mergedBy?: string) {
   const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/merge`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ absorb }),
+    body: JSON.stringify({ absorb, merged_by: mergedBy }),
+  });
+  return _handleResponse(res);
+}
+
+// Trashes one physical copy from WorkDrive and removes its duplicate_links entry. 400 on the
+// anchor (zoho_file_id === representative_file_id) — hide the delete icon there, don't rely on
+// this. 502 means WorkDrive refused and nothing was removed (retryable). Returns the updated
+// document (same shape as getDashboardUniqueDocument).
+export async function deleteDuplicateLink(id: string, zohoFileId: string) {
+  const res = await popFetch(
+    `${POP_API}/dashboard/unique-documents/${id}/duplicate-links/${zohoFileId}`,
+    { method: "DELETE" },
+  );
+  return _handleResponse(res);
+}
+
+// Splits a merged-in group (identified by its duplicate_links `merged_document` value) back out
+// into its own new document — new ANNAM id, first link becomes its anchor, copies this document's
+// metadata, no placements, not translated. Nothing in WorkDrive moves; placements/translation stay
+// on `id`. 201 returns the new document. 404 = no such group (already unlinked). 409 = unlinked by
+// someone else at the same moment.
+export async function unlinkMergedGroup(id: string, mergedDocument: string) {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/unlink`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ merged_document: mergedDocument }),
   });
   return _handleResponse(res);
 }
