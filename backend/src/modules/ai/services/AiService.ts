@@ -27,6 +27,10 @@ export class AiService {
   private _chemicalCheckServerUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.chemicalCheckPort;
 
+  private _answerCheckServerUrl =
+    aiConfig.answerCheckServerUrl ||
+    'http://' + aiConfig.serverIP + ':' + aiConfig.answerCheckPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -621,6 +625,52 @@ export class AiService {
       return data;
     } catch (error) {
       console.error('[detectChemicals] Error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Submits an answer to the Answer Check / GDB cleaning pipeline API (port 8012).
+   */
+  async submitAnswerCheck(payload: any): Promise<{ job_id: string; status: string } | null> {
+    try {
+      const response = await fetch(`${this._answerCheckServerUrl}/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.error(`[submitAnswerCheck] Failed: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      return (await response.json()) as { job_id: string; status: string };
+    } catch (error) {
+      console.error('[submitAnswerCheck] Error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Retrieves the status or completed report of an answer check job.
+   */
+  async getAnswerCheck(jobId: string): Promise<any | null> {
+    try {
+      const response = await fetch(`${this._answerCheckServerUrl}/check/${jobId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) return { status: 'not_found' };
+        console.error(`[getAnswerCheck] Failed: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[getAnswerCheck] Error:', error);
       return null;
     }
   }

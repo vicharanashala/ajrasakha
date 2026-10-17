@@ -19,6 +19,7 @@ export const aiConfig = {
   gemma_api_key: env('GEMMA_API_KEY') || 'test-key',
   minimax_api: env('MINIMAX_API'),
   minimax_api_key: env('MINIMAX_API_KEY') || 'test-key',
+  minimaxApiKey: env('MINIMAX_API_KEY') || 'test-key',
   WHATSAPP_SERVER_URL: env('WHATSAPP_SERVER_URL'),
   vicharanashala_api_token: env('VICHARANASHALA_API_TOKEN'),
   gdbServerIP: env('GDB_SERVER_IP') || 'localhost',
@@ -29,7 +30,9 @@ export const aiConfig = {
   accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
   minimaxServerIP: env('MINIMAX_API') || 'localhost',
   minimaxServerPort: Number(env('MINIMAX_PORT')?.trim()) || 8001,
-  minimaxApiKey: env('MINIMAX_API_KEY'),
   // Chemical Check Service Configuration
   chemicalCheckPort: Number(env('CHEMICAL_CHECK_PORT')?.trim()) || 8002,
+  // Answer Check API (GDB Pipeline) Configuration
+  answerCheckPort: Number(env('ANSWER_CHECK_PORT')?.trim()) || 8012,
+  answerCheckServerUrl: env('ANSWER_CHECK_SERVER_URL'),
 };
