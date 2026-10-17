@@ -6,15 +6,7 @@ import {
   ChevronsRight,
   Bot,
   Sparkles,
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  List,
   ListOrdered,
-  ListChecks,
-  Link2,
-  Code2,
   Languages,
   RotateCcw,
   Wand2,
@@ -27,6 +19,7 @@ import {
   Pencil,
   XCircle,
   ExternalLink,
+  Link2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
@@ -683,157 +676,36 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                     : "border-border/80 bg-background"
               )}
               actions={
-                <TooltipProvider>
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        type="button"
-                        onClick={handleResetDraft}
-                        className="h-7 w-7 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        aria-label="Reset draft"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span className="sr-only">Reset</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs py-1 px-2">
-                      Reset
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              }
-              toolbar={
-                <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg border border-border/80 bg-muted/40">
-                  <select
-                    className="h-6 text-[11px] bg-background border border-border/80 rounded px-1.5 font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    defaultValue="normal"
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "h1") setDraftAnswer((prev) => `# ${prev}`);
-                      else if (val === "h2") setDraftAnswer((prev) => `## ${prev}`);
-                      else if (val === "bullet") setDraftAnswer((prev) => `${prev}\n• `);
-                    }}
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="h1">Heading 1</option>
-                    <option value="h2">Heading 2</option>
-                    <option value="bullet">Bullet</option>
-                  </select>
-
-                  <div className="h-3.5 w-px bg-border/80 mx-0.5" />
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `**${prev}**`)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Bold"
-                  >
-                    <Bold className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `*${prev}*`)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Italic"
-                  >
-                    <Italic className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `<u>${prev}</u>`)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Underline"
-                  >
-                    <Underline className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `~~${prev}~~`)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Strikethrough"
-                  >
-                    <Strikethrough className="w-3 h-3" />
-                  </Button>
-
-                  <div className="h-3.5 w-px bg-border/80 mx-0.5" />
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `${prev}\n• `)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Bullet List"
-                  >
-                    <List className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `${prev}\n1. `)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Numbered List"
-                  >
-                    <ListOrdered className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `${prev}\n- [ ] `)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Task List"
-                  >
-                    <ListChecks className="w-3 h-3" />
-                  </Button>
-
-                  <div className="h-3.5 w-px bg-border/80 mx-0.5" />
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `${prev} [Link Title](https://)`)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Add Link"
-                  >
-                    <Link2 className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => setDraftAnswer((prev) => `${prev}\n\`\`\`\n\n\`\`\``)}
-                    className="h-6 w-6 rounded text-muted-foreground hover:text-foreground"
-                    title="Code Block"
-                  >
-                    <Code2 className="w-3 h-3" />
-                  </Button>
-
-                  <div className="ml-auto flex items-center gap-2">
-                    {draftAnswer?.trim() && !isEnglishCharacters(draftAnswer) && (
-                      <SarvamTranslateDropdown
-                        query={draftAnswer}
-                        onTranslate={(result) => setTranslatedDraftText(result)}
-                      />
-                    )}
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      {wordCount} words • {charCount} chars
-                    </span>
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  {draftAnswer?.trim() && !isEnglishCharacters(draftAnswer) && (
+                    <SarvamTranslateDropdown
+                      query={draftAnswer}
+                      onTranslate={(result) => setTranslatedDraftText(result)}
+                    />
+                  )}
+                  <TooltipProvider>
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          onClick={handleResetDraft}
+                          className="h-8 w-8 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                          aria-label="Reset draft"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span className="sr-only">Reset</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs py-1 px-2">
+                        Reset
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               }
+              helperText={`${wordCount} words • ${charCount} characters`}
               bottomOverlay={
                 aiAnswerText &&
                 draftAnswer &&

@@ -13,11 +13,9 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
-import { Badge } from "@/components/atoms/badge";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "@/components/atoms/dialog";
 import { toast } from "sonner";

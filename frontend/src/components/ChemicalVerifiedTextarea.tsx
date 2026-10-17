@@ -34,6 +34,7 @@ export interface ChemicalVerifiedTextareaProps {
   onVerificationComplete?: (response: ChemicalDetectionResponse | null) => void;
   showBadges?: boolean;
   helperText?: string;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 function escapeRegExp(string: string) {
@@ -60,6 +61,7 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
   onVerificationComplete,
   showBadges = true,
   helperText,
+  onKeyDown,
 }) => {
   const [matches, setMatches] = useState<ChemicalMatch[]>([]);
   const [hasVerified, setHasVerified] = useState<boolean>(false);
@@ -358,6 +360,7 @@ export const ChemicalVerifiedTextarea: React.FC<ChemicalVerifiedTextareaProps> =
           value={value}
           onChange={handleTextChange}
           onScroll={handleScroll}
+          onKeyDown={onKeyDown}
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
