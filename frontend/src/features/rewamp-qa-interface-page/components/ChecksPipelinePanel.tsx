@@ -263,62 +263,51 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
 
   return (
     <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden relative">
-      <CardContent className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-        {/* HEADER SECTION */}
-        <div className="flex items-start justify-between gap-3 pb-2 border-b border-border/40">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-bold text-foreground flex items-center">
-                <span className="text-emerald-600 dark:text-emerald-400 font-extrabold mr-1.5">
-                  4.
-                </span>
-                Checks / GDB Cleaning Pipeline
-              </h3>
-            </div>
-            <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-              Automated validation checks before moving forward
-            </p>
-          </div>
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-border shrink-0">
+        <p className="text-xs font-semibold text-foreground">
+          Checks / GDB Cleaning Pipeline
+        </p>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRunChecks}
+            disabled={isChecking}
+            className="h-7 px-2.5 text-xs font-medium rounded-lg border-border/80 hover:bg-muted text-foreground flex items-center gap-1.5 shadow-2xs cursor-pointer"
+          >
+            <RefreshCw
+              className={`w-3 h-3 text-muted-foreground ${
+                isChecking ? "animate-spin text-primary" : ""
+              }`}
+            />
+            <span className="hidden sm:inline">
+              {isChecking
+                ? "Checking..."
+                : report
+                ? "Run Checks Again"
+                : "Run Checks"}
+            </span>
+            <span className="sm:hidden">
+              {isChecking ? "Checking..." : "Run"}
+            </span>
+          </Button>
+
+          {onToggleCollapse && (
             <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRunChecks}
-              disabled={isChecking}
-              className="h-8 px-2.5 sm:px-3 text-xs font-semibold rounded-lg border-border/80 hover:bg-muted text-foreground flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="Collapse Panel"
             >
-              <RefreshCw
-                className={`w-3.5 h-3.5 text-muted-foreground ${
-                  isChecking ? "animate-spin text-primary" : ""
-                }`}
-              />
-              <span className="hidden sm:inline">
-                {isChecking
-                  ? "Checking..."
-                  : report
-                  ? "Run Checks Again"
-                  : "Run Checks"}
-              </span>
-              <span className="sm:hidden">
-                {isChecking ? "Checking..." : "Run"}
-              </span>
+              <ChevronUp className="h-4 w-4" />
             </Button>
-
-            {onToggleCollapse && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleCollapse}
-                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                title="Collapse Panel"
-              >
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          )}
         </div>
+      </div>
 
+      <CardContent className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
         {/* BODY CONTENT */}
         {isChecking ? (
           /* LOADING / PROCESSING STATE */
