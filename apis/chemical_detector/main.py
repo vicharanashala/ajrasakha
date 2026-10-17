@@ -319,13 +319,6 @@ def _context_score(words: list[str], start: int, end: int) -> float:
     return min(0.20, agriculture * 0.06) - min(0.35, location * 0.18)
 
 
-def _sentence_bounds(text: str, start: int, end: int) -> tuple[int, int]:
-    left = max(text.rfind(".", 0, start), text.rfind("!", 0, start), text.rfind("?", 0, start))
-    right_candidates = [index for index in (text.find(".", end), text.find("!", end), text.find("?", end)) if index >= 0]
-    right = min(right_candidates, default=len(text))
-    return left + 1, right
-
-
 def _sentence_context(words: list[str], start: int, end: int) -> tuple[str, float]:
     sentence_words = words[max(0, start - 12) : min(len(words), end + 12)]
     biological = len(set(sentence_words) & _BIOLOGICAL_CONTEXT)
