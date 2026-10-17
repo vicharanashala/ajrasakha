@@ -127,7 +127,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
 }) => {
   const { startCheck, resetCheck, isChecking, report } = useAnswerCheck();
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "passed" | "flagged" | "not_evaluated">("all");
 
   const resetCheckRef = useRef(resetCheck);
   resetCheckRef.current = resetCheck;
@@ -224,18 +224,14 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
   // Filtered checks for the detailed modal
   const modalChecks = useMemo(() => {
     if (!report?.checks || !Array.isArray(report.checks)) return [];
-    if (selectedCategoryFilter === "all") return report.checks;
-    if (selectedCategoryFilter === "passed") {
-      return report.checks.filter((c) => c && c.status === "PASS");
-    }
-    if (selectedCategoryFilter === "flagged") {
-      return report.checks.filter((c) => c && c.status === "FLAG");
-    }
-    if (selectedCategoryFilter === "not_evaluated") {
-      return report.checks.filter((c) => c && c.status === "NOT_EVALUATED");
-    }
-    return report.checks.filter((c) => c && c.category === selectedCategoryFilter);
-  }, [report, selectedCategoryFilter]);
+    return report.checks.filter((c) => {
+      if (!c) return false;
+      if (statusFilter === "passed" && c.status !== "PASS") return false;
+      if (statusFilter === "flagged" && c.status !== "FLAG") return false;
+      if (statusFilter === "not_evaluated" && c.status !== "NOT_EVALUATED") return false;
+      return true;
+    });
+  }, [report, statusFilter]);
 
   if (isCollapsed) {
     return (
@@ -379,7 +375,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
               {/* PASSED */}
               <div
                 onClick={() => {
-                  setSelectedCategoryFilter("passed");
+                  setStatusFilter("passed");
                   setIsDetailModalOpen(true);
                 }}
                 className="rounded-xl p-2.5 sm:p-3 bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/70 dark:border-emerald-800/40 flex items-center gap-2.5 sm:gap-3 transition-all hover:border-emerald-400 dark:hover:border-emerald-600 cursor-pointer shadow-xs hover:shadow-sm"
@@ -401,7 +397,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
               {/* FLAGGED */}
               <div
                 onClick={() => {
-                  setSelectedCategoryFilter("flagged");
+                  setStatusFilter("flagged");
                   setIsDetailModalOpen(true);
                 }}
                 className="rounded-xl p-2.5 sm:p-3 bg-amber-50/70 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-800/40 flex items-center gap-2.5 sm:gap-3 transition-all hover:border-amber-400 dark:hover:border-amber-600 cursor-pointer shadow-xs hover:shadow-sm"
@@ -423,7 +419,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
               {/* NOT EVALUATED (Always included) */}
               <div
                 onClick={() => {
-                  setSelectedCategoryFilter("not_evaluated");
+                  setStatusFilter("not_evaluated");
                   setIsDetailModalOpen(true);
                 }}
                 className="rounded-xl p-2.5 sm:p-3 bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-800/40 flex items-center gap-2.5 sm:gap-3 transition-all hover:border-slate-400 dark:hover:border-slate-600 cursor-pointer shadow-xs hover:shadow-sm"
@@ -521,156 +517,213 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
           <button
             type="button"
             disabled={!report}
-            onClick={() => setIsDetailModalOpen(true)}
+            onClick={() => {
+              setStatusFilter("all");
+              setIsDetailModalOpen(true);
+            }}
             className="inline-flex items-center gap-1.5 font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <span>View Detailed Report</span>
           </button>
-
-          {report?.pipelineVersion && (
-            <span className="text-[10px] text-muted-foreground">
-              Pipeline {report.pipelineVersion}
-            </span>
-          )}
         </div>
       </CardContent>
 
       {/* FULL DETAILED REPORT DIALOG */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-5 pb-3 border-b border-border/50">
-            <div className="flex items-center justify-between gap-3 pr-6">
-              <div>
-                <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  GDB Cleaning Pipeline Report
-                </DialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Complete breakdown of all 13 agricultural quality checks
-                </p>
-              </div>
-
-              {report && (
-                <div className="flex items-center gap-1.5 text-xs">
-                  <Badge variant="outline" className="text-emerald-600 border-emerald-300">
-                    {counts.passed} Passed
-                  </Badge>
-                  <Badge variant="outline" className="text-amber-600 border-amber-300">
-                    {counts.flagged} Flagged
-                  </Badge>
-                  <Badge variant="outline" className="text-slate-600 border-slate-300">
-                    {counts.notEvaluated} Not Evaluated
-                  </Badge>
+        <DialogContent className="w-[95vw] sm:max-w-3xl md:max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border-border shadow-xl">
+          {/* MODAL HEADER: Title on top (with pr for close button), Status filter tabs below heading */}
+          <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/60 bg-muted/20 shrink-0 space-y-3">
+            {/* Top row: Title + Count info with dedicated padding on the right to prevent close button collision */}
+            <div className="flex items-center justify-between gap-3 pr-8 sm:pr-10">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-4.5 h-4.5" />
                 </div>
-              )}
+                <div className="min-w-0">
+                  <DialogTitle className="text-sm sm:text-base font-bold text-foreground truncate">
+                    GDB Cleaning Pipeline Report
+                  </DialogTitle>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
+                    Automated validation checks ({report?.checks?.length ?? 13} quality checks)
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Category / Status Filter Pills */}
-            <div className="flex items-center gap-1.5 pt-3 overflow-x-auto text-xs pb-0.5">
-              {[
-                { id: "all", label: "All Checks" },
-                { id: "passed", label: `Passed (${counts.passed})` },
-                { id: "flagged", label: `Flagged (${counts.flagged})` },
-                { id: "not_evaluated", label: `Not Evaluated (${counts.notEvaluated})` },
-                { id: "chemical", label: "Chemical Safety" },
-                { id: "source", label: "Source & Citations" },
-                { id: "answer_quality", label: "Answer Quality" },
-                { id: "terminology", label: "Terminology" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSelectedCategoryFilter(tab.id)}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-colors whitespace-nowrap cursor-pointer ${
-                    selectedCategoryFilter === tab.id
-                      ? "bg-primary text-primary-foreground font-semibold"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+            {/* Bottom row: Status Filter Tabs (placed below the heading, responsive horizontal scroll) */}
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 w-full">
+              {/* ALL */}
+              <button
+                type="button"
+                onClick={() => setStatusFilter("all")}
+                className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border font-medium ${
+                  statusFilter === "all"
+                    ? "bg-background text-foreground shadow-xs font-semibold border-border"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-background/60"
+                }`}
+              >
+                <span>All Checks</span>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                    statusFilter === "all"
+                      ? "bg-muted text-foreground font-bold"
+                      : "bg-muted/80 text-muted-foreground"
                   }`}
                 >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </DialogHeader>
+                  {report?.checks?.length ?? 0}
+                </span>
+              </button>
 
-          {/* Modal Body: Check cards list */}
-          <div className="p-5 overflow-y-auto space-y-2.5 flex-1">
+              {/* PASSED */}
+              <button
+                type="button"
+                onClick={() => setStatusFilter("passed")}
+                className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border font-medium ${
+                  statusFilter === "passed"
+                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 shadow-xs font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-500/10"
+                }`}
+              >
+                <Check className="w-3.5 h-3.5 stroke-[2.5] text-emerald-600 dark:text-emerald-400" />
+                <span>Passed</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold">
+                  {counts.passed}
+                </span>
+              </button>
+
+              {/* FLAGGED */}
+              <button
+                type="button"
+                onClick={() => setStatusFilter("flagged")}
+                className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border font-medium ${
+                  statusFilter === "flagged"
+                    ? "bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border-amber-300 dark:border-amber-700 shadow-xs font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-500/10"
+                }`}
+              >
+                <AlertCircle className="w-3.5 h-3.5 stroke-[2.5] text-amber-600 dark:text-amber-400" />
+                <span>Flagged</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 font-bold">
+                  {counts.flagged}
+                </span>
+              </button>
+
+              {/* NOT EVALUATED */}
+              <button
+                type="button"
+                onClick={() => setStatusFilter("not_evaluated")}
+                className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border font-medium ${
+                  statusFilter === "not_evaluated"
+                    ? "bg-slate-100 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100 border-slate-300 dark:border-slate-600 shadow-xs font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-500/10"
+                }`}
+              >
+                <HelpCircle className="w-3.5 h-3.5 stroke-[2.5] text-slate-500 dark:text-slate-400" />
+                <span>Not Evaluated</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300 font-bold">
+                  {counts.notEvaluated}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Body: Clean Check cards list */}
+          <div className="p-3.5 sm:p-5 overflow-y-auto space-y-2.5 flex-1 min-h-0">
             {modalChecks.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-xs space-y-1">
                 <HelpCircle className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
                 <p className="font-semibold text-foreground">No checks in this view</p>
-                <p>There are no checks matching the "{selectedCategoryFilter}" filter.</p>
+                <p>There are no checks matching the selected filter criteria.</p>
               </div>
             ) : (
               modalChecks.map((check) => {
-              const meta = PARAMETER_META[check.parameter] || {
-                label: check.parameter.replace(/_/g, " "),
-                defaultPassText: "Verified",
-                category: check.category,
-              };
+                const meta = PARAMETER_META[check.parameter] || {
+                  label: check.parameter.replace(/_/g, " "),
+                  defaultPassText: "Verified",
+                  category: check.category,
+                };
 
-              const isPass = check.status === "PASS";
-              const isFlag = check.status === "FLAG";
+                const isPass = check.status === "PASS";
+                const isFlag = check.status === "FLAG";
 
-              return (
-                <div
-                  key={check.parameter}
-                  className={`p-3.5 rounded-xl border transition-all ${
-                    isPass
-                      ? "border-emerald-200/50 dark:border-emerald-900/30 bg-emerald-50/20 dark:bg-emerald-950/10"
-                      : isFlag
-                      ? "border-amber-300/70 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-950/15"
-                      : "border-border/60 bg-muted/20"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-foreground">
-                          {meta.label}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                          • {check.category}
+                return (
+                  <div
+                    key={check.parameter}
+                    className={`p-3 sm:p-3.5 rounded-xl border transition-all ${
+                      isPass
+                        ? "border-emerald-200/50 dark:border-emerald-900/30 bg-emerald-50/20 dark:bg-emerald-950/10"
+                        : isFlag
+                        ? "border-amber-300/70 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-950/15"
+                        : "border-border/60 bg-muted/20"
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
+                      <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                        {isPass ? (
+                          <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </div>
+                        ) : isFlag ? (
+                          <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                            <AlertCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                            <HelpCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </div>
+                        )}
+
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-foreground">
+                              {meta.label}
+                            </span>
+                            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1.5 py-0.2 rounded bg-muted/60">
+                              {meta.category.replace("_", " ")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
+                            {check.reason || meta.defaultPassText}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex sm:block justify-end shrink-0 pl-8 sm:pl-0">
+                        <span
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider inline-block text-center ${
+                            isPass
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                              : isFlag
+                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {isPass ? "PASS" : isFlag ? "FLAG" : "NOT EVALUATED"}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {check.reason || meta.defaultPassText}
-                      </p>
                     </div>
 
-                    <span
-                      className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider shrink-0 ${
-                        isPass
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : isFlag
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {isPass ? "PASS" : isFlag ? "FLAG" : "NOT EVALUATED"}
-                    </span>
-                  </div>
-
-                  {/* Highlights (if any word/token was flagged) */}
-                  {check.highlight && check.highlight.length > 0 && (
-                    <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-semibold text-muted-foreground">
-                        Highlighted Text:
-                      </span>
-                      {check.highlight.map((h, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 font-mono text-[11px] font-semibold border border-amber-300/60 dark:border-amber-800/40"
-                        >
-                          "{h}"
+                    {/* Highlights (if any word/token was flagged) */}
+                    {check.highlight && check.highlight.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center gap-1.5 flex-wrap pl-0 sm:pl-9">
+                        <span className="text-[11px] font-semibold text-muted-foreground shrink-0">
+                          Detected:
                         </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }))}
+                        {check.highlight.map((h, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 font-mono text-[11px] font-semibold border border-amber-300/60 dark:border-amber-800/40 break-all"
+                          >
+                            "{h}"
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </DialogContent>
       </Dialog>
