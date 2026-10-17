@@ -3,6 +3,9 @@ import logging
 import math
 import os
 import re
+import unicodedata
+from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import uvicorn
@@ -13,7 +16,6 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 from wordfreq import zipf_frequency
 
-# basic logging setup so we can see what's happening in the Render logs
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(message)s",
@@ -21,14 +23,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("chemical_detector")
 
-# this service's own .env wins if present; the repo root .env is a fallback
-# for anything not set here (load_dotenv never overwrites an already-set var,
-# so loading the local one first gives it priority). No-op on Render, where
-# vars are set directly in the dashboard per service - there's no root .env there.
-# Also a no-op inside Docker: the repo's apis/chemical_detector/ nesting only
-# exists on the host - in the container everything is flattened to /app, so
-# there's no repo root to find (and Compose's env_file already injected
-# everything as real env vars before this even runs, so it's not needed there).
 load_dotenv()
 _parents = Path(__file__).resolve().parents
 if len(_parents) > 2:
@@ -36,15 +30,10 @@ if len(_parents) > 2:
 
 app = FastAPI(title="Banned/Restricted Chemical Detector")
 
-# this DB is separate from the main app's DB_URL on purpose - it's a different,
-# external, read-only cluster that the Reviewer System team gave us access to
 CHEMICAL_DB_URL = os.getenv("CHEMICAL_DB_URL")
 CHEMICAL_DB_NAME = os.getenv("CHEMICAL_DB_NAME", "agriai")
 CHEMICAL_COLLECTION_NAME = os.getenv("CHEMICAL_COLLECTION_NAME", "crop_master")
 
-# mongodb+srv:// connects/resolves DNS as soon as MongoClient() is called, so if the
-# host is wrong or unreachable it would crash the app on startup. wrapping it here
-# so the app still comes up and just reports 503 on the endpoints instead of dying.
 try:
     client = MongoClient(CHEMICAL_DB_URL)
     collection = client[CHEMICAL_DB_NAME][CHEMICAL_COLLECTION_NAME]
@@ -52,117 +41,242 @@ except PyMongoError as e:
     log.error("[chemical_detector] failed to initialize MongoDB client: %s", e)
     collection = None
 
-SIMILARITY_CUTOFF = 0.85  # how close a multi-word phrase needs to match to count
-_MIN_TOKEN_LEN = 3  # skip tiny words like "a", "ok" - too short to match anything meaningfully
-_WORD_RE = re.compile(r"[A-Za-z0-9'-]+")  # pulls out words, drops punctuation
-
-# a flat similarity cutoff can't tell "real chemical typo" apart from "real
-# English word/phrase that happens to look similar" - both score the same
-# under plain string similarity. Pick one of two cutoffs instead, based on
-# whether it's made of actual, independently-meaningful English words
-# (checked by real-world word frequency, not a hardcoded list - so this
-# protects against any common word/phrase that resembles a chemical name,
-# not just ones we've already seen cause problems):
-#   - common words ("methyl", "ammonium sulphate") must be a near-exact
-#     match to count - typos of chemical names don't happen to also be
-#     common, unrelated words
-#   - a non-word ("akdrin", "quualphos") only makes sense as a misspelling
-#     of something, so a looser match is safe
-#
-# known limitation: this can't catch a word that *isn't* in the frequency
-# data but still coincidentally resembles a chemical name (e.g. "endring",
-# part of a village name, scores 0.0 same as a real typo would, and is only
-# one inserted letter from "Endrin"). Telling those apart needs recognizing
-# it as part of a place name, not just checking word frequency - out of
-# scope here. Accepted as a known gap rather than a hardcoded word list.
-_COMMON_WORD_ZIPF_THRESHOLD = 1.0  # wordfreq scale; real typos score 0.0, "methyl" scores 3.2
-_COMMON_WORD_CUTOFF = 0.95
-_NONWORD_CUTOFF = 0.80
-# the same one-letter difference swings the ratio much further on a short
-# string than a long one, so the lenient cutoff above is only safe to use on
-# longer non-words - below this length, fall back to the normal cutoff.
-# (found empirically: "thion", a fragment "M@l@thion" breaks into, scored
-# 0.833 against an unrelated real alias - lenient enough to wrongly match at
-# 5 characters, but every one of our real target typos is 6+ characters.)
-_NONWORD_LENIENT_MIN_LEN = 6
-
-# a second, wider tokenizer that keeps commas/periods inside a word - needed
-# for chemical codes like "2,4,5-T" or "2,4-D", which _WORD_RE would otherwise
-# shred into meaningless fragments ("2", "4", "5-t") because it doesn't treat
-# "," as part of a word. Only used for the punctuation-normalized pass below.
+SIMILARITY_CUTOFF = 0.85
+_MIN_TOKEN_LEN = 3
+_WORD_RE = re.compile(r"[A-Za-z0-9'-]+")
 _CODE_RE = re.compile(r"[A-Za-z0-9,.\-]+")
-_MIN_SQUASHED_LEN = 4  # don't bother matching squashed strings shorter than this
-
-# trailing formulation/dosage code or a "-based"/"-insecticide" style suffix,
-# e.g. "Carbaryl50EC" -> "carbaryl", "Aldrin-based" -> "aldrin". Stripping this
-# before giving up on a word lets us still catch the real chemical name inside it.
-_FORMULATION_SUFFIX_RE = re.compile(r"(-based|-insecticide|-pesticide|-formulation|\d+%?[a-z]{0,4})$")
-
-# any non-whitespace run - wider than _WORD_RE, which drops symbols like "@"
-# entirely. Needed to catch leetspeak ("M@l@thion") before it gets shredded.
 _RAW_TOKEN_RE = re.compile(r"\S+")
-_LEET_MAP = str.maketrans({"@": "a", "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "$": "s"})
+_MIN_SQUASHED_LEN = 4
+_FORMULATION_SUFFIX_RE = re.compile(
+    r"(-based|-insecticide|-pesticide|-formulation|\d+%?[a-z]{0,4})$"
+)
+_LEET_MAP = str.maketrans(
+    {"@": "a", "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "$": "s"}
+)
 
-# difflib's ratio is 2*shared/(lenA+lenB), capped by the shorter string's length,
-# so two strings whose lengths are too far apart can NEVER reach a given cutoff
-# no matter what they contain. This is the min(lenA,lenB)/max(lenA,lenB) that's
-# just barely still possible - used below to skip candidates that can't match
-# instead of running the full (much more expensive) fuzzy comparison on them.
-# Based on the most lenient cutoff in play (_NONWORD_CUTOFF) so the window is
-# never too narrow for whichever of the two cutoffs actually ends up applying.
-_LEN_RATIO_BOUND = _NONWORD_CUTOFF / (2 - _NONWORD_CUTOFF)
+# These are language signals, not chemical names. They make a close spelling
+# less likely to be reported when it is being used as a place/name reference.
+_LOCATION_CONTEXT = {
+    "village",
+    "town",
+    "district",
+    "road",
+    "street",
+    "city",
+    "state",
+    "near",
+    "from",
+    "resident",
+    "residents",
+    "located",
+    "taluk",
+    "block",
+    "address",
+    "boundary",
+    "route",
+    "landmark",
+    "located",
+    "resident",
+    "residence",
+    "local",
+    "locality",
+    "hamlet",
+}
+_AGRICULTURAL_CONTEXT = {
+    "spray",
+    "sprayed",
+    "apply",
+    "applied",
+    "mix",
+    "mixed",
+    "dose",
+    "drench",
+    "treat",
+    "treated",
+    "pesticide",
+    "insecticide",
+    "fungicide",
+    "chemical",
+    "crop",
+    "field",
+    "seed",
+    "soil",
+    "pest",
+    "farm",
+    "farmer",
+    "cotton",
+    "paddy",
+    "wheat",
+    "rice",
+    "vegetable",
+    "fruit",
+    "orchard",
+    "plantation",
+    "nursery",
+    "foliar",
+    "fungal",
+    "weed",
+    "weeds",
+    "control",
+    "management",
+    "manage",
+    "protection",
+    "protect",
+    "prohibited",
+    "banned",
+    "restricted",
+    "residue",
+    "active",
+    "ingredient",
+    "product",
+    "label",
+    "registered",
+    "formulation",
+    "concentration",
+    "solution",
+    "water",
+    "litre",
+    "liter",
+    "millilitre",
+    "ml",
+    "gram",
+    "grams",
+    "kilogram",
+    "kilograms",
+    "kg",
+    "acre",
+    "hectare",
+    "per",
+    "treatment",
+    "treated",
+}
+_BIOLOGICAL_CONTEXT = {
+    "organism",
+    "organisms",
+    "natural",
+    "enemy",
+    "enemies",
+    "beneficial",
+    "predator",
+    "predators",
+    "parasitoid",
+    "parasitoids",
+    "parasitic",
+    "larvae",
+    "larval",
+    "pupa",
+    "pupae",
+    "egg",
+    "eggs",
+    "species",
+    "genus",
+    "beetle",
+    "beetles",
+    "wasp",
+    "wasps",
+    "fly",
+    "flies",
+    "mite",
+    "mites",
+    "spider",
+    "spiders",
+    "insect",
+    "insects",
+    "thrips",
+    "bug",
+    "bugs",
+    "bird",
+    "birds",
+    "conservation",
+    "conserve",
+    "habitat",
+    "habitats",
+    "refuge",
+    "refuges",
+    "shelter",
+    "shelters",
+    "nectar",
+    "pollen",
+    "host",
+    "hosts",
+    "microclimate",
+    "ecological",
+    "ecology",
+    "biological",
+    "bio",
+    "natural",
+    "companion",
+    "trap",
+    "flowering",
+    "bund",
+    "bunds",
+    "tillage",
+}
+_SCIENTIFIC_SUFFIXES = {
+    "ae",
+    "i",
+    "is",
+    "us",
+    "um",
+    "a",
+}
+_COMMON_ALIAS_ZIPF_THRESHOLD = 2.0
+_MAX_INPUT_CHARACTERS = 100_000
+_MAX_INPUT_WORDS = 20_000
+_AMBIGUITY_MARGIN = 0.05
 
-# in-memory lookup table built once from the DB: lowercase name/alias -> (real name, status)
 _CANDIDATES: dict[str, tuple[str, str]] = {}
 _CANDIDATE_TERMS: list[str] = []
-_TERMS_BY_LEN: dict[int, list[str]] = {}  # same terms, grouped by length - see _candidates_near_length
-
-# same candidates again, but under three different normalizations, so we can
-# catch matches the plain exact/fuzzy check above would miss:
-_CANDIDATES_SQUASHED: dict[str, tuple[str, str]] = {}  # punctuation stripped, e.g. "2,4,5-t" -> "245t"
-_CANDIDATES_SORTED: dict[str, tuple[str, str]] = {}  # words alphabetized, e.g. "calcium cyanide" -> "calcium cyanide" either order
-_CANDIDATES_PHF: dict[str, tuple[str, str]] = {}  # "ph" -> "f" (same sound), e.g. "mevinphos" -> "mevinfos"
-
-# how many words the longest real chemical name/alias has - computed from the
-# actual data in _ensure_loaded() instead of a fixed number, so a future name
-# longer than today's longest one still gets matched as a whole phrase.
+_TERMS_BY_LEN: dict[int, list[str]] = {}
+_CANDIDATES_SQUASHED: dict[str, tuple[str, str]] = {}
+_CANDIDATES_SORTED: dict[str, tuple[str, str]] = {}
+_CANDIDATES_PHF: dict[str, tuple[str, str]] = {}
+_COMPACT_TERMS_BY_LEN: dict[int, list[str]] = {}
+_CANONICAL_TERMS: set[str] = set()
 _MAX_CANDIDATE_WORDS = 3
 _LOADED = False
 
 
-def _squash(s: str) -> str:
-    """Lowercase and strip everything that isn't a letter or digit.
-    "2,4,5-T" and "245T" both become "245t" - lets us match chemical codes
-    however their punctuation is written, as long as the letters/digits agree."""
-    return re.sub(r"[^a-z0-9]", "", s.lower())
+@dataclass(frozen=True)
+class _ScoredCandidate:
+    value: tuple[str, str]
+    score: float
+    match_type: str
+    context: str
+
+
+def _normalize(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value)
+    value = value.encode("ascii", "ignore").decode("ascii")
+    value = value.lower().replace("’", "'")
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _squash(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", _normalize(value))
 
 
 def _ensure_loaded() -> None:
-    """Loads all chemical records from Mongo into memory, once. Every request
-    calls this first, but after the first successful call it's just a no-op,
-    so we're not hitting the DB on every single request."""
     global _CANDIDATES, _CANDIDATE_TERMS, _TERMS_BY_LEN
-    global _CANDIDATES_SQUASHED, _CANDIDATES_SORTED, _CANDIDATES_PHF, _MAX_CANDIDATE_WORDS, _LOADED
+    global _CANDIDATES_SQUASHED, _CANDIDATES_SORTED, _CANDIDATES_PHF
+    global _COMPACT_TERMS_BY_LEN
+    global _CANONICAL_TERMS, _MAX_CANDIDATE_WORDS, _LOADED
+
     if _LOADED:
         return
-
     if collection is None:
-        # client never connected in the first place (see try/except above)
         raise HTTPException(
             status_code=503,
             detail="Chemical database is currently unavailable. Please try again later.",
         )
 
     candidates: dict[str, tuple[str, str]] = {}
+    canonical_terms: set[str] = set()
     try:
-        # only pull the 3 fields we actually use - skips name/status/aliases'
-        # surrounding fields (createdBy, timestamps, etc), lighter on both the
-        # DB and our own memory once the chemical list gets big
         docs = list(
             collection.find({"type": "chemical"}, {"name": 1, "status": 1, "aliases": 1})
         )
     except PyMongoError as e:
-        # DB was reachable before but the query itself failed (network blip, auth issue, etc.)
         log.error("[chemical_detector] chemical DB query failed: %s", e)
         raise HTTPException(
             status_code=503,
@@ -173,120 +287,289 @@ def _ensure_loaded() -> None:
         name = (doc.get("name") or "").strip()
         status = (doc.get("status") or "").strip()
         if not name or not status:
-            continue  # skip bad/incomplete records instead of crashing on them
-
-        # a chemical can be found by its real name OR by any of its aliases,
-        # so we map every variant to the same canonical name + status
-        terms = {name.lower()}
+            continue
+        canonical_name = _normalize(name)
+        canonical_terms.add(canonical_name)
+        terms = {canonical_name}
         for alias in doc.get("aliases") or []:
             for key in ("english_representation", "native_representation"):
-                val = (alias.get(key) or "").strip()
-                if val:
-                    terms.add(val.lower())
+                value = (alias.get(key) or "").strip()
+                if value:
+                    terms.add(_normalize(value))
         for term in terms:
             candidates[term] = (name, status)
 
     _CANDIDATES = candidates
-    _CANDIDATE_TERMS = list(candidates.keys())
+    _CANONICAL_TERMS = canonical_terms
+    _CANDIDATE_TERMS = list(candidates)
     _TERMS_BY_LEN = {}
+    _COMPACT_TERMS_BY_LEN = {}
     for term in _CANDIDATE_TERMS:
-        _TERMS_BY_LEN.setdefault(len(term), []).append(term)
+        compact = _squash(term)
+        _TERMS_BY_LEN.setdefault(len(compact), []).append(term)
+        _COMPACT_TERMS_BY_LEN.setdefault(len(compact), []).append(compact)
 
     _CANDIDATES_SQUASHED = {}
+    _CANDIDATES_SORTED = {}
+    _CANDIDATES_PHF = {}
     for term, value in candidates.items():
         squashed = _squash(term)
         if len(squashed) >= _MIN_SQUASHED_LEN:
             _CANDIDATES_SQUASHED[squashed] = value
-
-    _CANDIDATES_SORTED = {}
-    for term, value in candidates.items():
-        term_words = term.split()
-        if len(term_words) >= 2:  # sorting a single word is a no-op, skip it
-            _CANDIDATES_SORTED[" ".join(sorted(term_words))] = value
-
-    _CANDIDATES_PHF = {}
-    for term, value in candidates.items():
+        words = term.split()
+        if len(words) >= 2:
+            _CANDIDATES_SORTED[" ".join(sorted(words))] = value
         _CANDIDATES_PHF[term.replace("ph", "f")] = value
 
     _MAX_CANDIDATE_WORDS = max((len(t.split()) for t in _CANDIDATE_TERMS), default=3)
-
     _LOADED = True
+    _fuzzy_candidates.cache_clear()
     log.info("[chemical_detector] loaded %d chemical names/aliases", len(_CANDIDATES))
 
 
-def _candidates_near_length(n: int) -> list[str]:
-    """Only returns candidate terms whose length could possibly reach
-    SIMILARITY_CUTOFF against a string of length n - anything outside this
-    window is mathematically guaranteed to fail the fuzzy match anyway, so
-    skipping them is free: same results, just without wasting time checking
-    candidates that could never pass. This is what keeps fuzzy matching fast
-    even if the chemical list grows into the thousands."""
-    lo = max(1, math.floor(n * _LEN_RATIO_BOUND))
-    hi = math.ceil(n / _LEN_RATIO_BOUND)
-    narrowed: list[str] = []
-    for length in range(lo, hi + 1):
-        narrowed.extend(_TERMS_BY_LEN.get(length, ()))
-    return narrowed
+def _edit_distance(left: str, right: str) -> int:
+    """Damerau-Levenshtein distance, including adjacent transpositions."""
+    previous = list(range(len(right) + 1))
+    previous_previous: list[int] | None = None
+    for i, left_char in enumerate(left, 1):
+        current = [i]
+        for j, right_char in enumerate(right, 1):
+            cost = 0 if left_char == right_char else 1
+            value = min(
+                current[j - 1] + 1,
+                previous[j] + 1,
+                previous[j - 1] + cost,
+            )
+            if (
+                previous_previous is not None
+                and i > 1
+                and j > 1
+                and left_char == right[j - 2]
+                and left[i - 2] == right_char
+            ):
+                value = min(value, previous_previous[j - 2] + cost)
+            current.append(value)
+        previous_previous, previous = previous, current
+    return previous[-1]
 
 
-# ponytail: this length filter is a real, zero-risk speedup (verified identical
-# results vs. a full scan), but normal English word lengths and chemical name
-# lengths overlap too much for it to be a dramatic win on its own - measured
-# ~1.3s per request at ~3500 candidate terms with a realistic ~150-word input.
-# Fine for today's ~500-term DB. If the chemical list grows into the thousands
-# and this gets too slow, swap difflib for `rapidfuzz` (same ratio/cutoff math,
-# C-implemented, drop-in) rather than hand-rolling a smarter index here.
+def _similarity(left: str, right: str) -> float:
+    if not left or not right:
+        return 0.0
+    distance = _edit_distance(left, right)
+    return 1.0 - distance / max(len(left), len(right))
 
 
-def _ngrams_with_pos(words: list[str], n: int) -> list[tuple[int, str]]:
-    """Same idea as grouping words into consecutive n-word chunks, but also
-    hands back the starting word-index of each chunk. We need the position so
-    that once a long chunk gets a confident exact match, we can tell which
-    shorter chunks are "inside" it and skip double-checking those."""
-    return [(i, " ".join(words[i : i + n])) for i in range(len(words) - n + 1)]
+def _allowed_edits(length: int) -> int:
+    if length <= 5:
+        return 0
+    if length <= 8:
+        return 1
+    if length <= 14:
+        return 2
+    return 3
 
 
+@lru_cache(maxsize=8192)
 def _is_common_word(word: str) -> bool:
-    """True if `word` is independently meaningful in everyday English (checked
-    via real-world word frequency), not just a near-miss of a chemical name."""
-    return zipf_frequency(word, "en") >= _COMMON_WORD_ZIPF_THRESHOLD
+    return zipf_frequency(word, "en") >= 1.0
 
 
-def _fuzzy_lookup(term: str) -> tuple[str, str] | None:
-    """Fuzzy-match one term against the candidate list (see _candidates_near_length
-    for why we don't scan the whole list). Picks the cutoff based on whether
-    the term is made of real, independently-meaningful English words (see the
-    _COMMON_WORD_CUTOFF/_NONWORD_CUTOFF comment above):
-      - every word in it is a common word (e.g. "ammonium sulphate", both
-        common words on their own) -> near-exact match required
-      - a single word, not common, long enough to be noise-resistant
-        (e.g. "akdrin") -> the lenient cutoff
-      - anything else (a short non-word fragment, or a multi-word phrase
-        that's a mix of common/uncommon words) -> the original flat cutoff
-    Returns (name, status) or None."""
-    words_in_term = term.split()
-    if len(words_in_term) > 1:
-        cutoff = _COMMON_WORD_CUTOFF if all(_is_common_word(w) for w in words_in_term) else SIMILARITY_CUTOFF
-    elif _is_common_word(term):
-        cutoff = _COMMON_WORD_CUTOFF
-    elif len(term) >= _NONWORD_LENIENT_MIN_LEN:
-        cutoff = _NONWORD_CUTOFF
-    else:
-        cutoff = SIMILARITY_CUTOFF
+def _candidate_terms_near_length(term: str) -> list[str]:
+    length = len(_squash(term))
+    max_edits = _allowed_edits(length)
+    return [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length, [])
+        if abs(len(_squash(candidate)) - length) <= max_edits
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length - 1, [])
+        if max_edits >= 1
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length + 1, [])
+        if max_edits >= 1
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length - 2, [])
+        if max_edits >= 2
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length + 2, [])
+        if max_edits >= 2
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length - 3, [])
+        if max_edits >= 2
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length + 3, [])
+        if max_edits >= 2
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length - 4, [])
+        if max_edits >= 2
+    ] + [
+        candidate
+        for candidate in _TERMS_BY_LEN.get(length + 4, [])
+        if max_edits >= 2
+    ]
 
-    match = difflib.get_close_matches(
-        term, _candidates_near_length(len(term)), n=1, cutoff=cutoff
+
+@lru_cache(maxsize=4096)
+def _fuzzy_candidates(term: str) -> tuple[str, ...]:
+    """Use difflib's fast sequence filter before running edit distance.
+
+    The edit-distance calculation is intentionally more precise, but it is
+    much more expensive on every word n-gram in a long advisory. Most n-grams
+    have no plausible chemical candidate, so retain only the closest few
+    strings first.
+    """
+    compact = _squash(term)
+    compact_candidates: list[str] = []
+    length = len(compact)
+    for candidate_length in range(max(1, length - 4), length + 5):
+        compact_candidates.extend(_COMPACT_TERMS_BY_LEN.get(candidate_length, ()))
+    close = difflib.get_close_matches(compact, compact_candidates, n=8, cutoff=0.55)
+    return tuple(
+        term
+        for candidate in close
+        for term in _CANDIDATES
+        if _squash(term) == candidate
     )
-    return _CANDIDATES[match[0]] if match else None
+
+
+def _context_score(words: list[str], start: int, end: int) -> float:
+    surrounding = set(words[max(0, start - 3) : start] + words[end : end + 3])
+    location = len(surrounding & _LOCATION_CONTEXT)
+    agriculture = len(surrounding & _AGRICULTURAL_CONTEXT)
+    return min(0.20, agriculture * 0.06) - min(0.35, location * 0.18)
+
+
+def _sentence_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    left = max(text.rfind(".", 0, start), text.rfind("!", 0, start), text.rfind("?", 0, start))
+    right_candidates = [index for index in (text.find(".", end), text.find("!", end), text.find("?", end)) if index >= 0]
+    right = min(right_candidates, default=len(text))
+    return left + 1, right
+
+
+def _sentence_context(words: list[str], start: int, end: int) -> tuple[str, float]:
+    sentence_words = words[max(0, start - 12) : min(len(words), end + 12)]
+    biological = len(set(sentence_words) & _BIOLOGICAL_CONTEXT)
+    chemical = len(set(sentence_words) & _AGRICULTURAL_CONTEXT)
+    if biological > chemical and biological:
+        return "biological", -min(0.55, biological * 0.12)
+    if chemical:
+        return "chemical", min(0.25, chemical * 0.05)
+    return "neutral", 0.0
+
+
+def _biological_context_score(words: list[str], start: int, end: int) -> float:
+    surrounding = set(words[max(0, start - 4) : start] + words[end : end + 4])
+    biological = len(surrounding & _BIOLOGICAL_CONTEXT)
+    return -min(0.45, biological * 0.15)
+
+
+def _has_strong_chemical_context(words: list[str], start: int, end: int) -> bool:
+    surrounding = set(words[max(0, start - 4) : start] + words[end : end + 4])
+    return bool(surrounding & _AGRICULTURAL_CONTEXT)
+
+
+def _looks_like_scientific_name(term: str) -> bool:
+    words = term.split()
+    if len(words) != 2:
+        return False
+    second = words[1].rstrip(".")
+    return len(words[0]) >= 4 and len(second) >= 4 and second.endswith(
+        tuple(_SCIENTIFIC_SUFFIXES)
+    )
+
+
+def _best_fuzzy_match(
+    term: str,
+    words: list[str],
+    start: int,
+    end: int,
+) -> _ScoredCandidate | None:
+    normalized = _normalize(term)
+    compact = _squash(normalized)
+    if len(compact) < _MIN_TOKEN_LEN:
+        return None
+
+    common_phrase = all(_is_common_word(word) for word in normalized.split())
+    candidates = _fuzzy_candidates(normalized)
+    biological_context = _biological_context_score(words, start, end)
+    scientific_name = _looks_like_scientific_name(normalized)
+    sentence_context, sentence_bonus = _sentence_context(words, start, end)
+    scored: list[tuple[float, str, tuple[str, str], str]] = []
+
+    for candidate in candidates:
+        candidate_compact = _squash(candidate)
+        distance = _edit_distance(compact, candidate_compact)
+        # Base typo tolerance on the text supplied by the user. Using the
+        # longer database term here lets a short unrelated word gain too many
+        # edits and become a chemical match (for example, "azophos" versus
+        # the longer "tiazophos" alias of Triazophos).
+        max_edits = _allowed_edits(len(compact))
+        similarity = _similarity(compact, candidate_compact)
+        prefix_match = candidate.startswith(normalized) and len(normalized) >= 8
+        candidate_value = _CANDIDATES[candidate]
+        canonical = candidate == _normalize(candidate_value[0])
+        match_type = "canonical-typo" if canonical else "alias-typo"
+        candidate_is_common_alias = all(
+            zipf_frequency(word, "en") >= _COMMON_ALIAS_ZIPF_THRESHOLD
+            for word in candidate.split()
+        ) and candidate != _normalize(candidate_value[0])
+        if distance > max_edits and not (
+            prefix_match and len(candidate_compact) - len(compact) <= 4
+        ):
+            continue
+        if common_phrase and similarity < 0.95:
+            continue
+        if biological_context < 0 and not _has_strong_chemical_context(
+            words, start, end
+        ):
+            continue
+        if scientific_name and not _has_strong_chemical_context(words, start, end):
+            continue
+        if len(compact) <= 5:
+            continue
+        # A database alias that is an ordinary English word is not reliable
+        # evidence for a chemical when the input is only a fuzzy spelling.
+        # Keep exact aliases handled by the caller, but reject weak fuzzy
+        # matches such as the biological genus "Bracon" to an alias like
+        # "beacon" belonging to an unrelated chemical.
+        if candidate_is_common_alias and _context_score(words, start, end) <= 0:
+            continue
+        if candidate_is_common_alias and similarity < 0.95:
+            continue
+        if not prefix_match and not common_phrase and similarity < 0.75:
+            continue
+        if prefix_match and similarity < 0.65:
+            continue
+        if not common_phrase and distance > max_edits and not prefix_match:
+            continue
+        score = similarity + _context_score(words, start, end) + biological_context + sentence_bonus
+        if canonical:
+            score += 0.05
+        if prefix_match and len(candidate_compact) - len(compact) <= 4:
+            score += 0.08
+        scored.append((score, candidate, candidate_value, match_type))
+
+    if not scored:
+        return None
+    scored.sort(reverse=True, key=lambda item: item[0])
+    best_score, _, best_value, match_type = scored[0]
+    if best_score < 0.75:
+        return None
+    if len(scored) > 1 and best_score - scored[1][0] < _AMBIGUITY_MARGIN:
+        return None
+    return _ScoredCandidate(best_value, best_score, match_type, sentence_context)
 
 
 def _collapse_letter_spaced_runs(words: list[str]) -> list[str]:
-    """Finds runs of 2+ consecutive single-letter words (e.g. from "E n d r i n"
-    typed with spaces between every letter) and joins each run into one word,
-    so it can be matched normally. Single letters almost never appear
-    back-to-back in real sentences, so this only ever triggers on this
-    specific obfuscation pattern."""
-    collapsed: list[str] = []
+    collapsed = []
     i = 0
     while i < len(words):
         if len(words[i]) == 1 and words[i].isalpha():
@@ -302,171 +585,155 @@ def _collapse_letter_spaced_runs(words: list[str]) -> list[str]:
 
 
 def _leet_decode(token: str) -> str | None:
-    """Replaces leetspeak stand-ins (@ -> a, 0 -> o, etc.) with the letter they
-    represent, e.g. "M@l@thion" -> "malathion". Returns None if the token has
-    none of those characters, so callers can skip the (rare) extra work."""
-    if not any(c in token for c in "@0134578$"):
+    if not any(char in token for char in "@013457$"):
         return None
     return token.translate(_LEET_MAP).lower()
 
 
 def _strip_formulation_suffix(term: str) -> str | None:
-    """Removes a trailing dosage/formulation code or "-based" style suffix,
-    e.g. "carbaryl50ec" -> "carbaryl", "aldrin-based" -> "aldrin". Returns None
-    if there's nothing to strip, so callers can tell "no change" from "stripped
-    down to the same string" (which can't actually happen here, but is cheap
-    to tell apart)."""
     stripped = _FORMULATION_SUFFIX_RE.sub("", term).rstrip("-")
     return stripped if stripped and stripped != term else None
 
 
+def _record_match(
+    found: dict[str, str],
+    value: tuple[str, str],
+    scores: dict[str, float],
+    score: float,
+) -> None:
+    name, status = value
+    if name not in found or score > scores[name]:
+        found[name] = status
+        scores[name] = score
+
+
+def _is_common_alias(term: str) -> bool:
+    return (
+        term not in _CANONICAL_TERMS
+        and all(
+            zipf_frequency(word, "en") >= _COMMON_ALIAS_ZIPF_THRESHOLD
+            for word in term.split()
+        )
+    )
+
+
 def detect_chemicals(text: str) -> dict[str, str]:
-    """Scans the given text for banned/restricted chemicals.
-
-    Splits the text into words, then checks every word-chunk (1 word up to
-    however many words the longest real chemical name has) against the known
-    chemical names/aliases, longest chunk first:
-      1. exact match
-      2. same words in a different order (e.g. "Cyanide Calcium" for "Calcium Cyanide")
-      3. "ph" written as "f" or vice versa (e.g. "Mevinfos" for "Mevinphos")
-      4. fuzzy match - how lenient this is depends on whether the word is a
-         real, independently-meaningful English word or not (see the
-         _COMMON_WORD_CUTOFF/_NONWORD_CUTOFF comment above): "methyl" and
-         "ammonium sulphate" need a near-exact match since they're genuine
-         words with their own meaning, while "akdrin" only makes sense as a
-         misspelling and gets a more lenient match
-      5. if still nothing, strip a formulation/dosage suffix and retry 1-4
-         (e.g. "Carbaryl50EC" -> "Carbaryl")
-    Checking longest chunks first means once "methyl bromide" exact-matches,
-    we don't also separately check "methyl" on its own and wrongly flag an
-    unrelated chemical that it happens to resemble.
-
-    Three separate passes handle text normal word-splitting can't represent:
-      - a punctuation-tolerant tokenization for chemical codes like "2,4,5-T"
-        (commas), matching "2,4,5-T" and "245T" the same way
-      - collapsing runs of single letters typed with spaces ("E n d r i n")
-      - decoding leetspeak stand-ins ("M@l@thion" -> "malathion")
-
-    Returns {chemical name: status}, with each chemical only appearing once
-    even if it's mentioned multiple times in the text.
-    """
+    if len(text) > _MAX_INPUT_CHARACTERS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Field 'text' must not exceed {_MAX_INPUT_CHARACTERS} characters.",
+        )
     _ensure_loaded()
-    words = _WORD_RE.findall(text)
+    words = [_normalize(word) for word in _WORD_RE.findall(text)]
+    if len(words) > _MAX_INPUT_WORDS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Field 'text' must not exceed {_MAX_INPUT_WORDS} words.",
+        )
     found: dict[str, str] = {}
-    seen_grams: set[str] = set()
-    exact_covered: set[int] = set()  # word-indices already claimed by a bigger exact match
+    scores: dict[str, float] = {}
+    covered: set[int] = set()
 
-    for n in range(_MAX_CANDIDATE_WORDS, 0, -1):  # longest first, so exact hits can suppress shorter sub-matches
-        for start, gram in _ngrams_with_pos(words, n):
-            gram_l = gram.lower()
-            if len(gram_l) < _MIN_TOKEN_LEN or gram_l in seen_grams:
+    for n in range(_MAX_CANDIDATE_WORDS, 0, -1):
+        for start in range(len(words) - n + 1):
+            end = start + n
+            term = " ".join(words[start:end])
+            if len(_squash(term)) < _MIN_TOKEN_LEN:
                 continue
-            seen_grams.add(gram_l)  # don't re-check the same phrase twice
-            span = range(start, start + n)
-
-            # this chunk is fully inside a longer chunk that already matched
-            # exactly - skip it entirely (exact or fuzzy), that's how "methyl"
-            # (inside an already-matched "methyl bromide") used to also wrongly
-            # flag the unrelated chemical "Methomyl" on its own, and how a real
-            # but shorter name nested inside a longer one (e.g. "Ethyl Mercury
-            # Chloride" inside "Methoxy Ethyl Mercury Chloride") used to fire
-            # alongside the more specific, correct match.
-            if span and all(i in exact_covered for i in span):
+            if all(index in covered for index in range(start, end)):
                 continue
 
-            if gram_l in _CANDIDATES:
-                name, status = _CANDIDATES[gram_l]
-                found[name] = status
-                exact_covered.update(span)
+            exact = _CANDIDATES.get(term)
+            if exact:
+                if _is_common_alias(term) and (
+                    _context_score(words, start, end) <= 0
+                    or _biological_context_score(words, start, end) < 0
+                ):
+                    continue
+                _record_match(found, exact, scores, 1.2 + _context_score(words, start, end))
+                covered.update(range(start, end))
                 continue
 
-            if n >= 2:
-                sorted_gram = " ".join(sorted(gram_l.split()))
-                if sorted_gram in _CANDIDATES_SORTED:
-                    name, status = _CANDIDATES_SORTED[sorted_gram]
-                    found[name] = status
+            if n > 1:
+                reordered = _CANDIDATES_SORTED.get(" ".join(sorted(term.split())))
+                if reordered:
+                    _record_match(found, reordered, scores, 1.1)
+                    covered.update(range(start, end))
                     continue
 
-            phf_gram = gram_l.replace("ph", "f")
-            if phf_gram in _CANDIDATES_PHF:
-                name, status = _CANDIDATES_PHF[phf_gram]
-                found[name] = status
+            phf = _CANDIDATES_PHF.get(term.replace("ph", "f"))
+            if phf:
+                phf_term = term.replace("ph", "f")
+                if _is_common_alias(phf_term) and (
+                    _context_score(words, start, end) <= 0
+                    or _biological_context_score(words, start, end) < 0
+                ):
+                    continue
+                _record_match(found, phf, scores, 1.05)
+                covered.update(range(start, end))
                 continue
 
-            hit = _fuzzy_lookup(gram_l)
+            hit = _best_fuzzy_match(term, words, start, end)
             if hit:
-                found[hit[0]] = hit[1]
+                _record_match(found, hit.value, scores, hit.score)
+                log.debug(
+                    "[chemical_detector] fuzzy match name=%s score=%.3f type=%s context=%s",
+                    hit.value[0],
+                    hit.score,
+                    hit.match_type,
+                    hit.context,
+                )
+                covered.update(range(start, end))
                 continue
 
-            stripped = _strip_formulation_suffix(gram_l)
-            if stripped and len(stripped) >= _MIN_TOKEN_LEN:
-                if stripped in _CANDIDATES:
-                    name, status = _CANDIDATES[stripped]
-                    found[name] = status
-                else:
-                    hit = _fuzzy_lookup(stripped)
-                    if hit:
-                        found[hit[0]] = hit[1]
+            stripped = _strip_formulation_suffix(term)
+            if stripped and len(_squash(stripped)) >= _MIN_TOKEN_LEN:
+                hit = _CANDIDATES.get(stripped) or _best_fuzzy_match(
+                    stripped, words, start, end
+                )
+                if hit:
+                    if isinstance(hit, _ScoredCandidate):
+                        _record_match(found, hit.value, scores, hit.score)
+                    else:
+                        _record_match(found, hit, scores, 1.0)
+                    covered.update(range(start, end))
 
-    # separate pass: punctuation-tolerant tokenization, for chemical codes
-    # like "2,4,5-T" that normal word-splitting would otherwise shred
-    code_words = _CODE_RE.findall(text)
-    seen_squashed: set[str] = set()
-    for n in (1, 2, 3):
-        for _, gram in _ngrams_with_pos(code_words, n):
-            squashed = _squash(gram)
-            if len(squashed) < _MIN_SQUASHED_LEN or squashed in seen_squashed:
-                continue
-            seen_squashed.add(squashed)
-            if squashed in _CANDIDATES_SQUASHED:
-                name, status = _CANDIDATES_SQUASHED[squashed]
-                found[name] = status
+    code_words = [_normalize(word) for word in _CODE_RE.findall(text)]
+    for n in range(1, min(_MAX_CANDIDATE_WORDS, 3) + 1):
+        for start in range(len(code_words) - n + 1):
+            squashed = _squash(" ".join(code_words[start : start + n]))
+            value = _CANDIDATES_SQUASHED.get(squashed)
+            if value:
+                code_term = " ".join(code_words[start : start + n])
+                if _is_common_alias(code_term):
+                    continue
+                _record_match(found, value, scores, 1.15)
 
-    # separate pass: letters typed with spaces between them ("E n d r i n")
     for collapsed in _collapse_letter_spaced_runs(words):
-        collapsed_l = collapsed.lower()
-        if collapsed_l in _CANDIDATES:
-            name, status = _CANDIDATES[collapsed_l]
-            found[name] = status
-        else:
-            hit = _fuzzy_lookup(collapsed_l)
-            if hit:
-                found[hit[0]] = hit[1]
+        value = _CANDIDATES.get(collapsed)
+        if value:
+            _record_match(found, value, scores, 1.1)
 
-    # separate pass: leetspeak ("M@l@thion")
     for raw_token in _RAW_TOKEN_RE.findall(text):
         decoded = _leet_decode(raw_token)
         if not decoded or len(decoded) < _MIN_TOKEN_LEN:
             continue
-        if decoded in _CANDIDATES:
-            name, status = _CANDIDATES[decoded]
-            found[name] = status
-        else:
-            hit = _fuzzy_lookup(decoded)
-            if hit:
-                found[hit[0]] = hit[1]
+        value = _CANDIDATES.get(decoded) or _best_fuzzy_match(decoded, words, 0, 0)
+        if value:
+            if isinstance(value, _ScoredCandidate):
+                _record_match(found, value.value, scores, value.score)
+            else:
+                _record_match(found, value, scores, 1.0)
 
-    # the suppression above only applies within the main word-based pass - the
-    # punctuation/leetspeak/letter-spaced passes above run independently and
-    # don't know about it, so they can still re-add a name that's actually
-    # just a less-specific piece of another match we already have (e.g.
-    # "Ethyl Mercury Chloride" re-appearing alongside "Methoxy Ethyl Mercury
-    # Chloride", which contains it). Drop any found name that's a whole-word
-    # substring of another found name, keeping the more specific one.
-    if len(found) > 1:
-        names = list(found)
-        for name in names:
-            contained_in_another = any(
-                other != name and f" {name.lower()} " in f" {other.lower()} "
-                for other in names
-            )
-            if contained_in_another:
-                del found[name]
-
+    names = list(found)
+    for name in names:
+        if any(
+            other != name and f" {_normalize(name)} " in f" {_normalize(other)} "
+            for other in names
+        ):
+            del found[name]
     return found
 
-
-# ---- request/response shapes for the endpoint ----
 
 class DetectRequest(BaseModel):
     text: str
@@ -478,24 +745,17 @@ class ChemicalMatch(BaseModel):
 
 
 class DetectResponse(BaseModel):
-    # only one of these two is ever filled in - matches when we found something,
-    # message when we didn't. response_model_exclude_none=True on the route hides
-    # whichever one is empty instead of sending it as null.
     matches: list[ChemicalMatch] | None = None
     message: str | None = None
 
 
 @app.post("/detect-chemicals", response_model=DetectResponse, response_model_exclude_none=True)
 def detect_chemicals_endpoint(request: DetectRequest):
-    """Main endpoint the Reviewer System calls. Takes {"text": "..."} and tells
-    them which banned/restricted chemicals (if any) show up in it."""
     if not request.text or not request.text.strip():
         raise HTTPException(status_code=400, detail="Field 'text' must not be empty.")
-
     found = detect_chemicals(request.text)
     if not found:
         return DetectResponse(message="No banned or restricted chemical detected")
-
     return DetectResponse(
         matches=[ChemicalMatch(name=name, status=status) for name, status in found.items()]
     )
@@ -503,12 +763,9 @@ def detect_chemicals_endpoint(request: DetectRequest):
 
 @app.get("/health")
 def health():
-    """Simple check for Render/monitoring to confirm the service is up and
-    the chemical data actually loaded from the DB."""
     _ensure_loaded()
     return {"status": "ok", "chemicals_loaded": len(_CANDIDATES)}
 
 
 if __name__ == "__main__":
-    # lets you run `python main.py` directly instead of going through uvicorn/docker
     uvicorn.run(app, host="0.0.0.0", port=8002)
