@@ -28,5 +28,5 @@ export const aiConfig = {
   accAgentAssistantId: env('ACC_AGENT_ASSISTANT_ID'),
   accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
   geminiApiKey: env('GEMINI_API_KEY'),
-  geminiModel: env('GEMINI_MODEL') || 'gemini-3.1-flash-lite',
+  geminiModel: env('GEMINI_MODEL') || 'gemini-2.0-flash-lite',
 };

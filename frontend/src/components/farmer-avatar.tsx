@@ -221,10 +221,6 @@ export const FarmerAvatar: React.FC<FarmerAvatarProps> = ({
               strokeLinecap="round"
             />
 
-            {/* Tilak / Churna Spot on Forehead */}
-            <rect x="98.5" y="68" width="3" height="8" rx="1.5" fill="#DC2626" />
-            <circle cx="100" cy="78" r="1.5" fill="#F59E0B" />
-
             {/* Friendly Indian Mustache */}
             <path
               d="M100 115 C92 110, 72 112, 68 122 C76 124, 92 122, 100 117 C108 122, 124 124, 132 122 C128 112, 108 110, 100 115 Z"
