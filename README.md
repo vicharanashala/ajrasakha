@@ -139,3 +139,30 @@ The Review System uses role-based access and workflows for managing the question
 * **Authentication:** Firebase
 * **Deployment:** Google Cloud Run
 * **Language / AI Services:** Sarvam AI API, MiniMax models
+
+---
+
+## Getting Started & Local Development
+
+For step-by-step instructions on setting up your local development environment, database configuration, running tests, and troubleshooting:
+- Read the **[Local Development & Setup Guide](docs/local-development-guide.md)**.
+- Review our **[Contribution Guidelines](CONTRIBUTING.md)** before submitting code.
+
+### Quick Start
+
+```bash
+# 1. Clone and create your environment file
+git clone https://github.com/vicharanashala/ajrasakha.git
+cd ajrasakha
+cp .env.example .env
+
+# 2. Run backend (port 4000)
+cd backend
+pnpm install
+pnpm run dev
+
+# 3. In another terminal, run frontend (port 5173)
+cd frontend
+pnpm install
+pnpm run dev
+```
