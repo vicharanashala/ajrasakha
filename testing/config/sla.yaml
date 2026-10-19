@@ -1,0 +1,75 @@
+# Single source of truth for SLA budgets consumed by
+# `testing/scripts/aggregate_results.py` and the performance report.
+#
+# These numbers mirror `results/sla_targets.md` (Project 7, §1 SLA targets).
+# If you change a budget here, mirror it in `sla_targets.md` (and vice-versa).
+# Scenario keys match the `results/<scenario>/` directory names emitted by
+# `testing/scripts/run-locust-{1x,5x,10x}.ps1`.
+version: 1
+
+# Per-scenario budgets. S5 (HTTP 5xx ratio) and S3 (queue-drained) relax as
+# load increases — this is the *stakeholder contract* and matches sla_targets.md.
+scenarios:
+  1x_locust:
+    s5_http_5xx_ratio_max: 0.005   # < 0.5 % at 1×
+    s3_end_queue_length_max: 100   # 1× scenario matrix: 100 open questions
+  5x_locust:
+    s5_http_5xx_ratio_max: 0.01    # < 1 % at 5×
+    s3_end_queue_length_max: 500   # 5× scenario matrix: 500 open questions
+  10x_locust:
+    s5_http_5xx_ratio_max: 0.02    # < 2 % at 10×
+    s3_end_queue_length_max: 1000  # 10× scenario matrix: 1000 open questions
+
+# Per-gate, per-scenario-independent budgets.
+sla_gates:
+  S1:
+    name: queue_wait_proxy
+    description: >
+      Queue-wait proxy derived from the maximum observed endpoint latency
+      across the run. sla_targets.md §S1 is defined per-multiplier
+      (≤90 s at 1×, ≤120 s at 5×, ≤180 s at 10×); we use the tightest
+      (60 s) as a sanity ceiling and report the observed max.
+    budget_ms: 60000
+
+  S2:
+    name: allocator_p95
+    description: "Allocator endpoint p95 ≤ 800 ms (matches sla_targets.md §S4 allocator row)."
+    budget_ms: 800
+
+  S3:
+    name: queue_drained
+    description: >
+      End-of-run queue length ≤ per-scenario threshold. Proxy for
+      sla_targets.md §S3 "0 availableWaiting > 60 s old at run end":
+      the cron must keep up with the load so the queue does not
+      grow unbounded. Threshold comes from `scenarios.<scenario>.s3_end_queue_length_max`.
+
+  S4:
+    name: per_endpoint_p95
+    description: >
+      Each reviewer endpoint's p95 must stay within its sla_targets.md §S4
+      budget. Match is substring on the human-readable `name` field in
+      `aggregated.csv` (e.g. `POST /api/questions/allocated` matches all
+      role variants `(admin)`, `(expert)`, `(moderator)` …).
+    endpoint_budgets_ms:
+      "POST /api/auth/login": 400
+      "GET /api/questions/queue-details": 500
+      "POST /api/questions/allocated": 600
+      "POST /:qid/feedback-reviewer": 800
+      "POST /api/answers/moderator/approve": 1200
+
+  S5:
+    name: http_5xx
+    description: >
+      Worst 5xx ratio across all reviewer endpoints must be ≤ the
+      per-scenario budget. Budget comes from `scenarios.<scenario>.s5_http_5xx_ratio_max`.
+
+  S6:
+    name: reputation_mismatches
+    description: "Stored reputation_score matches canonical recalc for every user (drift = 0)."
+    budget_drift: 0
+
+  S7:
+    name: cosine_p95
+    description: "Cosine-similarity duplicate-check p95 ≤ 1500 ms."
+    budget_ms: 1500
