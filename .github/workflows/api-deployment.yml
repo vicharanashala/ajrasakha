@@ -17,6 +17,7 @@ on:
           - chemical_detector
           - ffv_api
           - grammar_validator_api
+          - answer_check
 
 permissions:
   contents: read
@@ -143,3 +144,15 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/grammar_validator_api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/grammar_validator_api:${{ github.sha }}
+
+      - name: Build & Push answer_check
+        if: github.event.inputs.target_api == 'answer_check'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apis/answer-check
+          file: ./apis/answer-check/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/answer_check:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/answer_check:${{ github.sha }}
