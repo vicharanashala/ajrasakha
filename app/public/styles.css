@@ -1,0 +1,38 @@
+:root {
+  --bg: #0b0f0c;
+  --card: #151a16;
+  --text: #f4f7f4;
+  --muted: #9ca3af;
+  --green: #22c55e;
+  --green-dim: #166534;
+  --border: #27312a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: Segoe UI, system-ui, sans-serif; }
+#app { min-height: 100vh; }
+.auth-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+[data-slot="card"] { width: 100%; max-width: 28rem; background: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; }
+[data-slot="card-title"] { text-align: center; font-size: 1.5rem; font-weight: 700; color: #86efac; }
+.logo { width: 3rem; height: 3rem; display: block; margin: 0 auto 0.75rem; }
+form { display: grid; gap: 1rem; }
+label { font-size: 0.875rem; font-weight: 600; }
+input { width: 100%; height: 2.75rem; border-radius: 0.4rem; border: 2px solid var(--border); background: transparent; color: var(--text); padding: 0 0.75rem; }
+.relative { position: relative; }
+.relative button { position: absolute; right: 0; top: 0; height: 100%; background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 0.75rem; }
+.primary { width: 100%; height: 2.75rem; border: none; border-radius: 0.4rem; background: var(--green-dim); color: white; font-weight: 700; cursor: pointer; }
+.link { background: none; border: none; color: var(--green); cursor: pointer; font-size: 0.875rem; }
+.row-end { display: flex; justify-content: flex-end; }
+.center { text-align: center; color: var(--muted); font-size: 0.875rem; }
+.error { color: #fca5a5; font-size: 0.875rem; }
+.nav { display: flex; gap: 0.75rem; flex-wrap: wrap; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+.nav a { color: #bbf7d0; text-decoration: none; }
+.page { padding: 1.25rem; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border-bottom: 1px solid var(--border); padding: 0.6rem; text-align: left; }
+.badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; background: #3f3f46; font-size: 0.75rem; }
+.badge.stuck, .badge.delayed { background: #7c2d12; }
+.badge.closed { background: var(--green-dim); }
+.counts { display: flex; gap: 1rem; margin: 1rem 0; }
+.count { background: var(--card); border: 1px solid var(--border); padding: 0.75rem 1rem; border-radius: 0.5rem; }
+.toast-host { position: fixed; bottom: 24px; right: 24px; width: 340px; }
+textarea { width: 100%; min-height: 6rem; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 0.4rem; padding: 0.5rem; }
