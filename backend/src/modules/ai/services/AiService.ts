@@ -28,7 +28,6 @@ export class AiService {
     'http://' + aiConfig.serverIP + ':' + aiConfig.chemicalCheckPort;
 
   private _answerCheckServerUrl =
-    aiConfig.answerCheckServerUrl ||
     'http://' + aiConfig.serverIP + ':' + aiConfig.answerCheckPort;
 
   async getQuestionByContext(
