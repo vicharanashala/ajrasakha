@@ -348,8 +348,8 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
                       setTempRejectAnswer(val);
                       setNewAnswer(val);
                     }}
-                    minHeight="min-h-[140px]"
-                    maxHeight="max-h-[220px]"
+                    minHeight="min-h-[250px]"
+                    maxHeight="max-h-[500px]"
                   />
 
                   {type == "reject" && (

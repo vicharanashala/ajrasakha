@@ -1,7 +1,7 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Anchor, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Anchor, Pencil, Plus, RefreshCw, Scissors, Search, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import {
   deleteDashboardDocument,
   findDuplicatesForDocument,
   mergeUniqueDocuments,
+  deleteDuplicateLink,
+  unlinkMergedGroup,
   getOriginalDownloadUrl,
   getDashboardStates,
   getDashboardFolders,
@@ -44,6 +46,16 @@ const DETAIL_GRID_FIELDS = [
   ...DISPLAY_ONLY_FIELDS,
 ];
 
+function formatMergedAtIst(iso) {
+  if (!iso) return "unknown date";
+  return new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 // Document Detail — replaces the old inline row-expand + separate cascade-delete flow. Opened as
 // a modal from a placement row (Main Table), a document row (Documents tab), or a jump-link
 // (Upload Queue "view match", Translation Queue). Fetches fresh on every open rather than trusting
@@ -58,6 +70,8 @@ export default function DocumentDetailModal({
   onTranslationStarted,
   onPlacementsChanged,
   canEdit = true,
+  currentUserName,
+  translationJobs = [],
 }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -214,6 +228,14 @@ export default function DocumentDetailModal({
 
   const [mergeInput, setMergeInput] = useState("");
   const [merging, setMerging] = useState(false);
+
+  // Merge is disabled while THIS document is being translated — the backend 409s on the survivor
+  // (and names the busy id if it's one of the absorbed ones instead, surfaced via the error toast
+  // below, not pre-checked here).
+  const isTranslating =
+    doc?.translation_status === "in_progress" ||
+    translationJobs.some((j) => (j.document_id || j.unique_document_id) === documentId);
+
   async function handleMerge() {
     const absorb = mergeInput
       .split(",")
@@ -222,10 +244,13 @@ export default function DocumentDetailModal({
     if (absorb.length === 0) return;
     setMerging(true);
     try {
-      const res = await mergeUniqueDocuments(documentId, absorb);
+      const res = await mergeUniqueDocuments(documentId, absorb, currentUserName);
       toast.success(
-        `Merged — ${res?.placements_repointed ?? 0} placement(s) repointed, now filed in ${res?.placement_count ?? "?"} place(s)`,
+        `Merged — ${res?.placements_moved ?? 0} placement(s) added, ${res?.placements_dropped ?? 0} already filed, now filed in ${res?.placement_count ?? "?"} place(s)`,
       );
+      if (res?.not_trashed?.length > 0) {
+        toast.warning("Some old translation files could not be trashed from WorkDrive.");
+      }
       setMergeInput("");
       loadDoc();
       loadPlacements();
@@ -236,6 +261,63 @@ export default function DocumentDetailModal({
       setMerging(false);
     }
   }
+
+  const [deletingLinkId, setDeletingLinkId] = useState(null);
+  async function handleDeleteDuplicateLink(link) {
+    if (
+      !window.confirm(
+        `This copy (${link.shareable_name}) will be deleted from WorkDrive. Continue?`,
+      )
+    )
+      return;
+    setDeletingLinkId(link.zoho_file_id);
+    try {
+      const updated = await deleteDuplicateLink(documentId, link.zoho_file_id);
+      setDoc((prev) => ({ ...prev, ...updated }));
+    } catch (err) {
+      toast.error(err.message || "Failed to delete copy");
+    } finally {
+      setDeletingLinkId(null);
+    }
+  }
+
+  const [unlinkingGroupKey, setUnlinkingGroupKey] = useState(null);
+  async function handleUnlinkGroup(group) {
+    if (!window.confirm(`Split '${group.key}' out as a separate document?`)) return;
+    setUnlinkingGroupKey(group.key);
+    try {
+      const newDoc = await unlinkMergedGroup(documentId, group.key);
+      toast.success(
+        `Unlinked into ${newDoc?.document_id} — it has no placements yet; file it with Add placement`,
+      );
+      loadDoc();
+      onPlacementsChanged?.();
+    } catch (err) {
+      toast.error(err.message || "Failed to unlink");
+    } finally {
+      setUnlinkingGroupKey(null);
+    }
+  }
+
+  // Groups duplicate_links by merged_document — null is this document's own copies ("This
+  // document"), everything else is one group per document merge, header'd with who merged it and
+  // when. A merged-in document that had itself absorbed another earlier keeps that earlier
+  // document's own merged_document/merged_by, so it shows as its own group here, not folded into
+  // this one's.
+  const duplicateGroups = useMemo(() => {
+    const links = doc?.duplicate_links || [];
+    const own = links.filter((l) => !l.merged_document);
+    const mergedKeys = [...new Set(links.filter((l) => l.merged_document).map((l) => l.merged_document))];
+    const groups = [];
+    if (own.length > 0) groups.push({ key: "own", header: "This document", links: own });
+    for (const key of mergedKeys) {
+      const groupLinks = links.filter((l) => l.merged_document === key);
+      const mergedBy = groupLinks[0]?.merged_by || "unknown";
+      const mergedAt = formatMergedAtIst(groupLinks[0]?.merged_at);
+      groups.push({ key, header: `${key} — merged by ${mergedBy}, ${mergedAt}`, links: groupLinks });
+    }
+    return groups;
+  }, [doc?.duplicate_links]);
 
   if (!open) return null;
 
@@ -442,47 +524,70 @@ export default function DocumentDetailModal({
                   Duplicate copies ({doc.duplicate_links?.length ?? 0})
                 </h3>
                 <p className="text-[11px] text-muted-foreground mb-1.5">
-                  Every distinct physical copy of this document in WorkDrive — usually one per
-                  placement, but a file uploaded once and then filed in several places has fewer
-                  copies than placements. The anchor is the copy translation acts on.
+                  Every distinct physical copy of this document in WorkDrive, grouped by where it
+                  came from — this document's own copies, plus one group per document merged into
+                  it. The anchor is the copy translation acts on.
                 </p>
-                {!doc.duplicate_links || doc.duplicate_links.length === 0 ? (
+                {duplicateGroups.length === 0 ? (
                   <div className="text-xs text-muted-foreground italic py-1">No copies on record.</div>
                 ) : (
-                  <div className="flex flex-col gap-1">
-                    {doc.duplicate_links.map((link) => {
-                      const isAnchor = link.zoho_file_id === doc.representative_file_id;
-                      return (
-                        <div
-                          key={link.zoho_file_id}
-                          className="flex items-center justify-between gap-2 rounded border border-border/50 px-2.5 py-1.5"
-                        >
-                          <span className="text-xs font-mono text-muted-foreground shrink-0">
-                            {link.row_id}
-                          </span>
-                          <a
-                            href={link.shareable_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline truncate"
-                            title={link.shareable_name}
-                          >
-                            {link.shareable_name}
-                          </a>
-                          <span
-                            className="text-[10px] text-muted-foreground truncate"
-                            title="The placement this copy was first filed under — not necessarily where the file lives now"
-                          >
-                            filed: {link.state} / {link.crop}
-                          </span>
-                          {isAnchor && (
-                            <span className="flex items-center gap-1 text-[10px] text-primary shrink-0">
-                              <Anchor size={10} /> anchor
-                            </span>
+                  <div className="flex flex-col gap-2.5">
+                    {duplicateGroups.map((group) => (
+                      <div key={group.key}>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="text-[10px] font-semibold text-muted-foreground">
+                            {group.header}
+                          </div>
+                          {canEdit && group.key !== "own" && (
+                            <button
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40 shrink-0"
+                              onClick={() => handleUnlinkGroup(group)}
+                              disabled={unlinkingGroupKey === group.key}
+                              title="Split this group out as its own document"
+                            >
+                              <Scissors size={10} />
+                              {unlinkingGroupKey === group.key ? "Unlinking…" : "Unlink"}
+                            </button>
                           )}
                         </div>
-                      );
-                    })}
+                        <div className="flex flex-col gap-1">
+                          {group.links.map((link) => {
+                            const isAnchor = link.zoho_file_id === doc.representative_file_id;
+                            return (
+                              <div
+                                key={link.zoho_file_id}
+                                className="flex items-center gap-2 rounded border border-border/50 px-2.5 py-1.5"
+                              >
+                                <a
+                                  href={link.shareable_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline truncate"
+                                  title={link.shareable_name}
+                                >
+                                  {link.shareable_name}
+                                </a>
+                                {isAnchor && (
+                                  <span className="flex items-center gap-1 text-[10px] text-primary shrink-0 ml-auto">
+                                    <Anchor size={10} /> anchor
+                                  </span>
+                                )}
+                                {canEdit && !isAnchor && (
+                                  <button
+                                    className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40 shrink-0 ml-auto"
+                                    onClick={() => handleDeleteDuplicateLink(link)}
+                                    disabled={deletingLinkId === link.zoho_file_id}
+                                    title="Delete this copy from WorkDrive"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -517,18 +622,20 @@ export default function DocumentDetailModal({
                       placeholder="ANNAM_00123, ANNAM_00456…"
                       value={mergeInput}
                       onChange={(e) => setMergeInput(e.target.value)}
+                      disabled={isTranslating}
                     />
                     <button
                       className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40"
                       onClick={handleMerge}
-                      disabled={merging || !mergeInput.trim()}
+                      disabled={merging || !mergeInput.trim() || isTranslating}
+                      title={isTranslating ? "This document is being translated — wait for it to finish before merging" : undefined}
                     >
                       {merging ? "Merging…" : "Merge in"}
                     </button>
                   </div>
-                  {doc.merged_from?.length > 0 && (
+                  {isTranslating && (
                     <p className="text-[11px] text-muted-foreground mt-1.5">
-                      Already absorbed: {doc.merged_from.join(", ")}
+                      This document is being translated — merge is disabled until that finishes.
                     </p>
                   )}
                 </div>
