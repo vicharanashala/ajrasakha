@@ -68,6 +68,7 @@ import {
   UserNotificationHistorySheet,
 } from "@/features/chatbotDashboard/components/CoordinatorNotificationComponents";
 import { CoordinatorDuplicateQuestionHeatMap } from "@/features/chatbotDashboard/components/CoordinatorDuplicateQuestionHeatMap";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
@@ -818,6 +819,7 @@ function RouteComponent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ScrollToTopButton />
     </div>
   );
 }

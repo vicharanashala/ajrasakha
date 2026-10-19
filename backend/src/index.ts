@@ -6,6 +6,7 @@ await import('./instrument.js');
 
 import * as Sentry from '@sentry/node';
 import express from 'express';
+import bodyParser from 'body-parser';
 import { useExpressServer, RoutingControllersOptions } from 'routing-controllers';
 import { appConfig } from './config/app.js';
 import { loggingHandler } from './shared/middleware/loggingHandler.js';
@@ -61,7 +62,7 @@ app.use((req, res, next) => {
 
   res.header(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Requested-With'
+    'Content-Type, Authorization, X-Requested-With, X-User-Id, X-User-Role'
   );
 
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -73,7 +74,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
 const { controllers, validators } = await loadAppModules(
   appConfig.module.toLowerCase(),
 );
@@ -81,7 +81,7 @@ const { controllers, validators } = await loadAppModules(
 const corsOptions: CorsOptions = {
   origin: appConfig.origins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-internal-api-key'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-internal-api-key', 'X-User-Id', 'X-User-Role'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
@@ -151,6 +151,17 @@ if (faqPopConfig.popApiUrl) {
     on: { error: proxyOnError('pop') },
   }));
 }
+
+// Raise the request body size limit (default ~100kb → HTTP 413 "request entity too large"
+// on answer submissions with several source references). IMPORTANT: use the SAME body-parser
+// (1.20.3) that routing-controllers loads via require('body-parser') for its per-@Body()
+// parser — that parser skips re-parsing only when THIS one sets req._body identically.
+// Express 5's built-in express.json() is a DIFFERENT body-parser build, which can leave
+// req._body unset for it, so routing-controllers re-reads the already-consumed stream and the
+// POST request hangs (e.g. the /detailed question list never loads). Placed after the FAQ/POP
+// proxies so proxied requests stream through untouched.
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Start server
 useExpressServer(app, moduleOptions);

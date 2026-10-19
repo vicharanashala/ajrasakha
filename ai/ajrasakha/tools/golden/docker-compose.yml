@@ -1,22 +1,20 @@
 # Golden DB FastAPI service only.
-# Run from this directory:
-#   docker compose up --build -d
-# Or from ajrasakha/ai:
+# Run from ajrasakha/ai directory:
 #   docker compose -f ajrasakha/tools/golden/docker-compose.yml up --build -d
 #
-# Requires .env in this directory (see .env.example):
-#   cp .env.example .env
+# Requires .env in ajrasakha/tools/golden directory (see .env.example):
+#   cp ajrasakha/tools/golden/.env.example ajrasakha/tools/golden/.env
 
 services:
   golden-api:
     build:
-      context: ../../..
+      context: ../..  # ajrasakha/ai directory (parent of ajrasakha package)
       dockerfile: ajrasakha/tools/golden/Dockerfile
     container_name: golden-api
     ports:
       - "8110:8005"
     env_file:
-      - .env
+      - ajrasakha/tools/golden/.env
     environment:
       PYTHONUNBUFFERED: "1"
     restart: unless-stopped

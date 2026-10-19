@@ -117,6 +117,8 @@ for (const row of rows) {
   const region = getField(row, 'region');
   const englishRepr = getField(row, 'english name', 'english_name', 'englishname').toLowerCase();
   const nativeRepr = getField(row, 'native name', 'native_name', 'nativename');
+  const sourceLink = getField(row, 'source_link', 'sourcelink', 'source link');
+  const pageNumber = getField(row, 'page_number', 'pagenumber', 'page number');
 
   // Skip rows with no english representation, or if it duplicates the crop name itself
   if (!englishRepr || englishRepr === name.toLowerCase()) continue;
@@ -126,6 +128,8 @@ for (const row of rows) {
     region,
     english_representation: englishRepr,
     native_representation: nativeRepr,
+    ...(sourceLink && { source_link: sourceLink }),
+    ...(pageNumber && { page_number: pageNumber }),
   };
 
   // Merge by (language, region): same slot → append new name(s); new slot → add alias.

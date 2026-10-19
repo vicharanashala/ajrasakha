@@ -80,7 +80,8 @@ export class QuestionAllocationController {
       endTime?: string;
     },
   ) {
-    const isAdmin = user.role === 'admin';
+    //give gatekeeper also admin view
+    const isAdmin = user.role === 'admin' || user.role === 'gate_keeper';
     const isTrainingUser = user.isTrainingUser === true;
     const startTime = query.startTime ? new Date(query.startTime) : undefined;
     const endTime = query.endTime ? new Date(query.endTime) : undefined;

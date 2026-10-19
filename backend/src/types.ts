@@ -52,9 +52,11 @@ const TYPES = {
   ChatbotRepository: Symbol.for('ChatbotRepository'),
   CropRepository: Symbol.for('CropRepository'),
   ChemicalRepository: Symbol.for('ChemicalRepository'),
+  GdbCleaningRepository: Symbol.for('GdbCleaningRepository'),
   MongoDatabase: Symbol.for('MongoDatabase'),
   CropService: Symbol.for('CropService'),
   ChemicalService: Symbol.for('ChemicalService'),
+  GdbCleaningService: Symbol.for('GdbCleaningService'),
 
   // Constants
   uri: Symbol.for('dbURI'),
@@ -67,6 +69,14 @@ const TYPES = {
   annamanalyticsUri: Symbol.for('annamanalyticsDbURI'),
   annamanalyticsDbName: Symbol.for('annamanalyticsDbName'),
   annamanalyticsDatabase: Symbol.for('annamAnalyticsDatabase'),
+
+  popDbUri: Symbol.for('popDbURI'),
+  popDbName: Symbol.for('popDbName'),
+  popDatabase: Symbol.for('PopDatabase'),
+
+  gdbCleaningDbUri: Symbol.for('gdbCleaningDbURI'),
+  gdbCleaningDbName: Symbol.for('gdbCleaningDbName'),
+  gdbCleaningDatabase: Symbol.for('GdbCleaningDatabase'),
 };
 
 export {TYPES as GLOBAL_TYPES};

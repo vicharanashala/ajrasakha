@@ -375,6 +375,9 @@ export interface IUserRepository {
   addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<boolean>;
   removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
+  /** Remove a deleted question from every user's assignment arrays: assignedQuestionIds,
+   *  paeValidationAssigned and feedbacksAssigned. */
+  removeQuestionFromAllUsers(questionId: string, session?: ClientSession): Promise<void>;
   
   /** Find available PAE experts who can take questions for validation.
    *  - role must be 'pae_expert'

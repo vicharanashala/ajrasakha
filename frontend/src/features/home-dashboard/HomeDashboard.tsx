@@ -60,6 +60,7 @@ import {
   STAT_LANGUAGES_SUPPORTED,
   STAT_AGROCLIMATIC_ZONES,
 } from "../../hooks/services/publicDashboardService";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 /** Helper to convert YouTube video URL into an embedded YouTube player URL. Returns null if invalid or not YouTube. */
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -1615,6 +1616,7 @@ export const HomeDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 };

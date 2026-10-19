@@ -3,6 +3,8 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import {getISTStartOfToday} from '#root/utils/date.utils.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
+import {QuestionService} from '#root/modules/question/services/QuestionService.js';
+import type {PendingByLevel} from '#root/modules/question/interfaces/IQuestionService.js';
 
 export interface IReviewWiseStats {
   authorLevel: number;
@@ -24,6 +26,10 @@ export interface DailyStats {
   moderatorApprovalRate: number;
 
   reviewWiseCount: IReviewWiseStats;
+
+  /** Pending questions by level (Author = never allocated; levels from needs-reviewer),
+   *  split into time-bound vs manual source groups. */
+  pendingByLevel?: PendingByLevel;
 
   // Today Stats
   todayAdded: number;
@@ -64,6 +70,10 @@ export interface DailyStats {
   todayPass?: number;
   todayDynamicClosed?: number;
   todayDuplicateClosed?: number;
+  // Push to GDB: questions with status=closed (by moderator/auditor) in the period
+  todayGdbPush?: number;
+  // Notify User: questions with status=dynamic_closed or duplicate_closed in the period
+  todayNotifyUser?: number;
   // Questions entered into the system today (by createdAt), broken down by source.
   todayAddedWebAppCount?: number;
   todayAddedWhatSappCount?: number;
@@ -161,6 +171,10 @@ export const getDailyStats = async (
       CORE_TYPES.QuestionSubmissionRepository,
     );
 
+  const questionService = container.get<QuestionService>(
+    CORE_TYPES.QuestionService,
+  );
+
   // Date window (IST) for the "today"/period counts. With no range it is today
   // onward (getISTStartOfToday) — the original behaviour. When the dashboard
   // passes startDate/endDate (YYYY-MM-DD), it reports that IST day range instead,
@@ -204,7 +218,9 @@ export const getDailyStats = async (
     gdbByAuditor,
     todayPass,
     todayDynamicClosed,
-    todayDuplicateClosed
+    todayDuplicateClosed,
+    gdbPushCount,
+    notifyUserCount
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
@@ -310,6 +326,18 @@ export const getDailyStats = async (
       status: 'duplicate_closed',
       closedAt: dateRange,
     }),
+    // ── Push to GDB: questions with status=closed in the period
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      closedAt: dateRange,
+    }),
+    // ── Notify User: questions with status=dynamic_closed or duplicate_closed in the period
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['dynamic_closed', 'duplicate_closed'] },
+      closedAt: dateRange,
+    }),
   ]);
 
   // ── Questions entered today (by createdAt) split by SOURCE and, within each
@@ -364,6 +392,15 @@ export const getDailyStats = async (
   const totalQuestionsUnderExpertReview =
     totalQuestions - (totalClosedQuestions + totalInReviewQuestions);
 
+  // Pending questions by level (Author = never allocated; levels from needs-reviewer),
+  // split time-bound vs manual. isAdmin=true → all questions, no training-user filter.
+  const pendingByLevel = await questionService
+    .getPendingByLevel(undefined, true)
+    .catch(err => {
+      console.error('[getDailyStats] getPendingByLevel failed:', err?.message);
+      return undefined;
+    });
+
   return {
     totalQuestions,
     totalInReviewQuestions,
@@ -372,6 +409,7 @@ export const getDailyStats = async (
     moderatorApprovalRate,
 
     reviewWiseCount,
+    pendingByLevel,
 
     todayAdded,
     todayGolden,
@@ -409,6 +447,8 @@ export const getDailyStats = async (
     todayAddedWhatSappCount,
     todayAddedOutReachCount,
     todayAddedAgriExpertCount,
-    todayAddedTypeBySource
+    todayAddedTypeBySource,
+    todayGdbPush: gdbPushCount,
+    todayNotifyUser: notifyUserCount
   };
 };

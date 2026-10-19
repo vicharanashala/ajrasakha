@@ -118,6 +118,8 @@ export class CropRepository implements ICropRepository {
           region: norm(a.region),
           english_representation: norm(a.english_representation),
           native_representation: (a.native_representation ?? '').trim(),
+          source_link: a.source_link?.trim() || undefined,
+          page_number: a.page_number?.trim() || undefined,
         })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
@@ -279,6 +281,7 @@ export class CropRepository implements ICropRepository {
       type?: CropType;
       crops?: string[];
       scientificName?: string | null;
+      imageUrl?: string | null;
     },
     updatedBy: string,
   ): Promise<ICrop | null> {
@@ -310,6 +313,11 @@ export class CropRepository implements ICropRepository {
         $set.crops = updates.crops;
       }
 
+      // Image URL: a null/empty value clears it; otherwise store the public URL.
+      if (updates.imageUrl !== undefined) {
+        $set.imageUrl = updates.imageUrl ? updates.imageUrl : null;
+      }
+
       // ── Alias conflict check ──────────────────────────────────────────────
       if (updates.aliases !== undefined) {
         // Chemicals keep exact casing; crops/other are title-cased. The type may not be
@@ -331,6 +339,8 @@ export class CropRepository implements ICropRepository {
             region: norm(a.region),
             english_representation: norm(a.english_representation),
             native_representation: (a.native_representation ?? '').trim(),
+            source_link: a.source_link?.trim() || undefined,
+            page_number: a.page_number?.trim() || undefined,
           };
         });
 

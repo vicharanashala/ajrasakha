@@ -5,11 +5,10 @@ from langchain_core.messages import AIMessage, HumanMessage
 from ajrasakha.agents.domains import domain_requires_crop
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
-    conversation_text_from_messages,
-    extract_crop_from_text,
     format_conversation_for_planner,
     format_prev_plan_context,
     infer_domain_for_plan,
+    is_crop_clarify_turn,
     is_schemes_intent,
     is_standalone_clarification_reply,
     merge_entities_from_rephrased_query,
@@ -128,14 +127,22 @@ def test_format_conversation_for_planner_keeps_farmer_messages_not_bot():
     assert "expert queue" not in conv
 
 
-def test_conversation_carries_crop():
+def test_crop_clarify_turn_detected_from_bot_crop_question():
     messages = [
-        HumanMessage(content="Can i get insurance for my crop?"),
-        AIMessage(content="Which crop?"),
+        HumanMessage(content="My leaves are turning yellow"),
+        AIMessage(content="Which crop are you growing?"),
         HumanMessage(content="Cotton"),
     ]
-    conv = conversation_text_from_messages(messages)
-    assert extract_crop_from_text(conv) == "cotton"
+    assert is_crop_clarify_turn(messages) is True
+
+
+def test_new_query_after_answer_is_not_crop_clarify_turn():
+    messages = [
+        HumanMessage(content="Yellow rust on my wheat crop"),
+        AIMessage(content="Here is advice for wheat."),
+        HumanMessage(content="What is PM-KISAN eligibility?"),
+    ]
+    assert is_crop_clarify_turn(messages) is False
 
 
 def test_cotton_clarify_without_farmer_state_asks_location_not_gps():
@@ -219,6 +226,7 @@ def test_crop_still_asks_first_time():
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+        stored_location={"state": "Punjab", "district": "Ludhiana"},
     )
     assert plan["is_complete"] is False
     assert "crop" in (plan.get("missing_info") or [])
@@ -246,6 +254,7 @@ def test_crop_required_after_clarify_does_not_satisfy_requirement():
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+        stored_location={"state": "Punjab", "district": "Ludhiana"},
     )
     assert plan["is_complete"] is False
     assert plan["entities"].get("crop") is None
@@ -265,10 +274,11 @@ def test_crop_clarify_reply_still_extracts_cotton():
             "domains": ["Crop Insurance"],
             "is_complete": False,
             "missing_info": ["crop"],
-            "entities": {"state": "Punjab"},
+            "entities": {"state": "Punjab", "crop": "Cotton"},
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+        stored_location={"state": "Punjab", "district": "Ludhiana"},
     )
     assert plan["is_complete"] is True
     assert plan["entities"]["crop"] == "Cotton"

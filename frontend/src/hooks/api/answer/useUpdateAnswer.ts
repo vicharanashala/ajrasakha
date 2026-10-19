@@ -24,6 +24,7 @@ export const useUpdateAnswer = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
     },
     onError: (error) => {
       console.error("Failed to update answer:", error.message);

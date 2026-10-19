@@ -54,7 +54,6 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
 import { Checkbox } from "@/components/atoms/checkbox";
-import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { toast } from "@/shared/components/toast";
 import { 
@@ -310,7 +309,6 @@ export const AddOrEditQuestionDialog = ({
                     }`}
                 >
                   <Upload className="h-4 w-4" />
-                  <TopLeftBadge label="new" left={5} />
 
                   Bulk Upload
                 </button>
@@ -465,7 +463,6 @@ export const AddOrEditQuestionDialog = ({
                     <TooltipProvider>
                       <div className="w-full space-y-4 border rounded-lg p-4 bg-muted/30 relative">
                         <p className="text-sm font-medium text-foreground">Upload Options</p>
-                        <TopRightBadge label="new" right={0} />
 
                         {/* AI Initial Answer */}
                         <div className="flex items-center justify-between">

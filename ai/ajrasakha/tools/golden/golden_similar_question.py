@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any, Optional
 
@@ -54,6 +55,9 @@ except ImportError:
 load_dotenv()
 
 log = logging.getLogger(__name__)
+
+# Similarity score cutoff - only return results with vector score >= this threshold
+SIMILARITY_CUTOFF = float(os.getenv("SIMILARITY_CUTOFF", "0.8"))
 
 
 # =============================================================================
@@ -367,8 +371,17 @@ async def _vector_search_all_statuses(
     
     unique_results.sort(key=lambda x: x.similarity_score or 0.0, reverse=True)
     
-    log.info("_vector_search_all_statuses: %d total results after dedup (top %d)", len(unique_results), top_k)
-    return unique_results[:top_k]
+    # Apply similarity cutoff
+    filtered_results = [r for r in unique_results if (r.similarity_score or 0.0) >= SIMILARITY_CUTOFF]
+    
+    log.info(
+        "_vector_search_all_statuses: %d total after dedup, %d above cutoff %.2f (returned top %d)",
+        len(unique_results),
+        len(filtered_results),
+        SIMILARITY_CUTOFF,
+        top_k,
+    )
+    return filtered_results[:top_k]
 
 
 # =============================================================================

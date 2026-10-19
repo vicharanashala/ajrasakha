@@ -33,7 +33,9 @@ import { QuestionDetails } from "./question-details";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { format } from "date-fns";
+import { UserActivityReportControl } from "./UserActivityReportControl";
 import type { DateRange } from "react-day-picker";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 import type {
   PaeAnswerDashboardQuestion,
   PaeValidationQuestionItem,
@@ -278,16 +280,32 @@ export const PaeDashboard = ({ userId, userName, goBack }: PaeDashboardProps = {
       ) : null}
 
       <div className="mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">
-            PAE Expert {viewingOther ? "Performance" : "Dashboard"}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Monitor {viewingOther ? "PAE expert" : "your"} answering work:{" "}
-            {viewingOther
-              ? userName ?? ""
-              : `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`}
-          </p>
+        <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              PAE Expert {viewingOther ? "Performance" : "Dashboard"}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Monitor {viewingOther ? "PAE expert" : "your"} answering work:{" "}
+              {viewingOther
+                ? userName ?? ""
+                : `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {targetUserId && (currentUser?.role === "admin" || currentUser?.role === "gate_keeper") && (
+              <UserActivityReportControl
+                userId={targetUserId}
+                userName={
+                  viewingOther
+                    ? userName ?? "User"
+                    : `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() || "User"
+                }
+                userRole="pae_expert"
+              />
+            )}
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -585,6 +603,7 @@ export const PaeDashboard = ({ userId, userName, goBack }: PaeDashboardProps = {
 
         {viewingOther && targetUserId && <WorkingHoursTrendChart userId={targetUserId} />}
       </div>
+      <ScrollToTopButton />
     </main>
   );
 };

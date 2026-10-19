@@ -14,7 +14,7 @@ from ajrasakha.agents.planner_rules import (
 )
 
 
-def test_merge_entities_state_from_rephrased_not_regional_raw():
+def test_merge_entities_never_takes_the_state_from_the_query():
     plan = {
         "rephrased_query": "How to grow paddy in Kottayam, Kerala?",
         "original_query_en": "How to grow paddy in Kottayam, Kerala?",
@@ -22,7 +22,7 @@ def test_merge_entities_state_from_rephrased_not_regional_raw():
     }
     messages = [HumanMessage(content="ਕੋਟਟਾਯਮ ਕੇਰਲ ਵਿੱਚ ਧਾਨ ਕਿਵੇਂ ਉਗਾਉਣਾ?")]
     entities = merge_entities_from_rephrased_query(plan, messages, None)
-    assert entities["state"] == "Kerala"
+    assert "state" not in entities
 
 
 def test_merge_entities_ignores_gps_location():
@@ -45,7 +45,7 @@ def test_merge_entities_ignores_gps_location():
 def test_merge_entities_crop_from_rephrased_on_new_query():
     plan = {
         "rephrased_query": "Onion mandi price in Punjab",
-        "entities": {"crop": "wheat"},
+        "entities": {"crop": "Onion"},
     }
     messages = [
         HumanMessage(content="Wheat disease in Karnataka"),
@@ -53,7 +53,7 @@ def test_merge_entities_crop_from_rephrased_on_new_query():
     ]
     entities = merge_entities_from_rephrased_query(plan, messages, None)
     assert entities["crop"] == "Onion"
-    assert entities.get("state") == "Punjab"
+    assert entities.get("state") is None
 
 
 @pytest.mark.parametrize("crop_alias", ["multiple", "multiple crop", "Multiple Crops", "general"])

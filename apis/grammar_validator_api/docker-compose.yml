@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    restart: always

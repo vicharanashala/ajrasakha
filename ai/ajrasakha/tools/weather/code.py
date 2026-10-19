@@ -206,6 +206,114 @@ RAINFALL_CATEGORY_CODES: Dict[str, str] = {
 }
 
 # ==============================================================================
+# 5A. RAINFALL DISTRIBUTION CODES & PERCENTAGES (IMD API 16 & 17)
+# ==============================================================================
+RAINFALL_DISTRIBUTION_CODES: Dict[str, Dict[str, str]] = {
+    "Widespread": {
+        "Code": "WS",
+        "Label": "Widespread (Most places)",
+        "Percentage": "Stations [76-100]%",
+        "Coverage_Range": "76-100%",
+        "Color_Hex": "#004de6",
+        "Color_Name": "Blue",
+        "Probability_Description": "High chance of rain across most of the region (76-100% of stations)",
+    },
+    "Fairly Widespread": {
+        "Code": "FWS",
+        "Label": "Fairly Widespread (Many places)",
+        "Percentage": "Stations [51-75]%",
+        "Coverage_Range": "51-75%",
+        "Color_Hex": "#66FFFF",
+        "Color_Name": "Cyan",
+        "Probability_Description": "Moderate-to-high chance of rain across many places (51-75% of stations)",
+    },
+    "Scattered": {
+        "Code": "SCT",
+        "Label": "Scattered (A few places)",
+        "Percentage": "Stations [26-50]%",
+        "Coverage_Range": "26-50%",
+        "Color_Hex": "#00b31e",
+        "Color_Name": "Green",
+        "Probability_Description": "Moderate chance of rain at a few scattered places (26-50% of stations)",
+    },
+    "Isolated": {
+        "Code": "ISOL",
+        "Label": "Isolated (One or two places)",
+        "Percentage": "Stations [1-25]%",
+        "Coverage_Range": "1-25%",
+        "Color_Hex": "#4dff4d",
+        "Color_Name": "Light Green",
+        "Probability_Description": "Light/isolated chance of rain at one or two places (1-25% of stations)",
+    },
+    "Dry": {
+        "Code": "DRY",
+        "Label": "Dry (No rain)",
+        "Percentage": "0%",
+        "Coverage_Range": "0%",
+        "Color_Hex": "#ffffb3",
+        "Color_Name": "Pale Yellow",
+        "Probability_Description": "Dry weather expected, no significant rainfall across stations",
+    },
+}
+
+# ==============================================================================
+# 5B. RAINFALL INTENSITY CLASSIFICATION (IMD STANDARD)
+# ==============================================================================
+RAINFALL_INTENSITY_CLASSIFICATION: Dict[str, Dict[str, str]] = {
+    "Very Light Rain": {"Range_mm": "0.1 - 2.4 mm", "Description": "Very light rainfall / trace drizzle"},
+    "Light Rain": {"Range_mm": "2.5 - 15.5 mm", "Description": "Light rain / gentle showers"},
+    "Moderate Rain": {"Range_mm": "15.6 - 64.4 mm", "Description": "Moderate rainfall"},
+    "Heavy Rain": {"Range_mm": "64.5 - 115.5 mm", "Description": "Heavy rainfall (Yellow/Orange Alert)"},
+    "Very Heavy Rain": {"Range_mm": "115.6 - 204.4 mm", "Description": "Very heavy rainfall (Orange/Red Alert)"},
+    "Extremely Heavy Rain": {"Range_mm": ">= 204.5 mm", "Description": "Extremely heavy rainfall (Red Alert)"},
+}
+
+# ==============================================================================
+# 5C. STATE / UT TO IMD SUBDIVISION MAPPING (ALL 36 SUBDIVISIONS)
+# ==============================================================================
+STATE_TO_SUBDIVISION_MAP: Dict[str, list[str]] = {
+    "ANDAMAN AND NICOBAR": ["Andaman & Nicobar Islands"],
+    "ANDAMAN & NICOBAR": ["Andaman & Nicobar Islands"],
+    "ARUNACHAL PRADESH": ["Arunachal Pradesh"],
+    "ASSAM": ["Assam & Mehghalaya"],
+    "MEGHALAYA": ["Assam & Mehghalaya"],
+    "NAGALAND": ["N. M. M. & T."],
+    "MANIPUR": ["N. M. M. & T."],
+    "MIZORAM": ["N. M. M. & T."],
+    "TRIPURA": ["N. M. M. & T."],
+    "SIKKIM": ["S.H. West Bengal & Sikkim"],
+    "WEST BENGAL": ["Gangetic West Bengal", "S.H. West Bengal & Sikkim"],
+    "ODISHA": ["Odisha"],
+    "JHARKHAND": ["Jharkhand"],
+    "BIHAR": ["Bihar"],
+    "UTTAR PRADESH": ["East Uttar Pradesh", "West Uttar Pradesh"],
+    "UTTARAKHAND": ["Uttarakhand"],
+    "HARYANA": ["Haryana, Chd & Delhi"],
+    "CHANDIGARH": ["Haryana, Chd & Delhi"],
+    "DELHI": ["Haryana, Chd & Delhi"],
+    "PUNJAB": ["Punjab"],
+    "HIMACHAL PRADESH": ["Himachal Pradesh"],
+    "JAMMU AND KASHMIR": ["Jammu and Kashmir and Ladakh"],
+    "LADAKH": ["Jammu and Kashmir and Ladakh"],
+    "RAJASTHAN": ["West Rajasthan", "East Rajasthan"],
+    "MADHYA PRADESH": ["West Madhya Pradesh", "East Madhya Pradesh"],
+    "GUJARAT": ["Gujrat Region", "Saurashtra & Kutch"],
+    "GOA": ["Konkan & Goa"],
+    "MAHARASHTRA": ["Madhya Maharashtra", "Marathwada", "Vidarbha", "Konkan & Goa"],
+    "CHHATTISGARH": ["Chattisgarh"],
+    "ANDHRA PRADESH": ["Coastal Andhra Pradesh", "Rayalaseema"],
+    "TELANGANA": ["Telangana"],
+    "TAMIL NADU": ["Tamilnadu & Puducherry"],
+    "TAMILNADU": ["Tamilnadu & Puducherry"],
+    "PUDUCHERRY": ["Tamilnadu & Puducherry"],
+    "PONDICHERRY": ["Tamilnadu & Puducherry"],
+    "KARNATAKA": ["Costal Karnataka", "North Interior Karnataka", "South Interior Karnataka"],
+    "KERALA": ["Kerala"],
+    "LAKSHADWEEP": ["Lakshdweep"],
+}
+
+
+# ==============================================================================
 # CODE → DESCRIPTION LOOKUP HELPERS
 # ==============================================================================
 _WIND_COMPASS_KEYS: tuple[int, ...] = tuple(
@@ -353,6 +461,107 @@ def describe_rainfall_category(code: Any) -> str:
         if label.lower() == text.lower():
             return label
     return text
+
+
+def describe_rainfall_distribution(distribution: Any, percentage: Any = None) -> str:
+    """Format rainfall distribution label with coverage percentage and descriptive meaning."""
+    if not distribution:
+        return ""
+    dist_str = str(distribution).strip()
+    pct_str = str(percentage).strip() if percentage else ""
+
+    for key, meta in RAINFALL_DISTRIBUTION_CODES.items():
+        if key.lower() in dist_str.lower() or meta["Code"].lower() == dist_str.lower():
+            label = meta["Label"]
+            cov = pct_str or meta["Percentage"]
+            return f"{label} ({cov})"
+    if pct_str:
+        return f"{dist_str} ({pct_str})"
+    return dist_str
+
+
+def describe_rainfall_intensity(amount_mm: Any) -> str:
+    """Categorize rainfall mm amount into IMD standard intensity class."""
+    if amount_mm is None:
+        return ""
+    try:
+        val = float(str(amount_mm).replace("mm", "").strip())
+    except (ValueError, TypeError):
+        return ""
+    if val < 0.1:
+        return "No Rain (0.0 mm)"
+    elif val <= 2.4:
+        return "Very Light Rain (0.1 - 2.4 mm)"
+    elif val <= 15.5:
+        return "Light Rain (2.5 - 15.5 mm)"
+    elif val <= 64.4:
+        return "Moderate Rain (15.6 - 64.4 mm)"
+    elif val <= 115.5:
+        return "Heavy Rain (64.5 - 115.5 mm)"
+    elif val <= 204.4:
+        return "Very Heavy Rain (115.6 - 204.4 mm)"
+    else:
+        return "Extremely Heavy Rain (>= 204.5 mm)"
+
+
+def describe_rainfall_color(color_hex: Any) -> str:
+    """Map rainfall forecast color hex code to emoji and color name."""
+    if not color_hex:
+        return ""
+    c_lower = str(color_hex).strip().lower()
+    hex_map = {
+        "#004de6": "🔵 Blue (Widespread 76-100%)",
+        "#66ffff": "🔷 Cyan (Fairly Widespread 51-75%)",
+        "#00b31e": "🟢 Green (Scattered 26-50%)",
+        "#4dff4d": "🟢 Light Green (Isolated 1-25%)",
+        "#ffffb3": "⚪ Pale Yellow (Dry / No Rain)",
+        "#008000": "🟢 Green",
+        "#ffff00": "🟡 Yellow",
+        "#ffa500": "🟠 Orange",
+        "#ff0000": "🔴 Red",
+    }
+    return hex_map.get(c_lower, str(color_hex))
+
+
+def resolve_subdivision_name(state_name: str | None, district_name: str | None = None) -> str | None:
+    """Resolve a state/district name to the best-matching IMD meteorological subdivision name."""
+    if not state_name and not district_name:
+        return None
+    st = (state_name or "").strip().upper()
+    if "TAMIL" in st:
+        st = "TAMIL NADU"
+    elif "DELHI" in st:
+        st = "DELHI"
+    elif "KERALA" in st:
+        st = "KERALA"
+    elif "PUNJAB" in st:
+        st = "PUNJAB"
+    elif "HARYANA" in st:
+        st = "HARYANA"
+    elif "ANDHRA" in st:
+        st = "ANDHRA PRADESH"
+    elif "BENGAL" in st:
+        st = "WEST BENGAL"
+    elif "MAHARASHTRA" in st:
+        st = "MAHARASHTRA"
+    elif "KARNATAKA" in st:
+        st = "KARNATAKA"
+    elif "ORISSA" in st or "ODISHA" in st:
+        st = "ODISHA"
+
+    candidates = STATE_TO_SUBDIVISION_MAP.get(st, [])
+    if len(candidates) == 1:
+        return candidates[0]
+    elif len(candidates) > 1 and district_name:
+        dist_clean = district_name.strip().lower()
+        for cand in candidates:
+            if dist_clean in cand.lower():
+                return cand
+        return candidates[0]
+    elif candidates:
+        return candidates[0]
+    return state_name
+
 
 
 # ==============================================================================

@@ -1,0 +1,49 @@
+import 'reflect-metadata';
+import {JsonController, Get, Patch, Param, Body, QueryParams, Authorized} from 'routing-controllers';
+import {OpenAPI} from 'routing-controllers-openapi';
+import {inject, injectable} from 'inversify';
+import {CORE_TYPES} from '#root/modules/core/types.js';
+import {PopRequiredField} from '#root/shared/interfaces/models.js';
+import {IPopService, PopLookupResult} from '../interfaces/IPopService.js';
+
+// NOTE: this deliberately does NOT live at '/pop' — '/api/pop' is already claimed by the
+// FAQ/POP microservice proxy registered in index.ts (see faqPopConfig.popApiUrl), which
+// would otherwise shadow this controller's route entirely.
+@OpenAPI({
+  tags: ['SourceReference'],
+  description: 'Looks up a source against the pop_unique_documents collection (shareable_link) for the Edit Source modal',
+})
+@injectable()
+@JsonController('/source-reference')
+export class PopController {
+  constructor(
+    @inject(CORE_TYPES.PopService)
+    private readonly popService: IPopService,
+  ) {}
+
+  @OpenAPI({summary: 'Look up a source against the pop_unique_documents collection by shareable_link'})
+  @Get('/')
+  @Authorized()
+  async lookup(
+    @QueryParams() query: {source?: string},
+  ): Promise<PopLookupResult> {
+    if (!query.source) {
+      return {found: false};
+    }
+
+    return await this.popService.lookupBySource(query.source);
+  }
+
+  @OpenAPI({
+    summary:
+      'Fill in previously-missing year_of_release/live_source_link/shareable_name on a matched pop_unique_documents document',
+  })
+  @Patch('/:id')
+  @Authorized()
+  async updateMissingFields(
+    @Param('id') id: string,
+    @Body() body: Partial<Record<PopRequiredField, string | number>>,
+  ): Promise<PopLookupResult> {
+    return await this.popService.updateMissingFields(id, body);
+  }
+}

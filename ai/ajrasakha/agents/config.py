@@ -122,6 +122,9 @@ def resolve_user_id(config: Optional[dict[str, Any]] = None) -> str | None:
         match = _WHATSAPP_THREAD_ID_RE.match(thread_id)
         if match:
             return match.group(1)
+    # Local testing: run as LOCAL_USER_ID when the run carries no user identity.
+    if os.getenv("LOCAL", "").strip().lower() in ("true", "1", "yes"):
+        return _first_non_empty(os.getenv("LOCAL_USER_ID"))
     return None
 
 
@@ -139,7 +142,7 @@ GOLDEN_API_URL = f"http://{REMOTE_IP}:8110"
 
 MCP_URLS = {
     "gdb":        f"http://{REMOTE_IP}:8110/v1/gdb/search",
-    # "weather":    f"http://100.100.108.41:9017/mcp",
+    # "weather":    f"http://127.0.0.1:8007/mcp",
     "weather":    f"http://{REMOTE_IP}:8113/mcp",
     "soil":       f"http://{REMOTE_IP}:9008/mcp",
     "enam":       f"http://{REMOTE_IP}:9002/mcp",

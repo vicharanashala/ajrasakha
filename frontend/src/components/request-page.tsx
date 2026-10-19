@@ -14,7 +14,6 @@ import { Sliders, Circle, Layers, Calendar, ArrowLeft } from "lucide-react";
 import { RequestCard } from "./RequestCard";
 import ViewDropdown from "@/features/questions/components/ViewDropdown";
 import { RequestListItem } from "./RequestListItem";
-import { TopRightBadge } from "./NewBadge";
 
 type SortOrder = "newest" | "oldest";
 
@@ -112,7 +111,6 @@ export const RequestsPage = ({
           <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto items-end">
             <div className="relative">
               <ViewDropdown view={view} setView={setView} />
-              <TopRightBadge label="new" left={0} />
             </div>
             <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1 flex items-center gap-1">

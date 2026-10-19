@@ -10,6 +10,7 @@ import {
   IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import type { PaeAnalyticsRow } from '#root/modules/question/interfaces/IQuestionService.js';
 import {
   BadRequestError,
   ForbiddenError,
@@ -17,7 +18,7 @@ import {
   NotFoundError,
 } from 'routing-controllers';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { ClientSession } from 'mongodb';
+import { ClientSession, ObjectId } from 'mongodb';
 import {
   PreferenceDto,
   UsersNameResponseDto,
@@ -30,10 +31,13 @@ import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthServi
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
+import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
+import { buildUserActivityPdfReport, UserSessionLog } from '#root/utils/buildUserActivityPdfReport.js';
+
 
 @injectable()
 export class UserService extends BaseService {
@@ -462,6 +466,8 @@ export class UserService extends BaseService {
     isVerified?: boolean;
     isSTF?: boolean;
     isTMU?: boolean;
+    /** When provided, a second "PAE Analytics" sheet is appended (one row per PAE). */
+    paeAnalytics?: PaeAnalyticsRow[];
   }): Promise<ArrayBuffer> {
     // Fetch every matching user (no pagination) via the same query the list uses.
     // 1_000_000 is an effective "no limit" cap — far above the total user count.
@@ -524,6 +530,27 @@ export class UserService extends BaseService {
       { header: 'Created At', value: u => asIST(u.createdAt) },
       { header: 'Updated At', value: u => asIST(u.updatedAt) },
     ];
+
+    // When PAE analytics are provided (PAE role + "Get Analytics"), merge the per-PAE
+    // metrics onto the SAME sheet as extra columns, matched to each user by id — no separate
+    // sheet. Users without a match (shouldn't happen when filtered to PAE) get blanks.
+    if (opts.paeAnalytics && opts.paeAnalytics.length > 0) {
+      const analyticsById = new Map<string, PaeAnalyticsRow>(
+        opts.paeAnalytics.map(r => [r.id, r]),
+      );
+      const metric = (u: any, pick: (r: PaeAnalyticsRow) => number): number | '' => {
+        const r = analyticsById.get(u._id?.toString());
+        return r ? pick(r) : '';
+      };
+      columns.push(
+        { header: 'Assigned', value: u => metric(u, r => r.assigned) },
+        { header: 'Submitted', value: u => metric(u, r => r.submitted) },
+        { header: 'Pending', value: u => metric(u, r => r.pending) },
+        { header: 'Feedback Assigned', value: u => metric(u, r => r.feedbackAssigned) },
+        { header: 'Feedback Pending', value: u => metric(u, r => r.feedbackPending) },
+        { header: 'Feedback Completed', value: u => metric(u, r => r.feedbackCompleted) },
+      );
+    }
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Users');
@@ -1554,4 +1581,221 @@ export class UserService extends BaseService {
       .filter((user) => user._id);
   }
 
+  async exportUserActivityReport(
+    userId: string,
+    query: {
+      viewType?: 'year' | 'month' | 'week' | 'day';
+      selectedYear?: string;
+      selectedMonth?: string;
+      selectedWeek?: string;
+      selectedDay?: string;
+      customStartDateTime?: string;
+      customEndDateTime?: string;
+      startDate?: string;
+      endDate?: string;
+      sendToEmail?: boolean;
+    },
+  ): Promise<Buffer | { success: boolean; message: string }> {
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new NotFoundError(`User with ID ${userId} not found`);
+    }
+
+    // Parse date range
+    const parseDate = (val?: string, isEnd = false): Date => {
+      if (!val) {
+        const d = new Date();
+        if (isEnd) {
+          d.setHours(23, 59, 59, 999);
+        } else {
+          d.setHours(0, 0, 0, 0);
+        }
+        return d;
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        return isEnd
+          ? new Date(`${val}T23:59:59.999+05:30`)
+          : new Date(`${val}T00:00:00.000+05:30`);
+      }
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? (isEnd ? new Date() : new Date(0)) : d;
+    };
+
+    let startDate: Date;
+    let endDate: Date;
+
+    if (query.startDate || query.endDate) {
+      startDate = parseDate(query.startDate, false);
+      endDate = parseDate(query.endDate, true);
+    } else {
+      const yearNum = Number(query.selectedYear || new Date().getFullYear());
+      startDate = new Date(yearNum, 0, 1, 0, 0, 0, 0);
+      endDate = new Date(yearNum, 11, 31, 23, 59, 59, 999);
+    }
+
+    if (startDate > endDate) {
+      const temp = startDate;
+      startDate = endDate;
+      endDate = temp;
+    }
+
+    // User name and designation
+    const userName =
+      `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+      (user as any).userName ||
+      user.email ||
+      'User';
+
+    const roleDisplayMap: Record<string, string> = {
+      admin: 'Admin',
+      moderator: 'Moderator',
+      expert: 'Expert',
+      pae_expert: 'PAE Expert',
+      gate_keeper: 'Gate Keeper',
+      auditor: 'Auditor',
+      tester: 'Tester',
+    };
+    const userDesignation = roleDisplayMap[user.role] || user.role;
+
+    // 1. Total Hours in Rev Cycle via userRepo & build session logs
+    const history = await this.userRepo.getUserHistory({
+      userId,
+      startDateTime: startDate.toISOString(),
+      endDateTime: endDate.toISOString(),
+    });
+
+    const sessions: UserSessionLog[] = [];
+    let totalRevCycleMs = 0;
+    const nowMs = Date.now();
+    const startLimitMs = startDate.getTime();
+    const endLimitMs = endDate.getTime();
+
+    const formatDateIST = (d: Date) =>
+      d.toLocaleDateString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+
+    const formatTimeIST = (d: Date) =>
+      d.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+    // Active working sessions only (breaks with isBlocked === true are excluded)
+    const activeRoleItems = (history.roleHistory || [])
+      .filter((item: any) => item.isBlocked !== true && item.from)
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.from).getTime() - new Date(b.from).getTime(),
+      );
+
+    for (const item of activeRoleItems) {
+      const fromTime = new Date(item.from).getTime();
+      const isActiveNow = !item.to;
+      const toTime = item.to ? new Date(item.to).getTime() : nowMs;
+
+      const start = Math.max(fromTime, startLimitMs);
+      const end = Math.min(toTime, endLimitMs);
+
+      if (end > start) {
+        const sessionMs = end - start;
+        totalRevCycleMs += sessionMs;
+
+        const startDateObj = new Date(start);
+        const endDateObj = new Date(end);
+
+        sessions.push({
+          sessionIndex: sessions.length + 1,
+          dateStr: formatDateIST(startDateObj),
+          checkInTime: formatTimeIST(startDateObj),
+          checkOutTime:
+            isActiveNow && !item.to && toTime === nowMs
+              ? 'Active Now'
+              : formatTimeIST(endDateObj),
+          sessionHours: `${(sessionMs / (1000 * 60 * 60)).toFixed(2)} hrs`,
+          sessionMs,
+          cumulativeHours: `${(totalRevCycleMs / (1000 * 60 * 60)).toFixed(2)} hrs`,
+          cumulativeMs: totalRevCycleMs,
+          isActiveNow,
+        });
+      }
+    }
+    const totalHoursInRevCycle = totalRevCycleMs / (1000 * 60 * 60);
+
+    // 2. Fetch User Activity Metrics via questionRepo
+    const metrics = await this.questionRepo.getUserActivityMetrics(
+      userId,
+      startDate,
+      endDate,
+    );
+
+    // Build PDF buffer
+    const pdfBuffer = await buildUserActivityPdfReport({
+      userName,
+      userDesignation,
+      userRole: user.role,
+      startDate,
+      endDate,
+      totalHoursInRevCycle,
+      authoredCount: metrics.authoredCount,
+      totalAuthoringMs: metrics.totalAuthoringMs,
+      reviewedCount: metrics.reviewedCount,
+      totalReviewingMs: metrics.totalReviewingMs,
+      revCounts: metrics.revCounts,
+      moderatedCount: metrics.moderatedCount,
+      totalModeratingMs: metrics.totalModeratingMs,
+      auditedCount: metrics.auditedCount,
+      totalAuditingMs: metrics.totalAuditingMs,
+      gatekeepedCount: metrics.gatekeepedCount,
+      totalGatekeepingMs: metrics.totalGatekeepingMs,
+      gdbPushedCount: metrics.gdbPushedCount,
+      sessions,
+    });
+
+    // If sendToEmail flag is set, send the report via email
+    if (query.sendToEmail) {
+      const emails = appConfig.individualReportEmails;
+      if (!emails) {
+        throw new BadRequestError('INDIVIDUAL_REPORT_EMAILS environment variable is not configured');
+      }
+
+      const emailList = emails.split(',').map((e) => e.trim()).filter(Boolean);
+      if (emailList.length === 0) {
+        throw new BadRequestError('No valid emails configured in INDIVIDUAL_REPORT_EMAILS');
+      }
+
+      const cleanName = userName.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const startStr = query.startDate ? query.startDate.replace(/[^a-zA-Z0-9]/g, '_') : 'start';
+      const endStr = query.endDate ? query.endDate.replace(/[^a-zA-Z0-9]/g, '_') : 'end';
+      const filename = `${cleanName}_Activity_Report_${startStr}_to_${endStr}.pdf`;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #16a34a;">Activity Report Generated</h2>
+          <p>Hello,</p>
+          <p>Please find attached the user activity report for <strong>${userName}</strong>.</p>
+          <p>This report was generated on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST).</p>
+          <p>Best regards,<br/>Review System Team</p>
+        </div>
+      `;
+
+      await sendEmailWithAttachment(
+        emailList,
+        `User Activity Report - ${userName}`,
+        html,
+        pdfBuffer,
+        filename,
+        'application/pdf',
+      );
+
+      return { success: true, message: 'Report email sent successfully' };
+    }
+
+    return pdfBuffer;
+  }
 }

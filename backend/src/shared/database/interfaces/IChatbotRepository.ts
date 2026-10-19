@@ -382,6 +382,10 @@ export interface UserDetailEntry {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
+  totalNonAgriQuestionsCount?: number;
   activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
@@ -399,6 +403,10 @@ export interface PaginatedUserDetails {
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
+  totalNonAgriQuestionsCount?: number;
 }
 
 export interface UnverifiedUserEntry {
@@ -910,6 +918,20 @@ export interface IChatbotRepository {
     messageIds?: string[];
     userId?: string;
   },
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any>;
+
+  getUserNonAgriQuestionsData(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
     source?: string,
     userType?: string,
     page?: number,

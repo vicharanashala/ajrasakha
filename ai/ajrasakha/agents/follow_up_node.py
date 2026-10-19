@@ -141,7 +141,12 @@ async def follow_up_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
         f"MAIN QUESTION (what the previous answer was about):\n{main_question}\n\n"
         f"PREVIOUS AI ANSWER (to transform):\n{previous_answer}\n\n"
         f"FARMER'S FOLLOW-UP REQUEST:\n{follow_up_text}\n\n"
-        "Produce the transformed answer now."
+        + (
+            f"LOCATION NOTE:\n{plan['profile_location_prefix']}\n\n"
+            if plan.get("profile_location_prefix")
+            else ""
+        )
+        + "Produce the transformed answer now."
     )
 
     llm_messages: list[BaseMessage] = [

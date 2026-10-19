@@ -324,3 +324,44 @@ From `ai/`, start the LangGraph development server:
 ```bash
 uv run langgraph dev --no-browser --allow-blocking
 ```
+
+
+---
+
+## PostgreSQL Backup to GCP
+
+Daily automated backup of PostgreSQL database to Google Cloud Storage with email notifications.
+
+### Files
+
+- `ajrasakha/agents/backup_to_gcs.py` - Backup script (runs inside ai container)
+- `ajrasakha/agents/email_service.py` - Email notification service
+- `ajrasakha/agents/gcp-credentials.json` - GCP service account credentials
+- `ajrasakha/agents/crontab` - Cron schedule (runs daily at 2:00 AM)
+
+### Setup
+
+1. Ensure `gcp-credentials.json` is in `ajrasakha/agents/`
+2. Set email environment variables in `.env`
+3. Rebuild the Docker image
+4. Install the cron job: `cd ajrasakha/agents && python3 setup_backup_cron.py`
+
+### Usage
+
+```bash
+IS_BACKUP=true docker compose exec ai python3 /app/backup_to_gcs.py
+python3 test_backup.py
+python3 setup_backup_cron.py
+tail -f /var/log/postgres_backup.log
+```
+
+### Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `IS_BACKUP` | `false` | Set to `true` to trigger backup |
+| GCS Bucket | `annam-langgraph-db` | Target bucket |
+| GCS Path | `postgres-backups` | Path in bucket |
+| Retention | 7 days | Local backup cleanup |
+
+Backups: `gs://annam-langgraph-db/postgres-backups/`

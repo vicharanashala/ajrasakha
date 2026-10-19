@@ -41,7 +41,7 @@ export class CropEntryResponse {
 
   @JSONSchema({
     description: 'Structured aliases for the crop across languages',
-    example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి' }],
+    example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి', source_link: 'https://agritech.tnau.ac.in/...', page_number: '45' }],
     type: 'array',
     readOnly: true,
   })

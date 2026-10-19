@@ -6,7 +6,6 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import CountUp from "react-countup";
-import { TopRightBadge } from "../NewBadge";
 
 interface QuestionsAnswered120MinProps {
   whatsappCount: number;
@@ -24,7 +23,6 @@ export const QuestionsAnswered120Min = ({
         <p className="text-sm text-muted-foreground mt-1">
           Questions answered within 2 hours
         </p>
-        <TopRightBadge label="new" left={0} />
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

@@ -67,6 +67,8 @@ export class AdminUserService {
     isVerified?: string;
     isSTF?: string;
     isTMU?: string;
+    /** When true AND role is pae_expert, the export includes a "PAE Analytics" sheet. */
+    getAnalytics?: boolean;
   }): Promise<Blob> {
     const qs = new URLSearchParams();
     if (params.search) qs.append("search", params.search);
@@ -77,6 +79,8 @@ export class AdminUserService {
     if (params.isVerified && params.isVerified !== "ALL") qs.append("isVerified", params.isVerified);
     if (params.isSTF && params.isSTF !== "ALL") qs.append("isSTF", params.isSTF);
     if (params.isTMU && params.isTMU !== "ALL") qs.append("isTMU", params.isTMU);
+    // Only meaningful for the PAE role — the backend also guards on role === pae_expert.
+    if (params.getAnalytics && params.role === "pae_expert") qs.append("getAnalytics", "true");
 
     const user = await getCurrentUser();
     if (!user) throw new Error("User not authenticated");

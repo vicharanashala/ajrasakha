@@ -125,6 +125,21 @@ async def _translate_body(
     return translated if translated.strip() else text
 
 
+async def add_profile_location_prefix(
+    content: str,
+    plan: dict,
+    config: RunnableConfig | None,
+) -> str:
+    """Put the profile-location prefix, in the farmer's language, above a catalog reply."""
+    prefix = plan.get("profile_location_prefix")
+    if not prefix or plan.get("is_follow_up"):
+        return content
+    script, vocal = language_pair_from_plan(plan)
+    if needs_translation(script, vocal):
+        prefix = await _translate_body(prefix, vocal, script, config)
+    return f"{prefix}\n\n{content}"
+
+
 def _reply_message(
     content: str,
     final_msg: AIMessage | None,
@@ -176,6 +191,10 @@ async def translate_answer_node(
         return _finish_turn_reply(
             content, final_msg, state, outcome="expert_queue", provenance=provenance
         )
+        content = await add_profile_location_prefix(
+            build_expert_queue_content(script, vocal), plan, config
+        )
+        return _finish_turn_reply(content, final_msg, state, outcome="expert_queue")
 
     # Path B: synthesize — translate body + GDB sources + testing only
     if final_msg is None:
@@ -187,6 +206,10 @@ async def translate_answer_node(
         logger.warning("translate_answer: path=synthesis but empty body — no-op")
         end_conversation_turn("(empty answer body)", outcome="empty")
         return {}
+    if plan.get("profile_location_prefix") and not plan.get("is_follow_up"):
+        # Before translation, so the prefix is translated with the answer.
+        # (The follow-up node writes it in the follow-up answer's language.)
+        body = f"{plan['profile_location_prefix']}\n\n{body}"
 
     trace_event(
         "translate_answer_input",
@@ -256,7 +279,7 @@ async def translate_answer_node(
     except (APITimeoutError, APIConnectionError) as exc:
         logger.warning("translate_answer failed (%s) — untranslated body + synthesis footers", exc)
         content = finalize_synthesis_answer(
-            _message_to_text(final_msg),
+            body,
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
@@ -276,7 +299,7 @@ async def translate_answer_node(
             exc,
         )
         content = finalize_synthesis_answer(
-            _message_to_text(final_msg),
+            body,
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,

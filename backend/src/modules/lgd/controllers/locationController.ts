@@ -1,7 +1,8 @@
 import 'reflect-metadata';
-import {JsonController, Get, Post, Put, Delete, Body, Param, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError, BadRequestError, ContentType, QueryParams, Res} from 'routing-controllers';
+import {JsonController, Get, Post, Put, Delete, Body, Param, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError, BadRequestError, ContentType, QueryParams, Res, UseBefore} from 'routing-controllers';
 import {inject, injectable} from 'inversify';
 import {LGD_TYPES} from '../types.js';
+import {FlexibleAuth} from '#root/shared/index.js';
 import {IUser} from '#root/shared/interfaces/models.js';
 import type {
   ILocationService,
@@ -10,6 +11,7 @@ import type {
   ILocationBlock,
   ILocationVillage,
   IKvk,
+  IKvkDirectoryEntry,
   IKvkSyncResult,
   IAuditActor,
   ILocationAudit,
@@ -45,6 +47,7 @@ export class LocationController {
 
   @Get('/states')
   @HttpCode(200)
+  @UseBefore(FlexibleAuth)
   async getStates(): Promise<ILocationState[]> {
     return this.locationService.getStates();
   }
@@ -106,6 +109,7 @@ export class LocationController {
 
   @Get('/districts')
   @HttpCode(200)
+  @UseBefore(FlexibleAuth)
   async getDistricts(
     @QueryParam('stateCode') stateCode: number,
   ): Promise<ILocationDistrict[]> {
@@ -115,6 +119,7 @@ export class LocationController {
   // All districts across every state (each carrying its stateName) for the Districts tab.
   @Get('/districts/all')
   @HttpCode(200)
+  @UseBefore(FlexibleAuth)
   async getAllDistricts(): Promise<ILocationDistrict[]> {
     return this.locationService.getAllDistricts();
   }
@@ -202,6 +207,7 @@ export class LocationController {
 
   @Get('/blocks')
   @HttpCode(200)
+  @UseBefore(FlexibleAuth)
   async getBlocks(
     @QueryParam('districtCode') districtCode: number,
   ): Promise<ILocationBlock[]> {
@@ -210,6 +216,7 @@ export class LocationController {
 
   @Get('/villages')
   @HttpCode(200)
+  @UseBefore(FlexibleAuth)
   async getVillages(
     @QueryParam('blockCode') blockCode: number,
   ): Promise<ILocationVillage[]> {
@@ -218,10 +225,20 @@ export class LocationController {
 
   @Get('/kvks')
   @HttpCode(200)
+  @UseBefore(FlexibleAuth)
   async getKvks(
     @QueryParam('districtCode') districtCode: number,
   ): Promise<IKvk[]> {
     return this.locationService.getKvks(districtCode);
+  }
+
+  // Whole KVK directory with state/district names resolved, used as an import
+  // source for the organization directory.
+  @Get('/kvks/directory')
+  @HttpCode(200)
+  @Authorized()
+  async getKvkDirectory(): Promise<IKvkDirectoryEntry[]> {
+    return this.locationService.getKvkDirectory();
   }
 
   // Runs the existing `scripts/create-lgd-kvks-collection.mjs --apply` script,

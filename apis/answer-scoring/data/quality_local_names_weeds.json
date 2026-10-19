@@ -1,0 +1,416 @@
+[
+  {
+    "category": "Weed",
+    "local_name": "Swank",
+    "crop": "Rice",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Kanki",
+    "crop": "Rice",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Chini gha",
+    "crop": "Rice",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Paddy mothas / Wala motha / Gandi wala motha / Chhatri wala motha / Dodiyan wala motha",
+    "crop": "Rice",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Ghrilla, Sanni/Sani, Ghuien",
+    "crop": "Rice",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Itsit / Chupatti",
+    "crop": "Cotton, Moong, Berseem",
+    "season": "both"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Madhana / Makra",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Kanghi buti",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Peeli buti",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Puth kanda",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Congress grass",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Baru",
+    "crop": "Sugarcane",
+    "season": "both"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Takri ghas",
+    "crop": "Maize",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Bans Patta",
+    "crop": "Sugarcane",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Dila/Deela",
+    "crop": "Sugarcane",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Lapeta vel / Guara vel",
+    "crop": "Cotton, Sugarcane",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Gulli danda",
+    "crop": "Wheat",
+    "season": "Rabi"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Jangli Javi",
+    "crop": "Wheat",
+    "season": "Rabi"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Bathu, Billi booti, Jangli hallon, Pitpapra, Jangli senji, Maina, Maini, Jangli palak",
+    "crop": "Wheat",
+    "season": "Rabi"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Kandiali palak, Makoh, Rari/Rewari, Hirankhuri, Button booti",
+    "crop": "Wheat",
+    "season": "Rabi"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Rewari",
+    "crop": "Peas",
+    "season": "Rabi"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Kashni",
+    "crop": "Berseem",
+    "season": "Kharif"
+  },
+  {
+    "category": "Weed",
+    "local_name": "Amarbel",
+    "crop": "Lucerne",
+    "season": "both"
+  },
+  {
+    "category": "Insect/Pest",
+    "local_name": "Dhora (Mung dhora, Gram dhora, Cowpea dhora)",
+    "crop": "Pulses",
+    "season": "both, storage"
+  },
+  {
+    "category": "Insect/Pest",
+    "local_name": "Bhaboo Kuta / Bhabu Kuta",
+    "crop": "Guara, Cowpea, Berseem",
+    "season": "both"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Tirak",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Pokkah boeng",
+    "crop": "Sugarcane",
+    "season": "both"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Tikka",
+    "crop": "Groundnut",
+    "season": "Kharif"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Banh",
+    "crop": "Napier-bajra fodder",
+    "season": "Kharif"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Chanani",
+    "crop": "Gram",
+    "season": "Rabi"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Mamni",
+    "crop": "Wheat",
+    "season": "Rabi"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Tundu",
+    "crop": "Wheat",
+    "season": "Rabi"
+  },
+  {
+    "category": "Disease/Disorder",
+    "local_name": "Molya",
+    "crop": "Wheat",
+    "season": "Rabi"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Kapas",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Til",
+    "crop": "Sesame",
+    "season": "Kharif"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Jowar / Bajra",
+    "crop": "Fodder",
+    "season": "Kharif"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Chappan kadu",
+    "crop": "Cotton alt. host",
+    "season": "Kharif"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Bhindi",
+    "crop": "Cotton alt. host",
+    "season": "Kharif"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Khal",
+    "crop": "Cotton",
+    "season": "Kharif"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Rukmanjani",
+    "crop": "Tree/host plant-Groundnut",
+    "season": "Kharif"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Toria, Raya, Gobhi Sarson, African Sarson, Taramira",
+    "crop": "Oilseeds",
+    "season": "Rabi"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Saunf",
+    "crop": "Spice crop",
+    "season": "Rabi"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Soe",
+    "crop": "Spice crop",
+    "season": "Rabi"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Metha",
+    "crop": "Spice crop",
+    "season": "Rabi"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Karnauli",
+    "crop": "Spice crop",
+    "season": "Rabi"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Chhattala / Bhukal",
+    "crop": "Fodder",
+    "season": "Rabi"
+  },
+  {
+    "category": "Crop local name",
+    "local_name": "Gur",
+    "crop": "Sugarcane",
+    "season": "both"
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Kera / Pora",
+    "crop": "Both",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Trangli",
+    "crop": "Both",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Khurpa / Kasola / Kasaula",
+    "crop": "Both",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Jindra",
+    "crop": "Kharif",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Rauni",
+    "crop": "Both",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Kallar",
+    "crop": "Kharif",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Prali / Prali Char",
+    "crop": "Kharif",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Gil dabna",
+    "crop": "Rabi",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Wattar",
+    "crop": "Rabi",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Kadbi straw / Wheat turi",
+    "crop": "Rabi",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Bhusa",
+    "crop": "Rabi",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Pallies",
+    "crop": "Rabi",
+    "season": null
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Beejamrit, Jeevamrit, Ghanjeevamrit",
+    "crop": "Both",
+    "season": "organic farming"
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Modified Brahmastra",
+    "crop": "Both",
+    "season": "organic farming"
+  },
+  {
+    "category": "Practice/Input/Implement",
+    "local_name": "Saag",
+    "crop": "Rabi",
+    "season": null
+  },
+  {
+    "category": "Note:",
+    "local_name": "Banh: Banh (or Bannh) is a temporary earthen embankment, bund, or plug created inside a water channel or also  rumen impaction (the overload and blockage of the rumen with indigestible or coarse feed) is commonly called Banh.",
+    "crop": null,
+    "season": null
+  },
+  {
+    "category": null,
+    "local_name": "Maini: This is not in GDB",
+    "crop": null,
+    "season": null
+  },
+  {
+    "category": null,
+    "local_name": "Metha: This is not in GDB",
+    "crop": null,
+    "season": null
+  },
+  {
+    "category": null,
+    "local_name": "Saag: This is not in GDB due to non availability of proper source",
+    "crop": null,
+    "season": null
+  },
+  {
+    "category": null,
+    "local_name": "Makra: The GDB contains questions related to “Makra,” but the term is represented under different names and categories. In some questions, Makra is referred to as a disease, while in others it is incorrectly identified as a local weed name. These entries need to be reviewed and corrected to ensure consistent and accurate classification of the vernacular term in the GDB.",
+    "crop": null,
+    "season": null
+  },
+  {
+    "category": null,
+    "local_name": "Peeli booti: Peeli Buti needs to be reviewed and corrected, as it is associated with a different scientific name in the Package of Practices (POP). The vernacular name and corresponding scientific name should be verified against the POP to ensure accurate identification and consistent representation in the GDB.",
+    "crop": null,
+    "season": null
+  },
+  {
+    "category": null,
+    "local_name": "Khal: Khal is currently mentioned in the GDB only in relation to cotton. However, the term Khal is also commonly used for the oilseed cakes/by-products of groundnut, sesame, and mustard, which are used as cattle feed. Therefore, groundnut, sesame, and mustard should also be added under the relevant “Khal” terminology in the GDB.",
+    "crop": null,
+    "season": null
+  }
+]
