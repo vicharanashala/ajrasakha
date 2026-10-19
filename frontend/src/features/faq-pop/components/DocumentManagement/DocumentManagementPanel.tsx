@@ -18,6 +18,7 @@ import {
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
   deleteDashboardTranslationJob,
+  translateUniqueDocument,
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
 import MainTable from "./MainTable";
@@ -141,32 +142,35 @@ export default function DocumentManagementPanel({
     }
   }
 
-  // Finished jobs (done/failed/cancelled) — hidden by default (default GET only lists
-  // queued+running), fetched on demand once the panel's "show finished" toggle is on. The API
-  // takes one `status` at a time, so history is 3 calls merged rather than one.
+  // Finished jobs — hidden by default, one status at a time behind a Succeeded/Failed/Cancelled
+  // segmented control (null = none selected, nothing fetched). The API only takes one `status` at
+  // a time, so switching tabs re-fetches rather than filtering a merged list.
+  const [finishedFilter, setFinishedFilterState] = useState(null); // null | "done" | "failed" | "cancelled"
   const [finishedJobs, setFinishedJobs] = useState([]);
-  const [showFinishedJobs, setShowFinishedJobs] = useState(false);
-  // Mirrors showFinishedJobs for the mount-only SSE effect below, whose "translation" handler
-  // would otherwise close over the value from mount time forever.
-  const showFinishedJobsRef = useRef(showFinishedJobs);
-  showFinishedJobsRef.current = showFinishedJobs;
+  // Mirrors finishedFilter for the mount-only SSE effect below, whose "translation" handler would
+  // otherwise close over the value from mount time forever.
+  const finishedFilterRef = useRef(finishedFilter);
+  finishedFilterRef.current = finishedFilter;
   const [removingJobIds, setRemovingJobIds] = useState(() => new Set());
+  const [redoingJobIds, setRedoingJobIds] = useState(() => new Set());
   async function refetchFinishedJobs() {
+    if (!finishedFilterRef.current) return;
     try {
-      const [done, failed, cancelled] = await Promise.all([
-        getDashboardTranslationJobs("done"),
-        getDashboardTranslationJobs("failed"),
-        getDashboardTranslationJobs("cancelled"),
-      ]);
-      setFinishedJobs([...(done || []), ...(failed || []), ...(cancelled || [])]);
+      const jobs = (await getDashboardTranslationJobs(finishedFilterRef.current)) || [];
+      setFinishedJobs(jobs);
     } catch {
       // ignore transient errors, next toggle/manual refresh will retry
     }
   }
+  function setFinishedFilter(status) {
+    // Clicking the active tab again toggles it off (the "toggle" half of the segmented control).
+    setFinishedFilterState((prev) => (prev === status ? null : status));
+  }
   useEffect(() => {
-    if (showFinishedJobs) refetchFinishedJobs();
+    if (finishedFilter) refetchFinishedJobs();
+    else setFinishedJobs([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFinishedJobs]);
+  }, [finishedFilter]);
 
   async function handleRemoveTranslationJob(job) {
     setRemovingJobIds((prev) => new Set(prev).add(job.id));
@@ -184,11 +188,32 @@ export default function DocumentManagementPanel({
     }
   }
 
+  // Retry a failed job — same job id, backend only re-translates the pages whose link is "".
+  // Success means the job goes back to queued/running, which arrives over SSE like any other
+  // translation update (handled below), so no local state update is needed here beyond busy
+  // tracking and surfacing a 409 ("already in progress") if it somehow races another trigger.
+  async function handleRedoTranslationJob(job) {
+    const docId = job.document_id || job.unique_document_id;
+    setRedoingJobIds((prev) => new Set(prev).add(job.id));
+    try {
+      await translateUniqueDocument(docId, currentUserName);
+      toast.success("Translation queued");
+    } catch (err) {
+      toast.error(err.message || "Failed to retry translation");
+    } finally {
+      setRedoingJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      });
+    }
+  }
+
   async function refetchAll() {
     await Promise.all([
       refetchUploads(),
       refetchTranslationJobs(),
-      ...(showFinishedJobs ? [refetchFinishedJobs()] : []),
+      ...(finishedFilter ? [refetchFinishedJobs()] : []),
     ]);
   }
 
@@ -200,16 +225,16 @@ export default function DocumentManagementPanel({
 
   // Fallback only — GET /dashboard/events (below) is the primary way these queues stay live. Runs
   // unconditionally every 60s (no user-facing toggle — SSE is the real mechanism now). Recreated
-  // on showFinishedJobs too, so it doesn't leave the interval's refetchAll closure stale (it
+  // on finishedFilter too, so it doesn't leave the interval's refetchAll closure stale (it
   // decides whether to include the finished-jobs fetch).
   useEffect(() => {
     const id = setInterval(refetchAll, 60000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFinishedJobs]);
+  }, [finishedFilter]);
 
   // refetchAll's own closure goes stale if captured once by the mount-only SSE effect below (it
-  // reads showFinishedJobs) — mirror it in a ref so the "open" handler always calls the current
+  // reads finishedFilter) — mirror it in a ref so the "open" handler always calls the current
   // version instead.
   const refetchAllRef = useRef(refetchAll);
   refetchAllRef.current = refetchAll;
@@ -236,7 +261,9 @@ export default function DocumentManagementPanel({
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
-        // — a job that just finished belongs in finishedJobs (if that's being shown), not here.
+        // — a job that just finished belongs in finishedJobs (if that tab is open), not here. A
+        // job can also go the other way (retried from "failed" back to queued/running), in which
+        // case it needs to drop out of whichever finished tab was showing it.
         const finished = job.deleted || ["done", "failed", "cancelled"].includes(job.status);
         setTranslationJobs((prev) => {
           if (finished) return prev.filter((j) => j.id !== job.id);
@@ -253,12 +280,12 @@ export default function DocumentManagementPanel({
             next.delete(job.id);
             return next;
           });
-          setFinishedJobs((prev) => {
-            if (!showFinishedJobsRef.current) return prev;
-            const filtered = prev.filter((j) => j.id !== job.id);
-            return job.deleted ? filtered : [...filtered, job];
-          });
         }
+        setFinishedJobs((prev) => {
+          const filtered = prev.filter((j) => j.id !== job.id);
+          const belongsHere = !job.deleted && finished && job.status === finishedFilterRef.current;
+          return belongsHere ? [...filtered, job] : filtered;
+        });
       },
       document: () => bumpRefresh(),
     });
@@ -512,10 +539,12 @@ export default function DocumentManagementPanel({
                     onOpenDetail={openDetail}
                     stoppingIds={stoppingJobIds}
                     finishedJobs={finishedJobs}
-                    showFinished={showFinishedJobs}
-                    onToggleFinished={setShowFinishedJobs}
+                    finishedFilter={finishedFilter}
+                    onSetFinishedFilter={setFinishedFilter}
                     onRemove={handleRemoveTranslationJob}
                     removingIds={removingJobIds}
+                    onRedo={handleRedoTranslationJob}
+                    redoingIds={redoingJobIds}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-muted-foreground italic">
@@ -555,6 +584,8 @@ export default function DocumentManagementPanel({
         onTranslationStarted={refetchTranslationJobs}
         onPlacementsChanged={bumpRefresh}
         canEdit={canEdit}
+        currentUserName={currentUserName}
+        translationJobs={translationJobs}
       />
     </div>
   );
