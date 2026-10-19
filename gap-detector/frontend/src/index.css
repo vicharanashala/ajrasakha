@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* Chart & UI palette (validated reference palette; see docs/DESIGN.md). Written as
+   role tokens so light/dark swap in one place and components never hard-code hex. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --accent: #2a78d6; /* categorical slot 1 / sequential mid */
+  --accent-soft: #cde2fb;
+  --seq-100: #cde2fb;
+  --seq-200: #9ec5f4;
+  --seq-300: #6da7ec;
+  --seq-400: #3987e5;
+  --seq-500: #256abf;
+  --seq-600: #184f95;
+  --seq-700: #0d366b;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --good-text: #006300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5;
+    --accent-soft: #184f95;
+    --good-text: #0ca30c;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.hairline {
+  border-color: var(--grid);
+}
+table.data th {
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+table.data td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--grid);
+  vertical-align: top;
+}
+table.data tr:hover td {
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
