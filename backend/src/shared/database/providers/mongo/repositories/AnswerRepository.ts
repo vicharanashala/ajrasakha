@@ -2498,6 +2498,40 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
 
+  async getAnswersMissingEmbedding(
+    limit = 50,
+  ): Promise<
+    {
+      _id: ObjectId;
+      questionId?: ObjectId;
+      answer: string;
+      isFinalAnswer: boolean;
+    }[]
+  > {
+    await this.init();
+
+    return this.AnswerCollection.find(
+      {
+        $or: [
+          { embedding: { $exists: false } },
+          { embedding: null },
+          { embedding: { $size: 0 } },
+        ],
+      },
+      {
+        projection: { _id: 1, questionId: 1, answer: 1, isFinalAnswer: 1 },
+        limit,
+      },
+    ).toArray() as Promise<
+      {
+        _id: ObjectId;
+        questionId?: ObjectId;
+        answer: string;
+        isFinalAnswer: boolean;
+      }[]
+    >;
+  }
+
   async getFinalAnswerQuestionIdsByApprover(
     moderatorIds: string[],
     session?: ClientSession,

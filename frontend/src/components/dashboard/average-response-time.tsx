@@ -7,8 +7,6 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 
-import { TopRightBadge } from "../NewBadge";
-
 interface AverageResponseTimeProps {
   whatsappAvgTime: number;
   ajrasakhaAvgTime: number;
@@ -48,8 +46,6 @@ export const AverageResponseTime = ({
         <p className="text-sm text-muted-foreground mt-1">
           Average time to answer questions
         </p>
-
-        <TopRightBadge label="new" left={0} />
       </CardHeader>
 
       <CardContent>

@@ -964,3 +964,52 @@ export interface WhatsappUsersResponse {
   limit: number;
   isPaginated: boolean;
 }
+
+export type GdbCheckResult = 'PASS' | 'FAIL' | 'NOT_EVALUATED' | 'NOT_APPLICABLE';
+
+export type GdbCleaningStatus =
+  | 'pending'
+  | 'clean'
+  | 'todo'
+  | 'fixed'
+  | 'dismissed';
+
+export interface IGdbCleaningCheck {
+  parameter: string;
+  category: string;
+  result: GdbCheckResult;
+  reason: string;
+  /** exact words in the answer to highlight, for a check that found something */
+  highlight?: string[];
+}
+
+export interface IGdbCleaningSource {
+  sourceName: string;
+  source: string;
+  page: string;
+}
+
+/** One answer in the `gdb_cleaning` collection: the answer, the result of each
+ *  quality check, and the reviewer's decision. */
+export interface IGdbCleaning {
+  _id?: ObjectId | string;
+  answerId: ObjectId;
+  questionId: ObjectId;
+  question: string;
+  answer: string;
+  state: string;
+  crop: string;
+  domain: string;
+  sources: IGdbCleaningSource[];
+  status: GdbCleaningStatus;
+  checks: IGdbCleaningCheck[];
+  flags: string[];
+  notEvaluated: string[];
+  correctedAnswer: string | null;
+  comment?: string | null;
+  checkedAt: Date | null;
+  pipelineVersion: string | null;
+  model: string | null;
+  reviewedBy: ObjectId | null;
+  reviewedAt: Date | null;
+}

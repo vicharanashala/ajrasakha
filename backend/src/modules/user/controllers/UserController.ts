@@ -1570,4 +1570,41 @@ export class UserController {
   ) {
     return await this.userService.getUsersByRole(query.role ?? []);
   }
+
+  @Get('/:userId/activity-report/export')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Export individual user activity report in PDF format (or email it)',
+  })
+  async exportUserActivityReport(
+    @CurrentUser() currentUser: IUser,
+    @Param('userId') userId: string,
+    @QueryParams() query: {
+      viewType?: 'year' | 'month' | 'week' | 'day';
+      selectedYear?: string;
+      selectedMonth?: string;
+      selectedWeek?: string;
+      selectedDay?: string;
+      customStartDateTime?: string;
+      customEndDateTime?: string;
+      startDate?: string;
+      endDate?: string;
+      sendToEmail?: boolean;
+    },
+    @Res() response: any,
+  ) {
+    const result = await this.userService.exportUserActivityReport(userId, query);
+
+    if (query.sendToEmail) {
+      return result;
+    }
+
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="user-activity-report-${userId}.pdf"`,
+    );
+    return result;
+  }
 }

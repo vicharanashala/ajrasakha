@@ -121,11 +121,14 @@ export class PerformanceController {
     stfModeratorCount: number;
     moderatorApprovalRate: ModeratorApprovalRate;
   }> {
+    const isOverallAdmin =
+      user.role === 'admin' ||
+      user.role === 'gate_keeper';
     return this.performanceService.getOverview(
       user._id.toString(),
       query,
       user.isTrainingUser === true,
-      user.role === 'admin',
+      isOverallAdmin,
     );
   }
 
@@ -133,15 +136,19 @@ export class PerformanceController {
   @Get('/golden-dataset')
   @Authorized()
   async getGoldenDataset(@CurrentUser() user: IUser,@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
-
-    return this.performanceService.getGoldenDataset(query,user.isTrainingUser??false,user.role === 'admin');
+    const isOverallAdmin =
+      user.role === 'admin' ||
+      user.role === 'gate_keeper';
+    return this.performanceService.getGoldenDataset(query,user.isTrainingUser??false,isOverallAdmin);
   }
 
   @OpenAPI({ summary: 'Get question contribution trends' })
   @Get('/contribution-trend')
   @Authorized()
   async getContributionTrend(@CurrentUser() user: IUser,@QueryParams() query: GetContributionTrendQuery): Promise<QuestionContributionTrend[]> {
-    const isAdmin = user.role === 'admin'
+    const isAdmin =
+      user.role === 'admin' ||
+      user.role === 'gate_keeper';
     const isTrainingUser = user.isTrainingUser === true
     return this.performanceService.getContributionTrend(query.timeRange,isTrainingUser,isAdmin);
   }
@@ -150,7 +157,9 @@ export class PerformanceController {
   @Get('/status-overview')
   @Authorized()
   async getStatusOverview(@CurrentUser() user: IUser): Promise<StatusOverview> {
-    const isAdmin = user.role === 'admin'
+    const isAdmin =
+      user.role === 'admin' ||
+      user.role === 'gate_keeper';
     const isTrainingUser = user.isTrainingUser === true
     return this.performanceService.getStatusOverview(isTrainingUser,isAdmin);
   }
@@ -159,7 +168,9 @@ export class PerformanceController {
   @Get('/expert-performance')
   @Authorized()
   async getExpertPerformance(@CurrentUser() user: IUser): Promise<ExpertPerformance[]> {
-    const isAdmin = user.role === 'admin'
+    const isAdmin =
+      user.role === 'admin' ||
+      user.role === 'gate_keeper';
     const isTrainingUser = user.isTrainingUser === true
     return this.performanceService.getExpertPerformance(isTrainingUser,isAdmin);
   }
@@ -168,7 +179,9 @@ export class PerformanceController {
   @Post('/questions-analytics')
   @Authorized()
   async getQuestionsAnalytics(@CurrentUser() user: IUser, @Body() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
-    const isAdmin = user.role === 'admin'
+    const isAdmin =
+      user.role === 'admin' ||
+      user.role === 'gate_keeper';
     const isTrainingUser = user.isTrainingUser === true
     return this.performanceService.getQuestionsAnalytics(query, isTrainingUser, isAdmin);
   }
@@ -196,7 +209,9 @@ export class PerformanceController {
     @CurrentUser() user: IUser,
     @QueryParams() query: GetHeatMapQuery,
   ): Promise<IReviewerHeatmapResponse | null> {
-    const isAdmin = user.role === 'admin'
+    const isAdmin =
+      user.role === 'admin' ||
+      user.role === 'gate_keeper';
     const isTrainingUser = user.isTrainingUser === true
     const result = await this.performanceService.getHeatMapresults(query,isTrainingUser,isAdmin);
 

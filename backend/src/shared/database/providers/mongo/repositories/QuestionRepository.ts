@@ -1,4 +1,4 @@
-import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { IQuestionRepository, IUserActivityMetrics } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {
   IAnswer,
   IContext,
@@ -74,6 +74,10 @@ export class QuestionRepository implements IQuestionRepository {
   private ReviewCollection: Collection<IReview>;
   private ReRouteCollection: Collection<IReroute>;
 
+  /** Queue/moderator-details indexes are built once per process (createIndex is idempotent
+   *  but we still avoid the extra round-trips on every init()). */
+  private indexesEnsured = false;
+
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -92,13 +96,96 @@ export class QuestionRepository implements IQuestionRepository {
     this.AnswersCollection = await this.db.getCollection<IAnswer>('answers');
     this.ReviewCollection = await this.db.getCollection<IReview>('reviews');
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+
+    // Build the queue/moderator-details indexes once, in the background, on first use.
+    if (!this.indexesEnsured) {
+      this.indexesEnsured = true;
+      void this.ensureIndexes();
+    }
   }
 
   private async ensureIndexes() {
     try {
-      await this.QuestionCollection.createIndex({ status: 1, createdAt: 1 });
+      await Promise.all([
+        // Existing status/time index (kept).
+        this.QuestionCollection.createIndex({ status: 1, createdAt: 1 }),
+
+        // ── Queue-details: expert sections ────────────────────────────────
+        // received / allocated / autoAllocateOff / autoAllocateOpen /
+        // autoAllocateDelayed + allocated-level-counts all filter
+        // source(+isAutoAllocate)+status and sort by createdAt desc.
+        this.QuestionCollection.createIndex(
+          { source: 1, isAutoAllocate: 1, status: 1, createdAt: -1 },
+          { name: 'queue_expert_sections' },
+        ),
+        // "received" (source only, optional createdAt range) and the
+        // getReceivedStatusCounts group-by-status.
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, createdAt: -1 },
+          { name: 'queue_received' },
+        ),
+
+        // ── Queue-details: moderator sections ─────────────────────────────
+        // findUnassignedInReviewQuestions (waiting moderator queue).
+        this.QuestionCollection.createIndex(
+          {
+            status: 1,
+            autoAllocateModerator: 1,
+            moderatorId: 1,
+            createdAt: 1,
+          },
+          { name: 'queue_moderator_waiting' },
+        ),
+        // findModeratorAssignedQuestions (allocated moderator queue).
+        this.QuestionCollection.createIndex(
+          { status: 1, moderatorId: 1, createdAt: 1 },
+          { name: 'queue_moderator_allocated' },
+        ),
+        // findQuestionsWithOpenFeedbacks (waiting-feedback questions merged into the
+        // moderator queue): closed questions with an open feedback entry, ordered by
+        // recentFeedback. (feedbacks.status is multikey — feedbacks is an array.)
+        this.QuestionCollection.createIndex(
+          {
+            status: 1,
+            'feedbacks.status': 1,
+            recentFeedback: 1,
+            createdAt: 1,
+          },
+          { name: 'queue_feedback_waiting' },
+        ),
+
+        // ── Queue-details: gate keeper / auditor role sections ────────────
+        // findUnassignedQuestionsForRole (per assignee field).
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, gateKeeperId: 1, createdAt: 1 },
+          { name: 'queue_gatekeeper' },
+        ),
+        this.QuestionCollection.createIndex(
+          { source: 1, status: 1, auditorId: 1, createdAt: 1 },
+          { name: 'queue_auditor' },
+        ),
+
+        // ── The $lookup join key used by nearly every queue aggregation ───
+        // Every queue-details section that reads submission queue/history does
+        // a $lookup from question_submissions on questionId. Without this the
+        // join scans the whole collection per question — the biggest win here.
+        this.QuestionSubmissionCollection.createIndex(
+          { questionId: 1 },
+          { name: 'submission_questionId' },
+        ),
+        // "Stuck" section: submissions allocated >45min ago and never opened.
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertAllocatedAt: 1 },
+          { name: 'submission_stuck' },
+        ),
+        // "Opened but idle" section: submissions opened >45min ago.
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertOpenedAt: 1 },
+          { name: 'submission_opened_idle' },
+        ),
+      ]);
     } catch (error) {
-      console.error('Failed to create index:', error);
+      console.error('Failed to create queue-details indexes:', error);
     }
   }
 
@@ -5981,38 +6068,58 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
-      const pending = await this.QuestionCollection.countDocuments(
-        {
-          status: 'in-review',
-          ...(
-            !isAdmin &&
-            (isTrainingUser
-              ? { isTrainingQuestion: true }
-              : { isTrainingQuestion: { $ne: true } })
-          ),
-        },
-        { session },
-      );
+      let pendingTraining = 0;
+      let pendingOther = 0;
+      let approvedTraining = 0;
+      let approvedOther = 0;
 
-      const approved = await this.QuestionCollection.countDocuments(
-        {
-          status: 'closed',
-          ...(
-            !isAdmin &&
-            (isTrainingUser
-              ? { isTrainingQuestion: true }
-              : { isTrainingQuestion: { $ne: true } })
+      if (isAdmin) {
+        [pendingTraining, pendingOther, approvedTraining, approvedOther] =
+          await Promise.all([
+            this.QuestionCollection.countDocuments(
+              { status: 'in-review', isTrainingQuestion: true },
+              { session },
+            ),
+            this.QuestionCollection.countDocuments(
+              { status: 'in-review', isTrainingQuestion: { $ne: true } },
+              { session },
+            ),
+            this.QuestionCollection.countDocuments(
+              { status: 'closed', isTrainingQuestion: true },
+              { session },
+            ),
+            this.QuestionCollection.countDocuments(
+              { status: 'closed', isTrainingQuestion: { $ne: true } },
+              { session },
+            ),
+          ]);
+      } else if (isTrainingUser) {
+        [pendingTraining, approvedTraining] = await Promise.all([
+          this.QuestionCollection.countDocuments(
+            { status: 'in-review', isTrainingQuestion: true },
+            { session },
           ),
-        },
-        { session },
-      );
+          this.QuestionCollection.countDocuments(
+            { status: 'closed', isTrainingQuestion: true },
+            { session },
+          ),
+        ]);
+      } else {
+        [pendingOther, approvedOther] = await Promise.all([
+          this.QuestionCollection.countDocuments(
+            { status: 'in-review', isTrainingQuestion: { $ne: true } },
+            { session },
+          ),
+          this.QuestionCollection.countDocuments(
+            { status: 'closed', isTrainingQuestion: { $ne: true } },
+            { session },
+          ),
+        ]);
+      }
 
+      const pending = pendingTraining + pendingOther;
+      const approved = approvedTraining + approvedOther;
       const totalReviews = pending + approved || 0;
-
-      // const approvedCount = await this.QuestionCollection.countDocuments(
-      //   {status: 'closed'},
-      //   {session},
-      // );
 
       const approvalRate =
         totalReviews > 0
@@ -6022,6 +6129,10 @@ export class QuestionRepository implements IQuestionRepository {
       return {
         approved,
         pending,
+        pendingTraining,
+        pendingOther,
+        approvedTraining,
+        approvedOther,
         approvalRate,
       };
     } catch (error) {
@@ -7410,15 +7521,40 @@ export class QuestionRepository implements IQuestionRepository {
     ).toArray() as Promise<{ _id: ObjectId; question: string; text?: string }[]>;
   }
 
+  async getQuestionsMissingEmbedding(
+    limit = 50,
+  ): Promise<
+    { _id: ObjectId; question: string; text?: string; status?: string }[]
+  > {
+    await this.init();
+
+    return this.QuestionCollection.find(
+      {
+        $or: [
+          { embedding: { $exists: false } },
+          { embedding: null },
+          { embedding: { $size: 0 } },
+        ],
+      },
+      {
+        projection: { _id: 1, question: 1, text: 1, status: 1 },
+        limit,
+      },
+    ).toArray() as Promise<
+      { _id: ObjectId; question: string; text?: string; status?: string }[]
+    >;
+  }
+
   async updateQuestionEmbedding(
     questionId: string,
     embedding: number[],
-  ): Promise<void> {
+  ): Promise<{ matchedCount: number; modifiedCount: number }> {
     await this.init();
-    await this.QuestionCollection.updateOne(
+    const res = await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { embedding, updatedAt: new Date() } },
     );
+    return { matchedCount: res.matchedCount, modifiedCount: res.modifiedCount };
   }
 
   async bulkUpdateEmbeddings(
@@ -8505,6 +8641,38 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Paginated variant of {@link findModeratorAssignedQuestions}: exact total count plus a
+   *  single DB page (skip/limit), so the queue-details UI doesn't load the whole list into
+   *  memory just to show one page. Same filter/sort as the non-paged method. */
+  async findModeratorAssignedQuestionsPaged(
+    sources: QuestionSource[] | undefined,
+    isTrainingUser: boolean | undefined,
+    isAdmin: boolean | undefined,
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] },
+      moderatorId: { $exists: true, $ne: null },
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser ? true : { $ne: true };
+    }
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
+  }
+
   /** Mark ONE feedback source's entry (DATASET / WEB_APPLICATION / PAE_Validation) as
    *  closed on the question, then report whether EVERY feedback entry is now closed.
    *  Used so a reviewer's feedbacksAssigned id is removed and the review round is
@@ -8593,6 +8761,34 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Paginated variant of {@link findUnassignedQuestionsForRole}: exact total count plus a
+   *  single DB page (skip/limit). Same filter/sort as the non-paged method. */
+  async findUnassignedQuestionsForRolePaged(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: statuses },
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      [assigneeField]: { $in: [null, undefined] },
+      [autoAllocateField]: { $eq: true },
+      isOnHold: { $ne: true },
+    };
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
+  }
+
   /** Questions created in a window, for the TAT (turnaround-time) lifecycle report.
    *  Mirrors scripts/timebound-question-cycle-report.js: default scope is time-bound
    *  (AJRASAKHA/WHATSAPP + isAutoAllocate), test questions excluded. `allSources` drops
@@ -8658,6 +8854,31 @@ export class QuestionRepository implements IQuestionRepository {
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
     } as any)
       .toArray();
+  }
+
+  /** Paginated variant of {@link findQuestionsAssignedToRole}: exact total count plus a
+   *  single DB page (skip/limit), ordered oldest-first for stable pagination. */
+  async findQuestionsAssignedToRolePaged(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+    skip: number,
+    limit: number,
+  ): Promise<{ count: number; items: IQuestion[] }> {
+    await this.init();
+    const filter = {
+      [assigneeField]: { $ne: null, $exists: true },
+      status: { $in: statuses },
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+    };
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+    return { count, items };
   }
 
   /** "Leaked" role assignments: a question still points to a gate keeper / auditor
@@ -10115,5 +10336,231 @@ export class QuestionRepository implements IQuestionRepository {
     );
 
     return { modifiedCount: result.modifiedCount };
+  }
+
+  async getUserActivityMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<IUserActivityMetrics> {
+    await this.init();
+    const userObjectId = new ObjectId(userId);
+    const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
+    let authoredCount = 0;
+    let totalAuthoringMs = 0;
+    let reviewedCount = 0;
+    let totalReviewingMs = 0;
+    const revCounts: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let gdbPushedCount = 0;
+
+    // 1. Authoring: find submissions where author (history[0]) is this user and created within range
+    const authoredSubmissions = await this.QuestionSubmissionCollection.find({
+      'history.0.updatedBy': userObjectId,
+      'history.0.createdAt': { $gte: startDate, $lte: endDate },
+    }).toArray();
+
+    if (authoredSubmissions.length > 0) {
+      const qIds = authoredSubmissions
+        .map((s) => s.questionId)
+        .filter((id): id is ObjectId => id != null);
+
+      const questions =
+        qIds.length > 0
+          ? await this.QuestionCollection.find({ _id: { $in: qIds } }).toArray()
+          : [];
+
+      const qMap = new Map<string, IQuestion>();
+      for (const q of questions) {
+        if (q._id) qMap.set(q._id.toString(), q);
+      }
+
+      for (const sub of authoredSubmissions) {
+        const history = (sub as any).history || [];
+        if (history.length > 0 && history[0].updatedBy?.toString() === userId) {
+          const authorCompletedAt = new Date(history[0].createdAt);
+          authoredCount++;
+
+          const question = sub.questionId
+            ? qMap.get(sub.questionId.toString())
+            : undefined;
+          const allocStart = question?.firstAllocationAt
+            ? new Date(question.firstAllocationAt)
+            : authorCompletedAt;
+          const diff = authorCompletedAt.getTime() - allocStart.getTime();
+          if (diff > 0 && diff < MAX_DURATION_MS) {
+            totalAuthoringMs += diff;
+          }
+
+          if (
+            question &&
+            (question.status === 'closed' ||
+              question.closedAt ||
+              (question as any).isClosed)
+          ) {
+            gdbPushedCount++;
+          }
+        }
+      }
+    }
+
+    // 2. Reviewing: find submissions where user acted as reviewer with a reviewId
+    const reviewingSubmissions = await this.QuestionSubmissionCollection.find({
+      history: {
+        $elemMatch: {
+          updatedBy: userObjectId,
+          reviewId: { $ne: null },
+        },
+      },
+    }).toArray();
+
+    if (reviewingSubmissions.length > 0) {
+      const reviewIds: ObjectId[] = [];
+      for (const sub of reviewingSubmissions) {
+        const history = (sub as any).history || [];
+        for (let i = 1; i < history.length; i++) {
+          const h = history[i];
+          if (h.updatedBy?.toString() === userId && h.reviewId) {
+            const rId =
+              typeof h.reviewId === 'string'
+                ? new ObjectId(h.reviewId)
+                : h.reviewId;
+            reviewIds.push(rId);
+          }
+        }
+      }
+
+      if (reviewIds.length > 0) {
+        const reviews = await this.ReviewCollection.find({
+          _id: { $in: reviewIds },
+          createdAt: { $gte: startDate, $lte: endDate },
+        }).toArray();
+
+        const reviewMap = new Map<string, IReview>();
+        for (const r of reviews) {
+          if (r._id) reviewMap.set(r._id.toString(), r);
+        }
+
+        for (const sub of reviewingSubmissions) {
+          const history = (sub as any).history || [];
+          for (let i = 1; i < history.length; i++) {
+            const h = history[i];
+            if (h.updatedBy?.toString() === userId && h.reviewId) {
+              const rIdStr = h.reviewId.toString();
+              const review = reviewMap.get(rIdStr);
+              if (!review || !review.createdAt) continue;
+
+              const reviewCompletedAt = new Date(review.createdAt);
+              reviewedCount++;
+              if (i >= 1 && i <= 9) {
+                revCounts[i]++;
+              }
+
+              const assignedAt = new Date(h.createdAt);
+              const diff = reviewCompletedAt.getTime() - assignedAt.getTime();
+              if (diff > 0 && diff < MAX_DURATION_MS) {
+                totalReviewingMs += diff;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Moderating: questions completed in date range
+    let moderatedCount = 0;
+    let totalModeratingMs = 0;
+
+    const moderatedQuestions = await this.QuestionCollection.find({
+      moderatorId: userObjectId,
+      moderatorAssignedAt: { $ne: null },
+      $or: [
+        { closedAt: { $gte: startDate, $lte: endDate } },
+        { passedAt: { $gte: startDate, $lte: endDate } },
+        {
+          status: { $in: ['closed', 'pass'] },
+          updatedAt: { $gte: startDate, $lte: endDate },
+        },
+      ],
+    }).toArray();
+
+    for (const q of moderatedQuestions) {
+      const endAt = q.closedAt
+        ? new Date(q.closedAt)
+        : q.passedAt
+          ? new Date(q.passedAt)
+          : q.updatedAt
+            ? new Date(q.updatedAt)
+            : null;
+      if (endAt && endAt >= startDate && endAt <= endDate) {
+        moderatedCount++;
+        const startAt = new Date(q.moderatorAssignedAt!);
+        const diff = endAt.getTime() - startAt.getTime();
+        if (diff > 0 && diff < MAX_DURATION_MS) {
+          totalModeratingMs += diff;
+        }
+      }
+    }
+
+    // 4. Auditing: questions finished in date range
+    let auditedCount = 0;
+    let totalAuditingMs = 0;
+
+    const auditedQuestions = await this.QuestionCollection.find({
+      auditorId: userObjectId,
+      auditorFinishedAt: { $gte: startDate, $lte: endDate },
+    }).toArray();
+
+    for (const q of auditedQuestions) {
+      const endAt = new Date((q as any).auditorFinishedAt);
+      auditedCount++;
+      const startAt = (q as any).auditorAssignedAt
+        ? new Date((q as any).auditorAssignedAt)
+        : null;
+      if (startAt) {
+        const diff = endAt.getTime() - startAt.getTime();
+        if (diff > 0 && diff < MAX_DURATION_MS) {
+          totalAuditingMs += diff;
+        }
+      }
+    }
+
+    // 5. Gatekeeping: questions finished in date range
+    let gatekeepedCount = 0;
+    let totalGatekeepingMs = 0;
+
+    const gatekeepedQuestions = await this.QuestionCollection.find({
+      gateKeeperId: userObjectId,
+      gateKeeperFinishedAt: { $gte: startDate, $lte: endDate },
+    }).toArray();
+
+    for (const q of gatekeepedQuestions) {
+      const endAt = new Date((q as any).gateKeeperFinishedAt);
+      gatekeepedCount++;
+      const startAt = (q as any).gateKeeperAssignedAt
+        ? new Date((q as any).gateKeeperAssignedAt)
+        : null;
+      if (startAt) {
+        const diff = endAt.getTime() - startAt.getTime();
+        if (diff > 0 && diff < MAX_DURATION_MS) {
+          totalGatekeepingMs += diff;
+        }
+      }
+    }
+
+    return {
+      authoredCount,
+      totalAuthoringMs,
+      reviewedCount,
+      totalReviewingMs,
+      revCounts,
+      moderatedCount,
+      totalModeratingMs,
+      auditedCount,
+      totalAuditingMs,
+      gatekeepedCount,
+      totalGatekeepingMs,
+      gdbPushedCount,
+    };
   }
 }

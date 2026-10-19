@@ -10,22 +10,19 @@ import {
   Trash2,
   UserCheck2,
   ShieldX,
-  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { type UserDetail } from "../hooks/useUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
-import { useLogoutUser } from "../hooks/useFeedbackUsers";
-import { toast } from "@/shared/components/toast";
+import { LogoutUserButton } from "./LogoutUserButton";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -193,7 +190,6 @@ export function FarmerDetailsModal({
     {},
   );
   const [session, setSession] = useState(activeSessionCount);
-  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [confirmPasswordChangeOpen, setConfirmPasswordChangeOpen] =
     useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
@@ -276,73 +272,8 @@ useEffect(() => {
     onOpenChange(nextOpen);
   };
 
-  const { mutateAsync: logoutUser } = useLogoutUser();
-
-const handleLogoutUser = async (userId: string) => {
-  try {
-    const result = await logoutUser({ userId, username: user?.name || "", email: user?.email || "" });
-
-    if (result?.value) {
-      toast.success(result.message || "User logged out successfully");
-      setSession(0);
-    }
-  } catch (error) {
-    console.log("Logout user error:", error);
-    toast.error("Failed to log out user.");
-  }
-};
-
   return (
     <>
-    <Dialog
-  open={logoutConfirmOpen}
-  onOpenChange={setLogoutConfirmOpen}
->
-  <DialogContent className="sm:max-w-md">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <LogOut className="h-5 w-5 text-red-600" />
-        Logout User?
-      </DialogTitle>
-
-      <DialogDescription>
-        Are you sure you want to log out{" "}
-        <span className="font-semibold text-foreground">
-          {user?.name || user?.email || "this user"}
-        </span>
-        ?
-      </DialogDescription>
-    </DialogHeader>
-
-    <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-      This will terminate the user's active session. They will need to
-      log in again to access the application.
-    </div>
-
-    <div className="flex justify-end gap-2 pt-2">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setLogoutConfirmOpen(false)}
-      >
-        Cancel
-      </Button>
-
-      <Button
-        type="button"
-        variant="destructive"
-        onClick={() => {
-          setLogoutConfirmOpen(false);
-          void handleLogoutUser(user!.userId);
-        }}
-      >
-        <LogOut className="mr-2 h-4 w-4" />
-        Confirm Logout
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
-
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="!max-w-4xl w-[95vw] max-h-[90vh] p-0 gap-0 overflow-hidden">
         <motion.div
@@ -408,16 +339,14 @@ const handleLogoutUser = async (userId: string) => {
 
               {isAdmin && (
                 <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                  {session > 0 && 
-                  <Button
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
-                    onClick={() => setLogoutConfirmOpen(true)}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Logout User
-                  </Button>
-                }
+                  {session > 0 && (
+                    <LogoutUserButton
+                      userId={user.userId}
+                      name={user.name}
+                      email={user.email}
+                      onLoggedOut={() => setSession(0)}
+                    />
+                  )}
                   {onVerificationChange && (
                     <Button
                       size="sm"

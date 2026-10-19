@@ -23,6 +23,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@testers-dashboard/*": ["../testers-dashboard/frontend/src/*"],
     },
 
     "allowJs": true,

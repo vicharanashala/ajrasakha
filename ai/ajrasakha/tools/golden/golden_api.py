@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -15,11 +16,15 @@ try:
     from .golden_pending_duplicate import check_pending_duplicate
     from .query_refinement import refine_query_to_core_farming_question
     from .golden_similar_question import find_similar_questions, SimilarQuestionRequest
+    from .translate import translate_to_english
+    from .query_preprocessor import classify_query_combined
 except ImportError:
     from golden_search import gdb_search, gdb_search_v2
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
     from golden_similar_question import find_similar_questions, SimilarQuestionRequest
+    from translate import translate_to_english
+    from query_preprocessor import classify_query_combined
 
 app = FastAPI(
     title="AjraSakha Golden API",
@@ -562,4 +567,220 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
         )
     except Exception as exc:
         log.error("find_similar_questions_endpoint failed: %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# =============================================================================
+# TRANSLATION API
+# Uses Claude Sonnet model to translate input text to English
+# =============================================================================
+
+
+class TranslateToEnglishRequest(BaseModel):
+    """Request model for translation endpoint."""
+    text: str = Field(
+        ...,
+        description="The text to translate to English",
+        min_length=1,
+        max_length=10000,
+        examples=["गेहूं में पत्तियों के किनारे पीले क्यों हो रहे हैं?"],
+    )
+    source_language: Optional[str] = Field(
+        None,
+        description="Optional hint about the source language (e.g., 'Hindi', 'Bengali', 'Marathi'). If not provided, the model will auto-detect.",
+        examples=["Hindi", "Bengali", "Marathi", "Tamil"],
+    )
+
+
+class ResolvedTerm(BaseModel):
+    """A single resolved local/regional term."""
+    original_term: str = Field(..., description="Original term as used in input text")
+    canonical_name: str = Field(..., description="Canonical/standardized name")
+    english_meaning: Optional[str] = Field(None, description="English meaning of the canonical name")
+
+
+class TranslateToEnglishResponse(BaseModel):
+    """Response model for translation endpoint."""
+    original_text: str = Field(..., description="The original input text")
+    translated_text: str = Field(..., description="The English translation of the input text")
+    source_language: Optional[str] = Field(None, description="The detected or provided source language")
+    original_length: int = Field(..., description="Character count of original text")
+    translated_length: int = Field(..., description="Character count of translated text")
+    local_names_resolved: list[ResolvedTerm] = Field(
+        default_factory=list,
+        description="List of local/regional terms resolved via MCP lookup_sentence tool"
+    )
+
+
+@app.post(
+    "/v1/translate/to-english",
+    response_model=TranslateToEnglishResponse,
+    summary="Translate text to English using Claude Sonnet",
+    description=(
+        "**Purpose:** Translate input text from any language to English.\n\n"
+        "**Model:** Uses Claude Sonnet (claude-sonnet-4-6 by default).\n\n"
+        "**Features:**\n"
+        "- Preserves agricultural terminology and crop names\n"
+        "- Maintains technical farming terms in original form if no English equivalent\n"
+        "- Auto-detects source language if not provided\n"
+        "- Resolves local/regional crop names to canonical names via MCP local aliases tool\n\n"
+        "**MCP Integration:**\n"
+        "- Uses lookup_sentence() batch tool for efficient sentence-based lookup\n"
+        "- Handles multi-word terms (e.g., 'Gulli Danda', 'Madhya Pradesh')\n"
+        "- Returns English meanings for better translation context\n"
+        "- MCP server: http://100.100.108.44:9103/\n\n"
+        "**Use cases:**\n"
+        "- Preprocess non-English queries before Golden DB search\n"
+        "- Translate farmer questions to English for downstream processing"
+    ),
+)
+async def translate_to_english_endpoint(body: TranslateToEnglishRequest):
+    """Translate input text to English using Claude Sonnet model with MCP local aliases integration."""
+    from anthropic import APITimeoutError, APIConnectionError, APIStatusError
+    from mcp_client import resolve_local_names_batch
+    
+    try:
+        log.info("translate_to_english_endpoint: text_len=%d source_language=%s", len(body.text), body.source_language)
+        
+        # Step 1: Resolve local/regional names via MCP batch lookup (sentence-based)
+        # This uses lookup_sentence() which handles multi-word terms and returns English meanings
+        resolved_text, resolved_tuples = await resolve_local_names_batch(body.text)
+        
+        # Step 2: Translate to English (passes English meanings to LLM for context)
+        translated = await translate_to_english(
+            text=resolved_text, 
+            source_language=body.source_language,
+            resolve_local_names=False,  # Already resolved above via batch lookup
+        )
+        
+        log.info(
+            "translate_to_english_endpoint: success original_len=%d translated_len=%d local_names_resolved=%d",
+            len(body.text), 
+            len(translated),
+            len(resolved_tuples),
+        )
+        
+        return TranslateToEnglishResponse(
+            original_text=body.text,
+            translated_text=translated,
+            source_language=body.source_language,
+            original_length=len(body.text),
+            translated_length=len(translated),
+            local_names_resolved=[
+                ResolvedTerm(
+                    original_term=t[0],
+                    canonical_name=t[1],
+                    english_meaning=t[2] if len(t) > 2 else None,
+                )
+                for t in resolved_tuples
+            ],
+        )
+        
+    except APITimeoutError as exc:
+        log.error("translate_to_english_endpoint: timeout - %s", exc)
+        raise HTTPException(status_code=504, detail=f"Translation request timed out: {exc}") from exc
+    except APIConnectionError as exc:
+        log.error("translate_to_english_endpoint: connection error - %s", exc)
+        raise HTTPException(status_code=503, detail=f"Failed to connect to translation service: {exc}") from exc
+    except APIStatusError as exc:
+        log.error("translate_to_english_endpoint: API status error - %s", exc)
+        raise HTTPException(status_code=502, detail=f"Translation API error: {exc}") from exc
+    except Exception as exc:
+        log.error("translate_to_english_endpoint: unexpected error - %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# =============================================================================
+# QUERY CLASSIFICATION API
+# Standalone endpoint for query classification using MiniMax 2.7
+# Returns classification results without additional processing
+# =============================================================================
+
+
+class QueryClassificationRequest(BaseModel):
+    """Request model for query classification."""
+    query: str = Field(
+        ...,
+        description=(
+            "The user query to classify. "
+            "Will be analyzed for: 1) vulgar/abusive content, 2) agriculture relevance."
+        ),
+        examples=["What is the best fertilizer for wheat?"],
+        min_length=1,
+    )
+
+
+class QueryClassificationResponse(BaseModel):
+    """Response model for query classification."""
+    query: str = Field(
+        ...,
+        description="Echo of the input query.",
+    )
+    is_safe: bool = Field(
+        ...,
+        description="True if query does not contain vulgar/abusive content, False otherwise.",
+    )
+    safety_reason: str = Field(
+        ...,
+        description="Explanation from LLM for safety classification.",
+    )
+    is_agriculture: bool = Field(
+        ...,
+        description="True if query is agriculture/farming related, False otherwise.",
+    )
+    agriculture_reason: str = Field(
+        ...,
+        description="Explanation from LLM for agriculture relevance classification.",
+    )
+
+
+@app.post(
+    "/v1/classify-query",
+    response_model=QueryClassificationResponse,
+    summary="Check query for vulgar/abusive content",
+    description=(
+        "**Purpose:** Check if a query contains vulgar or abusive content.\n\n"
+        "**Classification:**\n"
+        "- Uses MiniMax 2.7 to analyze the query\n"
+        "- Detects profanity, slurs, explicit sexual content\n"
+        "- Detects threats, personal attacks, hate speech\n\n"
+        "**Returns:**\n"
+        "- is_safe: True if query is safe, False if vulgar/abusive\n"
+        "- reason: Explanation for the classification\n"
+    ),
+)
+async def classify_query_endpoint(body: QueryClassificationRequest):
+    """
+    Classify a query for vulgar/abusive content and agriculture relevance.
+    
+    Uses MiniMax 2.7 with a SINGLE LLM call for efficiency.
+    """
+    import time
+    
+    start_time = time.time()
+    
+    try:
+        # Single combined classification call
+        result = await classify_query_combined(body.query)
+        
+        processing_time_ms = round((time.time() - start_time) * 1000, 2)
+        
+        log.info(
+            "classify_query_endpoint: query='%s' safe=%s agriculture=%s time=%.2fms",
+            body.query[:50],
+            result["is_safe"],
+            result["is_agriculture"],
+            processing_time_ms
+        )
+        
+        return QueryClassificationResponse(
+            query=body.query,
+            is_safe=result["is_safe"],
+            safety_reason=result["safety_reason"],
+            is_agriculture=result["is_agriculture"],
+            agriculture_reason=result["agriculture_reason"],
+        )
+        
+    except Exception as exc:
+        log.error("classify_query_endpoint failed: %s: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

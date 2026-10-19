@@ -1,7 +1,7 @@
 // ─── Annam Dashboard Main Component ─────────────────────────────────────────
 import React, {
   useState,
-  // useRef,
+  useRef,
   useCallback,
   useMemo,
   useEffect,
@@ -93,6 +93,7 @@ import { SourceTabsHeader } from "./components/SourceTabs";
 import { QueryInsightsSection } from "./components/QueryInsightsSection";
 import { useDashboardHandlers } from "./hooks/useDashboardHandlers";
 import { ACCAnalyticsDashboard } from "@/components/ACCAnalyticsDashboard";
+import { ScrollToTopButton } from "./components/ScrollToTopButton";
 
 // ─── Lazy Loaded Components ──────────────────────────────────────────────────
 const LazyUserGrowthChart = React.lazy(
@@ -142,6 +143,7 @@ export function AnnamDashboard_dev({
   onUserTypeChange?: (userType: DashboardFilterValues["userType"]) => void;
 }) {
   const queryClient = useQueryClient();
+  const mainScrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ─── Core State ────────────────────────────────────────────────────────────
   const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(
@@ -587,7 +589,10 @@ export function AnnamDashboard_dev({
               />
             )}
 
-            <div className="flex-1 overflow-y-auto px-5 pb-5">
+            <div
+              ref={mainScrollContainerRef}
+              className="flex-1 overflow-y-auto px-5 pb-5"
+            >
               {!mapView && source !== "acc" && (
                 <StatsCarousel className="mb-6">
                   <ClosedQuestionsCard
@@ -1204,6 +1209,10 @@ export function AnnamDashboard_dev({
           </div>
         </>
       )}
+      <ScrollToTopButton
+        containerRef={mainScrollContainerRef}
+        onScrollTop={() => setActiveView("overview")}
+      />
     </div>
   );
 }

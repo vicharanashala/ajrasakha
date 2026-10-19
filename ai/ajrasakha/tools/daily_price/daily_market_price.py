@@ -39,17 +39,37 @@ MAX_ACTIONS = int(os.getenv("MARKET_MAX_ACTIONS", "3"))
 # Safety timeout for Mongo reads (ms) — prevent MCP session hangs
 MONGO_MAX_TIME_MS = int(os.getenv("MARKET_MONGO_MAX_TIME_MS", 10000))
 
+ARRIVAL_AGMARKNET_NOTICE = "Data.gov.in does not provide arrival quantity for agmarknet"
+
 # Standardized / alternate state keys across collections (exact match only).
 # markets_commodities often uses "nct of delhi"; available_mandi uses "delhi".
 _STATE_SYNONYMS: dict[str, tuple[str, ...]] = {
     "delhi": ("delhi", "nct of delhi"),
     "nct of delhi": ("delhi", "nct of delhi"),
+    "nct delhi": ("delhi", "nct of delhi"),
     "kerala": ("kerala", "keralam"),
     "keralam": ("kerala", "keralam"),
     "pondicherry": ("puducherry", "pondicherry"),
     "puducherry": ("puducherry", "pondicherry"),
     "chhattisgarh": ("chhattisgarh", "chattisgarh"),
     "chattisgarh": ("chhattisgarh", "chattisgarh"),
+    "andaman and nicobar": ("andaman and nicobar", "andaman and nicobar islands"),
+    "andaman and nicobar islands": ("andaman and nicobar", "andaman and nicobar islands"),
+    "andaman & nicobar": ("andaman and nicobar", "andaman and nicobar islands"),
+    "andaman & nicobar islands": ("andaman and nicobar", "andaman and nicobar islands"),
+    "odisha": ("odisha", "orissa"),
+    "orissa": ("odisha", "orissa"),
+    "uttarakhand": ("uttarakhand", "uttaranchal"),
+    "uttaranchal": ("uttarakhand", "uttaranchal"),
+    "jammu and kashmir": ("jammu and kashmir", "jammu & kashmir"),
+    "jammu & kashmir": ("jammu and kashmir", "jammu & kashmir"),
+    "dadra and nagar haveli": ("dadra and nagar haveli", "dadra and nagar haveli and daman and diu"),
+    "daman and diu": ("daman and diu", "dadra and nagar haveli and daman and diu"),
+    "dadra and nagar haveli and daman and diu": (
+        "dadra and nagar haveli",
+        "daman and diu",
+        "dadra and nagar haveli and daman and diu",
+    ),
 }
 
 _client: Optional[MongoClient] = None
@@ -126,6 +146,12 @@ def _norm(value: Optional[str]) -> Optional[str]:
     return cleaned or None
 
 
+def _clean_commodity_token(value: Optional[str]) -> str:
+    if not isinstance(value, str):
+        return ""
+    return re.sub(r"[^a-z0-9]", "", value.strip().lower())
+
+
 def _norm_commodity_name(
     value: Optional[Union[str, list[str]]],
 ) -> Optional[Union[str, list[str]]]:
@@ -179,8 +205,13 @@ def _filter_mc_by_commodity_preference(
         targets = info["targets"]
         canonical = info["canonical"]
 
-        # 1. Exact match with user's requested commodity name(s)
-        exact = [d for d in docs if _norm(d.get("commodity_name")) in targets]
+        # 1. Exact match with user's requested commodity name(s) (verbatim or alphanumeric match)
+        clean_targets = {_clean_commodity_token(t) for t in targets}
+        exact = [
+            d for d in docs
+            if _norm(d.get("commodity_name")) in targets
+            or _clean_commodity_token(d.get("commodity_name")) in clean_targets
+        ]
         if exact:
             kept.extend(exact)
             continue
@@ -328,7 +359,7 @@ def mandi_price_tool(
 
     def _require_state(state_val: Optional[str]) -> Optional[dict]:
         if not state_val or not str(state_val).strip():
-            return {"error": "state name is not present"}
+            return {"error": "state name is not present", "error_code": "STATE_REQUIRED"}
         return None
 
     def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -384,14 +415,20 @@ def mandi_price_tool(
 
     def _parse_date(value: str) -> datetime:
         value = value.strip()
-        value_n = value.replace("/", "-").replace(" ", "-")
+        # Strip ordinal suffixes e.g. "19th" -> "19", "1st" -> "1"
+        value_clean = re.sub(r"(\d+)(?:st|nd|rd|th)\b", r"\1", value, flags=re.IGNORECASE)
+        value_n = value_clean.replace("/", "-").replace(" ", "-")
         fmts = [
             "%d-%b-%Y",   # 27-Jun-2025
             "%d-%B-%Y",   # 27-June-2025
             "%d-%m-%Y",   # 27-06-2025
             "%Y-%m-%d",   # 2025-06-27
+            "%B-%d-%Y",   # June-27-2025
+            "%b-%d-%Y",   # Jun-27-2025
             "%d-%b",      # 27-Jun  (no year)
             "%d-%B",      # 27-June (no year)
+            "%B-%d",      # June-27 (no year)
+            "%b-%d",      # Jun-27  (no year)
         ]
         for fmt in fmts:
             try:
@@ -548,6 +585,9 @@ def mandi_price_tool(
             # 2. User's input appears verbatim in the doc's aliases list — valid
             doc_aliases = [_norm(a) for a in (doc.get("aliases") or []) if _norm(a)]
             if user_norm in doc_aliases:
+                return True
+            clean_user = _clean_commodity_token(user_norm)
+            if clean_user and clean_user in {_clean_commodity_token(a) for a in doc_aliases}:
                 return True
             # 3. Guard: canonical is a strict sub-phrase of user's input but user has
             #    qualifier words not present in canonical (e.g. "sweet" in "sweet potato"
@@ -709,6 +749,7 @@ def mandi_price_tool(
                 "markets": [],
                 "_raw_docs": [],
                 "error": f"APMC not available for state '{state}'.",
+                "error_code": "MARKET_NOT_FOUND",
             }
 
         mode = "state_exact"
@@ -830,6 +871,7 @@ def mandi_price_tool(
         if not alias_ids:
             return {
                 "error": f"We do not have {', '.join(commodity_list)} available in {state}.",
+                "error_code": "COMMODITY_NOT_AVAILABLE",
                 "unresolved_commodities": unmatched,
             }
 
@@ -858,6 +900,7 @@ def mandi_price_tool(
                 error = f"Mandi price data is not available for {crop_label} in {market_label}."
             return {
                 "error": error,
+                "error_code": "MARKET_NOT_FOUND" if market_not_found else "NO_PRICE_DATA",
                 "resolution": {
                     "requested_market_name": market_name,
                     "requested_commodity": commodity_list,
@@ -961,6 +1004,7 @@ def mandi_price_tool(
             if not mc_docs_list:
                 return {
                     "error": f"No markets_commodities entries matched crop={commodity_list} in state={state}.",
+                    "error_code": "COMMODITY_NOT_AVAILABLE",
                 }
             candidate_market_ids = list({
                 d["market_id"] for d in mc_docs_list if d.get("market_id")
@@ -1073,26 +1117,59 @@ def mandi_price_tool(
                 mkt = mandi_by_id.get(mid) if mid else None
                 formatted.append(_serialize_price_record(pr, mc, mkt))
 
-            # Post-filter: if exact commodity_name matches exist for the user's requested
+            # Post-filter: if commodity_name matches exist for the user's requested
             # commodity, keep only those records. This ensures that when user asks for
             # "banana", records like "banana - green" are excluded even if they share the
             # same alias group. Only fall back to all records if NO exact match exists.
             if commodity_list:
                 requested_names = {_norm(c) for c in commodity_list if _norm(c)}
-                exact_matches = [
-                    r for r in formatted
-                    if _norm(r.get("commodity_name")) in requested_names
-                ]
+
+                def _name_matches_request(rec_name: Optional[str]) -> bool:
+                    """True if the record's commodity_name is an acceptable match for
+                    any of the user's requested names.
+
+                    Accepts:
+                    1. Exact match:  "bajra" == "bajra"
+                    2. Clean token match (ignoring whitespace/hyphen variations, e.g.
+                       "ash gourd" == "ashgourd", "ridge gourd" == "ridgegourd")
+                    3. Prefix match with parenthetical qualifier added by the source:
+                       "bajra(pearl millet/cumbu)" starts with "bajra(" or "bajra "
+                       This handles the common Tamil Nadu pattern where the DB stores
+                       the commodity as "<name>(<local_name>/<english_name>)".
+                    4. The user's requested name is a substring alias of the canonical name
+                       stored in the DB (e.g. user asks "pearl millet", DB has "bajra(pearl millet/cumbu)").
+                    """
+                    norm_rec = _norm(rec_name)
+                    if not norm_rec:
+                        return False
+                    clean_rec = _clean_commodity_token(norm_rec)
+                    for req in requested_names:
+                        clean_req = _clean_commodity_token(req)
+                        if norm_rec == req or (clean_req and clean_rec == clean_req):
+                            return True
+                        # Prefix: "bajra(..." or "bajra ..." → matches "bajra"
+                        if norm_rec.startswith(req + "(") or norm_rec.startswith(req + " "):
+                            return True
+                        # Clean prefix with separator e.g. "bajra(pearl millet)"
+                        paren_part = norm_rec.split("(")[0].strip()
+                        if paren_part and _clean_commodity_token(paren_part) == clean_req:
+                            return True
+                        # Reverse prefix: user asked "pearl millet", DB has "bajra(pearl millet/cumbu)"
+                        if req in norm_rec:
+                            return True
+                    return False
+
+                exact_matches = [r for r in formatted if _name_matches_request(r.get("commodity_name"))]
                 if exact_matches:
                     logger.info(
-                        "Post-filter: kept %d exact commodity match records (from %d total). "
+                        "Post-filter: kept %d commodity match records (from %d total). "
                         "Excluded variants: %s",
                         len(exact_matches), len(formatted),
                         sorted({r.get("commodity_name") for r in formatted} - {r.get("commodity_name") for r in exact_matches}),
                     )
                     formatted = exact_matches
                 else:
-                    # No exact match for the requested commodity in any of the returned
+                    # No match for the requested commodity in any of the returned
                     # records.  This happens when the alias lookup resolves e.g.
                     # "sweet potato" → canonical "potato" and the DB only has "potato"
                     # records.  Silently serving those records would be misleading
@@ -1107,6 +1184,7 @@ def mandi_price_tool(
                         )
                         return {
                             "error": f"We do not have {', '.join(commodity_list)} available in {state}.",
+                            "error_code": "COMMODITY_NOT_AVAILABLE",
                             "unresolved_commodities": list(commodity_list),
                         }
 
@@ -1179,7 +1257,7 @@ def mandi_price_tool(
                 stages.append(("lat_long", None, lat, long, nearest_market if nearest_market else True))
             stages.append(("state", None, None, None, False))
 
-        result: dict[str, Any] = {"error": "No price records found."}
+        result: dict[str, Any] = {"error": "No price records found.", "error_code": "NO_PRICE_DATA"}
         raw_docs: list[dict] = []
         chosen_stage: Optional[str] = None
         market_result: dict[str, Any] = {}
@@ -1327,7 +1405,7 @@ def mandi_price_tool(
             resolution = result.setdefault("resolution", {})
             resolution["date_filter"] = resolution.get("date_filter") or date_meta
             resolution["selection_mode"] = (
-                f"priority_{chosen_stage}" if chosen_stage else market_result.get("mode")
+                f"priority_{chosen_stage}" if chosen_stage else None
             )
             resolution["location_priority_tried"] = tried
             if chosen_stage:
@@ -1584,7 +1662,7 @@ def mandi_price_tool(
             for r in records
         ]
         stats = result.get("stats", {})
-        return {
+        resp = {
             "action":            "get_today_arrival",
             "arrival_records":   arrival_records,
             "total_arrival_qty": stats.get("overall", {}).get("total_arrival_qty"),
@@ -1592,6 +1670,10 @@ def mandi_price_tool(
             "resolution":        result.get("resolution"),
             "total_records_returned": len(arrival_records),
         }
+        if not arrival_records or any(r.get("arrival_quantity") is None for r in arrival_records):
+            resp["message"] = ARRIVAL_AGMARKNET_NOTICE
+            resp.setdefault("resolution", {})["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+        return resp
 
     # ======================================================================
     # ACTION 6: get_arrival_history
@@ -1625,7 +1707,7 @@ def mandi_price_tool(
             for r in records
         ]
         stats = result.get("stats", {})
-        return {
+        resp = {
             "action":            "get_arrival_history",
             "arrival_records":   arrival_records,
             "total_arrival_qty": stats.get("overall", {}).get("total_arrival_qty"),
@@ -1633,6 +1715,10 @@ def mandi_price_tool(
             "resolution":        result.get("resolution"),
             "total_records_returned": result.get("total_records_returned"),
         }
+        if not arrival_records or any(r.get("arrival_quantity") is None for r in arrival_records):
+            resp["message"] = ARRIVAL_AGMARKNET_NOTICE
+            resp.setdefault("resolution", {})["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+        return resp
 
     # ======================================================================
     # ACTION 7: get_extreme_arrival
@@ -1690,13 +1776,17 @@ def mandi_price_tool(
             reverse=descending,
         )
         label = "highest" if descending else "lowest"
-        return {
+        resp = {
             "action":              "get_extreme_arrival",
             "sort_order":          label,
             f"{label}_arrivals":   sorted_records[:5],
             "resolution":          result.get("resolution"),
             "total_records_analysed": len(sorted_records),
         }
+        if not sorted_records or any(r.get("arrival_quantity") is None for r in sorted_records[:5]):
+            resp["message"] = ARRIVAL_AGMARKNET_NOTICE
+            resp.setdefault("resolution", {})["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+        return resp
 
     # ======================================================================
     # ACTION 8: search_markets
@@ -1739,7 +1829,11 @@ def mandi_price_tool(
             from_date=from_date, to_date=to_date,
             lookback_days=eff_lookback,
             latest_price_fallback=True,
-            search_by_apmc=True,
+            # Respect the outer search_by_apmc flag: if the agent identified the
+            # market_name as a district (search_by_apmc=False), honour that here
+            # so district names like "Kallakurichi" resolve correctly instead of
+            # being treated as APMC names that don't match anything.
+            search_by_apmc=tool_search_by_apmc,
         )
         if not named_result.get("error"):
             named_result["action"] = "get_today_price"
@@ -1756,13 +1850,25 @@ def mandi_price_tool(
         # ── Part 2: Nearby markets' prices on requested date / latest available ───
         nearby_result: dict = {}
 
-        # Resolve the named mandi to get its coordinates
+        # Resolve the named mandi/district to get its coordinates.
+        # First try APMC name search; if that finds nothing (because market_name is
+        # a district, not an APMC), fall back to district resolution.
         named_market_search = _do_search_markets(
             market_name=market_name,
             state=state,
             nearest_market=False,
         )
         named_docs = named_market_search.get("_raw_docs") or []
+
+        # Fallback: treat market_name as a district name when APMC search finds nothing
+        if not named_docs and not tool_search_by_apmc:
+            named_docs = _resolve_district_markets(market_name, state)
+            logger.info(
+                "get_price_with_nearby: APMC name search found no docs; "
+                "resolved '%s' as district → %d APMCs for coordinate lookup.",
+                market_name, len(named_docs),
+            )
+
         named_mandi_names: set = set()
         named_mandi_coords: tuple | None = None
 
@@ -1875,35 +1981,250 @@ def mandi_price_tool(
     if not actions:
         return {"error": "action is required"}
 
+    _COMMODITY_ACTIONS = {
+        "get_today_price",
+        "get_price_history",
+        "get_price_summary",
+        "get_highest_price",
+        "get_lowest_price",
+        "get_today_arrival",
+        "get_arrival_history",
+        "get_extreme_arrival",
+        "get_price_with_nearby",
+    }
+
+    # Extract clean list of individual commodity names if multiple provided
+    crop_list: list[str] = []
+    if isinstance(commodity_name, list):
+        for item in commodity_name:
+            if item:
+                parts = re.split(r",|\s+and\s+|\s*&\s*", str(item), flags=re.I)
+                crop_list.extend([_norm(p) for p in parts if _norm(p)])
+    elif isinstance(commodity_name, str) and ("," in commodity_name or " and " in commodity_name or "&" in commodity_name):
+        parts = re.split(r",|\s+and\s+|\s*&\s*", commodity_name, flags=re.I)
+        crop_list = [_norm(p) for p in parts if _norm(p)]
+    elif commodity_name and isinstance(commodity_name, str):
+        crop_list = [_norm(commodity_name)]
+
+    # Deduplicate while preserving order
+    seen_crops: set[str] = set()
+    dedup_crops: list[str] = []
+    for c in crop_list:
+        if c and c not in seen_crops:
+            seen_crops.add(c)
+            dedup_crops.append(c)
+    crop_list = dedup_crops
+
+    def _combine_multi_crop_results(
+        action_name: str,
+        results_by_crop: dict[str, dict],
+    ) -> dict:
+        """Combines individual results for 2+ crops into a single structured response."""
+        valid_results = {c: res for c, res in results_by_crop.items() if not res.get("error")}
+        if not valid_results:
+            return {
+                "error": "Failed to fetch data for all requested commodities.",
+                "details": {c: res.get("error") for c, res in results_by_crop.items()},
+                "by_commodity": results_by_crop,
+            }
+
+        combined: dict[str, Any] = {
+            "action": action_name,
+            "requested_commodities": list(results_by_crop.keys()),
+            "by_commodity": results_by_crop,
+        }
+
+        # 1. get_today_price & get_price_history
+        if action_name in ("get_today_price", "get_price_history"):
+            merged_records = []
+            for crop, res in results_by_crop.items():
+                if not res.get("error"):
+                    merged_records.extend(res.get("price_records") or [])
+            combined["price_records"] = merged_records
+            combined["total_records_returned"] = len(merged_records)
+
+        # 2. get_highest_price
+        elif action_name == "get_highest_price":
+            highest_recs = []
+            for crop, res in results_by_crop.items():
+                if not res.get("error"):
+                    highest_recs.extend(res.get("highest_records") or [])
+            combined["highest_records"] = highest_recs
+            combined["total_records_analysed"] = sum(
+                res.get("total_records_analysed", 0) for res in results_by_crop.values() if not res.get("error")
+            )
+
+        # 3. get_lowest_price
+        elif action_name == "get_lowest_price":
+            lowest_recs = []
+            for crop, res in results_by_crop.items():
+                if not res.get("error"):
+                    lowest_recs.extend(res.get("lowest_records") or [])
+            combined["lowest_records"] = lowest_recs
+            combined["total_records_analysed"] = sum(
+                res.get("total_records_analysed", 0) for res in results_by_crop.values() if not res.get("error")
+            )
+
+        # 4. get_today_arrival & get_arrival_history
+        elif action_name in ("get_today_arrival", "get_arrival_history"):
+            merged_arrivals = []
+            for crop, res in results_by_crop.items():
+                if not res.get("error"):
+                    merged_arrivals.extend(res.get("arrival_records") or [])
+            combined["arrival_records"] = merged_arrivals
+            combined["total_records_returned"] = len(merged_arrivals)
+            combined["total_arrival_qty"] = sum(
+                float(res.get("total_arrival_qty") or 0) for res in results_by_crop.values() if not res.get("error")
+            )
+
+        # 5. get_price_summary
+        elif action_name == "get_price_summary":
+            stats_by_commodity = {}
+            for crop, res in results_by_crop.items():
+                if not res.get("error"):
+                    crop_stats = res.get("stats", {})
+                    if crop_stats.get("by_commodity"):
+                        stats_by_commodity.update(crop_stats["by_commodity"])
+            combined["stats"] = {
+                "by_commodity": stats_by_commodity,
+                "total_records": sum(
+                    res.get("total_records_analysed", 0) for res in results_by_crop.values() if not res.get("error")
+                ),
+            }
+
+        # 6. get_extreme_arrival
+        elif action_name == "get_extreme_arrival":
+            merged_extreme = []
+            for crop, res in results_by_crop.items():
+                if not res.get("error"):
+                    recs = (
+                        res.get("highest_arrivals")
+                        or res.get("lowest_arrivals")
+                        or res.get("extreme_records")
+                        or []
+                    )
+                    merged_extreme.extend(recs)
+            order = next((res.get("sort_order") for res in results_by_crop.values() if res.get("sort_order")), "highest")
+            combined["sort_order"] = order
+            combined[f"{order}_arrivals"] = merged_extreme
+            combined["extreme_records"] = merged_extreme
+            combined["total_records_analysed"] = sum(
+                res.get("total_records_analysed", 0) for res in results_by_crop.values() if not res.get("error")
+            )
+
+        # 7. get_price_with_nearby
+        elif action_name == "get_price_with_nearby":
+            named_recs = []
+            nearby_recs = []
+            for crop, res in results_by_crop.items():
+                if not res.get("error"):
+                    named_m = res.get("named_market") or {}
+                    if isinstance(named_m, dict):
+                        named_recs.extend(named_m.get("price_records") or [])
+                    nearby_m = res.get("nearby_markets") or {}
+                    if isinstance(nearby_m, dict):
+                        nearby_recs.extend(nearby_m.get("price_records") or [])
+
+            combined["named_market"] = {
+                "action": "get_today_price",
+                "price_records": named_recs,
+                "total_records_returned": len(named_recs),
+            }
+            if nearby_recs:
+                combined["nearby_markets"] = {
+                    "action": "nearby_markets_price",
+                    "price_records": nearby_recs,
+                    "total_records_returned": len(nearby_recs),
+                }
+            else:
+                combined["nearby_markets"] = None
+
+            combined["named_market_records"] = named_recs
+            combined["nearby_market_records"] = nearby_recs
+
+        # Consolidate resolution notices and warnings
+        notices = []
+        warnings = []
+        for crop, res in results_by_crop.items():
+            if res.get("error"):
+                warnings.append(f"{crop.title()}: {res.get('error')}")
+            notice = res.get("resolution", {}).get("latest_price_notice") or (res.get("named_market") or {}).get("resolution", {}).get("latest_price_notice")
+            if notice:
+                notices.append(f"[{crop.title()}]: {notice}")
+
+        combined_res_meta: dict[str, Any] = {}
+        if notices:
+            combined_res_meta["latest_price_notices"] = notices
+        if warnings:
+            combined_res_meta["unavailable_commodities"] = warnings
+
+        # Arrival notice propagation for multi-crop
+        if action_name in ("get_today_arrival", "get_arrival_history", "get_extreme_arrival"):
+            arrival_recs = (
+                combined.get("arrival_records")
+                or combined.get("highest_arrivals")
+                or combined.get("lowest_arrivals")
+                or combined.get("extreme_records")
+                or []
+            )
+            has_arrival_msg = any(
+                res.get("message") == ARRIVAL_AGMARKNET_NOTICE
+                or (res.get("resolution") or {}).get("arrival_notice") == ARRIVAL_AGMARKNET_NOTICE
+                for res in results_by_crop.values()
+            )
+            if has_arrival_msg or not arrival_recs or any(r.get("arrival_quantity") is None for r in arrival_recs):
+                combined["message"] = ARRIVAL_AGMARKNET_NOTICE
+                combined_res_meta["arrival_notice"] = ARRIVAL_AGMARKNET_NOTICE
+
+        if combined_res_meta:
+            combined["resolution"] = combined_res_meta
+
+        return combined
+
+    def _execute_single_action(act_name: str, target_crop: Optional[str] = None) -> dict:
+        nonlocal commodity_name
+        orig_commodity = commodity_name
+        if target_crop is not None:
+            commodity_name = target_crop
+        try:
+            handler = dispatch.get(act_name)
+            if not handler:
+                return {
+                    "error": (
+                        f"Unknown action '{act_name}'. Choose one of: "
+                        + ", ".join(sorted(dispatch.keys()))
+                    ),
+                    "error_code": "UNSUPPORTED_ACTION",
+                    "supported_actions": sorted(dispatch.keys()),
+                }
+            return handler()
+        finally:
+            commodity_name = orig_commodity
+
+    def _execute_action_with_multi_crop(act_name: str) -> dict:
+        if act_name in _COMMODITY_ACTIONS and len(crop_list) > 1:
+            logger.info("Executing action=%s sequentially for %d crops: %s", act_name, len(crop_list), crop_list)
+            crop_results = {}
+            for c in crop_list:
+                crop_results[c] = _execute_single_action(act_name, target_crop=c)
+            return _combine_multi_crop_results(act_name, crop_results)
+        return _execute_single_action(act_name)
+
     if not multi_mode and len(actions) == 1:
         key = actions[0]
-        handler = dispatch.get(key)
-        if handler:
-            return handler()
-        return {
-            "error": (
-                f"Unknown action '{key}'. Choose one of: "
-                + ", ".join(sorted(dispatch.keys()))
-            )
-        }
+        try:
+            return _execute_action_with_multi_crop(key)
+        except Exception as exc:
+            logger.exception("mandi_price_tool action=%s failed", key)
+            return {"error": str(exc), "action": key}
 
     results: dict[str, dict] = {}
     for key in actions:
-        handler = dispatch.get(key)
-        if handler:
-            try:
-                results[key] = handler()
-            except Exception as exc:
-                logger.exception("mandi_price_tool action=%s failed", key)
-                results[key] = {"error": str(exc), "action": key}
-        else:
-            results[key] = {
-                "error": (
-                    f"Unknown action '{key}'. Choose one of: "
-                    + ", ".join(sorted(dispatch.keys()))
-                ),
-                "action": key,
-            }
+        try:
+            results[key] = _execute_action_with_multi_crop(key)
+        except Exception as exc:
+            logger.exception("mandi_price_tool action=%s failed", key)
+            results[key] = {"error": str(exc), "action": key}
 
     return {"actions": actions, "results": results}
 

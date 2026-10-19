@@ -58,3 +58,25 @@ def test_filter_mc_by_commodity_preference_multi_commodity():
     assert len(res) == 2
     kept_names = {d["commodity_name"] for d in res}
     assert kept_names == {"banana", "onion"}
+
+
+def test_filter_mc_by_commodity_preference_whitespace_variation():
+    aid = ObjectId()
+    mc_docs = [
+        {"_id": 1, "commodity_alias_lookup_id": aid, "commodity_name": "ashgourd"},
+        {"_id": 2, "commodity_alias_lookup_id": aid, "commodity_name": "squash"},
+    ]
+    resolved = {"ash gourd": [{"_id": aid, "canonical_name": "squash"}]}
+
+    # When user asks for "ash gourd", "ashgourd" is kept over other varieties
+    res = _filter_mc_by_commodity_preference(mc_docs, ["ash gourd"], resolved)
+    assert len(res) == 1
+    assert res[0]["commodity_name"] == "ashgourd"
+
+
+def test_state_synonyms_andaman_and_nicobar():
+    from ajrasakha.tools.daily_price.daily_market_price import _STATE_SYNONYMS
+    assert "andaman and nicobar" in _STATE_SYNONYMS["andaman and nicobar islands"]
+    assert "andaman and nicobar islands" in _STATE_SYNONYMS["andaman and nicobar"]
+    assert "andaman and nicobar" in _STATE_SYNONYMS["andaman & nicobar"]
+

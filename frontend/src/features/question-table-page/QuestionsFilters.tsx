@@ -96,8 +96,6 @@ import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck, LayoutDashboard } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
-
-import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
 
@@ -133,9 +131,10 @@ type QuestionsFiltersProps = {
   onAnswerModeChange?: (mode: string) => void;
   dedicatedSubTab?: DedicatedSubTab;
   onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
+  isFetching?: boolean;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -145,6 +144,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
+  if (filter.source === "QUESTION_COLLECTION") return "annadatha";
   if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
@@ -155,6 +155,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
+  if (answerMode === "annadatha") return "QUESTION_COLLECTION";
   if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
@@ -191,6 +192,7 @@ export const QuestionsFilters = ({
   onAnswerModeChange,
   dedicatedSubTab,
   onDedicatedSubTabChange,
+  isFetching = false,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -528,6 +530,8 @@ export const QuestionsFilters = ({
     } else if (nextAnswerMode === "training") {
       nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "annadatha") {
+      nextFilters = { ...advanceFilter, source: "QUESTION_COLLECTION", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
@@ -851,6 +855,26 @@ export const QuestionsFilters = ({
           <ViewDropdown view={view} setView={setView} />
         </div>
 
+        {/* Refresh */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0 cursor-pointer"
+                aria-label="Refresh questions"
+              >
+                <RefreshCcw className={`h-4 w-4 text-muted-foreground hover:text-foreground ${isFetching ? "animate-spin text-primary" : ""}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Refresh questions</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         {/* Filter */}
         <TooltipProvider>
           <Tooltip>
@@ -1168,7 +1192,6 @@ export const QuestionsFilters = ({
                     setIsSidebarOpen(false);
                   }}
                 >
-                  <TopRightBadge label="new" left={0} />
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
                       <MessageSquare size={20} />
@@ -1294,13 +1317,6 @@ export const QuestionsFilters = ({
                       </p>
                     </div>
                   </div>
-
-                  <Badge
-                    variant="default"
-                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                  >
-                    New
-                  </Badge>
                 </button>
               )}
 
@@ -1418,7 +1434,6 @@ export const QuestionsFilters = ({
                           <Download size={14} />
                         )}
                         AgriTech Management
-                        <TopRightBadge label="new" left={0} />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56 text-xs max-h-72 overflow-y-auto z-[70]">
@@ -1446,7 +1461,6 @@ export const QuestionsFilters = ({
                       <Download size={14} />
                     )}
                     Chemicals List
-                    <TopRightBadge label="new" left={0} />
                   </button>
                 </div>
               </div>
@@ -1464,7 +1478,6 @@ export const QuestionsFilters = ({
                 onClick={handleClick}
                 className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
               >
-                <TopRightBadge label="new" left={0} />
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
                     <AlertTriangle size={20} />
@@ -1524,7 +1537,6 @@ export const QuestionsFilters = ({
             className="text-green-600 dark:text-green-500 shrink-0"
           />
           <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
-            <TopRightBadge label="new" right={0} />
             Total:{" "}
             <span className="text-gray-900 dark:text-white transition-opacity duration-300">
               {statusSummary?.totalQuestions ?? totalQuestions}
