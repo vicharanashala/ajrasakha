@@ -7187,6 +7187,47 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
+  // NOTE: QuestionService_copy is an unused legacy copy (not imported anywhere). This stub
+  // only exists so it still satisfies IQuestionService; the live implementation is in
+  // QuestionService → QuestionMaintenanceService.backfillMissingEmbeddings.
+  async backfillMissingEmbeddings(_batchLimit = 50): Promise<{
+    scanned: number;
+    questionsUpdated: number;
+    updatedIds: string[];
+    matchedButUnchanged: number;
+    closedWithAnswer: number;
+    closedWithAnswerIds: string[];
+    skippedNoText: number;
+    failed: number;
+  }> {
+    return {
+      scanned: 0,
+      questionsUpdated: 0,
+      updatedIds: [],
+      matchedButUnchanged: 0,
+      closedWithAnswer: 0,
+      closedWithAnswerIds: [],
+      skippedNoText: 0,
+      failed: 0,
+    };
+  }
+
+  async backfillAnswerEmbeddings(_batchLimit = 50): Promise<{
+    scanned: number;
+    updated: number;
+    finalWithQuestion: number;
+    skippedNoText: number;
+    failed: number;
+  }> {
+    return {
+      scanned: 0,
+      updated: 0,
+      finalWithQuestion: 0,
+      skippedNoText: 0,
+      failed: 0,
+    };
+  }
+
   async backfillEmptyEmbeddings(batchLimit = 50): Promise<void> {
     if (!appConfig.ENABLE_AI_SERVER) {
       console.log('<<EMBEDDING_BACKFILL>> AI server disabled, skipping.');
@@ -11634,5 +11675,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       assigned: wrap(assigned),
       availablePaeExperts: wrap(availablePaeExpertItems),
     };
+  }
+
+  async sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ): Promise<{ success: boolean; message: string }> {
+    throw new Error('Method deprecated in QuestionService_copy. Use PaeValidationService directly.');
   }
 }

@@ -5,13 +5,16 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import math
 import os
 import random
 import sys
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Dict, List, Union
 
 import json
@@ -78,14 +81,31 @@ WS_PROBE_COUNT = int(os.getenv("WS_PROBE_COUNT", "15"))  # try 10–20 nearby pi
 WS_PROBE_MAX_WORKERS = int(os.getenv("WS_PROBE_MAX_WORKERS", "5"))
 # Max distance (km) from query point to Annam WS station. Beyond this, fall back to IMD.
 WS_MAX_DISTANCE_KM = float(os.getenv("WS_MAX_DISTANCE_KM", "10"))
+# The history payload is ~700 KB (a reading every ~5 min for 7 days); every tool call and every
+# probe pin re-fetches it, so keep responses for a few minutes. 0 disables the cache.
+WS_CACHE_TTL_SECONDS = float(os.getenv("WS_CACHE_TTL_SECONDS", "300"))
+
+# Annam timestamps are IST wall-clock, and "today" for a farmer is the IST day. The server
+# usually runs in UTC, where datetime.now() is still "yesterday" between 00:00 and 05:30 IST.
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _now_ist() -> datetime:
+    """Current IST wall-clock time as a naive datetime (comparable with Annam timestamps)."""
+    return datetime.now(_IST).replace(tzinfo=None)
+
+
+def _today_ist_str() -> str:
+    return _now_ist().strftime("%Y-%m-%d")
+
 
 # Human-facing data source labels (WS nearest sensors == Annam weather stations)
 DATA_SOURCE_IMD = "India Meteorological Department (IMD)"
 DATA_SOURCE_ANNAM = "Annam Weather Station"
 
 LOCATION_UNRESOLVED_MESSAGE = (
-    "Latitude, Longitude is not available for a given district, "
-    "so that we are unable to retrieve lat long to provide accurate advisory."
+    "Sorry, we could not find the weather for this place right now. "
+    "Please tell us your district and state, or check the location in your profile, and ask again."
 )
 
 _STATION_ID_FILE = os.path.join(_current_dir, "station_id.json")
@@ -199,6 +219,17 @@ def _fmt_rain_val(val: Any) -> str:
     if not s or s.upper() in {"NIL", "NA", "N/A", "NONE", "NULL", "TRACE", "TR"}:
         return "0.0"
     return s
+
+
+def _first_present(*values: Any, default: Any = None) -> Any:
+    """First value that is not None/''/NA. Unlike an `or` chain this keeps legitimate 0 / 0.0 readings."""
+    for v in values:
+        if v is None:
+            continue
+        if isinstance(v, str) and v.strip().upper() in {"", "N/A", "NA", "NONE", "NULL"}:
+            continue
+        return v
+    return default
 
 
 def _is_annam_source(raw: Any) -> bool:
@@ -583,8 +614,40 @@ def _ws_row_has_observation(row: dict[str, Any]) -> bool:
     return _ws_safe_float(row.get("Temperature")) is not None
 
 
+_WS_HISTORY_CACHE: dict[tuple[float, float], tuple[float, dict[str, Any] | None]] = {}
+_WS_HISTORY_CACHE_LOCK = threading.Lock()
+
+
 def _fetch_ws_history(lat: float, lon: float) -> dict[str, Any] | None:
-    """Fetch nearest sensor latest + last-7-day history. Returns None on failure/empty."""
+    """Cached wrapper around the history API (probe pins are fetched in parallel threads).
+
+    Failures are not cached, empty results are (the ~10 km miss is the common case for probes).
+    Callers mutate `nearby` rows, so those are copied; `history` rows are treated as read-only.
+    """
+    key = (round(lat, 4), round(lon, 4))
+    now = time.monotonic()
+    if WS_CACHE_TTL_SECONDS > 0:
+        with _WS_HISTORY_CACHE_LOCK:
+            hit = _WS_HISTORY_CACHE.get(key)
+        if hit and now - hit[0] < WS_CACHE_TTL_SECONDS:
+            cached = hit[1]
+            if cached is None:
+                return None
+            return {"nearby": copy.deepcopy(cached["nearby"]), "history": cached["history"]}
+
+    fetched, ok = _fetch_ws_history_uncached(lat, lon)
+    if ok and WS_CACHE_TTL_SECONDS > 0:
+        with _WS_HISTORY_CACHE_LOCK:
+            if len(_WS_HISTORY_CACHE) > 256:
+                _WS_HISTORY_CACHE.clear()
+            _WS_HISTORY_CACHE[key] = (now, fetched)
+    if fetched is None:
+        return None
+    return {"nearby": copy.deepcopy(fetched["nearby"]), "history": fetched["history"]}
+
+
+def _fetch_ws_history_uncached(lat: float, lon: float) -> tuple[dict[str, Any] | None, bool]:
+    """Fetch nearest sensor latest + last-7-day history. Returns (payload|None, request_succeeded)."""
     url = f"{WS_BASE_URL}{WS_HISTORY_PATH}"
     try:
         resp = requests.get(
@@ -597,17 +660,17 @@ def _fetch_ws_history(lat: float, lon: float) -> dict[str, Any] | None:
         data = resp.json()
     except Exception as exc:
         logger.warning("WS history API failed for lat=%s lon=%s: %s", lat, lon, exc)
-        return None
+        return None, False
 
     if not isinstance(data, dict):
-        return None
+        return None, False
     nearby_rows = _ws_nearby_rows(data)
     history_rows = _ws_history_rows(data)
     if not nearby_rows and not history_rows:
         logger.info("WS history API returned empty nearby/history for lat=%s lon=%s", lat, lon)
-        return None
+        return None, True
     # Re-normalize so callers always see list-shaped nearby.
-    return {"nearby": nearby_rows, "history": history_rows}
+    return {"nearby": nearby_rows, "history": history_rows}, True
 
 
 def _fetch_ws_nearby(lat: float, lon: float) -> dict[str, Any] | None:
@@ -637,7 +700,7 @@ def _fetch_ws_nearby(lat: float, lon: float) -> dict[str, Any] | None:
 def _map_ws_reading_to_today(row: dict[str, Any], *, source_label: str = DATA_SOURCE_ANNAM) -> dict[str, Any]:
     """Normalize a WS nearby/history row into IMD today_raw-compatible keys."""
     ts = _ws_parse_timestamp(row.get("TimeStamp"))
-    date_str = ts.strftime("%Y-%m-%d") if ts else datetime.now().strftime("%Y-%m-%d")
+    date_str = ts.strftime("%Y-%m-%d") if ts else _today_ist_str()
     temp = _ws_safe_float(row.get("Temperature"))
     humidity = _ws_safe_float(row.get("Humidity"))
     rainfall = _ws_safe_float(row.get("Rainfall"))
@@ -655,6 +718,10 @@ def _map_ws_reading_to_today(row: dict[str, Any], *, source_label: str = DATA_SO
         "station_code": row.get("DeviceId") or row.get("Annam_ID"),
         "observed_min_temp": temp,
         "observed_max_temp": temp,
+        # Live reading. observed_min/max_temp get widened to the day's range from history, so
+        # consumers that want "right now" must read these instead.
+        "current_temp_c": temp,
+        "humidity_pct": humidity,
         "past_24hrs_rainfall": rainfall if rainfall is not None else 0.0,
         "humidity_0830": humidity,
         "humidity_1730": humidity,
@@ -684,48 +751,134 @@ def _aggregate_ws_history_by_date(
     default_meta: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Group history readings by calendar date and aggregate min/max/rainfall/humidity."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in history_rows:
-        if not isinstance(row, dict):
-            continue
-        ts = _ws_parse_timestamp(row.get("TimeStamp"))
-        if not ts:
-            continue
-        d = ts.strftime("%Y-%m-%d")
-        buckets.setdefault(d, []).append(row)
+    readings = _ws_sorted_readings(history_rows)
+    deltas = _ws_rain_deltas(readings)
+    today_str = _today_ist_str()
+
+    buckets: dict[str, list[tuple[datetime, dict[str, Any], float]]] = {}
+    for (ts, row), delta in zip(readings, deltas):
+        buckets.setdefault(ts.strftime("%Y-%m-%d"), []).append((ts, row, delta))
 
     daily: dict[str, dict[str, Any]] = {}
-    for date_str, rows in buckets.items():
+    for date_str, items in buckets.items():
+        rows = [row for _, row, _ in items]
         temps = [t for t in (_ws_safe_float(r.get("Temperature")) for r in rows) if t is not None]
-        hums = [h for h in (_ws_safe_float(r.get("Humidity")) for r in rows) if h is not None]
-        rains = [r for r in (_ws_safe_float(x.get("Rainfall")) for x in rows) if r is not None]
-        # Prefer latest reading metadata (API is time-descending).
-        latest = dict(rows[0])
+        # Items are time-ascending, so the last one carries the freshest metadata.
+        latest = dict(rows[-1])
         if default_meta and isinstance(default_meta, dict):
             for k in ("City", "District", "State", "DistanceKM"):
                 if not latest.get(k) and default_meta.get(k):
                     latest[k] = default_meta[k]
         min_t = min(temps) if temps else None
         max_t = max(temps) if temps else None
-        rain_sum = sum(rains) if rains else 0.0
+        rain_total = round(sum(delta for _, _, delta in items), 1)
+        coverage_h = (items[-1][0] - items[0][0]).total_seconds() / 3600.0
         daily[date_str] = {
             "date": date_str,
             "station": _ws_station_label(latest),
             "station_code": latest.get("DeviceId") or latest.get("Annam_ID"),
+            "nearest_station_lat": _ws_safe_float(latest.get("Latitude")),
+            "nearest_station_lon": _ws_safe_float(latest.get("Longitude")),
             "observed_min_temp": min_t,
             "observed_max_temp": max_t,
             "min_temp": min_t,
             "max_temp": max_t,
-            "past_24hrs_rainfall": rain_sum,
-            "observed_past_24hrs_rainfall": rain_sum,
-            "humidity_0830": hums[0] if hums else None,
-            "humidity_1730": hums[-1] if hums else None,
+            "past_24hrs_rainfall": rain_total,
+            "observed_past_24hrs_rainfall": rain_total,
+            "humidity_0830": _ws_humidity_near(items, date_str, 8, 30),
+            "humidity_1730": _ws_humidity_near(items, date_str, 17, 30),
             "forecast": None,
             "observation_count": len(rows),
+            "coverage_hours": round(coverage_h, 1),
+            # The oldest day in the 7-day window starts mid-day, so its min/max/rain are incomplete.
+            "is_partial_day": date_str != today_str and coverage_h < 20.0,
             "latest_timestamp": latest.get("TimeStamp"),
             "data_source": DATA_SOURCE_ANNAM,
         }
     return daily
+
+
+def _ws_sorted_readings(history_rows: list[dict[str, Any]]) -> list[tuple[datetime, dict[str, Any]]]:
+    """Parse + sort history rows oldest → newest (the API documents newest-first, but don't rely on it)."""
+    parsed: list[tuple[datetime, dict[str, Any]]] = []
+    for row in history_rows:
+        if not isinstance(row, dict):
+            continue
+        ts = _ws_parse_timestamp(row.get("TimeStamp"))
+        if ts:
+            parsed.append((ts, row))
+    parsed.sort(key=lambda p: p[0])
+    return parsed
+
+
+# Largest rise accepted between two consecutive readings (~5 min apart); anything bigger is a sensor glitch.
+_WS_MAX_RAIN_STEP_MM = 100.0
+
+
+def _ws_rain_deltas(readings: list[tuple[datetime, dict[str, Any]]]) -> list[float]:
+    """Rain that fell at each reading, derived from Annam's accumulating `Rainfall` counter.
+
+    `Rainfall` is NOT per-reading depth: it is a running total that resets to 0 (on the hour in the
+    data we have seen), e.g. 0.5 → 2.5 → 4.0 → 5.0 → 0.0. Summing the raw values therefore counts the
+    same rain dozens of times. Instead take the rise between consecutive readings; a drop means the
+    counter reset, so the new value is rain that fell since the reset. The very first reading only
+    sets the baseline. Computed over the whole series so day boundaries need no special-casing.
+    """
+    deltas: list[float] = []
+    prev: float | None = None
+    for _, row in readings:
+        cur = _ws_safe_float(row.get("Rainfall"))
+        if cur is None or cur < 0:
+            deltas.append(0.0)
+            continue
+        if prev is None:
+            delta = 0.0
+        elif cur >= prev:
+            delta = cur - prev
+        else:
+            delta = cur
+        deltas.append(delta if delta <= _WS_MAX_RAIN_STEP_MM else 0.0)
+        prev = cur
+    return deltas
+
+
+def _ws_rainfall_last_24h(history_rows: list[dict[str, Any]], *, now: datetime | None = None) -> float | None:
+    """Rain over the 24 hours before `now` (IST). None when the station has gone quiet (no fresh reading)."""
+    readings = _ws_sorted_readings(history_rows)
+    if not readings:
+        return None
+    now = now or _now_ist()
+    if now - readings[-1][0] > timedelta(hours=6):
+        return None
+    cutoff = now - timedelta(hours=24)
+    total = sum(d for (ts, _), d in zip(readings, _ws_rain_deltas(readings)) if ts > cutoff)
+    return round(total, 1)
+
+
+def _ws_humidity_near(
+    items: list[tuple[datetime, dict[str, Any], float]],
+    date_str: str,
+    hour: int,
+    minute: int,
+    *,
+    max_gap_minutes: int = 45,
+) -> float | None:
+    """Humidity from the reading closest to hour:minute on `date_str`, if one exists within the tolerance.
+
+    Returns None for a time that has not happened yet (today's 17:30 reading at 15:00).
+    """
+    target = datetime.strptime(f"{date_str} {hour:02d}:{minute:02d}", "%Y-%m-%d %H:%M")
+    if target > _now_ist():
+        return None
+    best: tuple[float, float] | None = None
+    for ts, row, _ in items:
+        hum = _ws_safe_float(row.get("Humidity"))
+        if hum is None:
+            continue
+        gap = abs((ts - target).total_seconds()) / 60.0
+        if gap <= max_gap_minutes and (best is None or gap < best[0]):
+            best = (gap, hum)
+    return best[1] if best else None
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -845,7 +998,7 @@ def _get_ws_at_coords(lat: float, lon: float) -> dict[str, Any] | None:
         nearby0 = nearby_rows[0]
 
     daily = _aggregate_ws_history_by_date(history_rows, default_meta=nearby0)
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = _today_ist_str()
 
     today_raw = None
     if nearby0 and _ws_row_has_observation(nearby0):
@@ -860,7 +1013,15 @@ def _get_ws_at_coords(lat: float, lon: float) -> dict[str, Any] | None:
                 today_raw["observed_max_temp"] = day_agg["observed_max_temp"]
                 today_raw["forecast_max_temp"] = day_agg["observed_max_temp"]
             if day_agg.get("past_24hrs_rainfall") is not None:
-                today_raw["past_24hrs_rainfall"] = day_agg["past_24hrs_rainfall"]
+                today_raw["rainfall_since_midnight"] = day_agg["past_24hrs_rainfall"]
+            # Real 08:30 / 17:30 readings (None until that time has passed); the live value is humidity_pct.
+            today_raw["humidity_0830"] = day_agg.get("humidity_0830")
+            today_raw["humidity_1730"] = day_agg.get("humidity_1730")
+        # The latest reading's Rainfall is just the current counter value (it resets hourly),
+        # so the real "past 24 hours" figure has to come from the history series.
+        rain_24h = _ws_rainfall_last_24h(history_rows)
+        if rain_24h is not None:
+            today_raw["past_24hrs_rainfall"] = rain_24h
     elif daily:
         # No nearby reading: use most recent daily bucket as today.
         latest_date = max(daily.keys())
@@ -868,6 +1029,9 @@ def _get_ws_at_coords(lat: float, lon: float) -> dict[str, Any] | None:
         today_raw.setdefault("forecast_min_temp", today_raw.get("observed_min_temp"))
         today_raw.setdefault("forecast_max_temp", today_raw.get("observed_max_temp"))
         today_raw["data_source"] = DATA_SOURCE_ANNAM
+        rain_24h = _ws_rainfall_last_24h(history_rows)
+        if rain_24h is not None:
+            today_raw["past_24hrs_rainfall"] = rain_24h
 
     if not today_raw and not daily:
         return None
@@ -919,10 +1083,16 @@ def _probe_ws_within_radius(
                 continue
             if not result:
                 continue
-            # Cancel remaining probes once we have a hit.
+            result = _rebase_ws_distances_to_query(result, lat, lon)
+            # A probe pin can sit up to `radius_km` from the query, so the station it finds may be
+            # twice that far from the farmer. Keep looking instead of returning (and letting the
+            # caller reject) the first hit that is out of range.
+            hit_dist = _ws_safe_float((result.get("today") or {}).get("distance_to_station_km"))
+            if hit_dist is None or hit_dist > WS_MAX_DISTANCE_KM:
+                continue
+            # Cancel remaining probes once we have a usable hit.
             for pending in futures:
                 pending.cancel()
-            result = _rebase_ws_distances_to_query(result, lat, lon)
             result["ws_probe"] = {
                 "used": True,
                 "query_lat": lat,
@@ -1086,6 +1256,43 @@ def _lookup_history_day(
     return None
 
 
+def _history_coverage_notice(
+    date_list: list[str],
+    history_by_date: dict[str, dict[str, Any]],
+    *,
+    today_raw: dict[str, Any] | None,
+    today_str: str,
+    place_label: str,
+) -> str | None:
+    """Explain which requested past days Annam history could not cover (or only partly covered).
+
+    History exists only for the last 7 days of the nearest Annam station; without this note a range
+    such as "last 10 days" would silently come back shorter than asked.
+    """
+    past_days = [d for d in date_list if d < today_str]
+    missing = [d for d in past_days if not _lookup_history_day(history_by_date, d, today_raw=today_raw)]
+    partial = [d for d in past_days if (history_by_date.get(d) or {}).get("is_partial_day")]
+    parts: list[str] = []
+    if missing:
+        parts.append(
+            f"Notice: No station records are available for {', '.join(missing)} at {place_label} "
+            f"(Annam station history only covers the last 7 days)."
+        )
+    if partial:
+        parts.append(
+            f"Records for {', '.join(partial)} are incomplete (the station history starts partway through that day), "
+            f"so its min/max temperature and rainfall may be understated."
+        )
+    return " ".join(parts) or None
+
+
+def _append_notice(payload: dict[str, Any], text: str | None) -> None:
+    if not text:
+        return
+    existing = payload.get("notice")
+    payload["notice"] = f"{existing} {text}" if existing else text
+
+
 def _build_ws_nearest_station_context(
     lat: float,
     lon: float,
@@ -1177,11 +1384,11 @@ async def get_current_and_forecast_info(
 
         if bundle.get("success"):
             today_raw = bundle.get("today", {}) or {}
-            today_str = datetime.now().strftime("%Y-%m-%d")
+            today_str = _today_ist_str()
             try:
                 base_dt = datetime.strptime(today_str, "%Y-%m-%d")
             except Exception:
-                base_dt = datetime.now()
+                base_dt = _now_ist()
 
             # Build 7-day forecast array with explicit dates
             full_7day_forecast = [
@@ -1313,6 +1520,9 @@ async def get_current_and_forecast_info(
                         ranged_items.append(match)
 
                 result_payload["historical_weather_range"] = ranged_items
+                _append_notice(result_payload, _history_coverage_notice(
+                    date_list, history_by_date, today_raw=today_raw, today_str=today_str, place_label=place_label,
+                ))
 
             # Case C: Multi-day forecast / next N days
             elif qt == "forecast" or (forecast_days > 1 and qt != "today" and not target_date):
@@ -1364,7 +1574,7 @@ async def get_current_and_forecast_info(
 
         if target_date:
             m_target = next((item for item in full_7day_forecast if item.get("date") == target_date), None)
-            today_str = datetime.now().strftime("%Y-%m-%d")
+            today_str = _today_ist_str()
             if target_date < today_str:
                 label_prefix = "Historical weather"
                 cond_prefix = "Condition"
@@ -1391,7 +1601,7 @@ async def get_current_and_forecast_info(
                 else:
                     human_sum = f"Weather forecast for {target_date} in {place_label}: Official IMD 7-day trend shows temperatures between {today_raw.get('forecast_min_temp', '23')}°C and {today_raw.get('forecast_max_temp', '29')}°C with {today_raw.get('forecast', 'intermittent rain')}."
         elif from_date:
-            today_str = datetime.now().strftime("%Y-%m-%d")
+            today_str = _today_ist_str()
             if qt == "previous" or from_date < today_str:
                 # Use the historical range records, not today_raw
                 hist_range = result_payload.get("historical_weather_range") or []
@@ -1414,7 +1624,7 @@ async def get_current_and_forecast_info(
             else:
                 human_sum = f"Weather forecast range ({from_date} to {to_date or today_str}) for {place_label}: Max Temp: {today_raw.get('forecast_max_temp', 'N/A')}°C, Min Temp: {today_raw.get('forecast_min_temp', 'N/A')}°C."
         elif qt == "previous":
-            today_str = datetime.now().strftime("%Y-%m-%d")
+            today_str = _today_ist_str()
             obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
             obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
             human_sum = f"Historical weather for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {_fmt_rain_val(today_raw.get('past_24hrs_rainfall', '0.0'))} mm."
@@ -1467,7 +1677,7 @@ async def get_current_and_forecast_info(
             res_dict["target_date"] = target_date
         if from_date:
             res_dict["from_date"] = from_date
-            res_dict["to_date"] = to_date or datetime.now().strftime("%Y-%m-%d")
+            res_dict["to_date"] = to_date or _today_ist_str()
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
         # Nearest stations lookup from station_id.json and aws_station_id.json
@@ -1676,12 +1886,12 @@ async def get_rainfall_and_monsoon_info(
         history_by_date = bundle.get("history_by_date") or {}
 
         today_raw = bundle.get("today", {}) if bundle.get("success") else {}
-        today_str = today_raw.get("date") or datetime.now().strftime("%Y-%m-%d")
+        today_str = today_raw.get("date") or _today_ist_str()
 
         try:
             base_dt = datetime.strptime(today_str, "%Y-%m-%d")
         except Exception:
-            base_dt = datetime.now()
+            base_dt = _now_ist()
 
         # Build 7-day rainfall forecast list combining Station City Forecast + Subdivisional 7-Day Rainfall Forecast (API 16)
         day1_sub = subdiv_fc_by_day.get(1, {})
@@ -1835,6 +2045,10 @@ async def get_rainfall_and_monsoon_info(
 
             filtered_payload["timeframe"] = f"date_range ({eff_from_date} to {eff_to_date})"
             filtered_payload["rainfall_range"] = ranged_rf
+            if ranged_rf:
+                _append_notice(filtered_payload, _history_coverage_notice(
+                    date_list, history_by_date, today_raw=today_raw, today_str=today_str, place_label=place_label,
+                ))
             if not ranged_rf:
                 # Historical data beyond past 24 hrs is NOT available — show only limitation + 24 hr reading.
                 notice = (
@@ -2067,12 +2281,12 @@ async def get_temperature_info(
         history_by_date = fc.get("history_by_date") or {}
 
         today_fc = fc.get("today", {}) if fc.get("success") else {}
-        today_str = today_fc.get("date") or datetime.now().strftime("%Y-%m-%d")
+        today_str = today_fc.get("date") or _today_ist_str()
 
         try:
             base_dt = datetime.strptime(today_str, "%Y-%m-%d")
         except Exception:
-            base_dt = datetime.now()
+            base_dt = _now_ist()
 
         # Build 7-day temperature & weather condition list
         temp_7day_list = [
@@ -2137,8 +2351,14 @@ async def get_temperature_info(
         has_station_within_50km = bool(aws_valid or imd_valid or (fc.get("data_source_today") == "ws" and bool(today_fc)))
 
         if fc.get("data_source_today") == "ws" and today_fc:
-            curr_temp = today_fc.get("observed_max_temp") or today_fc.get("observed_min_temp") or temp_obs.get("temperature_c") or "N/A"
-            humidity = today_fc.get("humidity_0830") or temp_obs.get("humidity_pct") or "N/A"
+            # Live reading first: observed_max/min_temp are the day's range, not "right now".
+            curr_temp = _first_present(
+                today_fc.get("current_temp_c"), temp_obs.get("temperature_c"),
+                today_fc.get("observed_max_temp"), today_fc.get("observed_min_temp"), default="N/A",
+            )
+            humidity = _first_present(
+                today_fc.get("humidity_pct"), today_fc.get("humidity_0830"), temp_obs.get("humidity_pct"), default="N/A",
+            )
             weather_msg = today_fc.get("forecast") or temp_obs.get("weather_description") or temp_obs.get("weather_message") or "N/A"
             feel_like = temp_obs.get("feel_like_c") or "N/A"
         else:
@@ -2227,6 +2447,9 @@ async def get_temperature_info(
 
             timeframe_payload["selected_timeframe"] = f"date_range ({eff_from_date or today_str} to {eff_to_date or today_str})"
             timeframe_payload["temperature_range"] = ranged_temp
+            _append_notice(timeframe_payload, _history_coverage_notice(
+                date_list, history_by_date, today_raw=today_fc, today_str=today_str, place_label=place_label,
+            ))
             if not ranged_temp:
                 timeframe_payload["notice"] = (
                     f"Notice: Historical daily temperature observations are not available in station records for {place_label} "
@@ -2400,14 +2623,18 @@ async def get_location_weather(
             nearby_data = None
             nearby_summary_str = None
 
-        curr_t = (
-            today_fc.get("observed_max_temp")
-            or today_fc.get("observed_min_temp")
-            or cur_st.get("temperature_c")
-            or aws_st.get("temperature_c")
-            or "N/A"
+        curr_t = _first_present(
+            today_fc.get("current_temp_c"),
+            cur_st.get("temperature_c"),
+            aws_st.get("temperature_c"),
+            today_fc.get("observed_max_temp"),
+            today_fc.get("observed_min_temp"),
+            default="N/A",
         )
-        hum = today_fc.get("humidity_0830") or cur_st.get("humidity_pct") or aws_st.get("humidity_pct") or "N/A"
+        hum = _first_present(
+            today_fc.get("humidity_pct"), today_fc.get("humidity_0830"),
+            cur_st.get("humidity_pct"), aws_st.get("humidity_pct"), default="N/A",
+        )
         w_msg = (
             today_fc.get("forecast")
             or cur_st.get("weather_description")

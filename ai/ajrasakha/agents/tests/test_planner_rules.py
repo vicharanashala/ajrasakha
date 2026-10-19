@@ -226,6 +226,7 @@ def test_crop_still_asks_first_time():
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+        stored_location={"state": "Punjab", "district": "Ludhiana"},
     )
     assert plan["is_complete"] is False
     assert "crop" in (plan.get("missing_info") or [])
@@ -253,6 +254,7 @@ def test_crop_required_after_clarify_does_not_satisfy_requirement():
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+        stored_location={"state": "Punjab", "district": "Ludhiana"},
     )
     assert plan["is_complete"] is False
     assert plan["entities"].get("crop") is None
@@ -276,6 +278,7 @@ def test_crop_clarify_reply_still_extracts_cotton():
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+        stored_location={"state": "Punjab", "district": "Ludhiana"},
     )
     assert plan["is_complete"] is True
     assert plan["entities"]["crop"] == "Cotton"

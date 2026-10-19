@@ -24,9 +24,11 @@ import type {
 } from '../interfaces/QuestionValidationTypes.js';
 import {resolveExpertMeta} from './helpers/reportHelpers.js';
 import {submissionToQueueItem} from './helpers/queueItem.js';
+import {sendPaeMilestoneEmail} from '#root/utils/sendPaeMilestoneEmail.js';
+import type {PaeExpertMilestoneData} from '#root/utils/buildPaeMilestonePdfReport.js';
 
 /**
- * PAE (Pre-Answer Expert) validation workflow extracted from QuestionService:
+ * PAE (Principal Agri Expert) validation workflow extracted from QuestionService:
  * the review-assignment cron, manual reviewer assignment/removal, the reviewer's
  * assigned-questions view, processing a validation decision, timelines and queue
  * details. QuestionService keeps thin delegating wrappers for each of these.
@@ -524,6 +526,16 @@ export class PaeValidationService extends BaseService {
         );
       });
 
+      // ─────────────────────────────────────────────────────────────
+      // POST-SUBMISSION EVENT: Check milestone (50, 100, 150...) & send report
+      // ─────────────────────────────────────────────────────────────
+      this.checkAndTriggerPaeMilestoneEmail(paeExpertId).catch(err => {
+        console.error(
+          `[processPaeValidation] Failed to trigger PAE milestone report check for ${paeExpertId}:`,
+          err,
+        );
+      });
+
       return {
         success: true,
         message: `Question ${questionId} has been approved and PAE validation completed`,
@@ -610,11 +622,109 @@ export class PaeValidationService extends BaseService {
       // Note: Question remains in user's paeValidationAssigned for further work
       // The moderator will need to address the feedback
 
+      // ─────────────────────────────────────────────────────────────
+      // POST-SUBMISSION EVENT: Check milestone (50, 100, 150...) & send report
+      // ─────────────────────────────────────────────────────────────
+      this.checkAndTriggerPaeMilestoneEmail(paeExpertId).catch(err => {
+        console.error(
+          `[processPaeValidation] Failed to trigger PAE milestone report check for ${paeExpertId}:`,
+          err,
+        );
+      });
+
       return {
         success: true,
         message: `Feedback noted for question ${questionId}. The question remains assigned for further work.`,
       };
     }
+  }
+
+  /**
+   * Checks if the PAE expert has reached a submission milestone (multiples of 50: 50, 100, 150...)
+   * and triggers the milestone report email with PDF attachment in the background.
+   */
+  async checkAndTriggerPaeMilestoneEmail(paeExpertId: string): Promise<void> {
+    try {
+      const completedCount =
+        await this.questionSubmissionRepo.getCompletedPaeValidationCount(
+          paeExpertId,
+        );
+
+      if (completedCount > 0 && completedCount % 50 === 0) {
+        console.log(
+          `[PaeValidationService] 🎯 PAE Expert ${paeExpertId} reached milestone of ${completedCount} completed submissions. Triggering report email...`,
+        );
+        await this.sendPaeMilestoneReport(paeExpertId, completedCount);
+      }
+    } catch (error: any) {
+      console.error(
+        `[PaeValidationService] Error in checkAndTriggerPaeMilestoneEmail for ${paeExpertId}:`,
+        error?.message,
+      );
+    }
+  }
+
+  /**
+   * Generates and dispatches the milestone performance PDF report for the given PAE expert.
+   */
+  async sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
+  ): Promise<{success: boolean; message: string}> {
+    const user = await this.userRepo.findById(paeExpertId);
+    if (!user) {
+      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
+    }
+
+    const count =
+      milestoneCount ??
+      (await this.questionSubmissionRepo.getCompletedPaeValidationCount(
+        paeExpertId,
+      ));
+
+    const dashboardStats = await this.questionRepo.getPaeAnswerDashboard(
+      paeExpertId,
+      1,
+      10,
+    );
+
+    const data: PaeExpertMilestoneData = {
+      user: {
+        _id: user._id?.toString() ?? paeExpertId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        university: user.university,
+        preference: user.preference,
+        kvkCovered: user.kvkCovered,
+        createdAt: user.createdAt,
+        lastCheckInAt: user.lastCheckInAt,
+      },
+      metrics: {
+        milestoneCount: count,
+        assignedCount: dashboardStats.assignedCount ?? 0,
+        submittedCount: dashboardStats.submittedCount ?? 0,
+        pendingCount: Math.max(
+          0,
+          (dashboardStats.assignedCount ?? 0) -
+            (dashboardStats.submittedCount ?? 0),
+        ),
+        feedbackAssigned: dashboardStats.feedbackAssigned ?? 0,
+        feedbackCompleted: dashboardStats.feedbackCompleted ?? count,
+        feedbackPending: dashboardStats.feedbackPending ?? 0,
+      },
+      generatedAt: new Date(),
+    };
+
+    const result = await sendPaeMilestoneEmail({
+      data,
+      recipients,
+    });
+
+    return result;
   }
 
     /** Data for the dedicated pae validation tab. **/

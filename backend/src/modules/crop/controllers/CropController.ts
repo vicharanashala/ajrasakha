@@ -17,6 +17,7 @@ import {
   UploadedFile,
   Res,
   ContentType,
+  UseBefore,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -43,6 +44,7 @@ import { CsvUploadFileOptions, ImageUploadFileOptions } from '../classes/validat
 import { uploadMediaFile, deleteMediaByUrl } from '#root/modules/dashboard/utils/uploadMedia.js';
 import { startCropBulkProcessing, startChemicalBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
 import * as XLSX from 'xlsx';
+import { FlexibleAuth } from '#root/shared/index.js';
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -239,6 +241,16 @@ export class CropController {
     statusCode: 404,
     description: 'Not found - Crop with specified ID not found',
   })
+  @Get('/get-all-crops-client')
+  @HttpCode(200)
+  @UseBefore(FlexibleAuth)
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Get All crops data' })
+  async getCropsForClient(){
+    return await this.cropService.getAllCrops()
+  }
+
+
   @Get('/:cropId')
   @HttpCode(200)
   @Authorized()
@@ -623,6 +635,7 @@ export class CropController {
       data: updated,
     };
   }
+
 
 }
 

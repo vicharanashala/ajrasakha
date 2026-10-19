@@ -155,9 +155,10 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         isAutoAllocate: autoAllocate,
       });
       toast.dismiss(toastId);
-      toast.success("Duplicate cancelled. Question reopened. Please refresh the page to see updated changes.");
+      toast.success("Duplicate cancelled. Question reopened.");
       setCancelDuplicateOpen(false);
       resetCancelDuplicate();
+      goBack();
     } catch (error) {
       console.error(error);
       toast.dismiss(toastId);
@@ -269,7 +270,6 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <div className="flex flex-wrap justify-end gap-2">
               {currentUser.role != "expert" &&
                 currentUser.role !== "tester" &&
-                isQuestionAllocatedToExpert &&
                 question.status !== "closed" && (
                   <Button
                     size="sm"
@@ -715,7 +715,11 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   <span className="text-muted-foreground font-medium">
                     Domain:{" "}
                   </span>
-                  <span>{question.referenceQuestionData.details?.domain}</span>
+                  <span>
+                    {Array.isArray(question.referenceQuestionData.details?.domain)
+                      ? question.referenceQuestionData.details.domain.join(", ")
+                      : question.referenceQuestionData.details?.domain || "-"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground font-medium">

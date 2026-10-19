@@ -9,7 +9,14 @@ import { ChevronDown, X } from "lucide-react";
 // Sends `filter[<field>_min]` / `filter[<field>_max]`, either end optional — confirmed by the
 // backend as the real range convention (numeric fields take `_min`/`_max`, date fields
 // `_from`/`_to`, see DateRangeColumnFilter.tsx).
-export default function RangeFilter({ label, min, max, onChange, minBound, maxBound }) {
+//
+// `unit="month"` swaps the two plain number inputs for month-name dropdowns (Jan…Dec, still
+// sending 1–12 on the wire) — picking a month from a list beats typing its number.
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+export default function RangeFilter({ label, min, max, onChange, minBound, maxBound, unit }) {
   const [open, setOpen] = useState(false);
   const [draftMin, setDraftMin] = useState(min ?? "");
   const [draftMax, setDraftMax] = useState(max ?? "");
@@ -74,25 +81,53 @@ export default function RangeFilter({ label, min, max, onChange, minBound, maxBo
           className="rounded-lg border border-border bg-card shadow-xl p-2 flex flex-col gap-2"
         >
           <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              min={minBound}
-              max={maxBound}
-              value={draftMin}
-              onChange={(e) => setDraftMin(e.target.value)}
-              placeholder="Min"
-              className="w-full bg-input border border-border rounded px-1.5 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <span className="text-[10px] text-muted-foreground">–</span>
-            <input
-              type="number"
-              min={minBound}
-              max={maxBound}
-              value={draftMax}
-              onChange={(e) => setDraftMax(e.target.value)}
-              placeholder="Max"
-              className="w-full bg-input border border-border rounded px-1.5 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+            {unit === "month" ? (
+              <>
+                <select
+                  value={draftMin}
+                  onChange={(e) => setDraftMin(e.target.value)}
+                  className="w-full bg-input border border-border rounded px-1.5 py-1 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">From</option>
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={name} value={i + 1}>{name}</option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-muted-foreground">–</span>
+                <select
+                  value={draftMax}
+                  onChange={(e) => setDraftMax(e.target.value)}
+                  className="w-full bg-input border border-border rounded px-1.5 py-1 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">To</option>
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={name} value={i + 1}>{name}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  min={minBound}
+                  max={maxBound}
+                  value={draftMin}
+                  onChange={(e) => setDraftMin(e.target.value)}
+                  placeholder="Min"
+                  className="w-full bg-input border border-border rounded px-1.5 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <span className="text-[10px] text-muted-foreground">–</span>
+                <input
+                  type="number"
+                  min={minBound}
+                  max={maxBound}
+                  value={draftMax}
+                  onChange={(e) => setDraftMax(e.target.value)}
+                  placeholder="Max"
+                  className="w-full bg-input border border-border rounded px-1.5 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </>
+            )}
           </div>
           <div className="flex items-center justify-between">
             <button

@@ -12,6 +12,8 @@ import {
   BadRequestError,
   CurrentUser,
   ForbiddenError,
+  ContentType,
+  Res,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -855,6 +857,74 @@ export class ChatbotAnalyticsController {
       fromMap,
       query.loginStatus,
     );
+  }
+
+  @OpenAPI({
+    summary: 'Download the All Farmers table as CSV',
+    description:
+      'Generates a CSV export of the user-details table (admin only), applying the same filters as GET /analytics/user-details. When no filters are applied this exports every matching user.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admins only',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to export user details',
+  })
+  @Get('/user-details/export')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  @ContentType('text/csv; charset=utf-8')
+  async exportUserDetails(
+    @QueryParams() query: UserDetailsQueryDto,
+    @Res() response: any,
+  ) {
+    const inactiveOnly = query.inactiveOnly === 'true';
+    const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const isVerified =
+      query.isVerified === 'true' ? true : query.isVerified === 'false'
+          ? false
+          : undefined;
+    const activeTodayByProfile = query.activeTodayByProfile === 'true';
+    const fromMap = query.fromMap === "true" ? true : false;
+
+    const csv = await this.chatbotService.exportUserDetailsCsv(
+      query.startDate,
+      query.endDate,
+      query.search,
+      query.source,
+      query.crop,
+      query.primaryCrops,
+      query.secondaryCrops,
+      query.village,
+      query.state,
+      query.district,
+      query.block,
+      query.profileCompleted,
+      inactiveOnly,
+      lowFeedbackOnly,
+      query.userType,
+      query.roles,
+      query.sortBy,
+      query.sortOrder,
+      activeTodayByProfile,
+      query.missingDemographicField,
+      isVerified,
+      fromMap,
+      query.loginStatus,
+    );
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="farmers-${timestamp}.csv"`,
+    );
+    return csv;
   }
 
   @OpenAPI({

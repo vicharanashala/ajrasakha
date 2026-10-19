@@ -865,6 +865,25 @@ export interface IQuestionService {
     skippedNoApprover: number;
   }>;
 
+  backfillMissingEmbeddings(batchLimit?: number): Promise<{
+    scanned: number;
+    questionsUpdated: number;
+    updatedIds: string[];
+    matchedButUnchanged: number;
+    closedWithAnswer: number;
+    closedWithAnswerIds: string[];
+    skippedNoText: number;
+    failed: number;
+  }>;
+
+  backfillAnswerEmbeddings(batchLimit?: number): Promise<{
+    scanned: number;
+    updated: number;
+    finalWithQuestion: number;
+    skippedNoText: number;
+    failed: number;
+  }>;
+
   getClosedAnswerMismatch(startTime?: Date, endTime?: Date): Promise<{
     window: { start: Date; end: Date };
     totalClosed: number;
@@ -985,6 +1004,12 @@ export interface IQuestionService {
     suggestionLink?: string,
     answerId?: string,
     suggestionSourceName?: string,
+  ): Promise<{ success: boolean; message: string }>;
+
+  sendPaeMilestoneReport(
+    paeExpertId: string,
+    milestoneCount?: number,
+    recipients?: string | string[],
   ): Promise<{ success: boolean; message: string }>;
 
 

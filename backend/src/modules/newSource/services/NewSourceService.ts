@@ -1,0 +1,516 @@
+import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceRepository.js';
+import {
+  IAnswerSourceDetail,
+  IMissingPopDocument,
+  INewSource,
+  INewSourceItem,
+  ModeratorActionType,
+  NewSourceStatus,
+} from '#root/shared/interfaces/models.js';
+import {CORE_TYPES} from '#root/modules/core/types.js';
+import {IOrganizationService} from '#root/modules/organization/interfaces/IOrganizationService.js';
+import {IPopService} from '#root/modules/pop/interfaces/IPopService.js';
+import {isValidObjectId} from '#root/utils/isValidObjectId.js';
+import {inject, injectable} from 'inversify';
+import {ObjectId} from 'mongodb';
+import {BadRequestError, ForbiddenError, InternalServerError, NotFoundError} from 'routing-controllers';
+import {
+  ChangeNewSourceStatusInput,
+  CompleteNewSourceInput,
+  INewSourceService,
+  RecordMissingPopDocumentInput,
+  StartNewSourceInput,
+} from '../interfaces/INewSourceService.js';
+
+// The same status change means different things depending on where the record came
+// from: leaving 'flagged' is an unflag, while arriving at 'flagged' is a flag.
+const toModeratorAction = (
+  currentStatus: NewSourceStatus,
+  nextStatus: ChangeNewSourceStatusInput['status'],
+): ModeratorActionType => {
+  if (currentStatus === 'flagged') return 'unflag';
+  if (nextStatus === 'flagged') return 'flag';
+  if (nextStatus === 'merged') return 'approve';
+  return 'pending';
+};
+
+// Only these fields are ever persisted on a source item - organizationName, sourceName,
+// sourceLink and yearOfRelease are populated for display only (see populateSources) and
+// must never be written back, however the frontend's draft object happens to be shaped.
+const sanitizeSources = (sources: INewSourceItem[]): INewSourceItem[] =>
+  sources.map(item => ({
+    organization: item.organization,
+    source: item.source,
+    page: item.page,
+    sourceReferenceStatus: item.sourceReferenceStatus,
+    sourceIndex: item.sourceIndex,
+    missedFields: item.missedFields ?? [],
+  }));
+
+// The subset of a source item written to the answer's own `source_details` once its
+// review is merged (see changeStatus) - no sourceReferenceStatus/missedFields/display
+// fields, those belong to the review record, not the answer. organization/source are
+// stored as real ObjectIds here (they're plain id strings on INewSourceItem) since this
+// is the shape actually persisted to MongoDB.
+const toAnswerSourceDetails = (sources: INewSourceItem[]): IAnswerSourceDetail[] =>
+  sources.map(item => ({
+    organization:
+      item.organization && isValidObjectId(item.organization)
+        ? new ObjectId(item.organization)
+        : undefined,
+    source: item.source && isValidObjectId(item.source) ? new ObjectId(item.source) : undefined,
+    page: item.page,
+    sourceIndex: item.sourceIndex,
+  }));
+
+@injectable()
+export class NewSourceService implements INewSourceService {
+  constructor(
+    @inject(CORE_TYPES.NewSourceRepository)
+    private readonly newSourceRepo: INewSourceRepository,
+    @inject(CORE_TYPES.OrganizationService)
+    private readonly organizationService: IOrganizationService,
+    @inject(CORE_TYPES.PopService)
+    private readonly popService: IPopService,
+    @inject(CORE_TYPES.AnswerRepository)
+    private readonly answerRepo: IAnswerRepository,
+  ) {}
+
+  async startNewSource(input: StartNewSourceInput): Promise<INewSource> {
+    const existing = await this.newSourceRepo.findByAnswerId(input.answerId);
+    if (existing) {
+      // A merged record is done for good - not something to reopen for editing, by its
+      // original reviewer or anyone else.
+      if (existing.status === 'merged') {
+        throw new ForbiddenError(
+          "This answer's sources have been merged and can no longer be edited.",
+        );
+      }
+
+      // Admins/moderators editing sources directly (as opposed to overriding status)
+      // only get to while the record is under moderator attention - already reviewed
+      // or currently held in moderation. Anything else (pending, in-progress, flagged)
+      // is theirs to look at, not to edit.
+      const isReviewerRole = input.role === 'admin' || input.role === 'moderator';
+      if (
+        isReviewerRole &&
+        existing.status !== 'review-completed' &&
+        existing.status !== 'moderator-in-review'
+      ) {
+        throw new ForbiddenError(
+          "This answer's sources can't be edited while its review is in this status.",
+        );
+      }
+
+      // Whoever put this source 'in-progress' owns finishing it - a different expert
+      // can't jump in and edit it until it's released back to 'pending' (or review-completed).
+      // Ownership is decided by who currently holds the OPEN entry, not by whether this
+      // user's own entry happens to still be open - switching to another answer closes
+      // this user's entry (see closeNewSource), and coming back to resume should not
+      // read as someone else having taken it over.
+      const openExpertEntry = existing.reviewArray.find(
+        entry => entry.role !== 'moderator' && entry.closedAt === null,
+      );
+      const ownedByAnotherExpert =
+        existing.status === 'in-progress' &&
+        openExpertEntry !== undefined &&
+        openExpertEntry.userId !== input.userId;
+
+      if (ownedByAnotherExpert) {
+        throw new ForbiddenError(
+          "This answer's sources are already being reviewed by another expert.",
+        );
+      }
+
+      const existingId = existing._id?.toString() ?? '';
+
+      // A different reviewer than whoever is already logged here is taking over (most
+      // likely a previously-released 'pending' record) - append them a fresh entry
+      // rather than reusing someone else's, so each reviewer's own time is tracked.
+      const hasOpenEntryForUser = existing.reviewArray.some(
+        entry =>
+          entry.userId === input.userId &&
+          entry.role !== 'moderator' &&
+          entry.closedAt === null,
+      );
+      let reopened = existing;
+      if (!hasOpenEntryForUser) {
+        const withNewReviewer = await this.newSourceRepo.appendReviewEntry(existingId, {
+          userId: input.userId,
+          name: input.userName,
+          role: 'expert',
+          startedAt: new Date(),
+          closedAt: null,
+          isActionTaken: false,
+        });
+        if (withNewReviewer) reopened = withNewReviewer;
+      }
+
+      // Picking a record back up puts it in-progress again - without this a released
+      // 'pending' record (or a re-edited 'review-completed' one) stays in its old state
+      // and never locks to the expert now working on it. 'flagged' is left alone so a
+      // moderator's flag isn't silently cleared by someone opening the editor.
+      if (reopened.status === 'pending' || reopened.status === 'review-completed') {
+        const inProgress = await this.newSourceRepo.setStatus(
+          existingId,
+          'in-progress',
+        );
+        if (inProgress) return inProgress;
+      }
+
+      return reopened;
+    }
+
+    return await this.newSourceRepo.create({
+      answerId: input.answerId,
+      questionId: input.questionId,
+      sources: [],
+      status: 'in-progress',
+      reviewArray: [
+        {
+          userId: input.userId,
+          name: input.userName,
+          role: 'expert',
+          startedAt: new Date(),
+          closedAt: null,
+          isActionTaken: false,
+        },
+      ],
+    });
+  }
+
+  async completeNewSource(input: CompleteNewSourceInput): Promise<INewSource> {
+    const existing = await this.newSourceRepo.findById(input.id);
+    if (!existing) {
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
+    }
+    if (existing.status === 'merged') {
+      throw new ForbiddenError(
+        "This answer's sources have been merged and can no longer be edited.",
+      );
+    }
+
+    const isReviewerRole = input.role === 'admin' || input.role === 'moderator';
+    if (
+      isReviewerRole &&
+      existing.status !== 'review-completed' &&
+      existing.status !== 'moderator-in-review'
+    ) {
+      throw new ForbiddenError(
+        "This answer's sources can't be edited while its review is in this status.",
+      );
+    }
+
+    const updated = await this.newSourceRepo.updateById(input.id, input.userId, {
+      sources: sanitizeSources(input.sources),
+      status: 'review-completed',
+    });
+
+    if (!updated) {
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
+    }
+
+    return updated;
+  }
+
+  /** A stint can hit several incomplete pop documents, and each is logged twice - once
+   *  when found, once with the values filled in - so entries are merged by popId rather
+   *  than appended blindly. */
+  async recordMissingPopDocument(
+    input: RecordMissingPopDocumentInput,
+  ): Promise<INewSource> {
+    if (!input.popId) {
+      throw new BadRequestError('A pop document id is required');
+    }
+    if (input.missingFields.length === 0) {
+      throw new BadRequestError('At least one missing field is required');
+    }
+
+    const record = await this.newSourceRepo.findByAnswerId(input.answerId);
+    if (!record) {
+      throw new NotFoundError(
+        `updated_sources record not found for answer ${input.answerId}`,
+      );
+    }
+
+    const openEntry = record.reviewArray.find(
+      reviewer =>
+        reviewer.userId === input.userId &&
+        reviewer.closedAt === null &&
+        reviewer.role !== 'moderator',
+    );
+    if (!openEntry) {
+      throw new NotFoundError('No open review found for this user on this record');
+    }
+
+    const existing = openEntry.missingPopDocuments ?? [];
+    const current = existing.find(entry => entry.popId === input.popId);
+    const merged: IMissingPopDocument = {
+      popId: input.popId,
+      missingFields: input.missingFields,
+      updatedFields: input.updatedFields ?? current?.updatedFields ?? {},
+    };
+
+    const updated = await this.newSourceRepo.setMissingPopDocuments(
+      record._id?.toString() ?? '',
+      input.userId,
+      current
+        ? existing.map(entry => (entry.popId === input.popId ? merged : entry))
+        : [...existing, merged],
+    );
+
+    if (!updated) {
+      throw new NotFoundError(
+        `updated_sources record not found for answer ${input.answerId}`,
+      );
+    }
+
+    return updated;
+  }
+
+  async closeNewSource(id: string, userId: string): Promise<INewSource> {
+    const updated = await this.newSourceRepo.recordClose(id, userId);
+
+    if (!updated) {
+      throw new NotFoundError(`updated_sources record not found with id ${id}`);
+    }
+
+    return updated;
+  }
+
+  /** A moderator/admin opening an answer takes it into 'moderator-in-review', which
+   *  hides it from every other moderator until they act on it or release it. */
+  async startModeratorReview(input: StartNewSourceInput): Promise<INewSource> {
+    const existing = await this.newSourceRepo.findByAnswerId(input.answerId);
+
+    if (!existing) {
+      throw new NotFoundError(
+        `No source review exists for answer ${input.answerId}`,
+      );
+    }
+
+    // Taking an answer into moderation is itself a status change, so it's only allowed
+    // from 'review-completed' (picking it up) or 'moderator-in-review' (an existing
+    // hold, handled below). Everything else - pending, in-progress, flagged, merged -
+    // is admin/moderator read-only, so opening it to look must leave it untouched.
+    if (existing.status !== 'review-completed' && existing.status !== 'moderator-in-review') {
+      return existing;
+    }
+
+    if (existing.status === 'moderator-in-review') {
+      const heldByAnother = !existing.reviewArray.some(
+        entry =>
+          entry.userId === input.userId &&
+          entry.role === 'moderator' &&
+          entry.closedAt === null,
+      );
+      if (heldByAnother) {
+        throw new ForbiddenError(
+          'Another moderator is already reviewing this answer.',
+        );
+      }
+      return existing;
+    }
+
+    const existingId = existing._id?.toString() ?? '';
+    const hasOpenEntry = existing.reviewArray.some(
+      entry =>
+        entry.userId === input.userId &&
+        entry.role === 'moderator' &&
+        entry.closedAt === null,
+    );
+
+    if (!hasOpenEntry) {
+      await this.newSourceRepo.appendReviewEntry(existingId, {
+        userId: input.userId,
+        name: input.userName,
+        role: 'moderator',
+        startedAt: new Date(),
+        closedAt: null,
+        isActionTaken: false,
+      });
+    }
+
+    const updated = await this.newSourceRepo.setStatus(
+      existingId,
+      'moderator-in-review',
+    );
+
+    if (!updated) {
+      throw new NotFoundError(
+        `updated_sources record not found with id ${existingId}`,
+      );
+    }
+
+    return updated;
+  }
+
+  async findActiveModeratorReview(
+    userId: string,
+    excludeAnswerId: string,
+  ): Promise<INewSource | null> {
+    return await this.newSourceRepo.findActiveModeratorReviewByUser(
+      userId,
+      excludeAnswerId,
+    );
+  }
+
+  /** Hands the hold back without acting on the record - it returns to
+   *  'review-completed' so another moderator can take it. */
+  async releaseModeratorReview(
+    id: string,
+    userId: string,
+    userName: string,
+  ): Promise<INewSource> {
+    // A release asks for no reason, but it still belongs in the same audit trail as
+    // every other moderator action on the record.
+    const updated = await this.newSourceRepo.releaseModeratorReview(id, userId, {
+      action: 'release',
+      status: 'review-completed',
+      reason: '',
+      changedBy: userId,
+      changedByName: userName,
+      changedAt: new Date(),
+    });
+
+    if (!updated) {
+      throw new NotFoundError(`updated_sources record not found with id ${id}`);
+    }
+
+    return updated;
+  }
+
+  async findActiveInProgress(userId: string, excludeAnswerId: string): Promise<INewSource | null> {
+    return await this.newSourceRepo.findActiveInProgressByUser(userId, excludeAnswerId);
+  }
+
+  async releaseToPending(id: string): Promise<INewSource> {
+    const updated = await this.newSourceRepo.releaseToPending(id);
+
+    if (!updated) {
+      throw new NotFoundError(`updated_sources record not found with id ${id}`);
+    }
+
+    return updated;
+  }
+
+  // Looks up organizationName/organizationType from `organization` and
+  // sourceName/originalLink/archivedLink/yearOfRelease from `source` for display in the
+  // moderator Before/After view - these are never persisted (see sanitizeSources).
+  private async populateSources(sources: INewSourceItem[]): Promise<INewSourceItem[]> {
+    return await Promise.all(
+      sources.map(async item => {
+        const [organization, pop] = await Promise.all([
+          item.organization
+            ? this.organizationService.findById(item.organization).catch(() => null)
+            : null,
+          item.source ? this.popService.findById(item.source).catch(() => null) : null,
+        ]);
+
+        return {
+          ...item,
+          organizationName: organization?.org_name,
+          organizationType: organization?.type,
+          sourceName: pop?.shareable_name,
+          originalLink: pop?.live_source_link,
+          archivedLink: pop?.shareable_link,
+          yearOfRelease: pop?.year_of_release,
+        };
+      }),
+    );
+  }
+
+  async getByAnswerId(answerId: string): Promise<INewSource | null> {
+    const record = await this.newSourceRepo.findByAnswerId(answerId);
+    if (!record) return null;
+    return {...record, sources: await this.populateSources(record.sources)};
+  }
+
+  async changeStatus(input: ChangeNewSourceStatusInput): Promise<INewSource> {
+    const allowedStatuses = ['pending', 'merged', 'flagged', 'review-completed'];
+    if (!allowedStatuses.includes(input.status)) {
+      throw new BadRequestError(
+        "Status must be 'pending', 'merged', 'flagged' or 'review-completed' for this action",
+      );
+    }
+    if (!input.reason?.trim()) {
+      throw new BadRequestError('A reason is required to change this status');
+    }
+
+    const existing = await this.newSourceRepo.findById(input.id);
+    if (!existing) {
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
+    }
+
+    // Admin/moderator status overrides only reach a record while it's under moderator
+    // attention - already reviewed, currently held in moderation, or flagged for a
+    // second look. Anything else (pending, in-progress, merged) is read-only from here.
+    const overridableStatuses = ['review-completed', 'moderator-in-review', 'flagged'];
+    if (!overridableStatuses.includes(existing.status)) {
+      throw new ForbiddenError(
+        `This answer's sources are '${existing.status}' and can't be changed from here.`,
+      );
+    }
+
+    // A flagged record can only be unflagged - back to the experts ('pending') or back
+    // to the moderator queue ('review-completed'). It can't be sent anywhere else from
+    // this flagged state, 'merged' included.
+    if (
+      existing.status === 'flagged' &&
+      input.status !== 'pending' &&
+      input.status !== 'review-completed'
+    ) {
+      throw new ForbiddenError(
+        "A flagged review can only be unflagged to 'pending' or 'review-completed'.",
+      );
+    }
+
+    // Merging finalizes this review's sources onto the answer itself - write
+    // source_details on the answers collection FIRST, and only flip the status if that
+    // write actually lands. A merge that doesn't move here needs the answer to keep
+    // reflecting the previous status, not a merge with nothing to show for it.
+    if (input.status === 'merged') {
+      const hasNotFoundSource = existing.sources.some(
+        source => source.sourceReferenceStatus === 'notFound'
+      );
+      if (hasNotFoundSource) {
+        throw new BadRequestError(
+          "Cannot approve this answer because the source could not be found."
+        );
+      }
+
+      const sourceDetails = toAnswerSourceDetails(existing.sources);
+      let writeResult;
+      try {
+        writeResult = await this.answerRepo.updateAnswer(existing.answerId.toString(), {
+          source_details: sourceDetails,
+        });
+      } catch (error) {
+        throw new InternalServerError(
+          `Failed to write source details to the answer - status was not changed to 'merged'. ${error}`,
+        );
+      }
+      if (!writeResult || writeResult.modifiedCount === 0) {
+        throw new InternalServerError(
+          "Failed to write source details to the answer - status was not changed to 'merged'.",
+        );
+      }
+    }
+
+    const updated = await this.newSourceRepo.changeStatusWithReason(input.id, {
+      action: toModeratorAction(existing.status, input.status),
+      status: input.status,
+      reason: input.reason.trim(),
+      changedBy: input.changedBy,
+      changedByName: input.changedByName,
+      changedAt: new Date(),
+    });
+
+    if (!updated) {
+      throw new NotFoundError(`updated_sources record not found with id ${input.id}`);
+    }
+
+    return updated;
+  }
+}
