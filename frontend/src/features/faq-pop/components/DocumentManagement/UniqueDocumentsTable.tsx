@@ -145,7 +145,15 @@ const MULTI_PLACEMENT_OPTIONS = [
   { key: "false", label: "Single-placement" },
 ];
 
-export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, canTranslate = false, refreshKey, onDataChanged, canEdit = true }) {
+export default function UniqueDocumentsTable({
+  onOpenDetail,
+  translationAvailable,
+  canTranslate = false,
+  refreshKey,
+  onDataChanged,
+  canEdit = true,
+  terminalJobsByDocId = {},
+}) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -765,6 +773,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                         patchRow(row.id, fresh);
                         notifyTranslationChanged(fresh);
                       }}
+                      lastTerminalJob={terminalJobsByDocId[row.id]}
                     />
                   </td>
                   <td className="px-3 py-2 align-middle">

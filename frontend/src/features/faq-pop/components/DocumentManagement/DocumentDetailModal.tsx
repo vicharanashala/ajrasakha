@@ -72,6 +72,7 @@ export default function DocumentDetailModal({
   canEdit = true,
   currentUserName,
   translationJobs = [],
+  terminalJobsByDocId = {},
 }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -383,6 +384,7 @@ export default function DocumentDetailModal({
                     }}
                     onChanged={(fresh) => setDoc((prev) => ({ ...prev, ...fresh }))}
                     onTranslationStarted={onTranslationStarted}
+                    lastTerminalJob={terminalJobsByDocId[doc.id]}
                   />
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide ml-2">
                     Review

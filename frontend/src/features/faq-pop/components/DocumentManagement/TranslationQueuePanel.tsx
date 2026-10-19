@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { useState } from "react";
 import { Square, Trash2, RotateCcw } from "lucide-react";
 
 const FINISHED_TABS = [
@@ -6,6 +7,15 @@ const FINISHED_TABS = [
   { status: "failed", label: "Failed" },
   { status: "cancelled", label: "Cancelled" },
 ];
+
+// batch_state is Google's own state for a mode: "batch" job; only meaningful while status ===
+// "running". "finishing" (results back, building the docx) is a backend-synthesized value, not
+// one of Google's literal batch job states.
+const BATCH_STATE_LABELS = {
+  JOB_STATE_PENDING: "Pending at Google",
+  JOB_STATE_RUNNING: "Running at Google",
+  finishing: "Finishing",
+};
 
 // Translation Queue panel (spec §8) — bottom half of the right-side split in Add Document mode.
 // Present by default with an empty state; backed by GET /dashboard/translation-jobs (no status
@@ -36,78 +46,19 @@ export default function TranslationQueuePanel({
   redoingIds,
 }) {
   function renderJob(job, { removable } = {}) {
-    const stopping = stoppingIds.has(job.id);
-    const removing = removingIds?.has(job.id);
-    const redoing = redoingIds?.has(job.id);
-    const isFailed = job.status === "failed";
-    const hasProgress = job.pages_done != null && job.total_pages != null;
-    const canCancel = job.status === "queued" || job.status === "running" || isFailed;
     return (
-      <div key={job.id} className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/10 px-2.5 py-2">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            className="text-xs font-medium text-primary hover:underline truncate text-left cursor-pointer"
-            title={job.shareable_name}
-            // unique_document_id is the backend's newer, explicit name for this — document_id is
-            // already the same hex value (confirmed by the backend), so this works whether or not
-            // the backend has deployed the unique_document_id field yet.
-            onClick={() => onOpenDetail(job.unique_document_id || job.document_id)}
-          >
-            {job.document_code || job.document_id}
-            {job.shareable_name ? ` — ${job.shareable_name}` : ""}
-          </button>
-          <div className="flex items-center gap-2 shrink-0">
-            {isFailed && (
-              <button
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer disabled:opacity-40"
-                onClick={() => onRedo(job)}
-                disabled={redoing}
-              >
-                <RotateCcw size={9} /> {redoing ? "Retrying…" : "Translate again"}
-              </button>
-            )}
-            {canCancel && (
-              <button
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer disabled:opacity-40"
-                onClick={() => onCancel(job)}
-                disabled={stopping}
-              >
-                <Square size={9} /> {isFailed ? "Cancel" : "Stop"}
-              </button>
-            )}
-            {removable && (
-              <button
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer disabled:opacity-40"
-                onClick={() => onRemove(job)}
-                disabled={removing}
-                title="Remove from queue view — the document's translation is not affected"
-              >
-                <Trash2 size={9} /> {removing ? "Removing…" : "Remove"}
-              </button>
-            )}
-          </div>
-        </div>
-        <span className="text-[11px] text-muted-foreground">
-          {stopping
-            ? "Stopping…"
-            : job.status === "queued"
-              ? "Queued"
-              : job.status === "done"
-                ? "Done"
-                : job.status === "cancelled"
-                  ? "Cancelled"
-                  : job.status === "running" && hasProgress
-                    ? `${job.pages_done} / ${job.total_pages} pages (${job.progress_pct}%)`
-                    : job.status === "running"
-                      ? "Starting…"
-                      : isFailed && hasProgress
-                        ? `${job.pages_done} / ${job.total_pages} pages done`
-                        : job.status}
-        </span>
-        {isFailed && (
-          <span className="text-[11px] text-destructive">{job.error_message || "Translation failed"}</span>
-        )}
-      </div>
+      <JobRow
+        key={job.id}
+        job={job}
+        removable={removable}
+        stopping={stoppingIds.has(job.id)}
+        removing={removingIds?.has(job.id)}
+        redoing={redoingIds?.has(job.id)}
+        onCancel={onCancel}
+        onRemove={onRemove}
+        onRedo={onRedo}
+        onOpenDetail={onOpenDetail}
+      />
     );
   }
 
@@ -153,6 +104,113 @@ export default function TranslationQueuePanel({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function JobRow({ job, removable, stopping, removing, redoing, onCancel, onRemove, onRedo, onOpenDetail }) {
+  const [redoMode, setRedoMode] = useState(job.mode || "normal");
+  const isFailed = job.status === "failed";
+  const isCancelled = job.status === "cancelled";
+  const hasProgress = job.pages_done != null && job.total_pages != null;
+  const canCancel = job.status === "queued" || job.status === "running" || isFailed;
+  const canRedo = isFailed || isCancelled;
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/10 px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          className="text-xs font-medium text-primary hover:underline truncate text-left cursor-pointer"
+          title={job.shareable_name}
+          // unique_document_id is the backend's newer, explicit name for this — document_id is
+          // already the same hex value (confirmed by the backend), so this works whether or not
+          // the backend has deployed the unique_document_id field yet.
+          onClick={() => onOpenDetail(job.unique_document_id || job.document_id)}
+        >
+          {job.document_code || job.document_id}
+          {job.shareable_name ? ` — ${job.shareable_name}` : ""}
+        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {job.mode && (
+            <span
+              className="text-[9px] uppercase px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0"
+              title={
+                job.mode === "batch"
+                  ? "Batch jobs can take 10-45+ minutes, even for a few pages"
+                  : job.mode === "flex"
+                    ? "Flex is sometimes refused by Google under high demand — retry with normal or batch if it fails"
+                    : undefined
+              }
+            >
+              {job.mode}
+            </span>
+          )}
+          {canRedo && (
+            <>
+              <select
+                className="text-[9px] rounded border border-border bg-background px-1 py-0.5 text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                value={redoMode}
+                onChange={(e) => setRedoMode(e.target.value)}
+                disabled={redoing}
+                title="Retry in this mode"
+              >
+                <option value="normal">Normal</option>
+                <option value="flex">Flex</option>
+                <option value="batch">Batch</option>
+              </select>
+              <button
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer disabled:opacity-40"
+                onClick={() => onRedo(job, redoMode)}
+                disabled={redoing}
+              >
+                <RotateCcw size={9} /> {redoing ? "Retrying…" : "Translate again"}
+              </button>
+            </>
+          )}
+          {canCancel && (
+            <button
+              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer disabled:opacity-40"
+              onClick={() => onCancel(job)}
+              disabled={stopping}
+            >
+              <Square size={9} /> {isFailed ? "Cancel" : "Stop"}
+            </button>
+          )}
+          {removable && (
+            <button
+              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer disabled:opacity-40"
+              onClick={() => onRemove(job)}
+              disabled={removing}
+              title="Remove from queue view — the document's translation is not affected"
+            >
+              <Trash2 size={9} /> {removing ? "Removing…" : "Remove"}
+            </button>
+          )}
+        </div>
+      </div>
+      <span className="text-[11px] text-muted-foreground">
+        {stopping
+          ? "Stopping…"
+          : job.status === "queued"
+            ? "Queued"
+            : job.status === "done"
+              ? "Done"
+              : isCancelled
+                ? hasProgress
+                  ? `Cancelled — ${job.pages_done} / ${job.total_pages} pages done`
+                  : "Cancelled"
+                : job.status === "running" && job.batch_state
+                  ? BATCH_STATE_LABELS[job.batch_state] || job.batch_state
+                  : job.status === "running" && hasProgress
+                    ? `${job.pages_done} / ${job.total_pages} pages (${job.progress_pct}%)`
+                    : job.status === "running"
+                      ? "Starting…"
+                      : isFailed && hasProgress
+                        ? `${job.pages_done} / ${job.total_pages} pages done`
+                        : job.status}
+      </span>
+      {isFailed && (
+        <span className="text-[11px] text-destructive">{job.error_message || "Translation failed"}</span>
+      )}
     </div>
   );
 }
