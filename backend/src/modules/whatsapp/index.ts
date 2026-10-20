@@ -23,4 +23,5 @@ export async function setupWhatsappContainer(): Promise<void> {
 
 export * from './controllers/WhatsAppController.js';
 export * from './services/WhatsAppService.js';
+export * from './services/FarmerFeedbackCorrelationService.js';
 export * from './types.js';
