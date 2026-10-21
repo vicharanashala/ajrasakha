@@ -44,7 +44,8 @@ export class FlexibleAuth implements ExpressMiddlewareInterface {
       // (their check-in/checkout availability flag). Every other role is
       // unchanged: isBlocked denies access as before.
       const deniedAccess =
-        decoded.role === 'moderator' || decoded.role === 'expert'
+        decoded.role === 'moderator' || decoded.role === 'expert' || decoded.role === 'gate_keeper' ||
+        decoded.role === 'auditor'
           ? decoded.status === 'in-active'
           : decoded.isBlocked;
       if (!decoded?.firebaseUID || deniedAccess) {
