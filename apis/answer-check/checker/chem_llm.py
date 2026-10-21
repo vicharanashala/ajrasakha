@@ -127,6 +127,37 @@ def _letters(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", value.casefold())
 
 
+def _edit_distance(a: str, b: str) -> int:
+    """Number of single-letter edits (insert, delete, change, swap two neighbours) between two words."""
+    rows = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        rows[i][0] = i
+    for j in range(len(b) + 1):
+        rows[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            rows[i][j] = min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                rows[i][j] = min(rows[i][j], rows[i - 2][j - 2] + 1)
+    return rows[len(a)][len(b)]
+
+
+def _spelling_key(value: str) -> str:
+    return _letters(value).replace("ph", "f")
+
+
+def is_close_spelling(quote: str, chemical: str) -> bool:
+    """A typo of the listed name (a letter changed, missing or swapped), not a different or shortened name.
+
+    "Triazofos" and "Triazophs" are close to "Triazophos". "Azophos" is not: it is a different word.
+    """
+    wanted = _spelling_key(chemical)
+    allowed = max(1, int(len(wanted) * 0.2))
+    candidates = [_spelling_key(quote)] + [_spelling_key(word) for word in re.findall(r"[A-Za-z][A-Za-z-]+", quote)]
+    return any(c and _edit_distance(c, wanted) <= allowed for c in candidates)
+
+
 def needs_confirmation(quote: str, chemical: str) -> bool:
     """A quote that holds the whole listed name ("Mancozeb 75 WP") is the chemical itself.
 
@@ -144,8 +175,8 @@ def build_confirmation_prompt(quote: str, chemical: str) -> str:
 Name in the text: "{quote}"
 Name on our list: "{chemical}"{extra}
 
-Count them as the same chemical if one is a misspelling, a spelling variant, a short form, an alternative name or a trade name of the other.
-Answer "no" if they are different chemicals, even when the names look alike or belong to the same family. Answer "unsure" only if you really cannot tell.
+Count them as the same chemical only if one is a misspelling, a spelling variant, an alternative name or a trade name of the other.
+Answer "no" if they are different chemicals, even when the names look alike or belong to the same family. A name that is only a part of the listed name (for example "azophos" inside "triazophos") is NOT the same chemical. Answer "unsure" only if you really cannot tell.
 
 Return ONLY JSON: {{"same": "yes"}} or {{"same": "no"}} or {{"same": "unsure"}}"""
 
@@ -158,21 +189,23 @@ def _valid_confirmation(result) -> bool:
 def confirm_same_chemical(quote: str, chemical: str) -> str:
     """Ask the model whether the quote is the listed chemical: yes, no or unsure.
 
-    A failed call counts as unsure, so a model slip never hides a chemical.
+    A failed call counts as unsure. An unsure answer does not confirm a match that is not a close spelling.
     """
     try:
         result = call_llm(build_confirmation_prompt(quote, chemical), _valid_confirmation)
     except LLMCallFailed as exc:
-        logger.warning("chemical confirmation failed, keeping the match: %s", str(exc)[:120])
+        logger.warning("chemical confirmation failed, not confirming the match: %s", str(exc)[:120])
         return "unsure"
     return str(result["same"]).strip().casefold()
 
 
 def confirm_mentions(mentions: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
-    """Drop the matches the model says are a different chemical. Yes and unsure are kept."""
+    """Keep a match that holds the whole name or is a close misspelling of it; any other name must be confirmed as the same chemical."""
     return [
         m for m in mentions
-        if not needs_confirmation(m[0], m[1]) or confirm_same_chemical(m[0].strip().casefold(), m[1]) != "no"
+        if not needs_confirmation(m[0], m[1])
+        or is_close_spelling(m[0], m[1])
+        or confirm_same_chemical(m[0].strip().casefold(), m[1]) == "yes"
     ]
 
 
