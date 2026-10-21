@@ -6,6 +6,8 @@ import { UrlPreviewDialog } from "@/components/url-preview-dialog";
 import { getDashboardUniqueDocuments, getDashboardStates } from "@/features/faq-pop/api";
 import ServerPagination from "@/features/faq-pop/components/DocumentManagement/ServerPagination";
 
+import { PanelControls } from "./PanelControls";
+
 type ScopeTab = "state" | "central" | "all";
 // Matches getDashboardUniqueDocuments' own fixed page size — no per-panel override.
 const PAGE_SIZE = 100;
@@ -13,6 +15,8 @@ const PAGE_SIZE = 100;
 interface SourceReferencePanelProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isEnlarged?: boolean;
+  onToggleEnlarge?: () => void;
   // The current question's own state (IQuestionContextData.details.state, a plain name string
   // like "Karnataka") — fuzzy-matched below against the dashboard's own state list to resolve a
   // state_id for the "State" tab's filter.
@@ -22,6 +26,8 @@ interface SourceReferencePanelProps {
 export const SourceReferencePanel: React.FC<SourceReferencePanelProps> = ({
   isCollapsed = false,
   onToggleCollapse,
+  isEnlarged = false,
+  onToggleEnlarge,
   questionState,
 }) => {
   const [scopeTab, setScopeTab] = useState<ScopeTab>("all");
@@ -110,7 +116,7 @@ export const SourceReferencePanel: React.FC<SourceReferencePanelProps> = ({
     setPreviewUrl(url);
   }
 
-  if (isCollapsed) {
+  if (isCollapsed && !isEnlarged) {
     return (
       <div className="h-full flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12 min-h-[300px]">
         <Button
@@ -142,21 +148,15 @@ export const SourceReferencePanel: React.FC<SourceReferencePanelProps> = ({
 
   return (
     <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden relative">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-border shrink-0">
         <p className="text-xs font-semibold text-foreground">
           Package of Practices (PoP) / Source Reference
         </p>
-        {onToggleCollapse && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleCollapse}
-            className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-            title="Collapse Panel"
-          >
-            <ChevronUp className="h-4 w-4" />
-          </Button>
-        )}
+        <PanelControls
+          isEnlarged={isEnlarged}
+          onToggleEnlarge={onToggleEnlarge}
+          onToggleCollapse={onToggleCollapse}
+        />
       </div>
 
       <CardContent className="p-3 flex-1 flex flex-col gap-2 overflow-hidden min-h-0">

@@ -22,6 +22,14 @@ export interface IQuestionContextData {
   };
 }
 
+export type PanelKey =
+  | "questionContext"
+  | "ocrExtraction"
+  | "answerDraft"
+  | "sourceReference"
+  | "checksPipeline"
+  | "ffv";
+
 export interface IPanelCollapseState {
   questionContext: boolean;
   ocrExtraction: boolean;

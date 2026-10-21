@@ -54,6 +54,7 @@ import type { ILocationState } from "@/hooks/services/locationService";
 import { ChemicalVerifiedTextarea } from "@/components/ChemicalVerifiedTextarea";
 import type { ChemicalDetectionResponse } from "@/hooks/services/answerService";
 import { cn } from "@/lib/utils";
+import { PanelControls } from "./PanelControls";
 
 interface AnswerReviewDraftPanelProps {
   selectedQuestionData?: IQuestion | null;
@@ -77,6 +78,8 @@ interface AnswerReviewDraftPanelProps {
   refetchQuestions?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isEnlarged?: boolean;
+  onToggleEnlarge?: () => void;
   onDraftChange?: (draftAnswer: string, sources?: SourceItem[]) => void;
 }
 
@@ -108,6 +111,8 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
   refetchQuestions,
   isCollapsed = false,
   onToggleCollapse,
+  isEnlarged = false,
+  onToggleEnlarge,
   onDraftChange,
 }) => {
   // Determine if this question is in the Review Phase (has existing answer history)
@@ -470,7 +475,7 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     setIsModifyDialogOpen(false);
   };
 
-  if (isCollapsed) {
+  if (isCollapsed && !isEnlarged) {
     return (
       <div className="h-full flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12 min-h-[300px]">
         <Button
@@ -496,6 +501,18 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
 
   return (
     <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden">
+      {/* Isolated Top Header with Title and Panel Controls */}
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-border shrink-0">
+        <p className="text-xs font-semibold text-foreground">
+          {isReviewPhase ? "Response & Review" : "Answer Review & Draft"}
+        </p>
+        <PanelControls
+          isEnlarged={isEnlarged}
+          onToggleEnlarge={onToggleEnlarge}
+          onToggleCollapse={onToggleCollapse}
+        />
+      </div>
+
       {/* Scrollable Container with invisible scrollbars */}
       <CardContent className="p-3.5 md:p-4 flex-1 flex flex-col space-y-3.5 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {/* Navigation Tabs Bar */}
@@ -588,21 +605,6 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
               </button>
             )}
           </div>
-
-          {/* Right Collapse Toggle */}
-          {onToggleCollapse && (
-            <div className="flex items-center shrink-0 pb-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleCollapse}
-                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                title="Collapse Panel"
-              >
-                <ChevronUp className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* LOADING STATE */}
@@ -664,8 +666,8 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
               onVerificationComplete={(response) => {
                 setChemicalDetectionResult(response);
               }}
-              minHeight="min-h-[160px]"
-              maxHeight="max-h-[380px]"
+              minHeight={isEnlarged ? "min-h-[280px]" : "min-h-[160px]"}
+              maxHeight={isEnlarged ? "max-h-[calc(100vh-320px)]" : "max-h-[380px]"}
               textSizeClassName="text-xs leading-relaxed"
               textareaClassName={cn(
                 "resize-none rounded-lg focus-visible:ring-1 focus-visible:ring-primary",

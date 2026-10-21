@@ -1,18 +1,23 @@
 import React from "react";
-import { ChevronUp, ChevronsRight } from "lucide-react";
+import { ChevronsRight } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
+import { PanelControls } from "./PanelControls";
 
 interface FarmerFriendlyVersionsPanelProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isEnlarged?: boolean;
+  onToggleEnlarge?: () => void;
 }
 
 export const FarmerFriendlyVersionsPanel: React.FC<FarmerFriendlyVersionsPanelProps> = ({
   isCollapsed = false,
   onToggleCollapse,
+  isEnlarged = false,
+  onToggleEnlarge,
 }) => {
-  if (isCollapsed) {
+  if (isCollapsed && !isEnlarged) {
     return (
       <div className="h-full min-h-[260px] flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12">
         <Button
@@ -38,19 +43,17 @@ export const FarmerFriendlyVersionsPanel: React.FC<FarmerFriendlyVersionsPanelPr
 
   return (
     <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden relative">
-      {onToggleCollapse && (
-        <div className="absolute top-2 right-2 z-10">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleCollapse}
-            className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-            title="Collapse Panel"
-          >
-            <ChevronUp className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-border shrink-0">
+        <p className="text-xs font-semibold text-foreground">
+          Farmer-Friendly Versions (FFV)
+        </p>
+
+        <PanelControls
+          isEnlarged={isEnlarged}
+          onToggleEnlarge={onToggleEnlarge}
+          onToggleCollapse={onToggleCollapse}
+        />
+      </div>
 
       <CardContent className="p-6 flex-1 flex items-center justify-center">
         <div className="text-center p-8 rounded-xl border border-dashed border-border/80 bg-muted/20 w-full h-full flex flex-col items-center justify-center">

@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import type { IQuestionContextData } from "../types";
 import { QaPreferencesDialog } from "./QaPreferencesDialog";
 import { formatDate } from "@/utils/formatDate";
+import { PanelControls } from "./PanelControls";
 
 interface QuestionAndContextPanelProps {
   question?: IQuestionContextData | null;
@@ -36,6 +37,8 @@ interface QuestionAndContextPanelProps {
   isLoading?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isEnlarged?: boolean;
+  onToggleEnlarge?: () => void;
   progressPercent?: number;
   actionType?: "allocated" | "reroute";
   onActionTypeChange?: (actionType: "allocated" | "reroute") => void;
@@ -58,6 +61,8 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   isLoading = false,
   isCollapsed = false,
   onToggleCollapse,
+  isEnlarged = false,
+  onToggleEnlarge,
   actionType = "allocated",
   onActionTypeChange,
   selectedQuestionId = null,
@@ -215,9 +220,7 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
         )}
       </button>
     );
-  };
-
-  if (isCollapsed) {
+  };  if (isCollapsed && !isEnlarged) {
     return (
       <div className="h-full flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12 min-h-[300px]">
         <Button
@@ -243,9 +246,21 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
 
   return (
     <Card className="flex flex-col h-full border border-border bg-card shadow-xs rounded-xl overflow-hidden">
+      {/* Isolated Top Header with Title and Panel Controls */}
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-border shrink-0">
+        <p className="text-xs font-semibold text-foreground">
+          Question & Context
+        </p>
+        <PanelControls
+          isEnlarged={isEnlarged}
+          onToggleEnlarge={onToggleEnlarge}
+          onToggleCollapse={onToggleCollapse}
+        />
+      </div>
+
       <CardContent className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
         {/* Action Type Selector with Preferences and Refresh */}
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Select value={actionType} onValueChange={onActionTypeChange}>
             <SelectTrigger className="h-8 text-xs px-2 min-w-fit shrink-0">
               <SelectValue placeholder="Select action" />
@@ -268,7 +283,8 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
             variant="outline"
             size="icon"
             onClick={onRefresh || (() => {})}
-            className="h-8 w-8 shrink-0 bg-transparent"
+            className="h-8 w-8 shrink-0 bg-transparent rounded-lg"
+            title="Refresh questions"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span className="sr-only">Refresh</span>
@@ -276,44 +292,29 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
         </div>
 
         {/* Sub Navigation / Queue Status Tabs */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 grid grid-cols-2 p-1 bg-muted/50 rounded-lg border border-border/60 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setActiveTab("current")}
-              className={`py-1.5 px-3 rounded-md transition-all text-center ${
-                activeTab === "current"
-                  ? "bg-background text-foreground shadow-xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Current 
-              {/* ({question.queueIndex || queueQuestions.findIndex(q => q.id === question.id)}/{queueQuestions.length}) */}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("queue")}
-              className={`py-1.5 px-3 rounded-md transition-all text-center ${
-                activeTab === "queue"
-                  ? "bg-background text-foreground shadow-xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              In Queue ({queueQuestions.length})
-            </button>
-          </div>
-
-          {onToggleCollapse && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-              title="Collapse Panel"
-            >
-              <ChevronUp className="h-4 w-4" />
-            </Button>
-          )}
+        <div className="grid grid-cols-2 p-1 bg-muted/50 rounded-lg border border-border/60 text-xs font-medium shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab("current")}
+            className={`py-1.5 px-3 rounded-md transition-all text-center ${
+              activeTab === "current"
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Current 
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("queue")}
+            className={`py-1.5 px-3 rounded-md transition-all text-center ${
+              activeTab === "queue"
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            In Queue ({queueQuestions.length})
+          </button>
         </div>
 
         {/* Loading State */}

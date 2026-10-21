@@ -24,10 +24,13 @@ import {
 } from "@/hooks/api/answer/useAnswerCheck";
 import type { SourceItem } from "@/types";
 import type { AnswerCheckItem } from "@/hooks/services/answerService";
+import { PanelControls } from "./PanelControls";
 
 export interface ChecksPipelinePanelProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isEnlarged?: boolean;
+  onToggleEnlarge?: () => void;
   questionId?: string;
   questionText?: string;
   answerText?: string;
@@ -115,6 +118,8 @@ const PARAMETER_META: Record<string, ParameterMeta> = {
 export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
   isCollapsed = false,
   onToggleCollapse,
+  isEnlarged = false,
+  onToggleEnlarge,
   questionId,
   questionText = "",
   answerText = "",
@@ -231,7 +236,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
     });
   }, [report, statusFilter]);
 
-  if (isCollapsed) {
+  if (isCollapsed && !isEnlarged) {
     return (
       <div className="h-full min-h-[260px] flex flex-col items-center justify-between py-4 px-2 bg-card border border-border rounded-xl shadow-xs transition-all duration-300 w-12">
         <Button
@@ -262,43 +267,11 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
           Checks / GDB Cleaning Pipeline
         </p>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRunChecks}
-            disabled={isChecking}
-            className="h-7 px-2.5 text-xs font-medium rounded-lg border-border/80 hover:bg-muted text-foreground flex items-center gap-1.5 shadow-2xs cursor-pointer"
-          >
-            <RefreshCw
-              className={`w-3 h-3 text-muted-foreground ${
-                isChecking ? "animate-spin text-primary" : ""
-              }`}
-            />
-            <span className="hidden sm:inline">
-              {isChecking
-                ? "Checking..."
-                : report
-                ? "Run Checks Again"
-                : "Run Checks"}
-            </span>
-            <span className="sm:hidden">
-              {isChecking ? "Checking..." : "Run"}
-            </span>
-          </Button>
-
-          {onToggleCollapse && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleCollapse}
-              className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-              title="Collapse Panel"
-            >
-              <ChevronUp className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+        <PanelControls
+          isEnlarged={isEnlarged}
+          onToggleEnlarge={onToggleEnlarge}
+          onToggleCollapse={onToggleCollapse}
+        />
       </div>
 
       <CardContent className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
@@ -510,8 +483,8 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
           </div>
         )}
 
-        {/* BOTTOM FOOTER: VIEW DETAILED REPORT */}
-        <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs mt-auto">
+        {/* BOTTOM FOOTER: VIEW DETAILED REPORT & RUN CHECKS AGAIN */}
+        <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 text-xs mt-auto">
           <button
             type="button"
             disabled={!report}
@@ -524,6 +497,23 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
             <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <span>View Detailed Report</span>
           </button>
+
+          {report && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRunChecks}
+              disabled={isChecking}
+              className="h-7 px-2.5 text-xs font-medium rounded-lg border-border/80 hover:bg-muted text-foreground flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <RefreshCw
+                className={`w-3 h-3 text-muted-foreground ${
+                  isChecking ? "animate-spin text-primary" : ""
+                }`}
+              />
+              <span>{isChecking ? "Checking..." : "Run Checks Again"}</span>
+            </Button>
+          )}
         </div>
       </CardContent>
 

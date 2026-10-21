@@ -5,7 +5,7 @@ import { SourceReferencePanel } from "./components/SourceReferencePanel";
 import { ChecksPipelinePanel } from "./components/ChecksPipelinePanel";
 import { FarmerFriendlyVersionsPanel } from "./components/FarmerFriendlyVersionsPanel";
 import { OcrExtractionPanel } from "./components/OcrExtractionPanel";
-import type { IQuestionContextData, IPanelCollapseState } from "./types";
+import type { IQuestionContextData, IPanelCollapseState, PanelKey } from "./types";
 import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
@@ -36,6 +36,35 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     checksPipeline: false,
     ffv: false,
   });
+
+  // Enlarged (Full Screen single page view) state for any of the 6 panels
+  const [enlargedPanel, setEnlargedPanel] = useState<PanelKey | null>(null);
+
+  const toggleEnlarge = useCallback((panelKey: PanelKey) => {
+    setEnlargedPanel((prev) => (prev === panelKey ? null : panelKey));
+  }, []);
+
+  // Keyboard shortcut: Press Escape to exit full-screen view
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && enlargedPanel) {
+        setEnlargedPanel(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [enlargedPanel]);
+
+  // Lock background body scroll when a panel is enlarged
+  useEffect(() => {
+    if (enlargedPanel) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [enlargedPanel]);
 
   // Every faq-pop/api.ts request needs X-User-Id/X-User-Role or the backend 401s — this page
   // never rendered under DataProcessingDashboard.tsx (the only other place that currently sets
@@ -406,10 +435,12 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
         <div className="flex flex-col gap-4 shrink-0 w-full lg:w-auto">
           {/* Top: Question & Context */}
           <div
-            className={`transition-all duration-300 ease-in-out shrink-0 h-auto lg:h-[580px] ${
-              collapsed.questionContext
-                ? "w-full lg:w-12"
-                : "w-full lg:w-[320px] xl:w-[350px]"
+            className={`transition-all duration-300 ease-in-out shrink-0 ${
+              enlargedPanel === "questionContext"
+                ? "fixed inset-0 z-50 bg-background p-3 md:p-5 flex flex-col overflow-hidden"
+                : collapsed.questionContext
+                ? "w-full lg:w-12 h-auto lg:h-[580px]"
+                : "w-full lg:w-[320px] xl:w-[350px] h-auto lg:h-[580px]"
             }`}
           >
             <QuestionAndContextPanel
@@ -461,6 +492,8 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               onQuestionSelect={setSelectedQuestionId}
               isCollapsed={collapsed.questionContext}
               onToggleCollapse={() => togglePanel("questionContext")}
+              isEnlarged={enlargedPanel === "questionContext"}
+              onToggleEnlarge={() => toggleEnlarge("questionContext")}
               progressPercent={15}
               actionType={actionType}
               onActionTypeChange={setActionType}
@@ -479,15 +512,19 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
 
           {/* Bottom: OCR Extraction */}
           <div
-            className={`transition-all duration-300 ease-in-out shrink-0 flex flex-col h-[260px] ${
-              collapsed.ocrExtraction
-                ? "w-full lg:w-12"
-                : "w-full lg:w-[320px] xl:w-[350px]"
+            className={`transition-all duration-300 ease-in-out shrink-0 flex flex-col ${
+              enlargedPanel === "ocrExtraction"
+                ? "fixed inset-0 z-50 bg-background p-3 md:p-5 overflow-hidden"
+                : collapsed.ocrExtraction
+                ? "w-full lg:w-12 h-[260px]"
+                : "w-full lg:w-[320px] xl:w-[350px] h-[260px]"
             }`}
           >
             <OcrExtractionPanel
               isCollapsed={collapsed.ocrExtraction}
               onToggleCollapse={() => togglePanel("ocrExtraction")}
+              isEnlarged={enlargedPanel === "ocrExtraction"}
+              onToggleEnlarge={() => toggleEnlarge("ocrExtraction")}
             />
           </div>
         </div>
@@ -498,10 +535,12 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
           <div className="flex flex-col xl:flex-row gap-4 items-stretch h-auto xl:h-[580px]">
             {/* Panel 2: Answer Review & Draft */}
             <div
-              className={`transition-all duration-300 ease-in-out h-full ${
-                collapsed.answerDraft
-                  ? "w-full xl:w-12 shrink-0"
-                  : "flex-1 min-w-[320px]"
+              className={`transition-all duration-300 ease-in-out ${
+                enlargedPanel === "answerDraft"
+                  ? "fixed inset-0 z-50 bg-background p-3 md:p-5 flex flex-col overflow-hidden"
+                  : collapsed.answerDraft
+                  ? "w-full xl:w-12 shrink-0 h-full"
+                  : "flex-1 min-w-[320px] h-full"
               }`}
             >
               <AnswerReviewDraftPanel
@@ -520,21 +559,27 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                 refetchQuestions={refetch}
                 isCollapsed={collapsed.answerDraft}
                 onToggleCollapse={() => togglePanel("answerDraft")}
+                isEnlarged={enlargedPanel === "answerDraft"}
+                onToggleEnlarge={() => toggleEnlarge("answerDraft")}
                 onDraftChange={handleDraftChange}
               />
             </div>
 
             {/* Panel 3: Package of Practices / Source Reference */}
             <div
-              className={`transition-all duration-300 ease-in-out h-full ${
-                collapsed.sourceReference
-                  ? "w-full xl:w-12 shrink-0"
-                  : "w-full xl:w-[46%] min-w-[300px] shrink-0"
+              className={`transition-all duration-300 ease-in-out ${
+                enlargedPanel === "sourceReference"
+                  ? "fixed inset-0 z-50 bg-background p-3 md:p-5 flex flex-col overflow-hidden"
+                  : collapsed.sourceReference
+                  ? "w-full xl:w-12 shrink-0 h-full"
+                  : "w-full xl:w-[46%] min-w-[300px] shrink-0 h-full"
               }`}
             >
               <SourceReferencePanel
                 isCollapsed={collapsed.sourceReference}
                 onToggleCollapse={() => togglePanel("sourceReference")}
+                isEnlarged={enlargedPanel === "sourceReference"}
+                onToggleEnlarge={() => toggleEnlarge("sourceReference")}
                 questionState={activeState}
               />
             </div>
@@ -545,14 +590,18 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
             {/* Panel 4: Checks / GDB Cleaning Pipeline */}
             <div
               className={`transition-all duration-300 ease-in-out ${
-                collapsed.checksPipeline
-                  ? "w-full md:w-12 shrink-0"
-                  : "w-full md:w-1/2 flex-1 min-w-[280px]"
+                enlargedPanel === "checksPipeline"
+                  ? "fixed inset-0 z-50 bg-background p-3 md:p-5 flex flex-col overflow-hidden"
+                  : collapsed.checksPipeline
+                  ? "w-full md:w-12 shrink-0 min-h-[260px]"
+                  : "w-full md:w-1/2 flex-1 min-w-[280px] min-h-[260px]"
               }`}
             >
               <ChecksPipelinePanel
                 isCollapsed={collapsed.checksPipeline}
                 onToggleCollapse={() => togglePanel("checksPipeline")}
+                isEnlarged={enlargedPanel === "checksPipeline"}
+                onToggleEnlarge={() => toggleEnlarge("checksPipeline")}
                 questionId={selectedQuestionId || undefined}
                 questionText={activeQuestionText}
                 answerText={activeAnswerText}
@@ -566,14 +615,18 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
             {/* Panel 5: Farmer-Friendly Versions (FFV) */}
             <div
               className={`transition-all duration-300 ease-in-out ${
-                collapsed.ffv
-                  ? "w-full md:w-12 shrink-0"
-                  : "w-full md:w-1/2 flex-1 min-w-[280px]"
+                enlargedPanel === "ffv"
+                  ? "fixed inset-0 z-50 bg-background p-3 md:p-5 flex flex-col overflow-hidden"
+                  : collapsed.ffv
+                  ? "w-full md:w-12 shrink-0 min-h-[260px]"
+                  : "w-full md:w-1/2 flex-1 min-w-[280px] min-h-[260px]"
               }`}
             >
               <FarmerFriendlyVersionsPanel
                 isCollapsed={collapsed.ffv}
                 onToggleCollapse={() => togglePanel("ffv")}
+                isEnlarged={enlargedPanel === "ffv"}
+                onToggleEnlarge={() => toggleEnlarge("ffv")}
               />
             </div>
           </div>
