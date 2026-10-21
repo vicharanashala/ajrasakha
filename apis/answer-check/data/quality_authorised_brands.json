@@ -1,0 +1,4 @@
+{
+  "note": "Government or cooperative products. A product with one of these names is not a private product, so private_product_name does not flag it. Add more names here.",
+  "names": ["IFFCO"]
+}
