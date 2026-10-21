@@ -606,16 +606,16 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
             </div>
           </div>
 
-          {/* BOTTOM ROW: Panels 4 and 5 */}
-          <div className="flex flex-col md:flex-row gap-4 items-stretch min-h-[260px]">
+          {/* BOTTOM ROW: Panels 4 and 5 - Fixed height to prevent growth */}
+          <div className="flex flex-col md:flex-row gap-4 h-[460px] shrink-0">
             {/* Panel 4: Checks / GDB Cleaning Pipeline */}
             <div
               className={`transition-all duration-300 ease-in-out ${
                 enlargedPanel === "checksPipeline"
                   ? "fixed inset-0 z-50 bg-background p-3 md:p-5 flex flex-col overflow-hidden"
                   : collapsed.checksPipeline
-                  ? "w-full md:w-12 shrink-0 min-h-[260px]"
-                  : "w-full md:w-1/2 flex-1 min-w-[280px] min-h-[260px]"
+                  ? "w-full md:w-12 shrink-0 h-full"
+                  : "w-full md:w-1/2 flex-1 min-w-[280px] h-full"
               }`}
             >
               <ChecksPipelinePanel
@@ -639,8 +639,8 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                 enlargedPanel === "ffv"
                   ? "fixed inset-0 z-50 bg-background p-3 md:p-5 flex flex-col overflow-hidden"
                   : collapsed.ffv
-                  ? "w-full md:w-12 shrink-0 min-h-[260px]"
-                  : "w-full md:w-1/2 flex-1 min-w-[280px] min-h-[260px]"
+                  ? "w-full md:w-12 shrink-0 h-full"
+                  : "w-full md:w-1/2 flex-1 min-w-[280px] h-full"
               }`}
             >
               <FarmerFriendlyVersionsPanel

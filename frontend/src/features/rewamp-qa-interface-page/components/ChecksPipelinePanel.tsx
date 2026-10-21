@@ -274,7 +274,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
         />
       </div>
 
-      <CardContent className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
+      <CardContent className="p-3.5 sm:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* BODY CONTENT */}
         {isChecking ? (
           /* LOADING / PROCESSING STATE */
@@ -340,7 +340,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
           </div>
         ) : (
           /* COMPLETED CHECK RESULTS */
-          <div className="space-y-3.5 my-auto py-2">
+          <div className="space-y-3.5 my-auto py-2 overflow-y-auto scrollbar-hiding">
             {/* 3 SUMMARY METRIC TABS */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {/* PASSED */}
