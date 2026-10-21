@@ -535,8 +535,8 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               enlargedPanel === "ocrExtraction"
                 ? "fixed inset-0 z-50 bg-background p-3 md:p-5 overflow-hidden"
                 : collapsed.ocrExtraction
-                ? "w-full lg:w-12 h-[260px]"
-                : "w-full lg:w-[320px] xl:w-[350px] h-[260px]"
+                ? "w-full lg:w-12 h-[460px]"
+                : "w-full lg:w-[320px] xl:w-[350px] h-[460px]"
             }`}
           >
             <OcrExtractionPanel
