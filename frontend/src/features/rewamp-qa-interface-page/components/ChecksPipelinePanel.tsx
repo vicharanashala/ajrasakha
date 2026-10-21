@@ -617,7 +617,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
           </div>
 
           {/* Modal Body: Clean Check cards list */}
-          <div className="p-3.5 sm:p-5 overflow-y-auto space-y-2.5 flex-1 min-h-0">
+          <div className="p-3.5 sm:p-5 overflow-y-auto scrollbar-hiding space-y-2.5 flex-1 min-h-0">
             {modalChecks.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-xs space-y-1">
                 <HelpCircle className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />

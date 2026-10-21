@@ -370,7 +370,7 @@ export const FarmerFriendlyVersionsPanel: React.FC<
 
             {/* CHANGE: Render a scrollable list of FFV rows that adapts
                 to the available panel height. */}
-            <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-0.5">
+            <div className="space-y-1.5 max-h-[420px] overflow-y-auto scrollbar-hiding pr-0.5">
               {versions.map((version, index) => (
                 <div
                   key={`ffv-${index}`}
@@ -451,7 +451,7 @@ export const FarmerFriendlyVersionsPanel: React.FC<
 
           {/* CHANGE: Make the dialog body independently scrollable so
               long questions and answers remain usable on small screens. */}
-          <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
+          <div className="p-4 sm:p-6 overflow-y-auto scrollbar-hiding space-y-5 flex-1 min-h-0">
             {/* CHANGE: Add the angle as contextual information in the modal. */}
             {selectedVersionIndex !== null && (
               <div>
