@@ -76,6 +76,7 @@ jobs:
             VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
             VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
             INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}
+            REVIEW_SYSTEM_API_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_API_AUTH_KEY }}
             PLIVO_AUTH_ID=${{ secrets.PLIVO_AUTH_ID }}
             PLIVO_AUTH_TOKEN=${{ secrets.PLIVO_AUTH_TOKEN }}
             LGD_STATES_API_URL=${{ secrets.LGD_STATES_API_URL }}

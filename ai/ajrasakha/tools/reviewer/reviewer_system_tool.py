@@ -25,10 +25,10 @@ load_dotenv()
 
 CREATE_QUESTION_URL = os.getenv("CREATE_QUESTION_URL", "https://reviewer-backend-239934307367.asia-south2.run.app/api/questions")
 
-INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
+REVIEW_SYSTEM_API_AUTH_KEY = os.getenv("REVIEW_SYSTEM_API_AUTH_KEY") or os.getenv("INTERNAL_API_KEY")
 
-if not INTERNAL_API_KEY:
-    log.warning("INTERNAL_API_KEY is missing! Tool will fail authentication.")
+if not REVIEW_SYSTEM_API_AUTH_KEY:
+    log.warning("REVIEW_SYSTEM_API_AUTH_KEY is missing! Tool will fail authentication.")
 
 _REVIEWER_MCP_HOST = os.getenv("REVIEWER_MCP_HOST", "0.0.0.0").strip()
 _REVIEWER_MCP_PORT = int(os.getenv("REVIEWER_MCP_PORT", "9007"))
@@ -231,7 +231,7 @@ def upload_question_to_reviewer_system(
         payload["messageId"] = str(message_id).strip()
 
     headers = {
-        "x-internal-api-key": INTERNAL_API_KEY,
+        "x-internal-api-key": REVIEW_SYSTEM_API_AUTH_KEY,
         "Content-Type": "application/json"
     }
 
