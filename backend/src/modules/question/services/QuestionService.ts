@@ -1049,7 +1049,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
           if (isStaticAndDynamic) {
             await this.questionRepo.updateQuestion(questionId, {
-              status: 'open',
+              status: 'dynamic',
               tag: 'static_dynamic',
               isAutoAllocate: true,
             });
