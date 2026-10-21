@@ -404,6 +404,25 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     return "";
   }, [selectedQuestionData, currentQuestionInList]);
 
+  const activeDistrict = useMemo(() => {
+    const fromSelected =
+      selectedQuestionData?.details?.district ||
+      (selectedQuestionData as any)?.question?.details?.district ||
+      (selectedQuestionData as any)?.district ||
+      "";
+    if (fromSelected) return fromSelected;
+
+    if (currentQuestionInList) {
+      return (
+        currentQuestionInList.details?.district ||
+        currentQuestionInList.question?.details?.district ||
+        currentQuestionInList.district ||
+        ""
+      );
+    }
+    return "";
+  }, [selectedQuestionData, currentQuestionInList]);
+
   const activeSources = useMemo(() => {
     if (currentDraftSources && currentDraftSources.length > 0) {
       return currentDraftSources;
@@ -581,6 +600,8 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                 isEnlarged={enlargedPanel === "sourceReference"}
                 onToggleEnlarge={() => toggleEnlarge("sourceReference")}
                 questionState={activeState}
+                questionCrop={activeCrop}
+                questionDistrict={activeDistrict}
               />
             </div>
           </div>
