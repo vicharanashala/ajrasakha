@@ -69,7 +69,9 @@ export const apiFetch = async <T>(
         console.warn("Unauthorized request, clearing user and redirecting to login");
         const { clearUser } = useAuthStore.getState();
         clearUser();
-        window.location.href = "/auth";
+        if (typeof window !== "undefined" && window.location.pathname !== "/auth") {
+          window.location.href = "/auth";
+        }
         return null;
       }
       let errorMessage = `Request failed with status ${res.status}`;
