@@ -247,7 +247,8 @@ export class CropController {
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   @OpenAPI({ summary: 'Get All crops data' })
   async getCropsForClient(){
-    return await this.cropService.getAllCrops()
+    // Only real crops (not chemicals, pests, etc.), without the default 50 item page limit.
+    return await this.cropService.getAllCrops({ type: 'crop', limit: 100000, sort: 'name_asc' })
   }
 
 
