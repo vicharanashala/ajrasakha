@@ -49,6 +49,16 @@ NEGATION_KEYWORDS = (
     "not allowed", "no longer permitted", "discontinued", "not be used",
     "withdrawn", "illegal",
 )
+# warnings that only count right before the chemical, in the same sentence: words like "never"
+# also appear in advice that has nothing to do with the chemical ("never mix new grain with old")
+TIGHT_NEGATION_BEFORE = re.compile(
+    r"\b(?:never|don't|dont|shall not|cannot|can't|refrain from|stop using|not advisable to use)\b[^.!?\n]{0,40}$",
+    re.IGNORECASE,
+)
+TIGHT_NEGATION_AFTER = re.compile(
+    r"^[^.!?\n]{0,40}\b(?:was phased out|is phased out|not advised|not advisable|is not safe|no longer (?:allowed|used|permitted|recommended))\b",
+    re.IGNORECASE,
+)
 FORMULATION_PATTERN = re.compile(
     r"\d+(?:\.\d+)?\s*%?\s*(?:WP|EC|CG|SC|WG|GR|SL|D\.?S\.?|G)\b",
     re.IGNORECASE,
@@ -65,7 +75,8 @@ RESTRICTED_CHEMICALS = _load_json(RESTRICTED_CHEMICALS_PATH)
 
 
 def _chemical_pattern(name: str) -> re.Pattern[str]:
-    return re.compile(rf"(?<![\w]){re.escape(name)}(?![\w])", re.IGNORECASE)
+    # a name may be followed by a number or formulation code ("Aldrin10G"), but not by more letters
+    return re.compile(rf"(?<![\w]){re.escape(name)}(?![^\W\d_])", re.IGNORECASE)
 
 
 def _evidence_sentence(answer_text: str, match: re.Match[str]) -> str:
@@ -124,7 +135,11 @@ def _is_warning(answer_text: str, start: int, end: int) -> bool:
     window = answer_text[
         max(0, start - NEGATION_WINDOW_CHARS):min(len(answer_text), end + NEGATION_WINDOW_CHARS)
     ]
-    return _nearby_keyword(window, NEGATION_KEYWORDS)
+    if _nearby_keyword(window, NEGATION_KEYWORDS):
+        return True
+    before = answer_text[max(0, start - 60):start]
+    after = answer_text[end:end + 60]
+    return bool(TIGHT_NEGATION_BEFORE.search(before) or TIGHT_NEGATION_AFTER.search(after))
 
 
 def _first_recommending_match(
@@ -255,7 +270,7 @@ def check_banned_chemicals(
         **extra,
     )
 
-    banned_hits: list[tuple[str, str, str, str]] = []
+    banned_hits: list[tuple[str, str, str, str, tuple[int, int]]] = []
     for chemical in BANNED_CHEMICALS:
         span = _first_recommending_mention(chemical["name"], answer_text, model_mentions)
         if span:
@@ -272,11 +287,22 @@ def check_banned_chemicals(
             written_as = answer_text[span[0]:span[1]]
             if written_as.casefold() != chemical["name"].casefold() and len(written_as) <= 40:
                 detail += f" (written as '{written_as}')"
-            banned_hits.append((chemical["name"], written_as, detail, _evidence_sentence_at(answer_text, *span)))
+            banned_hits.append((chemical["name"], written_as, detail, _evidence_sentence_at(answer_text, *span), span))
+
+    # a name inside a longer listed name is the same mention ("Ethyl Mercury Chloride" in
+    # "Methoxy Ethyl Mercury Chloride"), so only the longer one is kept
+    banned_hits = [
+        hit for hit in banned_hits
+        if not any(
+            other is not hit and other[4][0] <= hit[4][0] and hit[4][1] <= other[4][1]
+            and (other[4][1] - other[4][0]) > (hit[4][1] - hit[4][0])
+            for other in banned_hits
+        )
+    ]
 
     if banned_hits:
         # the first one fills the usual fields; every one found is listed in found_all
-        name, written_as, detail, evidence = banned_hits[0]
+        name, written_as, detail, evidence, _ = banned_hits[0]
         banned_result = check_result(
             FAIL,
             detail,
