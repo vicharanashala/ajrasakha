@@ -178,6 +178,15 @@ def load_from_local_dir(directory: str) -> dict[str, str]:
     raw: dict[str, str] = {}
     for filename in REQUIRED_FILES:
         path = base / filename
+        if not path.is_file():
+            # Render Secret Files can't contain spaces in their name (every
+            # real filename here has one) - accept the underscore-for-space
+            # variant too, so the local filenames (exactly as the team gave
+            # them) never need renaming, and production just substitutes
+            # underscores at upload time.
+            alt_path = base / filename.replace(" ", "_")
+            if alt_path.is_file():
+                path = alt_path
         if path.is_file():
             raw[filename] = path.read_text(encoding="utf-8-sig")
     return raw

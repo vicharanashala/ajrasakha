@@ -137,6 +137,20 @@ def test_empty_directory_fails_closed(tmp_path):
         validate_and_build(raw)
 
 
+# ---- Render Secret Files can't have spaces in the filename - accept the
+#      underscore-substituted variant without renaming the real local files ----
+
+def test_underscore_substituted_filename_is_accepted(tmp_path):
+    _write_minimal_valid_set(tmp_path)
+    # Simulate the Render Secret Files constraint: rename just one file to
+    # its underscore variant, exactly as it would be uploaded there.
+    (tmp_path / "Team Question.csv").rename(tmp_path / "Team_Question.csv")
+
+    raw = load_from_local_dir(str(tmp_path))
+    dataset = validate_and_build(raw)
+    assert len(dataset.structures) == 4  # all four files still found and loaded
+
+
 # ---- load_reference_dataset(): source-selection must fail closed, never guess ----
 
 def test_load_reference_dataset_requires_explicit_source(monkeypatch):
