@@ -31,7 +31,13 @@ ZOHO_API_BASE = os.getenv("ZOHO_API_BASE", "https://workdrive.zohoexternal.in/pu
 MIN_TEXT_CHARS = 200  # below this, treat the source as scanned/unusable
 # bigger prompts fail more often through the proxy, so keep these small
 MAX_SOURCE_CHARS_FOR_PROMPT = 4500
-MAX_SOURCES_PER_CHECK = 2
+MAX_SOURCES_PER_CHECK = 3
+# all sources together, so a long list of sources does not make the prompt too long
+MAX_TOTAL_SOURCE_CHARS_FOR_PROMPT = 12000
+# text around a chemical name when it is looked up in the whole document
+PASSAGE_BEFORE_CHARS = 100
+PASSAGE_AFTER_CHARS = 320
+MAX_PASSAGES_PER_NAME = 2
 FILE_ID_PATTERN = re.compile(r"/file/([A-Za-z0-9]+)")
 USE_MOCK_LLM = os.getenv("USE_MOCK_LLM", "false").strip().casefold() in {
     "1", "true", "yes", "on"
@@ -162,7 +168,12 @@ def _distinctive_tokens(text: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]{5,}", (text or "").casefold()))
 
 
-def _cited_pages_text(reader: Any, cited_pages: list[int], answer_tokens: set[str]) -> str | None:
+def _cited_pages_text(
+    reader: Any,
+    cited_pages: list[int],
+    answer_tokens: set[str],
+    budget: int = MAX_SOURCE_CHARS_FOR_PROMPT,
+) -> str | None:
     """Text of the cited pages, or None if they can't be found.
 
     Tries a few page offsets and keeps the one whose pages share the most
@@ -208,7 +219,6 @@ def _cited_pages_text(reader: Any, cited_pages: list[int], answer_tokens: set[st
         located, key=lambda item: len(answer_tokens & _distinctive_tokens(item[1])), reverse=True
     )
     kept: dict[int, str] = {}
-    budget = MAX_SOURCE_CHARS_FOR_PROMPT
     for page, text in by_relevance:
         if budget <= 0:
             break
@@ -233,14 +243,117 @@ def _download_pdf(file_id: str, timeout: int) -> bytes | None:
         return None
 
 
-def fetch_source_text(
-    url: str, page_spec: Any = "", answer_text: str = "", timeout: int = 30
-) -> str | None:
-    """Text of the cited pages of a Zoho-hosted PDF, or None if anything fails."""
-    file_id = _extract_zoho_file_id(url)
-    cited = parse_page_spec(page_spec)
-    if not file_id or not cited:
+_GENERIC_NAMES_PATH = Path(__file__).resolve().parent.parent / "data" / "quality_generic_chemical_names.json"
+with _GENERIC_NAMES_PATH.open(encoding="utf-8") as _generic_names_source:
+    _CHEMICAL_NAME_PATTERNS = [
+        (name, re.compile(r"\b" + re.escape(name) + r"\b", re.IGNORECASE))
+        for name in json.load(_generic_names_source)["names"]
+        if len(name) >= 5
+    ]
+
+
+def _answer_chemical_names(answer_text: str) -> list[str]:
+    """Known chemical names written in the answer."""
+    return [name for name, pattern in _CHEMICAL_NAME_PATTERNS if pattern.search(answer_text or "")]
+
+
+_CLAIM_TOKEN = re.compile(r"[a-z0-9][a-z0-9.%]*", re.IGNORECASE)
+# the part of a sentence that belongs to one chemical: split at commas, "or", "and" and full stops
+_CLAUSE_SPLIT = re.compile(r",|;|\n|\.\s|\bor\b|\band\b", re.IGNORECASE)
+_STOP_WORDS = frozenset(
+    "the for with and per use used using can may also from this that are was were will "
+    "such like into onto over under after before each any all one two".split()
+)
+
+
+def _claim_tokens(answer_text: str, pattern: "re.Pattern[str]") -> set[str]:
+    """Words and numbers written with a chemical name in the answer (its dose, crop, formulation)."""
+    tokens: set[str] = set()
+    for clause in _CLAUSE_SPLIT.split(answer_text):
+        if pattern.search(clause):
+            tokens |= {
+                t.casefold().strip(".") for t in _CLAIM_TOKEN.findall(clause)
+                if t.casefold().strip(".") not in _STOP_WORDS
+                and (len(t.strip(".")) >= 3 or any(ch.isdigit() for ch in t))
+            }
+    return tokens
+
+
+def _name_passages(reader: Any, names: list[str], budget: int, answer_text: str = "") -> str | None:
+    """Short passages from the whole document around each name, for names not on the cited pages.
+
+    Pages cited in an answer are often off by a page or missing, and one answer
+    can cite chemicals from different pages, so the cited pages alone are not enough.
+    A name can appear many times (a table row per crop), so the passage kept is the
+    one that shares the most words and numbers with what the answer says about it.
+    """
+    if not names or budget <= 0:
         return None
+    wanted = {name: re.compile(r"\b" + re.escape(name) + r"\b", re.IGNORECASE) for name in names}
+    claims = {name: _claim_tokens(answer_text, pattern) for name, pattern in wanted.items()}
+    general = _distinctive_tokens(answer_text)
+    candidates: dict[str, list[tuple[int, int, str]]] = {name: [] for name in names}
+    for index, page in enumerate(reader.pages, start=1):
+        try:
+            text = re.sub(r"\s+", " ", page.extract_text() or "")
+        except Exception:
+            continue
+        for name, pattern in wanted.items():
+            for match in pattern.finditer(text):
+                passage = text[max(0, match.start() - PASSAGE_BEFORE_CHARS):match.end() + PASSAGE_AFTER_CHARS]
+                words = {t.casefold().strip(".") for t in _CLAIM_TOKEN.findall(passage)}
+                # words about this chemical count double; words from the rest of the answer
+                # (the crop, the disease) help pick the right row of a table
+                score = 2 * len(claims[name] & words) + len(general & words)
+                candidates[name].append((score, index, passage))
+    found: dict[str, list[tuple[int, str]]] = {}
+    for name, options in candidates.items():
+        options.sort(key=lambda item: (-item[0], item[1]))
+        chosen: list[tuple[int, str]] = []
+        for _, index, passage in options:
+            # skip a passage that overlaps one already chosen on the same page
+            if any(page == index and (passage[:80] in other or other[:80] in passage) for page, other in chosen):
+                continue
+            chosen.append((index, passage))
+            if len(chosen) >= MAX_PASSAGES_PER_NAME:
+                break
+        found[name] = chosen
+    parts: list[str] = []
+    seen: set[str] = set()
+    # one passage for every name first, then second passages if there is room left
+    for rank in range(MAX_PASSAGES_PER_NAME):
+        for name in names:
+            if rank >= len(found[name]):
+                continue
+            index, passage = found[name][rank]
+            if passage in seen:
+                continue
+            part = f"[page {index}, about {name}]\n{passage}"
+            if len(part) > budget:
+                continue
+            seen.add(passage)
+            parts.append(part)
+            budget -= len(part)
+    return "\n\n".join(parts) or None
+
+
+def fetch_source_text(
+    url: str,
+    page_spec: Any = "",
+    answer_text: str = "",
+    timeout: int = 30,
+    budget: int = MAX_SOURCE_CHARS_FOR_PROMPT,
+) -> str | None:
+    """Text of a Zoho-hosted PDF that the answer can be compared with, or None.
+
+    The cited pages come first. Any chemical named in the answer that is not on
+    those pages is looked up in the whole document, so a missing or wrong page
+    number does not hide the source.
+    """
+    file_id = _extract_zoho_file_id(url)
+    if not file_id:
+        return None
+    cited = parse_page_spec(page_spec)
     started = time.time()
     try:
         body = _download_pdf(file_id, timeout)
@@ -248,7 +361,11 @@ def fetch_source_text(
             return None
         # in memory, no temp files (threads would collide)
         reader = PdfReader(io.BytesIO(body))
-        text = _cited_pages_text(reader, cited, _distinctive_tokens(answer_text))
+        text = _cited_pages_text(reader, cited, _distinctive_tokens(answer_text), budget) if cited else None
+        lowered = (text or "").casefold()
+        missing = [name for name in _answer_chemical_names(answer_text) if name.casefold() not in lowered]
+        extra = _name_passages(reader, missing, budget - len(text or ""), answer_text)
+        text = "\n\n".join(part for part in (text, extra) if part) or None
     except Exception:
         return None
     finally:
@@ -310,6 +427,11 @@ Return ONLY valid JSON, no other text:
   "checked_claims": [],
   "unsupported_claims": []
 }}
+The answer may cite several sources. A claim is supported if ANY ONE of the
+sources supports it, so do not report a claim as unsupported or contradicted
+just because a different source says something else. Treat equivalent units
+as the same: 1 acre is 0.4047 hectare (so 2 kg/acre is about 5 kg/ha and
+40 kg/acre is about 100 kg/ha), 1 kg is 1000 g, 1 L is 1000 ml.
 Use FAIL only when the source text clearly contradicts a specific claim, or
 names a different chemical/formulation than the answer states for the same
 usage. Use NOT_EVALUATED when the source doesn't cover the relevant topic
@@ -324,6 +446,76 @@ def _valid_fidelity_response(result: Any) -> bool:
         and result.get("status") in {PASS, FAIL, NOT_EVALUATED}
         and isinstance(result.get("detail"), str)
     )
+
+
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+CLAIM_WINDOW_CHARS = 400
+# 1 acre is 0.4047 hectare, so an amount per acre is about 2.471 times as much per hectare
+ACRE_TO_HECTARE = 2.471
+
+
+def _numbers_match(wanted: float, found: float) -> bool:
+    return abs(wanted - found) <= max(0.05, 0.06 * abs(wanted))
+
+
+def _claim_found_in_sources(claim: str, source_texts: list[dict[str, str]]) -> bool:
+    """True when a source has the claim's chemical with every number of the claim close to it.
+
+    The model's own explanation (in brackets) is ignored, because its numbers are not the claim's.
+    """
+    claim = re.sub(r"\([^)]*\)", " ", str(claim or ""))
+    names = _answer_chemical_names(claim)
+    numbers = [float(n) for n in _NUMBER.findall(claim)]
+    if not names or not numbers:
+        return False
+    per_acre = "acre" in claim.casefold()
+    for source in source_texts:
+        text = re.sub(r"\s+", " ", source["text"])
+        for name in names:
+            for hit in re.finditer(r"\b" + re.escape(name) + r"\b", text, re.IGNORECASE):
+                window = text[max(0, hit.start() - CLAIM_WINDOW_CHARS):hit.end() + CLAIM_WINDOW_CHARS]
+                present = [float(n) for n in _NUMBER.findall(window)]
+                if all(
+                    any(_numbers_match(want, have) or (per_acre and _numbers_match(want * ACRE_TO_HECTARE, have)) for have in present)
+                    for want in numbers
+                ):
+                    return True
+    return False
+
+
+def _remaining_claims(result: dict[str, Any], source_texts: list[dict[str, str]]) -> list[Any]:
+    """The claims the model called unsupported that the source text does not actually contain."""
+    return [c for c in result.get("unsupported_claims") or [] if not _claim_found_in_sources(c, source_texts)]
+
+
+FAIL_RECHECKS = 2
+
+
+def _verify_failure(
+    result: dict[str, Any], prompt: str, source_texts: list[dict[str, str]]
+) -> dict[str, Any]:
+    """Keep a FAIL only if the source text really lacks the claims and 2 of 3 model runs agree."""
+    claims = result.get("unsupported_claims") or []
+    remaining = _remaining_claims(result, source_texts)
+    if claims and not remaining:
+        return {
+            **result, "status": PASS, "unsupported_claims": [],
+            "detail": "Every claim the model could not match was found in the source text when checked directly.",
+        }
+    failures = 1
+    for _ in range(FAIL_RECHECKS):
+        try:
+            again = call_llm(prompt, _valid_fidelity_response)
+        except LLMCallFailed:
+            continue
+        if again["status"] == FAIL and (not again.get("unsupported_claims") or _remaining_claims(again, source_texts)):
+            failures += 1
+    if failures < 2:
+        return {
+            **result, "status": PASS, "unsupported_claims": [],
+            "detail": "A first run flagged a claim, but the re-checks did not confirm it.",
+        }
+    return {**result, "unsupported_claims": remaining or claims}
 
 
 def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
@@ -342,11 +534,16 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
     sources = context.get("sources") or []
     cited_any_page = any(parse_page_spec(source.get("page")) for source in sources)
     source_texts = []
+    # every source gets a share of the total, so the prompt stays a reasonable length
+    per_source_budget = min(
+        MAX_SOURCE_CHARS_FOR_PROMPT,
+        MAX_TOTAL_SOURCE_CHARS_FOR_PROMPT // max(1, min(len(sources), MAX_SOURCES_PER_CHECK)),
+    )
     for source in sources:
         if len(source_texts) >= MAX_SOURCES_PER_CHECK:
             break
         text = fetch_source_text(
-            str(source.get("source") or ""), source.get("page"), answer_text
+            str(source.get("source") or ""), source.get("page"), answer_text, budget=per_source_budget
         )
         if text:
             source_texts.append(
@@ -371,6 +568,8 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
         return error_result(
             "Source-fidelity check could not be evaluated because the model call failed",
         )
+    if result["status"] == FAIL:
+        result = _verify_failure(result, prompt, source_texts)
 
     extra_fields = dict(
         source_origin=source_origin,
