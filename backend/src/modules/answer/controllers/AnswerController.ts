@@ -678,5 +678,16 @@ export class AnswerController {
   ) {
     return await this.answerService.getAnswerCheck(jobId);
   }
+
+  @OpenAPI({ summary: 'Generate Farmer-Friendly Versions (FFV) for an answer' })
+  @Post('/ffv')
+  @HttpCode(200)
+  @Authorized()
+  async generateFfv(
+    @Body() body: { question: string; answer: string; domains?: string[] },
+  ) {
+    console.log("body ",body)
+    return await this.answerService.generateFfv(body);
+  }
 }
 

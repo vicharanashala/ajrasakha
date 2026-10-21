@@ -34,4 +34,6 @@ export const aiConfig = {
   chemicalCheckPort: Number(env('CHEMICAL_CHECK_PORT')?.trim()) || 8002,
   // Answer Check API (GDB Pipeline) Configuration
   answerCheckPort: Number(env('ANSWER_CHECK_PORT')?.trim()) || 8012,
+  // FFV (Farmer-Friendly Versions) API Configuration
+  ffvPort: Number(env('FFV_PORT')?.trim()) || 8003,
 };

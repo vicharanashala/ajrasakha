@@ -30,6 +30,9 @@ export class AiService {
   private _answerCheckServerUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.answerCheckPort;
 
+  private _ffvServerUrl =
+    'http://' + aiConfig.serverIP + ':' + aiConfig.ffvPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -670,6 +673,53 @@ export class AiService {
       return await response.json();
     } catch (error) {
       console.error('[getAnswerCheck] Error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generates Farmer-Friendly Versions (FFV) using the FFV API (port 8003).
+   */
+  async generateFfv(payload: {
+    question: string;
+    answer: string;
+    domains?: string[];
+  }): Promise<{
+    results: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions: number;
+  } | null> {
+    try {
+      const response = await fetch(`${this._ffvServerUrl}/generate-ffv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.error(`[generateFfv] Failed: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      return (await response.json()) as {
+        results: Array<{
+          domain: string;
+          versions: Array<{
+            angle: string;
+            question: string;
+            answer: string;
+          }>;
+        }>;
+        total_versions: number;
+      };
+    } catch (error) {
+      console.error('[generateFfv] Error:', error);
       return null;
     }
   }
