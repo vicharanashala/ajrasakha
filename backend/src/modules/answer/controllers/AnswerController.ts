@@ -26,7 +26,7 @@ import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { InternalApiAuth } from '#root/shared/index.js';
 import { AnswerService } from '../services/AnswerService.js';
-import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, DetectChemicalsBody, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, DetectChemicalsBody, FetchAiInitialAnswerBody, PolishDraftBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -192,6 +192,15 @@ export class AnswerController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async fetchAiInitialAnswer(@Body() body: FetchAiInitialAnswerBody) {
     return this.answerService.fetchAiInitialAnswer(body);
+  }
+
+  @OpenAPI({summary: 'Get language-polish and structural-check suggestions for a draft answer (never mutates the draft)'})
+  @Post('/writing-assistant')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getWritingAssistantSuggestions(@Body() body: PolishDraftBody) {
+    return this.answerService.getWritingAssistantSuggestions(body);
   }
 
   @Get('/submissions')

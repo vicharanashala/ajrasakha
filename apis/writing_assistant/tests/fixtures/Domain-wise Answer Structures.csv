@@ -1,0 +1,8 @@
+Domain,Code,Question Type,Question,Full Written Answer,SL No.,Steps,Example,Suggestion 1,Suggestion 2
+Pest Management (Fixture),PMF,Broad,My fixture crop has holes in the leaves what should I do?,Fixture answer about leaf-hole pest identification and control.,1,Introduction,Identify the pest causing holes in the leaves.,,
+,,,,,2,Severity check,Count the percentage of affected leaves.,,
+,,,,,3,Control measures,Apply the recommended control measure.,Do not skip the severity check,
+Pest Management (Fixture),PMF,Narrow,Which spray should I use for the leaf-hole pest?,Fixture answer naming a specific spray and safety note.,1,Direct answer,Use the registered spray for this pest.,,
+,,,,,2,Safety,Wear protective gear while spraying.,,
+Soil Health (Fixture),SHF,Broad,My fixture soil looks poor what should I do?,Fixture answer about soil testing and correction.,1,Introduction,Test the soil before applying anything.,Always test first,Avoid guessing the dose
+,,,,,2,Correction,Apply the recommended nutrient correction.,,

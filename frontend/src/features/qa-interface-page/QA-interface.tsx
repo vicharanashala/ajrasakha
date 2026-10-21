@@ -30,6 +30,9 @@ import {
   useReviewAnswer,
   type IReviewAnswerPayload,
 } from "@/hooks/api/answer/useReviewAnswer";
+import { usePolishDraft } from "@/hooks/api/answer/usePolishDraft";
+import type { PolishDraftResponse } from "@/hooks/services/answerService";
+import { PolishDraftPanel } from "./PolishDraftPanel";
 
 import { QuestionDetailsDialog } from "./QuestionDetailsDialog";
 
@@ -188,6 +191,13 @@ export const QAInterface = ({
   const { mutateAsync: respondQuestion, isPending: isResponding } =
     useReviewAnswer();
 
+  // Writing-assistant: language polish + structural check for the FIRST
+  // response only (level 0.0, before any reviewer sees the draft). Never
+  // mutates newAnswer itself - only handleAcceptSuggestion (an explicit
+  // click) does, and a failed/unavailable result never disables Submit.
+  const { mutate: polishDraft, isPending: isPolishing } = usePolishDraft();
+  const [polishResult, setPolishResult] = useState<PolishDraftResponse | null>(null);
+
   const [isLoadingTargetQuestion, setIsLoadingTargetQuestion] = useState(false);
   //for selecting the first question
 
@@ -268,6 +278,7 @@ export const QAInterface = ({
     }
     // Reset translation state when question changes
     setTranslatedText("");
+    setPolishResult(null);
   }, [selectedQuestion]);
 
   // ─── Time-bound question tracking with 5-minute grace period ─────────────
@@ -519,6 +530,38 @@ export const QAInterface = ({
     setTranslatedDraftText("");
     setSources([]);
     setRemarks("");
+    setPolishResult(null);
+  };
+
+  const handlePolishDraft = () => {
+    if (!newAnswer.trim() || !selectedQuestionData?.text) return;
+    polishDraft(
+      { question: selectedQuestionData.text, draft: newAnswer },
+      {
+        onSuccess: (result) => {
+          setPolishResult(result);
+          if (!result) {
+            toast.error("Writing assistant did not return a result.");
+          }
+        },
+        onError: () => {
+          setPolishResult(null);
+          toast.error(
+            "Could not reach the writing assistant. Your draft is unaffected.",
+          );
+        },
+      },
+    );
+  };
+
+  // The only place newAnswer changes as a result of the writing assistant -
+  // an explicit click, never automatic.
+  const handleAcceptSuggestion = () => {
+    const suggestedText = polishResult?.languagePolishing.suggestedText;
+    if (!suggestedText) return;
+    setTranslatedDraftText("");
+    setNewAnswer(suggestedText);
+    setPolishResult(null);
   };
 
   const handleSubmitResponse = async (
@@ -777,6 +820,18 @@ export const QAInterface = ({
                                 )}
                               </div>
                             }
+                          />
+
+                          {/* Writing assistant: language polish + structural check.
+                              Never auto-runs and never touches newAnswer except via
+                              the explicit "Use this wording" click inside the panel. */}
+                          <PolishDraftPanel
+                            polishResult={polishResult}
+                            isPolishing={isPolishing}
+                            canPolish={!!newAnswer.trim()}
+                            onPolish={handlePolishDraft}
+                            onAccept={handleAcceptSuggestion}
+                            onDismiss={() => setPolishResult(null)}
                           />
 
                           {/* Remarks */}

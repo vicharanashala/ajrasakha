@@ -21,6 +21,7 @@ import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionR
 import { AiService, ChemicalDetectionResponse } from '#root/modules/ai/services/AiService.js';
 import {
   FetchAiInitialAnswerBody,
+  PolishDraftBody,
   ReviewAnswerBody,
   SubmissionResponse,
   UpdateAnswerBody,
@@ -302,6 +303,10 @@ export class AnswerService extends BaseService implements IAnswerService {
 
   async fetchAiInitialAnswer(body: FetchAiInitialAnswerBody): Promise<any> {
     return this.answerAiService.fetchAiInitialAnswer(body);
+  }
+
+  async getWritingAssistantSuggestions(body: PolishDraftBody): Promise<any> {
+    return this.answerAiService.getWritingAssistantSuggestions(body);
   }
 
   async goldenFaq(

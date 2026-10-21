@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { injectable } from 'inversify';
 import { InternalServerError } from 'routing-controllers';
 import { aiConfig } from '#root/config/ai.js';
-import { FetchAiInitialAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { FetchAiInitialAnswerBody, PolishDraftBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerAiService } from '../interfaces/IAnswerAiService.js';
 
 /**
@@ -38,6 +38,37 @@ export class AnswerAiService implements IAnswerAiService {
       if (error instanceof InternalServerError) throw error;
       console.error('Error in fetchAiInitialAnswer:', error);
       throw new InternalServerError('Failed to fetch AI initial answer');
+    }
+  }
+
+  async getWritingAssistantSuggestions(body: PolishDraftBody): Promise<any> {
+    try {
+      const response = await fetch(`${aiConfig.writingAssistantServiceUrl}/polish-draft`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const responseText = await response.text();
+      let data: any;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        data = responseText;
+      }
+
+      if (!response.ok) {
+        throw new InternalServerError(
+          `Writing assistant service failed with status ${response.status}: ${typeof data === 'string' ? data : JSON.stringify(data)}`,
+        );
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof InternalServerError) throw error;
+      console.error('Error in getWritingAssistantSuggestions:', error);
+      throw new InternalServerError('Failed to fetch writing assistant suggestions');
     }
   }
 }

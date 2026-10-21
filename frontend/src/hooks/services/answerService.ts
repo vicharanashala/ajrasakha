@@ -13,6 +13,80 @@ export interface IFetchAnswerPayload {
   crop: string;
   state: string;
 }
+
+// apis/writing_assistant contract - see Writing Assistant Build Plan.
+// Field names match the backend's camelCase JSON exactly (the Python
+// service's pydantic models use a camelCase alias generator for this
+// reason - the wire format is camelCase everywhere, not snake_case).
+export interface PolishDraftPayload {
+  question: string;
+  draft: string;
+}
+
+export type CheckStatus = "unchanged" | "changed" | "n/a" | "not_run";
+
+export interface CheckedTokens {
+  numbersAndUnits: CheckStatus;
+  chemicalNames: CheckStatus;
+  certaintyLanguage: CheckStatus;
+  negation: CheckStatus;
+  cropNames: CheckStatus;
+  treatmentIdentity: CheckStatus;
+  timing: CheckStatus;
+  conditions: CheckStatus;
+  sentenceAlignment: CheckStatus;
+}
+
+export interface GuardrailResult {
+  status: "passed" | "failed";
+  checkedTokens: CheckedTokens;
+  details: string[];
+  disclaimer: string;
+}
+
+export interface LanguagePolishingResult {
+  status: "suggested" | "rejected" | "unavailable";
+  suggestedText: string | null;
+  reason: string | null;
+  guardrail: GuardrailResult | null;
+}
+
+export interface MatchedReference {
+  sourceType: "domain" | "direct_topic" | "crop_variant" | "team_question";
+  domain: string | null;
+  code: string | null;
+  questionType: "Broad" | "Narrow" | null;
+  crop: string | null;
+}
+
+export interface StepCoverageResult {
+  slNo: number;
+  step: string;
+  coverage: "covered" | "partial" | "missing";
+  example: string;
+  suggestion1: string | null;
+  suggestion2: string | null;
+}
+
+export interface StructuralValidationResult {
+  status:
+    | "complete"
+    | "incomplete"
+    | "partial"
+    | "needs_clarification"
+    | "reference_data_unavailable";
+  matchedReference: MatchedReference | null;
+  steps: StepCoverageResult[] | null;
+  clarificationReason: string | null;
+}
+
+export interface PolishDraftResponse {
+  requestId: string;
+  languagePolishing: LanguagePolishingResult;
+  structuralValidation: StructuralValidationResult;
+  warnings: string[];
+  errors: string[];
+}
 const API_BASE_URL = env.apiBaseUrl();
 
 export class AnswerService {
@@ -236,6 +310,25 @@ export class AnswerService {
       });
     } catch (error) {
       console.error(`Error in detectChemicals:`, error);
+      throw error;
+    }
+  }
+
+  // Never mutates the draft itself - only returns suggestions for the
+  // author to accept or ignore (Writing Assistant Build Plan).
+  async getWritingAssistantSuggestions(
+    payload: PolishDraftPayload,
+  ): Promise<PolishDraftResponse | null> {
+    try {
+      return await apiFetch<PolishDraftResponse>(
+        `${this._baseUrl}/writing-assistant`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      );
+    } catch (error) {
+      console.error(`Error in getWritingAssistantSuggestions:`, error);
       throw error;
     }
   }

@@ -32,4 +32,7 @@ export const aiConfig = {
   minimaxApiKey: env('MINIMAX_API_KEY'),
   // Chemical Check Service Configuration
   chemicalCheckPort: Number(env('CHEMICAL_CHECK_PORT')?.trim()) || 8002,
+  // apis/writing_assistant - standalone service, not on the tailnet, so it
+  // needs no tailnet-proxy wiring (see bootstrap/tailnetProxy.ts).
+  writingAssistantServiceUrl: env('WRITING_ASSISTANT_SERVICE_URL')
 };
