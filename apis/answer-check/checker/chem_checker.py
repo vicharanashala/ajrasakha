@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from chem_dose import EXCEEDS, WITHIN, dose_verdict, rule_text
 from normalizer import AnswerContext
 from result_state import FAIL, NOT_EVALUATED, PASS, check_result, not_applicable_result
 
@@ -165,11 +166,24 @@ def _first_recommending_mention(
 
 
 def _restriction_kind_status(
-    chemical: dict[str, Any], evidence: str
+    chemical: dict[str, Any],
+    evidence: str,
+    answer_text: str = "",
+    span: tuple[int, int] | None = None,
 ) -> tuple[str, str] | None:
     """Status and detail for a usage-based restriction, or None for a normal crop restriction."""
     kind = chemical.get("restriction_kind")
     name = chemical["name"]
+    if kind == "dose_limit" and chemical.get("permitted_dose") and span is not None:
+        rule = chemical["permitted_dose"]
+        verdict, written = dose_verdict(rule, answer_text, span)
+        if verdict == WITHIN:
+            return PASS, f"{name} is within the permitted dose of {rule_text(rule)}"
+        if verdict == EXCEEDS:
+            return FAIL, f"{name} is permitted only up to {rule_text(rule)}; the answer uses {written}"
+        return NOT_EVALUATED, (
+            f"Cannot confirm the dose of {name}; it is permitted only up to {rule_text(rule)}"
+        )
     if kind == "blanket_ban":
         return FAIL, chemical.get("detail") or f"{name}: use in agriculture withdrawn"
     if kind == "operator_only":
@@ -241,31 +255,49 @@ def check_banned_chemicals(
         **extra,
     )
 
+    banned_hits: list[tuple[str, str, str, str]] = []
     for chemical in BANNED_CHEMICALS:
         span = _first_recommending_mention(chemical["name"], answer_text, model_mentions)
         if span:
             detail = chemical.get("detail") or "Banned chemical found"
+            rule = chemical.get("permitted_dose")
+            if rule:
+                verdict, written = dose_verdict(rule, answer_text, span)
+                if verdict == WITHIN:
+                    continue  # allowed at this dose, so it is not a banned use
+                detail = (
+                    f"{chemical['name']} is permitted only up to {rule_text(rule)}; "
+                    + (f"the answer uses {written}" if verdict == EXCEEDS else "the answer gives no dose that can be compared")
+                )
             written_as = answer_text[span[0]:span[1]]
             if written_as.casefold() != chemical["name"].casefold() and len(written_as) <= 40:
                 detail += f" (written as '{written_as}')"
-            banned_result = check_result(
-                FAIL,
-                detail,
-                found=chemical["name"],
-                matched_text=written_as,
-                evidence=_evidence_sentence_at(answer_text, *span),
-                **extra,
-            )
-            break
+            banned_hits.append((chemical["name"], written_as, detail, _evidence_sentence_at(answer_text, *span)))
+
+    if banned_hits:
+        # the first one fills the usual fields; every one found is listed in found_all
+        name, written_as, detail, evidence = banned_hits[0]
+        banned_result = check_result(
+            FAIL,
+            detail,
+            found=name,
+            matched_text=written_as,
+            evidence=evidence,
+            found_all=[hit[0] for hit in banned_hits],
+            matched_texts=[hit[1] for hit in banned_hits],
+            evidence_all=[hit[3] for hit in banned_hits],
+            **extra,
+        )
 
     best_priority = _STATUS_PRIORITY[PASS]
+    restricted_hits: list[tuple[str, str, str]] = []
     for chemical in RESTRICTED_CHEMICALS:
         span = _first_recommending_mention(chemical["name"], answer_text, model_mentions)
         if not span:
             continue
         evidence = _evidence_sentence_at(answer_text, *span)
 
-        kind_result = _restriction_kind_status(chemical, evidence)
+        kind_result = _restriction_kind_status(chemical, evidence, answer_text, span)
         if kind_result is not None:
             status, detail = kind_result
         elif _crop_is_restricted(crop, chemical["restricted_crops"]):
@@ -277,6 +309,8 @@ def check_banned_chemicals(
 
         if status == PASS:
             continue
+        if status == FAIL:
+            restricted_hits.append((chemical["name"], answer_text[span[0]:span[1]], evidence))
         if _STATUS_PRIORITY[status] > best_priority:
             best_priority = _STATUS_PRIORITY[status]
             extra_fields = dict(
@@ -292,8 +326,15 @@ def check_banned_chemicals(
                 if status == NOT_EVALUATED
                 else check_result(status, detail, **extra_fields)
             )
-            if status == FAIL:
-                break
+
+    if len(restricted_hits) > 1 and restricted_result.get("status") == FAIL:
+        # every restricted chemical found is listed; the first fills the usual fields
+        restricted_result = {
+            **restricted_result,
+            "found_all": [hit[0] for hit in restricted_hits],
+            "matched_texts": [hit[1] for hit in restricted_hits],
+            "evidence_all": [hit[2] for hit in restricted_hits],
+        }
 
     return {
         "banned_chemical": banned_result,
