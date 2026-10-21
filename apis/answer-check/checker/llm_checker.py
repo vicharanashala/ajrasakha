@@ -143,6 +143,30 @@ def _matches_known_generic_chemical(name: str) -> bool:
         for generic_name in _GENERIC_CHEMICAL_NAMES
     )
 
+AUTHORISED_BRANDS_PATH = PROJECT_DIRECTORY / "data" / "quality_authorised_brands.json"
+with AUTHORISED_BRANDS_PATH.open(encoding="utf-8") as authorised_brands_source:
+    AUTHORISED_BRANDS: list[str] = json.load(authorised_brands_source)["names"]
+AUTHORISED_BRANDS_TEXT = ", ".join(AUTHORISED_BRANDS)
+
+
+def _split_names(found: Any) -> list[str]:
+    """The product names the model reported (it returns a string or a list)."""
+    if isinstance(found, (list, tuple)):
+        parts = [str(part) for part in found]
+    else:
+        parts = re.split(r"[,;/&]|\s+and\s+", str(found or ""))
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _private_parts(found: Any) -> list[str]:
+    """The reported product names left after removing government / cooperative ones."""
+    authorised = [re.compile(r"\b" + re.escape(brand) + r"\b", re.IGNORECASE) for brand in AUTHORISED_BRANDS]
+    return [
+        part for part in _split_names(found)
+        if not any(pattern.search(part) for pattern in authorised)
+    ]
+
+
 COVERAGE_CHECK_NAMES = (
     "answer_structure",
     "sequence",
@@ -364,7 +388,8 @@ For contextuality, be conservative about generic regional context: FAIL only
 when the answer's crop/topic clearly does not match the question's.
 
 For private_product_name, identify private product names only as possible
-commercial brands, not registry-verified facts.
+commercial brands, not registry-verified facts. Products of government or
+cooperative bodies ({AUTHORISED_BRANDS_TEXT}) are not private products.
 
 For local_name_mismatch, do not fail merely because no local name is used.
 Only fail it when a documented local name is used incorrectly for the
@@ -587,6 +612,17 @@ def apply_context_overrides(
             f"'{found_name}' matches a known generic chemical name, not a private brand",
             found=None,
         )
+    elif found_name and product.get("status") == FAIL:
+        remaining = _private_parts(found_name)
+        if not remaining:
+            context_result["private_product_name"] = check_result(
+                PASS,
+                f"'{found_name}' is a government / cooperative product, not a private brand",
+                found=None,
+            )
+        elif len(remaining) < len(_split_names(found_name)):
+            # some of the flagged names are government products: keep only the private ones
+            product["found"] = ", ".join(remaining)
 
     return context_result
 
