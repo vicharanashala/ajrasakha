@@ -106,6 +106,12 @@ export default function DocumentManagementPanel({
     return level === 0;
   });
   const [translationJobs, setTranslationJobs] = useState([]);
+  // Doc-id -> most recent failed/cancelled job, kept up to date regardless of whether the Failed/
+  // Cancelled tab in the Translation Queue panel is open (unlike finishedJobs, which is lazy and
+  // only reflects whichever single tab was last toggled on). Seeds TranslateReviewCell's own mode
+  // dropdown so it doesn't silently diverge from the queue's "Translate again" dropdown — see
+  // TranslateReviewCell.tsx's lastTerminalJob prop.
+  const [terminalJobsByDocId, setTerminalJobsByDocId] = useState({});
   const [busyUploadId, setBusyUploadId] = useState(null);
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
   // "New" is async — a real Zoho upload happens server-side, and the item stays at
@@ -137,6 +143,26 @@ export default function DocumentManagementPanel({
       setTranslationJobs(jobs);
       const stillActive = new Set(jobs.map((j) => j.id));
       setStoppingJobIds((prev) => new Set([...prev].filter((id) => stillActive.has(id))));
+    } catch {
+      // ignore transient errors, next poll/manual refresh will retry
+    }
+  }
+
+  function jobDocId(job) {
+    return job.document_id || job.unique_document_id;
+  }
+
+  async function refetchTerminalJobs() {
+    try {
+      const [failed, cancelled] = await Promise.all([
+        getDashboardTranslationJobs("failed"),
+        getDashboardTranslationJobs("cancelled"),
+      ]);
+      const map = {};
+      for (const job of [...(failed || []), ...(cancelled || [])]) {
+        map[jobDocId(job)] = job;
+      }
+      setTerminalJobsByDocId(map);
     } catch {
       // ignore transient errors, next poll/manual refresh will retry
     }
@@ -192,11 +218,11 @@ export default function DocumentManagementPanel({
   // Success means the job goes back to queued/running, which arrives over SSE like any other
   // translation update (handled below), so no local state update is needed here beyond busy
   // tracking and surfacing a 409 ("already in progress") if it somehow races another trigger.
-  async function handleRedoTranslationJob(job) {
+  async function handleRedoTranslationJob(job, mode) {
     const docId = job.document_id || job.unique_document_id;
     setRedoingJobIds((prev) => new Set(prev).add(job.id));
     try {
-      await translateUniqueDocument(docId, currentUserName);
+      await translateUniqueDocument(docId, currentUserName, mode || job.mode);
       toast.success("Translation queued");
     } catch (err) {
       toast.error(err.message || "Failed to retry translation");
@@ -213,6 +239,7 @@ export default function DocumentManagementPanel({
     await Promise.all([
       refetchUploads(),
       refetchTranslationJobs(),
+      refetchTerminalJobs(),
       ...(finishedFilter ? [refetchFinishedJobs()] : []),
     ]);
   }
@@ -285,6 +312,17 @@ export default function DocumentManagementPanel({
           const filtered = prev.filter((j) => j.id !== job.id);
           const belongsHere = !job.deleted && finished && job.status === finishedFilterRef.current;
           return belongsHere ? [...filtered, job] : filtered;
+        });
+        setTerminalJobsByDocId((prev) => {
+          const docId = jobDocId(job);
+          const isTerminal = !job.deleted && (job.status === "failed" || job.status === "cancelled");
+          if (isTerminal) return { ...prev, [docId]: job };
+          if (prev[docId]?.id === job.id) {
+            const next = { ...prev };
+            delete next[docId];
+            return next;
+          }
+          return prev;
         });
       },
       document: () => bumpRefresh(),
@@ -567,6 +605,7 @@ export default function DocumentManagementPanel({
           refreshKey={refreshKey}
           onDataChanged={bumpRefresh}
           canEdit={canEdit}
+          terminalJobsByDocId={terminalJobsByDocId}
         />
       </div>
 
@@ -586,6 +625,7 @@ export default function DocumentManagementPanel({
         canEdit={canEdit}
         currentUserName={currentUserName}
         translationJobs={translationJobs}
+        terminalJobsByDocId={terminalJobsByDocId}
       />
     </div>
   );

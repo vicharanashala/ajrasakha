@@ -26,23 +26,28 @@ export const ReviewTimeline = ({
     <div className="mt-6">
       <div className="space-y-4">
         {reviews.map((review, index) => {
-         /* const modification = review?.answer?.modifications?.find(
-            (mod: any) => mod.modifiedBy === review.reviewerId
-          );*/
-          const modification = review?.answer?.modifications?.find(
-            (mod: any) => {
-              const sameReviewer =
-                mod.modifiedBy?.toString() === review.reviewerId?.toString();
-          
-              const timeDiff = Math.abs(
-                new Date(mod.modifiedAt).getTime() -
-                  new Date(review.createdAt).getTime()
+          const modification = (() => {
+            if (review.action !== "modified") return undefined;
+
+            const reviewerMods = review?.answer?.modifications?.filter(
+              (mod: any) =>
+                mod.modifiedBy?.toString() === review.reviewerId?.toString()
+            );
+
+            if (!reviewerMods || reviewerMods.length === 0) return undefined;
+            if (reviewerMods.length === 1) return reviewerMods[0];
+
+            const reviewTime = new Date(review.createdAt).getTime();
+            return reviewerMods.reduce((closest: any, curr: any) => {
+              const closestDiff = Math.abs(
+                new Date(closest.modifiedAt).getTime() - reviewTime
               );
-          
-              // allow up to 2 seconds difference
-              return sameReviewer && timeDiff < 2000;
-            }
-          );
+              const currDiff = Math.abs(
+                new Date(curr.modifiedAt).getTime() - reviewTime
+              );
+              return currDiff < closestDiff ? curr : closest;
+            }, reviewerMods[0]);
+          })();
 
           return (
             <div key={review._id}>
@@ -103,7 +108,7 @@ export const ReviewTimeline = ({
                         </>
                       )}
 
-                      {review.action === "modified"&& modification && (
+                      {review.action === "modified" && (
                         <>
                           <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
                           <span>Modified</span>
