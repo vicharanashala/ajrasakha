@@ -1037,30 +1037,36 @@ export async function deleteDashboardTranslationJob(jobId: string) {
   return _handleResponse(res);
 }
 
+// Translate mode: "normal" (default, page-by-page) | "flex" (page-by-page, slower per page) |
+// "batch" (handed to Google as one batch job, can take up to 24h). Omitting mode means "normal".
+export type TranslateMode = "normal" | "flex" | "batch";
+
 // Placement-addressed. Jobs are per DOCUMENT, not per placement — translating from any one of a
 // document's placements translates it once, and every sibling placement then shows
 // translation_status: "done". `translatedBy` (the signed-in user's display name, sent by the
 // caller — see TranslateReviewCell.tsx) is optional and unverified: /api/pop has no auth, so the
 // backend just stores whatever name it's given (docs/first_render_frontend.md, "Who translated /
 // reviewed, and when").
-export async function translateDashboardDocument(placementId: string, translatedBy?: string) {
+export async function translateDashboardDocument(
+  placementId: string,
+  translatedBy?: string,
+  mode?: TranslateMode,
+) {
+  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
     method: "POST",
-    ...(translatedBy
-      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
-      : {}),
+    ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
   });
   return _handleResponse(res);
 }
 
 // Document-addressed equivalent of translateDashboardDocument, for use where no single placement
 // is in scope (e.g. the top level of a document detail view).
-export async function translateUniqueDocument(id: string, translatedBy?: string) {
+export async function translateUniqueDocument(id: string, translatedBy?: string, mode?: TranslateMode) {
+  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
     method: "POST",
-    ...(translatedBy
-      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
-      : {}),
+    ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
   });
   return _handleResponse(res);
 }
