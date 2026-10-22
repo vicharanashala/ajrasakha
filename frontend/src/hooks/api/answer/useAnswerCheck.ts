@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AnswerService,
@@ -9,7 +9,17 @@ import { toast } from "sonner";
 
 const answerService = new AnswerService();
 
-export const useAnswerCheck = () => {
+export interface UseAnswerCheckReturn {
+  startCheck: (payload: AnswerCheckPayload) => void;
+  resetCheck: () => void;
+  isSubmitting: boolean;
+  isChecking: boolean;
+  activeJobId: string | null;
+  report: AnswerCheckReport | null;
+  error: Error | null;
+}
+
+export const useAnswerCheck = (): UseAnswerCheckReturn => {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   // 1. Submit mutation
@@ -25,41 +35,61 @@ export const useAnswerCheck = () => {
     onSuccess: (data) => {
       setActiveJobId(data.job_id);
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err?.message || "Failed to start quality checks");
     },
   });
 
   // 2. Polling query for active job
-  const checkStatusQuery = useQuery({
+  const checkStatusQuery = useQuery<AnswerCheckReport | null, Error>({
     queryKey: ["answerCheckStatus", activeJobId],
     queryFn: async (): Promise<AnswerCheckReport | null> => {
       if (!activeJobId) return null;
-      return await answerService.getAnswerCheck(activeJobId);
+      const res = await answerService.getAnswerCheck(activeJobId);
+      if (res?.status === "failed") {
+        toast.error("Quality checks failed to complete. Please try again.");
+      }
+      return res;
     },
     enabled: !!activeJobId,
     refetchInterval: (query) => {
-      const data = query.state.data;
-      if (!data) return 3000;
+      const data = query.state.data as AnswerCheckReport | null | undefined;
+      if (!data) return 2500;
       if (data.status === "completed" || data.status === "failed") {
         return false;
       }
-      return 3000;
+      return 2500;
     },
   });
 
-  const report = checkStatusQuery.data;
-  const isChecking =
+  const report: AnswerCheckReport | null = activeJobId
+    ? (checkStatusQuery.data ?? null)
+    : null;
+
+  // Single unified loading state across the entire check lifecycle:
+  // True from the exact moment submitMutation is called until the polling query returns 'completed' or 'failed'.
+  // This eliminates any intermediate gap or flickering between submission and status polling.
+  const isChecking: boolean = Boolean(
     submitMutation.isPending ||
-    (Boolean(activeJobId) && report?.status === "processing");
+      (activeJobId &&
+        !submitMutation.isError &&
+        !checkStatusQuery.isError &&
+        report?.status !== "completed" &&
+        report?.status !== "failed")
+  );
 
-  const startCheck = (payload: AnswerCheckPayload) => {
-    submitMutation.mutate(payload);
-  };
+  const startCheck = useCallback(
+    (payload: AnswerCheckPayload) => {
+      // Clear previous activeJobId immediately so old results don't flash
+      setActiveJobId(null);
+      submitMutation.mutate(payload);
+    },
+    [submitMutation]
+  );
 
-  const resetCheck = () => {
+  const resetCheck = useCallback(() => {
     setActiveJobId(null);
-  };
+  }, []);
 
   return {
     startCheck,
@@ -68,6 +98,6 @@ export const useAnswerCheck = () => {
     isChecking,
     activeJobId,
     report,
-    error: submitMutation.error || checkStatusQuery.error,
+    error: (submitMutation.error || checkStatusQuery.error || null) as Error | null,
   };
 };

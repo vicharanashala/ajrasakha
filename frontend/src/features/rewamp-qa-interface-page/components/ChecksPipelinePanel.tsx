@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
-  ChevronUp,
   ChevronsRight,
   RefreshCw,
   Check,
@@ -140,6 +139,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
   }, [questionId]);
 
   const handleRunChecks = () => {
+    if (isChecking) return;
     const hasQuestion = Boolean(questionText?.trim());
     const hasAnswer = Boolean(answerText?.trim());
 
@@ -292,7 +292,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
               </p>
             </div>
           </div>
-        ) : !report ? (
+        ) : !report || report.status === "failed" ? (
           /* IDLE / EMPTY STATE */
           <div className="py-8 flex flex-col items-center justify-center text-center space-y-3 my-auto">
             <div className="w-12 h-12 rounded-full bg-muted/60 border border-border flex items-center justify-center text-muted-foreground">
@@ -487,7 +487,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
         <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 text-xs mt-auto">
           <button
             type="button"
-            disabled={!report}
+            disabled={!report || isChecking}
             onClick={() => {
               setStatusFilter("all");
               setIsDetailModalOpen(true);
@@ -498,7 +498,7 @@ export const ChecksPipelinePanel: React.FC<ChecksPipelinePanelProps> = ({
             <span>View Detailed Report</span>
           </button>
 
-          {report && (
+          {report && !isChecking && (
             <Button
               variant="outline"
               size="sm"
