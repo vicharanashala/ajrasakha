@@ -21,6 +21,7 @@ export const useChangeRoleAssignee = () => {
     }) => questionService.changeRoleAssignee(questionId, role, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
       toast.success("Assignment updated successfully");
     },
     onError: (error: any) => {
@@ -45,6 +46,7 @@ export const useToggleRoleAllocation = () => {
     }) => questionService.toggleRoleAllocation(questionId, role, enabled),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
     },
     onError: (error: any) => {
       toast.error(error?.message || "Failed to update auto allocation");
@@ -65,6 +67,7 @@ export const useRemoveRoleAssignee = () => {
     }) => questionService.removeRoleAssignee(questionId, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
       toast.success("Assignment removed successfully");
     },
     onError: (error: any) => {

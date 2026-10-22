@@ -4,16 +4,22 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { TesterLogForm, validateTesterLogForm } from "./TesterLogForm";
 
 const mutate = vi.fn();
+const updateMutate = vi.fn();
 vi.mock("../hooks/useTesterLogSubmit", () => ({
     useTesterLogSubmit: () => ({ mutate, isPending: false, isSuccess: false }),
+}));
+
+vi.mock("../hooks/useTesterLogAdminActions", () => ({
+    useUpdateTesterLogEntry: () => ({ mutate: updateMutate, isPending: false }),
 }));
 
 vi.mock("../hooks/useTesterLogHistory", () => ({
     useNextTestId: () => ({ data: "T-999", isLoading: false, refetch: vi.fn() }),
 }));
 
+const mockZohoStatuses = { statuses: {} };
 vi.mock("../../hooks/useZohoTicketStatuses", () => ({
-    useZohoTicketStatuses: () => ({ data: { statuses: {} }, isLoading: false }),
+    useZohoTicketStatuses: () => ({ data: mockZohoStatuses, isLoading: false }),
 }));
 
 beforeAll(() => {
@@ -366,6 +372,82 @@ describe("validateTesterLogForm", () => {
         expect(err.reviewer1AssignmentTime).toBe("Reviewer 1 Assignment Time cannot be earlier than Author Completion Time");
         expect(err.moderatorAssignmentTime).toBe("Moderator Assignment Time cannot be earlier than Reviewer 1 Completion Time");
     });
+
+    it("validates only Section 1, question asked time, section 3, and 120-min disclaimer when saving on hold", () => {
+        const onHoldData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            translationErrorType: "NA - Translation is accurate",
+            tagging: "New Question",
+            msg120MinShownToUser: "Not Received",
+        };
+
+        const errors = validateTesterLogForm(onHoldData, { isCross: false, excludeReviewerWorkflow: false, isSavingOnHold: true });
+        expect(Object.keys(errors)).toHaveLength(0);
+    });
+
+    it("rejects saving on hold if timeAnswerReceived is already filled", () => {
+        const onHoldWithAnswer: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:20:00",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            translationErrorType: "NA - Translation is accurate",
+            tagging: "New Question",
+            msg120MinShownToUser: "Not Received",
+        };
+
+        const errors = validateTesterLogForm(onHoldWithAnswer, { isCross: false, excludeReviewerWorkflow: false, isSavingOnHold: true });
+        expect(errors.timeAnswerReceived).toBe("Answer has already arrived; please complete and submit the test case instead of saving on hold");
+    });
+
+    it("rejects completed submission if overallTestStatus is left as 'On Hold'", () => {
+        const completedData: any = {
+            typeOfQuestion: "Unique",
+            buildVersion: "1.0",
+            channelTested: "WebApp",
+            languageTested: "English",
+            threadId: "th-123",
+            questionCategory: "Agronomy",
+            queryText: "Sample question?",
+            timeQuestionAsked: "10:00:00",
+            timeAnswerReceived: "10:05:00",
+            slaStatus: "Within SLA",
+            questionInReviewModel: "Yes",
+            questionCorrectlyFramed: "Yes",
+            originalLanguage: "English",
+            translatedLanguage: "English",
+            translationQuality: "Excellent",
+            translationErrorType: "NA - Translation is accurate",
+            tagging: "New Question",
+            msg120MinShownToUser: "Yes",
+            overallTestStatus: "On Hold",
+        };
+
+        const errors = validateTesterLogForm(completedData, { isCross: false, excludeReviewerWorkflow: true, isSavingOnHold: false });
+        expect(errors.overallTestStatus).toBe("Please select Pass or Fail to complete this test case");
+    });
 });
 
 describe("TesterLogForm component", () => {
@@ -389,6 +471,96 @@ describe("TesterLogForm component", () => {
         fireEvent.change(overallSelect, { target: { value: "Fail" } });
         expect(remarksSelect.disabled).toBe(false);
         expect(remarksSelect.value).toBe("");
+    });
+
+    it("renders 2-hour SLA banner and Save as On Hold button for hold-eligible new questions", async () => {
+        const { getByText, getAllByText } = render(<TesterLogForm testerName="Tester A" userEmail="tester@example.com" />);
+        // By default typeOfQuestion or tagging can be selected, or if selected Unique:
+        const typeSelect = document.querySelector('select[name="typeOfQuestion"]') as HTMLSelectElement;
+        if (typeSelect) {
+            fireEvent.change(typeSelect, { target: { value: "Unique" } });
+        }
+        expect(getAllByText(/Save as On Hold/).length).toBeGreaterThanOrEqual(1);
+        expect(getByText(/New Question Detected \(2-Hour SLA Window\)/)).not.toBeNull();
+    });
+
+    it("hides Save as On Hold button and 2-hour SLA banner when answer time is entered", async () => {
+        const { getByText, queryByText } = render(<TesterLogForm testerName="Tester A" userEmail="tester@example.com" />);
+        const typeSelect = document.querySelector('select[name="typeOfQuestion"]') as HTMLSelectElement;
+        if (typeSelect) {
+            fireEvent.change(typeSelect, { target: { value: "Unique" } });
+        }
+        expect(getByText(/New Question Detected \(2-Hour SLA Window\)/)).not.toBeNull();
+
+        const timeAnswerInput = document.querySelector('input[name="timeAnswerReceived"]') as HTMLInputElement;
+        if (timeAnswerInput) {
+            fireEvent.change(timeAnswerInput, { target: { value: "2026-10-14T10:20:00" } });
+        }
+
+        expect(queryByText(/New Question Detected \(2-Hour SLA Window\)/)).toBeNull();
+        expect(queryByText("Save as On Hold (Awaiting Expert)")).toBeNull();
+    });
+
+    it("renders Resuming banner and Complete & Submit button when editing an On Hold entry", async () => {
+        const editingEntry: any = {
+            _id: "entry-123",
+            testId: "T-042",
+            typeOfQuestion: "Unique",
+            overallTestStatus: "On Hold",
+            status: "On Hold",
+            testDate: "2026-10-13",
+            channelTested: "WebApp",
+            languageTested: "English",
+            buildVersion: "1.0",
+        };
+
+        const { getByText, queryByText } = render(
+            <TesterLogForm testerName="Tester A" userEmail="tester@example.com" editingEntry={editingEntry} />
+        );
+
+        expect(getByText(/Resuming Test Case:/)).not.toBeNull();
+        expect(getByText("T-042")).not.toBeNull();
+        expect(getByText("Complete & Submit Test Case")).not.toBeNull();
+        expect(queryByText("Save as On Hold (Awaiting Expert)")).toBeNull();
+    });
+
+    it("resets all form fields and triggers onCancelEdit when 'Cancel & Log New' is clicked", async () => {
+        const onCancelEdit = vi.fn();
+        const editingEntry: any = {
+            _id: "entry-123",
+            testId: "TL-00567896",
+            typeOfQuestion: "Outreach",
+            tagging: "New Question",
+            queryText: "Sample question awaiting answer",
+            overallTestStatus: "On Hold",
+            status: "On Hold",
+            testDate: "2026-10-13",
+            channelTested: "WebApp",
+            languageTested: "English",
+            buildVersion: "0.1",
+        };
+
+        const { getByText, container } = render(
+            <TesterLogForm
+                testerName="Tester A"
+                userEmail="tester@example.com"
+                editingEntry={editingEntry}
+                onCancelEdit={onCancelEdit}
+            />
+        );
+
+        const cancelBtn = getByText("Cancel & Log New");
+        expect(cancelBtn).not.toBeNull();
+
+        fireEvent.click(cancelBtn);
+
+        expect(onCancelEdit).toHaveBeenCalledTimes(1);
+
+        const queryInput = container.querySelector('textarea[name="queryText"]') as HTMLTextAreaElement;
+        expect(queryInput.value).toBe("");
+
+        const buildInput = container.querySelector('input[name="buildVersion"]') as HTMLInputElement;
+        expect(buildInput.value).toBe("");
     });
 });
 

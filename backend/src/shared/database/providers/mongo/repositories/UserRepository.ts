@@ -382,6 +382,10 @@ export class UserRepository implements IUserRepository {
         matchQuery.isBlocked = isBlockedFilter;
       }
 
+      if (isVerifiedFilter !== undefined) {
+        matchQuery.isVerified = isVerifiedFilter ? true : { $ne: true };
+      }
+
       if (isSTFFilter !== undefined) {
         matchQuery.special_task_force = isSTFFilter;
       }

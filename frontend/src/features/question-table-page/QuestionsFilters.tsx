@@ -131,6 +131,7 @@ type QuestionsFiltersProps = {
   onAnswerModeChange?: (mode: string) => void;
   dedicatedSubTab?: DedicatedSubTab;
   onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
+  isFetching?: boolean;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
@@ -191,6 +192,7 @@ export const QuestionsFilters = ({
   onAnswerModeChange,
   dedicatedSubTab,
   onDedicatedSubTabChange,
+  isFetching = false,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -852,6 +854,26 @@ export const QuestionsFilters = ({
         <div className="hidden md:flex items-center gap-2 flex-shrink-0">
           <ViewDropdown view={view} setView={setView} />
         </div>
+
+        {/* Refresh */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0 cursor-pointer"
+                aria-label="Refresh questions"
+              >
+                <RefreshCcw className={`h-4 w-4 text-muted-foreground hover:text-foreground ${isFetching ? "animate-spin text-primary" : ""}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Refresh questions</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* Filter */}
         <TooltipProvider>

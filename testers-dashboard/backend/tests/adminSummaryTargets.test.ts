@@ -148,4 +148,22 @@ describe('summarizeEntries', () => {
 
         expect(result.overall).toEqual({ target: 0, actual: 1, achievementPct: 0 });
     });
+
+    it('excludes entries with status or overallTestStatus as "On Hold" from target actuals', () => {
+        const result = summarizeEntries(
+            [
+                entry('Unique', 'WebApp'),
+                { ...entry('Unique', 'WebApp'), status: 'On Hold', overallTestStatus: 'On Hold' },
+                { ...entry('GDB', 'WhatsApp'), status: 'On Hold' },
+                { ...entry('Outreach', 'WebApp'), overallTestStatus: 'On Hold' },
+            ],
+            1,
+            1,
+        );
+
+        expect(result.overall.actual).toBe(1);
+        expect(result.counts.unique).toBe(1);
+        expect(result.counts.gdb).toBe(0);
+        expect(result.counts.outreach).toBe(0);
+    });
 });

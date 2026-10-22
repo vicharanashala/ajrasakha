@@ -8,7 +8,10 @@ import {
   getDashboardUniqueDocument,
   deleteDashboardUniqueDocument,
   getDashboardLanguages,
+  getDashboardDomains,
   getDashboardUploadedByOptions,
+  getDashboardApprovedByApproverOptions,
+  getDashboardApprovedByAdminOptions,
   getDashboardTranslatedByOptions,
   getDashboardReviewedByOptions,
   getUniqueDocumentPlacements,
@@ -33,11 +36,13 @@ import {
   ADVISORY_TYPE_OPTIONS,
   ADVISORY_SCOPE_OPTIONS,
   SEASON_OPTIONS,
-  DOMAIN_OPTIONS,
   FORMAT_ORIGINAL_OPTIONS,
   VERIFICATION_STATUS_OPTIONS,
   DOCUMENT_STATUS_OPTIONS,
   folderDisplayLabel,
+  filterFoldersByAdvisoryScope,
+  displayStateName,
+  formatDomainValue,
 } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
@@ -94,7 +99,9 @@ const FIELD_COLUMNS = [
   { key: "live_source_link", label: "Live Source Link", link: true, filterable: true },
   { key: "language", label: "Language", filterType: "language" },
   { key: "language_source", label: "Language Source", filterable: true, options: LANGUAGE_SOURCE_OPTIONS },
-  { key: "domain", label: "Domain", filterable: true, options: DOMAIN_OPTIONS },
+  // Options come from getDashboardDomains (fetched below, see domainOptions) — domain is now a
+  // string[] field with a backend-validated vocabulary, not a static hardcoded list.
+  { key: "domain", label: "Domain", filterable: true },
   { key: "format_original", label: "Format (Original)", filterable: true, options: FORMAT_ORIGINAL_OPTIONS },
   { key: "num_pages", label: "Pages", filterType: "numberRange", min: 0 },
   { key: "verification_status", label: "Verification", filterable: true, options: VERIFICATION_STATUS_OPTIONS },
@@ -102,6 +109,11 @@ const FIELD_COLUMNS = [
   // upload — no longer user-editable (see fields.ts/AddDocumentForm.tsx), but still filterable
   // here the same way verified_by was.
   { key: "uploaded_by", label: "Uploaded By", filterType: "users" },
+  // Who approved this document so far — written only when an admin picks NEW (filing into an
+  // existing document via ADD leaves these unchanged); approver stays null when an admin/approver
+  // uploads their own document (the approver step is skipped). Not editable (same as uploaded_by).
+  { key: "approved_by_approver", label: "Approved by (approver)", filterType: "users" },
+  { key: "approved_by_admin", label: "Approved by (admin)", filterType: "users" },
   { key: "document_status", label: "Doc Status", filterable: true, options: DOCUMENT_STATUS_OPTIONS },
   // translated_by/reviewed_by are the signed-in user's display name, unverified (see
   // TranslateReviewCell.tsx) — null on every document translated/reviewed before 2026-09-16, and
@@ -136,7 +148,15 @@ const MULTI_PLACEMENT_OPTIONS = [
   { key: "false", label: "Single-placement" },
 ];
 
-export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, refreshKey, onDataChanged }) {
+export default function UniqueDocumentsTable({
+  onOpenDetail,
+  translationAvailable,
+  canTranslate = false,
+  refreshKey,
+  onDataChanged,
+  canEdit = true,
+  terminalJobsByDocId = {},
+}) {
   const scrollRef = useRef(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -150,6 +170,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const [error, setError] = useState(null);
 
   const [languageOptions, setLanguageOptions] = useState([]);
+  const [domainOptions, setDomainOptions] = useState([]);
   // Distinct, non-empty names actually present on documents (see api.ts's getDashboardUploadedBy/
   // TranslatedBy/ReviewedByOptions comment) — NOT the reviewer-system user list, since uploaded_by
   // is filled from Zoho's "created by" and mostly isn't reviewer-system users at all. Falls back
@@ -160,15 +181,22 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
   const [uploadedByOptions, setUploadedByOptions] = useState([]);
   const [translatedByOptions, setTranslatedByOptions] = useState([]);
   const [reviewedByOptions, setReviewedByOptions] = useState([]);
+  const [approvedByApproverOptions, setApprovedByApproverOptions] = useState([]);
+  const [approvedByAdminOptions, setApprovedByAdminOptions] = useState([]);
   useEffect(() => {
     getDashboardLanguages()
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
+      .catch(() => {});
+    getDashboardDomains()
+      .then((d) => setDomainOptions(d || []))
       .catch(() => {});
   }, []);
   useEffect(() => {
     getDashboardUploadedByOptions().then(setUploadedByOptions).catch(() => {});
     getDashboardTranslatedByOptions().then(setTranslatedByOptions).catch(() => {});
     getDashboardReviewedByOptions().then(setReviewedByOptions).catch(() => {});
+    getDashboardApprovedByApproverOptions().then(setApprovedByApproverOptions).catch(() => {});
+    getDashboardApprovedByAdminOptions().then(setApprovedByAdminOptions).catch(() => {});
   }, [refreshKey]);
 
   // State/Folder/District/KVK filter dropdowns — id-based, same convention as MainTable.tsx's
@@ -200,7 +228,14 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     setPage(1);
   }
   const selectedFolderIds = [...(filters.crop_id || []), ...(filters.organization_id || [])];
-  const folderFilterUiOptions = folderFilterOptions.map((f) => ({
+  // Organisations offered in the Folder filter are narrowed to the Advisory Scope filter's value
+  // (type == scope, same rule as the Add/Edit forms) — crops are unaffected. No scope filter set →
+  // every organisation stays offered. Matched by id (not label), so an already-selected filter id
+  // that's no longer offered after narrowing stays applied (clearable via "Clear all filters"),
+  // same as the Advisory Type → Folder narrowing already does.
+  const advisoryScopeFilterValue = filters.advisory_scope?.[0] || "";
+  const visibleFolderFilterOptions = filterFoldersByAdvisoryScope(folderFilterOptions, advisoryScopeFilterValue);
+  const folderFilterUiOptions = visibleFolderFilterOptions.map((f) => ({
     value: f.id,
     label: folderDisplayLabel(f, folderFilterOptions),
   }));
@@ -234,7 +269,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     const anchor = item.duplicate_links?.find((l) => l.zoho_file_id === item.representative_file_id);
     return {
       ...item,
-      _anchor_state: anchor?.state,
+      _anchor_state: displayStateName(anchor?.state),
       _anchor_crop: anchor?.crop,
     };
   }
@@ -281,6 +316,8 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
     uploaded_by: uploadedByOptions,
     translated_by: translatedByOptions,
     reviewed_by: reviewedByOptions,
+    approved_by_approver: approvedByApproverOptions,
+    approved_by_admin: approvedByAdminOptions,
   };
 
   // Backs both numberRange (suffixes "min"/"max") and dateRange ("from"/"to") columns — two
@@ -461,21 +498,21 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
       )}
 
       <TopScrollbar containerRef={scrollRef} />
-      <div className="relative overflow-x-auto rounded-lg border border-border" ref={scrollRef}>
+      <div className="relative overflow-auto max-h-[70vh] rounded-lg border border-border" ref={scrollRef}>
         {loading && (
           <div className="absolute inset-0 bg-background/40 flex items-start justify-center pt-4 pointer-events-none z-10">
             <RefreshCw size={16} className="animate-spin text-muted-foreground" />
           </div>
         )}
         <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-muted/30">
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b border-border bg-muted">
               {FIELD_COLUMNS.map((col) => {
                 const filterControl =
                   col.vocab === "state" ? (
                     <ColumnFilter
                       label="State"
-                      options={stateOptions.map((s) => ({ value: s.id, label: s.name }))}
+                      options={stateOptions.filter((s) => s.name !== "Central").map((s) => ({ value: s.id, label: s.name }))}
                       selected={filters.state_id || []}
                       onChange={(v) => {
                         // Changing State invalidates whatever District/KVK was selected under the
@@ -563,6 +600,13 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                         </div>
                       );
                     })()
+                  ) : col.key === "domain" ? (
+                    <ColumnFilter
+                      label="Domain"
+                      options={domainOptions}
+                      selected={filters.domain || []}
+                      onChange={(v) => setFilter("domain", v)}
+                    />
                   ) : col.options ? (
                     <ColumnFilter
                       label={col.label}
@@ -652,7 +696,7 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                   onClick={(e) => handleRowClick(e, row)}
                   onDoubleClick={(e) => handleRowDoubleClick(e, row)}
                   className={`border-b border-border/50 transition-colors cursor-pointer ${
-                    selectedRowId === row.id ? "bg-primary/10" : idx % 2 === 0 ? "" : "bg-muted/10"
+                    selectedRowId === row.id ? "bg-primary/20" : idx % 2 === 0 ? "" : "bg-muted/10"
                   }`}
                 >
                   {FIELD_COLUMNS.map((col) => {
@@ -681,6 +725,16 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                         </td>
                       );
                     }
+                    if (col.key === "domain") {
+                      const joined = formatDomainValue(val);
+                      return (
+                        <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">
+                          <span className="block truncate text-foreground" title={joined}>
+                            {joined || "—"}
+                          </span>
+                        </td>
+                      );
+                    }
                     if (col.key === "document_id") {
                       return (
                         <td key={col.key} className="px-3 py-2 align-middle">
@@ -699,13 +753,15 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                             >
                               <Eye size={11} />
                             </button>
-                            <button
-                              className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                              onClick={() => setEditingRow(row)}
-                              title="Edit document"
-                            >
-                              <Pencil size={11} />
-                            </button>
+                            {canEdit && (
+                              <button
+                                className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                                onClick={() => setEditingRow(row)}
+                                title="Edit document"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       );
@@ -735,11 +791,13 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                       doc={row}
                       scope="document"
                       translationAvailable={translationAvailable}
+                      canTranslate={canTranslate}
                       resolvePlacementId={() => resolvePlacementId(row.id)}
                       onChanged={(fresh) => {
                         patchRow(row.id, fresh);
                         notifyTranslationChanged(fresh);
                       }}
+                      lastTerminalJob={terminalJobsByDocId[row.id]}
                     />
                   </td>
                   <td className="px-3 py-2 align-middle">
@@ -755,16 +813,18 @@ export default function UniqueDocumentsTable({ onOpenDetail, translationAvailabl
                     />
                   </td>
                   <td className="px-3 py-2 align-middle">
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
-                        onClick={() => handleDeleteRow(row)}
-                        disabled={deletingRowId === row.id}
-                        title="Delete this document — permanently removes it, all its placements, and every file it owns"
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
+                          onClick={() => handleDeleteRow(row)}
+                          disabled={deletingRowId === row.id}
+                          title="Delete this document — permanently removes it, all its placements, and every file it owns"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))

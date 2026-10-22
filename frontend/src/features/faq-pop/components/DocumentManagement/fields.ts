@@ -4,7 +4,7 @@
 // the full edit form share this one list, same as before. Field *shapes* (ids, language) changed
 // from the old POP-Translation backend this used to be verified against — see api.ts's header.
 
-export type FieldType = "text" | "number" | "date" | "select";
+export type FieldType = "text" | "number" | "date" | "select" | "multiselect";
 
 export type FieldDef = {
   key: string;
@@ -37,6 +37,17 @@ export const ADVISORY_TYPE_OPTIONS = ["Comprehensive", "Crop Advisory", "Non-Cro
 
 export const ADVISORY_SCOPE_OPTIONS = ["Central", "State", "District", "Town", "Village"];
 
+// "Central" is a real, backend-confirmed state (not a pseudo one — see getDashboardStates in
+// api.ts) used to file Advisory Scope = Central documents, since every placement needs a real
+// state. It's still picked/sent as "Central" under the hood everywhere, and shown as "Central"
+// almost everywhere too — this blanking is ONLY for Main Table's and the Documents tab's own State
+// column (the dense, high-row-count grids), per the user's explicit call: every other place a
+// state is shown (Document Detail's placements/merge lists, the Upload Queue) keeps "Central" as
+// plain text. Don't reuse this beyond those two tables.
+export function displayStateName(name?: string | null) {
+  return name === "Central" ? "" : name || "";
+}
+
 export const SEASON_OPTIONS = [
   "Kharif",
   "Rabi",
@@ -47,7 +58,13 @@ export const SEASON_OPTIONS = [
   "Not Applicable",
 ];
 
-export const DOMAIN_OPTIONS = [
+// Domain is now backend-validated (2026-10-22) — the 19 allowed names come from
+// GET /dashboard/domains (api.ts's getDashboardDomains), not a hardcoded list, since the backend
+// is the source of truth an unknown name 422s against. This fallback is only for the brief window
+// before that fetch resolves (same role FORMAT_ORIGINAL_OPTIONS-style static lists used to play);
+// every real consumer (AddDocumentForm/UploadEditForm/UniqueDocumentEditForm/UniqueDocumentsTable)
+// fetches and passes its own domainOptions down instead of importing this.
+export const DOMAIN_OPTIONS_FALLBACK = [
   "Soil Health and Nutrient Management",
   "Irrigation and Water Management",
   "Insect and Pest Management",
@@ -68,6 +85,13 @@ export const DOMAIN_OPTIONS = [
   "Fisheries and Aquaculture",
   "Allied Agricultural Activities",
 ];
+
+// Domain's value is always a string[] now (2026-10-22 backend change — a document can belong to
+// several domains), never a plain string. Joins for read-only display; forms use MultiSelector
+// directly on the array (see MetadataFieldInput's "multiselect" case).
+export function formatDomainValue(value: unknown): string {
+  return Array.isArray(value) && value.length > 0 ? value.join(", ") : "";
+}
 
 // format_original IS user-settable (confirmed by backend, despite docs/first_render_frontend.md
 // being silent on it — PATCH has always taken it, and POST /dashboard/uploads now takes an
@@ -125,7 +149,7 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
   { key: "advisory_type", label: "Advisory Type", type: "select", options: ADVISORY_TYPE_OPTIONS, group: "Advisory Classification" },
   { key: "advisory_scope", label: "Advisory Scope", type: "select", options: ADVISORY_SCOPE_OPTIONS, group: "Advisory Classification" },
   { key: "season", label: "Season", type: "select", options: SEASON_OPTIONS, group: "Advisory Classification" },
-  { key: "domain", label: "Domain", type: "select", options: DOMAIN_OPTIONS, group: "Advisory Classification" },
+  { key: "domain", label: "Domain", type: "multiselect", group: "Advisory Classification" },
   // On upload, blank = auto-detect from the file extension (uploadDashboardDocument only appends
   // non-empty fields to the form, so a blank pick sends nothing). On PATCH (the edit form), blank
   // sends null and CLEARS the field — UniqueDocumentEditForm.tsx hides the blank option here for
@@ -198,10 +222,40 @@ export const DISPLAY_ONLY_FIELDS: FieldDef[] = [
 // inline edit — unlike the Folder COLUMN FILTER, which already selects by id) can't otherwise tell
 // the two apart, so append "(crop)"/"(organisation)" only when a name collides within the given
 // folder list, leaving every non-colliding name exactly as-is.
-export function folderDisplayLabel(folder: { name?: string; kind?: string }, allFolders: { name?: string }[]) {
+//
+// Organisations additionally always carry a "Type · State" suffix (2026-10-13 backend change —
+// GET /dashboard/organizations and /dashboard/folders now send `type` ("central"|"state"|
+// "district") and `state`, a state NAME not id; crop items have both null) — 17 organisation
+// names appear more than once in the master (e.g. "DMR,RS", "DWR,RS"), and type+state is how a
+// person tells them apart, so this is shown for every organisation, not just on a name collision.
+// Crops are unaffected.
+export function folderDisplayLabel(
+  folder: { name?: string; kind?: string; type?: string | null; state?: string | null },
+  allFolders: { name?: string }[],
+) {
   const name = folder.name || "(no folder)";
   const isDup = (allFolders || []).filter((f) => (f.name || "(no folder)") === name).length > 1;
-  return isDup ? `${name} (${folder.kind === "organization" ? "organisation" : "crop"})` : name;
+  const base = isDup ? `${name} (${folder.kind === "organization" ? "organisation" : "crop"})` : name;
+  if (folder.kind !== "organization") return base;
+  const typeLabel = folder.type ? folder.type.charAt(0).toUpperCase() + folder.type.slice(1) : null;
+  const suffix = [typeLabel, folder.state].filter(Boolean).join(" · ");
+  return suffix ? `${base} — ${suffix}` : base;
+}
+
+// An organisation's `type` ("central"|"state"|"district") should match the document's Advisory
+// Scope (Central/State/District/Town/Village, see ADVISORY_SCOPE_OPTIONS) — only offer orgs of the
+// matching type once a scope is picked. No scope picked yet → don't filter (every org stays
+// offered). A scope with no matching org type (Town/Village) correctly leaves no organisations
+// offered — crops pass through untouched either way, this only ever narrows organisations.
+export function filterFoldersByAdvisoryScope(
+  folders: { kind?: string; type?: string | null }[],
+  advisoryScope?: string,
+) {
+  const scope = (advisoryScope || "").trim().toLowerCase();
+  if (!scope) return folders || [];
+  return (folders || []).filter(
+    (f) => f.kind !== "organization" || (f.type || "").toLowerCase() === scope,
+  );
 }
 
 export const ALL_UNIQUE_DOCUMENT_FIELDS: FieldDef[] = [

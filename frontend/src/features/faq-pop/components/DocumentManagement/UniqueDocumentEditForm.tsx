@@ -12,6 +12,7 @@ import { formatDate } from "@/utils/formatDate";
 import {
   updateDashboardUniqueDocument,
   getDashboardLanguages,
+  getDashboardDomains,
   getDashboardStates,
   getDashboardDistricts,
   getDashboardKvks,
@@ -65,9 +66,15 @@ const GROUP_ORDER = [
 export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSaved }) {
   const [values, setValues] = useState(() => {
     const v = {};
-    for (const f of EDITABLE_FIELDS) v[f.key] = doc?.[f.key] ?? "";
+    for (const f of EDITABLE_FIELDS) {
+      v[f.key] = f.type === "multiselect" ? doc?.[f.key] || [] : doc?.[f.key] ?? "";
+    }
     return v;
   });
+  const [domainOptions, setDomainOptions] = useState([]);
+  useEffect(() => {
+    getDashboardDomains().then((d) => setDomainOptions(d || [])).catch(() => {});
+  }, []);
   // Which fields the user has actually interacted with this time the modal is open — drives what
   // gets sent on save (see handleSave) instead of every field's current value. PATCH treats an
   // omitted field as "leave alone", so sending every field on every save risked clobbering one
@@ -169,6 +176,12 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
         if (raw) payload.language = raw;
         continue;
       }
+      if (f.type === "multiselect") {
+        // [] clears (an unknown name 422s, which the form surfaces via the catch below) — [] is
+        // the real "cleared" value here, unlike every other field's null.
+        payload[key] = Array.isArray(raw) ? raw : [];
+        continue;
+      }
       payload[key] = raw === "" || raw == null ? null : f.type === "number" ? Number(raw) : raw;
     }
     // month_of_*/year_of_* aren't editable fields anymore (see fields.ts) but are still real,
@@ -243,6 +256,7 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
                         onChange={(v) => setValue(f.key, v)}
                         className={inputClass}
                         allowBlank={f.key !== "format_original"}
+                        options={f.key === "domain" ? domainOptions : undefined}
                       />
                     </div>
                   ))}

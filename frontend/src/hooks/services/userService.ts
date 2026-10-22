@@ -361,7 +361,7 @@ export class UserService {
     return apiFetch<PaeValidationExpert[]>(`${this._baseUrl}/pae-val-experts`);
   }
 
-  /** Export an individual user's activity report matching the given time filters as an .xlsx blob. */
+  /** Export an individual user's activity report matching the given time filters as a PDF blob. */
   async exportUserActivityReport(
     userId: string,
     params: {
@@ -374,8 +374,9 @@ export class UserService {
       customEndDateTime?: string;
       startDate?: string;
       endDate?: string;
+      sendToEmail?: boolean;
     },
-  ): Promise<Blob> {
+  ): Promise<Blob | { success: boolean; message: string }> {
     const qs = new URLSearchParams();
     if (params.viewType) qs.append("viewType", params.viewType);
     if (params.selectedYear) qs.append("selectedYear", params.selectedYear);
@@ -388,6 +389,7 @@ export class UserService {
       qs.append("customEndDateTime", params.customEndDateTime);
     if (params.startDate) qs.append("startDate", params.startDate);
     if (params.endDate) qs.append("endDate", params.endDate);
+    if (params.sendToEmail) qs.append("sendToEmail", "true");
 
     const user = await getCurrentUser();
     if (!user) throw new Error("User not authenticated");
@@ -400,6 +402,16 @@ export class UserService {
         headers: { Authorization: `Bearer ${token}` },
       },
     );
+
+    // If sending to email, expect JSON response
+    if (params.sendToEmail) {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Failed to send report via email" }));
+        throw new Error(err.message || "Failed to send report via email");
+      }
+      return await res.json();
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: "Failed to export report" }));
       throw new Error(err.message || "Failed to export report");
