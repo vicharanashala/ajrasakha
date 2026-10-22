@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { MultiSelector } from "../FunctionsPanel/RunTile";
 
 // Shared input renderer for a DOCUMENT_METADATA_FIELDS entry (fields.ts) — used by both
 // AddDocumentForm.tsx and UniqueDocumentEditForm.tsx so the two forms can't drift into rendering
@@ -21,6 +22,21 @@ export default function MetadataFieldInput({ field, value, onChange, className, 
         className={className}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+
+  // domain (fields.ts) — value is always a string[]. `options` is the parent form's fetched
+  // domain-name list (getDashboardDomains), same "parent fetches, passes down" convention as
+  // optionsSource: "language"/"users" fields elsewhere in this file.
+  if (field.type === "multiselect") {
+    const names = (options || field.options || []).map((o) => (typeof o === "string" ? o : o.label));
+    return (
+      <MultiSelector
+        value={Array.isArray(value) ? value : []}
+        onChange={onChange}
+        names={names}
+        placeholder={`Search ${field.label.toLowerCase()}…`}
       />
     );
   }
