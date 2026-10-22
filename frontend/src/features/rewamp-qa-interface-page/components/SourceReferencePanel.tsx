@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronUp, ChevronsRight, Eye, Loader2, Search } from "lucide-react";
+import { ChevronsRight, Eye, Loader2, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
 import { UrlPreviewDialog } from "@/components/url-preview-dialog";

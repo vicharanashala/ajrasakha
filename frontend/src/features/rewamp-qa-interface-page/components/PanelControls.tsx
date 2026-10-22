@@ -16,7 +16,6 @@ export interface PanelControlsProps {
 export const PanelControls: React.FC<PanelControlsProps> = React.memo(({
   isEnlarged = false,
   onToggleEnlarge,
-  isCollapsed = false,
   onToggleCollapse,
   className,
   enlargeTitle,

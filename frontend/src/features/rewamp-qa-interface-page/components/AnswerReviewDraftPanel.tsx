@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
