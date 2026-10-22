@@ -340,7 +340,23 @@ export const FarmerFriendlyVersionsPanel: React.FC<
       {/* CHANGE: Use the same compact padding and flexible body layout
           as the ChecksPipelinePanel. */}
       <CardContent className="p-3.5 sm:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-        {!hasGenerated ? (
+        {isGenerating ? (
+          // CHANGE: Show a loading state while FFVs are being generated.
+          <div className="py-8 flex flex-col items-center justify-center text-center space-y-3 my-auto">
+            <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="space-y-1 max-w-sm">
+              <p className="text-sm font-semibold text-foreground">
+                Generating Farmer-Friendly Versions...
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Please wait while we create short, simple versions of the
+                answer from different angles.
+              </p>
+            </div>
+          </div>
+        ) : !hasGenerated ? (
           // CHANGE: Replace the old "Upcoming feature" placeholder with
           // a useful empty state, similar to the checks panel's idle state.
           <div className="py-8 flex flex-col items-center justify-center text-center space-y-3 my-auto">
