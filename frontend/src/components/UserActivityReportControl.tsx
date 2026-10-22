@@ -180,7 +180,7 @@ export const UserActivityReportControl = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Send Report via Email?</AlertDialogTitle>
             <AlertDialogDescription>
-              The activity report for <strong>{userName}</strong> will be sent as a PDF attachment to the configured email addresses. Do you want to proceed?
+              The activity report for <strong>{userName}</strong> will be sent as a PDF attachment directly to their email address (with configured CC recipients). Do you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
