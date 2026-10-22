@@ -22199,8 +22199,14 @@ async getAllUserMessageIds(
     try {
       await this.initReviewSystem();
 
-      const start = startDate ? new Date(startDate) : undefined;
-      const end = endDate ? new Date(endDate) : undefined;
+      const start =
+        startDate && !isNaN(new Date(startDate).getTime())
+          ? new Date(startDate)
+          : undefined;
+      const end =
+        endDate && !isNaN(new Date(endDate).getTime())
+          ? new Date(endDate)
+          : undefined;
 
       if (end) {
         end.setHours(23, 59, 59, 999);
@@ -22235,10 +22241,8 @@ async getAllUserMessageIds(
             updatedBy: userObjectId,
             ...(start || end
               ? {
-                  createdAt: {
-                    ...(start ? {$gte: start} : {}),
-                    ...(end ? {$lte: end} : {}),
-                  },
+                  ...(end ? {createdAt: {$lte: end}} : {}),
+                  ...(start ? {updatedAt: {$gte: start}} : {}),
                 }
               : {}),
           },
@@ -22250,13 +22254,11 @@ async getAllUserMessageIds(
       const rerouteDocs = await this.Reroutes.find({
         reroutes: {
           $elemMatch: {
-            reroutedTo: userObjectId,
+            $or: [{reroutedTo: userObjectId}, {reroutedBy: userObjectId}],
             ...(start || end
               ? {
-                  reroutedAt: {
-                    ...(start ? {$gte: start} : {}),
-                    ...(end ? {$lte: end} : {}),
-                  },
+                  ...(end ? {reroutedAt: {$lte: end}} : {}),
+                  ...(start ? {updatedAt: {$gte: start}} : {}),
                 }
               : {}),
           },
@@ -22265,37 +22267,53 @@ async getAllUserMessageIds(
 
       for (const rerouteDoc of rerouteDocs) {
         for (const reroute of rerouteDoc.reroutes ?? []) {
-          const isModeratedByUser = reroute.reroutedTo?.toString() === userId;
+          const isReroutedToUser = reroute.reroutedTo?.toString() === userId;
+          const isReroutedByUser = reroute.reroutedBy?.toString() === userId;
 
-          if (!isModeratedByUser) {
+          if (!isReroutedToUser && !isReroutedByUser) {
             continue;
           }
 
           const startAt = new Date(reroute.reroutedAt);
-
-          if (start && startAt < start) continue;
-          if (end && startAt > end) continue;
-
           const endAt = reroute.updatedAt ? new Date(reroute.updatedAt) : null;
 
-          activities.push({
-            questionId: rerouteDoc.questionId?.toString(),
+          if (!endAt) continue;
 
-            startAt,
-            endAt,
+          // No overlap
+          if (start && endAt < start) continue;
+          if (end && startAt > end) continue;
 
-            durationMs: endAt ? endAt.getTime() - startAt.getTime() : null,
+          const safeStartAt =
+            startAt < endAt ? startAt : new Date(endAt.getTime() - 60_000);
 
-            // Main lifecycle classification
-            status: 'moderated',
-            activityType: 'moderated',
+          if (isReroutedToUser) {
+            // Expert reviewed the rerouted question
+            if (reroute.status === 'pending') continue;
 
-            // Preserve what moderator actually did
-            outcome: reroute.status,
-
-            reroutedBy: reroute.reroutedBy?.toString(),
-            comment: reroute.comment ?? '',
-          });
+            activities.push({
+              questionId: rerouteDoc.questionId?.toString(),
+              startAt: safeStartAt,
+              endAt,
+              durationMs: Math.max(endAt.getTime() - safeStartAt.getTime(), 1000),
+              status: reroute.status,
+              activityType: 'reviewed',
+              outcome: reroute.status,
+              reroutedBy: reroute.reroutedBy?.toString(),
+              comment: reroute.comment ?? '',
+            });
+          } else if (isReroutedByUser) {
+            // Moderator rerouted the question
+            activities.push({
+              questionId: rerouteDoc.questionId?.toString(),
+              startAt: safeStartAt,
+              endAt,
+              durationMs: Math.max(endAt.getTime() - safeStartAt.getTime(), 1000),
+              status: 'moderated',
+              activityType: 'moderated',
+              outcome: 'rerouted',
+              comment: reroute.comment ?? '',
+            });
+          }
         }
       }
 
@@ -22311,6 +22329,7 @@ async getAllUserMessageIds(
           projection: {
             _id: 1,
             firstAllocationAt: 1,
+            createdAt: 1,
           },
         },
       ).toArray();
@@ -22327,44 +22346,57 @@ async getAllUserMessageIds(
             history,
             originalIndex,
           }))
-          .filter(({history}) => {
+          .filter(({history, originalIndex}) => {
             if (history.updatedBy?.toString() !== userId) {
               return false;
             }
 
+            // Reviewer entries still in-review have not completed their work yet
+            if (originalIndex > 0 && history.status === 'in-review') {
+              return false;
+            }
+
+            const historyUpdatedAt = history.updatedAt
+              ? new Date(history.updatedAt)
+              : null;
+
+            if (!historyUpdatedAt) return false;
+
             const historyCreatedAt = new Date(history.createdAt);
 
-            if (start && historyCreatedAt < start) return false;
+            // An activity must overlap with [start, end]
+            if (start && historyUpdatedAt < start) return false;
             if (end && historyCreatedAt > end) return false;
 
             return true;
           });
 
         for (const {history, originalIndex} of userHistories) {
-          const historyCreatedAt = new Date(history.createdAt);
-
           const historyUpdatedAt = history.updatedAt
             ? new Date(history.updatedAt)
-            : null;
+            : new Date(history.createdAt);
 
-          if (!historyUpdatedAt) continue;
+          let activityStart = new Date(history.createdAt);
 
-          let activityStart = historyCreatedAt;
+          // For author (first submission activity):
+          // Activity began when question was allocated to author (or question was created)
+          if (originalIndex === 0) {
+            const authorAssignedAt = question?.firstAllocationAt
+              ? new Date(question.firstAllocationAt)
+              : (question as any)?.createdAt
+                ? new Date((question as any).createdAt)
+                : null;
 
-          // firstAllocationAt ONLY for actual first submission activity
-          if (originalIndex === 0 && question?.firstAllocationAt) {
-            const firstAllocationAt = new Date(question.firstAllocationAt);
-
-            if (
-              firstAllocationAt <= historyUpdatedAt &&
-              (!start || firstAllocationAt >= start) &&
-              (!end || firstAllocationAt <= end)
-            ) {
-              activityStart = firstAllocationAt;
+            if (authorAssignedAt && authorAssignedAt <= historyUpdatedAt) {
+              activityStart = authorAssignedAt;
+            } else if (activityStart.getTime() >= historyUpdatedAt.getTime()) {
+              activityStart = new Date(historyUpdatedAt.getTime() - 60_000);
             }
           }
 
-          if (activityStart >= historyUpdatedAt) continue;
+          if (activityStart.getTime() >= historyUpdatedAt.getTime()) {
+            activityStart = new Date(historyUpdatedAt.getTime() - 60_000);
+          }
 
           const activityType = originalIndex === 0 ? 'authored' : 'reviewed';
 
@@ -22372,31 +22404,44 @@ async getAllUserMessageIds(
             questionId: submission.questionId?.toString(),
             startAt: activityStart,
             endAt: historyUpdatedAt,
-            durationMs: historyUpdatedAt.getTime() - activityStart.getTime(),
+            durationMs: Math.max(
+              historyUpdatedAt.getTime() - activityStart.getTime(),
+              1000,
+            ),
             status: history.status,
             activityType,
           });
         }
       }
 
-      activities.sort(
-        (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
-      );
-
       const moderatorQuery: any = {
         moderatorId: userObjectId,
-        moderatorAssignedAt: {$ne: null},
-
         $or: [{closedAt: {$ne: null}}, {passedAt: {$ne: null}}],
       };
 
-      // Apply selected date range on when moderation started
       if (start || end) {
-        moderatorQuery.moderatorAssignedAt = {
-          $ne: null,
-          ...(start ? {$gte: start} : {}),
-          ...(end ? {$lte: end} : {}),
-        };
+        const dateConds: any[] = [];
+        if (start) {
+          dateConds.push({
+            $or: [
+              {closedAt: {$gte: start}},
+              {passedAt: {$gte: start}},
+              {moderatorAssignedAt: {$gte: start}},
+            ],
+          });
+        }
+        if (end) {
+          dateConds.push({
+            $or: [
+              {moderatorAssignedAt: {$lte: end}},
+              {closedAt: {$lte: end}},
+              {passedAt: {$lte: end}},
+            ],
+          });
+        }
+        if (dateConds.length) {
+          moderatorQuery.$and = dateConds;
+        }
       }
 
       const moderatedQuestions = await this.QuestionCollection.find(
@@ -22409,17 +22454,12 @@ async getAllUserMessageIds(
             moderatorAssignedAt: 1,
             closedAt: 1,
             passedAt: 1,
+            createdAt: 1,
           },
         },
       ).toArray();
 
       for (const question of moderatedQuestions) {
-        if (!question.moderatorAssignedAt) {
-          continue;
-        }
-
-        const startAt = new Date(question.moderatorAssignedAt);
-
         // Depending on final question state
         const endAt = question.closedAt
           ? new Date(question.closedAt)
@@ -22431,23 +22471,43 @@ async getAllUserMessageIds(
           continue;
         }
 
+        const startAt = question.moderatorAssignedAt
+          ? new Date(question.moderatorAssignedAt)
+          : (question as any).createdAt
+            ? new Date((question as any).createdAt)
+            : new Date(endAt.getTime() - 60_000);
+
+        const safeStartAt =
+          startAt < endAt ? startAt : new Date(endAt.getTime() - 60_000);
+
+        if (start && endAt < start) continue;
+        if (end && safeStartAt > end) continue;
+
         activities.push({
           questionId: question._id.toString(),
-
-          startAt,
+          startAt: safeStartAt,
           endAt,
-
-          durationMs: endAt.getTime() - startAt.getTime(),
-
+          durationMs: Math.max(endAt.getTime() - safeStartAt.getTime(), 1000),
           status: 'moderated',
           activityType: 'moderated',
-
-          // Optional: useful for UI/debugging
           outcome: question.closedAt ? 'closed' : 'passed',
         });
       }
 
-      const filteredActivities = activities
+      // Deduplicate identical activities (same questionId, activityType, and endAt)
+      const seenActivities = new Set<string>();
+      const uniqueActivities = activities.filter(activity => {
+        const key = `${activity.questionId}-${activity.activityType}-${new Date(activity.endAt).getTime()}`;
+        if (seenActivities.has(key)) return false;
+        seenActivities.add(key);
+        return true;
+      });
+
+      uniqueActivities.sort(
+        (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+      );
+
+      const filteredActivities = uniqueActivities
         .filter(activity => activity.endAt)
         .map(activity => {
           let activityStart = new Date(activity.startAt);
@@ -22621,18 +22681,34 @@ async getAllUserMessageIds(
 
         hours: Array.from(hours.values())
           .sort((a, b) => a.hourStart.getTime() - b.hourStart.getTime())
-          .map(hour => ({
-            ...hour,
+          .map(hour => {
+            const authoredCount = new Set(
+              hour.activities
+                .filter(activity => activity.activityType === 'authored')
+                .map(activity => activity.questionId),
+            ).size;
+            const reviewedCount = new Set(
+              hour.activities
+                .filter(activity => activity.activityType === 'reviewed')
+                .map(activity => activity.questionId),
+            ).size;
+            const moderatedCount = new Set(
+              hour.activities
+                .filter(activity => activity.activityType === 'moderated')
+                .map(activity => activity.questionId),
+            ).size;
 
-            totalQuestions: new Set(
-              hour.activities.map(activity => activity.questionId),
-            ).size,
+            return {
+              ...hour,
 
-            totalWorkDurationMs: hour.activities.reduce(
-              (total, activity) => total + (activity.durationMs ?? 0),
-              0,
-            ),
-          })),
+              totalQuestions: authoredCount + reviewedCount + moderatedCount,
+
+              totalWorkDurationMs: hour.activities.reduce(
+                (total, activity) => total + (activity.durationMs ?? 0),
+                0,
+              ),
+            };
+          }),
       }));
   }
 
