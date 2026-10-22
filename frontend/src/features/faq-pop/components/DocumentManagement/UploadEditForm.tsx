@@ -6,6 +6,7 @@ import {
   getDashboardStates,
   getDashboardFolders,
   getDashboardLanguages,
+  getDashboardDomains,
   getDashboardDistricts,
   getDashboardKvks,
 } from "../../api";
@@ -60,10 +61,16 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
   const metadata = item.metadata || {};
   const [values, setValues] = useState(() => {
     const v = {};
-    for (const f of DOCUMENT_METADATA_FIELDS) v[f.key] = metadata[f.key] ?? "";
+    for (const f of DOCUMENT_METADATA_FIELDS) {
+      v[f.key] = f.type === "multiselect" ? metadata[f.key] || [] : metadata[f.key] ?? "";
+    }
     return v;
   });
   const [touched, setTouched] = useState(() => new Set());
+  const [domainOptions, setDomainOptions] = useState([]);
+  useEffect(() => {
+    getDashboardDomains().then((d) => setDomainOptions(d || [])).catch(() => {});
+  }, []);
 
   const [language, setLanguage] = useState(metadata.language || "");
   const [languageTouched, setLanguageTouched] = useState(false);
@@ -199,6 +206,12 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
       const f = DOCUMENT_METADATA_FIELDS.find((x) => x.key === key);
       if (!f) continue;
       const raw = values[key];
+      if (f.type === "multiselect") {
+        // [] clears, same as every other touched-but-blank field — but unlike those, [] (not
+        // null) is the real "cleared" wire value here (fields.ts/api.ts's domain_json rule).
+        payload[key] = Array.isArray(raw) ? raw : [];
+        continue;
+      }
       payload[key] = raw === "" || raw == null ? null : f.type === "number" ? Number(raw) : raw;
     }
     // month_of_*/year_of_* mirror AddDocumentForm/UniqueDocumentEditForm's own derivation — only
@@ -255,7 +268,13 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
         {DOCUMENT_METADATA_FIELDS.map((f) => (
           <div key={f.key} className="flex flex-col gap-0.5">
             <span className="text-[10px] text-muted-foreground">{f.label}</span>
-            <MetadataFieldInput field={f} value={values[f.key]} onChange={(v) => setValue(f.key, v)} className={inputClass} />
+            <MetadataFieldInput
+              field={f}
+              value={values[f.key]}
+              onChange={(v) => setValue(f.key, v)}
+              className={inputClass}
+              options={f.key === "domain" ? domainOptions : undefined}
+            />
           </div>
         ))}
       </div>
