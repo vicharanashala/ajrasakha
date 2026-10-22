@@ -9,6 +9,7 @@ import {
   Copy,
   Check,
   ClipboardList,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
@@ -19,6 +20,7 @@ import {
 } from "@/components/atoms/dialog";
 import { toast } from "sonner";
 import { PanelControls } from "./PanelControls";
+import { useGenerateFfv, type GenerateFfvResponse } from "@/hooks/api/answer/useGenerateFfv";
 
 // CHANGE: Define the shape of an individual farmer-friendly version.
 interface FarmerFriendlyVersion {
@@ -148,9 +150,16 @@ export const FarmerFriendlyVersionsPanel: React.FC<
   console.log("[FarmerFriendlyVersionsPanel] question:", questionText);
   console.log("[FarmerFriendlyVersionsPanel] answer:", answerText);
   console.log("[FarmerFriendlyVersionsPanel] domain:", domain);
+
+  // CHANGE: Call the FFV generation API hook
+  const { mutateAsync: generateFfv, isPending: isGenerating } = useGenerateFfv();
+
   // CHANGE: Store the generated versions locally so editing a version
   // updates the displayed data without requiring a backend connection.
   const [versions, setVersions] = useState<FarmerFriendlyVersion[]>([]);
+
+  // CHANGE: Track the source domain from the API response.
+  const [sourceDomain, setSourceDomain] = useState<string>("");
 
   // CHANGE: Track whether the Generate FFVs button has been clicked.
   // Before generation, the component displays the empty state.
@@ -172,20 +181,37 @@ export const FarmerFriendlyVersionsPanel: React.FC<
   // The component can later replace this with the actual API response.
   const totalVersions = hasGenerated ? versions.length : 0;
 
-  // CHANGE: Generate the mock versions when the user clicks Generate FFVs.
-  // Clicking Regenerate FFVs reloads the mock response for now.
-  const handleGenerateVersions = () => {
-    const response = MOCK_FFV_RESPONSE;
-    const generatedVersions = response.results.flatMap(
-      (result) => result.versions
-    );
+  // CHANGE: Generate FFVs by calling the real API.
+  const handleGenerateVersions = async () => {
+    if (!questionText || !answerText) {
+      toast.error("Question and answer are required to generate FFVs.");
+      return;
+    }
 
-    setVersions(generatedVersions);
-    setHasGenerated(true);
+    try {
+      const response: GenerateFfvResponse = await generateFfv({
+        question: questionText,
+        answer: answerText,
+        domains: domain,
+      });
 
-    // CHANGE: Clear any previously selected version when regenerating.
-    setSelectedVersionIndex(null);
-    setIsModalOpen(false);
+      const generatedVersions = response.results.flatMap(
+        (result) => result.versions
+      );
+
+      setVersions(generatedVersions);
+      setHasGenerated(true);
+
+      // Set the first domain as source domain for display
+      if (response.results.length > 0) {
+        setSourceDomain(response.results[0].domain);
+      }
+
+      setSelectedVersionIndex(null);
+      setIsModalOpen(false);
+    } catch {
+      // Error is already handled in the hook's onError
+    }
   };
 
   // CHANGE: Open the shared modal in view or edit mode and initialize
@@ -287,15 +313,18 @@ export const FarmerFriendlyVersionsPanel: React.FC<
             variant="outline"
             size="sm"
             onClick={handleGenerateVersions}
+            disabled={isGenerating}
             className="h-8 px-2.5 text-xs font-medium rounded-lg border-border/80 hover:bg-muted text-foreground flex items-center gap-1.5 shadow-2xs"
           >
-            {hasGenerated ? (
+            {isGenerating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+            ) : hasGenerated ? (
               <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             ) : (
               <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             )}
             <span>
-              {hasGenerated ? "Regenerate FFVs" : "Generate FFVs"}
+              {isGenerating ? "Generating..." : hasGenerated ? "Regenerate FFVs" : "Generate FFVs"}
             </span>
           </Button>
 
@@ -361,15 +390,14 @@ export const FarmerFriendlyVersionsPanel: React.FC<
                 </div>
               </div>
 
-              {/* CHANGE: Show the source domain from the mock response,
-                  without introducing any approval or review status. */}
+              {/* CHANGE: Show the source domain from the API response. */}
               <div className="rounded-xl p-2.5 sm:p-3 bg-muted/30 border border-border/70 flex items-center gap-2.5 sm:gap-3 shadow-xs">
                 <div className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0">
                   <ClipboardList className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-foreground truncate">
-                    {MOCK_FFV_RESPONSE.results[0]?.domain ?? "Generated FFVs"}
+                    {sourceDomain || "Generated FFVs"}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-1">
                     Source domain

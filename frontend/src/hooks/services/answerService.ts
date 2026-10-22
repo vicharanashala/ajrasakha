@@ -262,6 +262,55 @@ export class AnswerService {
       throw error;
     }
   }
+
+  async generateFfv(payload: {
+    question: string;
+    answer: string;
+    domains?: string[];
+  }): Promise<{
+    results: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions: number;
+  } | null> {
+    try {
+      // Normalize the answer: trim whitespace and normalize multiple
+      // newlines/spaces to a single space to ensure clean JSON serialization.
+      const normalizedAnswer = payload.answer
+        .trim()
+        .replace(/\r\n/g, "\n")
+        .replace(/\s+/g, " ");
+
+      const normalizedQuestion = payload.question.trim();
+
+      return await apiFetch<{
+        results: Array<{
+          domain: string;
+          versions: Array<{
+            angle: string;
+            question: string;
+            answer: string;
+          }>;
+        }>;
+        total_versions: number;
+      }>(`${this._baseUrl}/ffv`, {
+        method: "POST",
+        body: JSON.stringify({
+          question: normalizedQuestion,
+          answer: normalizedAnswer,
+          domains: payload.domains ?? [],
+        }),
+      });
+    } catch (error) {
+      console.error(`Error in generateFfv:`, error);
+      throw error;
+    }
+  }
 }
 
 export interface ChemicalMatch {
