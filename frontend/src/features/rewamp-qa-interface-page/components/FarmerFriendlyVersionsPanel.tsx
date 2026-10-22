@@ -630,14 +630,34 @@ export const FarmerFriendlyVersionsPanel: React.FC<
                 </Button>
               </>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsModalOpen(false)}
-                className="h-8 text-xs"
-              >
-                Close
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // CHANGE: Switch to edit mode for the currently selected version.
+                    if (selectedVersionIndex !== null) {
+                      const version = versions[selectedVersionIndex];
+                      setEditedQuestion(version.question);
+                      setEditedAnswer(version.answer);
+                      setModalMode("edit");
+                    }
+                  }}
+                  className="h-8 text-xs gap-1.5"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsModalOpen(false)}
+                  className="h-8 text-xs"
+                >
+                  Close
+                </Button>
+              </>
             )}
           </div>
         </DialogContent>
