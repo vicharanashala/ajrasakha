@@ -423,6 +423,25 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     return "";
   }, [selectedQuestionData, currentQuestionInList]);
 
+  const activeDomain = useMemo(() => {
+    const fromSelected =
+      selectedQuestionData?.details?.domain ||
+      (selectedQuestionData as any)?.question?.details?.domain ||
+      (selectedQuestionData as any)?.domain ||
+      [];
+    if (fromSelected && fromSelected.length > 0) return fromSelected;
+
+    if (currentQuestionInList) {
+      return (
+        currentQuestionInList.details?.domain ||
+        currentQuestionInList.question?.details?.domain ||
+        currentQuestionInList.domain ||
+        []
+      );
+    }
+    return [];
+  }, [selectedQuestionData, currentQuestionInList]);
+
   const activeSources = useMemo(() => {
     if (currentDraftSources && currentDraftSources.length > 0) {
       return currentDraftSources;
@@ -648,6 +667,9 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
                 onToggleCollapse={() => togglePanel("ffv")}
                 isEnlarged={enlargedPanel === "ffv"}
                 onToggleEnlarge={() => toggleEnlarge("ffv")}
+                questionText={activeQuestionText}
+                answerText={activeAnswerText}
+                domain={activeDomain}
               />
             </div>
           </div>

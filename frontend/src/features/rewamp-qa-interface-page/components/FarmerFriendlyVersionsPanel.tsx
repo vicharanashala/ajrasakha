@@ -125,6 +125,9 @@ interface FarmerFriendlyVersionsPanelProps {
   onToggleCollapse?: () => void;
   isEnlarged?: boolean;
   onToggleEnlarge?: () => void;
+  questionText?: string;
+  answerText?: string;
+  domain?: string[];
 }
 
 // CHANGE: Track which version is selected in the View/Edit modal.
@@ -137,7 +140,14 @@ export const FarmerFriendlyVersionsPanel: React.FC<
   onToggleCollapse,
   isEnlarged = false,
   onToggleEnlarge,
+  questionText,
+  answerText,
+  domain,
 }) => {
+  // CHANGE: Console log the question, answer, and domain passed from the parent
+  console.log("[FarmerFriendlyVersionsPanel] question:", questionText);
+  console.log("[FarmerFriendlyVersionsPanel] answer:", answerText);
+  console.log("[FarmerFriendlyVersionsPanel] domain:", domain);
   // CHANGE: Store the generated versions locally so editing a version
   // updates the displayed data without requiring a backend connection.
   const [versions, setVersions] = useState<FarmerFriendlyVersion[]>([]);
