@@ -694,7 +694,7 @@ export class AiService {
       }>;
     }>;
     total_versions: number;
-  } | null> {
+  }> {
     try {
       const response = await fetch(`${this._ffvServerUrl}/generate-ffv`, {
         method: 'POST',
@@ -703,8 +703,10 @@ export class AiService {
       });
 
       if (!response.ok) {
-        console.error(`[generateFfv] Failed: ${response.status} ${response.statusText}`);
-        return null;
+        const errorText = await response.text();
+        throw new InternalServerError(
+          `Failed to generate FFV: ${response.status} ${response.statusText} - ${errorText}`,
+        );
       }
 
       return (await response.json()) as {
@@ -720,7 +722,9 @@ export class AiService {
       };
     } catch (error) {
       console.error('[generateFfv] Error:', error);
-      return null;
+      throw new InternalServerError(
+        `Failed to generate FFV: ${error instanceof Error ? error.message : error}`,
+      );
     }
   }
 
