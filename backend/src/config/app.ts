@@ -62,4 +62,6 @@ export const appConfig = {
     apiKey: env('FAST2SMS_API_KEY'),
   },
   individualReportEmails: env('INDIVIDUAL_REPORT_EMAILS') || '',
+  activityReportCc: env('ACTIVITY_REPORT_CC') || env('INDIVIDUAL_REPORT_CC') || '',
+  enableDailyActivityReportCron: env('ENABLE_DAILY_ACTIVITY_REPORT_CRON') === 'true',
 };
