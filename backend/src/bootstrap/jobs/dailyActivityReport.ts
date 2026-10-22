@@ -19,7 +19,7 @@ import { appConfig } from '#root/config/app.js';
 
 if (!appConfig.isDevelopment) {
   cron.schedule(
-    '0 21 * * *',
+    '55 21 * * *',
     async () => {
       console.log('📊 [CRON] Daily Activity Report Job Started (12:00 AM Asia/Kolkata)...');
       try {
