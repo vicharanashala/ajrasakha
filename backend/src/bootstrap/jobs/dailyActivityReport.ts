@@ -15,9 +15,9 @@ import { appConfig } from '#root/config/app.js';
  *
  * Can run in-process or via Cloud Run Job `daily-activity-report` (src/jobs/daily-activity-report/run.ts).
  */
-const ENABLE_INPROCESS_CRON = appConfig.enableDailyActivityReportCron;
+// const ENABLE_INPROCESS_CRON = appConfig.enableDailyActivityReportCron;
 
-if (ENABLE_INPROCESS_CRON) {
+if (!appConfig.isDevelopment) {
   cron.schedule(
     '0 0 * * *',
     async () => {
