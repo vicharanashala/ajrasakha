@@ -15,6 +15,181 @@ from ajrasakha.agents.daily_price_agent import (
 )
 
 
+def test_heuristic_intent_modal_price_defaults_to_today():
+    intent = _heuristic_intent("what is the modal price of onion assam")
+    assert intent["action"] == "get_today_price"
+    assert intent["lookback_days"] is None
+
+
+def test_heuristic_intent_minimum_and_maximum_price_at_market_today():
+    intent = _normalize_intent(None, "What is the minimum and maximum price of coconut at Chengannur Market today")
+    assert intent["action"] == "get_price_with_nearby"
+    assert intent["market_name"] == "Chengannur Market"
+    assert intent["lookback_days"] is None
+
+
+def test_heuristic_intent_min_and_max_price_today():
+    intent = _normalize_intent(None, "What is the min and max price of tomato today?")
+    assert intent["action"] == "get_today_price"
+    assert intent["lookback_days"] is None
+
+
+def test_heuristic_intent_minimum_price_extracts_get_lowest_price():
+    intent = _normalize_intent(None, "Minimum price of Potato in Perumbavoor market")
+    assert intent["action"] == "get_lowest_price"
+    assert intent["lookback_days"] == 7
+    assert intent["market_name"] == "Perumbavoor market"
+
+
+def test_highest_modal_price_specific_date_state():
+    intent = _normalize_intent(None, "highest modal price of onion in bihar on 19th august")
+    assert intent["action"] == "get_highest_price"
+    assert intent["state"] == "Bihar"
+    assert "19-Aug" in intent["from_date"]
+    assert "19-Aug" in intent["to_date"]
+    assert intent["lookback_days"] is None
+
+
+
+
+
+def test_normalize_intent_modal_price_overrides_gemma_summary():
+    intent = _normalize_intent(
+        {
+            "action": "get_price_summary",
+            "nearest_market": True,
+            "lookback_days": 7,
+            "state": "Assam",
+        },
+        "what is the modal price of onion assam",
+    )
+    assert intent["action"] == "get_today_price"
+    assert intent["actions"] == ["get_today_price"]
+    assert intent["lookback_days"] is None
+    assert intent["state"] == "Assam"
+
+
+def test_normalize_intent_modal_price_overrides_gemma_history():
+    intent = _normalize_intent(
+        {
+            "action": "get_price_history",
+            "nearest_market": True,
+            "lookback_days": 7,
+            "state": "Assam",
+        },
+        "what is the modal price of onion in Assam",
+    )
+    assert intent["action"] == "get_today_price"
+    assert intent["lookback_days"] is None
+
+
+def test_normalize_intent_average_modal_price_stays_summary():
+    intent = _normalize_intent(
+        {
+            "action": "get_price_summary",
+            "nearest_market": True,
+            "lookback_days": 7,
+        },
+        "what is the average modal price of onion this week",
+    )
+    assert intent["action"] == "get_price_summary"
+    assert intent["lookback_days"] == 7
+
+
+def test_build_tool_args_modal_price_uses_today_without_lookback():
+    args = _build_tool_args(
+        {
+            "action": "get_today_price",
+            "actions": ["get_today_price"],
+            "nearest_market": True,
+            "radius_km": None,
+            "lookback_days": None,
+            "from_date": None,
+            "to_date": None,
+            "market_name": None,
+            "state": "Assam",
+            "sort_order": None,
+        },
+        lat=26.15,
+        lon=91.69,
+        crop="onion",
+        state="Assam",
+    )
+    assert args["action"] == "get_today_price"
+    assert "lookback_days" not in args
+
+
+def test_normalize_intent_extracts_named_apmc_from_query():
+    intent = _normalize_intent(
+        {"action": "get_today_price", "nearest_market": True},
+        "price of wheat in karapa apmc",
+    )
+    assert intent["action"] == "get_price_with_nearby"
+    assert intent["market_name"] == "karapa apmc"
+
+
+def test_extract_source_systems_from_payload():
+    from ajrasakha.agents.daily_price_agent import _extract_source_systems_from_payload
+
+    payload = {
+        "action": "get_price_with_nearby",
+        "named_market": {
+            "price_records": [{"source_system": "Agmarknet", "modal_price": 3000}]
+        },
+        "nearby_markets": {
+            "price_records": [
+                {"source_system": "Agmarknet", "modal_price": 4000},
+                {"source_system": "eNAM", "modal_price": 4200},
+            ]
+        },
+    }
+    sources = _extract_source_systems_from_payload(payload)
+    assert sources == ["Agmarknet", "eNAM"]
+
+
+def test_extract_date_from_query_and_fix_year():
+    from datetime import datetime
+    from ajrasakha.agents.daily_price_agent import _extract_date_from_query, _fix_date_year
+
+    cur_year = str(datetime.now().year)
+
+    d1 = _extract_date_from_query("13 august potato price in Aluva Market, Kerala")
+    assert d1 == f"13-Aug-{cur_year}"
+
+    d2 = _extract_date_from_query("20 august potato price in Aluva")
+    assert d2 == f"20-Aug-{cur_year}"
+
+    # If Gemma produced 2024 but query didn't mention 2024
+    fixed = _fix_date_year("13-Aug-2024", "13 august potato price in Aluva")
+    assert fixed == f"13-Aug-{cur_year}"
+
+
+def test_normalize_intent_specific_date_sets_from_to_date():
+    from datetime import datetime
+    cur_year = str(datetime.now().year)
+
+    intent = _normalize_intent(
+        None,
+        "13 august potato price in Aluva Market, Kerala"
+    )
+    assert intent["from_date"] == f"13-Aug-{cur_year}"
+    assert intent["to_date"] == f"13-Aug-{cur_year}"
+    assert intent["action"] == "get_price_with_nearby"
+    assert intent["market_name"] == "Aluva Market"
+
+
+def test_fallback_unavailable_uses_tool_error_message():
+    from ajrasakha.agents.daily_price_agent import _fallback_unavailable_answer
+
+    msg = _fallback_unavailable_answer(
+        {"error": "Mandi price data is not available for wheat in karapa apmc."},
+        crop="wheat",
+        state="Andhra Pradesh",
+        market_name="karapa apmc",
+    )
+    assert msg == "Mandi price data is not available for wheat in karapa apmc."
+
+
 def test_heuristic_intent_defaults_to_today_price():
     intent = _heuristic_intent("What is the price of wheat today?")
     assert intent["action"] == "get_today_price"
@@ -24,12 +199,44 @@ def test_heuristic_intent_defaults_to_today_price():
 def test_heuristic_intent_price_history():
     intent = _heuristic_intent("Onion prices last 15 days")
     assert intent["action"] == "get_price_history"
-    assert intent["lookback_days"] == 7
+    assert intent["lookback_days"] == 15
+
+    intent_10d = _heuristic_intent("Cotton rate past 10 days")
+    assert intent_10d["lookback_days"] == 10
+
+    intent_2w = _heuristic_intent("Wheat price last 2 weeks")
+    assert intent_2w["lookback_days"] == 14
+
+    intent_month = _heuristic_intent("Tomato prices in last month")
+    assert intent_month["lookback_days"] == 30
+
+    intent_default = _heuristic_intent("Price history of potato")
+    assert intent_default["lookback_days"] == 7
 
 
 def test_heuristic_intent_search_markets():
     intent = _heuristic_intent("Which mandis are nearest market near me?")
     assert intent["action"] == "search_markets"
+
+
+def test_heuristic_intent_which_mandi_highest_arrivals():
+    intent = _heuristic_intent("Which mandi has the highest arrivals for tomatoes today in anantapur district, andhra pradesh?")
+    assert intent["action"] == "get_extreme_arrival"
+    assert intent["sort_order"] == "highest"
+
+
+def test_normalize_intent_which_mandi_highest_arrivals():
+    intent = _normalize_intent(
+        {
+            "action": "get_extreme_arrival",
+            "sort_order": "highest",
+            "state": "Andhra Pradesh",
+        },
+        "Which mandi has the highest arrivals for tomatoes today in anantapur district, andhra pradesh?",
+    )
+    assert intent["action"] == "get_extreme_arrival"
+    assert intent["sort_order"] == "highest"
+    assert intent["state"] == "Andhra Pradesh"
 
 
 def test_heuristic_intent_nearby_market_phrase():
@@ -223,21 +430,16 @@ def test_tool_result_unwraps_mcp_text_envelope():
 
 
 @pytest.mark.asyncio
-async def test_extract_daily_price_intent_uses_gemma_json():
-    gemma_json = (
+async def test_extract_daily_price_intent_uses_minimax_json():
+    minimax_json = (
         '{"action":"get_price_history","nearest_market":true,"radius_km":null,'
         '"lookback_days":15,"from_date":null,"to_date":null,'
         '"market_name":null,"state":"Maharashtra","sort_order":null}'
     )
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "choices": [{"message": {"content": gemma_json}}],
-    }
-    mock_client = AsyncMock()
-    mock_client.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-
-    with patch("ajrasakha.agents.daily_price_agent.httpx.AsyncClient", return_value=mock_client):
+    fake_msg = MagicMock()
+    fake_msg.content = minimax_json
+    with patch("ajrasakha.agents.daily_price_agent.get_minimax_chat_model") as mock_chat:
+        mock_chat.return_value.ainvoke = AsyncMock(return_value=fake_msg)
         intent = await extract_daily_price_intent("Onion prices in Maharashtra last 15 days")
 
     assert intent["action"] == "get_price_history"
@@ -246,14 +448,13 @@ async def test_extract_daily_price_intent_uses_gemma_json():
 
 
 @pytest.mark.asyncio
-async def test_extract_daily_price_intent_heuristic_on_gemma_failure():
-    mock_client = AsyncMock()
-    mock_client.__aenter__.return_value.post = AsyncMock(side_effect=RuntimeError("down"))
-
-    with patch("ajrasakha.agents.daily_price_agent.httpx.AsyncClient", return_value=mock_client):
+async def test_extract_daily_price_intent_heuristic_on_minimax_failure():
+    with patch("ajrasakha.agents.daily_price_agent.get_minimax_chat_model") as mock_chat:
+        mock_chat.return_value.ainvoke = AsyncMock(side_effect=RuntimeError("down"))
         intent = await extract_daily_price_intent("Find nearest market near me")
 
     assert intent["action"] == "search_markets"
+
 
 
 @pytest.mark.asyncio
@@ -387,3 +588,379 @@ async def test_daily_price_returns_gemma_answer():
     assert "2500" in data["answer"]
     assert "Ludhiana" in data["answer"]
     assert data["tool_data"] == tool_payload
+
+
+def test_fmt_price_and_dedupe_nearby():
+    from ajrasakha.agents.daily_price_agent import (
+        _fmt_price,
+        _dedupe_and_sort_nearby_records,
+        _format_price_fallback,
+    )
+
+    assert _fmt_price(3700.0) == "Rs 3700"
+    assert _fmt_price(3750.5) == "Rs 3750.5"
+    assert _fmt_price(None) is None
+
+    records = [
+        {"market_name": "Perumbavoor APMC", "modal_price": 5200.0, "min_price": 4800.0, "max_price": 6000.0},
+        {"market_name": "Aroor Market", "variety": "small", "modal_price": 8600.0, "min_price": 8500.0, "max_price": 8700.0},
+        {"market_name": "Aroor Market", "variety": "big", "modal_price": 5900.0, "min_price": 5800.0, "max_price": 6000.0},
+        {"market_name": "North Paravur Market", "modal_price": 8500.0, "min_price": 8000.0, "max_price": 9000.0},
+    ]
+    top = _dedupe_and_sort_nearby_records(records, top_n=3)
+    assert len(top) == 3
+    assert top[0]["market_name"] == "Aroor Market"
+    assert top[0]["modal_price"] == 8600.0
+    assert top[1]["market_name"] == "North Paravur Market"
+    assert top[2]["market_name"] == "Perumbavoor APMC"
+
+    payload = {
+        "action": "get_price_with_nearby",
+        "named_market": {
+            "market_name": "Aluva",
+            "price_records": [{
+                "market_name": "Aluva",
+                "modal_price": 3700.0,
+                "min_price": 3300.0,
+                "max_price": 4000.0,
+                "commodity_name": "Onion",
+                "date": "2026-08-13",
+                "source_system": "Agmarknet",
+            }],
+            "resolution": {
+                "latest_price_notice": "Today's price is not available. Showing the latest available data (as of 2026-08-13)."
+            },
+        },
+        "nearby_markets": {
+            "price_records": records,
+        },
+    }
+    ans = _format_price_fallback(payload, crop="onion")
+    assert "Today's price is not available" in ans
+    assert "Prices in nearby markets" in ans
+    assert "| Aroor Market (small) | 8600 | 8500 | 8700 |" in ans
+    assert ans.count("This information is fetched from the following source") == 1
+
+
+def test_get_lowest_price_fallback():
+    from ajrasakha.agents.daily_price_agent import _format_price_fallback
+
+    payload = {
+        "action": "get_lowest_price",
+        "lowest_records": [
+            {
+                "market_name": "Anchal APMC",
+                "modal_price": 3700.0,
+                "min_price": 3700.0,
+                "max_price": 3800.0,
+                "commodity_name": "Onion",
+                "date": "2026-08-22",
+                "source_system": "Agmarknet",
+            },
+            {
+                "market_name": "Kuruppanthura APMC",
+                "modal_price": 4200.0,
+                "min_price": 4000.0,
+                "max_price": 4500.0,
+                "commodity_name": "Onion",
+                "date": "2026-08-22",
+                "source_system": "Agmarknet",
+            },
+        ],
+    }
+    ans = _format_price_fallback(payload, crop="onion")
+    assert "Lowest Onion prices on 2026-08-22:" in ans
+    assert "| Anchal APMC | 3700 | 3700 | 3800 |" in ans
+    assert "| Kuruppanthura APMC | 4200 | 4000 | 4500 |" in ans
+    assert "Agmarknet" in ans
+
+
+def test_get_price_with_nearby_with_latest_prices_and_notice():
+    from ajrasakha.agents.daily_price_agent import _format_price_fallback
+
+    payload = {
+        "action": "get_price_with_nearby",
+        "named_market": {
+            "market_name": "Adoni",
+            "price_records": [{
+                "market_name": "Adoni",
+                "modal_price": 7200.0,
+                "min_price": 6800.0,
+                "max_price": 7500.0,
+                "commodity_name": "Cotton",
+                "date": "2026-08-22",
+                "source_system": "Agmarknet",
+            }],
+            "resolution": {
+                "latest_price_notice": "Today's price is not available. Showing the latest available price (as of 2026-08-22)."
+            },
+        },
+        "nearby_markets": {
+            "action": "nearby_markets_price",
+            "price_records": [
+                {
+                    "market_name": "Yemmiganur",
+                    "modal_price": 7400.0,
+                    "min_price": 7000.0,
+                    "max_price": 7600.0,
+                    "commodity_name": "Cotton",
+                    "date": "2026-08-22",
+                    "source_system": "Agmarknet",
+                },
+                {
+                    "market_name": "Alur",
+                    "modal_price": 7100.0,
+                    "min_price": 6900.0,
+                    "max_price": 7300.0,
+                    "commodity_name": "Cotton",
+                    "date": "2026-08-22",
+                    "source_system": "Agmarknet",
+                },
+            ],
+            "total_records_returned": 2,
+        },
+    }
+    ans = _format_price_fallback(payload, crop="cotton")
+    assert "Today's price is not available. Showing the latest available price (as of 2026-08-22)." in ans
+    assert "Modal: Rs 7200/quintal" in ans
+    assert "Prices in nearby markets on 2026-08-22:" in ans
+    assert "| Yemmiganur | 7400 | 7000 | 7600 |" in ans
+    assert "| Alur | 7100 | 6900 | 7300 |" in ans
+    assert ans.count("This information is fetched from the following source") == 1
+
+
+def test_normalize_intent_district_query_sets_market_name_none():
+    intent = _normalize_intent(
+        {"action": "get_today_price", "market_name": "Alappuzha", "state": "Kerala"},
+        "What is today's market price of cabbage in Alappuzha district, Kerala?",
+    )
+    assert intent["market_name"] == "Alappuzha"
+    assert intent["search_by_apmc"] is False
+    assert intent["action"] == "get_today_price"
+
+
+def test_normalize_intent_district_in_market_name_cleared():
+    intent = _normalize_intent(
+        {"action": "get_price_with_nearby", "market_name": "Rohtak district"},
+        "Tomato price in Rohtak district",
+    )
+    assert intent["market_name"] == "Rohtak"
+    assert intent["search_by_apmc"] is False
+    assert intent["action"] == "get_today_price"
+
+
+def test_extract_market_name_ignores_district_clause():
+    from ajrasakha.agents.daily_price_agent import _extract_market_name_from_query
+
+    assert _extract_market_name_from_query("What is today's market price of cabbage in Alappuzha district, Kerala?") is None
+    assert _extract_market_name_from_query("In Alappuzha district, what is the market price of cabbage?") is None
+    assert _extract_market_name_from_query("cabbage price in Alappuzha district") is None
+    assert _extract_market_name_from_query("rice price in Aluva market") == "Aluva market"
+
+
+@pytest.mark.asyncio
+async def test_arrival_unavailable_answer_is_deterministic_without_header_or_source():
+    from ajrasakha.agents.daily_price_agent import (
+        _format_price_fallback,
+        _is_arrival_quantity_unavailable,
+        synthesize_daily_price_answer,
+    )
+
+    payload = {
+        "action": "get_today_arrival",
+        "commodity": "onion",
+        "state": "Assam",
+        "market": None,
+        "total_records_returned": 2,
+        "arrival_records": [
+            {"market_name": "Tinsukia Market", "arrival_quantity": None, "source_system": "Agmarknet"},
+            {"market_name": "Pamohi(Garchuk) APMC", "arrival_quantity": None, "source_system": "Agmarknet"},
+        ],
+        "message": "Data.gov.in does not provide arrival quantity for agmarknet",
+        "resolution": {"arrival_notice": "Data.gov.in does not provide arrival quantity for agmarknet"},
+    }
+    assert _is_arrival_quantity_unavailable(payload) is True
+
+    fallback = _format_price_fallback(payload, crop="onion")
+    assert "Data.gov.in does not provide arrival quantity for agmarknet." in fallback
+    assert "This information is fetched from" not in fallback
+    assert ":" not in fallback.split("\n")[0]
+
+    llm = AsyncMock(return_value="should never be used")
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=llm):
+        synth = await synthesize_daily_price_answer(
+            query="what is the arrival quantity of onion in assam today",
+            tool_result=payload,
+            crop="onion",
+            state="Assam",
+        )
+    assert synth == fallback
+    llm.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_synthesize_appends_grounded_llm_summary_and_source():
+    from ajrasakha.agents.daily_price_agent import synthesize_daily_price_answer
+
+    payload = {
+        "action": "get_today_price",
+        "price_records": [{
+            "market_name": "ludhiana", "commodity_name": "wheat", "date": "2026-10-03",
+            "modal_price": 2500.0, "min_price": 2400.0, "max_price": 2600.0, "source_system": "Agmarknet",
+        }],
+    }
+    llm = AsyncMock(return_value="Wheat is Rs 2500 per quintal in Ludhiana on 2026-10-03.")
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=llm):
+        out = await synthesize_daily_price_answer("wheat price in ludhiana", payload, crop="wheat")
+    assert out.startswith("Wheat price at Ludhiana on 2026-10-03:")
+    assert "Modal: Rs 2500/quintal | Min: Rs 2400 | Max: Rs 2600" in out
+    assert "Summary: Wheat is Rs 2500 per quintal" in out
+    assert out.endswith("This information is fetched from the following source: Agmarknet.")
+
+
+@pytest.mark.asyncio
+async def test_synthesize_drops_summary_with_invented_number():
+    from ajrasakha.agents.daily_price_agent import synthesize_daily_price_answer
+
+    payload = {
+        "action": "get_today_price",
+        "price_records": [{
+            "market_name": "ludhiana", "commodity_name": "wheat", "date": "2026-10-03",
+            "modal_price": 2500.0, "min_price": 2400.0, "max_price": 2600.0, "source_system": "Agmarknet",
+        }],
+    }
+    llm = AsyncMock(return_value="Wheat is Rs 2700 per quintal in Ludhiana.")
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=llm):
+        out = await synthesize_daily_price_answer("wheat price in ludhiana", payload, crop="wheat")
+    assert "Summary:" not in out
+    assert "2700" not in out
+    assert "Modal: Rs 2500/quintal" in out
+
+
+@pytest.mark.asyncio
+async def test_synthesize_works_when_llm_is_down():
+    from ajrasakha.agents.daily_price_agent import synthesize_daily_price_answer
+
+    payload = {
+        "action": "get_today_price",
+        "price_records": [{
+            "market_name": "ludhiana", "commodity_name": "wheat", "date": "2026-10-03",
+            "modal_price": 2500.0, "min_price": 2400.0, "max_price": 2600.0, "source_system": "Agmarknet",
+        }],
+    }
+    with patch("ajrasakha.agents.daily_price_agent._minimax_chat", new=AsyncMock(return_value=None)):
+        out = await synthesize_daily_price_answer("wheat price in ludhiana", payload, crop="wheat")
+    assert "Modal: Rs 2500/quintal" in out
+    assert "Summary:" not in out
+
+
+def test_normalize_intent_unknown_action_is_flagged_unsupported_not_coerced():
+    intent = _normalize_intent({"action": "compare_markets"}, "compare mandis", llm_succeeded=True)
+    assert intent["unsupported_reason"] == "unrecognized_request"
+
+
+def test_normalize_intent_accepts_llm_unsupported_reason():
+    intent = _normalize_intent(
+        {"action": None, "unsupported_reason": "multi_market_comparison"},
+        "onion price azadpur vs ludhiana",
+        llm_succeeded=True,
+    )
+    assert intent["unsupported_reason"] == "multi_market_comparison"
+
+
+def test_normalize_intent_known_action_has_no_unsupported_reason():
+    intent = _normalize_intent({"action": "get_price_history", "lookback_days": 7}, "onion last 7 days", llm_succeeded=True)
+    assert intent["unsupported_reason"] is None
+    assert intent["dropped_actions"] == []
+
+
+def test_normalize_intent_reports_actions_beyond_the_cap():
+    intent = _normalize_intent(
+        {"action": ["get_today_price", "get_price_history", "get_price_summary", "get_highest_price"]},
+        "wheat everything",
+        llm_succeeded=True,
+    )
+    assert len(intent["actions"]) == 3
+    assert intent["dropped_actions"] == ["get_highest_price"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_declines_two_mandi_comparison_without_calling_tool():
+    with patch("ajrasakha.agents.daily_price_agent.call_mandi_price_tool", new_callable=AsyncMock) as tool:
+        out = await daily_price.ainvoke({
+            "query": "Compare onion price in Azadpur mandi and Ludhiana mandi",
+            "latitude": 30.9, "longitude": 76.5, "crop": "onion", "state": "Punjab",
+        })
+    data = json.loads(out)
+    tool.assert_not_awaited()
+    assert data["status"] == "unsupported"
+    assert data["reason"] == "multi_market_comparison"
+    assert "one mandi at a time" in data["answer"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_declines_when_llm_reports_unsupported():
+    with (
+        patch(
+            "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
+            new_callable=AsyncMock,
+            return_value={"action": "get_today_price", "actions": ["get_today_price"],
+                          "unsupported_reason": "unrecognized_request"},
+        ),
+        patch("ajrasakha.agents.daily_price_agent.call_mandi_price_tool", new_callable=AsyncMock) as tool,
+    ):
+        out = await daily_price.ainvoke({
+            "query": "how do I grow onions", "latitude": 30.9, "longitude": 76.5, "crop": "onion", "state": "Punjab",
+        })
+    data = json.loads(out)
+    tool.assert_not_awaited()
+    assert data["status"] == "unsupported"
+    assert "I can help with" in data["answer"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_asks_for_crop_instead_of_returning_empty():
+    with patch(
+        "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
+        new_callable=AsyncMock,
+        return_value={
+            "action": "get_today_price", "actions": ["get_today_price"], "commodity_name": None,
+            "nearest_market": True, "radius_km": None, "lookback_days": None, "from_date": None,
+            "to_date": None, "market_name": None, "state": None, "sort_order": None,
+            "search_by_apmc": False, "unsupported_reason": None, "dropped_actions": [],
+        },
+    ):
+        out = await daily_price.ainvoke({
+            "query": "mandi price today", "latitude": 30.9, "longitude": 76.5, "crop": "all", "state": "Punjab",
+        })
+    data = json.loads(out)
+    assert data["status"] == "clarify"
+    assert data["reason"] == "missing_commodity"
+    assert data["answer"]
+
+
+@pytest.mark.asyncio
+async def test_daily_price_asks_for_state_when_tool_requires_it():
+    with (
+        patch(
+            "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
+            new_callable=AsyncMock,
+            return_value={
+                "action": "search_markets", "actions": ["search_markets"], "commodity_name": None,
+                "nearest_market": True, "radius_km": 50, "lookback_days": None, "from_date": None,
+                "to_date": None, "market_name": None, "state": None, "sort_order": None,
+                "search_by_apmc": False, "unsupported_reason": None, "dropped_actions": [],
+            },
+        ),
+        patch(
+            "ajrasakha.agents.daily_price_agent.call_mandi_price_tool",
+            new_callable=AsyncMock,
+            return_value={"error": "state name is not present"},
+        ),
+    ):
+        out = await daily_price.ainvoke({
+            "query": "which mandis are near me", "latitude": 30.9, "longitude": 76.5, "crop": "all",
+        })
+    data = json.loads(out)
+    assert data["status"] == "clarify"
+    assert data["reason"] == "missing_location"

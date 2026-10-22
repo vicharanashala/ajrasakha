@@ -13,7 +13,22 @@ const TYPES = {
   // Services
   UserService: Symbol.for('UserService'),
   QuestionService: Symbol.for('QuestionService'),
+  QuestionReportService: Symbol.for('QuestionReportService'),
+  PaeValidationService: Symbol.for('PaeValidationService'),
+  FeedbackService: Symbol.for('FeedbackService'),
+  QuestionAiService: Symbol.for('QuestionAiService'),
+  DuplicateService: Symbol.for('DuplicateService'),
+  QueueService: Symbol.for('QueueService'),
+  RoleAssigneeService: Symbol.for('RoleAssigneeService'),
+  AllocationService: Symbol.for('AllocationService'),
+  ModeratorQueueService: Symbol.for('ModeratorQueueService'),
+  QuestionMaintenanceService: Symbol.for('QuestionMaintenanceService'),
   AnswerService: Symbol.for('AnswerService'),
+  AnswerReviewService: Symbol.for('AnswerReviewService'),
+  AnswerApprovalService: Symbol.for('AnswerApprovalService'),
+  AnswerSubmissionService: Symbol.for('AnswerSubmissionService'),
+  AnswerAiService: Symbol.for('AnswerAiService'),
+  AnswerFaqService: Symbol.for('AnswerFaqService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
   RequestService: Symbol.for('RequestService'),
@@ -37,9 +52,11 @@ const TYPES = {
   ChatbotRepository: Symbol.for('ChatbotRepository'),
   CropRepository: Symbol.for('CropRepository'),
   ChemicalRepository: Symbol.for('ChemicalRepository'),
+  GdbCleaningRepository: Symbol.for('GdbCleaningRepository'),
   MongoDatabase: Symbol.for('MongoDatabase'),
   CropService: Symbol.for('CropService'),
   ChemicalService: Symbol.for('ChemicalService'),
+  GdbCleaningService: Symbol.for('GdbCleaningService'),
 
   // Constants
   uri: Symbol.for('dbURI'),
@@ -52,6 +69,14 @@ const TYPES = {
   annamanalyticsUri: Symbol.for('annamanalyticsDbURI'),
   annamanalyticsDbName: Symbol.for('annamanalyticsDbName'),
   annamanalyticsDatabase: Symbol.for('annamAnalyticsDatabase'),
+
+  popDbUri: Symbol.for('popDbURI'),
+  popDbName: Symbol.for('popDbName'),
+  popDatabase: Symbol.for('PopDatabase'),
+
+  gdbCleaningDbUri: Symbol.for('gdbCleaningDbURI'),
+  gdbCleaningDbName: Symbol.for('gdbCleaningDbName'),
+  gdbCleaningDatabase: Symbol.for('GdbCleaningDatabase'),
 };
 
 export {TYPES as GLOBAL_TYPES};

@@ -534,6 +534,23 @@ class UpdateAnswerBody {
   @IsOptional()
   @IsString()
   source?: string; //
+
+  /** Auditor finalise intent: 'gdb' (Push to GDB → close as 'closed') or 'notify'
+   *  (Notify User → close as dynamic_closed / duplicate_closed by review type). */
+  @Expose()
+  @IsOptional()
+  @IsString()
+  closeIntent?: 'gdb' | 'notify';
+}
+
+class DetectChemicalsBody {
+  @JSONSchema({
+    description: 'Text to scan for chemicals',
+    example: 'Apply Aldrin 30 EC or Chlorpyrifos on the affected crops.',
+  })
+  @IsNotEmpty()
+  @IsString()
+  text: string;
 }
 
 export const ANSWER_VALIDATORS = [
@@ -545,6 +562,7 @@ export const ANSWER_VALIDATORS = [
   SubmissionResponse,
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
+  DetectChemicalsBody,
 ];
 
 export {
@@ -556,4 +574,5 @@ export {
   SubmissionResponse,
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
+  DetectChemicalsBody,
 };

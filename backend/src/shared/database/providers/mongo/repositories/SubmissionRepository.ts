@@ -9,6 +9,7 @@ import {
   IReroute,
   IReviewerHeatmapResponse,
   LevelReportStat,
+  PAEAction,
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -36,12 +37,71 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     private db: MongoDatabase,
   ) {}
 
+  private indexesEnsured = false;
+
   private async init() {
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+
+    if (!this.indexesEnsured) {
+      this.indexesEnsured = true;
+      void this.ensureIndexes();
+    }
+  }
+
+  private async ensureIndexes() {
+    try {
+      await Promise.all([
+        this.QuestionSubmissionCollection.createIndex(
+          { questionId: 1 },
+          { name: 'submission_questionId' },
+        ),
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertAllocatedAt: 1, currentExpertOpenedAt: 1 },
+          { name: 'submission_stuck_opened' },
+        ),
+        this.QuestionSubmissionCollection.createIndex(
+          { currentExpertOpenedAt: 1 },
+          { name: 'submission_opened_idle' },
+        ),
+        this.QuestionSubmissionCollection.createIndex(
+          { 'history.updatedBy': 1 },
+          { name: 'submission_history_updatedBy' },
+        ),
+      ]);
+    } catch (error) {
+      console.error('Failed to create question_submissions indexes:', error);
+    }
+  }
+
+  async addSubmissions(
+    submissions: IQuestionSubmission[],
+    session?: ClientSession,
+  ): Promise<string[]> {
+    try {
+      await this.init();
+      if (!Array.isArray(submissions) || submissions.length === 0) {
+        return [];
+      }
+
+      const result = await this.QuestionSubmissionCollection.insertMany(
+        submissions,
+        { session },
+      );
+
+      if (!result.acknowledged) {
+        throw new InternalServerError('Failed to insert question submissions');
+      }
+
+      return Object.values(result.insertedIds).map((id: any) => id.toString());
+    } catch (error: any) {
+      throw new InternalServerError(
+        error?.message || 'Failed to bulk insert question submissions',
+      );
+    }
   }
 
   async getByQuestionId(
@@ -59,6 +119,42 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     } catch (error) {
       throw new InternalServerError(
         `Failed to get submission by questionId: ${error}`,
+      );
+    }
+  }
+
+  /** Bulk-fetch submissions for many questions in one query — used by reports that
+   *  read the work log (history/queue) across a batch of questions. */
+  async getByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+    projection?: Record<string, 0 | 1>,
+  ): Promise<IQuestionSubmission[]> {
+    try {
+      await this.init();
+      const ids = questionIds
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
+      if (!ids.length) return [];
+
+      const BATCH_SIZE = 500;
+      const results: IQuestionSubmission[] = [];
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        const options: any = {session};
+        if (projection) {
+          options.projection = projection;
+        }
+        const chunk = await this.QuestionSubmissionCollection.find(
+          {questionId: {$in: batch}},
+          options,
+        ).toArray();
+        results.push(...chunk);
+      }
+      return results;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get submissions by questionIds: ${error}`,
       );
     }
   }
@@ -188,24 +284,34 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       const queueBecameEmpty =
         removedFirstExpert && (questionSubmission.queue?.length ?? 0) === 1;
       if (queueBecameEmpty) {
-        // No experts left — the question is no longer allocated to anyone. Clear
+        // No experts left — if this was still at author level (no history), clear
         // firstAllocationAt so it falls back into the never-allocated queue and can
         // be re-picked for allocation.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$unset: {firstAllocationAt: ''}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {_id: new ObjectId(questionId)},
+            {$unset: {firstAllocationAt: ''}},
+            {session},
+          );
+        }
       } else if (removedFirstExpert) {
         // Allocation shifts to the next expert (now the head of the queue). Ensure
-        // firstAllocationAt is set if it was missing/null, so the now-allocated
+        // firstAllocationAt is set only if it was missing/null at author level, so the now-allocated
         // question isn't treated as never-allocated. Only set when absent to
         // preserve the original first-allocation timestamp when it already exists.
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$set: {firstAllocationAt: new Date()}},
-          {session},
-        );
+        if (currentHistory.length === 0) {
+          await this.QuestionCollection.updateOne(
+            {
+              _id: new ObjectId(questionId),
+              $or: [
+                {firstAllocationAt: {$exists: false}},
+                {firstAllocationAt: null},
+              ],
+            },
+            {$set: {firstAllocationAt: new Date()}},
+            {session},
+          );
+        }
       }
 
       if (shouldCreateNextHistoryEntry) {
@@ -3551,6 +3657,220 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return result; // contains the updated document
   }
 
+  async assignFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    // Push a new feedback-review round, but only if there is no OPEN round
+    // (an entry whose finishedAt is null/absent). `finishedAt: null` matches both
+    // null and missing, so $elemMatch finds any open round; $not blocks the push
+    // when one exists. A missing/empty feedbackReviews array passes the guard.
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        feedbackReviews: {$not: {$elemMatch: {finishedAt: null}}},
+      } as any,
+      {
+        $push: {
+          feedbackReviews: {
+            reviewerId: new ObjectId(reviewerId),
+            assignedAt,
+            finishedAt: null,
+          },
+        } as any,
+        $set: {updatedAt: new Date()},
+      },
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Close the open feedback-review round(s) for a question by stamping finishedAt.
+   * Uses an arrayFilter so only the round(s) still open (finishedAt null/absent)
+   * are updated. Returns the number of submissions modified.
+   */
+  async finishOpenFeedbackReviews(
+    questionId: string,
+    finishedAt: Date,
+    session?: ClientSession,
+  ): Promise<number> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {
+        $set: {
+          'feedbackReviews.$[e].finishedAt': finishedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount;
+  }
+
+  /**
+   * Repoint the OPEN feedback-review round to a new reviewer (manual reassignment).
+   * Updates the round whose finishedAt is null via an arrayFilter. Returns true if a
+   * round was updated.
+   */
+  async reassignOpenFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {
+        $set: {
+          'feedbackReviews.$[e].reviewerId': new ObjectId(reviewerId),
+          'feedbackReviews.$[e].assignedAt': assignedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Repoint a SPECIFIC feedback-review round (by array index) to a new reviewer —
+   * only if that round is still open. A question can hold several rounds, so this
+   * updates just the one at `index`. Returns true if it was updated.
+   */
+  async reassignFeedbackReviewerByIndex(
+    questionId: string,
+    index: number,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`feedbackReviews.${index}.finishedAt`]: null,
+      } as any,
+      {
+        $set: {
+          [`feedbackReviews.${index}.reviewerId`]: new ObjectId(reviewerId),
+          [`feedbackReviews.${index}.assignedAt`]: assignedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Remove a SPECIFIC feedback-review round (by array index) — only if it is still
+   * open (not completed). Unsets the element then compacts the array so other rounds
+   * keep their reviewers. Returns true if a round was removed.
+   */
+  async removeFeedbackReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const unset = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`feedbackReviews.${index}.finishedAt`]: null,
+      } as any,
+      {$unset: {[`feedbackReviews.${index}`]: 1}} as any,
+      {session},
+    );
+    if (unset.modifiedCount === 0) return false;
+    // Compact: drop the null hole left by $unset.
+    await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {$pull: {feedbackReviews: null}, $set: {updatedAt: new Date()}} as any,
+      {session},
+    );
+    return true;
+  }
+
+  /**
+   * Record that a single feedback (by feedbackId) was accepted/rejected — pushes
+   * { feedbackId, closedAt } into the OPEN feedback-review round's closedFeedbacks
+   * array. Returns true if a round was updated.
+   */
+  async addClosedFeedbackToOpenRound(
+    questionId: string,
+    feedbackId: string,
+    closedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        feedbackReviews: {$elemMatch: {finishedAt: null}},
+      } as any,
+      {
+        $push: {
+          'feedbackReviews.$[e].closedFeedbacks': {feedbackId, closedAt},
+        },
+        $set: {updatedAt: new Date()},
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * All submissions with an OPEN feedback-review round (an entry whose finishedAt
+   * is null), flattened to one row per open round: { questionId, reviewerId,
+   * assignedAt }. Used by the feedback queue's "allocated" section.
+   */
+  async findOpenFeedbackReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  > {
+    await this.init();
+    // A question is still "under review" only when its LAST feedback-review round is
+    // open (finishedAt null/absent). If there are no rounds, or the last round is
+    // finished, the question needs a (new) reviewer → it is NOT returned here.
+    // Keying on the last round (not "any open round") matches the rule:
+    //   needs reviewer ⇔ open feedback AND (no rounds OR last round finished).
+    const rows = await this.QuestionSubmissionCollection.aggregate([
+      // Must have at least one round; an empty/absent array is "no reviewer yet".
+      {$match: {'feedbackReviews.0': {$exists: true}}},
+      {$addFields: {lastRound: {$last: {$ifNull: ['$feedbackReviews', []]}}}},
+      // Last round not yet finished ⇒ currently under review / in progress.
+      {$match: {'lastRound.finishedAt': null}},
+      {
+        $project: {
+          _id: 0,
+          questionId: 1,
+          reviewerId: '$lastRound.reviewerId',
+          assignedAt: '$lastRound.assignedAt',
+        },
+      },
+      {$sort: {assignedAt: 1}},
+    ]).toArray();
+    return rows.map((r: any) => ({
+      questionId: r.questionId?.toString(),
+      reviewerId: r.reviewerId?.toString(),
+      assignedAt: r.assignedAt,
+    }));
+  }
+
   // ─── Time-bound allocation tracking ───────────────────────────────────────
 
   async markQuestionOpenedByExpert(
@@ -3650,6 +3970,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findTimeBoundQuestionsForReallocation(
     sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
     requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]> {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
@@ -3685,12 +4007,92 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq: true},
+          // Training question filter
+          ...(!isAdmin && {
+            'question.isTrainingQuestion': isTrainingUser
+              ? true
+              : { $ne: true },
+          }),
           // Manual single-allocation: only questions not yet PAE-reviewed (false/missing).
           ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
         },
       },
       {$sort: {'question.createdAt': 1}},
+      // Drop the heavy embedding vector from the joined question — the allocator
+      // never uses it, and loading it per candidate bloats memory (OOM / 503).
+      {$project: {'question.embedding': 0}},
     ]).toArray();
+  }
+
+  /** Paginated variant of {@link findTimeBoundQuestionsForReallocation}: exact total count
+   *  plus a single DB page. The filter/$lookup/sort run once, then a $facet branches into
+   *  the page (skip/limit) and the count. */
+  async findTimeBoundQuestionsForReallocationPaged(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    requirePaeReviewNotDone = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
+    await this.init();
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+
+    const res = await this.QuestionSubmissionCollection.aggregate<{
+      items: IQuestionSubmission[];
+      total: { count: number }[];
+    }>([
+      {
+        $match: {
+          currentExpertAllocatedAt: {
+            $exists: true,
+            $ne: null,
+            $lte: fortyFiveMinAgo,
+          },
+          $or: [
+            {currentExpertOpenedAt: {$exists: false}},
+            {currentExpertOpenedAt: null},
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      {$unwind: '$question'},
+      {
+        $match: {
+          'question.source': { $in: sources },
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq: true},
+          ...(!isAdmin && {
+            'question.isTrainingQuestion': isTrainingUser ? true : { $ne: true },
+          }),
+          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
+        },
+      },
+      {$sort: {'question.createdAt': 1}},
+      {
+        $facet: {
+          items: [
+            {$skip: skip},
+            {$limit: limit},
+            {$project: {'question.embedding': 0}},
+          ],
+          total: [{$count: 'count'}],
+        },
+      },
+    ]).toArray();
+
+    return {
+      count: res[0]?.total?.[0]?.count ?? 0,
+      items: (res[0]?.items ?? []) as IQuestionSubmission[],
+    };
   }
 
   /** Time-bound questions the current expert OPENED more than 45 min ago but still
@@ -3745,86 +4147,46 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       {$sort: {'question.createdAt': 1}},
+      // Drop the heavy embedding vector from the joined question — the allocator
+      // never uses it, and loading it per candidate bloats memory (OOM / 503).
+      {$project: {'question.embedding': 0}},
     ]).toArray();
   }
 
-  async findUnallocatedTimeBoundQuestions(
-    sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
-    requirePaeReviewNotDone: boolean = false,
-  ): Promise<IQuestionSubmission[]> {
-    await this.init();
-
-    // Never-allocated single-allocation questions sourced directly from the questions
-    // collection: matching source + auto-allocate + still open/delayed + never had a
-    // first allocation. Shaped to the submission-like form the callers expect
-    // (.questionId / .question / .queue).
-    const questions = await this.QuestionCollection.find({
-      source: { $in: sources },
-      isAutoAllocate: true,
-      status: {$in: ['open', 'delayed']},
-      firstAllocationAt: null,
-      isOnHold: {$ne: true},
-      // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-      isTesting: {$ne: true},
-      // Manual single-allocation: only questions not yet PAE-reviewed (false/missing).
-      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
-    })
-      .sort({createdAt: 1})
-      .toArray();
-
-    return questions.map(q => ({
-      questionId: q._id,
-      question: q,
-      queue: [],
-      history: [],
-      createdAt: q.createdAt,
-    })) as unknown as IQuestionSubmission[];
-  }
-
-  /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert
-   *  has completed their turn (submitted an answer OR finished a review) but no
-   *  new reviewer has been assigned — question is still open/delayed.
-   *
-   *  Condition: history.length >= queue.length (all assigned experts have entries)
-   *  AND the last expert completed their work:
-   *    - Position 0 (author): history[0].answer exists (submitted their answer)
-   *    - Position >= 1 (reviewer): last history status !== 'in-review' (completed review) */
-  async findAnsweredQuestionsNeedingReviewer(
+  /** Paginated variant of {@link findOpenedButIdleTimeBoundQuestions}: exact total count
+   *  plus a single DB page via $facet. */
+  async findOpenedButIdleTimeBoundQuestionsPaged(
     sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
-    requirePaeReviewNotDone: boolean = false,
-  ): Promise<IQuestionSubmission[]> {
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
     await this.init();
-    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+
+    const res = await this.QuestionSubmissionCollection.aggregate<{
+      items: IQuestionSubmission[];
+      total: { count: number }[];
+    }>([
+      {
+        $match: {
+          currentExpertOpenedAt: {
+            $exists: true,
+            $ne: null,
+            $lte: fortyFiveMinAgo,
+          },
+        },
+      },
       {
         $addFields: {
-          histLen: {$size: {$ifNull: ['$history', []]}},
-          queueLen: {$size: {$ifNull: ['$queue', []]}},
-          lastHistory: {$arrayElemAt: ['$history', -1]},
+          lastHistory: {$arrayElemAt: [{$ifNull: ['$history', []]}, -1]},
         },
       },
       {
         $match: {
-          // Queue must not be empty
-          queueLen: {$gt: 0},
-          // All queue members must have a history entry (everyone has done their part)
-          $expr: {$gte: ['$histLen', '$queueLen']},
-          // The last history entry must indicate completed work
-          $or: [
-            // Author (queue has 1 member) submitted their answer
-            {
-              $and: [
-                {queueLen: 1},
-                {'lastHistory.answer': {$exists: true, $ne: null}},
-              ],
-            },
-            // Reviewer (queue has >1 members) completed their review (status != 'in-review')
-            {
-              $and: [
-                {queueLen: {$gt: 1}},
-                {'lastHistory.status': {$nin: ['in-review']}},
-              ],
-            },
-          ],
+          'lastHistory.answer': {$in: [null]},
+          'lastHistory.approvedAnswer': {$in: [null]},
+          'lastHistory.modifiedAnswer': {$in: [null]},
+          'lastHistory.rejectedAnswer': {$in: [null]},
         },
       },
       {
@@ -3838,20 +4200,317 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {$unwind: '$question'},
       {
         $match: {
-         // 'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
-          //'question.status': {$in: ['open', 'delayed']},
-         // 'question.isOnHold': {$ne: true},
-          //'question.isAutoAllocate': {$eq: true},
-          // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-          'question.isTesting': {$ne: true},
           'question.source': { $in: sources },
           'question.status': { $in: ['open', 'delayed'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq:true},
-          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
+          'question.isAutoAllocate': { $eq: true },
+        },
+      },
+      {$sort: {'question.createdAt': 1}},
+      {
+        $facet: {
+          items: [
+            {$skip: skip},
+            {$limit: limit},
+            {$project: {'question.embedding': 0}},
+          ],
+          total: [{$count: 'count'}],
         },
       },
     ]).toArray();
+
+    return {
+      count: res[0]?.total?.[0]?.count ?? 0,
+      items: (res[0]?.items ?? []) as IQuestionSubmission[],
+    };
+  }
+
+  async findUnallocatedTimeBoundQuestions(
+    sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<IQuestionSubmission[]> {
+    await this.init();
+
+    // Never-allocated single-allocation questions sourced directly from the questions
+    // collection: matching source + auto-allocate + still open/delayed + never had a
+    // first allocation. Shaped to the submission-like form the callers expect
+    // (.questionId / .question / .queue).
+    const questions = await this.QuestionCollection.find({
+      source: { $in: sources },
+      isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser
+          ? true
+          : { $ne: true },
+      }),
+      status: {$in: ['open', 'delayed']},
+      firstAllocationAt: null,
+      isOnHold: {$ne: true},
+      // Test questions must never be auto-allocated, regardless of isAutoAllocate.
+      isTesting: {$ne: true},
+      // Manual single-allocation: only questions not yet PAE-reviewed (false/missing).
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    }, {
+      // Never load the embedding vector — the allocator doesn't use it, and pulling it
+      // for every candidate question bloats memory (OOM / Cloud Run 503).
+      projection: { embedding: 0 },
+    })
+      .sort({createdAt: 1})
+      .toArray();
+
+    return questions.map(q => ({
+      questionId: q._id,
+      question: q,
+      queue: [],
+      history: [],
+      createdAt: q.createdAt,
+    })) as unknown as IQuestionSubmission[];
+  }
+
+  /** Paginated variant of {@link findUnallocatedTimeBoundQuestions}: exact total count
+   *  plus a single DB page (skip/limit). Same filter/sort/shape as the non-paged method,
+   *  so the queue-details UI reads only one page instead of the whole list. */
+  async findUnallocatedTimeBoundQuestionsPaged(
+    sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
+    await this.init();
+
+    const filter: Record<string, unknown> = {
+      source: { $in: sources },
+      isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser ? true : { $ne: true },
+      }),
+      status: { $in: ['open', 'delayed'] },
+      firstAllocationAt: null,
+      isOnHold: { $ne: true },
+      isTesting: { $ne: true },
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    };
+
+    const [count, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter as any),
+      this.QuestionCollection.find(filter as any, {
+        projection: { embedding: 0 },
+      })
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+
+    const items = questions.map(q => ({
+      questionId: q._id,
+      question: q,
+      queue: [],
+      history: [],
+      createdAt: q.createdAt,
+    })) as unknown as IQuestionSubmission[];
+
+    return { count, items };
+  }
+
+  /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert
+   *  has completed their turn (submitted an answer OR finished a review) but no
+   *  new reviewer has been assigned — question is still open/delayed.
+   *
+   *  Condition: history.length >= queue.length (all assigned experts have entries)
+   *  AND the last expert completed their work:
+   *    - Position 0 (author): history[0].answer exists (submitted their answer)
+   *    - Position >= 1 (reviewer): last history status !== 'in-review' (completed review) */
+  async findAnsweredQuestionsNeedingReviewer(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const matchQuestion: Record<string, unknown> = {
+      isTesting: { $ne: true },
+      source: { $in: sources },
+      status: { $in: ['open', 'delayed'] },
+      isOnHold: { $ne: true },
+      isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser ? true : { $ne: true },
+      }),
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    };
+
+    return this.QuestionCollection.aggregate<IQuestionSubmission>([
+      { $match: matchQuestion },
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $unwind: '$sub' },
+      {
+        $addFields: {
+          histLen: { $size: { $ifNull: ['$sub.history', []] } },
+          queueLen: { $size: { $ifNull: ['$sub.queue', []] } },
+          lastHistory: { $arrayElemAt: ['$sub.history', -1] },
+        },
+      },
+      {
+        $match: {
+          queueLen: { $gt: 0 },
+          $expr: { $gte: ['$histLen', '$queueLen'] },
+          $or: [
+            {
+              $and: [
+                { queueLen: 1 },
+                { 'lastHistory.answer': { $exists: true, $ne: null } },
+              ],
+            },
+            {
+              $and: [
+                { queueLen: { $gt: 1 } },
+                { 'lastHistory.status': { $nin: ['in-review'] } },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: '$sub._id',
+          questionId: '$_id',
+          queue: '$sub.queue',
+          history: '$sub.history',
+          currentExpertAllocatedAt: '$sub.currentExpertAllocatedAt',
+          currentExpertOpenedAt: '$sub.currentExpertOpenedAt',
+          createdAt: '$sub.createdAt',
+          updatedAt: '$sub.updatedAt',
+          question: '$$ROOT',
+        },
+      },
+      {
+        $project: {
+          'question.sub': 0,
+          'question.histLen': 0,
+          'question.queueLen': 0,
+          'question.lastHistory': 0,
+          'question.embedding': 0,
+        },
+      },
+    ]).toArray();
+  }
+
+  /** Paginated variant of {@link findAnsweredQuestionsNeedingReviewer}: exact total count
+   *  plus a single DB page via $facet. Oldest-first for stable pagination (the non-paged
+   *  version is unordered; ordering only affects display, not the level counts which are
+   *  computed separately). */
+  async findAnsweredQuestionsNeedingReviewerPaged(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    requirePaeReviewNotDone = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    skip = 0,
+    limit = 50,
+  ): Promise<{ count: number; items: IQuestionSubmission[] }> {
+    await this.init();
+    const matchQuestion: Record<string, unknown> = {
+      isTesting: { $ne: true },
+      source: { $in: sources },
+      status: { $in: ['open', 'delayed'] },
+      isOnHold: { $ne: true },
+      isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser ? true : { $ne: true },
+      }),
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    };
+
+    const res = await this.QuestionCollection.aggregate<{
+      items: IQuestionSubmission[];
+      total: { count: number }[];
+    }>([
+      { $match: matchQuestion },
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $unwind: '$sub' },
+      {
+        $addFields: {
+          histLen: { $size: { $ifNull: ['$sub.history', []] } },
+          queueLen: { $size: { $ifNull: ['$sub.queue', []] } },
+          lastHistory: { $arrayElemAt: ['$sub.history', -1] },
+        },
+      },
+      {
+        $match: {
+          queueLen: { $gt: 0 },
+          $expr: { $gte: ['$histLen', '$queueLen'] },
+          $or: [
+            {
+              $and: [
+                { queueLen: 1 },
+                { 'lastHistory.answer': { $exists: true, $ne: null } },
+              ],
+            },
+            {
+              $and: [
+                { queueLen: { $gt: 1 } },
+                { 'lastHistory.status': { $nin: ['in-review'] } },
+              ],
+            },
+          ],
+        },
+      },
+      { $sort: { createdAt: 1 } },
+      {
+        $facet: {
+          items: [
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: '$sub._id',
+                questionId: '$_id',
+                queue: '$sub.queue',
+                history: '$sub.history',
+                currentExpertAllocatedAt: '$sub.currentExpertAllocatedAt',
+                currentExpertOpenedAt: '$sub.currentExpertOpenedAt',
+                createdAt: '$sub.createdAt',
+                updatedAt: '$sub.updatedAt',
+                question: '$$ROOT',
+              },
+            },
+            {
+              $project: {
+                'question.sub': 0,
+                'question.histLen': 0,
+                'question.queueLen': 0,
+                'question.lastHistory': 0,
+                'question.embedding': 0,
+              },
+            },
+          ],
+          total: [{ $count: 'count' }],
+        },
+      },
+    ]).toArray();
+
+    return {
+      count: res[0]?.total?.[0]?.count ?? 0,
+      items: (res[0]?.items ?? []) as IQuestionSubmission[],
+    };
   }
 
   /** Atomically add a reviewer to a time-bound question:
@@ -3890,42 +4549,42 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
   ): Promise<Map<string, number>> {
     await this.init();
-    // Pipeline: join with questions, filter to time-bound, unwind queue with index,
-    // and determine whether the expert at each position still has pending work.
+    // Pipeline: start on questions to leverage index, join with submissions,
+    // unwind queue with index, and determine whether the expert at each position still has pending work.
     //
     // Position 0 (author): active if history[0].answer is missing/null (hasn't submitted yet).
     // Position ≥ 1 (reviewer): active if history[position].status === 'in-review' (hasn't completed review).
-    const result = await this.QuestionSubmissionCollection.aggregate<{
+    const result = await this.QuestionCollection.aggregate<{
       _id: string;
       count: number;
     }>([
       {
-        $lookup: {
-          from: 'questions',
-          localField: 'questionId',
-          foreignField: '_id',
-          as: 'q',
-        },
-      },
-      {$unwind: '$q'},
-      {
         $match: {
-          'q.source': { $in: sources },
-          'q.status': { $in: ['open', 'delayed'] },
-          'q.isOnHold': { $ne: true },
+          source: { $in: sources },
+          status: { $in: ['open', 'delayed'] },
+          isOnHold: { $ne: true },
         },
       },
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      { $unwind: '$sub' },
       // Unwind queue so each expert gets their own document with their position index
       {
         $unwind: {
-          path: '$queue',
+          path: '$sub.queue',
           includeArrayIndex: 'queueIndex',
         },
       },
       // Get the corresponding history entry for this queue position (may be null if not yet created)
       {
         $addFields: {
-          correspondingHistory: {$arrayElemAt: ['$history', '$queueIndex']},
+          correspondingHistory: { $arrayElemAt: ['$sub.history', '$queueIndex'] },
         },
       },
       // Determine if this expert still has pending work at their position
@@ -3934,18 +4593,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           isPending: {
             $cond: {
               // Position 0 = author: pending if no history entry yet, or history entry has no answer
-              if: {$eq: ['$queueIndex', 0]},
+              if: { $eq: ['$queueIndex', 0] },
               then: {
                 $or: [
-                  {$eq: ['$correspondingHistory', null]},
-                  {$not: {$ifNull: ['$correspondingHistory.answer', false]}},
+                  { $eq: ['$correspondingHistory', null] },
+                  { $not: { $ifNull: ['$correspondingHistory.answer', false] } },
                 ],
               },
               // Position >= 1 = reviewer: pending if no history entry yet, or status is 'in-review'
               else: {
                 $or: [
-                  {$eq: ['$correspondingHistory', null]},
-                  {$eq: ['$correspondingHistory.status', 'in-review']},
+                  { $eq: ['$correspondingHistory', null] },
+                  { $eq: ['$correspondingHistory.status', 'in-review'] },
                 ],
               },
             },
@@ -3953,13 +4612,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       // Keep only experts who still have pending work
-      {$match: {isPending: true}},
+      { $match: { isPending: true } },
       // Filter out null queue entries
-      {$match: {queue: {$ne: null}}},
+      { $match: { 'sub.queue': { $ne: null } } },
       {
         $group: {
-          _id: '$queue',
-          count: {$sum: 1},
+          _id: '$sub.queue',
+          count: { $sum: 1 },
         },
       },
     ]).toArray();
@@ -3970,6 +4629,57 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
     // console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
     return map;
+  }
+
+  /**
+   * Update the PAE validation status in the question submission's paeValidation array.
+   * Finds the entry matching the given paeId and updates its paeStatus, paeFinishedAt, and optional paeAction.
+   */
+  async updatePaeValidationStatus(
+    questionId: string,
+    paeId: string,
+    paeStatus: 'in-progress' | 'completed',
+    paeFinishedAt: Date | null,
+    paeAction?: PAEAction | 'approve' | 'suggestion',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    
+    // Convert paeId to ObjectId for matching (the paeId stored may be string or ObjectId)
+    let paeIdValue: string | ObjectId = paeId;
+    if (ObjectId.isValid(paeId)) {
+      paeIdValue = new ObjectId(paeId);
+    }
+    
+    // Use positional operator to update the matching array element
+    const updateFields: any = {
+      'paeValidation.$.paeStatus': paeStatus,
+    };
+    
+    // Only set paeFinishedAt when completing
+    if (paeFinishedAt !== null) {
+      updateFields['paeValidation.$.paeFinishedAt'] = paeFinishedAt;
+    }
+
+    if (paeAction !== undefined) {
+      updateFields['paeValidation.$.paeAction'] = paeAction;
+    }
+    
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        'paeValidation.paeId': paeIdValue,
+      },
+      {
+        $set: {
+          ...updateFields,
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+    
+    return { modifiedCount: result.modifiedCount };
   }
 
   //get level wise answer submission percentage report
@@ -4722,5 +5432,122 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         'Failed to remove second history and queue entry',
       );
     }
+  }
+
+    /**
+   * Remove a SPECIFIC pae-validation round (by array index) — only if it is still
+   * open (not completed). Unsets the element then compacts the array so other rounds
+   * keep their reviewers. Returns true if a round was removed.
+   */
+  async removePaeValidationReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const unset = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`paeValidation.${index}.paeFinishedAt`]: null,
+      } as any,
+      {$unset: {[`paeValidation.${index}`]: 1}} as any,
+      {session},
+    );
+    if (unset.modifiedCount === 0) return false;
+    // Compact: drop the null hole left by $unset.
+    await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {$pull: {paeValidation: null}, $set: {updatedAt: new Date()}} as any,
+      {session},
+    );
+    return true;
+  }
+
+  // Assign or replace the current PAE validation review round. If the
+  // submission has no paeValidation entries, this creates one. If the array
+  // already contains an item, it is replaced with the new active round.
+  async assignPaeValidationReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+  
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+      },
+      {
+        $set: {
+          paeValidation: [
+            {
+              paeId: new ObjectId(reviewerId),
+              paeAssignedAt: assignedAt,
+              paeStatus: 'in-progress',
+              paeFinishedAt: null,
+            },
+          ],
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+
+    return result.modifiedCount > 0;
+  }
+
+   async findOpenPaeValidationReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  > {
+    await this.init();
+    const rows = await this.QuestionSubmissionCollection.aggregate([
+      {$match: {paeValidation: {$elemMatch: {paeFinishedAt: null}}}},
+      {
+        $project: {
+          questionId: 1,
+          open: {
+            $filter: {
+              input: {$ifNull: ['$paeValidation', []]},
+              as: 'r',
+              cond: {$eq: ['$$r.paeFinishedAt', null]},
+            },
+          },
+        },
+      },
+      {$unwind: '$open'},
+      {
+        $project: {
+          _id: 0,
+          questionId: 1,
+          reviewerId: '$open.paeId',
+          assignedAt: '$open.paeAssignedAt',
+        },
+      },
+      {$sort: {assignedAt: 1}},
+    ]).toArray();
+    return rows.map((r: any) => ({
+      questionId: r.questionId?.toString(),
+      reviewerId: r.reviewerId?.toString(),
+      assignedAt: r.assignedAt,
+    }));
+  }
+
+  /**
+   * Count total questions where the given PAE expert completed validation (paeStatus = 'completed').
+   */
+  async getCompletedPaeValidationCount(paeExpertId: string): Promise<number> {
+    await this.init();
+    const paeOid = ObjectId.isValid(paeExpertId) ? new ObjectId(paeExpertId) : null;
+    const paeIds = paeOid ? [paeOid, paeExpertId] : [paeExpertId];
+
+    return await this.QuestionSubmissionCollection.countDocuments({
+      paeValidation: {
+        $elemMatch: {
+          paeId: { $in: paeIds },
+          paeStatus: 'completed',
+        },
+      },
+    });
   }
 }

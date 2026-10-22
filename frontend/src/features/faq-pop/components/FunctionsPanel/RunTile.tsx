@@ -15,6 +15,22 @@ import PipelineOutput, {
 const inputClass =
   'w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow';
 
+// Widest option's rendered text width, so a dropdown's popup can size itself to its longest
+// value instead of just inheriting its (often narrow, table-cell) trigger width.
+let _measureCanvas = null;
+function measureMaxTextWidth(texts, font) {
+  if (!texts || texts.length === 0) return 0;
+  if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
+  const ctx = _measureCanvas.getContext('2d');
+  ctx.font = font;
+  let max = 0;
+  for (const t of texts) {
+    const w = ctx.measureText(t).width;
+    if (w > max) max = w;
+  }
+  return max;
+}
+
 // ── MultiSelector ──────────────────────────────────────────────────────────────
 
 export function MultiSelector({ value, onChange, names, placeholder }) {
@@ -51,10 +67,15 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open, expanded]);
 
+  // The trigger is often a narrow table cell or grid column — floor the dropdown/expanded panel
+  // at a readable width instead of inheriting whatever sliver the trigger happens to have, and
+  // keep it inside the viewport rather than letting it run off the right edge.
   function computePos() {
     if (containerRef.current) {
       const r = containerRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 2, left: r.left, width: r.width });
+      const width = Math.max(r.width, 260);
+      const left = Math.min(r.left, window.innerWidth - width - 8);
+      setDropdownPos({ top: r.bottom + 2, left, width });
     }
   }
 
@@ -74,7 +95,9 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
     e.preventDefault();
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setExpandedRect({ left: rect.left, width: rect.width });
+      const width = Math.max(rect.width, 320);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setExpandedRect({ left, width });
     }
     setExpanded(true);
   }
@@ -90,14 +113,14 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" className={inputClass} placeholder={placeholder} value={search}
+        <input type="text" autoComplete="off" className={inputClass} placeholder={placeholder} value={search}
           onChange={(e) => { computePos(); setSearch(e.target.value); setOpen(true); setHighlightedIndex(-1); }}
           onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
           onKeyDown={handleKeyDown} />
         {open && filtered.length > 0 && !expanded && dropdownPos && createPortal(
           <div ref={dropdownRef}
-            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-lg"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40">
@@ -112,8 +135,8 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
       </div>
       {expanded && open && filtered.length > 0 && createPortal(
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={closeAll} />
-          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999 }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'auto' }} onMouseDown={closeAll} />
+          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-xl flex flex-col"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40 shrink-0">
@@ -177,10 +200,20 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
     return () => document.removeEventListener('mousedown', handler);
   }, [open, expanded]);
 
+  // See MultiSelector's computePos above — same narrow-trigger problem (this is used as the
+  // inline state/crop editor in a table cell), same fix: floor the width, keep it on-screen.
+  // Also widened to fit the longest option's own text (e.g. a long organization/folder name),
+  // so the popup isn't stuck at the trigger's width with every long value truncated.
   function computePos() {
     if (containerRef.current) {
       const r = containerRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 2, left: r.left, width: r.width });
+      const input = containerRef.current.querySelector('input');
+      const font = input ? getComputedStyle(input).font : '14px sans-serif';
+      const textWidth = measureMaxTextWidth(stateNames, font);
+      const idealWidth = Math.max(r.width * 2, textWidth + 56, 260);
+      const width = Math.min(idealWidth, window.innerWidth - 16);
+      const left = Math.min(r.left, window.innerWidth - width - 8);
+      setDropdownPos({ top: r.bottom + 2, left, width });
     }
   }
 
@@ -201,7 +234,13 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
     e.preventDefault();
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setExpandedRect({ left: rect.left, width: rect.width });
+      const input = containerRef.current.querySelector('input');
+      const font = input ? getComputedStyle(input).font : '14px sans-serif';
+      const textWidth = measureMaxTextWidth(stateNames, font);
+      const idealWidth = Math.max(rect.width * 2, textWidth + 56, 320);
+      const width = Math.min(idealWidth, window.innerWidth - 16);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setExpandedRect({ left, width });
     }
     setExpanded(true);
   }
@@ -217,7 +256,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" className={inputClass} placeholder={placeholder} value={displayText}
+        <input type="text" autoComplete="off" className={inputClass} placeholder={placeholder} value={displayText}
           onChange={handleInput} onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
           onKeyDown={handleKeyDown} />
@@ -226,7 +265,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
         )}
         {open && filtered.length > 0 && !expanded && dropdownPos && createPortal(
           <div ref={dropdownRef}
-            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-lg"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40">
@@ -241,8 +280,8 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
       </div>
       {expanded && open && filtered.length > 0 && createPortal(
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={closeAll} />
-          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999 }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'auto' }} onMouseDown={closeAll} />
+          <div style={{ position: 'fixed', top: 0, bottom: 0, left: expandedRect?.left ?? 0, width: expandedRect?.width ?? 300, zIndex: 9999, pointerEvents: 'auto' }}
             className="bg-popover border border-border rounded-md shadow-xl flex flex-col"
             onWheel={(e) => e.stopPropagation()}>
             <div className="flex justify-end px-1 py-0.5 border-b border-border/40 shrink-0">

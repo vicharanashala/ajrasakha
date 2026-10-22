@@ -10,6 +10,8 @@ export interface ICropAlias {
   region: string;
   english_representation: string;
   native_representation: string;
+  source_link?: string;
+  page_number?: string;
 }
 
 export interface ICropResponse {
@@ -17,18 +19,26 @@ export interface ICropResponse {
   name: string;
   status?: string;
   type?: string;
+  /** Optional scientific (binomial) name, e.g. "Oryza sativa". */
+  scientificName?: string | null;
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** Resolved "firstName lastName" for createdBy / updatedBy (populated by the API). */
+  createdByName?: string;
+  updatedByName?: string;
   crops?: string[];
+  /** Public URL of the entry's image, if one has been uploaded. */
+  imageUrl?: string | null;
 }
 
 export interface ICreateCropPayload {
   name: string;
   status?: string;
   type?: string;
+  scientificName?: string;
   aliases?: ICropAlias[];
   crops?: string[];
 }
@@ -50,7 +60,12 @@ export interface IUpdateCropPayload {
   aliases?: (ICropAlias | string)[];
   crops?: string[];
   status?: string;
+  /** Send "" to clear the scientific name. */
+  scientificName?: string;
 }
+
+/** Entry types that bulk upload supports: the crop-side types plus chemical. */
+export type CropUploadType = "crop" | "weed" | "pest" | "disease" | "chemical";
 
 export interface IBulkUploadCropResponse {
   success: boolean;
@@ -58,6 +73,24 @@ export interface IBulkUploadCropResponse {
   jobId: string;
   count: number;
   isBulkUpload: true;
+}
+
+export interface IBulkJobResult {
+  name: string;
+  status: string; // created | updated | skipped | failed
+  reason: string;
+}
+
+export interface IBulkJobStatus {
+  id: string;
+  totalRows: number;
+  totalCrops: number;
+  processed: number;
+  created: number;
+  updated: number;
+  status: "running" | "completed" | "failed";
+  errors: string[];
+  results: IBulkJobResult[];
 }
 
 export class CropService {
@@ -70,14 +103,26 @@ export class CropService {
     });
   }
 
-  async updateCrop(cropId: string, payload: IUpdateCropPayload): Promise<ICreateCropResponse | null> {
+  /**
+   * Update a crop. The image is folded into this request (multipart): the crop fields go in
+   * a JSON `payload` field, with an optional new `image` file, or `removeImage` to clear it.
+   */
+  async updateCrop(
+    cropId: string,
+    payload: IUpdateCropPayload,
+    opts?: { image?: File | null; removeImage?: boolean },
+  ): Promise<ICreateCropResponse | null> {
+    const formData = new FormData();
+    formData.append("payload", JSON.stringify(payload));
+    if (opts?.image) formData.append("image", opts.image);
+    if (opts?.removeImage) formData.append("removeImage", "true");
     return apiFetch<ICreateCropResponse>(`${this._baseUrl}/${cropId}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: formData,
     });
   }
 
-  async bulkUploadCrops(file: File, type: "crop" | "chemical"): Promise<IBulkUploadCropResponse | null> {
+  async bulkUploadCrops(file: File, type: CropUploadType): Promise<IBulkUploadCropResponse | null> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("type", type);
@@ -87,15 +132,27 @@ export class CropService {
     });
   }
 
-  async downloadList(type: 'crop' | 'chemical'): Promise<Blob> {
+  async getBulkJobStatus(jobId: string): Promise<IBulkJobStatus | null> {
+    return apiFetch<IBulkJobStatus>(`${this._baseUrl}/bulk-status/${jobId}`);
+  }
+
+  /** Extensible crop-side categories (weed/pest/disease/…) the UI renders dynamically. */
+  async getEntryTypes(): Promise<{ types: string[] } | null> {
+    return apiFetch<{ types: string[] }>(`${this._baseUrl}/entry-types`);
+  }
+
+  /** Download the AgriTech Management list as Excel. Pass a type to filter
+   *  (crop/chemical/weed/pest/disease/custom); omit it to download everything. */
+  async downloadList(type?: string): Promise<Blob> {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) throw new Error("User not authenticated");
     const token = await getIdToken(firebaseUser);
-    const response = await fetch(`${this._baseUrl}/download?type=${type}`, {
+    const qs = type ? `?type=${encodeURIComponent(type)}` : "";
+    const response = await fetch(`${this._baseUrl}/download${qs}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!response.ok) throw new Error(`Failed to download ${type} list`);
+    if (!response.ok) throw new Error(`Failed to download ${type ?? "AgriTech"} list`);
     return response.blob();
   }
 

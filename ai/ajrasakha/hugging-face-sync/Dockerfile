@@ -12,8 +12,8 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY sync.py /app/sync.py
-COPY main.py /app/main.py
+COPY *.py /app/
+COPY dataset_readme.md /app/
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1

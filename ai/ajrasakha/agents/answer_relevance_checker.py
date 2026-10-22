@@ -10,11 +10,10 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import PLANNER_MODEL
+from ajrasakha.agents.config import MINIMAX_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 
 logger = logging.getLogger(__name__)
@@ -59,7 +58,7 @@ class RelevanceCheckOutput(BaseModel):
 async def check_answer_relevance(
     rephrased_query: str,
     answer: str,
-    model: str = PLANNER_MODEL,
+    model: str = MINIMAX_MODEL,
 ) -> RelevanceCheckOutput:
     """
     Check if the generated answer adequately addresses the user's question.
@@ -119,7 +118,7 @@ async def check_answer_relevance(
             answer_preview=answer[:200],
         )
         
-        llm = ChatAnthropic(model=model).with_structured_output(RelevanceCheckOutput)
+        llm = get_minimax_chat_model().with_structured_output(RelevanceCheckOutput)
         result = await llm.ainvoke(messages)
         
         trace_llm_response(

@@ -1,0 +1,15 @@
+**/.git
+**/.github
+**/.vscode
+**/node_modules
+**/build
+**/dist
+**/*.tsbuildinfo
+**/coverage
+**/.env
+**/.env.*
+**/*.log
+ai/
+mcp/
+apis/
+docs/

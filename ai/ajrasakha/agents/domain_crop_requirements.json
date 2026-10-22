@@ -1,0 +1,454 @@
+{
+  "remark_semantics": {
+    "always": {
+      "decision_mode": "always_required",
+      "crop_required": true,
+      "requires_llm": false
+    },
+    "never": {
+      "decision_mode": "never_required",
+      "crop_required": false,
+      "requires_llm": false
+    },
+    "usually": {
+      "decision_mode": "conditional",
+      "crop_required": null,
+      "requires_llm": true
+    },
+    "sometimes": {
+      "decision_mode": "conditional",
+      "crop_required": null,
+      "requires_llm": true
+    }
+  },
+  "domains": [
+    {
+      "key": "agriculture_mechanization",
+      "name": "Agriculture Mechanization",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Questions related to agricultural machinery, farm implements, tractors, harvesters, seeders, planters, sprayers, irrigation equipment, mechanized farm operations, machine selection, operation, calibration, maintenance, repair, efficiency, custom hiring, and government support for agricultural machinery. Crop information is only needed when machinery recommendations depend on the crop being cultivated. Example- Which seed drill should I use? (Crop needed: Wheat, paddy, maize, etc.)\nWhich planter is suitable for my crop?\nWhich harvester should I use?",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "bio_pesticides_and_bio_fertilizers",
+      "name": "Bio-Pesticides and Bio-Fertilizers",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to biological crop protection and nutrient products such as bio-pesticides, bio-fertilizers, microbial inoculants, beneficial fungi, bacteria, biocontrol agents, application methods, dosage, compatibility, storage, effectiveness, availability, and recommendations. Since recommendations vary by crop, crop information is usually required.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "crop_insurance",
+      "name": "Crop Insurance",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to crop insurance schemes, enrollment, premium, coverage, notified crops, eligibility, claims, compensation, claim status, loss assessment, insurance timelines, and government insurance programs. Most advisory questions require knowing the insured crop, although general questions about schemes do not.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "cultural_practices",
+      "name": "Cultural Practices",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to recommended crop cultivation practices throughout the crop lifecycle, including sowing methods, spacing, transplanting, thinning, gap filling, pruning, staking, training, earthing up, mulching, irrigation scheduling, intercultural operations, ratooning, and other crop management practices. Recommendations are inherently crop-specific.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "fertilizer_use_and_availability",
+      "name": "Fertilizer Use and Availability",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to fertilizer recommendations, fertilizer grades, dosage, timing, application methods, compatibility, nutrient sources, fertilizer products, availability, subsidy, procurement, and usage guidelines. Most fertilizer recommendations depend on the crop, although general fertilizer information does not.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "field_preparation",
+      "name": "Field Preparation",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to land preparation before planting, including tillage, ploughing, harrowing, levelling, bed preparation, puddling, ridge and furrow formation, soil conditioning, field layout, and preparation techniques. Since land preparation varies across crops, crop information is usually required.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "nutrient_management",
+      "name": "Nutrient Management",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to supplying and managing plant nutrients, including nutrient scheduling, deficiency correction, integrated nutrient management, fertigation, foliar nutrition, secondary and micronutrients, nutrient diagnosis, nutrient balance, and soil test-based recommendations. Accurate recommendations require knowledge of the crop.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "organic_farming",
+      "name": "Organic Farming",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to organic cultivation practices, organic certification, approved inputs, composting, vermicomposting, organic nutrient management, organic pest management, organic standards, transition to organic farming, and sustainable agriculture. General principles are crop-independent, but advisory recommendations are usually crop-specific.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "plant_protection",
+      "name": "Plant Protection",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to protecting crops from pests, diseases, weeds, nematodes, rodents, and other harmful organisms, including identification, diagnosis, monitoring, chemical control, biological control, integrated pest management (IPM), pesticide recommendations, resistance management, and preventive measures. Effective recommendations always require knowing the crop.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "post_harvest_preservation",
+      "name": "Post Harvest Preservation",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to handling agricultural produce after harvest, including cleaning, grading, curing, drying, storage, packaging, transportation, preservation, shelf-life enhancement, post-harvest loss reduction, value addition, and quality maintenance. Preservation methods depend on the harvested crop or commodity.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "seeds",
+      "name": "Seeds",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to agricultural seeds, including seed selection, seed quality, certified seeds, truthfully labelled seeds, hybrid and open-pollinated seeds, seed treatment, seed germination, seed rate, seed production, seed availability, seed replacement, seed storage before sowing, and procurement. Since seed recommendations are crop-specific, crop information is always required.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "sowing_time_and_weather",
+      "name": "Sowing Time and Weather",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to the appropriate time for sowing or planting crops based on seasonal conditions, rainfall, temperature, weather forecasts, monsoon, frost, heat, humidity, and climatic suitability. General weather questions do not require crop information, but sowing recommendations are usually crop-specific.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "storage",
+      "name": "Storage",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to the storage of agricultural produce, seeds, fertilizers, pesticides, or other agricultural inputs, including storage methods, structures, storage pests, moisture management, storage conditions, shelf life, and prevention of storage losses. Crop information is usually required for produce and seed storage recommendations, but not for general storage principles.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "varieties",
+      "name": "Varieties",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to crop varieties, cultivars, hybrids, improved varieties, released varieties, variety selection, varietal characteristics, maturity duration, yield potential, disease resistance, stress tolerance, and suitability for different agro-climatic conditions. Variety recommendations are inherently crop-specific.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "water_management",
+      "name": "Water Management",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to irrigation scheduling, water requirement, irrigation methods, drainage, water conservation, moisture management, fertigation, water-use efficiency, irrigation intervals, and management of excess or deficient water. Appropriate recommendations depend on the crop being cultivated.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "weed_management",
+      "name": "Weed Management",
+      "default_crop_required": true,
+      "remarks": "Always",
+      "description": "Questions related to weed identification, weed control, herbicide recommendations, integrated weed management, manual and mechanical weeding, herbicide application timing, resistant weeds, and prevention of weed infestation. Weed management recommendations are crop-specific.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "always_required",
+        "crop_required": true,
+        "requires_llm": false,
+        "remark": "always"
+      }
+    },
+    {
+      "key": "market_information",
+      "name": "Market Information",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to market prices, mandi arrivals, demand and supply, market trends, MSP, commodity trading, buyers, market intelligence, marketing channels, and sale of agricultural produce. Most market queries require knowing the crop or commodity, although general questions about markets or MSP do not.",
+      "additional_remarks": {
+        "additional_remarks": "However, questions about general banking, FPO registration, KCC process - crop is not needed."
+      },
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "horticulture_and_allied_agriculture",
+      "name": "Horticulture & Allied Agriculture",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to horticultural crops (fruits, vegetables, flowers, spices, plantation crops) and allied agricultural enterprises such as mushroom cultivation, beekeeping, sericulture, fisheries, livestock, poultry, goat farming, dairy, and other integrated farming activities. Crop information is usually required for horticultural advisory, while allied sectors may instead require the specific enterprise rather than a crop.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "soil_health_card",
+      "name": "Soil Health Card",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Questions related to the Soil Health Card scheme, interpretation of soil test parameters, understanding nutrient values, recommendations generated through the Soil Health Card, sampling procedures, and card availability. General questions can be answered without crop information, but interpreting fertilizer recommendations from a Soil Health Card may require the intended crop.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "soil_testing",
+      "name": "Soil Testing",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Questions related to soil sampling, laboratory testing, testing procedures, soil analysis, interpretation of soil properties, nutrient status, pH, EC, organic carbon, micronutrients, and test reports. General soil testing guidance does not require crop information, but crop-specific fertilizer recommendations based on test results may require knowing the intended crop.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "livestock_and_animal_husbandry",
+      "name": "Livestock & Animal Husbandry",
+      "default_crop_required": false,
+      "remarks": "Never",
+      "description": "Questions related to the rearing, breeding, feeding, housing, management, production, and welfare of livestock and farm animals, including dairy cattle, buffalo, goats, sheep, pigs, poultry, rabbits, and other domesticated animals. These questions pertain to animals rather than crops and therefore do not require crop information.",
+      "additional_remarks": {
+        "additional_remarks": "Except in integrated farming system questions where crop context may appear."
+      },
+      "requirement": {
+        "decision_mode": "never_required",
+        "crop_required": false,
+        "requires_llm": false,
+        "remark": "never"
+      }
+    },
+    {
+      "key": "veterinary_and_animal_health",
+      "name": "Veterinary & Animal Health",
+      "default_crop_required": false,
+      "remarks": "Never",
+      "description": "Questions related to animal diseases, diagnosis, symptoms, treatment, vaccination, deworming, biosecurity, nutrition, reproductive health, first aid, disease prevention, and general veterinary care for livestock, poultry, pets, and other farm animals. Crop information is not relevant.",
+      "additional_remarks": {
+        "additional_remarks": "Except in integrated farming system questions where crop context may appear."
+      },
+      "requirement": {
+        "decision_mode": "never_required",
+        "crop_required": false,
+        "requires_llm": false,
+        "remark": "never"
+      }
+    },
+    {
+      "key": "fisheries_and_aquaculture",
+      "name": "Fisheries & Aquaculture",
+      "default_crop_required": false,
+      "remarks": "Never",
+      "description": "Questions related to fish farming, aquaculture systems, pond preparation, water quality, fish species, stocking, feeding, disease management, harvesting, ornamental fisheries, shrimp farming, and other aquatic farming enterprises. These questions concern aquatic organisms rather than crops.",
+      "additional_remarks": {
+        "additional_remarks": "Except in integrated farming system questions where crop context may appear."
+      },
+      "requirement": {
+        "decision_mode": "never_required",
+        "crop_required": false,
+        "requires_llm": false,
+        "remark": "never"
+      }
+    },
+    {
+      "key": "financial_and_institutional_services",
+      "name": "Financial & Institutional Services",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Questions related to agricultural finance, loans, Kisan Credit Card (KCC), banking services, subsidies, credit, insurance (non-crop specific), farmer producer organizations (FPOs), cooperatives, agricultural institutions, financial assistance, and institutional support. Most questions do not require crop information, although certain loan or subsidy schemes may depend on the intended crop.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "extension_and_capacity_building",
+      "name": "Extension & Capacity Building",
+      "default_crop_required": false,
+      "remarks": "Never",
+      "description": "Questions related to agricultural training, demonstrations, farmer field schools, extension services, KVK programs, awareness campaigns, skill development, workshops, advisory services, educational materials, and capacity-building initiatives. Crop information is generally not required.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "never_required",
+        "crop_required": false,
+        "requires_llm": false,
+        "remark": "never"
+      }
+    },
+    {
+      "key": "infrastructure_and_utilities",
+      "name": "Infrastructure & Utilities",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Questions related to agricultural infrastructure such as warehouses, cold storage, pack houses, irrigation infrastructure, electricity supply, solar pumps, fencing, farm roads, drying yards, custom hiring centers, and other farm utilities. Most infrastructure-related questions are crop-independent, but facility recommendations may occasionally depend on the crop being cultivated.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "government_schemes",
+      "name": "Government Schemes",
+      "default_crop_required": false,
+      "remarks": "Sometimes",
+      "description": "Questions related to central and state government agricultural schemes, eligibility, benefits, application procedures, subsidies, incentives, registration, documentation, and scheme implementation. General scheme information does not require crop information, although crop-specific schemes may require knowing the crop.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "sometimes"
+      }
+    },
+    {
+      "key": "weather",
+      "name": "Weather",
+      "default_crop_required": false,
+      "remarks": "Never",
+      "description": "Questions related to current weather, weather forecasts, rainfall, temperature, humidity, wind, storms, heat waves, cold waves, monsoon, frost, and other meteorological conditions. Weather information is independent of the crop, although advisory services may later combine weather with crop information.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "never_required",
+        "crop_required": false,
+        "requires_llm": false,
+        "remark": "never"
+      }
+    },
+    {
+      "key": "market_prices",
+      "name": "Market Prices",
+      "default_crop_required": true,
+      "remarks": "Usually",
+      "description": "Questions related to the current, historical, or forecast prices of agricultural commodities, mandi prices, MSP, arrivals, commodity trends, buyers, and marketing opportunities. Since prices are commodity-specific, crop information is usually required unless the question is about general market concepts or policies.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "conditional",
+        "crop_required": null,
+        "requires_llm": true,
+        "remark": "usually"
+      }
+    },
+    {
+      "key": "general",
+      "name": "General",
+      "default_crop_required": false,
+      "remarks": "Never",
+      "description": "Questions that do not clearly belong to any specific agricultural domain, are conversational in nature, involve greetings, general agricultural knowledge, definitions, navigation, chatbot assistance, or other miscellaneous topics that do not require crop-specific information.",
+      "additional_remarks": null,
+      "requirement": {
+        "decision_mode": "never_required",
+        "crop_required": false,
+        "requires_llm": false,
+        "remark": "never"
+      }
+    }
+  ]
+}

@@ -10,20 +10,21 @@ export const useUpdateAnswer = () => {
   return useMutation<
     SubmitAnswerResponse | null,
     Error,
-    { answerId?: string; updatedAnswer: string; sources: SourceItem[]; source?: string; questionId?: string; isModeratorApproval?: boolean;}
+    { answerId?: string; updatedAnswer: string; sources: SourceItem[]; source?: string; questionId?: string; isModeratorApproval?: boolean; closeIntent?: "gdb" | "notify";}
   >({
-    mutationFn: async ({ answerId, updatedAnswer, sources, source, questionId, isModeratorApproval  }) => {
+    mutationFn: async ({ answerId, updatedAnswer, sources, source, questionId, isModeratorApproval, closeIntent  }) => {
       try {
         if (isModeratorApproval) {
           return await answerService.approveLLMAnswer(questionId!, updatedAnswer, sources, source!);
         }
-        return await answerService.updateAnswer(answerId, updatedAnswer, sources, source, questionId );
+        return await answerService.updateAnswer(answerId, updatedAnswer, sources, source, questionId, closeIntent );
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
     },
     onError: (error) => {
       console.error("Failed to update answer:", error.message);

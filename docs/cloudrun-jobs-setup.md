@@ -84,6 +84,18 @@ gcloud iam service-accounts create lgd-sync-sa \
   --display-name="Cloud Run Job: lgd-sync" \
   --project="${PROJECT_ID}"
 # No IAM bindings — the SA has no permissions on purpose.
+
+# Same pattern for the dataset-app sync Job — it only talks to the two
+# MongoDB clusters (Review System + Dataset Application), so it needs no
+# GCP API access either.
+gcloud iam service-accounts create dataset-app-sync-sa \
+  --display-name="Cloud Run Job: dataset-app-sync" \
+# Same pattern for the Response Adherence report Job — it only reads from
+# MongoDB and sends via the existing SMTP relay, no other GCP API access.
+gcloud iam service-accounts create response-adherence-report-sa \
+  --display-name="Cloud Run Job: response-adherence-report" \
+  --project="${PROJECT_ID}"
+# No IAM bindings — the SA has no permissions on purpose.
 ```
 
 ### 1.6 Grant your GitHub Actions SA permission to deploy the Job
@@ -128,6 +140,9 @@ These need to be set in **Settings → Secrets and variables → Actions → Sec
 | `LGD_DISTRICTS_API_URL` | `https://api.data.gov.in/resource/37231365-...` | Same value as backend `.env` |
 | `LGD_SUBDISTRICTS_API_URL` | `https://api.data.gov.in/resource/6be51a29-...` | Same value as backend `.env`; used as the "blocks" source |
 | `LGD_VILLAGES_API_URL` | `https://api.data.gov.in/resource/f17a1608-...` | Same value as backend `.env` |
+| `DATASET_APP_DB_URL` | `mongodb+srv://user:pass@cluster.mongodb.net/dbname` | Dataset Application's MongoDB, same value as backend `.env` |
+| `DATASET_APP_DB_NAME` | `dataset_app` | Dataset Application's DB name, same value as backend `.env` |
+| `RESPONSE_ADHERENCE_REPORT_EMAILS` | `ops@annam.ai,lead@annam.ai` | Comma-separated recipients for the daily 7 PM Response Adherence report, same format/value as backend `.env` |
 
 ### New variables to add (Settings → Secrets and variables → Actions → Variables)
 | Variable | Default | Notes |
@@ -204,3 +219,26 @@ net-new and never existed as an in-process cron:
   known. Reuses `DB_URL`/`DB_NAME` and the existing `LGD_*` env vars — no new
   application code or env vars were introduced, only the new GitHub secrets
   listed in §2 so CI can pass them through to the deployed Job.
+
+- `dataset-app-sync` (`0 4 * * *`, Asia/Kolkata — daily, 04:00 IST)  ✅
+  Runs `backend/src/jobs/dataset-app-sync/run.ts`, which executes the
+  existing standalone script `backend/scripts/sync-dataset-app.mjs --apply`.
+  That script upserts the `users`, `questions`, and `answers` collections
+  from the Review System's MongoDB (`DB_URL`/`DB_NAME`) into the Dataset
+  Application's MongoDB (`DATASET_APP_DB_URL`/`DATASET_APP_DB_NAME`), matched on
+  shared `_id`, so re-running it (including the workflow's smoke-test
+  execution) is always safe. No new sync logic — this job is only an
+  entrypoint around the existing script.
+  Sized at 1Gi/1cpu with a 30-minute task-timeout; adjust once real
+  collection sizes/run times are known. Scheduled for early morning so it
+  runs ahead of daytime traffic and the 08:00 `backup-db` run.
+- `response-adherence-report` (`0 19 * * *`, Asia/Kolkata — daily 7:00 PM IST)  ✅
+  Runs `backend/src/jobs/response-adherence-report/run.ts`, which calls
+  `ChatbotService.sendDailyResponseAdherenceReportEmail()` to build and email
+  the Response Adherence Summary report (today 00:00 IST → now) to
+  `RESPONSE_ADHERENCE_REPORT_EMAILS`. Replaces the dashboard's manual "Email
+  Report" button — recipients now come from that env var instead of a
+  typed-in list. Sized at 1Gi/1cpu with a 300s task-timeout (a Mongo
+  aggregation + one SMTP send). Reuses `DB_URL`/`DB_NAME`/`EMAIL_USER`/
+  `EMAIL_PASS`; the only new env var is `RESPONSE_ADHERENCE_REPORT_EMAILS`,
+  listed in §2.

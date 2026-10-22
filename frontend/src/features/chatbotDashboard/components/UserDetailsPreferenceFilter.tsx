@@ -73,6 +73,8 @@ export interface UserDetailsFilters {
 interface UserDetailsPreferenceFilterProps {
   filters: UserDetailsFilters;
   onApply: (filters: UserDetailsFilters) => void;
+  /** Renders a compact icon button with a tooltip instead of a labelled button */
+  iconOnly?: boolean;
   /** Fields to hide from the filter dialog */
   hideFields?: Array<
     | "crop"
@@ -165,6 +167,7 @@ export function UserDetailsPreferenceFilter({
   filters,
   onApply,
   hideFields = [],
+  iconOnly = false,
 }: UserDetailsPreferenceFilterProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<UserDetailsFilters>(filters);
@@ -258,21 +261,48 @@ export function UserDetailsPreferenceFilter({
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 flex items-center gap-2 border-border/60 hover:border-primary hover:text-primary transition-colors"
-        >
-          <Filter className="h-4 w-4" />
-          Preferences
-          {activeCount > 0 && (
-            <Badge className="ml-0.5 h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-primary hover:bg-primary text-primary-foreground">
-              {activeCount}
-            </Badge>
-          )}
-        </Button>
-      </DialogTrigger>
+      {iconOnly ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={
+                  activeCount > 0
+                    ? `Preferences, ${activeCount} active`
+                    : "Preferences"
+                }
+                className="relative border-border/60 hover:border-primary hover:text-primary transition-colors"
+              >
+                <Filter className="h-4 w-4" />
+                {activeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 rounded-full px-1 flex items-center justify-center text-[10px] font-semibold bg-primary text-primary-foreground">
+                    {activeCount}
+                  </span>
+                )}
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Preferences</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 flex items-center gap-2 border-border/60 hover:border-primary hover:text-primary transition-colors"
+          >
+            <Filter className="h-4 w-4" />
+            Preferences
+            {activeCount > 0 && (
+              <Badge className="ml-0.5 h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-primary hover:bg-primary text-primary-foreground">
+                {activeCount}
+              </Badge>
+            )}
+          </Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent
         className="sm:max-w-3xl w-full p-0 gap-0 overflow-hidden z-[10001] bg-card border-border shadow-2xl"

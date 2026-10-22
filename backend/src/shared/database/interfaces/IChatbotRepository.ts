@@ -382,6 +382,10 @@ export interface UserDetailEntry {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
+  totalNonAgriQuestionsCount?: number;
   activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
@@ -399,6 +403,10 @@ export interface PaginatedUserDetails {
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
+  totalQueries?: number;
+  totalMessagesCount?: number;
+  totalQuestionsCount?: number;
+  totalNonAgriQuestionsCount?: number;
 }
 
 export interface UnverifiedUserEntry {
@@ -914,6 +922,22 @@ export interface IChatbotRepository {
     userType?: string,
     page?: number,
     limit?: number,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any>;
+
+  getUserNonAgriQuestionsData(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any>;
 
   getUserMessageMetricDetails(
@@ -931,6 +955,8 @@ export interface IChatbotRepository {
     userType?: string,
     page?: number,
     limit?: number,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any>;
 
   getUserData(
@@ -943,6 +969,8 @@ export interface IChatbotRepository {
     email: string,
     source?: string,
     session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
   ): Promise<string[]>;
 
   /** Aggregate conversations from the messages collection for Excel export. */
@@ -1433,6 +1461,8 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
   ): Promise<any>
+  
+  logoutUser(userId: string, session?: ClientSession): Promise<{value: boolean, message: string}>
 }
 
 export interface ChatbotConversationData {
@@ -1440,3 +1470,5 @@ export interface ChatbotConversationData {
   farmerQuestions: string[];
   mcpToolCalls: any[][];
 }
+
+

@@ -28,14 +28,12 @@ const mockUserRepo = {
 function buildService(): QuestionService {
   return new QuestionService(
     {} as any, // aiService
-    {} as any, // accAgentService
     {} as any, // contextRepo
     mockQuestionRepo as any, // questionRepo
     mockUserRepo as any, // userRepo
     {} as any, // questionSubmissionRepo
     {} as any, // requestRepository
     mockAnswerRepo as any, // answerRepo
-    {} as any, // notificationRepository
     {} as any, // notificationService
     {} as any, // reRouteRepository
     {} as any, // duplicateQuestionRepository
@@ -43,8 +41,18 @@ function buildService(): QuestionService {
     {} as any, // chatbotRepository
     {} as any, // mongoDatabase
     {} as any, // userService
-    {} as any, // callDetailsRepository
     {createAuditTrail: vi.fn()} as any, // auditTrailsService
+    {} as any, // feedbackRepo
+    {} as any, // questionReportService
+    {} as any, // paeValidationService
+    {} as any, // feedbackService
+    {} as any, // questionAiService
+    {} as any, // duplicateService
+    {} as any, // queueService
+    {freeRoleAssigneeOnStatusChange: vi.fn()} as any, // roleAssigneeService
+    {} as any, // allocationService
+    {} as any, // moderatorQueueService
+    {} as any, // maintenanceService
   );
 }
 

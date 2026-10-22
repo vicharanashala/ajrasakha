@@ -56,4 +56,13 @@ export interface IAuditTrailsRepository {
     order?: "asc" | "desc",
     session?: ClientSession,
   ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }>;
+
+  getAuditTrailsByCropId(
+    cropId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc",
+    session?: ClientSession,
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }>;
 }

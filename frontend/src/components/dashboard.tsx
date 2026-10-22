@@ -37,6 +37,8 @@ import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import type { IUser } from "@/types";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
+import { GateKeeperAuditorCheckInControl } from "./GateKeeperAuditorCheckInControl";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -144,7 +146,11 @@ const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
   );
 };
 
-export const Dashboard = () => {
+export interface DashboardProps {
+  hideMainWrapper?: boolean;
+}
+
+export const Dashboard = ({ hideMainWrapper = false }: DashboardProps = {}) => {
 
   localStorage.removeItem("animationsEnabled");
 
@@ -217,14 +223,17 @@ export const Dashboard = () => {
 
   const { data: user } = useGetCurrentUser();
   const isTrainingUser = user?.isTrainingUser === true;
-  const isAdmin = user?.role === "admin";
+  const isOverallAdminView =
+    user?.role === "admin" ||
+    user?.role === "gate_keeper";
+  const isAdmin = isOverallAdminView;
 
   // Granular Hooks
   const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
     selectedDate: overviewSelectedDate,
     startTime: overviewStartTime,
     endTime: overviewEndTime,
-    userType: isAdmin ? overviewUserTypeFilter : undefined,
+    userType: isOverallAdminView ? overviewUserTypeFilter : undefined,
   });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
@@ -256,12 +265,28 @@ export const Dashboard = () => {
     }));
   };
   const[sendingReport, setSendingReport] = useState(false);
+  // Optional IST date range for the emailed report. Empty = today (default).
+  const [reportStart, setReportStart] = useState("");
+  const [reportEnd, setReportEnd] = useState("");
   const handleSendCronReport = async () => {
+    if (reportStart && reportEnd && reportEnd < reportStart) {
+      toast.error("End date can't be before start date");
+      return;
+    }
     setSendingReport(true);
     try {
       const service = new PerformaneService();
-      await service.sendCronSnapshotReport();
-      toast.success("Cron snapshot report sent successfully");
+      const range = reportStart
+        ? { startDate: reportStart, endDate: reportEnd || reportStart }
+        : undefined;
+      await service.sendCronSnapshotReport(range);
+      toast.success(
+        range
+          ? `Report for ${range.startDate}${
+              range.endDate !== range.startDate ? ` to ${range.endDate}` : ""
+            } sent successfully`
+          : "Cron snapshot report sent successfully",
+      );
       setSendingReport(false);
     } catch (err) {
       toast.error("Failed to send cron snapshot report");
@@ -291,26 +316,31 @@ export const Dashboard = () => {
     </div>
   );
 
-  return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto p-6">
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              {user?.role === "admin"
-                ? "Admin Dashboard"
+  const dashboardContent = (
+    <div className={hideMainWrapper ? "w-full" : "mx-auto p-6"}>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">
+            {user?.role === "admin"
+              ? "Admin Dashboard"
+              : user?.role === "gate_keeper"
+                ? "Overall Dashboard"
                 : "Moderator Dashboard"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Monitor content moderation and expert performance
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <ModeratorCheckInControl user={user} />
-            <DashboardClock />
-          </div>
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Monitor content moderation and expert performance
+          </p>
         </div>
+
+        <div className="flex items-center gap-4">
+          {user?.role === "gate_keeper" ? (
+            <GateKeeperAuditorCheckInControl user={user} />
+          ) : (
+            <ModeratorCheckInControl user={user} />
+          )}
+          <DashboardClock />
+        </div>
+      </div>
 
         {/* Top Stats Row */}
         <div className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2 xl:items-stretch">
@@ -344,9 +374,12 @@ export const Dashboard = () => {
                 overviewData?.moderatorApprovalRate ?? {
                   approved: 0,
                   pending: 0,
+                  pendingTraining: 0,
+                  pendingOther: 0,
                   approvalRate: 0,
                 }
               }
+              isAdmin={isAdmin}
             />
           </LoadingWrapper>
         </div>
@@ -523,18 +556,75 @@ export const Dashboard = () => {
         <div className="mb-6">
           <ReviewLevelComponent />
         </div>
-      </div>
-      {user?.role === "admin" && (
-        <div className="flex justify-end px-6">
+
+        {user?.role === "admin" && (
+        <div className="flex flex-wrap items-end justify-end gap-3 px-6">
+          <div className="flex flex-col">
+            <label className="text-xs text-muted-foreground mb-1">From</label>
+            <input
+              type="date"
+              value={reportStart}
+              max={reportEnd || undefined}
+              onChange={(e) => setReportStart(e.target.value)}
+              className="border border-input rounded-md px-2 py-1.5 text-sm bg-background"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-muted-foreground mb-1">To</label>
+            <input
+              type="date"
+              value={reportEnd}
+              min={reportStart || undefined}
+              onChange={(e) => setReportEnd(e.target.value)}
+              className="border border-input rounded-md px-2 py-1.5 text-sm bg-background"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              // Yesterday's IST calendar date (shift to IST wall-clock, then -1 day).
+              const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+              ist.setUTCDate(ist.getUTCDate() - 1);
+              const iso = ist.toISOString().slice(0, 10);
+              setReportStart(iso);
+              setReportEnd(iso);
+            }}
+            className="px-3 py-1.5 rounded-md border border-input text-sm hover:bg-muted transition-all"
+          >
+            Yesterday
+          </button>
+          {(reportStart || reportEnd) && (
+            <button
+              type="button"
+              onClick={() => {
+                setReportStart("");
+                setReportEnd("");
+              }}
+              className="px-3 py-1.5 rounded-md border border-input text-sm hover:bg-muted transition-all"
+            >
+              Clear (Today)
+            </button>
+          )}
           <button
             onClick={handleSendCronReport}
-            className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative"
+            className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative disabled:opacity-60"
             disabled={sendingReport}
           >
             {sendingReport ? "Sending Report..." : "Send Report"}
           </button>
         </div>
       )}
+    </div>
+  );
+
+  if (hideMainWrapper) {
+    return dashboardContent;
+  }
+
+  return (
+    <main className="min-h-screen bg-background">
+      {dashboardContent}
+      <ScrollToTopButton />
     </main>
   );
 };

@@ -215,8 +215,20 @@ export class ModeratorApprovalRate {
   @JSONSchema({description: 'Total number of pending questions', example: 10})
   pending!: number;
 
+  @JSONSchema({description: 'Number of pending training questions', example: 4})
+  pendingTraining?: number;
+
+  @JSONSchema({description: 'Number of pending normal/other questions', example: 6})
+  pendingOther?: number;
+
   @JSONSchema({description: 'Total number of approved questions', example: 7})
   approved!: number;
+
+  @JSONSchema({description: 'Number of approved training questions', example: 3})
+  approvedTraining?: number;
+
+  @JSONSchema({description: 'Number of approved normal/other questions', example: 4})
+  approvedOther?: number;
 }
 
 export class GoldenDatasetEntry {
@@ -280,8 +292,8 @@ export class GoldenDataset {
   @JSONSchema({description:'Total entries today to Golden Dataset'})
   todayApproved?:number;
 
-  @JSONSchema({ description: 'Moderator breakdown with names and approval counts' })
-  moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
+  @JSONSchema({ description: 'Moderator breakdown with names and approval counts (with per-close-status counts)' })
+  moderatorBreakdown?: { moderatorName: string, count: number, closedCount?: number, dynamicClosedCount?: number, duplicateClosedCount?: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
 
   @JSONSchema({ description: 'Question source breakdown showing counts from WhatsApp and Ajrasakha' })
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };

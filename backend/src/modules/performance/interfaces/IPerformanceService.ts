@@ -65,7 +65,8 @@ export interface IPerformanceService {
   updateCheckInTime(userId: string, time: Date): Promise<void>;
 
   sendCronSnapshotEmail(
-    currentUserId: string
+    currentUserId: string,
+    range?: { startDate?: string; endDate?: string },
   ): Promise<void>;
 
   getLevelWiseReport(startDate:string, endDate:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<ArrayBuffer | null>;

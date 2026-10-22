@@ -1,7 +1,6 @@
 
 
 from langchain.agents import create_agent
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -10,7 +9,7 @@ from langgraph.constants import START
 from langgraph.graph import StateGraph
 from pydantic import BaseModel
 
-from ajrasakha.agents.config import SANITIZER_MODEL, MCP_URLS
+from ajrasakha.agents.config import MCP_URLS, get_minimax_chat_model
 from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT, WEATHER_SYSTEM_PROMPT, SOIL_SYSTEM_PROMPT
 
@@ -23,7 +22,7 @@ soil_mcp = MultiServerMCPClient(
     }
 )
 
-llm = ChatAnthropic(model=SANITIZER_MODEL)
+llm = get_minimax_chat_model()
 
 _soil_agent_graph = None  # lazy init
 

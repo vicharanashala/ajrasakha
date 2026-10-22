@@ -369,8 +369,8 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         }
       }
 
-      // Update firstAllocationAt if history is empty (first allocation for this submission)
-      if (history.length === 0) {
+      // Update firstAllocationAt only if history is empty and not already set (first allocation for this submission)
+      if (history.length === 0 && !question?.firstAllocationAt) {
         await (questionRepo as any).updateQuestion(questionId, {
           firstAllocationAt: now,
         });

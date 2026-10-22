@@ -23,6 +23,7 @@ export const appConfig = {
   frontendUrl: env('FRONTEND_URL') || 'http://localhost:5173',
   adminPassword: env('ADMIN_PASSWORD') || 'admin123',
   sarvamAPI: env('SARVAM_API_KEY'),
+  geminiApiKey: env('GEMINI_API_KEY'),
   // Only for development
   firebase: {
     clientEmail: env('FIREBASE_CLIENT_EMAIL') || undefined,
@@ -38,6 +39,7 @@ export const appConfig = {
   },
   GOOGLE_APPLICATION_CREDENTIALS: env('GOOGLE_APPLICATION_CREDENTIALS') || null,
   GCP_BACKUP_BUCKET: env('GCP_BACKUP_BUCKET') || null,
+  GCP_MEDIA_BUCKET: env('GCP_MEDIA_BUCKET') || null,
   ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
   ENABLE_AI_SERVER: env('ENABLE_AI_SERVER') == 'true' || false,
   WA_WEBHOOK_API_KEY: env('WA_WEBHOOK_API_KEY') || "",
@@ -59,4 +61,5 @@ export const appConfig = {
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),
   },
+  individualReportEmails: env('INDIVIDUAL_REPORT_EMAILS') || '',
 };

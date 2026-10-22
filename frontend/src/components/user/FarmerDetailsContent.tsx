@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/atoms/card";
 import type { UserDetail } from "@/features/chatbotDashboard/hooks/useUserDetails";
 import { Button } from "../atoms/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "../atoms/input";
 import {
   Bell,
@@ -21,6 +21,7 @@ import {
   UserCheck2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { LogoutUserButton } from "@/features/chatbotDashboard/components/LogoutUserButton";
 
 interface FarmerDetailsContentProps {
   user: UserDetail;
@@ -158,8 +159,11 @@ export function FarmerDetailsContent({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
-  const isUserVerified = user?.isVerified ?? true;
+  // Default to `false` (not verified) when the field is missing so a
+  // stale/undefined user object does not silently hide the verify action.
+  const isUserVerified = user?.isVerified ?? false;
   const activeSessionCount = user?.activeSessionCount ?? 0;
+  const [session, setSession] = useState(activeSessionCount);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [confirmPasswordChangeOpen, setConfirmPasswordChangeOpen] =
     useState(false);
@@ -168,6 +172,10 @@ export function FarmerDetailsContent({
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>(
     {},
   );
+  useEffect(() => {
+    setSession(activeSessionCount);
+  }, [activeSessionCount]);
+
   const handleConfirmPasswordChange = async () => {
     if (!onChangePassword || !validatePasswordFields()) return;
 
@@ -230,25 +238,25 @@ export function FarmerDetailsContent({
                 <h2 className="text-2xl font-bold">
                   {user?.name || fp?.farmerName || "Unknown User"}
                 </h2>
-                {activeSessionCount > 0 && (
+                {session > 0 && (
                   <span
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-emerald-700 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300"
                     title={
-                      activeSessionCount === 1
+                      session === 1
                         ? "Currently logged in"
-                        : `${activeSessionCount} active sessions`
+                        : `${session} active sessions`
                     }
                     aria-label={
-                      activeSessionCount === 1
+                      session === 1
                         ? "Currently logged in"
-                        : `${activeSessionCount} active sessions`
+                        : `${session} active sessions`
                     }
                   >
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     <span>Logged in</span>
-                    {activeSessionCount > 1 && (
+                    {session > 1 && (
                       <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-                        {activeSessionCount}
+                        {session}
                       </span>
                     )}
                   </span>
@@ -271,7 +279,16 @@ export function FarmerDetailsContent({
             </div>
 
             {isAdmin && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
+                {session > 0 && (
+                  <LogoutUserButton
+                    userId={user.userId}
+                    name={user.name}
+                    email={user.email}
+                    onLoggedOut={() => setSession(0)}
+                  />
+                )}
+
                 {onNotificationHistory && (
                   <Button
                     variant="outline"

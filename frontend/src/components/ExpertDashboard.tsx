@@ -53,6 +53,8 @@ import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
 import { ReviewerLifecycle } from "./ReviewerTimeline";
 import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
+import { UserActivityReportControl } from "./UserActivityReportControl";
 
 interface ExpertDashboardProps {
   expertId?: string | null;
@@ -61,6 +63,10 @@ interface ExpertDashboardProps {
   expertDetailsList?: any;
   currentUserRole?: string;
   selectedUserRole?: string;
+  /** Noun shown in the title/subtitle (e.g. "Expert", "PAE Expert"). Defaults to "Expert". */
+  roleLabel?: string;
+  /** Hide the summary cards + Reviewer Lifecycle (used for the PAE's own dashboard). */
+  hideOverview?: boolean;
 }
 interface DateRange {
   startTime?: Date;
@@ -74,6 +80,8 @@ export const ExpertDashboard = ({
   expertDetailsList,
   currentUserRole,
   selectedUserRole,
+  roleLabel = "Expert",
+  hideOverview = false,
 }: ExpertDashboardProps) => {
   localStorage.removeItem("animationsEnabled");
 
@@ -477,19 +485,30 @@ const [dateRange, setDateRange] = useState<
       ) : null}
 
       <div className="mx-auto p-6">
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Expert {expertId ? "Performance" : "Dashboard"}
+              {roleLabel} {expertId ? "Performance" : "Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Monitor {expertId ? "expert" : "your"} performance:{" "}
+              Monitor {expertId ? roleLabel.toLowerCase() : "your"} performance:{" "}
               {userDetails?.[0]?.firstName}
             </p>
           </div>
 
-          {/* <DashboardClock /> */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-wrap items-center gap-3">
+            {userId && (user?.role === "admin" || user?.role === "gate_keeper") && (
+              <UserActivityReportControl
+                userId={userId}
+                userName={
+                  userDetails?.[0]?.firstName
+                    ? `${userDetails[0].firstName} ${userDetails[0].lastName || ""}`.trim()
+                    : userDetails?.[0]?.userName || user?.firstName || "Expert"
+                }
+                userRole={selectedUserRole || user?.role || "expert"}
+              />
+            )}
+
             {expertId && currentUserRole === "admin" && (
               <ConfirmationModal
                 title="Remove all allocations for this expert?"
@@ -552,6 +571,7 @@ const [dateRange, setDateRange] = useState<
           </div>
         </div>
         {/* Summary Cards */}
+        {!hideOverview && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
@@ -667,13 +687,16 @@ const [dateRange, setDateRange] = useState<
             </CardContent>
           </Card>
         </div>
-    
+        )}
+
+        {!hideOverview && (
         <ReviewerLifecycle
           data={reviewerLifecycleData}
           isLoading={isReviewerLifecycle}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
         />
+        )}
 
         {isViewerAdminOrModerator && userId && (
           <div className="mb-6 mt-8 p-6 rounded-xl border border-border bg-card/30 shadow-sm">
@@ -875,6 +898,7 @@ const [dateRange, setDateRange] = useState<
           </TabsContent>
         </Tabs>
       </div>
+      <ScrollToTopButton />
     </main>
   );
 };

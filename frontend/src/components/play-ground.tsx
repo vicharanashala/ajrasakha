@@ -6,6 +6,7 @@ import { QAInterface } from "../features/qa-interface-page/QA-interface";
 // import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
+import { ClosedAnswersPage } from "./ClosedAnswersPage";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 // import { RequestsPage } from "./request-page";
 import { initializeNotifications } from "@/services/pushService";
@@ -17,6 +18,7 @@ import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
+import { ModeratorDashboard } from "./ModeratorDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
@@ -26,8 +28,12 @@ import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
+import { TestersDashboard } from "@testers-dashboard/TestersDashboard";
+import { GdbCleaningPage } from "@/features/gdb-cleaning/GdbCleaningPage";
+import { TesterLogPage } from "@testers-dashboard/testerLog/TesterLogPage";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
+import { canLogTestCases } from "@/lib/roles";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -108,7 +114,9 @@ export const PlaygroundPage = () => {
           ? "call_interface"
           : user.role === "gate_keeper" || user.role === "auditor"
             ? "roleDashboard"
-            : "performance";
+            : user.role === "tester"
+              ? "tester_log"
+              : "performance";
 
     // A tab saved before the role changed (or before roleDashboard existed) can point at
     // content this role no longer renders, leaving a blank page. Drop it in that case.
@@ -326,6 +334,21 @@ export const PlaygroundPage = () => {
                   <GateKeeperAuditorDashboard />
                 </TabsContent>
               )}
+              {user && user.role === "moderator" && (
+                <TabsContent
+                  value="moderatorDashboard"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ModeratorDashboard />
+                </TabsContent>
+              )}
               {user && user.role == "expert" && (
                 <TabsContent
                   value="questions"
@@ -362,6 +385,21 @@ export const PlaygroundPage = () => {
                     currentUser={user!}
                     autoOpenQuestionId={selectedCommentId || selectedQuestionId}
                   />
+                </TabsContent>
+              )}
+              {user && user.role !== "call_agent" && (
+                <TabsContent
+                  value="closed_answers"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ClosedAnswersPage />
                 </TabsContent>
               )}
               {user && canManageUsers(user.role) && (
@@ -462,7 +500,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user && user.role === "admin" && (
+              {user && (
                 <TabsContent
                   value="data_processing"
                   className={cn(
@@ -474,9 +512,57 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard />
+                  <DataProcessingDashboard userRole={user.role} userId={user._id} />
                 </TabsContent>
               )}
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="testers_dashboard"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <TestersDashboard />
+                </TabsContent>
+              )}
+              {(user && user.role === "admin") || user?.role === "gate_keeper" ? (
+                <TabsContent
+                  value="gdb_cleaning"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <GdbCleaningPage />
+                </TabsContent>
+              ) : null}
+
+              {user && canLogTestCases(user.role) && (
+                <TabsContent
+                  value="tester_log"
+                  forceMount
+                  className={cn(
+                    "mt-0 border-0 outline-none data-[state=inactive]:hidden",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <TesterLogPage />
+                </TabsContent>
+              )}
+
 
               {user?.role === "admin" && (
                 <TabsContent

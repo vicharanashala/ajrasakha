@@ -48,16 +48,17 @@ from ajrasakha.agents.prompts import (
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
 from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
+from ajrasakha.agents.follow_up_node import follow_up_node
 from ajrasakha.agents.non_agriculture_reply import non_agriculture_reply_node
+from ajrasakha.agents.abusive_word_reply import abusive_word_reply_node
 from ajrasakha.agents.weather_unavailable_reply import weather_unavailable_reply_node
+from ajrasakha.agents.mandi_unavailable_reply import mandi_unavailable_reply_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
 
-from ajrasakha.agents.crop_chemical_resolver import ensure_crop_master_loaded
 from ajrasakha.agents.thread_logging import setup_thread_file_logging, with_thread_logging
 
-ensure_crop_master_loaded()
 setup_thread_file_logging()
 
 MCP_SERVERS = {
@@ -87,13 +88,16 @@ async def _get_tools() -> list:
         all_tools = []
         seen: set[str] = set()
         for server_name, config in MCP_SERVERS.items():
-            client = MultiServerMCPClient({server_name: config})
-            tools = await client.get_tools()
-            for t in tools:
-                if t.name in seen:
-                    t.name = f"{t.name}_{server_name}"
-                seen.add(t.name)
-                all_tools.append(t)
+            try:
+                client = MultiServerMCPClient({server_name: config})
+                tools = await client.get_tools()
+                for t in tools:
+                    if t.name in seen:
+                        t.name = f"{t.name}_{server_name}"
+                    seen.add(t.name)
+                    all_tools.append(t)
+            except Exception as err:
+                logger.warning("MCP server %s offline or unreachable at %s: %s", server_name, config.get("url"), err)
         _tools_cache = all_tools
     return _tools_cache
 
@@ -412,8 +416,13 @@ def _build_graph():
             "weather_unavailable_reply",
             with_thread_logging(weather_unavailable_reply_node),
         )
+        builder.add_node(
+            "mandi_unavailable_reply",
+            with_thread_logging(mandi_unavailable_reply_node),
+        )
         builder.add_node("execute_plan", with_thread_logging(execute_plan_node))
         builder.add_node("assemble_answer_body", with_thread_logging(assemble_answer_body_node))
+        builder.add_node("follow_up", with_thread_logging(follow_up_node))
         from ajrasakha.agents.translate_answer import translate_answer_node
 
         builder.add_node("translate_answer", with_thread_logging(translate_answer_node))
@@ -422,9 +431,15 @@ def _build_graph():
         builder.add_conditional_edges(
             "planner",
             route_after_planner,
-            {"clarify": "clarify", "ensure_location": "ensure_location"},
+            {
+                "clarify": "clarify",
+                "ensure_location": "ensure_location",
+                "abusive_word_reply": "abusive_word_reply",
+                "follow_up": "follow_up",
+            },
         )
         builder.add_edge("clarify", END)
+        builder.add_edge("follow_up", "translate_answer")
         builder.add_conditional_edges(
             "ensure_location",
             route_after_ensure_location,
@@ -435,6 +450,8 @@ def _build_graph():
         )
         builder.add_edge("upload_reviewer_only", "non_agriculture_reply")
         builder.add_edge("non_agriculture_reply", END)
+        builder.add_node("abusive_word_reply", with_thread_logging(abusive_word_reply_node))
+        builder.add_edge("abusive_word_reply", END)
         builder.add_conditional_edges(
             "execute_plan",
             route_after_tools_planner,
@@ -443,9 +460,11 @@ def _build_graph():
                 "translate_answer": "translate_answer",
                 "empty_gdb_reply": "empty_gdb_reply",
                 "weather_unavailable_reply": "weather_unavailable_reply",
+                "mandi_unavailable_reply": "mandi_unavailable_reply",
             },
         )
         builder.add_edge("weather_unavailable_reply", END)
+        builder.add_edge("mandi_unavailable_reply", END)
         builder.add_edge("assemble_answer_body", "translate_answer")
         builder.add_edge("translate_answer", END)
         builder.add_edge("empty_gdb_reply", "translate_answer")

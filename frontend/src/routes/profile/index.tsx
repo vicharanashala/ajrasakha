@@ -244,11 +244,15 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
   const presetDomainSet = new Set(DOMAINS.filter((d) => d !== "Others"));
 
-  const [selectedDomains, setSelectedDomains] = useState<string[]>(() =>
-    Array.isArray(user?.preference?.domain)
-      ? user.preference.domain.filter((d) => presetDomainSet.has(d))
-      : []
-  );
+  const [selectedDomains, setSelectedDomains] = useState<string[]>(() => {
+    const dom = user?.preference?.domain;
+    if (Array.isArray(dom)) return dom.filter((d) => presetDomainSet.has(d));
+    // Non-PAE users historically stored a single domain string — seed it too.
+    if (typeof dom === "string" && dom && dom !== "all" && presetDomainSet.has(dom)) {
+      return [dom];
+    }
+    return [];
+  });
   const [customOtherDomains, setCustomOtherDomains] = useState<string[]>(() =>
     Array.isArray(user?.preference?.domain)
       ? user.preference.domain.filter((d) => !presetDomainSet.has(d))
@@ -362,7 +366,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [customDomain, setCustomDomain] = useState(() =>
     isPresetDomain(stringDomain) ? "" : stringDomain,
   );
-  const [domainError, setDomainError] = useState("");
+  const [, setDomainError] = useState("");
   const [profileErrors, setProfileErrors] = useState({
     mobile: "",
     university: "",
@@ -504,7 +508,9 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 const all = [...resolved.filter((d) => presetDomainSet.has(d)), ...newCustom];
                 return all.length > 0 ? all : "all";
               })()
-            : normalizedDomain,
+            // Non-PAE now supports multiple domains via MultiSelect — store the array
+            // (or "all" when nothing is selected).
+            : selectedDomains.length > 0 ? selectedDomains : "all",
         },
       };
 
@@ -1393,7 +1399,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                     <MultiSelect
                       items={[
                         ...domainOptions.map((d) => ({ value: d, label: d })),
-                        { value: OTHER_DOMAIN_VALUE, label: "Others" },
+                        // { value: OTHER_DOMAIN_VALUE, label: "Others" },
                       ]}
                       selected={selectedDomains}
                       onChange={(next) => {
@@ -1481,59 +1487,29 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               </div>
             ) : (
               <>
-                <Select
-                  value={domainSelection}
-                  disabled={!isEditMode}
-                  onValueChange={(val) => {
-                    setDomainError("");
-                    setDomainSelection(val);
-
-                    if (val === OTHER_DOMAIN_VALUE) {
-                      handleChange("preference.domain", customDomain);
-                      return;
-                    }
-
-                    handleChange("preference.domain", val);
-                  }}
-                >
-                  <SelectTrigger id="domain" className="w-full">
-                    <SelectValue placeholder="Select domain" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Domain</SelectItem>
-                    {domainOptions.map((domain) => (
-                      <SelectItem key={domain} value={domain}>
-                        <Network className="h-4 w-4 mr-2 inline" /> {domain}
-                      </SelectItem>
+                {isEditMode ? (
+                  <MultiSelect
+                    items={domainOptions.map((d) => ({ value: d, label: d }))}
+                    selected={selectedDomains}
+                    onChange={(next) => setSelectedDomains(next)}
+                    placeholder="Select domains"
+                    direction="up"
+                  />
+                ) : selectedDomains.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedDomains.map((d) => (
+                      <span
+                        key={d}
+                        className="inline-flex items-center gap-1.5 bg-muted text-foreground text-xs font-medium px-3 py-1.5 rounded-md border border-border"
+                      >
+                        <Network className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        {d}
+                      </span>
                     ))}
-                    <SelectItem value={OTHER_DOMAIN_VALUE}>
-                      <Network className="h-4 w-4 mr-2 inline" /> Other
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {domainSelection === OTHER_DOMAIN_VALUE && (
-                  <div className="space-y-2">
-                    <Input
-                      id="custom-domain"
-                      disabled={!isEditMode}
-                      value={customDomain}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setCustomDomain(value);
-                        handleChange("preference.domain", value);
-
-                        if (domainError) {
-                          setDomainError(validateCustomDomain(value));
-                        }
-                      }}
-                      onBlur={() => {
-                        setDomainError(validateCustomDomain(customDomain));
-                      }}
-                      placeholder="Enter your domain"
-                    />
-                    {domainError && (
-                      <p className="text-sm text-red-500">{domainError}</p>
-                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm text-muted-foreground">
+                    All Domain
                   </div>
                 )}
               </>

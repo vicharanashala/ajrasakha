@@ -4,11 +4,15 @@ import {
   // UserRepository,
   HttpErrorHandler,
   AnalyticsMongoDatabase,
-  AnnamDatabase
+  AnnamDatabase,
+  PopDatabase,
+  GdbCleaningDatabase
 } from '#shared/index.js';
 import {GLOBAL_TYPES} from './types.js';
 import {dbConfig} from './config/db.js';
 import {analyticsDbConfig} from './config/analyticsDbConfig.js';
+import {popDbConfig} from './config/popDbConfig.js';
+import {gdbCleaningDbConfig} from './config/gdbCleaningDbConfig.js';
 import { FirebaseAuthService } from './modules/auth/services/FirebaseAuthService.js';
 
 
@@ -36,5 +40,13 @@ export const sharedContainerModule = new ContainerModule(options => {
   options.bind(GLOBAL_TYPES.annamanalyticsUri).toConstantValue(analyticsDbConfig.annamUrl);
   options.bind(GLOBAL_TYPES.annamanalyticsDbName).toConstantValue(analyticsDbConfig.annamDbName);
   options.bind(GLOBAL_TYPES.annamanalyticsDatabase).to(AnnamDatabase).inSingletonScope();
+
+  options.bind(GLOBAL_TYPES.popDbUri).toConstantValue(popDbConfig.url);
+  options.bind(GLOBAL_TYPES.popDbName).toConstantValue(popDbConfig.dbName);
+  options.bind(GLOBAL_TYPES.popDatabase).to(PopDatabase).inSingletonScope();
+
+  options.bind(GLOBAL_TYPES.gdbCleaningDbUri).toConstantValue(gdbCleaningDbConfig.url);
+  options.bind(GLOBAL_TYPES.gdbCleaningDbName).toConstantValue(gdbCleaningDbConfig.dbName);
+  options.bind(GLOBAL_TYPES.gdbCleaningDatabase).to(GdbCleaningDatabase).inSingletonScope();
 }); 
 

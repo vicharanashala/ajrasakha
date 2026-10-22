@@ -7,7 +7,10 @@ import './reAllocateCron.js'
 import './timeBoundReAllocateCron.js'
 import './moderatorQueueCron.js'
 import './agentStatusCleanupJob.js';
+import './testersDashboardSyncCron.js'
 import './gateKeeperAuditorQueueCron.js'
+import './feedbackAllocationCron.js'
+import './paeValidationQueueCron.js'
 //import './embeddingBackfill.js'//previously commented
 export const initJobs = () => {
   console.log('[CRON] Jobs initialized.');

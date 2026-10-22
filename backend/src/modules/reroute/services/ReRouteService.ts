@@ -26,6 +26,7 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {NotificationService} from '#root/modules/core/index.js';
 import { AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
 import { IReRouteService } from '../interfaces/IRerouteService.js';
+import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
 
 @injectable()
 export class ReRouteService extends BaseService implements IReRouteService {
@@ -44,8 +45,27 @@ export class ReRouteService extends BaseService implements IReRouteService {
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.ModeratorQueueService)
+    private readonly moderatorQueueService: IModeratorQueueService,
   ) {
     super(mongoDatabase);
+  }
+
+  /**
+   * Event-driven moderator-queue allocation. Call after a moderator reroutes a question
+   * (which frees the moderator) so they immediately pick up their next in-review question.
+   * Fire-and-forget and idempotent — never affects the reroute that triggered it.
+   */
+  private triggerModeratorQueueAllocation(context: string): void {
+    void this.moderatorQueueService
+      .runModeratorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven moderator-queue allocation failed:`,
+          err?.message,
+        ),
+      );
   }
 
   /*async addrerouteAnswer(
@@ -148,8 +168,8 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
     status: RerouteStatus,
   ) {
     try {
-      return await this._withTransaction(async (session: ClientSession) => {
-  
+      const result = await this._withTransaction(async (session: ClientSession) => {
+
         /* ---------------------------------------------------
          * 1️⃣ VALIDATE EXPERT (inside transaction)
          * --------------------------------------------------- */
@@ -246,6 +266,15 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
   
         return;
       });
+
+      // Transaction committed. The question stays with the moderator (moderatorId
+      // and the assignedQuestionIds entry are kept), but its status is now 're-routed'
+      // which is non-blocking — so the moderator has free capacity again for that
+      // source group. Run the moderator queue so they immediately pick up their next
+      // in-review question (they can hold many re-routed alongside their active ones).
+      this.triggerModeratorQueueAllocation('addrerouteAnswer');
+
+      return result;
     } catch (error) {
       throw new InternalServerError(
         `Failed to add expert: ${error instanceof Error ? error.message : error}`,

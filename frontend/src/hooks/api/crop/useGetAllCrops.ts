@@ -7,7 +7,9 @@ interface UseGetAllCropsParams {
   search?: string;
   page?: number;
   limit?: number;
-  type?: "crop" | "chemical" | "other";
+  // "crop" | "chemical" | "other" (all non-crop/non-chemical) | a specific
+  // category such as "weed" | "pest" | "disease" | any future type.
+  type?: string;
 }
 
 export const useGetAllCrops = (params?: UseGetAllCropsParams) => {

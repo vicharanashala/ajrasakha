@@ -21,7 +21,10 @@ export async function sendBackupSuccessEmail(results: {db: string; publicUrl: st
   await sendEmailNotification(recipient, title, '', template);
 }
 
-export async function sendStatsEmail(adminEmail?:string) {
+export async function sendStatsEmail(
+  adminEmail?: string,
+  range?: { startDate?: string; endDate?: string },
+) {
   // const recipient = emailConfig.BACKUP_NOTIFICATION_EMAIL;
   let recipients: string[] = [];
   if(adminEmail)
@@ -35,9 +38,15 @@ export async function sendStatsEmail(adminEmail?:string) {
     .filter(Boolean);
 
   }
-  const stats = await getDailyStats();
+  const stats = await getDailyStats(range);
   const template = buildDailyStatsEmailTemplate(stats);
-  const title = 'Daily Question Review System Report';
+  const title = range?.startDate
+    ? `Question Review System Report (${range.startDate}${
+        range.endDate && range.endDate !== range.startDate
+          ? ` to ${range.endDate}`
+          : ''
+      })`
+    : 'Daily Question Review System Report';
 
   await sendEmailNotification(recipients, title, '', template);
 }

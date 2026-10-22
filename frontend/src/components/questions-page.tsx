@@ -1,4 +1,5 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
+import { useQueryClient } from "@tanstack/react-query";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -24,6 +25,8 @@ import { ReviewLevelsTable } from "@/features/questions/components/review-level/
 import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
+import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 
 export const QuestionsPage = ({
   currentUser,
@@ -39,6 +42,7 @@ export const QuestionsPage = ({
     setSelectedCommentId: setRouteCommentId,
     setSelectedQuestionType,
   } = useSelectedQuestion();
+  const queryClient = useQueryClient();
 
   const getInitialSource = (): QuestionSourceFilter => {
     const sourceFromUrl = new URLSearchParams(window.location.search).get(
@@ -79,6 +83,7 @@ export const QuestionsPage = ({
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [autoAllocateModeratorFilter, setAutoAllocateModeratorFilter] = useState("all");
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "open" | "closed">("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
@@ -110,6 +115,16 @@ export const QuestionsPage = ({
   const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
   const suppressAutoOpenRef = useRef(false);
+  const refetchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [dedicatedSubTab, setDedicatedSubTab] = useState<DedicatedSubTab>("questions");
+
+  useEffect(() => {
+    return () => {
+      if (refetchTimerRef.current) {
+        clearTimeout(refetchTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -185,6 +200,7 @@ export const QuestionsPage = ({
         consecutiveApprovals,
         autoAllocateFilter,
         autoAllocateModeratorFilter,
+        feedbackFilter,
         closedInTwoHrs,
         hiddenQuestions,
         duplicateQuestions,
@@ -233,6 +249,7 @@ export const QuestionsPage = ({
       consecutiveApprovals,
       autoAllocateFilter,
       autoAllocateModeratorFilter,
+      feedbackFilter,
       closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
@@ -331,6 +348,12 @@ export const QuestionsPage = ({
 
   const filteredQuestions = useMemo(() => {
     const questions = questionData?.questions || [];
+    
+    // In dedicated view with feedbacks tab, show feedback questions
+    if (viewMode === "dedicated" && dedicatedSubTab === "feedbacks") {
+      return questionData?.feedbackQuestions || [];
+    }
+    
     if (!debouncedSearch || searchTabMode === "search") return questions;
     const srcFilter = sourceByMode[searchTabMode];
     if (srcFilter) return questions.filter((q) => q.source === srcFilter);
@@ -340,7 +363,7 @@ export const QuestionsPage = ({
     if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
     if (searchTabMode === "training") return questions.filter((q) => q.isTrainingQuestion === true);
     return questions;
-  }, [questionData, debouncedSearch, searchTabMode]);
+  }, [questionData, debouncedSearch, searchTabMode, viewMode, dedicatedSubTab]);
 
   const currentItems = useMemo(() => {
     if (viewMode === "review-level") return reviewData?.data || [];
@@ -364,8 +387,12 @@ export const QuestionsPage = ({
   // question's details to a view (like My Assignments) that has fewer pages — snap
   // back to the last valid page so the list isn't stuck on an empty out-of-range page.
   useEffect(() => {
-    if (viewMode !== "review-level" && totalPages > 0 && currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    if (viewMode !== "review-level") {
+      if (totalPages > 0 && currentPage > totalPages) {
+        setCurrentPage(totalPages);
+      } else if (totalPages === 0 && currentPage > 1) {
+        setCurrentPage(1);
+      }
     }
   }, [viewMode, totalPages, currentPage]);
 
@@ -470,6 +497,8 @@ export const QuestionsPage = ({
       setAutoAllocateFilter(next.autoAllocateFilter);
     if (next.autoAllocateModeratorFilter !== undefined)
       setAutoAllocateModeratorFilter(next.autoAllocateModeratorFilter);
+    if (next.feedbackFilter !== undefined)
+      setFeedbackFilter(next.feedbackFilter);
     if (next.closedInTwoHrs !== undefined)
       setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
@@ -523,6 +552,7 @@ export const QuestionsPage = ({
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
     setAutoAllocateModeratorFilter("all");
+    setFeedbackFilter("all");
     setClosedInTwoHrs(false);
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
@@ -536,6 +566,15 @@ export const QuestionsPage = ({
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
   };
+  const scheduleDedicatedRefetch = () => {
+    if (viewMode === "dedicated") {
+      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+      refetchTimerRef.current = setTimeout(() => {
+        refetch();
+      }, 800);
+    }
+  };
+
   const goBack = () => {
     if (routeCommentId || routeQuestionId) {
       suppressAutoOpenRef.current = true;
@@ -548,6 +587,14 @@ export const QuestionsPage = ({
       setSelectedQuestionType(null);
     }
     setSelectedQuestionId("");
+    queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
+    scheduleDedicatedRefetch();
+  };
+
+  const navigateToQuestionPage = () => {
+    setSelectedQuestionId("");
+    queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
+    scheduleDedicatedRefetch();
   };
 
   const handleBulkDelete = async () => {
@@ -602,9 +649,7 @@ export const QuestionsPage = ({
               refetchAnswers={refechSelectedQuestion}
               isRefetching={isLoadingSelectedQuestion}
               goBack={goBack}
-              navigateToQuestionPage={() => {
-                setSelectedQuestionId("");
-              }}
+              navigateToQuestionPage={navigateToQuestionPage}
               currentUser={currentUser!}
               onNext={handleNext}
               onPrev={handlePrev}
@@ -648,6 +693,9 @@ export const QuestionsPage = ({
             view={view}
             setView={setView}
             onAnswerModeChange={setSearchTabMode}
+            dedicatedSubTab={dedicatedSubTab}
+            onDedicatedSubTabChange={setDedicatedSubTab}
+            isFetching={isFetching}
           />
 
           {viewMode === "all" || viewMode === "dedicated" ? (
@@ -691,6 +739,7 @@ export const QuestionsPage = ({
           )}
         </>
       )}
+      <ScrollToTopButton />
     </main>
   );
 };

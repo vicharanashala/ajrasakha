@@ -109,8 +109,20 @@ export class ModeratorApprovalRate {
   @JSONSchema({description: 'Total number of pending questions', example: 10})
   pending!: number;
 
+  @JSONSchema({description: 'Number of pending training questions', example: 4})
+  pendingTraining?: number;
+
+  @JSONSchema({description: 'Number of pending normal/other questions', example: 6})
+  pendingOther?: number;
+
   @JSONSchema({description: 'Total number of approved questions', example: 7})
   approved!: number;
+
+  @JSONSchema({description: 'Number of approved training questions', example: 3})
+  approvedTraining?: number;
+
+  @JSONSchema({description: 'Number of approved normal/other questions', example: 4})
+  approvedOther?: number;
 }
 
 export class GoldenDatasetEntry {
