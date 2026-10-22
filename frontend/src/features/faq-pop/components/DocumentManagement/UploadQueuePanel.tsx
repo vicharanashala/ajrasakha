@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send } from "lucide-react";
 import { getDashboardUploadFileBlob } from "../../api";
-import { DOCUMENT_METADATA_FIELDS } from "./fields";
+import { DOCUMENT_METADATA_FIELDS, formatDomainValue } from "./fields";
 import UploadEditForm from "./UploadEditForm";
 
 const STATUS_LABELS = {
@@ -284,9 +284,11 @@ export default function UploadQueuePanel({
                           {metadata.district_id && <span>District: {metadata.district_id}</span>}
                           {metadata.kvk_id && <span>KVK: {metadata.kvk_id}</span>}
                           {placementsSummary && <span className="col-span-full">Placements: {placementsSummary}</span>}
-                          {DOCUMENT_METADATA_FIELDS.filter((f) => metadata[f.key]).map((f) => (
+                          {DOCUMENT_METADATA_FIELDS.filter((f) =>
+                            f.key === "domain" ? (metadata.domain || []).length > 0 : metadata[f.key],
+                          ).map((f) => (
                             <span key={f.key}>
-                              {f.label}: {metadata[f.key]}
+                              {f.label}: {f.key === "domain" ? formatDomainValue(metadata.domain) : metadata[f.key]}
                             </span>
                           ))}
                         </div>
