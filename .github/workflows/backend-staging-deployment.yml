@@ -162,7 +162,6 @@ jobs:
             ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
             CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
             GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
-            ENABLE_DAILY_ACTIVITY_REPORT_CRON=${{ secrets.ENABLE_DAILY_ACTIVITY_REPORT_CRON}}
             ANSWER_CHECK_PORT=${{ secrets.ANSWER_CHECK_PORT}}
           env_vars_update_strategy: merge
 
