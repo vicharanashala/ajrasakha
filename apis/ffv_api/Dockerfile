@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # now copy the app code, plus the existing FFV generation script we reuse -
 # main.py looks for it in this exact "ffv_scripts" folder next to itself
 COPY apis/ffv_api/main.py .
+COPY apis/ffv_api/ffv_domains.py .
 COPY ai/ajrasakha/ffv/scripts/generate_ffvs.py ./ffv_scripts/generate_ffvs.py
 
 EXPOSE 8003

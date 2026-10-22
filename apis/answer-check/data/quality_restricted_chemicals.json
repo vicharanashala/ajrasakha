@@ -1,0 +1,18 @@
+[
+  {"name": "Aluminium Phosphide", "type": "restricted", "restricted_crops": [], "restriction_kind": "operator_only", "detail": "Restricted to use by operators only"},
+  {"name": "Captafol", "type": "restricted", "restricted_crops": [], "restriction_kind": "seed_treatment_only", "detail": "Foliar spray banned; use permitted as seed dresser only"},
+  {"name": "Carbofuran", "type": "restricted", "restricted_crops": [], "restriction_kind": "formulation_only", "allowed_formulation": "3% CG", "detail": "All formulations banned except 3% CG"},
+  {"name": "Chlorpyriphos", "type": "restricted", "restricted_crops": ["Ber", "Citrus", "Tobacco"], "detail": "Banned for use in Ber, Citrus and Tobacco"},
+  {"name": "Cypermethrin", "type": "restricted", "restricted_crops": [], "restriction_kind": "operator_only", "detail": "Restricted to use by operators only"},
+  {"name": "Dazomet", "type": "restricted", "restricted_crops": ["Tea"], "detail": "Banned for use in Tea"},
+  {"name": "DDT", "type": "restricted", "restricted_crops": [], "restriction_kind": "blanket_ban", "detail": "Use in agriculture withdrawn"},
+  {"name": "Dimethoate", "type": "restricted", "restricted_crops": ["Fruits and vegetables consumed raw"], "detail": "Banned for use on fruits and vegetables consumed raw"},
+  {"name": "Fenitrothion", "type": "restricted", "restricted_crops": ["All agriculture except locust control"], "detail": "Banned for all agricultural use except locust control"},
+  {"name": "Malathion", "type": "restricted", "restricted_crops": ["Sorghum", "Pea", "Soybean", "Castor", "Sunflower", "Bhindi", "Brinjal", "Cauliflower", "Radish", "Turnip", "Tomato", "Apple", "Mango", "Grape"], "detail": "Banned for use in Sorghum, Pea, Soybean, Castor, Sunflower, Bhindi, Brinjal, Cauliflower, Radish, Turnip, Tomato, Apple, Mango and Grape"},
+  {"name": "Mancozeb", "type": "restricted", "restricted_crops": ["Guava", "Jowar", "Tapioca"], "detail": "Banned for use in Guava, Jowar and Tapioca"},
+  {"name": "Methyl Bromide", "type": "restricted", "restricted_crops": [], "restriction_kind": "operator_only", "detail": "Restricted to use by operators only"},
+  {"name": "Monocrotophos", "type": "restricted", "restricted_crops": ["Vegetables"], "detail": "Banned for use in vegetables"},
+  {"name": "Oxyfluorfen", "type": "restricted", "restricted_crops": ["Potato", "Groundnut"], "detail": "Banned for use in Potato and Groundnut"},
+  {"name": "Quinalphos", "type": "restricted", "restricted_crops": ["Jute", "Cardamom", "Sorghum"], "detail": "Banned for use in Jute, Cardamom and Sorghum"},
+  {"name": "Trifluralin", "type": "restricted", "restricted_crops": ["All crops except Wheat"], "detail": "Banned for use in all crops except Wheat"}
+]
