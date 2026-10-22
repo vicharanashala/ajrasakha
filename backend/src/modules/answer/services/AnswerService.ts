@@ -370,5 +370,48 @@ export class AnswerService extends BaseService implements IAnswerService {
     }
     return result;
   }
+
+  async submitAnswerCheck(body: any): Promise<{ job_id: string; status: string }> {
+    if (!body?.question || !body?.answer) {
+      throw new BadRequestError('Question and answer are required for answer quality check.');
+    }
+    const result = await this.aiService.submitAnswerCheck(body);
+    if (!result) {
+      throw new InternalServerError('Answer quality check service is temporarily unavailable.');
+    }
+    return result;
+  }
+
+  async getAnswerCheck(jobId: string): Promise<any> {
+    if (!jobId) {
+      throw new BadRequestError('Job ID is required.');
+    }
+    const result = await this.aiService.getAnswerCheck(jobId);
+    if (!result) {
+      throw new InternalServerError('Failed to fetch check result from verification service.');
+    }
+    return result;
+  }
+
+  async generateFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{
+    results: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions: number;
+  }> {
+    if (!payload?.question || !payload?.answer) {
+      throw new BadRequestError('Question and answer are required for FFV generation.');
+    }
+    const result = await this.aiService.generateFfv(payload);
+    if (!result) {
+      throw new InternalServerError('FFV generation service is temporarily unavailable.');
+    }
+    return result;
+  }
 }
 
