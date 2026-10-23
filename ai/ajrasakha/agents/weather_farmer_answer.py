@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
+from ajrasakha.tools.weather.code import describe_wind_direction
+
 FARMER_WEATHER_ANSWER_PROMPT = """You are AjraSakha, helping an Indian farmer understand weather information.
 You receive the farmer's question and a technical weather brief from a weather service.
 Rewrite it as a short, friendly answer.
@@ -117,9 +119,10 @@ class _Current:
     humidity: Optional[str] = None
     condition: Optional[str] = None
     rain_24h: Optional[str] = None
+    wind: Optional[str] = None  # e.g. "Northerly, 9.3 km/h"
 
     def has_any(self) -> bool:
-        return any((self.temperature, self.feels_like, self.humidity, self.condition, self.rain_24h))
+        return any((self.temperature, self.feels_like, self.humidity, self.condition, self.rain_24h, self.wind))
 
 
 @dataclass
@@ -445,6 +448,32 @@ def _station_obs(data: dict[str, Any]) -> tuple[dict[str, Any], Optional[str], O
     return station, station.get("name"), dist
 
 
+def _wind_text(src: Any) -> Optional[str]:
+    """'Northerly, 9.3 km/h' from any dict carrying wind speed (km/h or m/s) and optional direction."""
+    if not isinstance(src, dict):
+        return None
+    kmph = _num(_bare(src.get("wind_speed_kmph")))
+    if kmph is None:
+        mps = _num(_bare(src.get("wind_speed_mps")))
+        kmph = round(mps * 3.6, 1) if mps is not None else None
+    if kmph is None:
+        return None
+    direction = _v(src.get("wind_direction"))
+    if direction is None and _v(src.get("wind_direction_code")) is not None:
+        direction = describe_wind_direction(src.get("wind_direction_code")) or None
+    speed = "Calm" if kmph == 0 else f"{kmph:g} km/h"
+    return f"{direction}, {speed}" if direction and kmph != 0 else speed
+
+
+def _live_wind(data: dict[str, Any], obs: dict[str, Any]) -> Optional[str]:
+    w_data = data.get("weather_data") if isinstance(data.get("weather_data"), dict) else {}
+    for src in (data.get("wind"), w_data.get("today_weather"), obs):
+        text = _wind_text(src)
+        if text:
+            return text
+    return None
+
+
 def _current_from_obs(obs: dict[str, Any]) -> _Current:
     return _Current(
         temperature=_bare(obs.get("temperature_c")),
@@ -452,6 +481,7 @@ def _current_from_obs(obs: dict[str, Any]) -> _Current:
         humidity=_bare(obs.get("humidity_pct")),
         condition=natural_condition(_first(obs.get("weather_description"), obs.get("weather_message"))),
         rain_24h=_bare(obs.get("past_24hrs_rainfall_mm")),
+        wind=_wind_text(obs),
     )
 
 
@@ -776,10 +806,11 @@ def build_weather_view(tool_result: Any, today: Optional[date] = None) -> Option
     if about_today and kind in {"weather", "temperature", "nowcast", "location"}:
         obs, obs_name, obs_dist = _station_obs(data)
         live = _current_from_obs(obs)
+        live.wind = _live_wind(data, obs) or live.wind
         if view.current is None:
             view.current = live
         else:
-            for attr in ("temperature", "feels_like", "humidity", "condition", "rain_24h"):
+            for attr in ("temperature", "feels_like", "humidity", "condition", "rain_24h", "wind"):
                 if not getattr(view.current, attr):
                     setattr(view.current, attr, getattr(live, attr))
         if kind == "temperature":
@@ -878,6 +909,8 @@ def _single_day_block(view: _View, day: Optional[_Day], focus: set[str], today: 
         bullets.append(f"- 🌡️ {label}: **{rng}**")
     if humidity:
         bullets.append(f"- 💧 Humidity: **{humidity}**")
+    if is_today and cur and cur.wind:
+        bullets.append(f"- 💨 Wind: **{cur.wind}**")
     if condition:
         bullets.append(f"- {_condition_emoji(condition)} Condition: **{condition}**")
     if rain and (_rain_positive(rain) or "rain" in focus):
@@ -1072,6 +1105,8 @@ def _current_bullets(cur: Optional[_Current]) -> list[str]:
         out.append(f"- 🥵 Feels like: **{_c(cur.feels_like)}**")
     if cur.humidity:
         out.append(f"- 💧 Humidity: **{cur.humidity}%**")
+    if cur.wind:
+        out.append(f"- 💨 Wind: **{cur.wind}**")
     if cur.condition:
         out.append(f"- {_condition_emoji(cur.condition)} Condition: **{cur.condition}**")
     return out

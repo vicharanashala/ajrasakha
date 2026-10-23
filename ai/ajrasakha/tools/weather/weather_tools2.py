@@ -2782,6 +2782,19 @@ async def get_location_weather(
             "weather_details": weather_details,
             "data_source": loc_data_source,
         }
+        loc_wind = None
+        if _ws_safe_float(today_fc.get("wind_speed_mps")) is not None:
+            mps = float(today_fc["wind_speed_mps"])
+            loc_wind = {
+                "wind_speed_kmph": round(_ws_safe_float(today_fc.get("wind_speed_kmph")) or mps * 3.6, 1),
+                "wind_speed_mps": mps,
+                "wind_direction": today_fc.get("wind_direction"),
+                "data_source": today_fc.get("wind_source") or today_fc.get("data_source"),
+            }
+        else:
+            loc_wind = _imd_wind(svc, actual_lat, actual_lon, imd_current)
+        if loc_wind:
+            res_dict["wind"] = loc_wind
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
         if nearby_data is not None:
