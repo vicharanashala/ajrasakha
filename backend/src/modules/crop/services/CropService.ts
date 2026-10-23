@@ -84,9 +84,17 @@ export class CropService extends BaseService implements ICropService {
     return [...known, ...extras];
   }
 
-  async findExistingNames(names: string[]): Promise<{name: string; type: string}[]> {
+  // Returns the matching entries with their structured aliases, so the import
+  // preview can tell which rows add, fill in, or leave an alias unchanged.
+  async findExistingNames(
+    names: string[],
+  ): Promise<{name: string; type: string; aliases: ICropAlias[]}[]> {
     const crops = await this.cropRepository.findByNames(names);
-    return crops.map(crop => ({name: crop.name, type: crop.type ?? 'crop'}));
+    return crops.map(crop => ({
+      name: crop.name,
+      type: crop.type ?? 'crop',
+      aliases: (crop.aliases ?? []).filter((a): a is ICropAlias => typeof a !== 'string'),
+    }));
   }
 
   /**
@@ -158,7 +166,7 @@ export class CropService extends BaseService implements ICropService {
     const newScientificName = !existing?.scientificName && entry.scientificName;
 
     if (existing && !fresh.length && !enriched && !newScientificName) {
-      return {name: entry.name, status: 'skipped', reason: 'All terms and details already exist for this entry'};
+      return {name: entry.name, status: 'skipped', reason: 'All aliases and details already exist for this entry'};
     }
 
     // Try the whole entry first; a conflicting term falls back to one-by-one adds.
@@ -226,10 +234,10 @@ export class CropService extends BaseService implements ICropService {
 
     const added = fresh.length - conflicts.length;
     const notes = [
-      added ? `${added} new term${added === 1 ? '' : 's'} added` : '',
-      enriched ? `${enriched} existing term${enriched === 1 ? '' : 's'} filled with new details` : '',
-      skipped ? `${skipped} term${skipped === 1 ? '' : 's'} already complete, skipped` : '',
-      conflicts.length ? `${conflicts.length} term${conflicts.length === 1 ? '' : 's'} already used by another entry (${conflicts.join(', ')})` : '',
+      added ? `${added} new alias${added === 1 ? '' : 'es'} added` : '',
+      enriched ? `${enriched} existing alias${enriched === 1 ? '' : 'es'} filled with new details` : '',
+      skipped ? `${skipped} alias${skipped === 1 ? '' : 'es'} already complete, skipped` : '',
+      conflicts.length ? `${conflicts.length} alias${conflicts.length === 1 ? '' : 'es'} already used by another entry (${conflicts.join(', ')})` : '',
     ].filter(Boolean);
 
     return {

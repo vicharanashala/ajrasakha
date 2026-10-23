@@ -76,7 +76,7 @@ interface SheetRow {
 interface ReportEntry {
   key: string;
   name: string;
-  terms: number;
+  aliases: number;
   status: ICropImportResult["status"];
   reason: string;
   rows: SheetRow[];
@@ -324,6 +324,45 @@ const termKeyOf = (row: SheetRow) =>
     .map((v) => v.trim().toLowerCase())
     .join("|");
 
+/** What importing a row will do to its entry's aliases. */
+type AliasOutcome = "new" | "fill" | "none";
+
+const ALIAS_OUTCOME_META: Record<AliasOutcome, { label: string; className: string }> = {
+  new: { label: "New alias", className: "text-emerald-600 dark:text-emerald-400" },
+  fill: { label: "Fills details", className: "text-sky-600 dark:text-sky-400" },
+  none: { label: "No change", className: "text-gray-500 dark:text-gray-400" },
+};
+
+const lower = (value?: string) => (value ?? "").trim().toLowerCase();
+
+/**
+ * Mirrors the server merge: a row matching a stored alias (same language, region,
+ * English and native name) only fills that alias's empty details; otherwise it adds
+ * a new alias. A row that just repeats the entry's own name changes nothing.
+ */
+const aliasOutcomeOf = (row: SheetRow, stored: ICropAlias[]): AliasOutcome => {
+  if (lower(row.englishName) === lower(row.name)) return "none";
+  const match = stored.find(
+    (a) =>
+      lower(a.language) === lower(row.language) &&
+      lower(a.region) === lower(row.state) &&
+      lower(a.english_representation) === lower(row.englishName) &&
+      lower(a.native_representation) === lower(row.nativeName),
+  );
+  if (!match) return "new";
+  const details: [keyof ICropAlias, string][] = [
+    ["source_link", row.sourceLink],
+    ["page_number", row.pageNumber],
+    ["agri_expert", row.agriExpert],
+    ["remark", row.remark],
+  ];
+  const fillsDetail = details.some(([key, value]) => value && !lower(match[key] as string));
+  const fillsExtra = Object.entries(row.extras).some(
+    ([key, value]) => value && !lower(match.extra_fields?.[key]),
+  );
+  return fillsDetail || fillsExtra ? "fill" : "none";
+};
+
 /** Writes rows to an .xlsx using the import's own headers and downloads it, so
  *  anything exported here can be corrected and uploaded straight back. */
 const downloadSheet = async (
@@ -415,6 +454,7 @@ export const CropSheetImportModal = ({
   const [report, setReport] = useState<ReportEntry[]>([]);
   const [rowFilter, setRowFilter] = useState<RowFilter>("all");
   const [existing, setExisting] = useState<Map<string, string>>(new Map());
+  const [existingAliases, setExistingAliases] = useState<Map<string, ICropAlias[]>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { mutateAsync: importEntries } = useImportCropEntries();
@@ -426,6 +466,7 @@ export const CropSheetImportModal = ({
     setReport([]);
     setRowFilter("all");
     setExisting(new Map());
+    setExistingAliases(new Map());
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
@@ -538,27 +579,49 @@ export const CropSheetImportModal = ({
     return { total: names.size, existing: existingCount, fresh: names.size - existingCount };
   }, [importRows, existing]);
 
+  // What each importable row will do, keyed by serial.
+  const rowOutcomes = useMemo(
+    () =>
+      new Map(
+        importRows.map((row) => [
+          row.serial,
+          aliasOutcomeOf(row, existingAliases.get(nameKeyOf(row.name)) ?? []),
+        ]),
+      ),
+    [importRows, existingAliases],
+  );
+  const outcomeCounts = useMemo(() => {
+    const counts: Record<AliasOutcome, number> = { new: 0, fill: 0, none: 0 };
+    rowOutcomes.forEach((outcome) => counts[outcome]++);
+    return counts;
+  }, [rowOutcomes]);
+
   const revealedPreview = useStreamedReveal(visibleGroups.length, step === "preview");
   const revealedReport = useStreamedReveal(report.length, step === "report");
 
-  // Asks the database which names already exist, so the preview can flag them first.
-  const fetchExisting = async (parsed: SheetRow[]): Promise<Map<string, string>> => {
+  // Asks the database which names already exist, with their aliases, so the preview
+  // can show exactly what each row will change.
+  const fetchExisting = async (
+    parsed: SheetRow[],
+  ): Promise<{ types: Map<string, string>; aliases: Map<string, ICropAlias[]> }> => {
+    const empty = { types: new Map<string, string>(), aliases: new Map<string, ICropAlias[]>() };
     const names = [
       ...new Set(
         parsed.filter((r) => !missingRequiredFields(r).length).map((r) => r.name),
       ),
     ];
-    if (!names.length) return new Map();
+    if (!names.length) return empty;
     try {
-      const response = await new CropService().findImportDuplicates(names);
-      return new Map(
-        (response?.entries ?? []).map((e) => [nameKeyOf(e.name), e.type]),
-      );
+      const entries = (await new CropService().findImportDuplicates(names))?.entries ?? [];
+      return {
+        types: new Map(entries.map((e) => [nameKeyOf(e.name), e.type])),
+        aliases: new Map(entries.map((e) => [nameKeyOf(e.name), e.aliases ?? []])),
+      };
     } catch {
       toast.warning(
         "Could not check for existing entries — duplicates will be merged on import",
       );
-      return new Map();
+      return empty;
     }
   };
 
@@ -630,7 +693,9 @@ export const CropSheetImportModal = ({
       setRows(parsed);
       setRowFilter("all");
       setFileName(sheetName ? `${file.name} — ${sheetName}` : file.name);
-      setExisting(await fetchExisting(parsed));
+      const found = await fetchExisting(parsed);
+      setExisting(found.types);
+      setExistingAliases(found.aliases);
       setStep("preview");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not read that file");
@@ -658,7 +723,7 @@ export const CropSheetImportModal = ({
         return {
           key: `entry-${nameKeyOf(result.name)}`,
           name: result.name,
-          terms: entryRows.length,
+          aliases: entryRows.length,
           status: result.status,
           reason: result.reason,
           rows: entryRows,
@@ -671,7 +736,7 @@ export const CropSheetImportModal = ({
       ): ReportEntry => ({
         key: `row-${row.serial}`,
         name: row.name,
-        terms: 1,
+        aliases: 1,
         status,
         reason,
         rows: [row],
@@ -774,7 +839,7 @@ export const CropSheetImportModal = ({
           </DialogTitle>
           <DialogDescription className="text-xs">
             Upload the vernacular sheet. Rows are matched to existing entries by
-            Standardized Category Name and their terms are merged in; new names are
+            Standardized Category Name and their aliases are merged in; new names are
             created as {entryType}.
           </DialogDescription>
         </DialogHeader>
@@ -880,7 +945,7 @@ export const CropSheetImportModal = ({
                             </td>
                             <td className="pr-3 py-0.5 font-mono">{column.dbKey}</td>
                             <td className="py-0.5 opacity-80">
-                              {ENTRY_LEVEL_KEYS.includes(column.key) ? "Document" : "Each term in aliases"}
+                              {ENTRY_LEVEL_KEYS.includes(column.key) ? "Document" : "Each alias in aliases"}
                             </td>
                           </tr>
                         ))}
@@ -892,13 +957,13 @@ export const CropSheetImportModal = ({
                         <tr>
                           <td className="pr-3 py-0.5">Any other column</td>
                           <td className="pr-3 py-0.5 font-mono">extra_fields.column_name</td>
-                          <td className="py-0.5 opacity-80">Each term in aliases</td>
+                          <td className="py-0.5 opacity-80">Each alias in aliases</td>
                         </tr>
                       </tbody>
                     </table>
                     <p className="mt-2 text-[11px] opacity-80">
                       Rows with the same Standardized Category Name become one document.
-                      A row matches an existing term when language, region,
+                      A row matches an existing alias when language, region,
                       english_representation and native_representation are the same; its
                       empty fields are then filled in, never overwritten.
                     </p>
@@ -989,16 +1054,21 @@ export const CropSheetImportModal = ({
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-indigo-400" aria-hidden />
-                Already exists (terms are merged) or repeated in the file (skipped)
+                Already exists (aliases are merged) or repeated in the file (skipped)
               </span>
             </div>
 
             <p className="pb-2 text-[11px] text-gray-500 dark:text-gray-400">
               Shown as it will be stored: one {entryType} document per name, with each
-              sheet row saved as a vernacular term in its <span className="font-mono">aliases</span>.
+              sheet row saved as one alias in its <span className="font-mono">aliases</span>.
               {" "}Importing creates <strong className="font-semibold text-gray-700 dark:text-gray-200">{entrySummary.fresh}</strong> new
               {" "}and updates <strong className="font-semibold text-gray-700 dark:text-gray-200">{entrySummary.existing}</strong> existing
-              {" "}document{entrySummary.total === 1 ? "" : "s"}.
+              {" "}document{entrySummary.total === 1 ? "" : "s"}:{" "}
+              <strong className="font-semibold text-emerald-600 dark:text-emerald-400">{outcomeCounts.new}</strong> new
+              {" "}alias{outcomeCounts.new === 1 ? "" : "es"},{" "}
+              <strong className="font-semibold text-sky-600 dark:text-sky-400">{outcomeCounts.fill}</strong> filled
+              {" "}with details,{" "}
+              <strong className="font-semibold text-gray-700 dark:text-gray-200">{outcomeCounts.none}</strong> unchanged.
             </p>
 
             <div className="flex-1 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
@@ -1015,7 +1085,7 @@ export const CropSheetImportModal = ({
                         }
                       : existingType
                         ? {
-                            label: "Exists: terms will be merged",
+                            label: "Exists: aliases will be merged",
                             className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
                           }
                         : {
@@ -1068,7 +1138,7 @@ export const CropSheetImportModal = ({
                             </span>
                           )}
                           <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                            {group.rows.length} term{group.rows.length === 1 ? "" : "s"}
+                            {group.rows.length} alias{group.rows.length === 1 ? "" : "es"}
                           </span>
                         </div>
                       </div>
@@ -1113,11 +1183,8 @@ export const CropSheetImportModal = ({
                                 ? { label: "Not imported", className: "text-rose-600 dark:text-rose-400" }
                                 : isRepeat
                                   ? { label: "Repeated, skipped", className: "text-indigo-600 dark:text-indigo-400" }
-                                  : state === "duplicate"
-                                    ? { label: "Will merge", className: "text-indigo-600 dark:text-indigo-400" }
-                                    : state === "warning"
-                                      ? { label: "Warning", className: "text-amber-600 dark:text-amber-400" }
-                                      : { label: "Ready", className: "text-emerald-600 dark:text-emerald-400" };
+                                  : ALIAS_OUTCOME_META[rowOutcomes.get(row.serial) ?? "new"];
+                            const hasWarning = state === "warning";
                             const extras = Object.entries(row.extras)
                               .map(([key, value]) => `${key}: ${value}`)
                               .join("; ");
@@ -1151,6 +1218,11 @@ export const CropSheetImportModal = ({
                                   title={blockReasonOf(row) || undefined}
                                 >
                                   {rowStatus.label}
+                                  {hasWarning && (
+                                    <span className="block text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                                      Warning
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             );
@@ -1243,7 +1315,7 @@ export const CropSheetImportModal = ({
 
             <div className="mt-3 flex-1 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
               <div className="grid grid-cols-[48px_1.6fr_70px_100px_2fr] sticky top-0 bg-gray-50 dark:bg-[#161616] border-b border-gray-200 dark:border-gray-700/60 z-10">
-                {["#", "Name", "Terms", "Status", "Reason"].map((heading) => (
+                {["#", "Name", "Aliases", "Status", "Reason"].map((heading) => (
                   <div
                     key={heading}
                     className="px-3 py-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
@@ -1267,7 +1339,7 @@ export const CropSheetImportModal = ({
                       {entry.name || "—"}
                     </div>
                     <div className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
-                      {entry.terms}
+                      {entry.aliases}
                     </div>
                     <div className={`px-3 py-2 flex items-center gap-1.5 text-xs ${meta.className}`}>
                       <meta.Icon className="h-3.5 w-3.5 shrink-0" />

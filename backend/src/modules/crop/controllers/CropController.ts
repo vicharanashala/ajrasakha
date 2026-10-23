@@ -22,7 +22,7 @@ import {
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser, ICrop} from '#root/shared/interfaces/models.js';
+import {IUser, ICrop, ICropAlias} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
   CropIdParam,
@@ -131,7 +131,7 @@ export class CropController {
   @OpenAPI({ summary: 'Find which of the given names already exist' })
   async findImportDuplicates(
     @Body() data: { names: string[] },
-  ): Promise<{ entries: { name: string; type: string }[] }> {
+  ): Promise<{ entries: { name: string; type: string; aliases: ICropAlias[] }[] }> {
     if (!Array.isArray(data?.names)) throw new BadRequestError('No names to check');
     if (data.names.length > MAX_IMPORT_ENTRIES) {
       throw new BadRequestError(`A single import is limited to ${MAX_IMPORT_ENTRIES} entries`);

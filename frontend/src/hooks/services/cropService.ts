@@ -104,6 +104,13 @@ export interface ICropImportEntry {
   aliases: ICropAlias[];
 }
 
+/** An entry that already exists, as returned for the import preview. */
+export interface IExistingImportEntry {
+  name: string;
+  type: string;
+  aliases: ICropAlias[];
+}
+
 export interface ICropImportResult {
   name: string;
   status: "created" | "updated" | "skipped" | "failed";
@@ -157,9 +164,9 @@ export class CropService {
     });
   }
 
-  /** Which of these names already exist (with the type they exist under). */
-  async findImportDuplicates(names: string[]): Promise<{ entries: { name: string; type: string }[] } | null> {
-    return apiFetch<{ entries: { name: string; type: string }[] }>(`${this._baseUrl}/import/duplicates`, {
+  /** Which of these names already exist, with their type and stored aliases. */
+  async findImportDuplicates(names: string[]): Promise<{ entries: IExistingImportEntry[] } | null> {
+    return apiFetch<{ entries: IExistingImportEntry[] }>(`${this._baseUrl}/import/duplicates`, {
       method: "POST",
       body: JSON.stringify({ names }),
     });

@@ -1,4 +1,4 @@
-import {ICrop} from '#root/shared/interfaces/models.js';
+import {ICrop, ICropAlias} from '#root/shared/interfaces/models.js';
 import {
   CreateCropDto,
   UpdateCropDto,
@@ -10,7 +10,7 @@ export interface ICropService {
   getAllCrops(query?: GetAllCropsQuery): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}>;
   getCropById(cropId: string): Promise<ICrop | null>;
   getEntryTypes(): Promise<string[]>;
-  findExistingNames(names: string[]): Promise<{name: string; type: string}[]>;
+  findExistingNames(names: string[]): Promise<{name: string; type: string; aliases: ICropAlias[]}[]>;
   bulkImport(
     type: string,
     entries: CropImportEntry[],
