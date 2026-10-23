@@ -1,5 +1,19 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { RotateCcw, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  CalendarRange,
+  Check,
+  CircleSlash,
+  Globe,
+  ImageIcon,
+  Languages,
+  LayoutGrid,
+  MapPin,
+  RotateCcw,
+  ShieldAlert,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import {
@@ -75,9 +89,15 @@ export const countActiveFilters = (
   (state.sort !== DEFAULT_AGRITECH_FILTERS.sort ? 1 : 0);
 
 /** A labelled block in the drawer. */
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+type IconType = React.ComponentType<{ className?: string }>;
+
+/** A labelled block in the drawer, with an icon in front of its label. */
+const Field = ({ label, icon: Icon, children }: { label: string; icon: IconType; children: React.ReactNode }) => (
   <div className="space-y-1.5">
-    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</p>
+    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </p>
     {children}
   </div>
 );
@@ -87,10 +107,13 @@ const PresenceToggle = ({
   value,
   onChange,
   labels,
+  withIcon,
 }: {
   value: Presence;
   onChange: (value: Presence) => void;
   labels: [string, string, string];
+  /** Icon for the "with" option; "all" and "without" use shared icons. */
+  withIcon: IconType;
 }) => (
   <div role="radiogroup" className="grid grid-cols-3 gap-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1a] p-1">
     {(["all", "with", "without"] as Presence[]).map((option, i) => (
@@ -100,13 +123,17 @@ const PresenceToggle = ({
         role="radio"
         aria-checked={value === option}
         onClick={() => onChange(option)}
-        className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+        className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
           value === option
             ? "bg-white text-gray-900 shadow-sm dark:bg-[#262626] dark:text-white"
             : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
         }`}
       >
-        {labels[i]}
+        {(() => {
+          const OptionIcon = option === "all" ? LayoutGrid : option === "with" ? withIcon : CircleSlash;
+          return <OptionIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />;
+        })()}
+        <span className="truncate">{labels[i]}</span>
       </button>
     ))}
   </div>
@@ -165,7 +192,8 @@ export const AgriTechFilterDrawer = ({
           >
             <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1a] p-6">
               <div>
-                <h2 id="agritech-filter-title" className="text-lg font-bold text-gray-900 dark:text-white">
+                <h2 id="agritech-filter-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
+                  <SlidersHorizontal className="h-5 w-5" aria-hidden />
                   Filters
                 </h2>
                 <p className="mt-0.5 text-xs text-gray-500">Narrow down the {entityLabel} list</p>
@@ -181,7 +209,7 @@ export const AgriTechFilterDrawer = ({
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto p-6">
-              <Field label="Sort by">
+              <Field label="Sort by" icon={ArrowUpDown}>
                 <Select value={value.sort} onValueChange={(v: AgriTechSort) => set("sort", v)}>
                   <SelectTrigger className="h-9 w-full text-sm" aria-label="Sort by">
                     <SelectValue />
@@ -194,15 +222,16 @@ export const AgriTechFilterDrawer = ({
                 </Select>
               </Field>
 
-              <Field label="Aliases">
+              <Field label="Aliases" icon={Languages}>
                 <PresenceToggle
                   value={value.aliases}
                   onChange={(v) => set("aliases", v)}
                   labels={["All", "With aliases", "No aliases"]}
+                  withIcon={Languages}
                 />
               </Field>
 
-              <Field label="Alias language">
+              <Field label="Alias language" icon={Globe}>
                 <Select value={value.language} onValueChange={(v) => set("language", v)}>
                   <SelectTrigger className="h-9 w-full text-sm" aria-label="Alias language">
                     <SelectValue />
@@ -216,7 +245,7 @@ export const AgriTechFilterDrawer = ({
                 </Select>
               </Field>
 
-              <Field label="Alias state / region">
+              <Field label="Alias state / region" icon={MapPin}>
                 <Select value={value.region} onValueChange={(v) => set("region", v)}>
                   <SelectTrigger className="h-9 w-full text-sm" aria-label="Alias state or region">
                     <SelectValue />
@@ -231,17 +260,18 @@ export const AgriTechFilterDrawer = ({
               </Field>
 
               {showImage && (
-                <Field label="Image">
+                <Field label="Image" icon={ImageIcon}>
                   <PresenceToggle
                     value={value.image}
                     onChange={(v) => set("image", v)}
                     labels={["All", "With image", "No image"]}
+                    withIcon={ImageIcon}
                   />
                 </Field>
               )}
 
               {showStatus && (
-                <Field label="Status">
+                <Field label="Status" icon={ShieldAlert}>
                   <Select value={value.status} onValueChange={(v) => set("status", v)}>
                     <SelectTrigger className="h-9 w-full text-sm" aria-label="Status">
                       <SelectValue />
@@ -256,7 +286,7 @@ export const AgriTechFilterDrawer = ({
                 </Field>
               )}
 
-              <Field label="Last updated">
+              <Field label="Last updated" icon={CalendarRange}>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
                     From
@@ -295,6 +325,7 @@ export const AgriTechFilterDrawer = ({
                 Reset
               </Button>
               <Button className="flex-1" onClick={onClose}>
+                <Check className="h-4 w-4" />
                 Done
               </Button>
             </div>
