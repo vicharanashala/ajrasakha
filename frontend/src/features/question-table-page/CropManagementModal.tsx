@@ -82,6 +82,20 @@ const SHOW_LEGACY_CSV_UPLOAD = false;
 const PREMIUM_CARD =
   "rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-[#111] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-6px_rgba(16,24,40,0.08)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_10px_28px_-8px_rgba(0,0,0,0.6)]";
 
+/**
+ * "Water touch" hover for table rows: a soft light pool that follows the pointer,
+ * like a ripple on still water. The position comes from trackRowPointer.
+ */
+const WATER_ROW_HOVER =
+  "hover:bg-[radial-gradient(260px_circle_at_var(--touch-x,50%)_var(--touch-y,50%),rgba(56,189,248,0.14),rgba(56,189,248,0.04)_45%,transparent_75%)] dark:hover:bg-[radial-gradient(260px_circle_at_var(--touch-x,50%)_var(--touch-y,50%),rgba(56,189,248,0.16),rgba(56,189,248,0.05)_45%,transparent_75%)]";
+
+/** Stores the pointer position on the row so the water-touch highlight can follow it. */
+const trackRowPointer = (event: React.PointerEvent<HTMLElement>) => {
+  const rect = event.currentTarget.getBoundingClientRect();
+  event.currentTarget.style.setProperty("--touch-x", `${event.clientX - rect.left}px`);
+  event.currentTarget.style.setProperty("--touch-y", `${event.clientY - rect.top}px`);
+};
+
 /** Lighter row dividers for the tables inside those cards. */
 const SOFT_TABLE_DIVIDERS = "[&_tr]:border-gray-100 dark:[&_tr]:border-white/[0.05]";
 
@@ -1829,9 +1843,11 @@ export const CropManagementModal = ({
                     {...rowMotion(index)}
                     key={item._id || item.name}
                     onClick={() => setViewEntry(item)}
+                    onPointerMove={trackRowPointer}
+                    whileTap={{ scale: 0.997 }}
                     aria-selected={isSelected}
                     className={`text-center cursor-pointer transition-colors duration-200 ${
-                      isSelected ? "bg-muted" : "hover:bg-muted/50"
+                      isSelected ? "bg-muted" : WATER_ROW_HOVER
                     } ${isTabFetching ? "opacity-60" : ""}`}
                   >
                     <TableCell className="align-middle text-start ps-4">
@@ -2466,7 +2482,7 @@ export const CropManagementModal = ({
                       </TableHeader>
                       <TableBody>
                     {orgData?.organizations?.map((org: any, i: number) => (
-                      <MotionTableRow {...rowMotion(i)} key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className="text-center transition-colors duration-200 hover:bg-muted/50">
+                      <MotionTableRow {...rowMotion(i)} key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} onPointerMove={trackRowPointer} className={`text-center transition-colors duration-200 ${WATER_ROW_HOVER}`}>
                         <TableCell className="align-middle text-center p-4 text-muted-foreground tabular-nums">
                           {(orgPage - 1) * orgLimit + i + 1}
                         </TableCell>
