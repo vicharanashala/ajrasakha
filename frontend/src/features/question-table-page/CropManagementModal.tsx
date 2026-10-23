@@ -1976,6 +1976,14 @@ export const CropManagementModal = ({
       },
       { key: "f", handler: () => { if (!isOrgTab && !isOther) setIsFilterOpen(true); } },
       { key: "a", handler: () => setIsAuditOpen(true) },
+      {
+        key: "e",
+        handler: () => {
+          resetAll();
+          setAliasManagerCrop(null);
+          onOpenChange(false);
+        },
+      },
       { key: "r", handler: () => { if (!isOrgTab && !isOther) void refetchTab(); } },
       { key: "[", handler: () => switchTabBy(-1) },
       { key: "]", handler: () => switchTabBy(1) },
@@ -2105,6 +2113,8 @@ export const CropManagementModal = ({
                       setAliasManagerCrop(null);
                       onOpenChange(false);
                     }}
+                    title="Exit (E)"
+                    aria-keyshortcuts="E"
                     className="h-9 text-xs gap-1.5 border border-red-200 bg-red-50 text-red-700 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:border-red-500 dark:hover:bg-red-500 dark:hover:text-white"
                   >
                     <LogOut className="h-4 w-4" />
