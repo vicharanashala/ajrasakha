@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info, History, LogOut, Filter, RefreshCcw, ImageOff } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info, History, LogOut, Filter, RefreshCcw, ImageOff, Bug, Microscope, Sprout, Droplets, Flower2, ThermometerSun, ClipboardList, Mountain } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -1053,43 +1053,199 @@ const AliasSection = ({
 // non-organization tab renders like crops.
 type ActiveTab = string;
 
+type TabTone = {
+  avatar: string;
+  action: string;
+  text: string;
+  bar: string;
+  button: string;
+  chip: string;
+};
+
+/** Full class strings per colour (kept literal so Tailwind can see them). */
+const TONES = {
+  green: {
+    avatar: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300",
+    action: "hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10",
+    text: "text-green-700 dark:text-green-300",
+    bar: "bg-green-600 dark:bg-green-400",
+    button: "bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-500",
+    chip: "border-green-300 bg-green-50 text-green-800 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-200",
+  },
+  violet: {
+    avatar: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+    action: "hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10",
+    text: "text-violet-700 dark:text-violet-300",
+    bar: "bg-violet-600 dark:bg-violet-400",
+    button: "bg-violet-700 hover:bg-violet-800 dark:bg-violet-600 dark:hover:bg-violet-500",
+    chip: "border-violet-300 bg-violet-50 text-violet-800 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-200",
+  },
+  rose: {
+    avatar: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+    action: "hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10",
+    text: "text-rose-700 dark:text-rose-300",
+    bar: "bg-rose-600 dark:bg-rose-400",
+    button: "bg-rose-700 hover:bg-rose-800 dark:bg-rose-600 dark:hover:bg-rose-500",
+    chip: "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200",
+  },
+  orange: {
+    avatar: "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
+    action: "hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10",
+    text: "text-orange-700 dark:text-orange-300",
+    bar: "bg-orange-600 dark:bg-orange-400",
+    button: "bg-orange-700 hover:bg-orange-800 dark:bg-orange-600 dark:hover:bg-orange-500",
+    chip: "border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-200",
+  },
+  lime: {
+    avatar: "bg-lime-100 text-lime-700 dark:bg-lime-500/15 dark:text-lime-300",
+    action: "hover:text-lime-600 dark:hover:text-lime-400 hover:bg-lime-50 dark:hover:bg-lime-500/10",
+    text: "text-lime-700 dark:text-lime-300",
+    bar: "bg-lime-600 dark:bg-lime-400",
+    button: "bg-lime-700 hover:bg-lime-800 dark:bg-lime-600 dark:hover:bg-lime-500",
+    chip: "border-lime-300 bg-lime-50 text-lime-800 dark:border-lime-500/40 dark:bg-lime-500/10 dark:text-lime-200",
+  },
+  yellow: {
+    avatar: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300",
+    action: "hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-500/10",
+    text: "text-yellow-700 dark:text-yellow-300",
+    bar: "bg-yellow-600 dark:bg-yellow-400",
+    button: "bg-yellow-700 hover:bg-yellow-800 dark:bg-yellow-600 dark:hover:bg-yellow-500",
+    chip: "border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-500/40 dark:bg-yellow-500/10 dark:text-yellow-200",
+  },
+  pink: {
+    avatar: "bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300",
+    action: "hover:text-pink-600 dark:hover:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-500/10",
+    text: "text-pink-700 dark:text-pink-300",
+    bar: "bg-pink-600 dark:bg-pink-400",
+    button: "bg-pink-700 hover:bg-pink-800 dark:bg-pink-600 dark:hover:bg-pink-500",
+    chip: "border-pink-300 bg-pink-50 text-pink-800 dark:border-pink-500/40 dark:bg-pink-500/10 dark:text-pink-200",
+  },
+  red: {
+    avatar: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+    action: "hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10",
+    text: "text-red-700 dark:text-red-300",
+    bar: "bg-red-600 dark:bg-red-400",
+    button: "bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-500",
+    chip: "border-red-300 bg-red-50 text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200",
+  },
+  sky: {
+    avatar: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+    action: "hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10",
+    text: "text-sky-700 dark:text-sky-300",
+    bar: "bg-sky-600 dark:bg-sky-400",
+    button: "bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500",
+    chip: "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200",
+  },
+  amber: {
+    avatar: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    action: "hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10",
+    text: "text-amber-700 dark:text-amber-300",
+    bar: "bg-amber-600 dark:bg-amber-400",
+    button: "bg-amber-700 hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500",
+    chip: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200",
+  },
+  teal: {
+    avatar: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
+    action: "hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-500/10",
+    text: "text-teal-700 dark:text-teal-300",
+    bar: "bg-teal-600 dark:bg-teal-400",
+    button: "bg-teal-700 hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500",
+    chip: "border-teal-300 bg-teal-50 text-teal-800 dark:border-teal-500/40 dark:bg-teal-500/10 dark:text-teal-200",
+  },
+  cyan: {
+    avatar: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
+    action: "hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10",
+    text: "text-cyan-700 dark:text-cyan-300",
+    bar: "bg-cyan-600 dark:bg-cyan-400",
+    button: "bg-cyan-700 hover:bg-cyan-800 dark:bg-cyan-600 dark:hover:bg-cyan-500",
+    chip: "border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-200",
+  },
+  indigo: {
+    avatar: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+    action: "hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10",
+    text: "text-indigo-700 dark:text-indigo-300",
+    bar: "bg-indigo-600 dark:bg-indigo-400",
+    button: "bg-indigo-700 hover:bg-indigo-800 dark:bg-indigo-600 dark:hover:bg-indigo-500",
+    chip: "border-indigo-300 bg-indigo-50 text-indigo-800 dark:border-indigo-500/40 dark:bg-indigo-500/10 dark:text-indigo-200",
+  },
+  fuchsia: {
+    avatar: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300",
+    action: "hover:text-fuchsia-600 dark:hover:text-fuchsia-400 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-500/10",
+    text: "text-fuchsia-700 dark:text-fuchsia-300",
+    bar: "bg-fuchsia-600 dark:bg-fuchsia-400",
+    button: "bg-fuchsia-700 hover:bg-fuchsia-800 dark:bg-fuchsia-600 dark:hover:bg-fuchsia-500",
+    chip: "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800 dark:border-fuchsia-500/40 dark:bg-fuchsia-500/10 dark:text-fuchsia-200",
+  },
+  emerald: {
+    avatar: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    action: "hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10",
+    text: "text-emerald-700 dark:text-emerald-300",
+    bar: "bg-emerald-600 dark:bg-emerald-400",
+    button: "bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500",
+    chip: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200",
+  },
+  slate: {
+    avatar: "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300",
+    action: "hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-500/10",
+    text: "text-slate-700 dark:text-slate-300",
+    bar: "bg-slate-600 dark:bg-slate-400",
+    button: "bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500",
+    chip: "border-slate-300 bg-slate-50 text-slate-800 dark:border-slate-500/40 dark:bg-slate-500/10 dark:text-slate-200",
+  },
+} satisfies Record<string, TabTone>;
+
+type ToneName = keyof typeof TONES;
+
+/**
+ * Colour per AgriTech type, chosen to read naturally: crops green, chemicals violet,
+ * pests rose, diseases orange, weeds lime, deficiencies yellow, flowers pink,
+ * injuries red, practices sky, soil amber (earth) and organizations teal.
+ */
+const TYPE_TONES: Record<string, ToneName> = {
+  crop: "green",
+  chemical: "violet",
+  pest: "rose",
+  disease: "orange",
+  weed: "lime",
+  deficiency: "yellow",
+  flower: "pink",
+  injury: "red",
+  practice: "sky",
+  practices: "sky",
+  soil: "amber",
+  organization: "teal",
+  other: "slate",
+};
+
+/** Colours handed to custom types, picked by name so a type always keeps its colour. */
+const CUSTOM_TYPE_TONES: ToneName[] = ["cyan", "indigo", "fuchsia", "emerald"];
+
 /** Colour accents for each kind of tab, so every element of a tab matches. */
-const accentOf = (tab: string) =>
-  tab === "chemical"
-    ? {
-        avatar: "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300",
-        action: "hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10",
-        text: "text-purple-700 dark:text-purple-300",
-        bar: "bg-purple-600 dark:bg-purple-400",
-        button: "bg-purple-600 hover:bg-purple-700",
-        chip: "border-purple-300 bg-purple-50 text-purple-800 dark:border-purple-500/40 dark:bg-purple-500/10 dark:text-purple-200",
-      }
-    : tab === "crop"
-      ? {
-          avatar: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-          action: "hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10",
-          text: "text-amber-700 dark:text-amber-300",
-          bar: "bg-amber-600 dark:bg-amber-400",
-          button: "bg-amber-600 hover:bg-amber-700",
-          chip: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200",
-        }
-      : tab === "organization"
-        ? {
-            avatar: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-            action: "hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10",
-            text: "text-emerald-700 dark:text-emerald-300",
-            bar: "bg-emerald-600 dark:bg-emerald-400",
-            button: "bg-emerald-600 hover:bg-emerald-700",
-            chip: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200",
-          }
-        : {
-            avatar: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-            action: "hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10",
-            text: "text-blue-700 dark:text-blue-300",
-            bar: "bg-blue-600 dark:bg-blue-400",
-            button: "bg-blue-600 hover:bg-blue-700",
-            chip: "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-200",
-          };
+const accentOf = (tab: string): TabTone => {
+  const key = tab.trim().toLowerCase();
+  const known = TYPE_TONES[key];
+  if (known) return TONES[known];
+  const hash = [...key].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return TONES[CUSTOM_TYPE_TONES[hash % CUSTOM_TYPE_TONES.length]];
+};
+
+/** Icon per AgriTech type; custom types fall back to a generic grid. */
+const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  crop: Wheat,
+  chemical: FlaskConical,
+  pest: Bug,
+  disease: Microscope,
+  weed: Sprout,
+  deficiency: Droplets,
+  flower: Flower2,
+  injury: ThermometerSun,
+  practice: ClipboardList,
+  practices: ClipboardList,
+  soil: Mountain,
+  organization: Building2,
+};
+
+const iconOf = (tab: string) => TYPE_ICONS[tab.trim().toLowerCase()] ?? LayoutGrid;
 
 /** Icon for each quick filter chip in the list toolbar. */
 const QUICK_FILTER_ICONS: Record<string, React.ComponentType<{ className?: string }> | undefined> = {
@@ -1782,8 +1938,8 @@ export const CropManagementModal = ({
           <header className="flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111] shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 pt-4">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-500/10" aria-hidden>
-                  <Cpu className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-sm shadow-green-600/20" aria-hidden>
+                  <Cpu className="h-5 w-5 text-white" />
                 </span>
                 <ShellHeader isPage={isPage}>
                   <ShellTitle isPage={isPage}>AgriTech Management</ShellTitle>
@@ -1884,7 +2040,7 @@ export const CropManagementModal = ({
                         onClick={() => handleTabSwitch(tab)}
                         className={`mb-1.5 ml-1 flex h-8 flex-shrink-0 items-center gap-1 rounded-full border border-dashed px-3 text-xs font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           active
-                            ? "border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"
+                            ? TONES.slate.chip
                             : "border-gray-300 dark:border-gray-700 text-muted-foreground hover:text-foreground hover:border-gray-400"
                         }`}
                       >
@@ -1895,7 +2051,7 @@ export const CropManagementModal = ({
                   }
                   const isChem = tab === "chemical";
                   const isCropTab = tab === "crop";
-                  const Icon = isChem ? FlaskConical : isCropTab ? Wheat : LayoutGrid;
+                  const Icon = iconOf(tab);
                   const label = isChem ? "Chemicals" : isCropTab ? "Crops" : labelOf(tab);
                   return (
                     <AgriTechTab
@@ -2096,13 +2252,14 @@ export const CropManagementModal = ({
                     <TableSkeleton />
                   ) : items.length === 0 ? (
                     <div className="text-center py-14">
-                      {isChemical ? (
-                        <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                      ) : activeTab === "crop" ? (
-                        <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                      ) : (
-                        <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                      )}
+                      {(() => {
+                        const EmptyIcon = iconOf(activeTab);
+                        return (
+                          <span className={`mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${tone.avatar}`} aria-hidden>
+                            <EmptyIcon className="h-6 w-6" />
+                          </span>
+                        );
+                      })()}
                       <p className="text-sm text-gray-400 dark:text-gray-500">
                         {searchQuery || activeFilterCount
                           ? `No ${entityNoun} match your search or filters`
@@ -2148,7 +2305,7 @@ export const CropManagementModal = ({
                   <AnimatePresence initial={false}>
                   {isAddFormOpen && (
                     <motion.div key="org-add-form" {...collapseMotion} className="overflow-hidden">
-                    <div className="mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-emerald-500 border border-emerald-200/60 dark:border-emerald-500/15 bg-emerald-50/30 dark:bg-emerald-500/[0.03]">
+                    <div className="mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-teal-500 border border-teal-200/60 dark:border-teal-500/15 bg-teal-50/30 dark:bg-teal-500/[0.03]">
                       <div className="flex flex-col gap-3">
                         <div className="grid grid-cols-[2fr_1fr] gap-3">
                           <Input placeholder="Organization Name *" value={orgName} onChange={(e) => setOrgName(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
@@ -2200,7 +2357,7 @@ export const CropManagementModal = ({
                                 }
                                 setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress("");
                             } catch (error) {}
-                          }} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">{orgEditId ? "Update" : "Add"}</Button>
+                          }} className="h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white">{orgEditId ? "Update" : "Add"}</Button>
                         </div>
                       </div>
                     </div>
@@ -2233,7 +2390,7 @@ export const CropManagementModal = ({
                         </TableCell>
                         <TableCell className="align-middle text-start ps-4">
                           <div className="flex items-center gap-3 min-w-0 max-w-[320px]">
-                            <EntryAvatar name={org.org_name ?? ""} className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" />
+                            <EntryAvatar name={org.org_name ?? ""} className={TONES.teal.avatar} />
                             <span className="truncate text-sm font-semibold text-foreground" title={org.org_name}>{org.org_name}</span>
                           </div>
                         </TableCell>
@@ -2251,7 +2408,7 @@ export const CropManagementModal = ({
                         </TableCell>
                         <TableCell className="align-middle">
                         <div className="flex justify-center gap-1">
-                          <Button variant="ghost" size="sm" aria-label={`Edit ${org.org_name}`} className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10" onClick={() => {
+                          <Button variant="ghost" size="sm" aria-label={`Edit ${org.org_name}`} className="h-7 w-7 p-0 text-gray-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:text-teal-400 dark:hover:bg-teal-500/10" onClick={() => {
                             setOrgEditId(typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id));
                             setOrgName(org.org_name);
                             setOrgType(org.type || "");
@@ -2520,13 +2677,7 @@ export const CropManagementModal = ({
                       variant="outline"
                       disabled={isBulkUploading || isProcessingBulk || (isOther && !customType.trim())}
                       title={isOther && !customType.trim() ? "Enter a type name first" : undefined}
-                      className={`h-8 text-xs gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isChemical
-                          ? "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
-                          : activeTab === "crop"
-                            ? "border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
-                            : "border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"
-                      }`}
+                      className={`h-8 text-xs gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${tone.chip}`}
                       onClick={handleBulkUploadClick}
                     >
                       {isBulkUploading || isProcessingBulk ? (
@@ -2560,13 +2711,7 @@ export const CropManagementModal = ({
                     disabled={!newCropName.trim() || isSaving || (isOther && !customType.trim())}
                     className={`text-white rounded-lg shadow-sm transition-colors ${
                       SHOW_LEGACY_CSV_UPLOAD ? "h-8 text-xs" : "h-10 w-full text-sm font-semibold"
-                    } ${
-                      isChemical
-                        ? "bg-purple-600 hover:bg-purple-700"
-                        : activeTab === "crop"
-                          ? "bg-amber-600 hover:bg-amber-700"
-                          : "bg-blue-600 hover:bg-blue-700"
-                    }`}
+                    } ${tone.button}`}
                   >
                     {isSaving ? (
                       <>
