@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info, History } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -37,6 +37,7 @@ import type { ICropAlias, ICropResponse, IBulkJobResult, CropUploadType } from "
 import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
 import { OrganizationBulkUploadModal } from "./OrganizationBulkUploadModal";
 import { CropSheetImportModal } from "./CropSheetImportModal";
+import { AgriTechAuditModal } from "./AgriTechAuditModal";
 
 const cropServiceForStatus = new CropService();
 import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
@@ -1078,6 +1079,7 @@ export const CropManagementModal = ({
 
   const [isOrgImportOpen, setIsOrgImportOpen] = useState(false);
   const [isSheetImportOpen, setIsSheetImportOpen] = useState(false);
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [isKvkImportOpen, setIsKvkImportOpen] = useState(false);
   const { data: orgData, isLoading: isOrgLoading } = useGetOrganizations(orgSearchQuery, orgPage, orgLimit);
   const { mutateAsync: createOrg } = useCreateOrganization();
@@ -1571,6 +1573,16 @@ export const CropManagementModal = ({
             </DialogHeader>
 
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setIsAuditOpen(true)}
+                className="h-8 text-xs gap-1.5"
+              >
+                <History className="h-3.5 w-3.5" />
+                View audit
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -2323,6 +2335,8 @@ export const CropManagementModal = ({
           onClose={() => setAliasManagerCrop(null)}
         />
       )}
+
+      <AgriTechAuditModal open={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
 
       <CropSheetImportModal
         open={isSheetImportOpen}

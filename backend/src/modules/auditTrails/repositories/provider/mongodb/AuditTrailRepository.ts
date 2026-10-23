@@ -1,5 +1,7 @@
 import {
+  AuditCategory,
   AuditFilters,
+  CropManagementAuditFilters,
   ModeratorAuditTrail,
 } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import {IAuditTrailsRepository} from '#root/modules/auditTrails/interfaces/IAuditTrailsRepository.js';
@@ -28,6 +30,53 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
     await this.init();
     const result = await this.auditTrailsCollection.insertOne(data, {session});
     return result.insertedId.toString();
+  }
+
+  // Lists AgriTech Management audit entries with the filters used by its audit view.
+  async getCropManagementAuditTrails(
+    filters: CropManagementAuditFilters,
+    session?: ClientSession,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}> {
+    await this.init();
+    const query: Record<string, any> = {category: AuditCategory.CROP_MANAGEMENT};
+
+    if (filters.action) query.action = filters.action;
+    if (filters.status) query['outcome.status'] = filters.status;
+    if (filters.importId) query['context.importId'] = filters.importId;
+    if (filters.entryType) query['context.type'] = filters.entryType;
+    if (filters.source) query['context.source'] = filters.source;
+    if (filters.start || filters.end) {
+      query.createdAt = {
+        ...(filters.start && {$gte: new Date(filters.start)}),
+        ...(filters.end && {$lte: new Date(filters.end)}),
+      };
+    }
+    if (filters.search) {
+      // Escaped so user input is matched literally, never as a regex pattern.
+      const pattern = {
+        $regex: filters.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        $options: 'i',
+      };
+      query.$or = [
+        {'context.agriTechName': pattern},
+        {'context.organizationName': pattern},
+        {'context.fileName': pattern},
+        {'actor.name': pattern},
+        {'actor.email': pattern},
+      ];
+    }
+
+    const skip = (filters.page - 1) * filters.limit;
+    const [data, totalDocuments] = await Promise.all([
+      this.auditTrailsCollection
+        .find(query, {session})
+        .sort({createdAt: filters.order === 'asc' ? 1 : -1})
+        .skip(skip)
+        .limit(filters.limit)
+        .toArray(),
+      this.auditTrailsCollection.countDocuments(query, {session}),
+    ]);
+    return {data, totalDocuments};
   }
 
   // Inserts many audit entries in one round trip; returns how many were written.

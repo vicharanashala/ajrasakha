@@ -1,4 +1,4 @@
-import { ModeratorAuditTrail } from "./IAuditTrails.js";
+import { CropManagementAuditFilters, ModeratorAuditTrail } from "./IAuditTrails.js";
 
 export interface IAuditTrailsService {
   // Define methods for the audit trails service here
@@ -8,6 +8,10 @@ export interface IAuditTrailsService {
   ): Promise<string>;
 
   createAuditTrails(payloads: ModeratorAuditTrail[]): Promise<number>;
+
+  getCropManagementAuditTrails(
+    filters: CropManagementAuditFilters,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}>;
 
   getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<{data: ModeratorAuditTrail[], totalDocuments: number}>;
 
