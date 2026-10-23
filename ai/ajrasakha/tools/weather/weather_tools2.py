@@ -3286,6 +3286,28 @@ async def get_weather_history_insights(
         if bundle.get("annam_unavailable_note"):
             res["annam_unavailable_note"] = bundle["annam_unavailable_note"]
 
+        # Wind questions must always get the current wind: the station history can be absent
+        # (no Annam station nearby), but IMD still reports a live wind speed.
+        cur_wind = None
+        if metric_key in (None, "wind_speed"):
+            if today_raw.get("wind_speed_mps") is not None:
+                mps = float(today_raw["wind_speed_mps"])
+                cur_wind = {
+                    "wind_speed_kmph": round(_ws_safe_float(today_raw.get("wind_speed_kmph")) or mps * 3.6, 1),
+                    "wind_speed_mps": mps,
+                    "wind_direction": today_raw.get("wind_direction"),
+                    "data_source": today_raw.get("wind_source") or today_raw.get("data_source"),
+                }
+            else:
+                cur_wind = _imd_wind(svc, actual_lat, actual_lon)
+            if cur_wind:
+                res["current_wind"] = cur_wind
+
+        def _wind_summary(prefix: str) -> str:
+            return (f"{prefix} wind speed in {place}: "
+                    f"{_wind_phrase(cur_wind['wind_speed_kmph'], cur_wind.get('wind_direction'))} "
+                    f"({cur_wind['wind_speed_mps']} m/s, {cur_wind['data_source']}).")
+
         # ---------------- Single date ----------------
         if date:
             d_str = _resolve_relative_date(date, base_dt)
@@ -3329,6 +3351,10 @@ async def get_weather_history_insights(
                     res["today_forecast"] = {"min_temp": today_raw.get("forecast_min_temp"),
                                              "max_temp": today_raw.get("forecast_max_temp"),
                                              "condition": today_raw.get("forecast")}
+                    if cur_wind:
+                        res["timeframe"] = "today"
+                        res["summary"] = _wind_summary("Current")
+                        res.pop("notice", None)
                 return res
 
             res["timeframe"] = "today" if d_str == today_str else "past"
@@ -3352,6 +3378,8 @@ async def get_weather_history_insights(
                 f"{k.replace('_', ' ')} " + ", ".join(f"{lbl} {v}" for lbl, v in vals.items() if lbl != "unit") + f" {vals['unit']}"
                 for k, vals in res["day"].items() if isinstance(vals, dict)
             ) + "."
+            if cur_wind and d_str == today_str:
+                res["summary"] = _wind_summary("Current") + " " + res["summary"]
             return res
 
         # ---------------- Last N days + extremes ----------------
@@ -3363,6 +3391,11 @@ async def get_weather_history_insights(
                 f"Notice: No Annam station history available near {place}; hottest/coldest-day analysis needs "
                 f"station records (IMD has no past daily archive)."
             )
+            if cur_wind and metric_key == "wind_speed":
+                res.pop("notice", None)
+                res["summary"] = _wind_summary("Current") + " Past-day wind records are not available for this location."
+            elif cur_wind:
+                res["summary"] = _wind_summary("Current") + " Past-day records are not available for this location."
             return res
 
         res["window"] = {"from": window[0], "to": window[-1], "days_with_data": len(records)}
