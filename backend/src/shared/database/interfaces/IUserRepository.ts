@@ -159,6 +159,15 @@ export interface IUserRepository {
   }>;
 
   /**
+   * Finds all active, non-blocked users matching the specified roles.
+   * Defaults to review staff: expert, moderator, pae_expert, gate_keeper, auditor.
+   */
+  getActiveReviewStaff(
+    roles?: string[],
+    session?: ClientSession,
+  ): Promise<IUser[]>;
+
+  /**
  * Finds all users with pagination, search, sorting and filtering (Admin).
  * @param page - page number
  * @param limit - documents per page

@@ -1607,4 +1607,17 @@ export class UserController {
     );
     return result;
   }
+
+  @Post('/reports/send-daily-activity-reports')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Trigger sending daily user activity reports for yesterday to all review staff',
+  })
+  async triggerDailyActivityReports(
+    @CurrentUser() currentUser: IUser,
+    @QueryParams() query: { targetDate?: string },
+  ) {
+    return await this.userService.sendDailyUserActivityReports(query.targetDate);
+  }
 }
