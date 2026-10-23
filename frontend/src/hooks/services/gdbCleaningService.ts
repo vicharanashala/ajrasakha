@@ -4,6 +4,7 @@ import type {
   GdbStatus,
   IGdbCleaningItem,
   IGdbListItem,
+  IGdbSource,
 } from "@/features/gdb-cleaning/types";
 
 const API_BASE_URL = env.apiBaseUrl();
@@ -38,6 +39,12 @@ export interface IGdbDecisionRequest {
   action: "accept" | "dismiss";
   correctedAnswer?: string;
   comment?: string;
+}
+
+export interface IGdbFlagEdit {
+  parameter: string;
+  result: "PASS" | "FAIL";
+  comment: string;
 }
 
 class GdbCleaningService {
@@ -82,6 +89,30 @@ class GdbCleaningService {
       body: JSON.stringify({ correctedAnswer }),
     });
     if (!response) throw new Error("Failed to save the correction: No response received");
+    return response;
+  }
+
+  async editFlag(answerId: string, edit: IGdbFlagEdit): Promise<IGdbCleaningItem> {
+    const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/flags`, {
+      method: "PUT",
+      body: JSON.stringify(edit),
+    });
+    if (!response) throw new Error("Failed to save the flag: No response received");
+    return response;
+  }
+
+  async editSources(answerId: string, sources: IGdbSource[]): Promise<IGdbCleaningItem> {
+    const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/sources`, {
+      method: "PUT",
+      body: JSON.stringify({ sources }),
+    });
+    if (!response) throw new Error("Failed to save the sources: No response received");
+    return response;
+  }
+
+  async pushToGdb(answerId: string): Promise<IGdbCleaningItem> {
+    const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/push`, { method: "POST" });
+    if (!response) throw new Error("Failed to push to the golden database: No response received");
     return response;
   }
 

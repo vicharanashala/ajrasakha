@@ -6,6 +6,8 @@ import {MongoDatabase} from '#root/shared/index.js';
 import {
   GdbCleaningStatus,
   IGdbCleaning,
+  IGdbCleaningCheck,
+  IGdbCleaningSource,
 } from '#root/shared/interfaces/models.js';
 import {
   GdbCleaningListRow,
@@ -174,6 +176,77 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
       if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(
         `Failed to save the correction: ${error.message}`,
+      );
+    }
+  }
+
+  async saveChecks(
+    answerId: string,
+    checks: IGdbCleaningCheck[],
+    flags: string[],
+  ): Promise<IGdbCleaning | null> {
+    try {
+      if (!this.collection) await this.init();
+      return await this.collection.findOneAndUpdate(
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {$set: {checks, flags}},
+        {returnDocument: 'after'},
+      );
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(
+        `Failed to save the flags: ${error.message}`,
+      );
+    }
+  }
+
+  async saveSources(
+    answerId: string,
+    sources: IGdbCleaningSource[],
+    originalSources: IGdbCleaningSource[],
+    reviewerId: string,
+  ): Promise<IGdbCleaning | null> {
+    try {
+      if (!this.collection) await this.init();
+      return await this.collection.findOneAndUpdate(
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {
+          $set: {
+            sources,
+            originalSources,
+            sourcesEditedBy: new ObjectId(reviewerId),
+            sourcesEditedAt: new Date(),
+          },
+        },
+        {returnDocument: 'after'},
+      );
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(
+        `Failed to save the sources: ${error.message}`,
+      );
+    }
+  }
+
+  async markPushed(
+    answerId: string,
+    reviewerId: string,
+  ): Promise<IGdbCleaning | null> {
+    try {
+      if (!this.collection) await this.init();
+      return await this.collection.findOneAndUpdate(
+        {
+          answerId: GdbCleaningRepository.toObjectId(answerId),
+          status: 'fixed',
+          pushedAt: {$in: [null, undefined]},
+        },
+        {$set: {pushedAt: new Date(), pushedBy: new ObjectId(reviewerId)}},
+        {returnDocument: 'after'},
+      );
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(
+        `Failed to record the push: ${error.message}`,
       );
     }
   }

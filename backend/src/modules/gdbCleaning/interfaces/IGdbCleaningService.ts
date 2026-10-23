@@ -20,6 +20,10 @@ export interface GdbCleaningItem extends GdbCleaningListItem {
   answer: string;
   sources: IGdbCleaningSource[];
   checks: IGdbCleaningCheck[];
+  /** true when a reviewer changed the sources; the pipeline's own are kept in originalSources */
+  sourcesEdited: boolean;
+  originalSources: IGdbCleaningSource[];
+  pushedAt: string | null;
   correctedAnswer: string | null;
   comment: string | null;
   checkedAt: string | null;
@@ -60,6 +64,23 @@ export interface IGdbCleaningService {
   saveCorrection(
     answerId: string,
     correctedAnswer: string,
+  ): Promise<GdbCleaningItem>;
+
+  /** A reviewer says a check is not a problem (PASS) or is one (FAIL). A comment is required. */
+  editFlag(
+    answerId: string,
+    edit: {parameter: string; result: 'PASS' | 'FAIL'; comment: string},
+    reviewerId: string,
+  ): Promise<GdbCleaningItem>;
+
+  /** An admin pushes the accepted correction to the golden answer, through the app's own edit flow. */
+  pushToGdb(answerId: string, reviewerId: string): Promise<GdbCleaningItem>;
+
+  /** A reviewer corrects the sources of the answer. The pipeline's own are kept. */
+  editSources(
+    answerId: string,
+    sources: IGdbCleaningSource[],
+    reviewerId: string,
   ): Promise<GdbCleaningItem>;
 
   decide(
