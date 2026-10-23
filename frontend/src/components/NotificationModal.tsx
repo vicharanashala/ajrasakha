@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     BellIcon,
@@ -47,7 +48,9 @@ import {
     useNavigateToComment,
     useNavigateToQuestion,
     useNavigateToRequest,
-    useNavigateToHistory
+    useNavigateToHistory,
+    useNavigateToPopQueue,
+    useNavigateToMainTable
 } from "@/hooks/api/question/useNavigateToQuestion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/shared/components/toast";
@@ -82,6 +85,7 @@ interface NotificationModalProps {
 
 export function NotificationModal({ trigger, copy = "notifications" }: NotificationModalProps) {
     const { success: toastSuccess, error: toastError} = useToast();
+    const queryClient = useQueryClient();
     const [open, setOpen] = useState(false);
     const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -102,6 +106,8 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
     const { goToRequest } = useNavigateToRequest();
     const { goToComment } = useNavigateToComment();
     const { goToHistory } = useNavigateToHistory();
+    const { goToPopQueue } = useNavigateToPopQueue();
+    const { goToMainTable } = useNavigateToMainTable();
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [deletePreference, setDeletePreference] = useState("never");
@@ -120,6 +126,25 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
             setNotifications(allNotifications);
         }
     }, [notificationPages]);
+
+    // service-worker.js's push handler posts this to every open tab the instant the OS-level push
+    // notification arrives — the only reliable signal THIS browser gets that a notification meant
+    // for it was just created server-side (it already proved reliable: the push itself arrives
+    // live with no refresh needed). Invalidates both ["notifications"] (the sidebar list) AND
+    // ["user"] (the bell icon's red badge count comes from user.notifications, a completely
+    // separate query — see PlaygroundHeader.tsx) — same pairing useMarkAsReadNotification already
+    // uses to keep the two in sync.
+    useEffect(() => {
+        if (!("serviceWorker" in navigator)) return;
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type === "new-notification") {
+                queryClient.invalidateQueries({ queryKey: ["notifications"] });
+                queryClient.invalidateQueries({ queryKey: ["user"] });
+            }
+        };
+        navigator.serviceWorker.addEventListener("message", handler);
+        return () => navigator.serviceWorker.removeEventListener("message", handler);
+    }, [queryClient]);
 
     const filteredNotifications = notifications.filter((n) => {
         if (filter === "unread") return !n.is_read;
@@ -154,6 +179,21 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         }
         if (["review_rejected", "review_modified", "re-routed-answer-created", "re-routed-rejected-expert", "re-routed-rejected-moderator"].includes(type)) {
             goToHistory(enitity_id);
+            return;
+        }
+        if (["pop_pending_approval", "pop_pending_admin_review", "pop_upload_rejected"].includes(type)) {
+            goToPopQueue();
+            return;
+        }
+        if (type === "pop_document_published") {
+            // The message carries the ANNAM id in quotes (see the backend's notifyPopEvent) — copy
+            // it so the user can paste it straight into the Main Table's Document ID filter.
+            const annamId = extractQuotedId(notification.message);
+            if (annamId) {
+                navigator.clipboard?.writeText(annamId).catch(() => {});
+                toastSuccess(`Copied ${annamId} — paste it into the Document ID filter`);
+            }
+            goToMainTable();
             return;
         }
     };
@@ -357,6 +397,14 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
                                             <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
                                                 {n.message}
                                             </p>
+                                            {n.type === "pop_document_published" && extractQuotedId(n.message) && (
+                                                <p
+                                                    className="text-xs text-primary font-semibold bg-primary/5 px-2 py-1.5 rounded-md mb-3 border border-primary/20"
+                                                    title="Click to copy and open the Main Table"
+                                                >
+                                                    ANNAM ID: {extractQuotedId(n.message)}
+                                                </p>
+                                            )}
                                             {n.questionText && (
                                                 <TooltipProvider>
                                                     <Tooltip>
@@ -412,6 +460,13 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
             </SheetContent>
         </Sheet>
     );
+}
+
+// Pulls the quoted ANNAM id back out of a pop_document_published message (built server-side as
+// `"${itemName}" was added to the document database.`, see NotificationService.notifyPopEvent) —
+// there's no dedicated field for it on the notification, just this one quoted token in the text.
+function extractQuotedId(message: string): string | null {
+    return message?.match(/"([^"]+)"/)?.[1] || null;
 }
 
 function getNotificationDisplayTitle(notification: Notification) {

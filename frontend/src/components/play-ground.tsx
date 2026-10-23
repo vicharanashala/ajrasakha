@@ -51,6 +51,8 @@ export const PlaygroundPage = () => {
     setSelectedHistoryId,
     selectedQuestionType,
     setSelectedQuestionType,
+    selectedPopQueue,
+    setSelectedPopQueue,
   } = useSelectedQuestion();
   // Initialize from localStorage or default
 
@@ -74,7 +76,9 @@ export const PlaygroundPage = () => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
   };
-  const explicitSelectionTab = selectedRequestId
+  const explicitSelectionTab = selectedPopQueue
+    ? "data_processing"
+    : selectedRequestId
     ? "request_queue"
     : selectedHistoryId
       ? "history"
@@ -185,7 +189,9 @@ export const PlaygroundPage = () => {
     let calculatedTab: string | null = null;
 
     // Only set calculatedTab if there's an explicit selection
-    if (selectedRequestId) {
+    if (selectedPopQueue) {
+      calculatedTab = "data_processing";
+    } else if (selectedRequestId) {
       calculatedTab = "request_queue";
     } else if (selectedHistoryId) {
       calculatedTab = "history";
@@ -220,6 +226,7 @@ export const PlaygroundPage = () => {
     selectedCommentId,
     selectedHistoryId,
     selectedQuestionType,
+    selectedPopQueue,
   ]);
 
   const handleTabChange = (value: string) => {
@@ -251,6 +258,9 @@ export const PlaygroundPage = () => {
     if (value !== "history") {
       setSelectedHistoryId(null);
     }
+    if (value !== "data_processing") {
+      setSelectedPopQueue(null);
+    }
   };
 
   const hasInitializedNotifications = useRef(false);
@@ -262,7 +272,7 @@ export const PlaygroundPage = () => {
 
     hasInitializedNotifications.current = true;
 
-    initializeNotifications();
+    initializeNotifications(userId);
   }, [user]);
 
   return (
@@ -528,7 +538,11 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard userRole={user.role} userId={user._id} />
+                  <DataProcessingDashboard
+                    userRole={user.role}
+                    userId={user._id}
+                    openUploadQueue={selectedPopQueue === "1"}
+                  />
                 </TabsContent>
               )}
               {user && user.role === "admin" && (
