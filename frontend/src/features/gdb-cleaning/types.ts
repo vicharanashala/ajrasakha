@@ -4,14 +4,28 @@ export type GdbStatus = "pending" | "clean" | "todo" | "fixed" | "dismissed";
 
 export type GdbCheckResult = "PASS" | "FAIL" | "NOT_EVALUATED" | "NOT_APPLICABLE";
 
+// a reviewer's change to one check: not a problem (PASS) or a problem (FAIL)
+export interface IGdbCheckOverride {
+  result: "PASS" | "FAIL";
+  comment: string;
+  by: string;
+  at: string;
+}
+
 export interface IGdbCheck {
   parameter: string;
   category: string;
+  // what the system found; a reviewer's change is in `override`
   result: GdbCheckResult;
   reason: string;
   // exact words in the answer to highlight, for a check that found something
   highlight?: string[];
+  override?: IGdbCheckOverride;
 }
+
+// what counts after a reviewer's change
+export const effectiveResult = (check: IGdbCheck): GdbCheckResult =>
+  check.override ? check.override.result : check.result;
 
 export interface IGdbSource {
   sourceName: string;
@@ -39,6 +53,11 @@ export interface IGdbCleaningItem extends IGdbListItem {
   sources: IGdbSource[];
   // the 13 checks, in order
   checks: IGdbCheck[];
+  // true when a reviewer changed the sources; the pipeline's own are in originalSources
+  sourcesEdited: boolean;
+  originalSources: IGdbSource[];
+  // when the accepted correction was pushed to the golden answer
+  pushedAt: string | null;
   // suggested correction, null when none was written
   correctedAnswer: string | null;
   comment: string | null;

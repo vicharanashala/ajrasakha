@@ -6,6 +6,8 @@ import {
   IGdbCleaning,
 } from '#root/shared/interfaces/models.js';
 import {IGdbCleaningRepository} from '#root/shared/database/interfaces/IGdbCleaningRepository.js';
+import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {IAnswerApprovalService} from '#root/modules/answer/interfaces/IAnswerApprovalService.js';
 import {GdbCleaningService} from '../services/GdbCleaningService.js';
 
 const reviewerId = new ObjectId().toString();
@@ -72,6 +74,18 @@ class FakeRepository implements IGdbCleaningRepository {
     return doc;
   }
 
+  async saveChecks() {
+    return null;
+  }
+
+  async saveSources() {
+    return null;
+  }
+
+  async markPushed() {
+    return null;
+  }
+
   async decide(
     answerId: string,
     decision: {
@@ -104,6 +118,8 @@ describe('GdbCleaningService', () => {
     decided = makeDoc('fixed', {correctedAnswer: 'Spray Chlorantraniliprole.'});
     service = new GdbCleaningService(
       new FakeRepository([todo, decided, makeDoc('clean'), makeDoc('pending')]),
+      {} as IAnswerRepository,
+      {} as IAnswerApprovalService,
     );
   });
 

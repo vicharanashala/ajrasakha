@@ -4,11 +4,16 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {
   GdbCleaningStatus,
   IGdbCleaning,
+  IGdbCleaningCheck,
+  IGdbCleaningSource,
 } from '#root/shared/interfaces/models.js';
 import {
   GdbCleaningListRow,
   IGdbCleaningRepository,
 } from '#root/shared/database/interfaces/IGdbCleaningRepository.js';
+import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {IAnswerApprovalService} from '#root/modules/answer/interfaces/IAnswerApprovalService.js';
+import type {UpdateAnswerBody} from '#root/modules/answer/classes/validators/AnswerValidator.js';
 import {
   GdbCleaningItem,
   GdbCleaningListItem,
@@ -17,6 +22,10 @@ import {
 } from '../interfaces/IGdbCleaningService.js';
 
 const DEFAULT_LIMIT = 25;
+
+// does a check count as a flag, after any change by a reviewer
+const isFlagged = (check: IGdbCleaningCheck) =>
+  (check.override ? check.override.result : check.result) === 'FAIL';
 
 const toListItem = (row: GdbCleaningListRow): GdbCleaningListItem => ({
   id: row.answerId.toString(),
@@ -35,6 +44,9 @@ const toItem = (doc: IGdbCleaning): GdbCleaningItem => ({
   answer: doc.answer,
   sources: doc.sources ?? [],
   checks: doc.checks ?? [],
+  sourcesEdited: Boolean(doc.originalSources),
+  originalSources: doc.originalSources ?? [],
+  pushedAt: doc.pushedAt ? new Date(doc.pushedAt).toISOString() : null,
   correctedAnswer: doc.correctedAnswer ?? null,
   comment: doc.comment ?? null,
   checkedAt: doc.checkedAt ? new Date(doc.checkedAt).toISOString() : null,
@@ -46,6 +58,13 @@ export class GdbCleaningService implements IGdbCleaningService {
   constructor(
     @inject(GLOBAL_TYPES.GdbCleaningRepository)
     private readonly repository: IGdbCleaningRepository,
+
+    // the golden answers, and the app's own flow for editing a final answer
+    @inject(GLOBAL_TYPES.AnswerRepository)
+    private readonly answerRepository: IAnswerRepository,
+
+    @inject(GLOBAL_TYPES.AnswerApprovalService)
+    private readonly approvalService: IAnswerApprovalService,
   ) {}
 
   async list(query: GdbCleaningListQuery) {
@@ -93,6 +112,106 @@ export class GdbCleaningService implements IGdbCleaningService {
     if (!text) throw new BadRequestError('The correction cannot be empty');
     const updated = await this.repository.saveCorrection(answerId, text);
     return toItem(updated ?? (await this.explainRefusal(answerId)));
+  }
+
+  async editFlag(
+    answerId: string,
+    edit: {parameter: string; result: 'PASS' | 'FAIL'; comment: string},
+    reviewerId: string,
+  ): Promise<GdbCleaningItem> {
+    const comment = edit.comment.trim();
+    if (!comment) throw new BadRequestError('A comment is required');
+    const current = await this.repository.getByAnswerId(answerId);
+    if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
+    if (current.status !== 'todo') return toItem(await this.explainRefusal(answerId));
+    const target = (current.checks ?? []).find(c => c.parameter === edit.parameter);
+    if (!target) {
+      throw new BadRequestError(`There is no check called "${edit.parameter}"`);
+    }
+    const systemFlagged = target.result === 'FAIL';
+    const wantsFlagged = edit.result === 'FAIL';
+    const checks = current.checks.map(check => {
+      if (check.parameter !== edit.parameter) return check;
+      // the same as what the system found is no change at all, so it clears an earlier one
+      if (systemFlagged === wantsFlagged) {
+        const {override: _cleared, ...rest} = check;
+        return rest;
+      }
+      return {
+        ...check,
+        override: {
+          result: edit.result,
+          comment,
+          by: reviewerId,
+          at: new Date(),
+        },
+      };
+    });
+    const flags = checks.filter(isFlagged).map(c => c.parameter);
+    const updated = await this.repository.saveChecks(answerId, checks, flags);
+    return toItem(updated ?? (await this.explainRefusal(answerId)));
+  }
+
+  async editSources(
+    answerId: string,
+    sources: IGdbCleaningSource[],
+    reviewerId: string,
+  ): Promise<GdbCleaningItem> {
+    const current = await this.repository.getByAnswerId(answerId);
+    if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
+    if (current.status !== 'todo') return toItem(await this.explainRefusal(answerId));
+    const clean = sources.map(source => ({
+      sourceName: source.sourceName.trim(),
+      source: source.source.trim(),
+      page: source.page.trim(),
+    }));
+    // the first edit keeps the pipeline's sources, later edits keep those
+    const original = current.originalSources ?? current.sources ?? [];
+    const updated = await this.repository.saveSources(
+      answerId,
+      clean,
+      original,
+      reviewerId,
+    );
+    return toItem(updated ?? (await this.explainRefusal(answerId)));
+  }
+
+  async pushToGdb(
+    answerId: string,
+    reviewerId: string,
+  ): Promise<GdbCleaningItem> {
+    const row = await this.repository.getByAnswerId(answerId);
+    if (!row) throw new NotFoundError(`Answer "${answerId}" not found`);
+    if (row.status !== 'fixed' || !row.correctedAnswer?.trim()) {
+      throw new HttpError(409, 'Only an accepted correction can be pushed');
+    }
+    if (row.pushedAt) {
+      throw new HttpError(409, 'This correction was already pushed to the golden answer');
+    }
+    const golden = await this.answerRepository.getById(answerId);
+    if (!golden) {
+      throw new NotFoundError('The golden answer was not found');
+    }
+    if (!golden.isFinalAnswer) {
+      throw new BadRequestError('Only the final answer of a question can be replaced');
+    }
+    // the correction was written for the text that was checked: if the golden answer changed since, stop
+    if ((golden.answer ?? '').trim() !== row.answer.trim()) {
+      throw new HttpError(
+        409,
+        'The golden answer was edited after it was checked. Review it again before pushing',
+      );
+    }
+    // the app's own edit flow: it updates the answer, its embedding and the question's text and
+    // embedding together, and refuses a question without a normalised crop and location
+    await this.approvalService.approveAnswer(reviewerId, {
+      answerId,
+      questionId: row.questionId.toString(),
+      answer: row.correctedAnswer.trim(),
+      sources: golden.sources ?? [],
+    } as UpdateAnswerBody);
+    const updated = await this.repository.markPushed(answerId, reviewerId);
+    return toItem(updated ?? row);
   }
 
   async decide(

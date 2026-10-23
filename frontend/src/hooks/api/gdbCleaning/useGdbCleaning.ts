@@ -3,9 +3,10 @@ import { toast } from "sonner";
 import {
   gdbCleaningService,
   type IGdbDecisionRequest,
+  type IGdbFlagEdit,
   type IGdbListParams,
 } from "@/hooks/services/gdbCleaningService";
-import type { IGdbCleaningItem } from "@/features/gdb-cleaning/types";
+import type { IGdbCleaningItem, IGdbSource } from "@/features/gdb-cleaning/types";
 
 const KEY = "gdb-cleaning";
 
@@ -59,6 +60,42 @@ export const useSaveGdbCorrection = (answerId: string) => {
       toast.success("Correction saved");
     },
     onError: (error) => toast.error(errorMessage(error, "Failed to save the correction")),
+  });
+};
+
+export const useEditGdbFlag = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, IGdbFlagEdit>({
+    mutationFn: (edit) => gdbCleaningService.editFlag(answerId, edit),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Flag updated");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to update the flag")),
+  });
+};
+
+export const useEditGdbSources = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, IGdbSource[]>({
+    mutationFn: (sources) => gdbCleaningService.editSources(answerId, sources),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Sources saved");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to save the sources")),
+  });
+};
+
+export const usePushToGdb = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, void>({
+    mutationFn: () => gdbCleaningService.pushToGdb(answerId),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Pushed to the golden database");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to push to the golden database")),
   });
 };
 

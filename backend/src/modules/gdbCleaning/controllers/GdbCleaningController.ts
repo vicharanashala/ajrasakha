@@ -16,10 +16,12 @@ import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {IUser} from '#root/shared/interfaces/models.js';
 import {
+  EditGdbFlagDto,
   GdbCleaningAnswerParam,
   GdbDecisionDto,
   GetGdbCleaningListQuery,
   SaveGdbCorrectionDto,
+  SaveGdbSourcesDto,
 } from '../classes/validators/GdbCleaningValidators.js';
 import {IGdbCleaningService} from '../interfaces/IGdbCleaningService.js';
 
@@ -87,6 +89,57 @@ export class GdbCleaningController {
     @Body() body: SaveGdbCorrectionDto,
   ) {
     return this.service.saveCorrection(params.answerId, body.correctedAnswer);
+  }
+
+  @OpenAPI({
+    summary: 'Change one flag: not a problem (PASS) or a problem (FAIL)',
+    description:
+      'A comment is required. The check keeps the result the system found, and the change is saved next to it with who made it and when. Only an answer that is still to do can change.',
+  })
+  @Put('/:answerId/flags')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async editFlag(
+    @Params() params: GdbCleaningAnswerParam,
+    @Body() body: EditGdbFlagDto,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.editFlag(params.answerId, body, user._id.toString());
+  }
+
+  @OpenAPI({
+    summary: 'Correct the sources of the answer',
+    description:
+      'Replaces the list of sources on this row. The ones the pipeline saved are kept. Only an answer that is still to do can change.',
+  })
+  @Put('/:answerId/sources')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async editSources(
+    @Params() params: GdbCleaningAnswerParam,
+    @Body() body: SaveGdbSourcesDto,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.editSources(
+      params.answerId,
+      body.sources,
+      user._id.toString(),
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Push the accepted correction to the golden answer',
+    description:
+      'Replaces the golden answer with the accepted correction, through the same flow the app uses to edit a final answer (embeddings included). Only a fixed answer, once.',
+  })
+  @Post('/:answerId/push')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async push(
+    @Params() params: GdbCleaningAnswerParam,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.pushToGdb(params.answerId, user._id.toString());
   }
 
   @OpenAPI({
