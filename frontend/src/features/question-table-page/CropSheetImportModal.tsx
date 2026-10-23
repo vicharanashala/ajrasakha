@@ -597,6 +597,8 @@ export const CropSheetImportModal = ({
   const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("all");
   const [documentScope, setDocumentScope] = useState<DocumentScope>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [reportFilter, setReportFilter] = useState<ReportEntry["status"] | "all">("all");
+  const [reportSearch, setReportSearch] = useState("");
   const [existing, setExisting] = useState<Map<string, string>>(new Map());
   const [existingAliases, setExistingAliases] = useState<Map<string, ICropAlias[]>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -611,6 +613,8 @@ export const CropSheetImportModal = ({
     setPreviewFilter("all");
     setDocumentScope("all");
     setSearchQuery("");
+    setReportFilter("all");
+    setReportSearch("");
     setExisting(new Map());
     setExistingAliases(new Map());
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -777,6 +781,22 @@ export const CropSheetImportModal = ({
   }, [filterKey]);
   const revealedPreview = useProgressiveCount(visibleGroups.length, filterKey);
   const revealedReport = useStreamedReveal(report.length, step === "report");
+
+  // Report entries matching the status filter and the search, keeping each entry's
+  // position in the full report for the # column.
+  const visibleReport = useMemo(() => {
+    const query = reportSearch.trim().toLowerCase();
+    return report
+      .slice(0, revealedReport)
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => {
+        if (reportFilter !== "all" && entry.status !== reportFilter) return false;
+        if (!query) return true;
+        return [entry.name, entry.reason, ...entry.rows.flatMap((row) => [row.englishName, row.nativeName])]
+          .some((value) => value?.toLowerCase().includes(query));
+      });
+  }, [report, revealedReport, reportFilter, reportSearch]);
+  const isReportFiltered = reportFilter !== "all" || reportSearch.trim() !== "";
 
   // Asks the database which names already exist, with their aliases, so the preview
   // can show exactly what each row will change.
@@ -1607,19 +1627,44 @@ export const CropSheetImportModal = ({
         {/* ── Step 3: report ─────────────────────────────────────────────── */}
         {step === "report" && (
           <motion.div key="report" {...stepMotion} className="flex min-h-0 flex-1 flex-col">
-            <div className="flex flex-wrap gap-4 pb-3 border-b border-gray-100 dark:border-gray-800">
-              {(["created", "updated", "skipped", "failed"] as const).map((status) => {
-                const meta = STATUS_META[status];
-                return (
-                  <div key={status} className="flex items-center gap-1.5 text-sm">
-                    <meta.Icon className={`h-4 w-4 ${meta.className}`} />
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">
-                      {reportCounts[status] ?? 0}
-                    </span>
-                    <span className="text-gray-500 dark:text-gray-400">{meta.label}</span>
-                  </div>
-                );
-              })}
+            <div className="flex flex-col gap-2 pb-3 border-b border-gray-100 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+              <div role="radiogroup" aria-label="Filter by status" className="flex flex-wrap gap-1.5">
+                {(["all", "created", "updated", "skipped", "failed"] as const).map((status) => {
+                  const meta = status === "all" ? null : STATUS_META[status];
+                  const isActive = reportFilter === status;
+                  const count = status === "all" ? report.length : reportCounts[status] ?? 0;
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      role="radio"
+                      aria-checked={isActive}
+                      disabled={status !== "all" && count === 0}
+                      onClick={() => setReportFilter(status)}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 ${
+                        isActive
+                          ? "border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      {meta && <meta.Icon className={`h-3.5 w-3.5 ${isActive ? "" : meta.className}`} />}
+                      <span className="font-semibold">{count}</span>
+                      <span className={isActive ? "" : "text-gray-500 dark:text-gray-400"}>{meta ? meta.label : "All"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="relative sm:w-[280px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" aria-hidden />
+                <Input
+                  type="search"
+                  aria-label="Search the import report"
+                  placeholder="Search name, alias or reason..."
+                  value={reportSearch}
+                  onChange={(e) => setReportSearch(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
             </div>
 
             {unimportedCount > 0 && (
@@ -1643,7 +1688,7 @@ export const CropSheetImportModal = ({
                   </div>
                 ))}
               </div>
-              {report.slice(0, revealedReport).map((entry, i) => {
+              {visibleReport.map(({ entry, index: i }) => {
                 const meta = STATUS_META[entry.status];
                 return (
                   <div
@@ -1673,6 +1718,25 @@ export const CropSheetImportModal = ({
                   </div>
                 );
               })}
+              {visibleReport.length === 0 && revealedReport >= report.length && (
+                <div className="flex flex-col items-center gap-2 py-12 text-center">
+                  <Search className="h-5 w-5 text-gray-300 dark:text-gray-600" aria-hidden />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">No entries match these filters.</p>
+                  {isReportFiltered && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setReportFilter("all");
+                        setReportSearch("");
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-3">
