@@ -84,6 +84,7 @@ export const DOMAIN_OPTIONS_FALLBACK = [
   "Animal Husbandry and Livestock",
   "Fisheries and Aquaculture",
   "Allied Agricultural Activities",
+  "All",
 ];
 
 // Domain's value is always a string[] now (2026-10-22 backend change — a document can belong to
