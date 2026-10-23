@@ -132,6 +132,8 @@ type QuestionsFiltersProps = {
   dedicatedSubTab?: DedicatedSubTab;
   onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
   isFetching?: boolean;
+  /** Opens AgriTech Management in place of the questions table; falls back to the modal. */
+  onOpenAgriTech?: () => void;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
@@ -193,6 +195,7 @@ export const QuestionsFilters = ({
   dedicatedSubTab,
   onDedicatedSubTabChange,
   isFetching = false,
+  onOpenAgriTech,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -753,7 +756,7 @@ export const QuestionsFilters = ({
   }
 
   return (
-    <div className="w-full px-4 pt-3 pb-2 border-b bg-card ms-2 md:ms-0 rounded flex flex-col gap-2.5">
+    <div className="w-full ms-2 md:ms-0 px-4 sm:px-5 pt-3 pb-3 flex flex-col gap-3 rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-[#111] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-6px_rgba(16,24,40,0.08)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_10px_28px_-8px_rgba(0,0,0,0.6)]">
       {/* Add Dialog */}
       <AddOrEditQuestionDialog
         open={addOpen}
@@ -794,22 +797,25 @@ export const QuestionsFilters = ({
       />
 
       {/* ── ROW 2: Search + View + Filter + Add ── */}
-      <div className="flex items-center gap-2 w-full">
+      <div className="flex items-center gap-2 w-full border-t border-gray-100 dark:border-white/[0.05] pt-3">
         {/* Search bar — capped width */}
         <div className="w-full max-w-xs sm:max-w-sm min-w-0">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              placeholder="Search questions..."
+              aria-label="Search questions"
               value={search}
               onChange={(e) => {
                 if (userRole !== "expert") onReset();
                 setSearch(e.target.value);
               }}
-              className="pl-9 pr-9 bg-background text-sm"
+              className="h-9 pl-9 pr-9 bg-background text-sm"
             />
             {search && (
               <button
+                type="button"
+                aria-label="Clear search"
                 onClick={() => setSearch("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
@@ -865,7 +871,7 @@ export const QuestionsFilters = ({
                 size="sm"
                 onClick={() => refetch()}
                 disabled={isFetching}
-                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0 cursor-pointer"
+                className="h-9 w-9 p-0 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0 cursor-pointer"
                 aria-label="Refresh questions"
               >
                 <RefreshCcw className={`h-4 w-4 text-muted-foreground hover:text-foreground ${isFetching ? "animate-spin text-primary" : ""}`} />
@@ -880,8 +886,11 @@ export const QuestionsFilters = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                type="button"
+                variant="outline"
+                aria-label="Tools and filters"
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0"
+                className="h-9 w-9 p-0 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0"
               >
                 <Filter className="h-4 w-4" />
               </Button>
@@ -896,13 +905,15 @@ export const QuestionsFilters = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium flex-shrink-0"
+                  aria-label="Add question"
+                  className="h-9 flex items-center justify-center gap-1.5 px-3 text-sm font-medium flex-shrink-0 shadow-sm"
                   onClick={() => {
                     setAddQuestionErrors({});
                     setAddOpen(true);
                   }}
                 >
                   <Plus className="h-4 w-4" />
+                  <span className="hidden lg:inline">Add question</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Add Question</TooltipContent>
@@ -912,9 +923,9 @@ export const QuestionsFilters = ({
       </div>
 
       {/* ── Bulk-action bar (selection mode only) ── */}
+      {isSelectionModeOn && (
       <div className="w-full flex flex-wrap items-center gap-2 justify-end">
-
-        {isSelectionModeOn && (
+        {(
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
             {/* Allocate to PAE */}
             {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() === "draft" && (
@@ -1019,6 +1030,7 @@ export const QuestionsFilters = ({
           Total: {totalQuestions}
         </span> */}
       </div>
+      )}
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div
@@ -1215,7 +1227,8 @@ export const QuestionsFilters = ({
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
-                    setIsCropModalOpen(true);
+                    if (onOpenAgriTech) onOpenAgriTech();
+                    else setIsCropModalOpen(true);
                     setIsSidebarOpen(false);
                   }}
                 >

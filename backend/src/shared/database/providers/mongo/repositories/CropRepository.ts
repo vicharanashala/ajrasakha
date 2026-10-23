@@ -3,8 +3,13 @@ import {Collection, ObjectId} from 'mongodb';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
-import {ICrop, ICropAlias, CropType, ALLOWED_CROP_TYPES} from '#root/shared/interfaces/models.js';
+import {ICrop, ICropAlias, CropType, ALLOWED_CROP_TYPES, CropListSort, CropListFilters} from '#root/shared/interfaces/models.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
+
+
+/** Allowed shape of an extra_fields key, and how many one alias may carry. */
+const EXTRA_ALIAS_KEY = /^[a-z][a-z0-9_]{0,49}$/;
+const MAX_EXTRA_ALIAS_KEYS = 20;
 
 @injectable()
 export class CropRepository implements ICropRepository {
@@ -49,6 +54,23 @@ export class CropRepository implements ICropRepository {
       .trim()
       .toLowerCase()
       .replace(/[a-z]+/g, w => w.charAt(0).toUpperCase() + w.slice(1));
+  }
+
+  /**
+   * Optional alias metadata kept as entered: the expert, the remark, and extra_fields.
+   * extra_fields keys are restricted to a safe snake_case pattern and capped in number
+   * so a sheet cannot inject operators or bloat a document.
+   */
+  private static aliasMeta(alias: ICropAlias): Partial<ICropAlias> {
+    const extras = Object.entries(alias.extra_fields ?? {})
+      .filter(([key, value]) => EXTRA_ALIAS_KEY.test(key) && typeof value === 'string' && value.trim())
+      .slice(0, MAX_EXTRA_ALIAS_KEYS)
+      .map(([key, value]) => [key, value.trim()]);
+    return {
+      ...(alias.agri_expert?.trim() && {agri_expert: alias.agri_expert.trim()}),
+      ...(alias.remark?.trim() && {remark: alias.remark.trim()}),
+      ...(extras.length && {extra_fields: Object.fromEntries(extras)}),
+    };
   }
 
   /** Extract the searchable English string from either a legacy string alias or a new ICropAlias object */
@@ -120,6 +142,7 @@ export class CropRepository implements ICropRepository {
           native_representation: (a.native_representation ?? '').trim(),
           source_link: a.source_link?.trim() || undefined,
           page_number: a.page_number?.trim() || undefined,
+          ...CropRepository.aliasMeta(a),
         })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
@@ -172,11 +195,11 @@ export class CropRepository implements ICropRepository {
 
   async getAllCrops(query?: {
     search?: string;
-    sort?: 'newest' | 'oldest' | 'name_asc' | 'name_desc';
+    sort?: CropListSort;
     page?: number;
     limit?: number;
     type?: CropType;
-  }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
+  } & CropListFilters): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
     try {
       if (!this.CropCollection) await this.init();
 
@@ -220,11 +243,41 @@ export class CropRepository implements ICropRepository {
         ];
       }
 
-      const sortMap: Record<string, Record<string, 1 | -1>> = {
+      // List filters from the AgriTech filter drawer; each one narrows the result further.
+      const conditions: any[] = [];
+      if (query?.aliases === 'with') {
+        conditions.push({aliases: {$exists: true, $ne: []}});
+      } else if (query?.aliases === 'without') {
+        conditions.push({$or: [{aliases: {$exists: false}}, {aliases: {$size: 0}}]});
+      }
+      if (query?.image === 'with') {
+        conditions.push({imageUrl: {$nin: [null, '']}});
+      } else if (query?.image === 'without') {
+        conditions.push({imageUrl: {$in: [null, '']}});
+      }
+      if (query?.status) conditions.push({status: query.status});
+      // Language and region must match on the same alias.
+      if (query?.language || query?.region) {
+        const aliasMatch: Record<string, string> = {};
+        if (query.language) aliasMatch.language = query.language;
+        if (query.region) aliasMatch.region = query.region;
+        conditions.push({aliases: {$elemMatch: aliasMatch}});
+      }
+      if (query?.updatedFrom || query?.updatedTo) {
+        const range: Record<string, Date> = {};
+        if (query.updatedFrom) range.$gte = new Date(query.updatedFrom);
+        if (query.updatedTo) range.$lte = new Date(query.updatedTo);
+        conditions.push({updatedAt: range});
+      }
+      if (conditions.length) filter.$and = [...(filter.$and || []), ...conditions];
+
+      const sortMap: Record<CropListSort, Record<string, 1 | -1>> = {
         newest: {createdAt: -1},
         oldest: {createdAt: 1},
         name_asc: {name: 1},
         name_desc: {name: -1},
+        updated_desc: {updatedAt: -1, name: 1},
+        updated_asc: {updatedAt: 1, name: 1},
       };
       const sortStage = sortMap[query?.sort || 'name_asc'] || {name: 1};
 
@@ -341,6 +394,7 @@ export class CropRepository implements ICropRepository {
             native_representation: (a.native_representation ?? '').trim(),
             source_link: a.source_link?.trim() || undefined,
             page_number: a.page_number?.trim() || undefined,
+            ...CropRepository.aliasMeta(a),
           };
         });
 
@@ -446,6 +500,30 @@ export class CropRepository implements ICropRepository {
       } as ICrop;
     } catch (error: any) {
       throw new InternalServerError(`Failed to find entry by name or alias: ${error.message}`);
+    }
+  }
+
+  // ─── FIND BY EXACT NAMES ───────────────────────────────────────────────────
+
+  /** Entries whose name matches any of the given names, case-insensitively. */
+  async findByNames(names: string[]): Promise<ICrop[]> {
+    try {
+      if (!this.CropCollection) await this.init();
+      if (!names.length) return [];
+
+      const crops = await this.CropCollection.find(
+        {name: {$in: names.map(n => n.trim())}},
+        {collation: {locale: 'en', strength: 2}},
+      ).toArray();
+
+      return crops.map(crop => ({
+        ...crop,
+        _id: crop._id?.toString(),
+        createdBy: crop.createdBy?.toString(),
+        updatedBy: crop.updatedBy?.toString(),
+      })) as ICrop[];
+    } catch (error: any) {
+      throw new InternalServerError(`Failed to find entries by name: ${error.message}`);
     }
   }
 

@@ -27,6 +27,7 @@ import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLeve
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
+import { CropManagementModal } from "@/features/question-table-page/CropManagementModal";
 
 export const QuestionsPage = ({
   currentUser,
@@ -62,6 +63,12 @@ export const QuestionsPage = ({
 
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
+  // AgriTech Management replaces the filters and questions table while open.
+  const [isAgriTechOpen, setIsAgriTechOpen] = useState(false);
+  const openAgriTech = () => {
+    setIsAgriTechOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const [search, setSearch] = useState("");
   const [searchTabMode, setSearchTabMode] = useState<string>("search");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
@@ -635,7 +642,12 @@ export const QuestionsPage = ({
   };
 
   return (
-    <main className={"mx-auto w-full p-4 md:p-6 space-y-6"}>
+    <main
+      className={`mx-auto w-full p-4 md:p-6 space-y-6 ${
+        // The questions list and AgriTech Management sit close to the navbar.
+        !selectedQuestionId ? "!pt-0.5 md:!pt-1 !space-y-4" : ""
+      }`}
+    >
       {selectedQuestionId ? (
         isLoadingSelectedQuestion ? (
           <div className="flex items-center justify-center min-h-[60vh]">
@@ -661,7 +673,16 @@ export const QuestionsPage = ({
         )
       ) : (
         <>
+          {isAgriTechOpen ? (
+            <CropManagementModal
+              variant="page"
+              open
+              onOpenChange={(value) => !value && setIsAgriTechOpen(false)}
+            />
+          ) : (
+          <>
           <QuestionsFilters
+            onOpenAgriTech={openAgriTech}
             search={search}
             setSearch={setSearch}
             appliedFilters={filter}
@@ -736,6 +757,8 @@ export const QuestionsPage = ({
               view={view}
               onRefresh={refetchReviewLevels}
             />
+          )}
+          </>
           )}
         </>
       )}

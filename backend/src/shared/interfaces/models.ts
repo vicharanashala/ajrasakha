@@ -855,9 +855,29 @@ export interface ICropAlias {
   native_representation: string; // native script e.g. "వరి"
   source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
   page_number?: string; // page number reference e.g. "45"
+  agri_expert?: string; // expert who verified this term
+  remark?: string; // free-text note about this term
+  /** Additional sheet columns from an import, keyed by snake_case header (e.g. "Crop Season" -> crop_season). */
+  extra_fields?: Record<string, string>;
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});
+
+export const CROP_LIST_SORTS = ['newest', 'oldest', 'name_asc', 'name_desc', 'updated_desc', 'updated_asc'] as const;
+export type CropListSort = (typeof CROP_LIST_SORTS)[number];
+
+/** Optional filters for the AgriTech list; an absent field means no filter. */
+export interface CropListFilters {
+  aliases?: 'with' | 'without';
+  image?: 'with' | 'without';
+  status?: string;
+  /** Matches entries with at least one alias in this language (and region, when both are given). */
+  language?: string;
+  region?: string;
+  /** ISO timestamps bounding updatedAt. */
+  updatedFrom?: string;
+  updatedTo?: string;
+}
 
 /** Crop-side entry types that share the crop structure (title-casing, alias merge,
  *  uniqueness). 'chemical' is handled separately and is intentionally not listed here.

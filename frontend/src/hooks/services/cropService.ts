@@ -12,6 +12,10 @@ export interface ICropAlias {
   native_representation: string;
   source_link?: string;
   page_number?: string;
+  agri_expert?: string;
+  remark?: string;
+  /** Additional sheet columns from an import, keyed by snake_case header (e.g. "Crop Season" -> crop_season). */
+  extra_fields?: Record<string, string>;
 }
 
 export interface ICropResponse {
@@ -55,6 +59,26 @@ export interface IGetAllCropsResponse {
   totalPages: number;
 }
 
+export type AgriTechSort =
+  | "name_asc"
+  | "name_desc"
+  | "updated_desc"
+  | "updated_asc"
+  | "newest"
+  | "oldest";
+
+/** Optional list filters sent as query params; undefined means "no filter". */
+export interface AgriTechListFilters {
+  aliases?: "with" | "without";
+  image?: "with" | "without";
+  status?: string;
+  language?: string;
+  region?: string;
+  /** ISO timestamps bounding updatedAt. */
+  updatedFrom?: string;
+  updatedTo?: string;
+}
+
 export interface IUpdateCropPayload {
   name?: string;
   aliases?: (ICropAlias | string)[];
@@ -91,6 +115,34 @@ export interface IBulkJobStatus {
   status: "running" | "completed" | "failed";
   errors: string[];
   results: IBulkJobResult[];
+}
+
+/** One entry of a sheet import: a standardized name plus every vernacular term for it. */
+export interface ICropImportEntry {
+  name: string;
+  scientificName?: string;
+  aliases: ICropAlias[];
+}
+
+/** An entry that already exists, as returned for the import preview. */
+export interface IExistingImportEntry {
+  name: string;
+  type: string;
+  aliases: ICropAlias[];
+}
+
+export interface ICropImportResult {
+  name: string;
+  status: "created" | "updated" | "skipped" | "failed";
+  reason: string;
+}
+
+export interface ICropImportResponse {
+  results: ICropImportResult[];
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
 }
 
 export class CropService {
@@ -132,6 +184,26 @@ export class CropService {
     });
   }
 
+  /** Which of these names already exist, with their type and stored aliases. */
+  async findImportDuplicates(names: string[]): Promise<{ entries: IExistingImportEntry[] } | null> {
+    return apiFetch<{ entries: IExistingImportEntry[] }>(`${this._baseUrl}/import/duplicates`, {
+      method: "POST",
+      body: JSON.stringify({ names }),
+    });
+  }
+
+  /** Imports parsed sheet entries, merging vernacular terms into existing entries. */
+  async importEntries(
+    type: string,
+    entries: ICropImportEntry[],
+    fileName?: string,
+  ): Promise<ICropImportResponse | null> {
+    return apiFetch<ICropImportResponse>(`${this._baseUrl}/import`, {
+      method: "POST",
+      body: JSON.stringify({ type, entries, fileName }),
+    });
+  }
+
   async getBulkJobStatus(jobId: string): Promise<IBulkJobStatus | null> {
     return apiFetch<IBulkJobStatus>(`${this._baseUrl}/bulk-status/${jobId}`);
   }
@@ -158,10 +230,11 @@ export class CropService {
 
   async getAllCrops(query?: {
     search?: string;
-    sort?: string;
+    sort?: AgriTechSort;
     page?: number;
     limit?: number;
     type?: string;
+    filters?: AgriTechListFilters;
   }): Promise<IGetAllCropsResponse | null> {
     const params = new URLSearchParams();
     if (query?.search) params.append("search", query.search);
@@ -169,6 +242,9 @@ export class CropService {
     if (query?.page) params.append("page", query.page.toString());
     if (query?.limit) params.append("limit", query.limit.toString());
     if (query?.type) params.append("type", query.type);
+    Object.entries(query?.filters ?? {}).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
 
     return apiFetch<IGetAllCropsResponse>(`${this._baseUrl}?${params.toString()}`);
   }
