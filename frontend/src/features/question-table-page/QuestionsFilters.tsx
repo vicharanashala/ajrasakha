@@ -8,7 +8,6 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 
-import { Badge } from "../../components/atoms/badge";
 // import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
 
 import {
@@ -94,6 +93,7 @@ import {
 import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck, LayoutDashboard, Phone } from "lucide-react";
+import { NewBadge } from "@/components/atoms/new-badge";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
@@ -971,12 +971,6 @@ export const QuestionsFilters = ({
                       : `ReAllocate Experts (${selectedQuestionIds.length})`}
                 </Button>
 
-                <Badge
-                  variant="default"
-                  className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                >
-                  New
-                </Badge>
               </div>
             )}
 
@@ -1245,6 +1239,7 @@ export const QuestionsFilters = ({
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           AgriTech Management
                         </p>
+                        <NewBadge />
                       </div>
                       <p className="text-[11px] text-gray-500">
                         Manage AgriTech List
