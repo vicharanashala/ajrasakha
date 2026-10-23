@@ -32,7 +32,6 @@ import {
   ChevronUp,
   Loader2,
   Beaker,
-  MessageSquare,
   MessageCircle,
   AlertTriangle,
   Download,
@@ -94,7 +93,7 @@ import {
 } from "@/components/atoms/dropdown-menu";
 import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
-import { UserCheck, LayoutDashboard } from "lucide-react";
+import { UserCheck, LayoutDashboard, Phone } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
@@ -1205,8 +1204,12 @@ export const QuestionsFilters = ({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
-                      <MessageSquare size={20} />
+                    {/* Chat bubble with a handset, on WhatsApp's green, so the card reads as WhatsApp. */}
+                    <div className="w-10 h-10 rounded-lg bg-[#25D366] flex items-center justify-center text-white shadow-sm shadow-[#25D366]/30">
+                      <span className="relative flex items-center justify-center" aria-hidden>
+                        <MessageCircle size={22} strokeWidth={2.2} />
+                        <Phone size={9} strokeWidth={2.6} className="absolute fill-white" />
+                      </span>
                     </div>
                     <div className="text-left">
                       <div className="flex items-center gap-2">
@@ -1225,7 +1228,8 @@ export const QuestionsFilters = ({
               {/* update crops */}
               {userRole !== "expert" && userRole !== "tester" && (
                 <button
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  aria-keyshortcuts={onOpenAgriTech ? "A" : undefined}
                   onClick={() => {
                     if (onOpenAgriTech) onOpenAgriTech();
                     else setIsCropModalOpen(true);
@@ -1233,7 +1237,7 @@ export const QuestionsFilters = ({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
+                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-700 dark:text-green-400">
                       <Cpu size={20} />
                     </div>
                     <div className="text-left">
@@ -1247,6 +1251,14 @@ export const QuestionsFilters = ({
                       </p>
                     </div>
                   </div>
+                  {onOpenAgriTech && (
+                    <span className="flex items-center gap-1 text-[10px] text-gray-400" title="Keyboard shortcut: A">
+                      <span className="hidden sm:inline">Press</span>
+                      <kbd className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-b-2 border-gray-200 bg-gray-50 px-1.5 font-mono text-[11px] font-semibold text-gray-700 dark:border-gray-700 dark:bg-white/5 dark:text-gray-200">
+                        A
+                      </kbd>
+                    </span>
+                  )}
                 </button>
               )}
 
