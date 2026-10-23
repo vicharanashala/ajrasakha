@@ -200,7 +200,7 @@ const ShellDescription = ({ isPage, children }: ShellProps) =>
 // Compact form for adding a single new alias entry.
 const AliasEntryForm = ({
   onAdd,
-  accentColor = "amber",
+  tone = TONES.green,
   isChemical = false,
   isOther = false,
   editEntry = null,
@@ -208,7 +208,8 @@ const AliasEntryForm = ({
   onCancelEdit,
 }: {
   onAdd: (alias: ICropAliasObject) => void;
-  accentColor?: "amber" | "blue";
+  /** Colour of the entry's type, so the form matches its tab. */
+  tone?: TabTone;
   isChemical?: boolean;
   isOther?: boolean;
   /** When set, the form is in EDIT mode — prefilled with this alias. */
@@ -220,7 +221,6 @@ const AliasEntryForm = ({
   const [regionInput, setRegionInput] = useState("");
   // Unique ids so the labels stay linked when two alias forms are open at once.
   const fieldId = useId();
-  const isAmber = accentColor === "amber";
   const isEditing = !!editEntry;
 
   // Prefill when entering edit mode; reset when it clears.
@@ -229,9 +229,7 @@ const AliasEntryForm = ({
     setRegionInput("");
   }, [editEntry]);
 
-  const addBtnClass = isAmber
-    ? "bg-amber-600 hover:bg-amber-700 text-white"
-    : "bg-blue-600 hover:bg-blue-700 text-white";
+  const addBtnClass = `${tone.button} text-white`;
 
   const canAdd = isChemical
     ? entry.english_representation.trim() !== ""
@@ -383,7 +381,7 @@ const AliasEntryForm = ({
             placeholder="e.g. https://agritech.tnau.ac.in/..."
             value={entry.source_link}
             onChange={(e) => setEntry((f) => ({ ...f, source_link: e.target.value }))}
-            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -395,7 +393,7 @@ const AliasEntryForm = ({
             placeholder="e.g. 45"
             value={entry.page_number}
             onChange={(e) => setEntry((f) => ({ ...f, page_number: e.target.value }))}
-            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400"
+            className="w-full h-14 px-2 py-1.5 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -538,12 +536,15 @@ const StructuredAliasesTable = ({
   onRemove,
   onEdit,
   editingIndex,
+  tone = TONES.green,
 }: {
   aliases: ICropAliasObject[];
   onRemove: (index: number) => void;
   onEdit?: (index: number) => void;
   /** Row currently being edited (highlighted). */
   editingIndex?: number | null;
+  /** Colour of the entry's type. */
+  tone?: TabTone;
 }) => {
   if (aliases.length === 0) return null;
 
@@ -559,12 +560,12 @@ const StructuredAliasesTable = ({
           <li
             key={i}
             className={`flex items-start gap-3 px-3 py-2.5 transition-colors ${
-              editingIndex === i ? "bg-amber-50/70 dark:bg-amber-500/5" : "hover:bg-gray-50/60 dark:hover:bg-white/[0.02]"
+              editingIndex === i ? "bg-muted" : "hover:bg-gray-50/60 dark:hover:bg-white/[0.02]"
             }`}
           >
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/15 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold ${tone.chip}`}>
                   {alias.language}
                 </span>
                 {alias.region && (
@@ -596,8 +597,8 @@ const StructuredAliasesTable = ({
                   onClick={() => onEdit(i)}
                   aria-label="Edit alias"
                   title="Edit alias"
-                  className={`p-1.5 rounded-md transition-colors hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 ${
-                    editingIndex === i ? "text-amber-600 dark:text-amber-400" : "text-gray-400"
+                  className={`p-1.5 rounded-md transition-colors ${tone.action} ${
+                    editingIndex === i ? tone.text : "text-gray-400"
                   }`}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -729,12 +730,10 @@ const AliasManagerPanel = ({
           <div className="flex items-center gap-3 min-w-0">
             {(() => {
               const t = crop.type ?? "crop";
-              const isC = t === "chemical";
-              const isO = t === "other";
-              const ModalIcon = isC ? FlaskConical : isO ? LayoutGrid : Wheat;
+              const ModalIcon = iconOf(t);
               return (
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isC ? "bg-purple-100/80 dark:bg-purple-500/10" : isO ? "bg-blue-100/80 dark:bg-blue-500/10" : "bg-amber-100/80 dark:bg-amber-500/10"}`}>
-                  <ModalIcon className={`h-4 w-4 ${isC ? "text-purple-600 dark:text-purple-400" : isO ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}`} />
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${accentOf(t).avatar}`}>
+                  <ModalIcon className="h-4 w-4" />
                 </div>
               );
             })()}
@@ -901,6 +900,7 @@ const AliasManagerPanel = ({
               onRemove={handleRemoveStructured}
               onEdit={setEditingIndex}
               editingIndex={editingIndex}
+              tone={accentOf(crop.type ?? "crop")}
             />
             )}
           </div>
@@ -937,7 +937,7 @@ const AliasManagerPanel = ({
           {/* ── Add / Edit Alias Form ─────────────────────────────────── */}
           <AliasEntryForm
             onAdd={handleAdd}
-            accentColor="amber"
+            tone={accentOf(crop.type ?? "crop")}
             isChemical={isChemicalEntry}
             editEntry={editingIndex !== null ? structuredAliases[editingIndex] : null}
             onUpdate={handleUpdateStructured}
@@ -946,34 +946,25 @@ const AliasManagerPanel = ({
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 dark:border-gray-800 flex-shrink-0 bg-gray-50/50 dark:bg-white/[0.01]">
+        <div className="flex flex-col gap-2.5 px-5 py-3.5 border-t border-gray-100 dark:border-gray-800 flex-shrink-0 bg-gray-50/50 dark:bg-white/[0.01]">
           <p className="text-xs text-gray-400 dark:text-gray-500">
             {structuredAliases.length + legacyAliases.length} total alias
             {structuredAliases.length + legacyAliases.length !== 1 ? "es" : ""}
           </p>
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 text-xs rounded-lg"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
               onClick={() => setConfirmUpdateOpen(true)}
               disabled={isUpdating}
-              className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+              className={`h-10 flex-1 gap-1.5 text-sm font-semibold text-white rounded-lg shadow-sm transition-colors ${accentOf(crop.type ?? "crop").button}`}
             >
               {isUpdating ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Saving…
                 </>
               ) : (
                 <>
-                  <Check className="h-3 w-3" />
+                  <Check className="h-4 w-4" />
                   Save Changes
                 </>
               )}
@@ -1000,11 +991,13 @@ const AliasSection = ({
   onAliasesChange,
   isChemical = false,
   isOther = false,
+  tone = TONES.green,
 }: {
   aliases: ICropAliasObject[];
   onAliasesChange: (next: ICropAliasObject[]) => void;
   isChemical?: boolean;
   isOther?: boolean;
+  tone?: TabTone;
 }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -1028,7 +1021,7 @@ const AliasSection = ({
     <div className="space-y-2">
       <AliasEntryForm
         onAdd={handleAdd}
-        accentColor="amber"
+        tone={tone}
         isChemical={isChemical}
         isOther={isOther}
         editEntry={editingIndex !== null ? aliases[editingIndex] : null}
@@ -1041,6 +1034,7 @@ const AliasSection = ({
          onRemove={handleRemove}
          onEdit={setEditingIndex}
          editingIndex={editingIndex}
+         tone={tone}
        />
       )}
     </div>
@@ -2344,8 +2338,8 @@ export const CropManagementModal = ({
                         </div>
                         <Input placeholder="Address" value={orgAddress} onChange={(e) => setOrgAddress(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
                         
-                        <div className="flex justify-end gap-2 mt-2">
-                          <Button variant="outline" size="sm" onClick={() => { setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress(""); }} className="h-8 text-xs">Cancel</Button>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Button variant="outline" onClick={() => { setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress(""); }} className="h-10 px-5 text-sm">Cancel</Button>
                           <Button size="sm" onClick={async () => {
                             if (!orgName || !orgState || !orgType) return toast.error("Name, Type and State are required");
                             const payload = { org_name: orgName, type: orgType, state: orgState, district: orgDistrict, address: orgAddress };
@@ -2357,7 +2351,7 @@ export const CropManagementModal = ({
                                 }
                                 setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress("");
                             } catch (error) {}
-                          }} className="h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white">{orgEditId ? "Update" : "Add"}</Button>
+                          }} className={`h-10 flex-1 text-sm font-semibold text-white shadow-sm transition-colors ${TONES.teal.button}`}>{orgEditId ? "Update Organization" : "Add Organization"}</Button>
                         </div>
                       </div>
                     </div>
@@ -2657,6 +2651,7 @@ export const CropManagementModal = ({
                     onAliasesChange={setNewAliases}
                     isChemical={isChemical}
                     isOther={!isChemical && activeTab !== "crop"}
+                    tone={tone}
                   />
                 </div>
 
