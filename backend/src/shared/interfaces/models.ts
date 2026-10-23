@@ -855,6 +855,10 @@ export interface ICropAlias {
   native_representation: string; // native script e.g. "వరి"
   source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
   page_number?: string; // page number reference e.g. "45"
+  agri_expert?: string; // expert who verified this term
+  remark?: string; // free-text note about this term
+  /** Additional sheet columns from an import, keyed by snake_case header (e.g. "Crop Season" -> crop_season). */
+  extra_fields?: Record<string, string>;
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});

@@ -12,6 +12,10 @@ export interface ICropAlias {
   native_representation: string;
   source_link?: string;
   page_number?: string;
+  agri_expert?: string;
+  remark?: string;
+  /** Additional sheet columns from an import, keyed by snake_case header (e.g. "Crop Season" -> crop_season). */
+  extra_fields?: Record<string, string>;
 }
 
 export interface ICropResponse {
@@ -93,6 +97,27 @@ export interface IBulkJobStatus {
   results: IBulkJobResult[];
 }
 
+/** One entry of a sheet import: a standardized name plus every vernacular term for it. */
+export interface ICropImportEntry {
+  name: string;
+  scientificName?: string;
+  aliases: ICropAlias[];
+}
+
+export interface ICropImportResult {
+  name: string;
+  status: "created" | "updated" | "skipped" | "failed";
+  reason: string;
+}
+
+export interface ICropImportResponse {
+  results: ICropImportResult[];
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+}
+
 export class CropService {
   private _baseUrl = `${API_BASE_URL}/crops`;
 
@@ -129,6 +154,22 @@ export class CropService {
     return apiFetch<IBulkUploadCropResponse>(this._baseUrl, {
       method: "POST",
       body: formData,
+    });
+  }
+
+  /** Which of these names already exist (with the type they exist under). */
+  async findImportDuplicates(names: string[]): Promise<{ entries: { name: string; type: string }[] } | null> {
+    return apiFetch<{ entries: { name: string; type: string }[] }>(`${this._baseUrl}/import/duplicates`, {
+      method: "POST",
+      body: JSON.stringify({ names }),
+    });
+  }
+
+  /** Imports parsed sheet entries, merging vernacular terms into existing entries. */
+  async importEntries(type: string, entries: ICropImportEntry[]): Promise<ICropImportResponse | null> {
+    return apiFetch<ICropImportResponse>(`${this._baseUrl}/import`, {
+      method: "POST",
+      body: JSON.stringify({ type, entries }),
     });
   }
 

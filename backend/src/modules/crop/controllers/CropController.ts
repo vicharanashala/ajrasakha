@@ -45,6 +45,10 @@ import { uploadMediaFile, deleteMediaByUrl } from '#root/modules/dashboard/utils
 import { startCropBulkProcessing, startChemicalBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
 import * as XLSX from 'xlsx';
 import { FlexibleAuth } from '#root/shared/index.js';
+import { CropImportEntry } from '../utils/importAliases.js';
+
+/** Guards a single sheet import against an oversized payload. */
+const MAX_IMPORT_ENTRIES = 5000;
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -118,6 +122,70 @@ export class CropController {
   @OpenAPI({ summary: 'List the crop-side entry categories (known + custom) for the UI.' })
   async getEntryTypes(): Promise<{ types: string[] }> {
     return { types: await this.cropService.getEntryTypes() };
+  }
+
+  // Which of the given names already exist, so the import preview can flag them.
+  @Post('/import/duplicates')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Find which of the given names already exist' })
+  async findImportDuplicates(
+    @Body() data: { names: string[] },
+  ): Promise<{ entries: { name: string; type: string }[] }> {
+    if (!Array.isArray(data?.names)) throw new BadRequestError('No names to check');
+    if (data.names.length > MAX_IMPORT_ENTRIES) {
+      throw new BadRequestError(`A single import is limited to ${MAX_IMPORT_ENTRIES} entries`);
+    }
+    return { entries: await this.cropService.findExistingNames(data.names) };
+  }
+
+  // Imports entries parsed from a sheet, merging vernacular terms into existing ones.
+  @Post('/import')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Bulk import AgriTech entries from a parsed sheet' })
+  async importEntries(
+    @Body() data: { type: string; entries: CropImportEntry[] },
+    @CurrentUser() user: IUser,
+  ): Promise<any> {
+    const type = data?.type?.trim().toLowerCase();
+    if (!type || type === 'chemical') throw new BadRequestError('Invalid entry type');
+    if (!Array.isArray(data?.entries) || data.entries.length === 0) {
+      throw new BadRequestError('No entries to import');
+    }
+    if (data.entries.length > MAX_IMPORT_ENTRIES) {
+      throw new BadRequestError(`A single import is limited to ${MAX_IMPORT_ENTRIES} entries`);
+    }
+    const entries = data.entries.filter(
+      e => typeof e?.name === 'string' && e.name.trim() && Array.isArray(e.aliases),
+    );
+    if (!entries.length) throw new BadRequestError('No valid entries to import');
+
+    const actor = {
+      id: user._id.toString(),
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      role: user.role,
+      avatar: user?.avatar || '',
+    };
+    const summary = await this.cropService.bulkImport(type, entries, user._id.toString());
+
+    // One summary entry per import rather than one per row.
+    this.auditTrailsService.createAuditTrail({
+      category: AuditCategory.CROP_MANAGEMENT,
+      action: AuditAction.CROP_BULK_CREATE,
+      actor,
+      context: {
+        type,
+        totalRows: entries.length,
+        created: summary.created,
+        updated: summary.updated,
+        skipped: summary.skipped,
+        failed: summary.failed,
+      },
+      outcome: { status: OutComeStatus.SUCCESS },
+    });
+    return summary;
   }
 
   @Get('/bulk-status')

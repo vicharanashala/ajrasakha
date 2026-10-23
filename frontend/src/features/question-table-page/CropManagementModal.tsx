@@ -35,6 +35,7 @@ import { CropService } from "@/hooks/services/cropService";
 import type { ICropAlias, ICropResponse, IBulkJobResult, CropUploadType } from "@/hooks/services/cropService";
 import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
 import { OrganizationBulkUploadModal } from "./OrganizationBulkUploadModal";
+import { CropSheetImportModal } from "./CropSheetImportModal";
 
 const cropServiceForStatus = new CropService();
 import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
@@ -997,6 +998,7 @@ export const CropManagementModal = ({
   const orgDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isOrgImportOpen, setIsOrgImportOpen] = useState(false);
+  const [isSheetImportOpen, setIsSheetImportOpen] = useState(false);
   const [isKvkImportOpen, setIsKvkImportOpen] = useState(false);
   const { data: orgData, isLoading: isOrgLoading } = useGetOrganizations(orgSearchQuery, orgPage, orgLimit);
   const { mutateAsync: createOrg } = useCreateOrganization();
@@ -1849,8 +1851,8 @@ export const CropManagementModal = ({
               </div>
             ) : (
               <>
-                <div className="px-5 pt-3 pb-1">
-                  <div className="relative">
+                <div className="px-5 pt-3 pb-1 flex items-center gap-2">
+                  <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                     <Input
                       id="agritech-search"
@@ -1863,6 +1865,17 @@ export const CropManagementModal = ({
                       <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
                     )}
                   </div>
+                  {!isChemical && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsSheetImportOpen(true)}
+                      className="h-8 text-xs shrink-0"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Import
+                    </Button>
+                  )}
                 </div>
 
                 <div className="px-5 py-3">
@@ -2201,6 +2214,12 @@ export const CropManagementModal = ({
           onClose={() => setAliasManagerCrop(null)}
         />
       )}
+
+      <CropSheetImportModal
+        open={isSheetImportOpen}
+        onClose={() => setIsSheetImportOpen(false)}
+        entryType={activeTab}
+      />
 
       <OrganizationBulkUploadModal
         open={isOrgImportOpen}

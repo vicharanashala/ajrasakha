@@ -2,7 +2,7 @@ import { injectable, inject } from 'inversify';
 import { BadRequestError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { ICrop, CROP_OTHER_TYPES } from '#root/shared/interfaces/models.js';
+import { ICrop, ICropAlias, CROP_OTHER_TYPES } from '#root/shared/interfaces/models.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
@@ -12,6 +12,11 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
+import {
+  CropImportEntry,
+  CropImportResult,
+  selectNewAliases,
+} from '../utils/importAliases.js';
 
 @injectable()
 export class CropService extends BaseService implements ICropService {
@@ -77,6 +82,145 @@ export class CropService extends BaseService implements ICropService {
     const dbTypes = await this.cropRepository.getCropSideTypes();
     const extras = dbTypes.filter(t => !seen.has(t.toLowerCase()));
     return [...known, ...extras];
+  }
+
+  async findExistingNames(names: string[]): Promise<{name: string; type: string}[]> {
+    const crops = await this.cropRepository.findByNames(names);
+    return crops.map(crop => ({name: crop.name, type: crop.type ?? 'crop'}));
+  }
+
+  /**
+   * Imports sheet entries of one type. An entry whose name already exists gets the
+   * new vernacular terms merged in; otherwise it is created. Terms that conflict
+   * with another entry are skipped one by one so the rest of the entry still lands.
+   */
+  async bulkImport(
+    type: string,
+    entries: CropImportEntry[],
+    userId: string,
+  ): Promise<{
+    results: CropImportResult[];
+    created: number;
+    updated: number;
+    skipped: number;
+    failed: number;
+  }> {
+    const existingByName = new Map(
+      (await this.cropRepository.findByNames(entries.map(e => e.name))).map(
+        crop => [crop.name.trim().toLowerCase(), crop],
+      ),
+    );
+    const results: CropImportResult[] = [];
+
+    for (const entry of entries) {
+      try {
+        const existing = existingByName.get(entry.name.trim().toLowerCase());
+        if (existing && (existing.type ?? 'crop') !== type) {
+          results.push({
+            name: entry.name,
+            status: 'failed',
+            reason: `Already exists under the "${existing.type ?? 'crop'}" type`,
+          });
+          continue;
+        }
+        results.push(await this.importEntry(type, entry, existing ?? null, userId));
+      } catch (error: any) {
+        results.push({
+          name: entry.name,
+          status: 'failed',
+          reason: error?.message || 'Import failed',
+        });
+      }
+    }
+
+    const count = (status: CropImportResult['status']) =>
+      results.filter(r => r.status === status).length;
+    return {
+      results,
+      created: count('created'),
+      updated: count('updated'),
+      skipped: count('skipped'),
+      failed: count('failed'),
+    };
+  }
+
+  private async importEntry(
+    type: string,
+    entry: CropImportEntry,
+    existing: ICrop | null,
+    userId: string,
+  ): Promise<CropImportResult> {
+    const stored = existing?.aliases ?? [];
+    const {fresh, skipped} = selectNewAliases(entry.name, stored, entry.aliases);
+    const newScientificName = !existing?.scientificName && entry.scientificName;
+
+    if (existing && !fresh.length && !newScientificName) {
+      return {name: entry.name, status: 'skipped', reason: 'All terms already exist for this entry'};
+    }
+
+    // Try the whole entry first; a conflicting term falls back to one-by-one adds.
+    let entryId = existing?._id?.toString();
+    let current: (ICropAlias | string)[] = [...stored];
+    const conflicts: string[] = [];
+
+    try {
+      if (existing) {
+        await this.cropRepository.updateCrop(
+          entryId!,
+          {
+            aliases: [...current, ...fresh],
+            ...(newScientificName ? {scientificName: newScientificName} : {}),
+          },
+          userId,
+        );
+      } else {
+        await this.cropRepository.createCrop(
+          entry.name,
+          userId,
+          fresh,
+          type,
+          undefined,
+          undefined,
+          entry.scientificName,
+        );
+      }
+      current = [...current, ...fresh];
+    } catch (error: any) {
+      if (!(error instanceof BadRequestError)) throw error;
+      if (!existing) {
+        // Create the bare entry first so the terms can be added one at a time.
+        const created = await this.cropRepository.createCrop(
+          entry.name,
+          userId,
+          [],
+          type,
+          undefined,
+          undefined,
+          entry.scientificName,
+        );
+        entryId = created._id?.toString();
+      }
+      for (const alias of fresh) {
+        try {
+          await this.cropRepository.updateCrop(entryId!, {aliases: [...current, alias]}, userId);
+          current.push(alias);
+        } catch (aliasError: any) {
+          if (!(aliasError instanceof BadRequestError)) throw aliasError;
+          conflicts.push(alias.english_representation);
+        }
+      }
+    }
+
+    const notes = [
+      skipped ? `${skipped} repeated term${skipped === 1 ? '' : 's'} skipped` : '',
+      conflicts.length ? `${conflicts.length} term${conflicts.length === 1 ? '' : 's'} already used by another entry (${conflicts.join(', ')})` : '',
+    ].filter(Boolean);
+
+    return {
+      name: entry.name,
+      status: existing ? 'updated' : 'created',
+      reason: notes.join('; '),
+    };
   }
 
   async createCrop(dto: CreateCropDto, userId: string): Promise<ICrop> {

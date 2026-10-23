@@ -58,6 +58,16 @@ class CropAliasDto {
   @IsOptional()
   @IsString()
   page_number?: string;
+
+  @JSONSchema({ description: 'Expert who verified this term' })
+  @IsOptional()
+  @IsString()
+  agri_expert?: string;
+
+  @JSONSchema({ description: 'Free-text note about this term' })
+  @IsOptional()
+  @IsString()
+  remark?: string;
 }
 
 // ── Body DTOs ──
