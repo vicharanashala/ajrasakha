@@ -137,6 +137,15 @@ export interface ICropImportResult {
   reason: string;
 }
 
+export interface ICropImportJob {
+  id: string;
+  status: "running" | "completed" | "failed";
+  total: number;
+  processed: number;
+  result?: ICropImportResponse;
+  error?: string;
+}
+
 export interface ICropImportResponse {
   results: ICropImportResult[];
   created: number;
@@ -192,16 +201,21 @@ export class CropService {
     });
   }
 
-  /** Imports parsed sheet entries, merging vernacular terms into existing entries. */
-  async importEntries(
+  /** Starts a background import of parsed sheet entries and returns its job id. */
+  async startImport(
     type: string,
     entries: ICropImportEntry[],
     fileName?: string,
-  ): Promise<ICropImportResponse | null> {
-    return apiFetch<ICropImportResponse>(`${this._baseUrl}/import`, {
+  ): Promise<{ jobId: string; total: number } | null> {
+    return apiFetch<{ jobId: string; total: number }>(`${this._baseUrl}/import`, {
       method: "POST",
       body: JSON.stringify({ type, entries, fileName }),
     });
+  }
+
+  /** Progress, and once finished the result, of a sheet import job. */
+  async getImportJob(jobId: string): Promise<ICropImportJob | null> {
+    return apiFetch<ICropImportJob>(`${this._baseUrl}/import/${encodeURIComponent(jobId)}`);
   }
 
   async getBulkJobStatus(jobId: string): Promise<IBulkJobStatus | null> {

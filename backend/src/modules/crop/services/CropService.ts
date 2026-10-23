@@ -107,6 +107,7 @@ export class CropService extends BaseService implements ICropService {
     type: string,
     entries: CropImportEntry[],
     userId: string,
+    onProgress?: (processed: number) => void,
   ): Promise<{
     results: CropImportResult[];
     changes: CropImportChange[];
@@ -138,12 +139,14 @@ export class CropService extends BaseService implements ICropService {
       try {
         if (existing && (existing.type ?? 'crop') !== type) {
           changes.push(failure(`Already exists under the "${existing.type ?? 'crop'}" type`));
+          onProgress?.(changes.length);
           continue;
         }
         changes.push(await this.importEntry(type, entry, existing, userId));
       } catch (error: any) {
         changes.push(failure(error?.message || 'Import failed'));
       }
+      onProgress?.(changes.length);
     }
 
     const count = (status: CropImportResult['status']) =>

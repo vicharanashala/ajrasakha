@@ -870,14 +870,23 @@ export const CropSheetImportModal = ({
     }
   };
 
-  // Sends the importable rows, then builds the per-entry report.
+  // Live progress of the running import job.
+  const [importProgress, setImportProgress] = useState({ processed: 0, total: 0 });
+
+  // Sends the importable rows as a background job and builds the per-entry report.
   const handleImport = async () => {
     if (!importRows.length) return;
     setStep("importing");
 
     try {
       const entries = toEntries(importRows);
-      const response = await importEntries({ type: entryType, entries, fileName });
+      setImportProgress({ processed: 0, total: entries.length });
+      const response = await importEntries({
+        type: entryType,
+        entries,
+        fileName,
+        onProgress: (processed, total) => setImportProgress({ processed, total }),
+      });
       const rowsByName = new Map<string, SheetRow[]>();
       importRows.forEach((row) => {
         const key = nameKeyOf(row.name);
@@ -1503,13 +1512,28 @@ export const CropSheetImportModal = ({
             </div>
 
             {step === "importing" ? (
-              <div className="pt-3 flex flex-col gap-2">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                  <div className="h-full w-1/3 rounded-full bg-emerald-500 animate-indeterminate-bar" />
+              <div className="pt-3 flex flex-col gap-2" role="status" aria-live="polite">
+                <div
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={importProgress.total || 1}
+                  aria-valuenow={importProgress.processed}
+                >
+                  {importProgress.processed > 0 ? (
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-[width] duration-500 ease-out"
+                      style={{ width: `${Math.round((importProgress.processed / Math.max(1, importProgress.total)) * 100)}%` }}
+                    />
+                  ) : (
+                    <div className="h-full w-1/3 rounded-full bg-emerald-500 animate-indeterminate-bar" />
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Importing {importRows.length} rows...
+                  {importProgress.processed > 0
+                    ? `Processed ${importProgress.processed} of ${importProgress.total} ${entryType === "crop" ? "crops" : `${entryType} entries`} (${importRows.length} rows grouped by name). Large sheets take a few minutes.`
+                    : `Starting the import of ${importRows.length} rows...`}
                 </p>
               </div>
             ) : (
