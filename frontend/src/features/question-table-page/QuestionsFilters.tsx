@@ -1237,8 +1237,8 @@ export const QuestionsFilters = ({
                 </button>
               )}
 
-              {/* update crops */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {/* update crops - temporarily commented out */}
+              {/* {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="relative w-full flex items-center gap-3 p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   aria-keyshortcuts={onOpenAgriTech ? "A" : undefined}
@@ -1262,7 +1262,7 @@ export const QuestionsFilters = ({
                   </div>
                   {onOpenAgriTech && <ShortcutKey keyLabel="A" />}
                 </button>
-              )}
+              )} */}
 
               {/* Edit State & District (aliases) — admin/moderator only */}
               {(userRole === "admin" || userRole === "moderator") && (
