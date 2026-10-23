@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
 import { Textarea } from "@/components/atoms/textarea";
 import { diffWords } from "@/utils/wordDifference";
-import { ArrowLeft, ArrowUpRight, Check, Pencil, X } from "lucide-react";
-import type { IGdbCleaningItem } from "../types";
+import { ArrowLeft, ArrowUpRight, Check, Pencil, Plus, Send, Trash2, X } from "lucide-react";
+import { effectiveResult } from "../types";
+import type { IGdbCleaningItem, IGdbSource } from "../types";
 import { GdbFlagsPanel } from "./GdbFlagsPanel";
 import { HighlightedText } from "./HighlightedText";
 import { StatusBadge } from "./GdbListView";
@@ -19,6 +21,12 @@ interface GdbDetailViewProps {
   onDismiss: (comment: string) => void;
   // resolves once the correction is saved
   onSaveCorrection: (text: string) => Promise<unknown>;
+  // resolves once the change is saved
+  onEditFlag: (parameter: string, result: "PASS" | "FAIL", comment: string) => Promise<unknown>;
+  // resolves once the sources are saved
+  onSaveSources: (sources: IGdbSource[]) => Promise<unknown>;
+  // replaces the golden answer with the accepted correction; resolves once it is done
+  onPush: () => Promise<unknown>;
   busy?: boolean;
 }
 
@@ -28,9 +36,14 @@ export const GdbDetailView = ({
   onAccept,
   onDismiss,
   onSaveCorrection,
+  onEditFlag,
+  onSaveSources,
+  onPush,
   busy = false,
 }: GdbDetailViewProps) => {
   const [editing, setEditing] = useState(false);
+  const [editingSources, setEditingSources] = useState(false);
+  const [sourceDraft, setSourceDraft] = useState<IGdbSource[]>([]);
   const [draft, setDraft] = useState("");
   const [comment, setComment] = useState(item.comment ?? "");
 
@@ -41,12 +54,23 @@ export const GdbDetailView = ({
   );
   // the words a failed check found in the answer, for example the banned chemical
   const flaggedWords = useMemo(
-    () => item.checks.filter((check) => check.result === "FAIL").flatMap((check) => check.highlight ?? []),
+    () => item.checks.filter((check) => effectiveResult(check) === "FAIL").flatMap((check) => check.highlight ?? []),
     [item.checks]
   );
   const decided = item.status === "fixed" || item.status === "dismissed";
   // only an answer with flags still to do can be changed
   const locked = item.status !== "todo";
+
+  const startSourceEdit = () => {
+    setSourceDraft(item.sources.map((source) => ({ ...source })));
+    setEditingSources(true);
+  };
+
+  const changeSource = (index: number, field: keyof IGdbSource, value: string) =>
+    setSourceDraft((draft) => draft.map((source, i) => (i === index ? { ...source, [field]: value } : source)));
+
+  // a source needs a link, and a name to show
+  const sourcesValid = sourceDraft.every((source) => source.source.trim() && source.sourceName.trim());
 
   const startEdit = () => {
     setDraft(corrected ?? item.answer);
@@ -82,7 +106,7 @@ export const GdbDetailView = ({
           The quality checks have not run on this answer yet.
         </div>
       ) : (
-        <GdbFlagsPanel checks={item.checks} />
+        <GdbFlagsPanel checks={item.checks} editable={!locked} busy={busy} onEditFlag={onEditFlag} />
       )}
 
       <div>
@@ -207,12 +231,110 @@ export const GdbDetailView = ({
               This answer has already been decided.
             </p>
           )}
+          {item.status === "fixed" && (
+            <div className="mt-2">
+              {item.pushedAt ? (
+                <p className="text-xs text-green-700 dark:text-green-300">
+                  Pushed to the golden database on {new Date(item.pushedAt).toLocaleString()}.
+                </p>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Replace the golden answer with this accepted correction? The original text stays saved on this row."
+                      )
+                    ) {
+                      onPush().catch(() => undefined);
+                    }
+                  }}
+                >
+                  <Send className="w-4 h-4 mr-1" />
+                  Push to GDB
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {item.sources.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-foreground mb-3">Source URLs</p>
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-foreground">Source URLs</p>
+          {!editingSources && (
+            <Button size="sm" variant="outline" onClick={startSourceEdit} disabled={locked || busy}>
+              <Pencil className="w-4 h-4 mr-1" />
+              Edit sources
+            </Button>
+          )}
+        </div>
+
+        {editingSources ? (
+          <div className="space-y-3">
+            {sourceDraft.map((source, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-1 gap-2 rounded-lg border bg-muted/30 p-3 md:grid-cols-[200px_1fr_90px_auto]"
+              >
+                <Input
+                  value={source.sourceName}
+                  onChange={(e) => changeSource(idx, "sourceName", e.target.value)}
+                  placeholder="Name"
+                />
+                <Input
+                  value={source.source}
+                  onChange={(e) => changeSource(idx, "source", e.target.value)}
+                  placeholder="Link"
+                />
+                <Input
+                  value={source.page}
+                  onChange={(e) => changeSource(idx, "page", e.target.value)}
+                  placeholder="Page"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label="Remove this source"
+                  onClick={() => setSourceDraft((draft) => draft.filter((_, i) => i !== idx))}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSourceDraft((draft) => [...draft, { sourceName: "", source: "", page: "" }])}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add a source
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Saving changes the sources on this answer. The original sources are kept.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                disabled={!sourcesValid || busy}
+                onClick={async () => {
+                  try {
+                    await onSaveSources(sourceDraft);
+                    setEditingSources(false);
+                  } catch {
+                    // the error is shown by the save itself, the edits stay in the boxes
+                  }
+                }}
+              >
+                Save sources
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingSources(false)} disabled={busy}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : item.sources.length > 0 ? (
           <div className="space-y-2">
             {item.sources.map((source, idx) => (
               <div
@@ -235,8 +357,20 @@ export const GdbDetailView = ({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">No source is attached to this answer.</p>
+        )}
+
+        {item.sourcesEdited && !editingSources && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Edited by an expert. The original sources:{" "}
+            {item.originalSources.length
+              ? item.originalSources.map((s) => `${s.sourceName}${s.page ? ` (pg ${s.page})` : ""}`).join("; ")
+              : "none"}
+            .
+          </p>
+        )}
+      </div>
     </div>
   );
 };

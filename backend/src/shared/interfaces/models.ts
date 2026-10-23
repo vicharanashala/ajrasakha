@@ -998,6 +998,15 @@ export type GdbCleaningStatus =
   | 'fixed'
   | 'dismissed';
 
+/** A reviewer's change to one check: "not a problem" (PASS) or "this is a problem" (FAIL).
+ *  The check's own `result` stays as the system found it. */
+export interface IGdbCheckOverride {
+  result: 'PASS' | 'FAIL';
+  comment: string;
+  by: string;
+  at: Date;
+}
+
 export interface IGdbCleaningCheck {
   parameter: string;
   category: string;
@@ -1005,6 +1014,7 @@ export interface IGdbCleaningCheck {
   reason: string;
   /** exact words in the answer to highlight, for a check that found something */
   highlight?: string[];
+  override?: IGdbCheckOverride;
 }
 
 export interface IGdbCleaningSource {
@@ -1025,6 +1035,13 @@ export interface IGdbCleaning {
   crop: string;
   domain: string;
   sources: IGdbCleaningSource[];
+  /** the sources as the pipeline saved them, kept the first time a reviewer edits them */
+  originalSources?: IGdbCleaningSource[];
+  sourcesEditedBy?: ObjectId | null;
+  sourcesEditedAt?: Date | null;
+  /** set when the accepted correction was pushed to the golden answer */
+  pushedAt?: Date | null;
+  pushedBy?: ObjectId | null;
   status: GdbCleaningStatus;
   checks: IGdbCleaningCheck[];
   flags: string[];
