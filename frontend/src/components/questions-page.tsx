@@ -644,8 +644,8 @@ export const QuestionsPage = ({
   return (
     <main
       className={`mx-auto w-full p-4 md:p-6 space-y-6 ${
-        // AgriTech Management sits closer to the navbar than the questions list.
-        isAgriTechOpen && !selectedQuestionId ? "!pt-0.5 md:!pt-1" : ""
+        // The questions list and AgriTech Management sit close to the navbar.
+        !selectedQuestionId ? "!pt-0.5 md:!pt-1 !space-y-4" : ""
       }`}
     >
       {selectedQuestionId ? (
