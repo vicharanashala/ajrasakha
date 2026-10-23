@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useId } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +58,29 @@ const labelOf = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : "")
 /** Reserved type names — each has its own dedicated/catch-all tab, so a custom
  *  "Other" type may not reuse one (it would collide with those tabs). */
 const RESERVED_TYPES = ["crop", "chemical", "other"];
+
+/** Shared motion presets so every AgriTech animation feels the same. */
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+const collapseMotion = {
+  initial: { height: 0, opacity: 0 },
+  animate: { height: "auto", opacity: 1 },
+  exit: { height: 0, opacity: 0 },
+  transition: { duration: 0.22, ease: EASE_OUT },
+};
+const tabContentMotion = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -4 },
+  transition: { duration: 0.18, ease: EASE_OUT },
+};
+const tabUnderlineTransition = { type: "spring", stiffness: 500, damping: 40 } as const;
+
+/** Fades list rows in, staggering only the first few so long lists stay quick. */
+const rowMotion = (index: number) => ({
+  initial: { opacity: 0, y: 4 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.18, delay: Math.min(index, 12) * 0.02, ease: EASE_OUT },
+});
 
 type ICropAliasObject = ICropAlias;
 
@@ -1317,7 +1341,7 @@ export const CropManagementModal = ({
         const id = item._id || item.name;
         const aliasCount = (item.aliases || []).length;
         return (
-          <div
+          <motion.div {...rowMotion(index)}
             key={id}
             className={`grid grid-cols-[48px_1fr_88px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
               index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
@@ -1397,7 +1421,7 @@ export const CropManagementModal = ({
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>
@@ -1423,7 +1447,7 @@ export const CropManagementModal = ({
         const aliasCount = (item.aliases || []).length;
         const status = item.status ?? null;
         return (
-          <div
+          <motion.div {...rowMotion(index)}
             key={id}
             className={`grid grid-cols-[48px_1fr_88px_92px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
               index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
@@ -1511,7 +1535,7 @@ export const CropManagementModal = ({
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>
@@ -1519,7 +1543,7 @@ export const CropManagementModal = ({
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <Dialog
         open={open}
         onOpenChange={(val) => {
@@ -1584,11 +1608,12 @@ export const CropManagementModal = ({
               const isCropTab = tab === "crop";
               const Icon = isChem ? FlaskConical : isCropTab ? Wheat : LayoutGrid;
               const label = isChem ? "Chemicals" : isCropTab ? "Crops" : tab === "other" ? "Other" : labelOf(tab);
+              const underlineCls = isChem ? "bg-purple-500" : isCropTab ? "bg-amber-500" : "bg-blue-500";
               const activeCls = isChem
-                ? "border-b-purple-500 text-purple-700 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-500/5"
+                ? "border-b-transparent text-purple-700 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-500/5"
                 : isCropTab
-                  ? "border-b-amber-500 text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-500/5"
-                  : "border-b-blue-500 text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-500/5";
+                  ? "border-b-transparent text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-500/5"
+                  : "border-b-transparent text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-500/5";
               const iconActiveColor = isChem
                 ? "text-purple-600 dark:text-purple-400"
                 : isCropTab
@@ -1607,6 +1632,14 @@ export const CropManagementModal = ({
                 >
                   <Icon className={`h-3.5 w-3.5 ${active ? iconActiveColor : ""}`} />
                   {label}
+                  {active && (
+                    <motion.span
+                      layoutId="agritech-tab-underline"
+                      transition={tabUnderlineTransition}
+                      className={`absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full ${underlineCls}`}
+                      aria-hidden
+                    />
+                  )}
                 </button>
               );
             })}
@@ -1617,12 +1650,20 @@ export const CropManagementModal = ({
               onClick={() => handleTabSwitch("organization" as any)}
               className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none whitespace-nowrap ${
                 activeTab === "organization"
-                  ? "border-b-emerald-500 text-emerald-700 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
+                  ? "border-b-transparent text-emerald-700 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
                   : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
               }`}
             >
               <Building2 className={`h-3.5 w-3.5 ${activeTab === "organization" ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
               Organization
+              {activeTab === "organization" && (
+                <motion.span
+                  layoutId="agritech-tab-underline"
+                  transition={tabUnderlineTransition}
+                  className="absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full bg-emerald-500"
+                  aria-hidden
+                />
+              )}
             </button>
 
             {/* Rail fills remaining width */}
@@ -1633,7 +1674,9 @@ export const CropManagementModal = ({
           <div className="flex-1 overflow-y-auto min-h-0">
 
             {/* ── Add Form ────────────────────────────────────────────────── */}
+            <AnimatePresence initial={false}>
             {isAddFormOpen && activeTab !== "organization" && (
+              <motion.div key="agritech-add-form" {...collapseMotion} className="overflow-hidden">
               <div className={`mx-5 mt-4 mb-3 p-4 rounded-xl border-l-[3px] space-y-3 ${
                 isChemical
                   ? "border-l-purple-500 border border-purple-200/60 dark:border-purple-500/15 bg-purple-50/30 dark:bg-purple-500/[0.03]"
@@ -1889,8 +1932,13 @@ export const CropManagementModal = ({
                   />
                 </div>
               </div>
+              </motion.div>
             )}
 
+            </AnimatePresence>
+
+            <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={activeTab} {...tabContentMotion}>
             {/* ── Active-tab content ─────────────────────────────────────────── */}
             {activeTab !== "organization" && (isOther ? (
               /* "Other" is where a NEW custom type is created; each type then gets its own tab. */
@@ -2006,7 +2054,9 @@ export const CropManagementModal = ({
                     <div className="text-right">Actions</div>
                   </div>
                   
+                  <AnimatePresence initial={false}>
                   {isAddFormOpen && (
+                    <motion.div key="org-add-form" {...collapseMotion} className="overflow-hidden">
                     <div className="mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-emerald-500 border border-emerald-200/60 dark:border-emerald-500/15 bg-emerald-50/30 dark:bg-emerald-500/[0.03]">
                       <div className="flex flex-col gap-3">
                         <div className="grid grid-cols-[2fr_1fr] gap-3">
@@ -2063,11 +2113,13 @@ export const CropManagementModal = ({
                         </div>
                       </div>
                     </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
 
                   <div className="flex flex-col gap-0 border rounded-xl overflow-hidden mt-3 dark:border-gray-800">
                     {orgData?.organizations?.map((org: any, i: number) => (
-                      <div key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className={`grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 items-center p-3 text-xs transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""}`}>
+                      <motion.div {...rowMotion(i)} key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className={`grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 items-center p-3 text-xs transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""}`}>
                         <div className="font-medium text-gray-900 dark:text-gray-100">{org.org_name}</div>
                         <div className="text-gray-600 dark:text-gray-400 capitalize">{org.type || "-"}</div>
                         <div className="text-gray-600 dark:text-gray-400">{org.state}</div>
@@ -2089,7 +2141,7 @@ export const CropManagementModal = ({
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                     {!isOrgLoading && orgData?.organizations?.length === 0 && (
                       <div className="text-center py-8 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">No organizations found.</div>
@@ -2098,6 +2150,8 @@ export const CropManagementModal = ({
                 </div>
               </>
             )}
+            </motion.div>
+            </AnimatePresence>
 
           </div>
 
@@ -2293,6 +2347,6 @@ export const CropManagementModal = ({
         results={bulkResults}
         type={bulkResultsType}
       />
-    </>
+    </MotionConfig>
   );
 };

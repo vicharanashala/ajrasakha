@@ -23,6 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useImportCropEntries } from "@/hooks/api/crop/useImportCropEntries";
 import {
@@ -376,6 +377,14 @@ const CATEGORY_META: Record<
 
 const FILTER_ORDER: PreviewFilter[] = ["all", "new", "fill", "none", "warning", "skipped", "blocked"];
 
+/** Cross-fade used when the import moves between upload, preview and report. */
+const stepMotion = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+  transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as const },
+};
+
 /** Short column labels for the preview table, with fixed widths so every block aligns. */
 const PREVIEW_COLUMN_META: Partial<Record<FieldKey, { label: string; width: string }>> = {
   state: { label: "State", width: "w-[10%]" },
@@ -524,6 +533,33 @@ const toEntries = (rows: SheetRow[]): ICropImportEntry[] => {
     entries.set(key, entry);
   });
   return [...entries.values()];
+};
+
+/** Groups shown at once, and added per frame after that, when the preview list changes. */
+const PREVIEW_BATCH = 40;
+
+/**
+ * Renders a long list in batches without blanking it: the first batch appears
+ * immediately and the rest follow frame by frame. Restarts when `resetKey` changes.
+ */
+const useProgressiveCount = (total: number, resetKey: string) => {
+  const [count, setCount] = useState(PREVIEW_BATCH);
+
+  useEffect(() => {
+    let frame = 0;
+    let current = Math.min(total, PREVIEW_BATCH);
+    setCount(current);
+    const grow = () => {
+      if (current >= total) return;
+      current = Math.min(total, current + PREVIEW_BATCH);
+      setCount(current);
+      frame = requestAnimationFrame(grow);
+    };
+    frame = requestAnimationFrame(grow);
+    return () => cancelAnimationFrame(frame);
+  }, [total, resetKey]);
+
+  return count;
 };
 
 export const CropSheetImportModal = ({
@@ -718,7 +754,13 @@ export const CropSheetImportModal = ({
     });
     return [...groups.values()];
   }, [visibleRows]);
-  const revealedPreview = useStreamedReveal(visibleGroups.length, step === "preview");
+  // Filter changes cross-fade the table and scroll it back to the top.
+  const filterKey = `${previewFilter}|${documentScope}`;
+  const previewScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    previewScrollRef.current?.scrollTo({ top: 0 });
+  }, [filterKey]);
+  const revealedPreview = useProgressiveCount(visibleGroups.length, filterKey);
   const revealedReport = useStreamedReveal(report.length, step === "report");
 
   // Asks the database which names already exist, with their aliases, so the preview
@@ -956,6 +998,7 @@ export const CropSheetImportModal = ({
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-[1200px] max-w-[95vw] max-h-[88vh] overflow-hidden flex flex-col">
+        <MotionConfig reducedMotion="user">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -968,9 +1011,10 @@ export const CropSheetImportModal = ({
           </DialogDescription>
         </DialogHeader>
 
+        <AnimatePresence mode="wait" initial={false}>
         {/* ── Step 1: file ───────────────────────────────────────────────── */}
         {step === "upload" && (
-          <div className="flex flex-col gap-3 py-1">
+          <motion.div key="upload" {...stepMotion} className="flex flex-col gap-3 py-1">
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 dark:text-amber-300">
@@ -1129,12 +1173,12 @@ export const CropSheetImportModal = ({
               <Download className="h-3.5 w-3.5" />
               Download sample template
             </Button>
-          </div>
+          </motion.div>
         )}
 
         {/* ── Step 2: preview, grouped as it will be stored ──────────────── */}
         {(step === "preview" || step === "importing") && (
-          <>
+          <motion.div key="preview" {...stepMotion} className="flex min-h-0 flex-1 flex-col">
             {/* File and document summary */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-3 border-b border-gray-100 dark:border-gray-800">
               <FileSpreadsheet className="h-4 w-4 text-gray-400 shrink-0" aria-hidden />
@@ -1167,26 +1211,32 @@ export const CropSheetImportModal = ({
                       ? { label: "Warnings", description: "Optional value missing or special characters in the name; still imports", dotClassName: "bg-amber-500" }
                       : CATEGORY_META[filter];
                 return (
-                  <button
+                  <motion.button whileTap={{ scale: 0.97 }}
                     key={filter}
                     type="button"
                     aria-pressed={isActive}
                     title={meta.description}
                     onClick={() => setPreviewFilter(filter)}
-                    className={`flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                      isActive
-                        ? "border-emerald-500/60 bg-emerald-50/60 dark:bg-emerald-500/[0.08]"
-                        : "border-gray-200 hover:bg-gray-50 dark:border-gray-700/70 dark:hover:bg-white/[0.03]"
+                    className={`relative flex flex-col items-start gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700/70 px-3 py-2 text-left transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                      isActive ? "" : "hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                     }`}
                   >
-                    <span className="text-lg font-semibold leading-none text-gray-900 dark:text-gray-100 tabular-nums">
+                    {isActive && (
+                      <motion.span
+                        layoutId="import-filter-active"
+                        transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                        className="absolute -inset-px rounded-lg border border-emerald-500/70 bg-emerald-50/70 dark:bg-emerald-500/[0.08]"
+                        aria-hidden
+                      />
+                    )}
+                    <span className="relative text-lg font-semibold leading-none text-gray-900 dark:text-gray-100 tabular-nums">
                       {filterCounts[filter]}
                     </span>
-                    <span className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                    <span className="relative flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
                       <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClassName}`} aria-hidden />
                       {meta.label}
                     </span>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -1237,8 +1287,14 @@ export const CropSheetImportModal = ({
               </Tooltip>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
-              <table className="w-full min-w-[1100px] table-fixed text-xs">
+            <div ref={previewScrollRef} className="flex-1 min-h-0 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
+              <motion.table
+                key={filterKey}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="w-full min-w-[1100px] table-fixed text-xs"
+              >
                 <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#161616] shadow-[0_1px_0_0] shadow-gray-200 dark:shadow-gray-700/60">
                   <tr>
                     <th scope="col" className="w-12 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -1282,7 +1338,7 @@ export const CropSheetImportModal = ({
                         : { label: "New document", className: CATEGORY_META.new.pillClassName };
                   const columnCount = TERM_COLUMNS.length + (hasExtras ? 3 : 2);
                   return (
-                    <tbody key={group.key || "missing-name"} className="animate-in fade-in duration-200">
+                    <tbody key={group.key || "missing-name"}>
                       <tr className="border-t border-gray-200 dark:border-gray-700/60 bg-gray-50/70 dark:bg-white/[0.025]">
                         <th scope="rowgroup" colSpan={columnCount} className="px-3 py-2 text-left font-normal">
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -1422,7 +1478,7 @@ export const CropSheetImportModal = ({
                     </tbody>
                   );
                 })}
-              </table>
+              </motion.table>
 
               {visibleGroups.length === 0 && (
                 <div className="flex flex-col items-center gap-2 py-12 text-center">
@@ -1489,12 +1545,12 @@ export const CropSheetImportModal = ({
                 </Button>
               </div>
             )}
-          </>
+          </motion.div>
         )}
 
         {/* ── Step 3: report ─────────────────────────────────────────────── */}
         {step === "report" && (
-          <>
+          <motion.div key="report" {...stepMotion} className="flex min-h-0 flex-1 flex-col">
             <div className="flex flex-wrap gap-4 pb-3 border-b border-gray-100 dark:border-gray-800">
               {(["created", "updated", "skipped", "failed"] as const).map((status) => {
                 const meta = STATUS_META[status];
@@ -1603,8 +1659,10 @@ export const CropSheetImportModal = ({
                 Done
               </Button>
             </div>
-          </>
+          </motion.div>
         )}
+        </AnimatePresence>
+        </MotionConfig>
       </DialogContent>
     </Dialog>
   );
