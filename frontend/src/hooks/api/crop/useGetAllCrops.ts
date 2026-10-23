@@ -13,10 +13,11 @@ interface UseGetAllCropsParams {
   type?: string;
   sort?: AgriTechSort;
   filters?: AgriTechListFilters;
+  enabled?: boolean;
 }
 
 export const useGetAllCrops = (params?: UseGetAllCropsParams) => {
-  const { search = "", page = 1, limit = 10, type, sort = "name_asc", filters } = params ?? {};
+  const { search = "", page = 1, limit = 10, type, sort = "name_asc", filters, enabled = true } = params ?? {};
 
   return useQuery({
     queryKey: ["crops", search, page, limit, type, sort, filters],
@@ -24,5 +25,6 @@ export const useGetAllCrops = (params?: UseGetAllCropsParams) => {
       return await cropService.getAllCrops({ search, page, limit, sort, type, filters });
     },
     placeholderData: (prev) => prev,
+    enabled,
   });
 };
