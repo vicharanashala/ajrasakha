@@ -15,7 +15,7 @@ import {
 import {
   CropImportEntry,
   CropImportResult,
-  selectNewAliases,
+  planAliasMerge,
 } from '../utils/importAliases.js';
 
 @injectable()
@@ -150,12 +150,15 @@ export class CropService extends BaseService implements ICropService {
     existing: ICrop | null,
     userId: string,
   ): Promise<CropImportResult> {
-    const stored = existing?.aliases ?? [];
-    const {fresh, skipped} = selectNewAliases(entry.name, stored, entry.aliases);
+    const {stored, fresh, enriched, skipped} = planAliasMerge(
+      entry.name,
+      existing?.aliases ?? [],
+      entry.aliases,
+    );
     const newScientificName = !existing?.scientificName && entry.scientificName;
 
-    if (existing && !fresh.length && !newScientificName) {
-      return {name: entry.name, status: 'skipped', reason: 'All terms already exist for this entry'};
+    if (existing && !fresh.length && !enriched && !newScientificName) {
+      return {name: entry.name, status: 'skipped', reason: 'All terms and details already exist for this entry'};
     }
 
     // Try the whole entry first; a conflicting term falls back to one-by-one adds.
@@ -187,7 +190,17 @@ export class CropService extends BaseService implements ICropService {
       current = [...current, ...fresh];
     } catch (error: any) {
       if (!(error instanceof BadRequestError)) throw error;
-      if (!existing) {
+      if (existing) {
+        // Save the filled-in details on existing terms before adding new ones singly.
+        await this.cropRepository.updateCrop(
+          entryId!,
+          {
+            aliases: current,
+            ...(newScientificName ? {scientificName: newScientificName} : {}),
+          },
+          userId,
+        );
+      } else {
         // Create the bare entry first so the terms can be added one at a time.
         const created = await this.cropRepository.createCrop(
           entry.name,
@@ -211,8 +224,11 @@ export class CropService extends BaseService implements ICropService {
       }
     }
 
+    const added = fresh.length - conflicts.length;
     const notes = [
-      skipped ? `${skipped} repeated term${skipped === 1 ? '' : 's'} skipped` : '',
+      added ? `${added} new term${added === 1 ? '' : 's'} added` : '',
+      enriched ? `${enriched} existing term${enriched === 1 ? '' : 's'} filled with new details` : '',
+      skipped ? `${skipped} term${skipped === 1 ? '' : 's'} already complete, skipped` : '',
       conflicts.length ? `${conflicts.length} term${conflicts.length === 1 ? '' : 's'} already used by another entry (${conflicts.join(', ')})` : '',
     ].filter(Boolean);
 

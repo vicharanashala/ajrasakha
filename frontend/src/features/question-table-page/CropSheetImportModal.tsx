@@ -13,6 +13,7 @@ import {
   Copy,
   Download,
   FileSpreadsheet,
+  Info,
   Loader2,
   MinusCircle,
   RefreshCw,
@@ -21,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useImportCropEntries } from "@/hooks/api/crop/useImportCropEntries";
 import {
   CropService,
@@ -182,6 +184,9 @@ const COLUMNS: {
     aliases: ["remark", "remarks"],
   },
 ];
+
+/** Entry-level columns; every other column is stored on the vernacular term. */
+const ENTRY_LEVEL_KEYS: FieldKey[] = ["name", "scientificName"];
 
 /** Columns stored on each vernacular term (everything except the entry-level fields). */
 const TERM_COLUMNS = COLUMNS.filter((c) => c.key !== "name" && c.key !== "scientificName");
@@ -842,9 +847,64 @@ export const CropSheetImportModal = ({
             />
 
             <div className="rounded-lg border border-gray-200 dark:border-gray-700/60 px-3 py-2.5">
-              <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-2">
-                Sheet columns <span className="font-normal text-gray-400">(header names must match)</span>
-              </p>
+              <div className="flex items-center gap-1.5 mb-2">
+                <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                  Sheet columns <span className="font-normal text-gray-400">(header names must match)</span>
+                </p>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="How sheet columns are saved"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="start" className="max-w-[480px] p-3">
+                    <p className="text-[11px] font-semibold mb-2">How sheet columns are saved</p>
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="text-left opacity-70">
+                          <th scope="col" className="pr-3 pb-1 font-medium">Sheet column</th>
+                          <th scope="col" className="pr-3 pb-1 font-medium">Saved as</th>
+                          <th scope="col" className="pb-1 font-medium">Where</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {COLUMNS.map((column) => (
+                          <tr key={column.key}>
+                            <td className="pr-3 py-0.5">
+                              {column.header}
+                              {column.required && <span className="text-rose-400"> *</span>}
+                            </td>
+                            <td className="pr-3 py-0.5 font-mono">{column.dbKey}</td>
+                            <td className="py-0.5 opacity-80">
+                              {ENTRY_LEVEL_KEYS.includes(column.key) ? "Document" : "Each term in aliases"}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td className="pr-3 py-0.5">Category</td>
+                          <td className="pr-3 py-0.5 font-mono">not saved</td>
+                          <td className="py-0.5 opacity-80">Type comes from the tab ({entryType})</td>
+                        </tr>
+                        <tr>
+                          <td className="pr-3 py-0.5">Any other column</td>
+                          <td className="pr-3 py-0.5 font-mono">extra_fields.column_name</td>
+                          <td className="py-0.5 opacity-80">Each term in aliases</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p className="mt-2 text-[11px] opacity-80">
+                      Rows with the same Standardized Category Name become one document.
+                      A row matches an existing term when language, region,
+                      english_representation and native_representation are the same; its
+                      empty fields are then filled in, never overwritten.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <ul className="flex flex-wrap gap-1.5" aria-label="Sheet columns">
                 {COLUMNS.map((column) => (
                   <li
