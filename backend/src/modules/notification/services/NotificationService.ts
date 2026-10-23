@@ -6,6 +6,7 @@ import { INotificationRepository } from '#root/shared/database/interfaces/INotif
 import {
   AddPushSubscriptionBody,
   NotificationResponse,
+  PopNotificationEventBody,
 } from '#root/modules/notification/validators/NotificationValidators.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'routing-controllers';
 import {
@@ -47,8 +48,8 @@ export class NotificationService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
-    // @inject(GLOBAL_TYPES.UserRepository)
-    // private readonly userRepo: IUserRepository,
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
 
     // @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     // private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
@@ -476,6 +477,7 @@ export class NotificationService extends BaseService {
     userId: string,
     type: string,
     session?: ClientSession,
+    url?: string,
   ) {
     // return await this._withTransaction(async (session: ClientSession) => {
     await this.notificationRepository.addNotification(
@@ -523,8 +525,82 @@ export class NotificationService extends BaseService {
     // await sendEmailNotification(user.email.toString(), title, message, html);
     await notifyUser(userId, title, subscription, async (endpoint: string) => {
       await this.deleteExpiredSubscriptionForUser(endpoint)
-    });
+    }, undefined, url);
     // });
+  }
+
+  // PoP upload-queue notifications. The queue itself (upload/approve/decline/add-to-db) lives in
+  // the external POP microservice, so this is only ever called by the frontend right after one of
+  // those actions succeeds there — it can't be triggered from inside this backend. `entityId` on
+  // saveTheNotifications is always the triggering user's own id (loosely used as a "related
+  // entity" elsewhere in this file too) since PoP queue item ids aren't guaranteed to be valid
+  // Mongo ObjectIds.
+  async notifyPopEvent(event: PopNotificationEventBody, currentUser: IUser) {
+    const actorId = currentUser._id.toString();
+    // Deep-links the push notification (and, same URL shape the in-app bell already navigates to
+    // on click) straight to the PoP upload queue, instead of the dead '/notifications' page.
+    // TanStack Router's default search codec JSON-encodes each value (confirmed: this app passes
+    // no custom parseSearch/stringifySearch to createRouter in main.tsx, so it's on the default),
+    // so a bare `popQueue=1` parses back as the NUMBER 1, failing the route's `z.string()` schema
+    // with "expected string, received number" — exactly what clicking this URL from the OS-level
+    // push notification hit. `%221%22` is `encodeURIComponent('"1"')`, the same form the in-app
+    // navigate() produces, which JSON.parses back to the STRING "1".
+    const popQueueUrl = '/home?popQueue=%221%22';
+    const notifyAll = (userIds: string[], title: string, message: string, type: string) =>
+      Promise.all(
+        userIds
+          .filter(id => id && id !== actorId)
+          .map(userId => this.saveTheNotifications(message, title, actorId, userId, type, undefined, popQueueUrl)),
+      );
+
+    switch (event.type) {
+      case 'upload_created': {
+        if (!event.approverIds?.length) return;
+        return notifyAll(
+          event.approverIds,
+          'New PoP document awaiting approval',
+          `"${event.itemName}" was uploaded and needs your approval.`,
+          'pop_pending_approval',
+        );
+      }
+      case 'approved': {
+        const admins = await this.userRepo.findAdmins();
+        return notifyAll(
+          admins.map(a => a._id.toString()),
+          'PoP document awaiting admin review',
+          `"${event.itemName}" was approved and needs your review.`,
+          'pop_pending_admin_review',
+        );
+      }
+      case 'admin_rejected': {
+        if (!event.approverIds?.length) return;
+        return notifyAll(
+          event.approverIds,
+          'PoP document rejected',
+          `"${event.itemName}" was rejected by the admin.`,
+          'pop_upload_rejected',
+        );
+      }
+      case 'approver_rejected': {
+        if (!event.uploaderId) return;
+        return notifyAll(
+          [event.uploaderId],
+          'PoP document rejected',
+          `"${event.itemName}" was rejected by the approver.`,
+          'pop_upload_rejected',
+        );
+      }
+      case 'admin_added': {
+        const recipients = [event.uploaderId, event.approverId].filter(Boolean) as string[];
+        if (!recipients.length) return;
+        return notifyAll(
+          recipients,
+          'PoP document published',
+          `"${event.itemName}" was added to the document database.`,
+          'pop_document_published',
+        );
+      }
+    }
   }
 
   async deleteExpiredSubscriptionForUser(endpoint: string) {
