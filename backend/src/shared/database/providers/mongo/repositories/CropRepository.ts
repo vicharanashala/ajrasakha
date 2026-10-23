@@ -3,7 +3,7 @@ import {Collection, ObjectId} from 'mongodb';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
-import {ICrop, ICropAlias, CropType, ALLOWED_CROP_TYPES} from '#root/shared/interfaces/models.js';
+import {ICrop, ICropAlias, CropType, ALLOWED_CROP_TYPES, CropListSort, CropListFilters} from '#root/shared/interfaces/models.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
 
 
@@ -195,11 +195,11 @@ export class CropRepository implements ICropRepository {
 
   async getAllCrops(query?: {
     search?: string;
-    sort?: 'newest' | 'oldest' | 'name_asc' | 'name_desc';
+    sort?: CropListSort;
     page?: number;
     limit?: number;
     type?: CropType;
-  }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
+  } & CropListFilters): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
     try {
       if (!this.CropCollection) await this.init();
 
@@ -243,11 +243,41 @@ export class CropRepository implements ICropRepository {
         ];
       }
 
-      const sortMap: Record<string, Record<string, 1 | -1>> = {
+      // List filters from the AgriTech filter drawer; each one narrows the result further.
+      const conditions: any[] = [];
+      if (query?.aliases === 'with') {
+        conditions.push({aliases: {$exists: true, $ne: []}});
+      } else if (query?.aliases === 'without') {
+        conditions.push({$or: [{aliases: {$exists: false}}, {aliases: {$size: 0}}]});
+      }
+      if (query?.image === 'with') {
+        conditions.push({imageUrl: {$nin: [null, '']}});
+      } else if (query?.image === 'without') {
+        conditions.push({imageUrl: {$in: [null, '']}});
+      }
+      if (query?.status) conditions.push({status: query.status});
+      // Language and region must match on the same alias.
+      if (query?.language || query?.region) {
+        const aliasMatch: Record<string, string> = {};
+        if (query.language) aliasMatch.language = query.language;
+        if (query.region) aliasMatch.region = query.region;
+        conditions.push({aliases: {$elemMatch: aliasMatch}});
+      }
+      if (query?.updatedFrom || query?.updatedTo) {
+        const range: Record<string, Date> = {};
+        if (query.updatedFrom) range.$gte = new Date(query.updatedFrom);
+        if (query.updatedTo) range.$lte = new Date(query.updatedTo);
+        conditions.push({updatedAt: range});
+      }
+      if (conditions.length) filter.$and = [...(filter.$and || []), ...conditions];
+
+      const sortMap: Record<CropListSort, Record<string, 1 | -1>> = {
         newest: {createdAt: -1},
         oldest: {createdAt: 1},
         name_asc: {name: 1},
         name_desc: {name: -1},
+        updated_desc: {updatedAt: -1, name: 1},
+        updated_asc: {updatedAt: 1, name: 1},
       };
       const sortStage = sortMap[query?.sort || 'name_asc'] || {name: 1};
 

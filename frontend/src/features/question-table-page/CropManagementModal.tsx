@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useId } from "react";
+import { useState, useCallback, useRef, useEffect, useId, useMemo } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import {
   Dialog,
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info, History } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info, History, LogOut, Filter, RefreshCcw } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +38,17 @@ import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
 import { OrganizationBulkUploadModal } from "./OrganizationBulkUploadModal";
 import { CropSheetImportModal } from "./CropSheetImportModal";
 import { AgriTechAuditModal } from "./AgriTechAuditModal";
+import {
+  AgriTechFilterDrawer,
+  DEFAULT_AGRITECH_FILTERS,
+  countActiveFilters,
+  toListFilters,
+  type AgriTechFilterState,
+} from "./AgriTechFilterDrawer";
+import type { AgriTechSort } from "@/hooks/services/cropService";
+import { ScrollArea, ScrollBar } from "@/components/atoms/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/atoms/table";
+import { Pagination } from "@/components/pagination";
 
 const cropServiceForStatus = new CropService();
 import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
@@ -127,7 +138,60 @@ const emptyAliasEntry = (): ICropAliasObject => ({
 type CropManagementModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** "page" renders the management UI inline (e.g. in place of the questions table)
+   *  with an Exit button; "modal" (default) renders it in a dialog. */
+  variant?: "modal" | "page";
 };
+
+type ShellProps = { isPage: boolean; children: React.ReactNode };
+
+/** Hosts the management UI in a dialog, or inline as a page section. */
+const ManagementShell = ({
+  isPage,
+  open,
+  onOpenChange,
+  children,
+}: ShellProps & { open: boolean; onOpenChange: (open: boolean) => void }) =>
+  isPage ? (
+    <motion.section
+      aria-labelledby="agritech-management-title"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className="flex h-[calc(100dvh-9rem)] min-h-[560px] flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111] shadow-sm"
+    >
+      {children}
+    </motion.section>
+  ) : (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="w-[80vw] sm:max-w-[80vw] max-w-[95vw] h-[80vh] p-0 flex flex-col overflow-hidden gap-0"
+        showCloseButton={false}
+      >
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+
+/** Dialog header parts outside a Dialog would throw, so the page variant uses plain elements. */
+const ShellHeader = ({ isPage, children }: ShellProps) =>
+  isPage ? <div className="space-y-0.5">{children}</div> : <DialogHeader className="space-y-0.5">{children}</DialogHeader>;
+
+const ShellTitle = ({ isPage, children }: ShellProps) => {
+  const className = "flex items-center gap-2 text-base font-bold";
+  return isPage ? (
+    <h2 id="agritech-management-title" className={className}>{children}</h2>
+  ) : (
+    <DialogTitle className={className}>{children}</DialogTitle>
+  );
+};
+
+const ShellDescription = ({ isPage, children }: ShellProps) =>
+  isPage ? (
+    <p className="text-xs text-gray-500">{children}</p>
+  ) : (
+    <DialogDescription className="text-xs text-gray-500">{children}</DialogDescription>
+  );
 
 // ── AliasEntryForm ────────────────────────────────────────────────────────────
 // Compact form for adding a single new alias entry.
@@ -1037,10 +1101,95 @@ const AliasSection = ({
 // non-organization tab renders like crops.
 type ActiveTab = string;
 
+/** Colour accents for each kind of tab, so every element of a tab matches. */
+const accentOf = (tab: string) =>
+  tab === "chemical"
+    ? { avatar: "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300", action: "hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10" }
+    : tab === "crop"
+      ? { avatar: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300", action: "hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10" }
+      : { avatar: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300", action: "hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10" };
+
+/** Date and author of a create or update, stacked in one cell. */
+const AuditStamp = ({ at, by }: { at?: string; by?: string }) => (
+  <div className="min-w-0">
+    <span className="block truncate text-xs text-gray-700 dark:text-gray-300" title={fmtAuditDate(at)}>
+      {fmtAuditDate(at)}
+    </span>
+    <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500" title={by?.trim() || undefined}>
+      {by?.trim() ? `by ${by.trim()}` : "—"}
+    </span>
+  </div>
+);
+
+/** Entry thumbnail: its uploaded image, otherwise its initial on the tab colour. */
+const EntryAvatar = ({ name, imageUrl, className }: { name: string; imageUrl?: string | null; className: string }) =>
+  imageUrl ? (
+    <img
+      src={imageUrl}
+      alt=""
+      loading="lazy"
+      className="h-8 w-8 shrink-0 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-gray-700"
+    />
+  ) : (
+    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${className}`} aria-hidden>
+      {name.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+
+/** Table row that can animate in, matching the other AgriTech motion. */
+const MotionTableRow = motion.create(TableRow);
+
+/** Header button that toggles between two sort orders, with an arrow like the questions table. */
+const SortHeader = ({
+  label,
+  asc,
+  desc,
+  sort,
+  onSort,
+  align = "center",
+}: {
+  label: string;
+  asc: AgriTechSort;
+  desc: AgriTechSort;
+  sort: AgriTechSort;
+  onSort: (sort: AgriTechSort) => void;
+  align?: "start" | "center";
+}) => (
+  <button
+    type="button"
+    onClick={() => onSort(sort === asc ? desc : asc)}
+    className={`flex items-center gap-1 select-none ${align === "center" ? "mx-auto" : ""}`}
+    aria-label={`Sort by ${label}`}
+  >
+    {label}
+    {sort === asc && <span className="text-sm font-medium">↑</span>}
+    {sort === desc && <span className="text-sm font-medium">↓</span>}
+  </button>
+);
+
+/** Placeholder rows shown while a table is loading. */
+const TableSkeleton = ({ rows = 6 }: { rows?: number }) => (
+  <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden" aria-busy="true" aria-label="Loading">
+    {Array.from({ length: rows }).map((_, i) => (
+      <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800/60 last:border-b-0">
+        <div className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-white/5 animate-pulse" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-white/5 animate-pulse" />
+          <div className="h-2.5 w-1/5 rounded bg-gray-100 dark:bg-white/5 animate-pulse" />
+        </div>
+        <div className="hidden md:block h-3 w-24 rounded bg-gray-100 dark:bg-white/5 animate-pulse" />
+        <div className="hidden md:block h-3 w-24 rounded bg-gray-100 dark:bg-white/5 animate-pulse" />
+      </div>
+    ))}
+  </div>
+);
+
 export const CropManagementModal = ({
   open,
   onOpenChange,
+  variant = "modal",
 }: CropManagementModalProps) => {
+  const isPage = variant === "page";
   // ── Add-form state ──────────────────────────────────────────────────────────
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [newCropName, setNewCropName] = useState("");
@@ -1132,11 +1281,59 @@ export const CropManagementModal = ({
   const tabs: string[] = ["crop", "chemical", ...categories, "other"];
 
   // Data for whichever tab is active (crop / chemical / a category / other=custom types).
-  const { data: tabData, isLoading: isTabLoading, isFetching: isTabFetching } = useGetAllCrops({
+  // List filters (drawer) for the entry tabs; image applies to crops, status to chemicals.
+  const [filterState, setFilterState] = useState<AgriTechFilterState>(DEFAULT_AGRITECH_FILTERS);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterScope = { showImage: activeTab === "crop", showStatus: activeTab === "chemical" };
+  const listFilters = useMemo(
+    () => toListFilters(filterState, filterScope),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filterState, filterScope.showImage, filterScope.showStatus],
+  );
+  const activeFilterCount = countActiveFilters(filterState, filterScope);
+  const updateFilters = (next: AgriTechFilterState) => {
+    setFilterState(next);
+    setPage(1);
+  };
+  const entityNoun = activeTab === "chemical" ? "chemicals" : activeTab === "crop" ? "crops" : labelOf(activeTab).toLowerCase();
+  const SORT_LABELS: Record<AgriTechSort, string> = {
+    name_asc: "Name A to Z",
+    name_desc: "Name Z to A",
+    updated_desc: "Recently updated",
+    updated_asc: "Least recently updated",
+    newest: "Newest first",
+    oldest: "Oldest first",
+  };
+  // One removable chip per active filter, shown under the search bar.
+  const filterChips: { key: string; label: string; reset: Partial<AgriTechFilterState> }[] = [
+    ...(filterState.sort !== DEFAULT_AGRITECH_FILTERS.sort
+      ? [{ key: "sort", label: `Sort: ${SORT_LABELS[filterState.sort]}`, reset: { sort: DEFAULT_AGRITECH_FILTERS.sort } }]
+      : []),
+    ...(listFilters.aliases
+      ? [{ key: "aliases", label: listFilters.aliases === "with" ? "With aliases" : "No aliases", reset: { aliases: "all" as const } }]
+      : []),
+    ...(listFilters.language ? [{ key: "language", label: `Language: ${listFilters.language}`, reset: { language: "all" } }] : []),
+    ...(listFilters.region ? [{ key: "region", label: `State: ${listFilters.region}`, reset: { region: "all" } }] : []),
+    ...(listFilters.image
+      ? [{ key: "image", label: listFilters.image === "with" ? "With image" : "No image", reset: { image: "all" as const } }]
+      : []),
+    ...(listFilters.status ? [{ key: "status", label: `Status: ${listFilters.status}`, reset: { status: "all" } }] : []),
+    ...(listFilters.updatedFrom || listFilters.updatedTo
+      ? [{
+          key: "updated",
+          label: `Updated ${filterState.updatedFrom || "…"} to ${filterState.updatedTo || "…"}`,
+          reset: { updatedFrom: "", updatedTo: "" },
+        }]
+      : []),
+  ];
+
+  const { data: tabData, isLoading: isTabLoading, isFetching: isTabFetching, refetch: refetchTab } = useGetAllCrops({
     search: searchQuery,
     page,
     limit,
     type: activeTab,
+    sort: filterState.sort,
+    filters: listFilters,
   });
 
   // Crop options for the chemical "associated crops" multiselect.
@@ -1324,229 +1521,128 @@ export const CropManagementModal = ({
     }
   };
 
-  // ── Table renderer for crops ────────────────────────────────────────────────
-  const renderCropTable = (items: ICropResponse[], nameLabel = "Crop Name") => (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-[48px_1fr_88px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", nameLabel, "Aliases", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
-          <div
-            key={i}
-            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 2 || i === 7 ? "text-center" : ""}`}
-          >
-            {h}
-          </div>
-        ))}
+  // ── Entry table (crops, chemicals and every category) ─────────────────────
+  // Same table component and row style as the All Questions list; chemicals add a status column.
+  const renderEntryTable = (entries: ICropResponse[], nameLabel: string, showStatus: boolean) => {
+    const accent = accentOf(activeTab);
+    const onSort = (sort: AgriTechSort) => updateFilters({ ...filterState, sort });
+    return (
+      <div className="rounded-lg bg-card border">
+        <ScrollArea className="w-full whitespace-nowrap">
+          <Table containerClassName="overflow-hidden" className="min-w-[900px] table-auto">
+            <TableHeader className="bg-card sticky top-0 z-10">
+              <TableRow>
+                <TableHead className="w-16 text-center">Sl.No</TableHead>
+                <TableHead className="text-start ps-4">
+                  <SortHeader label={nameLabel} asc="name_asc" desc="name_desc" sort={filterState.sort} onSort={onSort} align="start" />
+                </TableHead>
+                <TableHead className="text-center">Aliases</TableHead>
+                {showStatus && <TableHead className="text-center">Status</TableHead>}
+                <TableHead className="text-center">
+                  <SortHeader label="Created" asc="oldest" desc="newest" sort={filterState.sort} onSort={onSort} />
+                </TableHead>
+                <TableHead className="text-center">
+                  <SortHeader label="Last updated" asc="updated_asc" desc="updated_desc" sort={filterState.sort} onSort={onSort} />
+                </TableHead>
+                <TableHead className="text-center">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {entries.map((item, index) => {
+                const aliasCount = (item.aliases || []).length;
+                const status = item.status ?? null;
+                return (
+                  <MotionTableRow
+                    {...rowMotion(index)}
+                    key={item._id || item.name}
+                    className={`text-center transition-colors duration-200 hover:bg-muted/50 ${isTabFetching ? "opacity-60" : ""}`}
+                  >
+                    <TableCell className="align-middle text-center p-4 text-muted-foreground tabular-nums">
+                      {(page - 1) * limit + index + 1}
+                    </TableCell>
+                    <TableCell className="align-middle text-start ps-4">
+                      <div className="flex items-center gap-3 min-w-0 max-w-[340px]">
+                        <EntryAvatar name={item.name} imageUrl={item.imageUrl} className={accent.avatar} />
+                        <div className="min-w-0">
+                          <span title={item.name} className="block truncate text-sm font-semibold text-foreground">
+                            {item.name}
+                          </span>
+                          {item.scientificName && (
+                            <span title={item.scientificName} className="block truncate text-xs italic text-muted-foreground">
+                              {item.scientificName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <span
+                        className={`inline-flex min-w-[28px] justify-center rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
+                          aliasCount ? "bg-muted text-foreground" : "text-muted-foreground/60"
+                        }`}
+                        title={`${aliasCount} alias${aliasCount === 1 ? "" : "es"}`}
+                      >
+                        {aliasCount}
+                      </span>
+                    </TableCell>
+                    {showStatus && (
+                      <TableCell className="align-middle">
+                        {status ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 ring-inset ${
+                            status.toLowerCase() === "banned"
+                              ? "bg-red-50 text-red-600 ring-red-200 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
+                              : status.toLowerCase() === "restricted"
+                                ? "bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:ring-yellow-500/20"
+                                : "bg-muted text-muted-foreground ring-border"
+                          }`}>
+                            {status}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/60">—</span>
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell className="align-middle">
+                      <div className="mx-auto w-fit text-start"><AuditStamp at={item.createdAt} by={item.createdByName} /></div>
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <div className="mx-auto w-fit text-start"><AuditStamp at={item.updatedAt} by={item.updatedByName} /></div>
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <CropAuditTrailModal crop={item} />
+                        <button
+                          type="button"
+                          className={`p-1.5 rounded-md text-gray-400 dark:text-gray-500 transition-all ${accent.action}`}
+                          onClick={() => setAliasManagerCrop(item)}
+                          title="Manage aliases"
+                          aria-label={`Manage aliases for ${item.name}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </MotionTableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
-      {/* Rows */}
-      {items.map((item, index) => {
-        const id = item._id || item.name;
-        const aliasCount = (item.aliases || []).length;
-        return (
-          <motion.div {...rowMotion(index)}
-            key={id}
-            className={`grid grid-cols-[48px_1fr_88px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
-              index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
-            }`}
-          >
-            {/* Sl No */}
-            <div className="px-3 py-2.5 text-xs text-gray-400 dark:text-gray-500 font-medium">
-              {index + 1}
-            </div>
-            {/* Crop Name */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.name}
-                className="text-sm font-semibold text-gray-900 dark:text-white truncate block"
-              >
-                {item.name}
-              </span>
-              {item.scientificName ? (
-                <span
-                  title={item.scientificName}
-                  className="text-[11px] italic text-gray-400 dark:text-gray-500 truncate block"
-                >
-                  {item.scientificName}
-                </span>
-              ) : null}
-            </div>
-            {/* Aliases Count */}
-            <div className="px-3 py-2.5 text-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {aliasCount}
-              </span>
-            </div>
-            {/* Created At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.createdAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.createdAt)}
-              </span>
-            </div>
-            {/* Created By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.createdByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.createdByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Updated At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.updatedAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.updatedAt)}
-              </span>
-            </div>
-            {/* Updated By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.updatedByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.updatedByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Manage Aliases */}
-            <div className="px-3 py-2.5 flex items-center justify-center gap-0.5">
-              <CropAuditTrailModal crop={item} />
-              <button
-                className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-all"
-                onClick={() => setAliasManagerCrop(item)}
-                title="Manage Aliases"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </motion.div>
-        );
-      })}
-    </div>
-  );
+    );
+  };
 
-  // ── Table renderer for chemicals ────────────────────────────────────────────
-  const renderChemicalTable = (items: ICropResponse[]) => (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-[48px_1fr_88px_92px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", "Chemical Name", "Aliases", "Status", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
-          <div
-            key={i}
-            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 2 || i === 8 ? "text-center" : ""}`}
-          >
-            {h}
-          </div>
-        ))}
-      </div>
-      {/* Rows */}
-      {items.map((item, index) => {
-        const id = item._id || item.name;
-        const aliasCount = (item.aliases || []).length;
-        const status = item.status ?? null;
-        return (
-          <motion.div {...rowMotion(index)}
-            key={id}
-            className={`grid grid-cols-[48px_1fr_88px_92px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
-              index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
-            }`}
-          >
-            {/* Sl No */}
-            <div className="px-3 py-2.5 text-xs text-gray-400 dark:text-gray-500 font-medium">
-              {index + 1}
-            </div>
-            {/* Chemical Name */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.name}
-                className="text-sm font-semibold text-gray-900 dark:text-white truncate block"
-              >
-                {item.name}
-              </span>
-            </div>
-            {/* Aliases Count */}
-            <div className="px-3 py-2.5 text-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {aliasCount}
-              </span>
-            </div>
-            {/* Status */}
-            <div className="px-3 py-2.5">
-              {status ? (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border leading-tight ${
-                  status.toLowerCase() === "banned"
-                    ? "bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20"
-                    : status.toLowerCase() === "restricted"
-                    ? "bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/20"
-                    : "bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700/60"
-                }`}>
-                  {status}
-                </span>
-              ) : (
-                <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
-              )}
-            </div>
-            {/* Created At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.createdAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.createdAt)}
-              </span>
-            </div>
-            {/* Created By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.createdByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.createdByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Updated At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.updatedAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.updatedAt)}
-              </span>
-            </div>
-            {/* Updated By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.updatedByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.updatedByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Manage Aliases */}
-            <div className="px-3 py-2.5 flex items-center justify-center gap-0.5">
-              <CropAuditTrailModal crop={item} />
-              <button
-                className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all"
-                onClick={() => setAliasManagerCrop(item)}
-                title="Manage Aliases"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </motion.div>
-        );
-      })}
-    </div>
-  );
+  const renderCropTable = (entries: ICropResponse[], nameLabel = "Crop Name") =>
+    renderEntryTable(entries, nameLabel, false);
+  const renderChemicalTable = (entries: ICropResponse[]) =>
+    renderEntryTable(entries, "Chemical Name", true);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <MotionConfig reducedMotion="user">
-      <Dialog
+      <ManagementShell
+        isPage={isPage}
         open={open}
         onOpenChange={(val) => {
           if (!val) {
@@ -1556,21 +1652,17 @@ export const CropManagementModal = ({
           onOpenChange(val);
         }}
       >
-        <DialogContent
-          className="w-[80vw] sm:max-w-[80vw] max-w-[95vw] h-[80vh] p-0 flex flex-col overflow-hidden gap-0"
-          showCloseButton={false}
-        >
           {/* ── Header ─────────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
-            <DialogHeader className="space-y-0.5">
-              <DialogTitle className="flex items-center gap-2 text-base font-bold">
+            <ShellHeader isPage={isPage}>
+              <ShellTitle isPage={isPage}>
                 <Cpu className="h-[18px] w-[18px] text-amber-600 dark:text-amber-400" />
                 AgriTech Management
-              </DialogTitle>
-              <DialogDescription className="text-xs text-gray-500">
+              </ShellTitle>
+              <ShellDescription isPage={isPage}>
                 Manage crop names &amp; aliases
-              </DialogDescription>
-            </DialogHeader>
+              </ShellDescription>
+            </ShellHeader>
 
             <div className="flex items-center gap-2">
               <Button
@@ -1602,6 +1694,22 @@ export const CropManagementModal = ({
                 />
                 {isAddFormOpen ? "Cancel" : "AgriTech Item"}
               </Button>
+              {isPage ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    resetAll();
+                    setAliasManagerCrop(null);
+                    onOpenChange(false);
+                  }}
+                  className="h-8 text-xs gap-1.5 hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/40 dark:hover:text-rose-400"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Exit
+                </Button>
+              ) : (
               <button
                 onClick={() => onOpenChange(false)}
                 className="group h-8 w-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-gray-200 dark:border-gray-800 hover:border-rose-200 dark:hover:border-rose-800/30 text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 shadow-sm transition-all duration-300 focus:outline-none"
@@ -1609,6 +1717,7 @@ export const CropManagementModal = ({
               >
                 <X className="h-4 w-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" />
               </button>
+              )}
             </div>
           </div>
 
@@ -1966,40 +2075,117 @@ export const CropManagementModal = ({
               </div>
             ) : (
               <>
-                <div className="px-5 pt-3 pb-1 flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                    <Input
-                      id="agritech-search"
-                      placeholder={isChemical ? "Search chemicals..." : activeTab === "crop" ? "Search crops..." : `Search ${labelOf(activeTab).toLowerCase()}...`}
-                      value={searchInput}
-                      onChange={handleSearchChange}
-                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
-                    />
-                    {isTabFetching && !isTabLoading && (
-                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                <div className="mx-5 mt-4 px-4 pt-3 pb-2 border rounded-lg bg-card flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2 w-full">
+                    <div className="w-full max-w-xs sm:max-w-sm min-w-0">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="agritech-search"
+                          aria-label={`Search ${entityNoun}`}
+                          placeholder={`Search ${entityNoun} or aliases...`}
+                          value={searchInput}
+                          onChange={handleSearchChange}
+                          className="pl-9 pr-9 bg-background text-sm"
+                        />
+                        {searchInput && (
+                          <button
+                            type="button"
+                            aria-label="Clear search"
+                            onClick={() => { setSearchInput(""); setSearchQuery(""); setPage(1); }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1" />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label="Refresh"
+                          onClick={() => void refetchTab()}
+                          className="h-9 w-9 flex-shrink-0"
+                        >
+                          <RefreshCcw className={`h-4 w-4 text-muted-foreground ${isTabFetching ? "animate-spin text-primary" : ""}`} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Refresh</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label="Filters"
+                          onClick={() => setIsFilterOpen(true)}
+                          className="relative h-9 w-9 flex-shrink-0"
+                        >
+                          <Filter className="h-4 w-4" />
+                          {activeFilterCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-semibold text-white">
+                              {activeFilterCount}
+                            </span>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Filters</TooltipContent>
+                    </Tooltip>
+                    {!isChemical && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsSheetImportOpen(true)}
+                        className="h-9 text-xs shrink-0"
+                      >
+                        <Upload className="h-4 w-4" />
+                        <span className="hidden sm:inline">Import</span>
+                      </Button>
                     )}
                   </div>
-                  {!isChemical && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsSheetImportOpen(true)}
-                      className="h-8 text-xs shrink-0"
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                      Import
-                    </Button>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {isTabLoading ? "Loading..." : `${tabData?.totalCount ?? items.length} ${entityNoun}`}
+                      {searchQuery && !isTabLoading ? ` matching "${searchQuery}"` : ""}
+                    </span>
+                    {filterChips.map((chip) => (
+                      <span
+                        key={chip.key}
+                        className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] text-foreground"
+                      >
+                        {chip.label}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${chip.label}`}
+                          onClick={() => updateFilters({ ...filterState, ...chip.reset })}
+                          className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                    {filterChips.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => updateFilters(DEFAULT_AGRITECH_FILTERS)}
+                        className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="px-5 py-3">
                   {isTabLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className={`h-5 w-5 animate-spin ${isChemical ? "text-purple-400" : activeTab === "crop" ? "text-amber-400" : "text-blue-400"}`} />
-                    </div>
+                    <TableSkeleton />
                   ) : items.length === 0 ? (
-                    <div className="text-center py-12">
+                    <div className="text-center py-14 rounded-xl border border-dashed border-gray-200 dark:border-gray-700/60">
                       {isChemical ? (
                         <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                       ) : activeTab === "crop" ? (
@@ -2008,10 +2194,34 @@ export const CropManagementModal = ({
                         <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                       )}
                       <p className="text-sm text-gray-400 dark:text-gray-500">
-                        {searchQuery
-                          ? `No entries matching "${searchQuery}"`
+                        {searchQuery || activeFilterCount
+                          ? `No ${entityNoun} match your search or filters`
                           : `No ${isChemical ? "chemicals" : activeTab === "crop" ? "crops" : labelOf(activeTab).toLowerCase()} added yet`}
                       </p>
+                      {(searchQuery || activeFilterCount > 0) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-4 h-8 text-xs"
+                          onClick={() => { updateFilters(DEFAULT_AGRITECH_FILTERS); setSearchInput(""); setSearchQuery(""); }}
+                        >
+                          Clear search and filters
+                        </Button>
+                      )}
+                      {!searchQuery && !activeFilterCount && (
+                        <div className="mt-4 flex justify-center gap-2">
+                          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setIsAddFormOpen(true)}>
+                            <Plus className="h-3.5 w-3.5" />
+                            Add manually
+                          </Button>
+                          {!isChemical && (
+                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setIsSheetImportOpen(true)}>
+                              <Upload className="h-3.5 w-3.5" />
+                              Import sheet
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : isChemical ? (
                     renderChemicalTable(items)
@@ -2024,9 +2234,9 @@ export const CropManagementModal = ({
             {/* 🏢 ORGANIZATIONS TAB */}
             {activeTab === "organization" && (
               <>
-                <div className="px-5 pt-3 pb-1">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="relative flex-1">
+                <div className="px-5 pt-4 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 max-w-xl">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                       <Input
                         placeholder="Search organizations..."
@@ -2057,15 +2267,6 @@ export const CropManagementModal = ({
                       Fetch KVKs
                     </Button>
                   </div>
-                  <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 font-semibold text-xs text-gray-500">
-                    <div>Organization Name</div>
-                    <div>Type</div>
-                    <div>State</div>
-                    <div>District</div>
-                    <div>Address</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  
                   <AnimatePresence initial={false}>
                   {isAddFormOpen && (
                     <motion.div key="org-add-form" {...collapseMotion} className="overflow-hidden">
@@ -2129,16 +2330,50 @@ export const CropManagementModal = ({
                   )}
                   </AnimatePresence>
 
-                  <div className="flex flex-col gap-0 border rounded-xl overflow-hidden mt-3 dark:border-gray-800">
+                  {isOrgLoading && !orgData ? (
+                    <div className="mt-3"><TableSkeleton /></div>
+                  ) : (
+                  <div className="mt-3 rounded-lg bg-card border">
+                    <ScrollArea className="w-full whitespace-nowrap">
+                    <Table containerClassName="overflow-hidden" className="min-w-[800px] table-auto">
+                      <TableHeader className="bg-card sticky top-0 z-10">
+                        <TableRow>
+                          <TableHead className="w-16 text-center">Sl.No</TableHead>
+                          <TableHead className="text-start ps-4">Organization</TableHead>
+                          <TableHead className="text-center">Type</TableHead>
+                          <TableHead className="text-center">State</TableHead>
+                          <TableHead className="text-center">District</TableHead>
+                          <TableHead className="text-center">Address</TableHead>
+                          <TableHead className="text-center">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                     {orgData?.organizations?.map((org: any, i: number) => (
-                      <motion.div {...rowMotion(i)} key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className={`grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 items-center p-3 text-xs transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""}`}>
-                        <div className="font-medium text-gray-900 dark:text-gray-100">{org.org_name}</div>
-                        <div className="text-gray-600 dark:text-gray-400 capitalize">{org.type || "-"}</div>
-                        <div className="text-gray-600 dark:text-gray-400">{org.state}</div>
-                        <div className="text-gray-600 dark:text-gray-400">{org.district || "-"}</div>
-                        <div className="text-gray-600 dark:text-gray-400 truncate" title={org.address}>{org.address || "-"}</div>
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10" onClick={() => {
+                      <MotionTableRow {...rowMotion(i)} key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className="text-center transition-colors duration-200 hover:bg-muted/50">
+                        <TableCell className="align-middle text-center p-4 text-muted-foreground tabular-nums">
+                          {(orgPage - 1) * orgLimit + i + 1}
+                        </TableCell>
+                        <TableCell className="align-middle text-start ps-4">
+                          <div className="flex items-center gap-3 min-w-0 max-w-[320px]">
+                            <EntryAvatar name={org.org_name ?? ""} className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" />
+                            <span className="truncate text-sm font-semibold text-foreground" title={org.org_name}>{org.org_name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-middle">
+                          {org.type ? (
+                            <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium capitalize text-foreground">{org.type}</span>
+                          ) : (
+                            <span className="text-muted-foreground/60">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="align-middle text-muted-foreground">{org.state || "—"}</TableCell>
+                        <TableCell className="align-middle text-muted-foreground">{org.district || "—"}</TableCell>
+                        <TableCell className="align-middle text-muted-foreground">
+                          <span className="mx-auto block max-w-[260px] truncate" title={org.address}>{org.address || "—"}</span>
+                        </TableCell>
+                        <TableCell className="align-middle">
+                        <div className="flex justify-center gap-1">
+                          <Button variant="ghost" size="sm" aria-label={`Edit ${org.org_name}`} className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10" onClick={() => {
                             setOrgEditId(typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id));
                             setOrgName(org.org_name);
                             setOrgType(org.type || "");
@@ -2149,16 +2384,25 @@ export const CropManagementModal = ({
                           }}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10" onClick={() => setOrgToDelete(org)}>
+                          <Button variant="ghost" size="sm" aria-label={`Delete ${org.org_name}`} className="h-7 w-7 p-0 text-gray-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10" onClick={() => setOrgToDelete(org)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </motion.div>
+                        </TableCell>
+                      </MotionTableRow>
                     ))}
+                      </TableBody>
+                    </Table>
+                    <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
                     {!isOrgLoading && orgData?.organizations?.length === 0 && (
-                      <div className="text-center py-8 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">No organizations found.</div>
+                      <div className="text-center py-12 text-xs text-gray-500 dark:text-gray-400">
+                        <Building2 className="h-7 w-7 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                        {orgSearchQuery ? `No organizations matching "${orgSearchQuery}"` : "No organizations added yet"}
+                      </div>
                     )}
                   </div>
+                  )}
                 </div>
               </>
             )}
@@ -2167,74 +2411,16 @@ export const CropManagementModal = ({
 
           </div>
 
-          {/* ── Pagination Footer (fixed inside modal) ──────────────────────── */}
-          {!isOther && totalPages > 1 && (
-            <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] px-4 py-2 flex items-center justify-end gap-2 flex-wrap">
-              {/* Items per page */}
-              <div className="relative">
-                <Select
-                  value={limit.toString()}
-                  onValueChange={(v) => { setLimit(Number(v)); setPage(1); }}
-                >
-                  <SelectTrigger className="h-6 w-[62px] text-[11px] px-2 border-gray-200 dark:border-gray-700" size="sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[12, 25, 50, 100].map((v) => (
-                      <SelectItem key={v} value={v.toString()} className="text-xs">{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Prev */}
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              {/* Page numbers */}
-              {(() => {
-                const MAX = 5;
-                let start = page > MAX ? page : 1;
-                let end = Math.min(start + MAX - 1, totalPages);
-                const pages = [];
-                for (let i = start; i <= end; i++) pages.push(i);
-                return (
-                  <>
-                    {pages.map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={`h-6 w-6 text-[11px] rounded border transition-colors ${
-                          p === page
-                            ? "bg-emerald-500 border-emerald-500 text-white font-semibold"
-                            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                    {end < totalPages && (
-                      <button
-                        onClick={() => setPage(end + 1)}
-                        className="h-6 w-6 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                      >
-                        ...
-                      </button>
-                    )}
-                  </>
-                );
-              })()}
-              {/* Next */}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
+          {/* ── Pagination footer (same component as the All Questions list) ─ */}
+          {activeTab !== "organization" && !isOther && totalPages > 1 && (
+            <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 px-5 pb-3">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(p) => setPage(p)}
+                limit={limit}
+                onLimitChange={(v) => { setLimit(v); setPage(1); }}
+              />
             </div>
           )}
           
@@ -2255,77 +2441,18 @@ export const CropManagementModal = ({
               }
             }}
           />
-          {activeTab === "organization" && orgData?.totalPages > 1 && (
-            <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] px-4 py-2 flex items-center justify-end gap-2 flex-wrap">
-              {/* Items per page */}
-              <div className="relative">
-                <Select
-                  value={orgLimit.toString()}
-                  onValueChange={(v) => { setOrgLimit(Number(v)); setOrgPage(1); }}
-                >
-                  <SelectTrigger className="h-6 w-[62px] text-[11px] px-2 border-gray-200 dark:border-gray-700" size="sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[12, 25, 50, 100].map((v) => (
-                      <SelectItem key={v} value={v.toString()} className="text-xs">{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Prev */}
-              <button
-                onClick={() => setOrgPage((p) => Math.max(1, p - 1))}
-                disabled={orgPage === 1}
-                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              {/* Page numbers */}
-              {(() => {
-                const MAX = 5;
-                let start = orgPage > MAX ? orgPage : 1;
-                let end = Math.min(start + MAX - 1, orgData.totalPages);
-                const pages = [];
-                for (let i = start; i <= end; i++) pages.push(i);
-                return (
-                  <>
-                    {pages.map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setOrgPage(p)}
-                        className={`h-6 w-6 text-[11px] rounded border transition-colors ${
-                          p === orgPage
-                            ? "bg-emerald-500 border-emerald-500 text-white font-semibold"
-                            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                    {end < orgData.totalPages && (
-                      <button
-                        onClick={() => setOrgPage(end + 1)}
-                        className="h-6 w-6 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                      >
-                        ...
-                      </button>
-                    )}
-                  </>
-                );
-              })()}
-              {/* Next */}
-              <button
-                onClick={() => setOrgPage((p) => Math.min(orgData.totalPages, p + 1))}
-                disabled={orgPage === orgData.totalPages}
-                className="h-6 px-2 text-[11px] rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
+          {activeTab === "organization" && (orgData?.totalPages ?? 0) > 1 && (
+            <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 px-5 pb-3">
+              <Pagination
+                currentPage={orgPage}
+                totalPages={orgData?.totalPages ?? 1}
+                onPageChange={(p) => setOrgPage(p)}
+                limit={orgLimit}
+                onLimitChange={(v) => { setOrgLimit(v); setOrgPage(1); }}
+              />
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+      </ManagementShell>
 
       {/* ── Alias Manager Sub-Modal ─────────────────────────────────────────── */}
       {aliasManagerCrop && (
@@ -2337,6 +2464,18 @@ export const CropManagementModal = ({
       )}
 
       <AgriTechAuditModal open={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
+
+      <AgriTechFilterDrawer
+        open={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        value={filterState}
+        onChange={updateFilters}
+        languages={INDIAN_LANGUAGES.map((lang) => lang.en)}
+        states={(statesList ?? []).map((state) => state.stateNameEnglish)}
+        showImage={filterScope.showImage}
+        showStatus={filterScope.showStatus}
+        entityLabel={entityNoun}
+      />
 
       <CropSheetImportModal
         open={isSheetImportOpen}

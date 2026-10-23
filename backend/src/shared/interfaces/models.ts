@@ -863,6 +863,22 @@ export interface ICropAlias {
 
 export type CropType = 'crop' | 'chemical' | (string & {});
 
+export const CROP_LIST_SORTS = ['newest', 'oldest', 'name_asc', 'name_desc', 'updated_desc', 'updated_asc'] as const;
+export type CropListSort = (typeof CROP_LIST_SORTS)[number];
+
+/** Optional filters for the AgriTech list; an absent field means no filter. */
+export interface CropListFilters {
+  aliases?: 'with' | 'without';
+  image?: 'with' | 'without';
+  status?: string;
+  /** Matches entries with at least one alias in this language (and region, when both are given). */
+  language?: string;
+  region?: string;
+  /** ISO timestamps bounding updatedAt. */
+  updatedFrom?: string;
+  updatedTo?: string;
+}
+
 /** Crop-side entry types that share the crop structure (title-casing, alias merge,
  *  uniqueness). 'chemical' is handled separately and is intentionally not listed here.
  *

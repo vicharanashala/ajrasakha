@@ -132,6 +132,8 @@ type QuestionsFiltersProps = {
   dedicatedSubTab?: DedicatedSubTab;
   onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
   isFetching?: boolean;
+  /** Opens AgriTech Management in place of the questions table; falls back to the modal. */
+  onOpenAgriTech?: () => void;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
@@ -193,6 +195,7 @@ export const QuestionsFilters = ({
   dedicatedSubTab,
   onDedicatedSubTabChange,
   isFetching = false,
+  onOpenAgriTech,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -1215,7 +1218,8 @@ export const QuestionsFilters = ({
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
-                    setIsCropModalOpen(true);
+                    if (onOpenAgriTech) onOpenAgriTech();
+                    else setIsCropModalOpen(true);
                     setIsSidebarOpen(false);
                   }}
                 >

@@ -59,6 +59,26 @@ export interface IGetAllCropsResponse {
   totalPages: number;
 }
 
+export type AgriTechSort =
+  | "name_asc"
+  | "name_desc"
+  | "updated_desc"
+  | "updated_asc"
+  | "newest"
+  | "oldest";
+
+/** Optional list filters sent as query params; undefined means "no filter". */
+export interface AgriTechListFilters {
+  aliases?: "with" | "without";
+  image?: "with" | "without";
+  status?: string;
+  language?: string;
+  region?: string;
+  /** ISO timestamps bounding updatedAt. */
+  updatedFrom?: string;
+  updatedTo?: string;
+}
+
 export interface IUpdateCropPayload {
   name?: string;
   aliases?: (ICropAlias | string)[];
@@ -210,10 +230,11 @@ export class CropService {
 
   async getAllCrops(query?: {
     search?: string;
-    sort?: string;
+    sort?: AgriTechSort;
     page?: number;
     limit?: number;
     type?: string;
+    filters?: AgriTechListFilters;
   }): Promise<IGetAllCropsResponse | null> {
     const params = new URLSearchParams();
     if (query?.search) params.append("search", query.search);
@@ -221,6 +242,9 @@ export class CropService {
     if (query?.page) params.append("page", query.page.toString());
     if (query?.limit) params.append("limit", query.limit.toString());
     if (query?.type) params.append("type", query.type);
+    Object.entries(query?.filters ?? {}).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
 
     return apiFetch<IGetAllCropsResponse>(`${this._baseUrl}?${params.toString()}`);
   }
