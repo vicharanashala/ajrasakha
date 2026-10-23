@@ -39,6 +39,7 @@ import { OrganizationBulkUploadModal } from "./OrganizationBulkUploadModal";
 import { CropSheetImportModal } from "./CropSheetImportModal";
 import { AgriTechAuditModal } from "./AgriTechAuditModal";
 import { AgriTechShortcutsDialog } from "./AgriTechShortcutsDialog";
+import { EntryDetailsDialog } from "./EntryDetailsDialog";
 import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 import {
   AgriTechFilterDrawer,
@@ -1644,6 +1645,8 @@ export const CropManagementModal = ({
     setIsAddFormOpen(false);
     setAliasManagerCrop(item);
   };
+  // Row clicks open a read-only view; editing starts only from the pencil action.
+  const [viewEntry, setViewEntry] = useState<ICropResponse | null>(null);
   const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
 
   const handleSave = async () => {
@@ -1811,12 +1814,14 @@ export const CropManagementModal = ({
                   .filter(Boolean);
                 const status = item.status ?? null;
                 const isSelected =
-                  !!aliasManagerCrop && (aliasManagerCrop._id ?? aliasManagerCrop.name) === (item._id ?? item.name);
+                  [aliasManagerCrop, viewEntry].some(
+                    (open) => !!open && (open._id ?? open.name) === (item._id ?? item.name),
+                  );
                 return (
                   <MotionTableRow
                     {...rowMotion(index)}
                     key={item._id || item.name}
-                    onClick={() => openEntry(item)}
+                    onClick={() => setViewEntry(item)}
                     aria-selected={isSelected}
                     className={`text-center cursor-pointer transition-colors duration-200 ${
                       isSelected ? "bg-muted" : "hover:bg-muted/50"
@@ -1874,7 +1879,7 @@ export const CropManagementModal = ({
                             {aliasNames.length > 3 && (
                               <button
                                 type="button"
-                                onClick={() => openEntry(item)}
+                                onClick={(e) => { e.stopPropagation(); setViewEntry(item); }}
                                 title={aliasNames.slice(3).join(", ")}
                                 className="inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
                               >
@@ -1895,8 +1900,8 @@ export const CropManagementModal = ({
                           type="button"
                           className={`p-1.5 rounded-md text-gray-400 dark:text-gray-500 transition-all ${accent.action}`}
                           onClick={() => openEntry(item)}
-                          title="Manage aliases"
-                          aria-label={`Manage aliases for ${item.name}`}
+                          title="Edit"
+                          aria-label={`Edit ${item.name}`}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -2850,6 +2855,14 @@ export const CropManagementModal = ({
 
       <AgriTechAuditModal open={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
       <AgriTechShortcutsDialog open={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} />
+      <EntryDetailsDialog
+        entry={viewEntry}
+        onClose={() => setViewEntry(null)}
+        onEdit={(entry) => { setViewEntry(null); openEntry(entry); }}
+        typeLabel={viewEntry?.type === "chemical" ? "Chemical" : labelOf(viewEntry?.type ?? "crop")}
+        avatarClassName={accentOf(viewEntry?.type ?? "crop").avatar}
+        editButtonClassName={accentOf(viewEntry?.type ?? "crop").button}
+      />
 
       <AgriTechFilterDrawer
         open={isFilterOpen}
