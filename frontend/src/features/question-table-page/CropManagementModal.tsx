@@ -2101,7 +2101,7 @@ export const CropManagementModal = ({
                       setAliasManagerCrop(null);
                       onOpenChange(false);
                     }}
-                    className="h-9 text-xs gap-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+                    className="h-9 text-xs gap-1.5 border border-red-200 bg-red-50 text-red-700 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:border-red-500 dark:hover:bg-red-500 dark:hover:text-white"
                   >
                     <LogOut className="h-4 w-4" />
                     Exit
