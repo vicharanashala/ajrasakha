@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info, History, LogOut, Filter, RefreshCcw, ImageOff, Bug, Microscope, Sprout, Droplets, Flower2, ThermometerSun, ClipboardList, Mountain } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload, Info, History, LogOut, Filter, RefreshCcw, ImageOff, Bug, Microscope, Sprout, Droplets, Flower2, ThermometerSun, ClipboardList, Mountain, Keyboard } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +38,8 @@ import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
 import { OrganizationBulkUploadModal } from "./OrganizationBulkUploadModal";
 import { CropSheetImportModal } from "./CropSheetImportModal";
 import { AgriTechAuditModal } from "./AgriTechAuditModal";
+import { AgriTechShortcutsDialog } from "./AgriTechShortcutsDialog";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 import {
   AgriTechFilterDrawer,
   DEFAULT_AGRITECH_FILTERS,
@@ -1914,6 +1916,63 @@ export const CropManagementModal = ({
   const renderChemicalTable = (entries: ICropResponse[]) =>
     renderEntryTable(entries, "Chemical Name", true);
 
+  // ── Keyboard shortcuts (page view only; paused while a dialog or drawer is open) ──
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const navigableTabs = [...tabs.filter((t) => t !== "other"), "organization"];
+  const isOrgTab = activeTab === "organization";
+  const switchTabBy = (offset: number) => {
+    const current = Math.max(0, navigableTabs.indexOf(activeTab));
+    const next = (current + offset + navigableTabs.length) % navigableTabs.length;
+    handleTabSwitch(navigableTabs[next]);
+  };
+  const changePageBy = (offset: number) => {
+    if (isOrgTab) {
+      const last = orgData?.totalPages ?? 1;
+      setOrgPage((p) => Math.min(last, Math.max(1, p + offset)));
+    } else if (!isOther) {
+      setPage((p) => Math.min(totalPages, Math.max(1, p + offset)));
+    }
+  };
+  useKeyboardShortcuts(
+    [
+      { key: "/", handler: () => document.getElementById("agritech-search")?.focus() },
+      { key: "?", handler: () => setIsShortcutsOpen(true) },
+      { key: "n", handler: () => { setAliasManagerCrop(null); setIsAddFormOpen(true); } },
+      {
+        key: "i",
+        handler: () => {
+          if (isOrgTab) setIsOrgImportOpen(true);
+          else if (!isChemical && !isOther) setIsSheetImportOpen(true);
+        },
+      },
+      { key: "f", handler: () => { if (!isOrgTab && !isOther) setIsFilterOpen(true); } },
+      { key: "a", handler: () => setIsAuditOpen(true) },
+      { key: "r", handler: () => { if (!isOrgTab && !isOther) void refetchTab(); } },
+      { key: "[", handler: () => switchTabBy(-1) },
+      { key: "]", handler: () => switchTabBy(1) },
+      { key: "ArrowLeft", handler: () => changePageBy(-1) },
+      { key: "ArrowRight", handler: () => changePageBy(1) },
+      ...Array.from({ length: 9 }, (_, i) => ({
+        key: String(i + 1),
+        handler: () => { if (navigableTabs[i]) handleTabSwitch(navigableTabs[i]); },
+      })),
+      {
+        key: "Escape",
+        allowInInputs: true,
+        handler: (event: KeyboardEvent) => {
+          if (aliasManagerCrop) setAliasManagerCrop(null);
+          else if (isAddFormOpen) setIsAddFormOpen(false);
+          else if (event.target instanceof HTMLElement && event.target.id === "agritech-search") {
+            setSearchInput(""); setSearchQuery(""); setPage(1);
+            event.target.blur();
+          }
+        },
+      },
+    ],
+    // Dialogs and the filter drawer handle their own keys, so page shortcuts wait.
+    () => isPage && !document.querySelector('[role="dialog"], [role="alertdialog"]'),
+  );
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <MotionConfig reducedMotion="user">
@@ -1945,6 +2004,23 @@ export const CropManagementModal = ({
 
               {/* Page actions: secondary on the left, the primary action last before Exit */}
               <div className="flex flex-wrap items-center gap-2">
+                {isPage && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Keyboard shortcuts"
+                        onClick={() => setIsShortcutsOpen(true)}
+                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                      >
+                        <Keyboard className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+                  </Tooltip>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -2773,6 +2849,7 @@ export const CropManagementModal = ({
       </ManagementShell>
 
       <AgriTechAuditModal open={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
+      <AgriTechShortcutsDialog open={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} />
 
       <AgriTechFilterDrawer
         open={isFilterOpen}
