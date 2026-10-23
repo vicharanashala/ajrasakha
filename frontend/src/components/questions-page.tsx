@@ -642,7 +642,12 @@ export const QuestionsPage = ({
   };
 
   return (
-    <main className={"mx-auto w-full p-4 md:p-6 space-y-6"}>
+    <main
+      className={`mx-auto w-full p-4 md:p-6 space-y-6 ${
+        // AgriTech Management sits closer to the navbar than the questions list.
+        isAgriTechOpen && !selectedQuestionId ? "!pt-0.5 md:!pt-1" : ""
+      }`}
+    >
       {selectedQuestionId ? (
         isLoadingSelectedQuestion ? (
           <div className="flex items-center justify-center min-h-[60vh]">
