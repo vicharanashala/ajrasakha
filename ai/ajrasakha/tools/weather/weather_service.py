@@ -26,6 +26,7 @@ DEFAULT_MAUSAM_BASE = os.getenv(
 ).rstrip("/")
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
+GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 NOMINATIM_UA = os.getenv("NOMINATIM_USER_AGENT", "IMD-Weather-Wrapper/1.0 (internal)")
 
 STATE_NAME_TO_SID: dict[str, int] = {
@@ -200,6 +201,89 @@ class LatLonWeatherService:
         r.raise_for_status()
         return r.json()
 
+    @staticmethod
+    def _google_key() -> str:
+        return os.getenv("GEOCODE_APIKEY", "")
+
+    def _google_reverse(self, lat: float, lon: float) -> dict[str, Any] | None:
+        """Google reverse geocoding mapped to the same shape as the Nominatim result."""
+        key = self._google_key()
+        if not key:
+            return None
+        try:
+            r = requests.get(
+                GOOGLE_GEOCODE_URL,
+                params={"latlng": f"{lat},{lon}", "key": key, "region": "in"},
+                timeout=self.timeout,
+            )
+            data = r.json()
+            results = data.get("results") or []
+            if data.get("status") != "OK" or not results:
+                logger.warning("Google reverse geocode status=%r for (%s, %s)", data.get("status"), lat, lon)
+                return None
+            comps: dict[str, str] = {}
+            country_code = None
+            for res in results:
+                for c in res.get("address_components", []):
+                    for t in c.get("types", []):
+                        comps.setdefault(t, c.get("long_name"))
+                        if t == "country":
+                            country_code = country_code or c.get("short_name")
+            if (country_code or "IN").upper() != "IN":
+                logger.warning("Reverse geocode (%s, %s) resolved outside India (%s); ignoring.", lat, lon, country_code)
+                return {
+                    "display_name": None, "state": None, "iso_3166_2": None,
+                    "district_guess": None, "country": "India", "raw_address": {},
+                }
+            state = comps.get("administrative_area_level_1")
+            district = comps.get("administrative_area_level_2")
+            district_guess = (
+                district
+                or comps.get("locality")
+                or comps.get("sublocality_level_1")
+                or comps.get("administrative_area_level_3")
+            )
+            raw = {
+                "state": state,
+                "state_district": district,
+                "county": district,
+                "city": comps.get("locality"),
+                "village": comps.get("sublocality_level_1") or comps.get("administrative_area_level_3"),
+                "country": comps.get("country"),
+                "country_code": "in",
+            }
+            return {
+                "display_name": results[0].get("formatted_address"),
+                "state": state,
+                "iso_3166_2": None,
+                "district_guess": district_guess,
+                "country": comps.get("country"),
+                "raw_address": {k: v for k, v in raw.items() if v},
+            }
+        except Exception as ex:
+            logger.warning("Google reverse geocode failed for (%s, %s): %s", lat, lon, ex)
+            return None
+
+    def _google_forward(self, q: str) -> tuple[float | None, float | None, str | None] | None:
+        key = self._google_key()
+        if not key:
+            return None
+        try:
+            r = requests.get(
+                GOOGLE_GEOCODE_URL,
+                params={"address": q, "key": key, "region": "in", "components": "country:IN"},
+                timeout=self.timeout,
+            )
+            data = r.json()
+            results = data.get("results") or []
+            if data.get("status") == "OK" and results:
+                loc = results[0]["geometry"]["location"]
+                return float(loc["lat"]), float(loc["lng"]), results[0].get("formatted_address")
+            logger.warning("Google forward geocode status=%r for %r", data.get("status"), q)
+        except Exception as ex:
+            logger.warning("Google forward geocode failed for %r: %s", q, ex)
+        return None
+
     def reverse_geocode(self, lat: float, lon: float) -> dict[str, Any]:
         """OSM Nominatim reverse geocoding for location context with in-memory caching."""
         cache_key = f"{round(lat, 4)},{round(lon, 4)}"
@@ -208,6 +292,12 @@ class LatLonWeatherService:
         if cache_key in self._reverse_geo_cache:
             return self._reverse_geo_cache[cache_key]
 
+        g = self._google_reverse(lat, lon)
+        if g is not None:
+            self._reverse_geo_cache[cache_key] = g
+            return g
+
+        # Fallback: OSM Nominatim (only when Google is unavailable)
         headers = {"User-Agent": NOMINATIM_UA}
         params = {"lat": lat, "lon": lon, "format": "json", "zoom": 10}
         fallback_res = {
@@ -225,6 +315,18 @@ class LatLonWeatherService:
             if r.status_code == 200:
                 data = r.json()
                 addr = data.get("address") or {}
+                if (addr.get("country_code") or "in").lower() != "in":
+                    # Border-area coordinates can reverse-geocode into a neighbouring
+                    # country (e.g. Tripura -> Bangladesh). This service is India-only,
+                    # so discard the foreign place and let callers use the profile
+                    # state/district instead.
+                    logger.warning(
+                        "Reverse geocode (%s, %s) resolved outside India (%s); ignoring.",
+                        lat, lon, addr.get("country"),
+                    )
+                    res = dict(fallback_res, display_name=None)
+                    self._reverse_geo_cache[cache_key] = res
+                    return res
                 district_guess = (
                     addr.get("state_district")
                     or addr.get("county")
@@ -304,6 +406,12 @@ class LatLonWeatherService:
         if cache_key in self._forward_geo_cache:
             return self._forward_geo_cache[cache_key]
 
+        g = self._google_forward(q)
+        if g is not None:
+            self._forward_geo_cache[cache_key] = g
+            return g
+
+        # Fallback: OSM Nominatim (only when Google is unavailable)
         headers = {"User-Agent": NOMINATIM_UA}
         params = {"q": q, "format": "json", "limit": 1}
         try:
@@ -673,7 +781,9 @@ class LatLonWeatherService:
                 "temperature_c": row.get("Temperature"),
                 "feel_like_c": row.get("Feel Like"),
                 "humidity_pct": row.get("Humidity"),
-                "wind_speed_kmph": row.get("Wind Speed KMPH") or row.get("Wind Speed"),
+                "wind_speed_kmph": (
+                    row.get("Wind Speed KMPH") if row.get("Wind Speed KMPH") is not None else row.get("Wind Speed")
+                ),
                 # IMD current_wx Wind Direction is a code (0/20/50/…/360), not continuous degrees.
                 "wind_direction_code": row.get("Wind Direction"),
                 "mslp": row.get("Mean Sea Level Pressure") or row.get("M.S.L.P"),

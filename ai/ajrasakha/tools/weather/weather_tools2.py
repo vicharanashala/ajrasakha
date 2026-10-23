@@ -64,7 +64,7 @@ logger = logging.getLogger("ajrasakha-weather-mcp2")
 
 mcp = FastMCP(
     "ajrasakha-weather-mcp2",
-    instructions="Provides 6 specialized weather tools for agricultural queries (WS history first for today/history).",
+    instructions="Provides 7 specialized weather tools for agricultural queries (WS history first for today/history).",
 )
 
 WS_BASE_URL = os.getenv(
@@ -773,6 +773,15 @@ def _aggregate_ws_history_by_date(
         max_t = max(temps) if temps else None
         rain_total = round(sum(delta for _, _, delta in items), 1)
         coverage_h = (items[-1][0] - items[0][0]).total_seconds() / 3600.0
+
+        def _series(key: str) -> list[float]:
+            return [v for v in (_ws_safe_float(r.get(key)) for r in rows) if v is not None]
+
+        def _avg(vals: list[float]) -> float | None:
+            return round(sum(vals) / len(vals), 1) if vals else None
+
+        winds, gusts = _series("WindSpeed"), _series("WindGust")
+        hums, press = _series("Humidity"), _series("AtmPressure")
         daily[date_str] = {
             "date": date_str,
             "station": _ws_station_label(latest),
@@ -783,6 +792,14 @@ def _aggregate_ws_history_by_date(
             "observed_max_temp": max_t,
             "min_temp": min_t,
             "max_temp": max_t,
+            "avg_temp": _avg(temps),
+            "avg_wind_speed_mps": _avg(winds),
+            "max_wind_speed_mps": round(max(winds), 1) if winds else None,
+            "max_wind_gust_mps": round(max(gusts), 1) if gusts else None,
+            "avg_humidity_pct": _avg(hums),
+            "min_humidity_pct": min(hums) if hums else None,
+            "max_humidity_pct": max(hums) if hums else None,
+            "avg_atm_pressure": _avg(press),
             "past_24hrs_rainfall": rain_total,
             "observed_past_24hrs_rainfall": rain_total,
             "humidity_0830": _ws_humidity_near(items, date_str, 8, 30),
@@ -1154,6 +1171,66 @@ def _get_ws_today_and_history(lat: float, lon: float) -> dict[str, Any] | None:
     return None
 
 
+def _imd_wind(svc, lat: float, lon: float, imd_current: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Nearest usable IMD wind reading (<=50 km): current_wx station first, then IMD AWS.
+
+    ~40% of current_wx stations publish a null wind speed, while the AWS feed almost always has it,
+    so a null on the nearest current_wx station falls through to AWS. IMD reports km/h.
+    """
+    def _pick(res: Any, label: str) -> dict[str, Any] | None:
+        if not (isinstance(res, dict) and res.get("success")):
+            return None
+        dist = _ws_safe_float(res.get("distance_km"))
+        st = res.get("station") or {}
+        kmph = _ws_safe_float(st.get("wind_speed_kmph"))
+        if dist is None or dist > 50.0 or kmph is None:
+            return None
+        direction = st.get("wind_direction") or describe_wind_direction(st.get("wind_direction_code")) or None
+        return {
+            "wind_speed_kmph": round(kmph, 1),
+            "wind_speed_mps": round(kmph / 3.6, 2),
+            "wind_direction": direction,
+            "station": st.get("name"),
+            "distance_km": dist,
+            "imd_feed": label,
+            "data_source": DATA_SOURCE_IMD,
+        }
+
+    if imd_current is None:
+        imd_current = _fetch_imd_current_wx(svc, lat, lon)
+    found = _pick(imd_current, "current_wx")
+    if found:
+        return found
+    try:
+        geo = svc.reverse_geocode(lat, lon) or {}
+        aws = svc.get_nearest_aws(lat, lon, geo.get("state"), geo.get("raw_address"))
+    except Exception as exc:
+        logger.warning("IMD AWS wind fallback failed: %s", exc)
+        return None
+    return _pick(aws, "aws")
+
+
+def _fill_wind_from_imd(svc, lat: float, lon: float, today: dict[str, Any]) -> None:
+    """Fill missing wind fields on `today` from IMD (Annam sensor null, or IMD-only bundle)."""
+    if not isinstance(today, dict) or today.get("wind_speed_mps") is not None:
+        return
+    w = _imd_wind(svc, lat, lon)
+    if not w:
+        return
+    today["wind_speed_mps"] = w["wind_speed_mps"]
+    today["wind_speed_kmph"] = w["wind_speed_kmph"]
+    if today.get("wind_direction") is None:
+        today["wind_direction"] = w["wind_direction"]
+    today["wind_source"] = DATA_SOURCE_IMD
+
+
+def _wind_phrase(kmph: Any, direction: Any = None) -> str:
+    v = _ws_safe_float(kmph)
+    if v is None:
+        return ""
+    return f"{direction + ' ' if direction else ''}{v:g} kmph"
+
+
 def _get_forecast_bundle_ws_first(svc, lat: float, lon: float) -> dict[str, Any]:
     """
     Build a forecast-bundle-compatible dict.
@@ -1202,6 +1279,7 @@ def _get_forecast_bundle_ws_first(svc, lat: float, lon: float) -> dict[str, Any]
         today.setdefault("forecast_max_temp", today.get("observed_max_temp"))
 
         today["data_source"] = DATA_SOURCE_ANNAM
+        _fill_wind_from_imd(svc, lat, lon, today)
         ws_meta = {
             "raw_history_count": ws.get("raw_history_count"),
             "source": DATA_SOURCE_ANNAM,
@@ -1237,6 +1315,7 @@ def _get_forecast_bundle_ws_first(svc, lat: float, lon: float) -> dict[str, Any]
         today_imd = out.get("today")
         if isinstance(today_imd, dict):
             today_imd["data_source"] = DATA_SOURCE_IMD
+            _fill_wind_from_imd(svc, lat, lon, today_imd)
         return out
 
     return {"success": False, "error": "No weather data from Annam Weather Station or IMD", "history_by_date": {}}
@@ -1641,6 +1720,9 @@ async def get_current_and_forecast_info(
                 wind_desc = cst.get("wind_direction") or describe_wind_direction(
                     cst.get("wind_direction_code") or cst.get("wind_direction_deg")
                 )
+                if _ws_safe_float(cst.get("wind_speed_kmph")) is None and today_raw.get("wind_speed_kmph") is not None:
+                    cst = dict(cst, wind_speed_kmph=today_raw.get("wind_speed_kmph"))
+                    wind_desc = wind_desc or today_raw.get("wind_direction")
                 human_sum = (
                     f"Today's Weather in {place_label}: "
                     f"Temp: {cst.get('temperature_c', today_raw.get('observed_min_temp', 'N/A'))}°C, "
@@ -1651,6 +1733,21 @@ async def get_current_and_forecast_info(
                 )
             else:
                 human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {_fmt_rain_val(today_raw.get('past_24hrs_rainfall', '0.0'))} mm, Condition: {cond}."
+
+        wind_info = None
+        if isinstance(today_raw, dict):
+            w_mps = _ws_safe_float(today_raw.get("wind_speed_mps"))
+            if w_mps is not None:
+                wind_info = {
+                    "wind_speed_kmph": round(_ws_safe_float(today_raw.get("wind_speed_kmph")) or w_mps * 3.6, 1),
+                    "wind_speed_mps": w_mps,
+                    "wind_direction": today_raw.get("wind_direction"),
+                    "data_source": today_raw.get("wind_source") or today_raw.get("data_source"),
+                }
+        if wind_info is None and not (target_date or from_date) and qt not in {"previous", "forecast"}:
+            wind_info = _imd_wind(svc, actual_lat, actual_lon, imd_current)
+        if wind_info and not (target_date or from_date) and qt not in {"previous", "forecast"} and "kmph" not in human_sum:
+            human_sum += f" Wind: {_wind_phrase(wind_info['wind_speed_kmph'], wind_info.get('wind_direction'))}."
 
         ws_ctx = _build_ws_nearest_station_context(
             actual_lat, actual_lon, location or district or state or resolved_name, today_raw if data_source_today == "ws" else None
@@ -1664,6 +1761,8 @@ async def get_current_and_forecast_info(
             "weather_data": result_payload,
             "data_source": result_payload.get("data_source") or _label_data_source(data_source_today),
         }
+        if wind_info:
+            res_dict["wind"] = wind_info
         if result_payload.get("forecast_data_source"):
             res_dict["forecast_data_source"] = result_payload["forecast_data_source"]
             if result_payload.get("forecast_station"):
@@ -2771,7 +2870,8 @@ async def get_weather_nowcast(
         )
         live_temp = cur_st.get("temperature_c") or aws_st.get("temperature_c") or "N/A"
         live_hum = cur_st.get("humidity_pct") or aws_st.get("humidity_pct") or "N/A"
-        live_wind = cur_st.get("wind_direction") or aws_st.get("wind_direction") or ""
+        wind = _imd_wind(svc, actual_lat, actual_lon, imd_current)
+        live_wind = _wind_phrase(wind["wind_speed_kmph"], wind.get("wind_direction")) if wind else ""
 
         # Farmer-friendly nowcast rain likelihood message
         friendly_nowcast = _farmer_friendly_nowcast(live_msg, active_warnings if active_warnings else None)
@@ -2782,12 +2882,14 @@ async def get_weather_nowcast(
                 f"{friendly_nowcast} "
                 f"Warning for {place_label} (next {window_h} hours): {warn_str}. "
                 f"Valid upto: {valid_upto or 'next 3 hours'}."
+                f"{(' Current wind: ' + live_wind + '.') if live_wind else ''}"
             )
         else:
             temp_str = f"Temperature: {live_temp}°C" if live_temp and live_temp != "N/A" else ""
             hum_str = f"Humidity: {live_hum}%" if live_hum and live_hum != "N/A" else ""
             cond_str = live_msg if live_msg and live_msg != "Normal / Clear Sky" else ""
-            detail_parts = [p for p in [cond_str, temp_str, hum_str] if p]
+            wind_str = f"Wind: {live_wind}" if live_wind else ""
+            detail_parts = [p for p in [cond_str, temp_str, hum_str, wind_str] if p]
             detail_str = " | ".join(detail_parts)
             nowcast_summary = (
                 f"{friendly_nowcast}"
@@ -2807,6 +2909,8 @@ async def get_weather_nowcast(
             "raw_record": rec,
             "data_source": DATA_SOURCE_IMD,
         }
+        if wind:
+            res_dict["wind"] = wind
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
         if include_nearby_stations and aws and aws.get("success"):
@@ -3037,6 +3141,273 @@ async def get_weather_alerts(
 
 
 # --------------------------------------------------------------------------
+# TOOL 7: get_weather_history_insights
+#   hottest / coldest day of the last 7 days, and any single metric
+#   (temperature, rainfall, wind speed, humidity, pressure) for today /
+#   yesterday / tomorrow / a specific date.
+# --------------------------------------------------------------------------
+# metric -> (label, unit, [(field, label)], field used for "highest", field used for "lowest")
+_HISTORY_METRICS: dict[str, dict[str, Any]] = {
+    "temperature": {
+        "unit": "°C",
+        "fields": {"min_temp": "Min", "max_temp": "Max", "avg_temp": "Avg"},
+        "high": "max_temp", "low": "min_temp",
+    },
+    "rainfall": {
+        "unit": "mm",
+        "fields": {"past_24hrs_rainfall": "Total"},
+        "high": "past_24hrs_rainfall", "low": "past_24hrs_rainfall",
+    },
+    "wind_speed": {
+        "unit": "m/s",
+        "fields": {"avg_wind_speed_mps": "Avg", "max_wind_speed_mps": "Max", "max_wind_gust_mps": "Max gust"},
+        "high": "max_wind_speed_mps", "low": "avg_wind_speed_mps",
+    },
+    "humidity": {
+        "unit": "%",
+        "fields": {"avg_humidity_pct": "Avg", "min_humidity_pct": "Min", "max_humidity_pct": "Max"},
+        "high": "max_humidity_pct", "low": "min_humidity_pct",
+    },
+    "pressure": {
+        "unit": "hPa",
+        "fields": {"avg_atm_pressure": "Avg"},
+        "high": "avg_atm_pressure", "low": "avg_atm_pressure",
+    },
+}
+_METRIC_ALIASES = {
+    "temp": "temperature", "heat": "temperature", "hot": "temperature", "cold": "temperature",
+    "rain": "rainfall", "precipitation": "rainfall",
+    "wind": "wind_speed", "windspeed": "wind_speed", "wind speed": "wind_speed",
+    "humid": "humidity", "atm_pressure": "pressure", "atmospheric_pressure": "pressure",
+}
+
+
+def _resolve_relative_date(value: str, today: datetime) -> str | None:
+    """'today' / 'yesterday' / 'tomorrow' / 'day before yesterday' / YYYY-MM-DD -> YYYY-MM-DD."""
+    v = (value or "").strip().lower()
+    offsets = {"today": 0, "now": 0, "yesterday": -1, "tomorrow": 1, "day before yesterday": -2, "day after tomorrow": 2}
+    if v in offsets:
+        return (today + timedelta(days=offsets[v])).strftime("%Y-%m-%d")
+    try:
+        return datetime.strptime(v[:10], "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _day_metrics(rec: dict[str, Any], metric: str | None) -> dict[str, Any]:
+    """Pick the requested metric fields (all metrics when metric is None) from a daily record."""
+    out: dict[str, Any] = {"date": rec.get("date")}
+    for m in ([metric] if metric else list(_HISTORY_METRICS)):
+        spec = _HISTORY_METRICS[m]
+        vals = {label: rec.get(field) for field, label in spec["fields"].items() if rec.get(field) is not None}
+        if vals:
+            out[m] = {**vals, "unit": spec["unit"]}
+    if rec.get("is_partial_day"):
+        out["is_partial_day"] = True
+    return out
+
+
+def _extreme(records: list[dict[str, Any]], field: str, *, highest: bool) -> dict[str, Any] | None:
+    cands = [r for r in records if r.get(field) is not None]
+    if not cands:
+        return None
+    best = max(cands, key=lambda r: r[field]) if highest else min(cands, key=lambda r: r[field])
+    return {"date": best["date"], "value": best[field], "is_partial_day": bool(best.get("is_partial_day"))}
+
+
+@mcp.tool()
+async def get_weather_history_insights(
+    lat: Optional[float] = None,
+    long: Optional[float] = None,
+    location: Optional[str] = None,
+    district: Optional[str] = None,
+    state: Optional[str] = None,
+    date: Optional[str] = None,
+    metric: Optional[str] = None,
+    days: int = 7,
+    language: str = "en",
+) -> dict:
+    """
+    Past-week weather insights from the nearest Annam weather station (last 7 days only).
+    - No `date`: daily records for the last `days` (max 7) plus extremes — hottest day, coldest day,
+      wettest day, windiest day, most humid day. Use for "was it hot/cold this week", "hottest day", "coldest day".
+    - `date`: 'today', 'yesterday', 'tomorrow' or YYYY-MM-DD -> that day's values.
+      Past/today dates come from station records; tomorrow only has IMD min/max temperature + sky forecast.
+    - `metric`: temperature | rainfall | wind_speed | humidity | pressure. Omit for all metrics.
+      With no `date`, the extremes then focus on that metric (e.g. highest wind speed this week).
+    """
+    logger.info("get_weather_history_insights | location=%s, dist=%s, state=%s, date=%s, metric=%s, days=%s",
+                location, district, state, date, metric, days)
+    metric_key = None
+    if metric:
+        m = metric.strip().lower().replace("-", "_")
+        metric_key = _METRIC_ALIASES.get(m, m)
+        if metric_key not in _HISTORY_METRICS:
+            return {
+                "success": False,
+                "error": "invalid_metric",
+                "message": f"Unknown metric '{metric}'. Use one of: {', '.join(_HISTORY_METRICS)}.",
+            }
+
+    svc = get_service()
+    actual_lat, actual_lon, resolved_name = _resolve_coordinates(lat, long, location, district, state)
+    if actual_lat is None or actual_lon is None:
+        return {
+            "success": False,
+            "location_unresolved": True,
+            "error": "location_unresolved",
+            "message": LOCATION_UNRESOLVED_MESSAGE,
+            "notice": LOCATION_UNRESOLVED_MESSAGE,
+        }
+
+    def _run():
+        bundle = _get_forecast_bundle_ws_first(svc, actual_lat, actual_lon)
+        if not bundle.get("success"):
+            return {"success": False, "error": "no_weather_data", "message": bundle.get("error") or "No weather data available."}
+
+        today_raw = bundle.get("today") or {}
+        history = bundle.get("history_by_date") or {}
+        base_dt = datetime.strptime(_today_ist_str(), "%Y-%m-%d")
+        today_str = base_dt.strftime("%Y-%m-%d")
+        place = location or district or state or resolved_name or "Location"
+        has_station = bundle.get("data_source_today") == "ws"
+
+        res: dict[str, Any] = {
+            "success": True,
+            "insight_type": "history_insights",
+            "resolved_location": _build_resolved_location_name(location, district, resolved_name, requested_state=state),
+            "data_source": bundle.get("data_source") or DATA_SOURCE_IMD,
+            "station": today_raw.get("station"),
+            "distance_to_station_km": today_raw.get("distance_to_station_km"),
+            "units_note": "Wind speed in m/s (multiply by 3.6 for km/h).",
+        }
+        if metric_key:
+            res["metric"] = metric_key
+        if bundle.get("annam_unavailable_note"):
+            res["annam_unavailable_note"] = bundle["annam_unavailable_note"]
+
+        # ---------------- Single date ----------------
+        if date:
+            d_str = _resolve_relative_date(date, base_dt)
+            if d_str is None:
+                return {"success": False, "error": "invalid_date", "message": f"Could not understand date '{date}'. Use today, yesterday, tomorrow or YYYY-MM-DD."}
+            res["date"] = d_str
+
+            if d_str > today_str:
+                fc = next((it for it in bundle.get("forecast") or []
+                           if (base_dt + timedelta(days=int(it.get("day", 2)) - 1)).strftime("%Y-%m-%d") == d_str), None)
+                if not fc:
+                    last = (base_dt + timedelta(days=6)).strftime("%Y-%m-%d")
+                    res["notice"] = f"Notice: IMD forecasts only cover {today_str} to {last}; nothing is available for {d_str}."
+                    return res
+                res["timeframe"] = "forecast"
+                res["forecast"] = {
+                    "date": d_str, "min_temp": fc.get("min_temp"), "max_temp": fc.get("max_temp"),
+                    "condition": fc.get("forecast"), "data_source": DATA_SOURCE_IMD,
+                }
+                if metric_key in {"rainfall", "wind_speed", "humidity", "pressure"}:
+                    res["notice"] = (
+                        f"Notice: The IMD forecast for {d_str} gives only min/max temperature and a sky condition; "
+                        f"a numeric {metric_key.replace('_', ' ')} value is not available. Read the condition text for rain hints."
+                    )
+                res["summary"] = (
+                    f"Forecast for {d_str} in {place}: Min {fc.get('min_temp')}°C, Max {fc.get('max_temp')}°C, "
+                    f"{fc.get('forecast') or 'no condition text'} (IMD)."
+                )
+                return res
+
+            rec = history.get(d_str)
+            if rec is None and today_raw.get("date") == d_str and has_station:
+                rec = today_raw
+            if rec is None:
+                res["notice"] = (
+                    f"Notice: No station records for {d_str} at {place} (Annam history covers only the last 7 days)."
+                    if has_station else
+                    f"Notice: Annam station history is unavailable near {place}; IMD has no past daily archive."
+                )
+                if d_str == today_str:
+                    res["today_forecast"] = {"min_temp": today_raw.get("forecast_min_temp"),
+                                             "max_temp": today_raw.get("forecast_max_temp"),
+                                             "condition": today_raw.get("forecast")}
+                return res
+
+            res["timeframe"] = "today" if d_str == today_str else "past"
+            res["day"] = _day_metrics(rec, metric_key)
+            if d_str == today_str:
+                live = {
+                    "temperature_c": today_raw.get("current_temp_c"),
+                    "humidity_pct": today_raw.get("humidity_pct"),
+                    "wind_speed_mps": today_raw.get("wind_speed_mps"),
+                    "wind_direction": today_raw.get("wind_direction"),
+                    "wind_gust_mps": today_raw.get("wind_gust_mps"),
+                    "atm_pressure": today_raw.get("atm_pressure"),
+                    "rainfall_last_24h_mm": today_raw.get("past_24hrs_rainfall"),
+                    "observed_at": today_raw.get("observation_timestamp"),
+                }
+                res["live_reading"] = {k: v for k, v in live.items() if v is not None}
+                res["note_today"] = "Today's day record covers readings so far (midnight to now)."
+            if rec.get("is_partial_day"):
+                res["notice"] = f"Notice: Records for {d_str} start partway through the day, so min/max and rainfall may be understated."
+            res["summary"] = f"{d_str} in {place}: " + "; ".join(
+                f"{k.replace('_', ' ')} " + ", ".join(f"{lbl} {v}" for lbl, v in vals.items() if lbl != "unit") + f" {vals['unit']}"
+                for k, vals in res["day"].items() if isinstance(vals, dict)
+            ) + "."
+            return res
+
+        # ---------------- Last N days + extremes ----------------
+        n = max(1, min(7, int(days or 7)))
+        window = [(base_dt - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(n - 1, -1, -1)]
+        records = [dict(history[d], date=d) for d in window if d in history]
+        if not records:
+            res["notice"] = (
+                f"Notice: No Annam station history available near {place}; hottest/coldest-day analysis needs "
+                f"station records (IMD has no past daily archive)."
+            )
+            return res
+
+        res["window"] = {"from": window[0], "to": window[-1], "days_with_data": len(records)}
+        res["daily"] = [_day_metrics(r, metric_key) for r in records]
+        extremes: dict[str, Any] = {}
+        want = [metric_key] if metric_key else list(_HISTORY_METRICS)
+        for m in want:
+            spec = _HISTORY_METRICS[m]
+            hi, lo = _extreme(records, spec["high"], highest=True), _extreme(records, spec["low"], highest=False)
+            if m == "temperature":
+                extremes["hottest_day"] = {**hi, "metric": "max_temp", "unit": "°C"} if hi else None
+                extremes["coldest_day"] = {**lo, "metric": "min_temp", "unit": "°C"} if lo else None
+            elif m == "rainfall":
+                extremes["wettest_day"] = {**hi, "unit": "mm"} if hi and hi["value"] > 0 else None
+                extremes["driest_day"] = {**lo, "unit": "mm"} if lo else None
+                extremes["total_rainfall_mm"] = round(sum(r.get("past_24hrs_rainfall") or 0 for r in records), 1)
+            else:
+                extremes[f"highest_{m}_day"] = {**hi, "metric": spec["high"], "unit": spec["unit"]} if hi else None
+                extremes[f"lowest_{m}_day"] = {**lo, "metric": spec["low"], "unit": spec["unit"]} if lo else None
+        res["extremes"] = {k: v for k, v in extremes.items() if v is not None}
+
+        parts = []
+        if (h := res["extremes"].get("hottest_day")):
+            parts.append(f"hottest day {h['date']} ({h['value']}°C)")
+        if (c := res["extremes"].get("coldest_day")):
+            parts.append(f"coldest day {c['date']} ({c['value']}°C)")
+        if (w := res["extremes"].get("wettest_day")):
+            parts.append(f"wettest day {w['date']} ({w['value']} mm)")
+        for k, v in res["extremes"].items():
+            if isinstance(v, dict) and k not in {"hottest_day", "coldest_day", "wettest_day"}:
+                parts.append(f"{k.replace('_', ' ')} {v['date']} ({v['value']} {v['unit']})")
+        if parts:
+            res["summary"] = f"Last {len(records)} days in {place} ({window[0]} to {window[-1]}): " + ", ".join(parts) + "."
+        partial = [r["date"] for r in records if r.get("is_partial_day")]
+        if partial:
+            res["notice"] = (f"Notice: {', '.join(partial)} starts partway through the day, so its min/max "
+                             f"and rainfall may be understated.")
+        if len(records) < n:
+            _append_notice(res, f"Station records exist for only {len(records)} of the last {n} days.")
+        return res
+
+    return await asyncio.to_thread(_run)
+
+
+# --------------------------------------------------------------------------
 # Direct Python Async Functions for Internal Imports
 # --------------------------------------------------------------------------
 async def call_current_and_forecast_info(**kwargs) -> dict:
@@ -3056,6 +3427,9 @@ async def call_weather_nowcast(**kwargs) -> dict:
 
 async def call_weather_alerts(**kwargs) -> dict:
     return await get_weather_alerts(**kwargs)
+
+async def call_weather_history_insights(**kwargs) -> dict:
+    return await get_weather_history_insights(**kwargs)
 
 
 if __name__ == "__main__":

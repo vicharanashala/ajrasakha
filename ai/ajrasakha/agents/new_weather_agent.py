@@ -27,6 +27,7 @@ from ajrasakha.tools.weather.weather_tools2 import (
     call_location_weather,
     call_weather_nowcast,
     call_weather_alerts,
+    call_weather_history_insights,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ _ALLOWED_WEATHER_TOOLS = frozenset({
     "get_rainfall_and_monsoon_info",
     "get_temperature_info",
     "get_current_and_forecast_info",
+    "get_weather_history_insights",
 })
 
 _IST = timezone(timedelta(hours=5, minutes=30))
@@ -150,6 +152,7 @@ async def _invoke_mcp_or_direct(tool_name: str, arguments: dict) -> dict:
         "get_temperature_info": call_temperature_info,
         "get_rainfall_and_monsoon_info": call_rainfall_and_monsoon_info,
         "get_current_and_forecast_info": call_current_and_forecast_info,
+        "get_weather_history_insights": call_weather_history_insights,
     }
     fn = direct_map.get(tool_name, call_current_and_forecast_info)
     return await fn(**arguments)
@@ -215,6 +218,41 @@ _RAINFALL_KEYWORDS = [
 ]
 
 
+# Week-extreme questions ("hottest day this week") and metrics only the station history has
+# (wind speed, gusts, pressure) go to get_weather_history_insights.
+_INSIGHT_EXTREME_KEYWORDS = [
+    "hottest", "coldest", "warmest", "coolest", "windiest", "wettest", "driest", "most humid",
+    "hot or cold", "hot and cold", "hotter", "colder",
+]
+_INSIGHT_METRIC_KEYWORDS = ["wind", "windy", "gust", "pressure", "hawa"]
+_INSIGHT_RANGE_EXTREME_RE = re.compile(
+    r"\b(?:highest|lowest|maximum|minimum|max|min|peak)\b.{0,30}\b(?:temp|temperature|rain|rainfall|humidity)\b"
+    r".{0,40}\b(?:week|days?|yesterday|past|last)\b"
+    r"|\b(?:week|days?|yesterday|past|last)\b.{0,40}\b(?:highest|lowest|maximum|minimum|max|min|peak)\b"
+    r".{0,30}\b(?:temp|temperature|rain|rainfall|humidity)\b",
+)
+
+
+def _is_insight_extreme_query(q: str) -> bool:
+    return _has_keyword(q, _INSIGHT_EXTREME_KEYWORDS) or bool(_INSIGHT_RANGE_EXTREME_RE.search(q))
+
+
+def _insight_metric(q: str) -> str | None:
+    """Metric a history-insights question is about; None means all metrics."""
+    if _has_keyword(q, ["wind", "windy", "windiest", "gust", "hawa"]):
+        return "wind_speed"
+    if _has_keyword(q, ["pressure"]):
+        return "pressure"
+    if _has_keyword(q, ["humid", "humidity"]):
+        return "humidity"
+    if _has_keyword(q, ["rain", "wettest", "driest", "barish", "baarish", "precipitation"]):
+        return "rainfall"
+    if _has_keyword(q, ["temp", "temperature", "hot", "hottest", "cold", "coldest", "warm", "warmest",
+                        "cool", "coolest", "heat", "garmi", "thanda", "hotter", "colder"]):
+        return "temperature"
+    return None
+
+
 def _has_keyword(q: str, keywords: list[str]) -> bool:
     """True when a keyword starts at a word boundary in `q`.
 
@@ -234,7 +272,7 @@ _NOT_NOWCAST_WORDS = [
 
 
 def route_weather_query_by_heuristics(query: str) -> str:
-    """Keyword & pattern-based intent routing to one of the 6 specialized IMD weather tools."""
+    """Keyword & pattern-based intent routing to one of the 7 specialized weather tools."""
     q = query.lower()
 
     # 1. Tool 6: get_weather_alerts (Severe Warnings & Red/Orange/Yellow Alerts)
@@ -245,6 +283,10 @@ def route_weather_query_by_heuristics(query: str) -> str:
     is_multiday = _has_keyword(q, _NOT_NOWCAST_WORDS) or bool(_extract_dates_from_text(query)[3])
     if not is_multiday and (_NOWCAST_RE.search(q) or any(k in q for k in _NOWCAST_KEYWORDS)):
         return "get_weather_nowcast"
+
+    # 2b. Tool 7: get_weather_history_insights (hottest/coldest day, wind speed, pressure, week extremes)
+    if _is_insight_extreme_query(q) or _has_keyword(q, _INSIGHT_METRIC_KEYWORDS):
+        return "get_weather_history_insights"
 
     # 3. Tool 3: get_temperature_info (Temperature, Humidity %, Feel-like & Hot/Cold status)
     if _has_keyword(q, _TEMP_KEYWORDS):
@@ -721,6 +763,81 @@ def _ensure_weather_answer_spacing(text: str) -> str:
 
 
 
+_INSIGHT_LABELS = {
+    "hottest_day": "🔥 Hottest day", "coldest_day": "❄️ Coldest day",
+    "wettest_day": "🌧️ Wettest day", "driest_day": "☀️ Driest day",
+}
+
+
+def _insight_val(val: Any, unit: str) -> str:
+    """Value with unit; wind speed also shows km/h since farmers read it that way."""
+    if unit == "m/s" and isinstance(val, (int, float)):
+        return f"{val} m/s (~{round(val * 3.6, 1)} km/h)"
+    return f"{val}{unit}" if unit in {"°C", "%"} else f"{val} {unit}"
+
+
+def _insight_metric_line(name: str, vals: dict[str, Any]) -> str:
+    unit = vals.get("unit", "")
+    parts = ", ".join(f"{k} {_insight_val(v, unit)}" for k, v in vals.items() if k != "unit")
+    return f"{name.replace('_', ' ').capitalize()}: {parts}"
+
+
+def _render_history_insights(res: dict[str, Any]) -> str:
+    """Deterministic farmer-facing text for get_weather_history_insights (no LLM, values cannot drift)."""
+    lines: list[str] = []
+    if res.get("resolved_location"):
+        lines.append(f"📍 **{res['resolved_location']}**")
+    if res.get("notice"):
+        lines.append(f"ℹ️ {res['notice']}")
+
+    day = res.get("day")
+    fc = res.get("forecast")
+    if isinstance(day, dict):
+        lines.append(f"**Weather on {day.get('date')}**")
+        lines += [f"- {_insight_metric_line(k, v)}" for k, v in day.items() if isinstance(v, dict)]
+        live = res.get("live_reading")
+        if live:
+            bits = []
+            if live.get("temperature_c") is not None:
+                bits.append(f"temperature {live['temperature_c']}°C")
+            if live.get("humidity_pct") is not None:
+                bits.append(f"humidity {live['humidity_pct']}%")
+            if live.get("wind_speed_mps") is not None:
+                wd = f" from {live['wind_direction']}" if live.get("wind_direction") else ""
+                bits.append(f"wind {_insight_val(live['wind_speed_mps'], 'm/s')}{wd}")
+            if live.get("atm_pressure") is not None:
+                bits.append(f"pressure {live['atm_pressure']} hPa")
+            if bits:
+                lines.append("**Right now:** " + ", ".join(bits))
+    elif isinstance(fc, dict):
+        lines.append(f"**Forecast for {fc.get('date')}** (IMD)")
+        if fc.get("min_temp") is not None or fc.get("max_temp") is not None:
+            lines.append(f"- Temperature: Min {fc.get('min_temp')}°C, Max {fc.get('max_temp')}°C")
+        if fc.get("condition"):
+            lines.append(f"- Condition: {fc['condition']}")
+    elif res.get("extremes") or res.get("daily"):
+        win = res.get("window") or {}
+        lines.append(f"**Last {win.get('days_with_data', '')} days ({win.get('from')} to {win.get('to')})**")
+        for key, ex in (res.get("extremes") or {}).items():
+            if key == "total_rainfall_mm":
+                lines.append(f"- Total rain: {ex} mm")
+            elif isinstance(ex, dict):
+                label = _INSIGHT_LABELS.get(key, key.replace("_", " ").capitalize())
+                lines.append(f"- {label}: {ex['date']} ({_insight_val(ex['value'], ex.get('unit', ''))})")
+        daily = res.get("daily") or []
+        if daily:
+            lines.append("\n**Day by day**")
+            for d in daily:
+                metrics = "; ".join(_insight_metric_line(k, v) for k, v in d.items() if isinstance(v, dict))
+                lines.append(f"- {d.get('date')}: {metrics}")
+    if len(lines) <= 1 + bool(res.get("notice")):
+        lines.append("No station records are available for this request.")
+    if res.get("data_source"):
+        station = f" ({res['station']})" if res.get("station") else ""
+        lines.append(f"\nData Source: {res['data_source']}{station}")
+    return "\n".join(lines).strip()
+
+
 async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
     """Return a farmer-friendly answer built from server JSON.
 
@@ -729,6 +846,8 @@ async def synthesize_weather_answer(query: str, tool_result: Any) -> str:
     """
     if not isinstance(tool_result, dict) or not _weather_tool_has_usable_data(tool_result):
         return _weather_tool_unavailable_answer(tool_result)
+    if tool_result.get("insight_type") == "history_insights":
+        return _render_history_insights(tool_result)
     try:
         farmer_answer = render_farmer_weather_answer(query, tool_result)
     except Exception as render_err:
@@ -1163,6 +1282,34 @@ async def new_weather(
                 "include_nearby_stations": want_nearby,
             }
             result = await _invoke_mcp_or_direct("get_location_weather", args)
+        elif tool_name == "get_weather_history_insights":
+            today_d = _today_ist()
+            ins_metric = _insight_metric(q_lower)
+            wants_extremes = _is_insight_extreme_query(q_lower) or bool(
+                re.search(r"\b(?:week|past|last)\b", _PAST_24H_RE.sub(" ", q_lower))
+            )
+            ins_date = eff_target_date
+            if not ins_date and not wants_extremes:
+                ins_date = "tomorrow" if "tomorrow" in q_lower else "yesterday" if "yesterday" in q_lower else "today"
+            ins_days = 7
+            if intent.get("past_days"):
+                ins_days = intent["past_days"]
+            elif eff_from_date and not eff_target_date:
+                try:
+                    ins_days = (today_d - datetime.strptime(eff_from_date, "%Y-%m-%d").date()).days
+                except ValueError:
+                    pass
+            args = {
+                "lat": lat,
+                "long": lon,
+                "location": place_location,
+                "district": place_district,
+                "state": place_state,
+                "date": None if wants_extremes and not eff_target_date else ins_date,
+                "metric": ins_metric,
+                "days": max(1, min(7, int(ins_days))),
+            }
+            result = await _invoke_mcp_or_direct("get_weather_history_insights", args)
         elif tool_name == "get_temperature_info":
             today_str = _today_ist().strftime("%Y-%m-%d")
             is_past, is_fc = _classify_timeframe(

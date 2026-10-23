@@ -945,13 +945,18 @@ Available tools and functionalities:
 - get_weather_alerts
   - Official IMD warnings and severe weather alerts
   - Red / Orange / Yellow alerts, cyclone, storm warnings (Day 1-5)
+- get_weather_history_insights
+  - Hottest / coldest / wettest / windiest day of the last 7 days ("hottest day this week", "was it hot or cold last 7 days")
+  - Wind speed, gusts, atmospheric pressure (any day: today, yesterday, tomorrow, a specific date)
+  - A single metric (temperature, rainfall, wind, humidity, pressure) for a specific past date or the last N days (max 7)
 
 Tool selection rules (pick the best single tool):
 - get_weather_alerts — warnings, alerts, red/orange/yellow alert, cyclone, severe weather threat
 - get_weather_nowcast — next 1-3 hours short-term forecast / nowcast radar warnings ONLY (e.g. "next 1 hr", "in 2 hours", "nowcast")
 - get_location_weather — block/tehsil/village/panchayat OR nearby stations within radius
 - get_rainfall_and_monsoon_info — rainfall amount, rain forecasts / rain chances (today, tomorrow, next 2 days, next week, specific date, morning/evening), rain condition, monsoon progress/status, precipitation stats, past 24 hours recorded rainfall
-- get_temperature_info — temperature, humidity, feels-like, heat/cold
+- get_weather_history_insights — hottest/coldest/wettest/windiest day of the past week, highest/lowest value over past days, wind speed / gust / pressure for any day
+- get_temperature_info — temperature, humidity, feels-like, heat/cold (plain current/forecast/date-range temperature)
 - get_current_and_forecast_info — general weather, current weather, today conditions, multi-day 3/5/7 day forecast (default)
 
 Date / range rules (Today is provided below):
@@ -978,6 +983,12 @@ Query: What is the 5 day weather forecast for Ernakulam?
 
 Query: Show nearby weather stations within 50km for Piravom block
 {"tool":"get_location_weather","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":true,"radius_km":50}
+
+Query: Which was the hottest day in the last 7 days?
+{"tool":"get_weather_history_insights","query_type":"previous","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":7,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
+
+Query: What was the wind speed yesterday?
+{"tool":"get_weather_history_insights","query_type":"previous","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
 
 Query: Current temperature and humidity
 {"tool":"get_temperature_info","query_type":"today","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
