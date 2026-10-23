@@ -24,6 +24,8 @@ import type {
 } from "@/hooks/services/questionService";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { Section, QuestionRow, ExpertRow } from "./QueueDetailsModal";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
+import { ShortcutKey, isDialogOpen } from "@/components/atoms/shortcut-key";
 
 /**
  * One column of the Moderator Queue Details modal — the moderator queue for a single
@@ -72,12 +74,16 @@ export const ModeratorQueueModal = ({
   setIsSidebarOpen,
   currentUserIsAdmin,
   isTrainingUser,
+  shortcut,
 }: {
   setIsSidebarOpen?: (v: boolean) => void;
   currentUserIsAdmin?: boolean;
   isTrainingUser?: boolean;
+  shortcut?: string;
 }) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   const { goToQuestion } = useNavigateToQuestion();
 
   // Reopen where the user left off after visiting a question (see QueueDetailsModal).
@@ -139,6 +145,7 @@ export const ModeratorQueueModal = ({
               </p>
             </div>
           </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 
