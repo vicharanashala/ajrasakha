@@ -80,99 +80,111 @@ interface ReportEntry {
   rows: SheetRow[];
 }
 
-/** Sheet columns in the order they appear in the template. Previewed columns are
- *  flagged; the rest are still imported but not shown to keep the table readable. */
+/** Sheet columns in the order they appear in the template. `dbKey` is the field each
+ *  column is stored under; `warnIfEmpty` marks optional columns that warn when blank. */
 const COLUMNS: {
   key: FieldKey;
   label: string;
   header: string;
   required: boolean;
-  preview: boolean;
+  warnIfEmpty: boolean;
+  dbKey: string;
   aliases: string[];
 }[] = [
   {
     key: "name",
+    dbKey: "name",
     label: "Name",
     header: "Standardized Category Name",
     required: true,
-    preview: true,
+    warnIfEmpty: true,
     aliases: ["standardized category name", "standardized name", "name", "crop name"],
   },
   {
     key: "scientificName",
+    dbKey: "scientificName",
     label: "Scientific Name",
     header: "Scientific Name/Botanical Name",
     required: false,
-    preview: true,
+    warnIfEmpty: true,
     aliases: ["scientific name/botanical name", "scientific name", "botanical name"],
   },
   {
     key: "state",
+    dbKey: "region",
     label: "State",
     header: "State",
     required: false,
-    preview: true,
+    warnIfEmpty: true,
     aliases: ["state", "region"],
   },
   {
     key: "language",
+    dbKey: "language",
     label: "Language",
     header: "Language",
     required: false,
-    preview: true,
+    warnIfEmpty: true,
     aliases: ["language"],
   },
   {
     key: "englishName",
+    dbKey: "english_representation",
     label: "English Script Name",
     header: "Native Name in English Script",
     required: true,
-    preview: true,
+    warnIfEmpty: true,
     aliases: ["native name in english script", "english name"],
   },
   {
     key: "nativeName",
+    dbKey: "native_representation",
     label: "Native Script Name",
     header: "Native Name in Native Script",
     required: false,
-    preview: true,
+    warnIfEmpty: true,
     aliases: ["native name in native script", "native name"],
   },
   {
     key: "sourceLink",
+    dbKey: "source_link",
     label: "Source Link",
     header: "Source Link",
     required: false,
-    preview: false,
+    warnIfEmpty: false,
     aliases: ["source link", "source_link"],
   },
   {
     key: "pageNumber",
+    dbKey: "page_number",
     label: "Page No.",
     header: "Page No.",
     required: false,
-    preview: false,
+    warnIfEmpty: false,
     aliases: ["page no.", "page no", "page number", "page_number"],
   },
   {
     key: "agriExpert",
+    dbKey: "agri_expert",
     label: "Agri Expert",
     header: "Agri Expert",
     required: false,
-    preview: false,
+    warnIfEmpty: false,
     aliases: ["agri expert", "agri_expert"],
   },
   {
     key: "remark",
+    dbKey: "remark",
     label: "Remark",
     header: "Remark",
     required: false,
-    preview: false,
+    warnIfEmpty: false,
     aliases: ["remark", "remarks"],
   },
 ];
 
-const PREVIEW_COLUMNS = COLUMNS.filter((c) => c.preview);
+/** Columns stored on each vernacular term (everything except the entry-level fields). */
+const TERM_COLUMNS = COLUMNS.filter((c) => c.key !== "name" && c.key !== "scientificName");
 /** Headers that are known but carry nothing to store (the type comes from the tab). */
 const IGNORED_HEADERS = ["category"];
 const SPECIAL_CHARACTERS = /[^A-Za-z ]/;
@@ -180,7 +192,6 @@ const SPECIAL_CHARACTERS = /[^A-Za-z ]/;
 const ACCEPTED_EXTENSIONS = [".xlsx", ".xls", ".csv"];
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 5000;
-const GRID_COLUMNS = "grid-cols-[40px_1.6fr_1.4fr_1.1fr_0.9fr_1.2fr_1.2fr]";
 
 const STATUS_META: Record<
   ICropImportResult["status"],
@@ -322,7 +333,7 @@ const downloadSheet = async (
   sheet.columns = COLUMNS.map((c) => ({
     header: c.header,
     key: c.key,
-    width: c.preview ? 30 : 24,
+    width: c.warnIfEmpty || c.required ? 30 : 24,
   }));
   sheet.getRow(1).font = { bold: true };
   rows.forEach((row) => sheet.addRow(row));
@@ -453,7 +464,7 @@ export const CropSheetImportModal = ({
         return "duplicate";
       }
       const hasEmptyOptional = COLUMNS.some(
-        (c) => c.preview && !c.required && !row[c.key],
+        (c) => c.warnIfEmpty && !row[c.key],
       );
       return hasEmptyOptional || SPECIAL_CHARACTERS.test(row.name)
         ? "warning"
@@ -499,7 +510,30 @@ export const CropSheetImportModal = ({
     [rows, rowStates, rowFilter],
   );
 
-  const revealedPreview = useStreamedReveal(visibleRows.length, step === "preview");
+  // Groups the visible rows by name, mirroring the one-document-per-entry storage.
+  const visibleGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; name: string; scientificName: string; rows: SheetRow[] }>();
+    visibleRows.forEach((row) => {
+      const key = nameKeyOf(row.name);
+      const group = groups.get(key) ?? { key, name: row.name, scientificName: "", rows: [] };
+      if (!group.scientificName && row.scientificName) group.scientificName = row.scientificName;
+      group.rows.push(row);
+      groups.set(key, group);
+    });
+    return [...groups.values()];
+  }, [visibleRows]);
+  const hasExtras = useMemo(
+    () => rows.some((row) => Object.keys(row.extras).length > 0),
+    [rows],
+  );
+  // How many documents the import will create versus merge into.
+  const entrySummary = useMemo(() => {
+    const names = new Set(importRows.map((r) => nameKeyOf(r.name)));
+    const existingCount = [...names].filter((key) => existing.has(key)).length;
+    return { total: names.size, existing: existingCount, fresh: names.size - existingCount };
+  }, [importRows, existing]);
+
+  const revealedPreview = useStreamedReveal(visibleGroups.length, step === "preview");
   const revealedReport = useStreamedReveal(report.length, step === "report");
 
   // Asks the database which names already exist, so the preview can flag them first.
@@ -719,6 +753,7 @@ export const CropSheetImportModal = ({
 
   const cellClassName = (row: SheetRow, column: (typeof COLUMNS)[number]) => {
     if (row[column.key]) return "text-gray-700 dark:text-gray-300";
+    if (!column.required && !column.warnIfEmpty) return "text-gray-300 dark:text-gray-600";
     return column.required
       ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium"
       : "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400";
@@ -726,7 +761,7 @@ export const CropSheetImportModal = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[1000px] max-w-[95vw] max-h-[88vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[1200px] max-w-[95vw] max-h-[88vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -898,85 +933,175 @@ export const CropSheetImportModal = ({
               </span>
             </div>
 
-            <div className="flex-1 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
-              <div className="min-w-[760px]">
-                <div className={`grid ${GRID_COLUMNS} sticky top-0 bg-gray-50 dark:bg-[#161616] border-b border-gray-200 dark:border-gray-700/60 z-10`}>
-                  <div className="px-3 py-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    #
-                  </div>
-                  {PREVIEW_COLUMNS.map((column) => (
-                    <div
-                      key={column.key}
-                      className="px-3 py-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                    >
-                      {column.label}
-                      {column.required && <span className="text-rose-500"> *</span>}
-                    </div>
-                  ))}
-                </div>
+            <p className="pb-2 text-[11px] text-gray-500 dark:text-gray-400">
+              Shown as it will be stored: one {entryType} document per name, with each
+              sheet row saved as a vernacular term in its <span className="font-mono">aliases</span>.
+              {" "}Importing creates <strong className="font-semibold text-gray-700 dark:text-gray-200">{entrySummary.fresh}</strong> new
+              {" "}and updates <strong className="font-semibold text-gray-700 dark:text-gray-200">{entrySummary.existing}</strong> existing
+              {" "}document{entrySummary.total === 1 ? "" : "s"}.
+            </p>
 
-                {visibleRows.slice(0, revealedPreview).map((row) => {
-                  const state = rowStates.get(row.serial);
-                  const isDuplicate = state === "duplicate";
-                  const isRepeat = repeatSerials.has(row.serial);
-                  const blockReason = blockReasonOf(row);
-                  return (
-                    <div
-                      key={row.serial}
-                      className={`grid ${GRID_COLUMNS} border-b border-gray-100 dark:border-gray-800/60 last:border-b-0 animate-in fade-in duration-200 ${
-                        isDuplicate ? "bg-indigo-50/50 dark:bg-indigo-500/[0.07]" : ""
-                      }`}
-                    >
-                      <div
-                        className="px-3 py-2 text-xs text-gray-400"
-                        title={`Sheet row ${row.sheetRow}`}
-                      >
-                        {row.serial}
-                      </div>
-                      {PREVIEW_COLUMNS.map((column) => (
-                        <div
-                          key={column.key}
-                          title={
-                            row[column.key] ||
-                            (column.required
-                              ? `${column.label} is required`
-                              : `${column.label} is missing`)
+            <div className="flex-1 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
+              <div className="min-w-[1080px]">
+                {visibleGroups.slice(0, revealedPreview).map((group) => {
+                  const existingType = existing.get(group.key);
+                  const isConflict = Boolean(existingType && existingType !== entryType);
+                  const status = !group.name
+                    ? null
+                    : isConflict
+                      ? {
+                          label: `Type conflict: exists as ${existingType}`,
+                          className: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+                        }
+                      : existingType
+                        ? {
+                            label: "Exists: terms will be merged",
+                            className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
                           }
-                          className={`px-3 py-2 text-xs flex items-center gap-1.5 min-w-0 ${cellClassName(row, column)}`}
-                        >
-                          <span className="truncate">
-                            {row[column.key] || (column.required ? "Required" : "Missing")}
+                        : {
+                            label: "New document",
+                            className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+                          };
+                  return (
+                    <section
+                      key={group.key || "missing-name"}
+                      aria-label={group.name || "Rows without a name"}
+                      className="border-b border-gray-200 dark:border-gray-700/60 last:border-b-0 animate-in fade-in duration-200"
+                    >
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 bg-gray-50 dark:bg-white/[0.03]">
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="text-[10px] font-mono text-gray-400">name</span>
+                          <span
+                            className={`text-sm font-semibold truncate ${
+                              group.name ? "text-gray-900 dark:text-gray-100" : "text-rose-600 dark:text-rose-400"
+                            }`}
+                          >
+                            {group.name || "Required"}
                           </span>
-                          {column.key === "name" && isDuplicate && (
-                            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
-                              {isRepeat ? "Repeated" : "Duplicate"}
-                            </span>
-                          )}
-                          {column.key === "name" && blockReason && !missingRequiredFields(row).length && (
-                            <span
-                              title={blockReason}
-                              className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
-                            >
-                              Type conflict
-                            </span>
-                          )}
-                          {column.key === "name" &&
-                            state === "warning" &&
-                            SPECIAL_CHARACTERS.test(row.name) && (
-                              <span
-                                title="The name contains characters other than letters and spaces"
-                                className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-                              >
-                                Special chars
-                              </span>
-                            )}
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="text-[10px] font-mono text-gray-400">scientificName</span>
+                          <span
+                            className={`text-xs italic truncate ${
+                              group.scientificName ? "text-gray-700 dark:text-gray-300" : "text-amber-600 dark:text-amber-400"
+                            }`}
+                          >
+                            {group.scientificName || "Missing"}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[10px] font-mono text-gray-400">type</span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{entryType}</span>
+                        </div>
+                        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                          {group.name && SPECIAL_CHARACTERS.test(group.name) && (
+                            <span
+                              title="The name contains characters other than letters and spaces"
+                              className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                            >
+                              Special chars
+                            </span>
+                          )}
+                          {status && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${status.className}`}>
+                              {status.label}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {group.rows.length} term{group.rows.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <table className="w-full table-fixed text-xs">
+                        <thead>
+                          <tr className="border-y border-gray-100 dark:border-gray-800/60">
+                            <th scope="col" className="w-10 px-3 py-1.5 text-left font-normal text-[10px] text-gray-400">#</th>
+                            {TERM_COLUMNS.map((column) => (
+                              <th key={column.key} scope="col" className="px-3 py-1.5 text-left align-bottom">
+                                <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                  {column.label}
+                                  {column.required && <span className="text-rose-500"> *</span>}
+                                </span>
+                                <span
+                                  title={column.dbKey}
+                                  className="block truncate text-[10px] font-mono font-normal text-gray-400"
+                                >
+                                  {column.dbKey}
+                                </span>
+                              </th>
+                            ))}
+                            {hasExtras && (
+                              <th scope="col" className="px-3 py-1.5 text-left align-bottom">
+                                <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                  Extra Fields
+                                </span>
+                                <span className="block text-[10px] font-mono font-normal text-gray-400">extra_fields</span>
+                              </th>
+                            )}
+                            <th scope="col" className="w-28 px-3 py-1.5 text-left align-bottom text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                              Row status
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.rows.map((row) => {
+                            const state = rowStates.get(row.serial);
+                            const isRepeat = repeatSerials.has(row.serial);
+                            const rowStatus =
+                              state === "blocked"
+                                ? { label: "Not imported", className: "text-rose-600 dark:text-rose-400" }
+                                : isRepeat
+                                  ? { label: "Repeated, skipped", className: "text-indigo-600 dark:text-indigo-400" }
+                                  : state === "duplicate"
+                                    ? { label: "Will merge", className: "text-indigo-600 dark:text-indigo-400" }
+                                    : state === "warning"
+                                      ? { label: "Warning", className: "text-amber-600 dark:text-amber-400" }
+                                      : { label: "Ready", className: "text-emerald-600 dark:text-emerald-400" };
+                            const extras = Object.entries(row.extras)
+                              .map(([key, value]) => `${key}: ${value}`)
+                              .join("; ");
+                            return (
+                              <tr
+                                key={row.serial}
+                                className={`border-b border-gray-100 dark:border-gray-800/60 last:border-b-0 ${
+                                  isRepeat ? "bg-indigo-50/50 dark:bg-indigo-500/[0.07]" : ""
+                                }`}
+                              >
+                                <td className="px-3 py-1.5 text-gray-400" title={`Sheet row ${row.sheetRow}`}>
+                                  {row.serial}
+                                </td>
+                                {TERM_COLUMNS.map((column) => (
+                                  <td
+                                    key={column.key}
+                                    title={row[column.key] || `${column.label} is empty`}
+                                    className={`px-3 py-1.5 truncate ${cellClassName(row, column)}`}
+                                  >
+                                    {row[column.key] ||
+                                      (column.required ? "Required" : column.warnIfEmpty ? "Missing" : "—")}
+                                  </td>
+                                ))}
+                                {hasExtras && (
+                                  <td className="px-3 py-1.5 truncate text-gray-600 dark:text-gray-400" title={extras}>
+                                    {extras || <span className="text-gray-300 dark:text-gray-600">—</span>}
+                                  </td>
+                                )}
+                                <td
+                                  className={`px-3 py-1.5 font-medium ${rowStatus.className}`}
+                                  title={blockReasonOf(row) || undefined}
+                                >
+                                  {rowStatus.label}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </section>
                   );
                 })}
 
-                {visibleRows.length === 0 && (
+                {visibleGroups.length === 0 && (
                   <div className="py-10 text-center text-xs text-gray-500 dark:text-gray-400">
                     No rows in this group.
                   </div>
