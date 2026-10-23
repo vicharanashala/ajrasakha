@@ -791,8 +791,7 @@ export const CropSheetImportModal = ({
                   : "Drop your file here, or click to browse"}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                .xlsx, .xls or .csv. Required columns: Standardized Category Name and
-                Native Name in English Script
+                .xlsx, .xls or .csv
               </p>
             </div>
 
@@ -806,6 +805,36 @@ export const CropSheetImportModal = ({
                 if (file) void handleFile(file);
               }}
             />
+
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700/60 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                Sheet columns <span className="font-normal text-gray-400">(header names must match)</span>
+              </p>
+              <ul className="flex flex-wrap gap-1.5" aria-label="Sheet columns">
+                {COLUMNS.map((column) => (
+                  <li
+                    key={column.key}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${
+                      column.required
+                        ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 font-medium"
+                        : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-400"
+                    }`}
+                  >
+                    {column.header}
+                    {column.required ? (
+                      <span className="text-[10px] uppercase tracking-wide">· Required</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500">· Optional</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                Rows missing a required value are not imported. An empty Scientific
+                Name, State, Language or Native Script value shows as a warning but
+                still imports. Any other column is saved under extra fields.
+              </p>
+            </div>
 
             <Button
               variant="outline"

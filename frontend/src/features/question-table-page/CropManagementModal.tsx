@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useId } from "react";
 import {
   Dialog,
   DialogContent,
@@ -95,6 +95,8 @@ const emptyAliasEntry = (): ICropAliasObject => ({
   native_representation: "",
   source_link: "",
   page_number: "",
+  agri_expert: "",
+  remark: "",
 });
 
 type CropManagementModalProps = {
@@ -124,6 +126,8 @@ const AliasEntryForm = ({
 }) => {
   const [entry, setEntry] = useState<ICropAliasObject>(emptyAliasEntry());
   const [regionInput, setRegionInput] = useState("");
+  // Unique ids so the labels stay linked when two alias forms are open at once.
+  const fieldId = useId();
   const isAmber = accentColor === "amber";
   const isEditing = !!editEntry;
 
@@ -304,6 +308,41 @@ const AliasEntryForm = ({
         </div>
       </div>
 
+      {/* Agri Expert and Remark */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="space-y-1">
+          <label
+            htmlFor={`${fieldId}-agri-expert`}
+            className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block"
+          >
+            Agri Expert
+          </label>
+          <Input
+            id={`${fieldId}-agri-expert`}
+            placeholder="e.g. Rohan Chand"
+            value={entry.agri_expert ?? ""}
+            onChange={(e) => setEntry((f) => ({ ...f, agri_expert: e.target.value }))}
+            className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label
+            htmlFor={`${fieldId}-remark`}
+            className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block"
+          >
+            Remark
+          </label>
+          <Input
+            id={`${fieldId}-remark`}
+            placeholder="e.g. Verified from state POP"
+            value={entry.remark ?? ""}
+            onChange={(e) => setEntry((f) => ({ ...f, remark: e.target.value }))}
+            className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
+          />
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2">
         {isEditing && (
           <Button
@@ -419,8 +458,8 @@ const StructuredAliasesTable = ({
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Language", "Region", "English", "Native", "Source Link", "Page #", ""].map((h, i) => (
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_0.6fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Language", "Region", "English", "Native", "Source Link", "Page #", "Agri Expert", "Remark", ""].map((h, i) => (
           <div
             key={i}
             className="px-3 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
@@ -434,7 +473,7 @@ const StructuredAliasesTable = ({
       {aliases.map((alias, i) => (
         <div
           key={i}
-          className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
+          className={`grid grid-cols-[1fr_1fr_1fr_1fr_1fr_0.6fr_1fr_1fr_64px] gap-0 items-center group transition-colors
             ${
               i < aliases.length - 1
                 ? "border-b border-gray-100 dark:border-gray-800/60"
@@ -487,6 +526,22 @@ const StructuredAliasesTable = ({
           <div className="px-3 py-2.5 min-w-0">
             <span className="text-xs text-gray-600 dark:text-gray-300 truncate block">
               {alias.page_number || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block" title={alias.agri_expert}>
+              {alias.agri_expert || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block" title={alias.remark}>
+              {alias.remark || (
                 <span className="text-gray-300 dark:text-gray-600">—</span>
               )}
             </span>
