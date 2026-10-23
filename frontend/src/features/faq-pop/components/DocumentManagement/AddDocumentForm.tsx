@@ -9,11 +9,15 @@ import {
   getDashboardDistricts,
   getDashboardKvks,
   uploadDashboardDocument,
+  getUserManagementList,
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
 import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
+import { NotificationService } from "@/hooks/services/notificationService";
+
+const notificationService = new NotificationService();
 
 const inputClass =
   "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
@@ -289,6 +293,18 @@ export default function AddDocumentForm({ onUploadQueued }) {
     setSubmitting(true);
     try {
       const result = await uploadDashboardDocument(file, fields, placements, language);
+      getUserManagementList("upload")
+        .then((approvers) => {
+          const approverIds = (approvers || []).map((a) => a.user_id).filter(Boolean);
+          if (approverIds.length) {
+            return notificationService.notifyPopEvent({
+              type: "upload_created",
+              itemName: file.name,
+              approverIds,
+            });
+          }
+        })
+        .catch(() => {}); // Notifying approvers is best-effort — never block the upload on it.
       toast.success("Upload queued");
       setValues(emptyValues());
       setFile(null);

@@ -12,7 +12,8 @@ export const Route = createFileRoute("/home/")({
     comment: z.string().optional(),
     history:z.string().optional(),
     expertId:z.string().optional(),
-    questionType:z.string().optional()
+    questionType:z.string().optional(),
+    popQueue:z.string().optional()
   }),
   component: RouteComponent,
 });
