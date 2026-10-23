@@ -19,6 +19,7 @@ import {
   cancelDashboardTranslationJob,
   deleteDashboardTranslationJob,
   translateUniqueDocument,
+  getDashboardUploadsHistory,
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
 import MainTable from "./MainTable";
@@ -270,6 +271,34 @@ export default function DocumentManagementPanel({
   const uploadRefetchTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(uploadRefetchTimerRef.current), []);
 
+  // Upload History — a toggle inside UploadQueuePanel itself that swaps the queue's own list for
+  // a read-only view of finished uploads (GET /dashboard/uploads/history), rather than a separate
+  // modal. showHistoryRef mirrors showHistory for the mount-only SSE effect below, same reason
+  // refetchUploadsRef exists.
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const showHistoryRef = useRef(false);
+  showHistoryRef.current = showHistory;
+  const historyRefetchTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(historyRefetchTimerRef.current), []);
+
+  async function refetchHistory() {
+    try {
+      const items = (await getDashboardUploadsHistory()) || [];
+      setHistoryItems(items);
+    } catch {
+      // ignore transient errors, next toggle/manual refresh will retry
+    }
+  }
+
+  useEffect(() => {
+    if (!showHistory) return;
+    setHistoryLoading(true);
+    refetchHistory().finally(() => setHistoryLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHistory]);
+
   // GET /dashboard/events — one shared SSE connection (see dashboardEvents.ts) driving live
   // updates for both queues, instead of polling. No replay on reconnect, so every (re)connect
   // refetches both queues from scratch via the "open" handler. Mount-only: state setters below are
@@ -285,6 +314,12 @@ export default function DocumentManagementPanel({
       upload: () => {
         clearTimeout(uploadRefetchTimerRef.current);
         uploadRefetchTimerRef.current = setTimeout(refetchUploadsRef.current, 300);
+        // An item leaving the queue (deleted:true) is exactly when it lands in history — refetch
+        // the history view too, same debounce, but only while it's actually showing.
+        if (showHistoryRef.current) {
+          clearTimeout(historyRefetchTimerRef.current);
+          historyRefetchTimerRef.current = setTimeout(refetchHistory, 300);
+        }
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
@@ -567,6 +602,10 @@ export default function DocumentManagementPanel({
                   onOpenDetail={openDetail}
                   busyId={busyUploadId}
                   processingIds={processingUploadIds}
+                  showHistory={showHistory}
+                  onToggleHistory={() => setShowHistory((v) => !v)}
+                  historyItems={historyItems}
+                  historyLoading={historyLoading}
                 />
               }
               bottom={
