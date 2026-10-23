@@ -459,7 +459,11 @@ function _buildListParams(page: number, filters: Record<string, string[]>, sort 
   });
   for (const [key, values] of Object.entries(filters || {})) {
     const clean = (values || []).filter((v) => v !== "" && v != null);
-    if (clean.length > 0) params.set(`filter[${key}]`, clean.join(","));
+    if (clean.length > 0) {
+      // domain is "has ANY of these", joined by "|" (whole names, which may themselves contain
+      // commas, e.g. "Credit, Loan and Insurance") — every other filter key keeps the "," OR-join.
+      params.set(`filter[${key}]`, clean.join(key === "domain" ? "|" : ","));
+    }
   }
   if (sort) params.set("sort", sort);
   return params;
@@ -769,6 +773,13 @@ export async function getDashboardLanguages() {
   return _handleResponse(res);
 }
 
+// The 19 allowed domain names — the only valid source for the Domain multi-select, don't hardcode
+// a list client-side (fields.ts's DOMAIN_OPTIONS_FALLBACK is only a brief pre-fetch placeholder).
+export async function getDashboardDomains(): Promise<string[]> {
+  const res = await popFetch(`${POP_API}/dashboard/domains`);
+  return (await _handleResponse(res)) || [];
+}
+
 // Backs the Uploaded By / Translated By / Reviewed By column filter dropdowns
 // (UniqueDocumentsTable.tsx's filterType: "users" columns) — distinct, non-empty values actually
 // present on documents, sorted A-Z ignoring case. NOT the reviewer-system's user list (that was
@@ -805,7 +816,7 @@ export async function getDashboardApprovedByAdminOptions(): Promise<string[]> {
 // passed via `fields` as plain `district_id`/`kvk_id` form fields instead, same as `language`.
 export async function uploadDashboardDocument(
   file: File,
-  fields: Record<string, string>,
+  fields: Record<string, unknown>,
   placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
   language: string,
 ) {
@@ -813,8 +824,15 @@ export async function uploadDashboardDocument(
   fd.append("file", file);
   fd.append("placements_json", JSON.stringify(placements));
   fd.append("language", language);
-  for (const [key, value] of Object.entries(fields || {})) {
-    if (value !== "" && value != null) fd.append(key, value);
+  // domain is sent separately as "domain_json", a JSON-encoded array string — plain "domain" would
+  // break on names that themselves contain commas (e.g. "Credit, Loan and Insurance"). Omitted
+  // entirely when empty, same as every other blank field below.
+  const { domain, ...rest } = fields || {};
+  if (Array.isArray(domain) && domain.length > 0) {
+    fd.append("domain_json", JSON.stringify(domain));
+  }
+  for (const [key, value] of Object.entries(rest)) {
+    if (value !== "" && value != null) fd.append(key, value as string);
   }
   const res = await popFetch(`${POP_API}/dashboard/uploads`, {
     method: "POST",

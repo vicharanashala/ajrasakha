@@ -8,6 +8,7 @@ import {
   getDashboardUniqueDocument,
   deleteDashboardUniqueDocument,
   getDashboardLanguages,
+  getDashboardDomains,
   getDashboardUploadedByOptions,
   getDashboardApprovedByApproverOptions,
   getDashboardApprovedByAdminOptions,
@@ -35,13 +36,13 @@ import {
   ADVISORY_TYPE_OPTIONS,
   ADVISORY_SCOPE_OPTIONS,
   SEASON_OPTIONS,
-  DOMAIN_OPTIONS,
   FORMAT_ORIGINAL_OPTIONS,
   VERIFICATION_STATUS_OPTIONS,
   DOCUMENT_STATUS_OPTIONS,
   folderDisplayLabel,
   filterFoldersByAdvisoryScope,
   displayStateName,
+  formatDomainValue,
 } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
@@ -98,7 +99,9 @@ const FIELD_COLUMNS = [
   { key: "live_source_link", label: "Live Source Link", link: true, filterable: true },
   { key: "language", label: "Language", filterType: "language" },
   { key: "language_source", label: "Language Source", filterable: true, options: LANGUAGE_SOURCE_OPTIONS },
-  { key: "domain", label: "Domain", filterable: true, options: DOMAIN_OPTIONS },
+  // Options come from getDashboardDomains (fetched below, see domainOptions) — domain is now a
+  // string[] field with a backend-validated vocabulary, not a static hardcoded list.
+  { key: "domain", label: "Domain", filterable: true },
   { key: "format_original", label: "Format (Original)", filterable: true, options: FORMAT_ORIGINAL_OPTIONS },
   { key: "num_pages", label: "Pages", filterType: "numberRange", min: 0 },
   { key: "verification_status", label: "Verification", filterable: true, options: VERIFICATION_STATUS_OPTIONS },
@@ -167,6 +170,7 @@ export default function UniqueDocumentsTable({
   const [error, setError] = useState(null);
 
   const [languageOptions, setLanguageOptions] = useState([]);
+  const [domainOptions, setDomainOptions] = useState([]);
   // Distinct, non-empty names actually present on documents (see api.ts's getDashboardUploadedBy/
   // TranslatedBy/ReviewedByOptions comment) — NOT the reviewer-system user list, since uploaded_by
   // is filled from Zoho's "created by" and mostly isn't reviewer-system users at all. Falls back
@@ -182,6 +186,9 @@ export default function UniqueDocumentsTable({
   useEffect(() => {
     getDashboardLanguages()
       .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
+      .catch(() => {});
+    getDashboardDomains()
+      .then((d) => setDomainOptions(d || []))
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -593,6 +600,13 @@ export default function UniqueDocumentsTable({
                         </div>
                       );
                     })()
+                  ) : col.key === "domain" ? (
+                    <ColumnFilter
+                      label="Domain"
+                      options={domainOptions}
+                      selected={filters.domain || []}
+                      onChange={(v) => setFilter("domain", v)}
+                    />
                   ) : col.options ? (
                     <ColumnFilter
                       label={col.label}
@@ -708,6 +722,16 @@ export default function UniqueDocumentsTable({
                           >
                             {val}
                           </a>
+                        </td>
+                      );
+                    }
+                    if (col.key === "domain") {
+                      const joined = formatDomainValue(val);
+                      return (
+                        <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">
+                          <span className="block truncate text-foreground" title={joined}>
+                            {joined || "—"}
+                          </span>
                         </td>
                       );
                     }
