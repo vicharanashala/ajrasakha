@@ -87,7 +87,7 @@ const PREMIUM_CARD =
  * like a ripple on still water. The position comes from trackRowPointer.
  */
 const WATER_ROW_HOVER =
-  "hover:bg-[radial-gradient(260px_circle_at_var(--touch-x,50%)_var(--touch-y,50%),rgba(56,189,248,0.14),rgba(56,189,248,0.04)_45%,transparent_75%)] dark:hover:bg-[radial-gradient(260px_circle_at_var(--touch-x,50%)_var(--touch-y,50%),rgba(56,189,248,0.16),rgba(56,189,248,0.05)_45%,transparent_75%)]";
+  "hover:bg-[radial-gradient(260px_circle_at_var(--touch-x,50%)_var(--touch-y,50%),rgba(15,23,42,0.05),rgba(15,23,42,0.015)_45%,transparent_75%)] dark:hover:bg-[radial-gradient(260px_circle_at_var(--touch-x,50%)_var(--touch-y,50%),rgba(255,255,255,0.06),rgba(255,255,255,0.02)_45%,transparent_75%)]";
 
 /** Stores the pointer position on the row so the water-touch highlight can follow it. */
 const trackRowPointer = (event: React.PointerEvent<HTMLElement>) => {
