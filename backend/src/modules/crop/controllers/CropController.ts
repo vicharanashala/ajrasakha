@@ -432,7 +432,14 @@ export class CropController {
   @OpenAPI({ summary: 'Get All crops data' })
   async getCropsForClient(){
     // Only real crops (not chemicals, pests, etc.), without the default 50 item page limit.
-    return await this.cropService.getAllCrops({ type: 'crop', limit: 100000, sort: 'name_asc' })
+    const result = await this.cropService.getAllCrops({ type: 'crop', limit: 100000, sort: 'name_asc' });
+    // "All" is a placeholder entry, not a real crop, so clients never receive it.
+    const crops = result.crops.filter(crop => crop.name?.trim().toLowerCase() !== 'all');
+    return {
+      ...result,
+      crops,
+      totalCount: result.totalCount - (result.crops.length - crops.length),
+    };
   }
 
 
