@@ -55,7 +55,8 @@ const fillMissingDetails = (target: ICropAlias, source: ICropAlias): boolean => 
  * Plans how incoming terms merge into an entry's stored terms. A term matching a
  * stored one (same language, region, English and native name, ignoring case) fills
  * in that term's empty details instead of being added again. New terms are returned
- * separately; terms that only repeat the entry's own name or add nothing are skipped.
+ * separately; a new term that only repeats the entry's own name, or a matching term
+ * that adds nothing, is skipped.
  */
 export const planAliasMerge = (
   entryName: string,
@@ -78,14 +79,15 @@ export const planAliasMerge = (
   let skipped = 0;
 
   for (const alias of incoming) {
-    if (norm(alias.english_representation) === norm(entryName)) {
-      skipped++;
-      continue;
-    }
+    // A stored alias is always enriched, even when it repeats the entry's own name.
     const match = byKey.get(termKey(alias));
     if (match) {
       if (fillMissingDetails(match, alias)) enrichedTerms.add(match);
       else skipped++;
+      continue;
+    }
+    if (norm(alias.english_representation) === norm(entryName)) {
+      skipped++;
       continue;
     }
     const copy = {...alias};
