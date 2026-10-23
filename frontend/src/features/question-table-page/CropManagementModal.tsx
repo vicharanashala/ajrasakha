@@ -78,6 +78,13 @@ const RESERVED_TYPES = ["crop", "chemical", "other"];
  *  Import; flip this to bring them back. */
 const SHOW_LEGACY_CSV_UPLOAD = false;
 
+/** Card surface for the page sections: a faint border with a soft, layered shadow. */
+const PREMIUM_CARD =
+  "rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-[#111] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-6px_rgba(16,24,40,0.08)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_10px_28px_-8px_rgba(0,0,0,0.6)]";
+
+/** Lighter row dividers for the tables inside those cards. */
+const SOFT_TABLE_DIVIDERS = "[&_tr]:border-gray-100 dark:[&_tr]:border-white/[0.05]";
+
 /** Shared motion presets so every AgriTech animation feels the same. */
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 const collapseMotion = {
@@ -164,7 +171,7 @@ const ManagementShell = ({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      className="flex h-[calc(100dvh-9rem)] min-h-[560px] flex-col gap-3 overflow-hidden"
+      className="flex h-[calc(100dvh-9rem)] min-h-[560px] flex-col gap-4"
     >
       {children}
     </motion.section>
@@ -1356,7 +1363,7 @@ const SortHeader = ({
 
 /** Placeholder rows shown while a table is loading. */
 const TableSkeleton = ({ rows = 6 }: { rows?: number }) => (
-  <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden" aria-busy="true" aria-label="Loading">
+  <div className="rounded-xl border border-gray-200/60 dark:border-white/[0.06] overflow-hidden" aria-busy="true" aria-label="Loading">
     {Array.from({ length: rows }).map((_, i) => (
       <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800/60 last:border-b-0">
         <div className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-white/5 animate-pulse" />
@@ -1793,7 +1800,7 @@ export const CropManagementModal = ({
     const onSort = (sort: AgriTechSort) => updateFilters({ ...filterState, sort });
     return (
       <div>
-          <Table containerClassName="overflow-visible" className="min-w-[900px] table-auto">
+          <Table containerClassName="overflow-visible" className={`min-w-[900px] table-auto ${SOFT_TABLE_DIVIDERS}`}>
             <TableHeader className="bg-gray-50/95 dark:bg-[#151515]/95 backdrop-blur sticky top-0 z-10 shadow-[0_1px_0_0_rgb(0_0_0/0.06)] [&_th]:h-10 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted-foreground">
               <TableRow>
                 <TableHead className="text-start ps-4">
@@ -1993,7 +2000,7 @@ export const CropManagementModal = ({
         }}
       >
           {/* ── Header section (title, page actions, type tabs) ─────────────── */}
-          <header className="flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111] shadow-sm">
+          <header className={`flex-shrink-0 ${PREMIUM_CARD}`}>
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 pt-4">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-sm shadow-green-600/20" aria-hidden>
@@ -2157,7 +2164,7 @@ export const CropManagementModal = ({
           </header>
 
           {/* Body: list on the left, detail / add panel on the right */}
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111] shadow-sm flex-1 min-h-0 flex overflow-hidden">
+          <div className={`${PREMIUM_CARD} flex-1 min-h-0 flex overflow-hidden`}>
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* Toolbar: search, quick filters and filters for the list below */}
           {!isOther && (
@@ -2443,9 +2450,9 @@ export const CropManagementModal = ({
                   {isOrgLoading && !orgData ? (
                     <div className="mt-3"><TableSkeleton /></div>
                   ) : (
-                  <div className="mt-3 rounded-lg bg-card border">
+                  <div className="mt-3 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-card overflow-hidden">
                     <ScrollArea className="w-full whitespace-nowrap">
-                    <Table containerClassName="overflow-hidden" className="min-w-[800px] table-auto">
+                    <Table containerClassName="overflow-hidden" className={`min-w-[800px] table-auto ${SOFT_TABLE_DIVIDERS}`}>
                       <TableHeader className="bg-card sticky top-0 z-10">
                         <TableRow>
                           <TableHead className="w-16 text-center">Sl.No</TableHead>
