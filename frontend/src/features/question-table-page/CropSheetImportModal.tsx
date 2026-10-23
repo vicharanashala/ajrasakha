@@ -340,15 +340,8 @@ const lower = (value?: string) => (value ?? "").trim().toLowerCase();
  * English and native name) only fills that alias's empty details; otherwise it adds
  * a new alias. A row that just repeats the entry's own name changes nothing.
  */
-const aliasOutcomeOf = (row: SheetRow, stored: ICropAlias[]): AliasOutcome => {
+const aliasOutcomeOf = (row: SheetRow, match: ICropAlias | undefined): AliasOutcome => {
   if (lower(row.englishName) === lower(row.name)) return "none";
-  const match = stored.find(
-    (a) =>
-      lower(a.language) === lower(row.language) &&
-      lower(a.region) === lower(row.state) &&
-      lower(a.english_representation) === lower(row.englishName) &&
-      lower(a.native_representation) === lower(row.nativeName),
-  );
   if (!match) return "new";
   const details: [keyof ICropAlias, string][] = [
     ["source_link", row.sourceLink],
@@ -361,6 +354,39 @@ const aliasOutcomeOf = (row: SheetRow, stored: ICropAlias[]): AliasOutcome => {
     ([key, value]) => value && !lower(match.extra_fields?.[key]),
   );
   return fillsDetail || fillsExtra ? "fill" : "none";
+};
+
+/** Finds the stored alias a row matches: same language, region, English and native name. */
+const findMatchingAlias = (row: SheetRow, stored: ICropAlias[]) =>
+  stored.find(
+    (a) =>
+      lower(a.language) === lower(row.language) &&
+      lower(a.region) === lower(row.state) &&
+      lower(a.english_representation) === lower(row.englishName) &&
+      lower(a.native_representation) === lower(row.nativeName),
+  );
+
+/** Columns used to match a row to a stored alias; the rest are details that can be filled. */
+const MATCH_KEYS: FieldKey[] = ["state", "language", "englishName", "nativeName"];
+
+/** How one cell relates to the database: written, already there, kept over the sheet, or empty. */
+type CellChange = "add" | "same" | "kept" | "differs" | "empty";
+
+/** Compares one sheet cell with the matched alias to show what the import writes. */
+const cellChangeOf = (
+  row: SheetRow,
+  key: FieldKey,
+  dbKey: string,
+  match: ICropAlias | undefined,
+): { change: CellChange; dbValue: string } => {
+  const sheetValue = row[key];
+  if (!match) return { change: sheetValue ? "add" : "empty", dbValue: "" };
+  const dbValue = String((match as unknown as Record<string, unknown>)[dbKey] ?? "").trim();
+  if (MATCH_KEYS.includes(key)) return { change: "same", dbValue };
+  if (sheetValue && !dbValue) return { change: "add", dbValue };
+  if (sheetValue && lower(sheetValue) === lower(dbValue)) return { change: "same", dbValue };
+  if (sheetValue) return { change: "differs", dbValue };
+  return { change: dbValue ? "kept" : "empty", dbValue };
 };
 
 /** Writes rows to an .xlsx using the import's own headers and downloads it, so
@@ -579,16 +605,24 @@ export const CropSheetImportModal = ({
     return { total: names.size, existing: existingCount, fresh: names.size - existingCount };
   }, [importRows, existing]);
 
-  // What each importable row will do, keyed by serial.
-  const rowOutcomes = useMemo(
+  // The stored alias each importable row matches, if any, keyed by serial.
+  const rowMatches = useMemo(
     () =>
       new Map(
         importRows.map((row) => [
           row.serial,
-          aliasOutcomeOf(row, existingAliases.get(nameKeyOf(row.name)) ?? []),
+          findMatchingAlias(row, existingAliases.get(nameKeyOf(row.name)) ?? []),
         ]),
       ),
     [importRows, existingAliases],
+  );
+  // What each importable row will do, keyed by serial.
+  const rowOutcomes = useMemo(
+    () =>
+      new Map(
+        importRows.map((row) => [row.serial, aliasOutcomeOf(row, rowMatches.get(row.serial))]),
+      ),
+    [importRows, rowMatches],
   );
   const outcomeCounts = useMemo(() => {
     const counts: Record<AliasOutcome, number> = { new: 0, fill: 0, none: 0 };
@@ -1071,6 +1105,25 @@ export const CropSheetImportModal = ({
               <strong className="font-semibold text-gray-700 dark:text-gray-200">{outcomeCounts.none}</strong> unchanged.
             </p>
 
+            <div className="flex flex-wrap items-center gap-4 pb-2 text-[11px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1.5">
+                <span className="rounded px-1 font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">+ value</span>
+                Will be written to the database
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-gray-500 dark:text-gray-400">value</span>
+                Already in the database, unchanged
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="italic text-gray-400">value</span>
+                Database value kept, sheet cell empty
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-amber-600 dark:text-amber-400">Sheet: … (not applied)</span>
+                Database already has a different value
+              </span>
+            </div>
+
             <div className="flex-1 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700/60">
               <div className="min-w-[1080px]">
                 {visibleGroups.slice(0, revealedPreview).map((group) => {
@@ -1185,6 +1238,17 @@ export const CropSheetImportModal = ({
                                   ? { label: "Repeated, skipped", className: "text-indigo-600 dark:text-indigo-400" }
                                   : ALIAS_OUTCOME_META[rowOutcomes.get(row.serial) ?? "new"];
                             const hasWarning = state === "warning";
+                            const match = rowMatches.get(row.serial);
+                            // A row that only repeats the entry's own name writes nothing.
+                            const isImportable =
+                              state !== "blocked" &&
+                              !isRepeat &&
+                              (Boolean(match) || rowOutcomes.get(row.serial) !== "none");
+                            const filledFields = match
+                              ? TERM_COLUMNS.filter(
+                                  (c) => cellChangeOf(row, c.key, c.dbKey, match).change === "add",
+                                ).map((c) => c.dbKey)
+                              : [];
                             const extras = Object.entries(row.extras)
                               .map(([key, value]) => `${key}: ${value}`)
                               .join("; ");
@@ -1195,19 +1259,93 @@ export const CropSheetImportModal = ({
                                   isRepeat ? "bg-indigo-50/50 dark:bg-indigo-500/[0.07]" : ""
                                 }`}
                               >
-                                <td className="px-3 py-1.5 text-gray-400" title={`Sheet row ${row.sheetRow}`}>
+                                <td className="px-3 py-1.5 text-gray-400 align-top" title={`Sheet row ${row.sheetRow}`}>
                                   {row.serial}
+                                  {isImportable && (
+                                    <span
+                                      className={`mt-0.5 block w-fit rounded px-1 text-[9px] font-semibold uppercase tracking-wide ${
+                                        match
+                                          ? "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300"
+                                          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                      }`}
+                                    >
+                                      {match ? "Exists" : "New"}
+                                    </span>
+                                  )}
                                 </td>
-                                {TERM_COLUMNS.map((column) => (
-                                  <td
-                                    key={column.key}
-                                    title={row[column.key] || `${column.label} is empty`}
-                                    className={`px-3 py-1.5 truncate ${cellClassName(row, column)}`}
-                                  >
-                                    {row[column.key] ||
-                                      (column.required ? "Required" : column.warnIfEmpty ? "Missing" : "—")}
-                                  </td>
-                                ))}
+                                {TERM_COLUMNS.map((column) => {
+                                  const emptyLabel = column.required ? "Required" : column.warnIfEmpty ? "Missing" : "—";
+                                  if (!isImportable) {
+                                    return (
+                                      <td
+                                        key={column.key}
+                                        title={row[column.key] || `${column.label} is empty`}
+                                        className={`px-3 py-1.5 truncate align-top ${cellClassName(row, column)}`}
+                                      >
+                                        {row[column.key] || emptyLabel}
+                                      </td>
+                                    );
+                                  }
+                                  const { change, dbValue } = cellChangeOf(row, column.key, column.dbKey, match);
+                                  if (change === "add") {
+                                    return (
+                                      <td
+                                        key={column.key}
+                                        title={`Will be saved: ${row[column.key]}`}
+                                        className="px-3 py-1.5 truncate align-top bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
+                                      >
+                                        <span aria-hidden className="mr-0.5 font-semibold">+</span>
+                                        <span className="sr-only">Will be saved: </span>
+                                        {row[column.key]}
+                                      </td>
+                                    );
+                                  }
+                                  if (change === "same") {
+                                    return (
+                                      <td
+                                        key={column.key}
+                                        title={`Already in the database: ${dbValue || row[column.key]}`}
+                                        className="px-3 py-1.5 truncate align-top text-gray-500 dark:text-gray-400"
+                                      >
+                                        {row[column.key]}
+                                      </td>
+                                    );
+                                  }
+                                  if (change === "kept") {
+                                    return (
+                                      <td
+                                        key={column.key}
+                                        title={`Already in the database, unchanged: ${dbValue}`}
+                                        className="px-3 py-1.5 truncate align-top italic text-gray-400 dark:text-gray-500"
+                                      >
+                                        {dbValue}
+                                      </td>
+                                    );
+                                  }
+                                  if (change === "differs") {
+                                    return (
+                                      <td
+                                        key={column.key}
+                                        title={`Database keeps: ${dbValue}. Sheet value not applied: ${row[column.key]}`}
+                                        className="px-3 py-1.5 align-top text-gray-500 dark:text-gray-400"
+                                      >
+                                        <span className="block truncate">{dbValue}</span>
+                                        <span className="block truncate text-[10px] text-amber-600 dark:text-amber-400">
+                                          Sheet: {row[column.key]} (not applied)
+                                        </span>
+                                      </td>
+                                    );
+                                  }
+                                  return (
+                                    <td
+                                      key={column.key}
+                                      title={`${column.label} is empty`}
+                                      className={`px-3 py-1.5 truncate align-top ${cellClassName(row, column)}`}
+                                    >
+                                      {emptyLabel}
+                                    </td>
+                                  );
+                                })}
                                 {hasExtras && (
                                   <td className="px-3 py-1.5 truncate text-gray-600 dark:text-gray-400" title={extras}>
                                     {extras || <span className="text-gray-300 dark:text-gray-600">—</span>}
@@ -1218,6 +1356,11 @@ export const CropSheetImportModal = ({
                                   title={blockReasonOf(row) || undefined}
                                 >
                                   {rowStatus.label}
+                                  {filledFields.length > 0 && (
+                                    <span className="block text-[10px] font-normal font-mono text-sky-600 dark:text-sky-400 whitespace-normal">
+                                      + {filledFields.join(", ")}
+                                    </span>
+                                  )}
                                   {hasWarning && (
                                     <span className="block text-[10px] font-normal text-amber-600 dark:text-amber-400">
                                       Warning
