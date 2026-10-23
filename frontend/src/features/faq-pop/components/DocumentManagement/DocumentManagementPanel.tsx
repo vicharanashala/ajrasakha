@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, History } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   getDashboardConfig,
@@ -28,6 +28,7 @@ import UploadQueuePanel from "./UploadQueuePanel";
 import TranslationQueuePanel from "./TranslationQueuePanel";
 import ResizableSplitPanel from "./ResizableSplitPanel";
 import DocumentDetailModal from "./DocumentDetailModal";
+import UploadHistoryPanel from "./UploadHistoryPanel";
 
 const MODES = [
   { id: "add-document", label: "Add Document" },
@@ -270,6 +271,14 @@ export default function DocumentManagementPanel({
   const uploadRefetchTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(uploadRefetchTimerRef.current), []);
 
+  // Upload History modal — a separate read-only view of finished uploads (GET
+  // /dashboard/uploads/history). historyOpenRef mirrors historyOpen for the mount-only SSE effect
+  // below, same reason refetchUploadsRef exists.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const historyOpenRef = useRef(false);
+  historyOpenRef.current = historyOpen;
+
   // GET /dashboard/events — one shared SSE connection (see dashboardEvents.ts) driving live
   // updates for both queues, instead of polling. No replay on reconnect, so every (re)connect
   // refetches both queues from scratch via the "open" handler. Mount-only: state setters below are
@@ -285,6 +294,9 @@ export default function DocumentManagementPanel({
       upload: () => {
         clearTimeout(uploadRefetchTimerRef.current);
         uploadRefetchTimerRef.current = setTimeout(refetchUploadsRef.current, 300);
+        // An item leaving the queue (deleted:true) is exactly when it lands in history — refetch
+        // the history view too, same debounce, but only while it's actually open.
+        if (historyOpenRef.current) setHistoryRefreshKey((n) => n + 1);
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
@@ -545,6 +557,12 @@ export default function DocumentManagementPanel({
               <div className="flex items-center gap-2">
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <History size={12} /> History
+                </button>
+                <button
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   onClick={refetchAll}
                 >
                   <RefreshCw size={12} /> Refresh
@@ -608,6 +626,13 @@ export default function DocumentManagementPanel({
           terminalJobsByDocId={terminalJobsByDocId}
         />
       </div>
+
+      <UploadHistoryPanel
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        onOpenDetail={openDetail}
+        refreshSignal={historyRefreshKey}
+      />
 
       <DocumentDetailModal
         documentId={detailDocId}

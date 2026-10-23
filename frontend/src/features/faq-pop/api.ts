@@ -849,6 +849,15 @@ export async function getDashboardUploads() {
   return _handleResponse(res);
 }
 
+// Read-only, newest first — finished uploads (moved server-side to pop_upload_trail once an
+// add/new resolves), same UploadQueueItemOut shape as getDashboardUploads but with `actions`
+// always empty and created_document_id/created_row_ids filled in. Who sees what is decided
+// server-side (uploader, upload approver, or admin who acted on it) — no client-side filtering.
+export async function getDashboardUploadsHistory() {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/history`);
+  return _handleResponse(res);
+}
+
 export async function getDashboardUpload(id: string) {
   const res = await popFetch(`${POP_API}/dashboard/uploads/${id}`);
   return _handleResponse(res);
