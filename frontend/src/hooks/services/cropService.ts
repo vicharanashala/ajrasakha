@@ -173,10 +173,14 @@ export class CropService {
   }
 
   /** Imports parsed sheet entries, merging vernacular terms into existing entries. */
-  async importEntries(type: string, entries: ICropImportEntry[]): Promise<ICropImportResponse | null> {
+  async importEntries(
+    type: string,
+    entries: ICropImportEntry[],
+    fileName?: string,
+  ): Promise<ICropImportResponse | null> {
     return apiFetch<ICropImportResponse>(`${this._baseUrl}/import`, {
       method: "POST",
-      body: JSON.stringify({ type, entries }),
+      body: JSON.stringify({ type, entries, fileName }),
     });
   }
 

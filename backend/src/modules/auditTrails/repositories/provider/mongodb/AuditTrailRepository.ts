@@ -30,6 +30,17 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
     return result.insertedId.toString();
   }
 
+  // Inserts many audit entries in one round trip; returns how many were written.
+  async createAuditTrails(
+    data: ModeratorAuditTrail[],
+    session?: ClientSession,
+  ): Promise<number> {
+    if (!data.length) return 0;
+    await this.init();
+    const result = await this.auditTrailsCollection.insertMany(data, {session, ordered: false});
+    return result.insertedCount;
+  }
+
   // async getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string, session?: ClientSession): Promise<{data:ModeratorAuditTrail[], totalDocuments: number}> {
   //   await this.init();
   //   const skip = (page - 1) * limit;

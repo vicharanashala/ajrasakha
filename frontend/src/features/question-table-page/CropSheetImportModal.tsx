@@ -877,7 +877,7 @@ export const CropSheetImportModal = ({
 
     try {
       const entries = toEntries(importRows);
-      const response = await importEntries({ type: entryType, entries });
+      const response = await importEntries({ type: entryType, entries, fileName });
       const rowsByName = new Map<string, SheetRow[]>();
       importRows.forEach((row) => {
         const key = nameKeyOf(row.name);

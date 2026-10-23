@@ -45,10 +45,13 @@ import { uploadMediaFile, deleteMediaByUrl } from '#root/modules/dashboard/utils
 import { startCropBulkProcessing, startChemicalBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
 import * as XLSX from 'xlsx';
 import { FlexibleAuth } from '#root/shared/index.js';
-import { CropImportEntry } from '../utils/importAliases.js';
+import { randomUUID } from 'crypto';
+import { CropImportChange, CropImportEntry } from '../utils/importAliases.js';
 
 /** Guards a single sheet import against an oversized payload. */
 const MAX_IMPORT_ENTRIES = 5000;
+/** Caps the name lists kept on an import's summary audit entry. */
+const MAX_AUDIT_NAMES = 500;
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -145,7 +148,7 @@ export class CropController {
   @Authorized(['admin', 'moderator'])
   @OpenAPI({ summary: 'Bulk import AgriTech entries from a parsed sheet' })
   async importEntries(
-    @Body() data: { type: string; entries: CropImportEntry[] },
+    @Body() data: { type: string; entries: CropImportEntry[]; fileName?: string },
     @CurrentUser() user: IUser,
   ): Promise<any> {
     const type = data?.type?.trim().toLowerCase();
@@ -168,24 +171,137 @@ export class CropController {
       role: user.role,
       avatar: user?.avatar || '',
     };
-    const summary = await this.cropService.bulkImport(type, entries, user._id.toString());
+    // One id ties the summary entry to every per-entry entry of this import.
+    const importContext = {
+      importId: randomUUID(),
+      source: 'sheet_import',
+      fileName: typeof data?.fileName === 'string' ? data.fileName.trim().slice(0, 200) : undefined,
+      type,
+    };
+    const totalAliases = entries.reduce((sum, e) => sum + e.aliases.length, 0);
 
-    // One summary entry per import rather than one per row.
-    this.auditTrailsService.createAuditTrail({
+    let summary;
+    try {
+      summary = await this.cropService.bulkImport(type, entries, user._id.toString());
+    } catch (err: any) {
+      this.auditTrailsService
+        .createAuditTrail({
+          category: AuditCategory.CROP_MANAGEMENT,
+          action: AuditAction.CROP_BULK_CREATE,
+          actor,
+          context: { ...importContext, totalEntries: entries.length, totalAliases },
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Import failed',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n'),
+          },
+        })
+        .catch(auditErr => console.error('Failed to audit failed AgriTech import:', auditErr));
+      throw err;
+    }
+
+    const { changes, ...response } = summary;
+    this.auditImport(actor, importContext, entries.length, totalAliases, changes).catch(err =>
+      console.error('Failed to write AgriTech import audit trail:', err),
+    );
+    return response;
+  }
+
+  /**
+   * Records an import in the audit trail: one entry per created, updated or failed
+   * document (so it shows in that entry's own history, with the aliases before and
+   * after), plus one summary entry. All of them share the same importId.
+   */
+  private async auditImport(
+    actor: ModeratorAuditTrail['actor'],
+    importContext: Record<string, any>,
+    totalEntries: number,
+    totalAliases: number,
+    changes: CropImportChange[],
+  ): Promise<void> {
+    const createdAt = new Date();
+    const entryAudits: ModeratorAuditTrail[] = changes
+      .filter(change => change.status !== 'skipped')
+      .map(change => {
+        const isFailed = change.status === 'failed';
+        const hasConflicts = change.conflicts.length > 0;
+        const before = {
+          ...(change.filledBefore.length && { aliases: change.filledBefore }),
+          ...(change.scientificName && { scientificName: change.scientificName.before }),
+        };
+        const after = {
+          ...(change.operation === 'create' && !isFailed && { name: change.name, type: importContext.type }),
+          ...((change.filledAfter.length || change.addedAliases.length) && {
+            aliases: [...change.filledAfter, ...change.addedAliases],
+          }),
+          ...(change.scientificName && { scientificName: change.scientificName.after }),
+        };
+        return {
+          category: AuditCategory.CROP_MANAGEMENT,
+          action: change.operation === 'create' ? AuditAction.ADD_CROP : AuditAction.UPDATE_CROP,
+          actor,
+          context: {
+            ...this.entryAuditContext(change.entryId, change.name),
+            ...importContext,
+            addedAliases: change.addedAliases.length,
+            filledAliases: change.filledAfter.length,
+            ...(hasConflicts && { conflictingAliases: change.conflicts }),
+          },
+          ...(!isFailed && {
+            changes: {
+              ...(Object.keys(before).length && { before }),
+              ...(Object.keys(after).length && { after }),
+            },
+          }),
+          outcome: isFailed
+            ? { status: OutComeStatus.FAILED, errorMessage: change.reason }
+            : { status: hasConflicts ? OutComeStatus.PARTIAL : OutComeStatus.SUCCESS },
+          createdAt,
+        };
+      });
+
+    const namesWith = (status: CropImportChange['status']) =>
+      changes.filter(c => c.status === status).map(c => c.name).slice(0, MAX_AUDIT_NAMES);
+    const failures = changes
+      .filter(c => c.status === 'failed')
+      .slice(0, MAX_AUDIT_NAMES)
+      .map(c => ({ name: c.name, reason: c.reason }));
+    const count = (status: CropImportChange['status']) => changes.filter(c => c.status === status).length;
+    const failedCount = count('failed');
+
+    const summaryAudit: ModeratorAuditTrail = {
       category: AuditCategory.CROP_MANAGEMENT,
       action: AuditAction.CROP_BULK_CREATE,
       actor,
       context: {
-        type,
-        totalRows: entries.length,
-        created: summary.created,
-        updated: summary.updated,
-        skipped: summary.skipped,
-        failed: summary.failed,
+        ...importContext,
+        totalEntries,
+        totalAliases,
+        created: count('created'),
+        updated: count('updated'),
+        skipped: count('skipped'),
+        failed: failedCount,
+        aliasesAdded: changes.reduce((sum, c) => sum + c.addedAliases.length, 0),
+        aliasesFilled: changes.reduce((sum, c) => sum + c.filledAfter.length, 0),
+        createdNames: namesWith('created'),
+        updatedNames: namesWith('updated'),
+        skippedNames: namesWith('skipped'),
+        ...(failures.length && { failures }),
       },
-      outcome: { status: OutComeStatus.SUCCESS },
-    });
-    return summary;
+      outcome: {
+        status:
+          failedCount === 0
+            ? OutComeStatus.SUCCESS
+            : failedCount === changes.length
+              ? OutComeStatus.FAILED
+              : OutComeStatus.PARTIAL,
+      },
+      createdAt,
+    };
+
+    await this.auditTrailsService.createAuditTrails([...entryAudits, summaryAudit]);
   }
 
   @Get('/bulk-status')

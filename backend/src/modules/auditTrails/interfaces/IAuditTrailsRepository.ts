@@ -7,6 +7,11 @@ export interface IAuditTrailsRepository {
     session?: ClientSession,
   ): Promise<string>;
 
+  createAuditTrails(
+    data: ModeratorAuditTrail[],
+    session?: ClientSession,
+  ): Promise<number>;
+
   getAuditTrails(
     page: number,
     limit: number,

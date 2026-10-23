@@ -27,6 +27,13 @@ export class AuditTrailsService
     );
   }
 
+  // Writes a batch of audit entries (e.g. one per entry of a bulk import) in one call.
+  async createAuditTrails(payloads: ModeratorAuditTrail[]): Promise<number> {
+    return await this.auditTrailsRepository.createAuditTrails(
+      payloads.map(payload => this.normalizeAuditToObjectId(payload)),
+    );
+  }
+
   async getAuditTrails(
     page: number,
     limit: number,

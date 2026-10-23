@@ -15,10 +15,13 @@ export const useImportCropEntries = () => {
     mutationFn: async ({
       type,
       entries,
+      fileName,
     }: {
       type: string;
       entries: ICropImportEntry[];
-    }): Promise<ICropImportResponse | null> => cropService.importEntries(type, entries),
+      /** Shown in the audit trail so an import can be traced back to its file. */
+      fileName?: string;
+    }): Promise<ICropImportResponse | null> => cropService.importEntries(type, entries, fileName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crops"] });
       queryClient.invalidateQueries({ queryKey: ["crop-entry-types"] });

@@ -13,6 +13,18 @@ export interface CropImportResult {
   reason: string;
 }
 
+/** What one entry's import changed, kept for the audit trail (not sent to the client). */
+export interface CropImportChange extends CropImportResult {
+  operation: 'create' | 'update';
+  entryId?: string;
+  addedAliases: ICropAlias[];
+  /** Stored aliases before and after their empty details were filled. */
+  filledBefore: ICropAlias[];
+  filledAfter: ICropAlias[];
+  scientificName?: {before: string | null; after: string};
+  conflicts: string[];
+}
+
 const norm = (value?: string) => (value ?? '').trim().toLowerCase();
 
 /** Identifies a vernacular term by language, region and its two spellings. */
@@ -67,6 +79,8 @@ export const planAliasMerge = (
   fresh: ICropAlias[];
   enriched: number;
   skipped: number;
+  filledBefore: ICropAlias[];
+  filledAfter: ICropAlias[];
 } => {
   const stored = existing.map(a => (typeof a === 'string' ? a : {...a}));
   const byKey = new Map<string, ICropAlias>();
@@ -75,15 +89,18 @@ export const planAliasMerge = (
   });
 
   const fresh: ICropAlias[] = [];
-  const enrichedTerms = new Set<ICropAlias>();
+  // Snapshot of each stored alias taken just before its first detail is filled.
+  const enrichedTerms = new Map<ICropAlias, ICropAlias>();
   let skipped = 0;
 
   for (const alias of incoming) {
     // A stored alias is always enriched, even when it repeats the entry's own name.
     const match = byKey.get(termKey(alias));
     if (match) {
-      if (fillMissingDetails(match, alias)) enrichedTerms.add(match);
-      else skipped++;
+      const snapshot = {...match, ...(match.extra_fields && {extra_fields: {...match.extra_fields}})};
+      if (fillMissingDetails(match, alias)) {
+        if (!enrichedTerms.has(match)) enrichedTerms.set(match, snapshot);
+      } else skipped++;
       continue;
     }
     if (norm(alias.english_representation) === norm(entryName)) {
@@ -94,5 +111,12 @@ export const planAliasMerge = (
     byKey.set(termKey(copy), copy);
     fresh.push(copy);
   }
-  return {stored, fresh, enriched: enrichedTerms.size, skipped};
+  return {
+    stored,
+    fresh,
+    enriched: enrichedTerms.size,
+    skipped,
+    filledBefore: [...enrichedTerms.values()],
+    filledAfter: [...enrichedTerms.keys()],
+  };
 };

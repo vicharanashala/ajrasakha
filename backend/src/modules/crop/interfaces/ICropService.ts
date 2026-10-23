@@ -4,7 +4,7 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
-import {CropImportEntry, CropImportResult} from '../utils/importAliases.js';
+import {CropImportChange, CropImportEntry, CropImportResult} from '../utils/importAliases.js';
 
 export interface ICropService {
   getAllCrops(query?: GetAllCropsQuery): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}>;
@@ -17,6 +17,7 @@ export interface ICropService {
     userId: string,
   ): Promise<{
     results: CropImportResult[];
+    changes: CropImportChange[];
     created: number;
     updated: number;
     skipped: number;

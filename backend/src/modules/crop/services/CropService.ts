@@ -13,6 +13,7 @@ import {
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
 import {
+  CropImportChange,
   CropImportEntry,
   CropImportResult,
   planAliasMerge,
@@ -108,6 +109,7 @@ export class CropService extends BaseService implements ICropService {
     userId: string,
   ): Promise<{
     results: CropImportResult[];
+    changes: CropImportChange[];
     created: number;
     updated: number;
     skipped: number;
@@ -118,33 +120,37 @@ export class CropService extends BaseService implements ICropService {
         crop => [crop.name.trim().toLowerCase(), crop],
       ),
     );
-    const results: CropImportResult[] = [];
+    const changes: CropImportChange[] = [];
 
     for (const entry of entries) {
+      const existing = existingByName.get(entry.name.trim().toLowerCase()) ?? null;
+      const failure = (reason: string): CropImportChange => ({
+        name: entry.name,
+        status: 'failed',
+        reason,
+        operation: existing ? 'update' : 'create',
+        entryId: existing?._id?.toString(),
+        addedAliases: [],
+        filledBefore: [],
+        filledAfter: [],
+        conflicts: [],
+      });
       try {
-        const existing = existingByName.get(entry.name.trim().toLowerCase());
         if (existing && (existing.type ?? 'crop') !== type) {
-          results.push({
-            name: entry.name,
-            status: 'failed',
-            reason: `Already exists under the "${existing.type ?? 'crop'}" type`,
-          });
+          changes.push(failure(`Already exists under the "${existing.type ?? 'crop'}" type`));
           continue;
         }
-        results.push(await this.importEntry(type, entry, existing ?? null, userId));
+        changes.push(await this.importEntry(type, entry, existing, userId));
       } catch (error: any) {
-        results.push({
-          name: entry.name,
-          status: 'failed',
-          reason: error?.message || 'Import failed',
-        });
+        changes.push(failure(error?.message || 'Import failed'));
       }
     }
 
     const count = (status: CropImportResult['status']) =>
-      results.filter(r => r.status === status).length;
+      changes.filter(c => c.status === status).length;
     return {
-      results,
+      results: changes.map(({name, status, reason}) => ({name, status, reason})),
+      changes,
       created: count('created'),
       updated: count('updated'),
       skipped: count('skipped'),
@@ -157,22 +163,34 @@ export class CropService extends BaseService implements ICropService {
     entry: CropImportEntry,
     existing: ICrop | null,
     userId: string,
-  ): Promise<CropImportResult> {
-    const {stored, fresh, enriched, skipped} = planAliasMerge(
+  ): Promise<CropImportChange> {
+    const {stored, fresh, enriched, skipped, filledBefore, filledAfter} = planAliasMerge(
       entry.name,
       existing?.aliases ?? [],
       entry.aliases,
     );
     const newScientificName = !existing?.scientificName && entry.scientificName;
+    const operation = existing ? 'update' : 'create';
 
     if (existing && !fresh.length && !enriched && !newScientificName) {
-      return {name: entry.name, status: 'skipped', reason: 'All aliases and details already exist for this entry'};
+      return {
+        name: entry.name,
+        status: 'skipped',
+        reason: 'All aliases and details already exist for this entry',
+        operation,
+        entryId: existing._id?.toString(),
+        addedAliases: [],
+        filledBefore: [],
+        filledAfter: [],
+        conflicts: [],
+      };
     }
 
     // Try the whole entry first; a conflicting term falls back to one-by-one adds.
     let entryId = existing?._id?.toString();
     let current: (ICropAlias | string)[] = [...stored];
     const conflicts: string[] = [];
+    const addedAliases: ICropAlias[] = [];
 
     try {
       if (existing) {
@@ -185,7 +203,7 @@ export class CropService extends BaseService implements ICropService {
           userId,
         );
       } else {
-        await this.cropRepository.createCrop(
+        const created = await this.cropRepository.createCrop(
           entry.name,
           userId,
           fresh,
@@ -194,8 +212,10 @@ export class CropService extends BaseService implements ICropService {
           undefined,
           entry.scientificName,
         );
+        entryId = created._id?.toString();
       }
       current = [...current, ...fresh];
+      addedAliases.push(...fresh);
     } catch (error: any) {
       if (!(error instanceof BadRequestError)) throw error;
       if (existing) {
@@ -225,6 +245,7 @@ export class CropService extends BaseService implements ICropService {
         try {
           await this.cropRepository.updateCrop(entryId!, {aliases: [...current, alias]}, userId);
           current.push(alias);
+          addedAliases.push(alias);
         } catch (aliasError: any) {
           if (!(aliasError instanceof BadRequestError)) throw aliasError;
           conflicts.push(alias.english_representation);
@@ -232,7 +253,7 @@ export class CropService extends BaseService implements ICropService {
       }
     }
 
-    const added = fresh.length - conflicts.length;
+    const added = addedAliases.length;
     const notes = [
       added ? `${added} new alias${added === 1 ? '' : 'es'} added` : '',
       enriched ? `${enriched} existing alias${enriched === 1 ? '' : 'es'} filled with new details` : '',
@@ -244,6 +265,15 @@ export class CropService extends BaseService implements ICropService {
       name: entry.name,
       status: existing ? 'updated' : 'created',
       reason: notes.join('; '),
+      operation,
+      entryId,
+      addedAliases,
+      filledBefore,
+      filledAfter,
+      ...(existing && newScientificName
+        ? {scientificName: {before: existing.scientificName ?? null, after: newScientificName}}
+        : {}),
+      conflicts,
     };
   }
 
