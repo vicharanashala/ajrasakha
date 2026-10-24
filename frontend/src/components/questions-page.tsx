@@ -408,14 +408,14 @@ export const QuestionsPage = ({
   // question's details to a view (like My Assignments) that has fewer pages — snap
   // back to the last valid page so the list isn't stuck on an empty out-of-range page.
   useEffect(() => {
-    if (viewMode !== "review-level") {
+    if (viewMode !== "review-level" && !isLoading && questionData !== undefined) {
       if (totalPages > 0 && currentPage > totalPages) {
         setCurrentPage(totalPages);
       } else if (totalPages === 0 && currentPage > 1) {
         setCurrentPage(1);
       }
     }
-  }, [viewMode, totalPages, currentPage]);
+  }, [viewMode, totalPages, currentPage, isLoading, questionData]);
 
   const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
   const hasPrev = currentIndex > 0 || currentPageVal > 1;

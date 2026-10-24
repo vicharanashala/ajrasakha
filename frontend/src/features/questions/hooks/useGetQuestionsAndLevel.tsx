@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { QuestionService } from "@/hooks/services/questionService";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 
@@ -16,6 +16,7 @@ export const useGetQuestionsAndLevel = (
     queryFn: async () =>
       questionService.GetQuestionsAndLevels(page, limit, search, filter, sort??""),
     enabled,
+    placeholderData: keepPreviousData,
   });
   return { data, isLoading, refetch };
 };
