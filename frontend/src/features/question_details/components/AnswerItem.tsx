@@ -16,7 +16,7 @@ import type {
   UserRole,
 } from "@/types";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
 import { AnswerActions } from "./answer_item/AnswerActions";

@@ -40,7 +40,7 @@ import type { IRequest, RequestStatus } from "@/types";
 import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { ScrollArea } from "./atoms/scroll-area";
 import { useUpdateRequestStatus } from "@/hooks/api/request/useUpdateRequestStatus";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { Separator } from "./atoms/separator";
 import {
   Dialog,
@@ -142,21 +142,25 @@ export const RequestCard = ({
   useEffect(() => {}, [isHighlighted, req._id]);
 
   const handleSubmit = async () => {
+    if (!newStatus || newStatus === req.status) {
+      toast.error(
+        "Please select a new status different from the current one.",
+      );
+      return;
+    }
+    if (!response || response.trim().length < 8) {
+      toast.error("Response must be at least 8 characters long.");
+      return;
+    }
+    let toastId;
     try {
-      if (!newStatus || newStatus === req.status) {
-        toast.error(
-          "Please select a new status different from the current one.",
-        );
-        return;
-      }
-      if (!response || response.trim().length < 8) {
-        toast.error("Response must be at least 8 characters long.");
-        return;
-      }
+      toastId = toast.loading("Updating request...");
       await updateStatus({ status: newStatus, requestId: req._id, response });
+      if (toastId) toast.dismiss(toastId);
       toast.success("Request updated successfully.");
       setDiffOpen(false);
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       console.error("Error updating request:", error);
       toast.error("Failed to update the request. Please try again.");
     }

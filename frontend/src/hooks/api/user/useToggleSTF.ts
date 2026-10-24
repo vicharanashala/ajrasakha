@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 const userService = new UserService();
 

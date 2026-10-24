@@ -5,7 +5,7 @@ import type {
   SourceItem
 } from "@/types";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { Card, CardContent, CardHeader } from "../../components/atoms/card";
 import { QuestionDetailsDialog } from "./QuestionDetailsDialog";
 import {

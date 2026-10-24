@@ -77,7 +77,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-function useToastContext() {
+export function useToastContext() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("AgriToast: <ToastProvider /> not found in tree.");
   return ctx;

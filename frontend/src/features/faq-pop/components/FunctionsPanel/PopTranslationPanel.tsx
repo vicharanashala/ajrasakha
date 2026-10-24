@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/shared/components/toast';
 import { Square, FileText, Check, ChevronRight } from 'lucide-react';
 import { MultiSelector, StateSelector } from './RunTile';
 import { getPopStateTable, runPop, getPopJob, stopPopJob } from '../../api';

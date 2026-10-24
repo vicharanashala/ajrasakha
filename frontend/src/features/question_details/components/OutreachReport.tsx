@@ -32,7 +32,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import { useSendOutreachReport } from "@/hooks/api/question/useSendOutreachReport";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 import { ShortcutKey, isDialogOpen } from "@/components/atoms/shortcut-key";
 
@@ -114,15 +114,19 @@ export const OutreachReportModal = ({setIsSidebarOpen, shortcut}:{setIsSidebarOp
       return;
     }
 
+    let toastId;
     try {
+      toastId = toast.loading("Sending outreach report...");
       await sendReport({
         startDate,
         endDate,
         emails: emails,
       });
+      if (toastId) toast.dismiss(toastId);
       setOpen(false);
       setTimeout(resetForm, 300);
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       toast.error("Failed to send report. Please try again.");
     }
   };

@@ -14,8 +14,7 @@ import { Pagination } from "../../components/pagination";
 
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 
-import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { QuestionRow } from "./QuestionRow";
@@ -24,6 +23,7 @@ import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Checkbox } from "@/components/atoms/checkbox";
 import { useQuestionTableStore } from "@/stores/all-questions";
 import QuestionsCard from "./QuestionsCard";
+import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
 
 type QuestionsTableProps = {
   items?: IDetailedQuestion[] | null;
