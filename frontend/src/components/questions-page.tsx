@@ -71,18 +71,18 @@ export const QuestionsPage = ({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   // "A" opens AgriTech Management from the questions list, for the roles that see it
-  // in the sidebar; paused while any dialog or drawer is open. (temporarily commented out)
-  // useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
-  //   const role = currentUser?.role;
-  //   return (
-  //     !isAgriTechOpen &&
-  //     !selectedQuestionId &&
-  //     !!role &&
-  //     role !== "expert" &&
-  //     role !== "tester" &&
-  //     !document.querySelector('[role="dialog"], [role="alertdialog"]')
-  //   );
-  // });
+  // in the sidebar; paused while any dialog or drawer is open.
+  useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
+    const role = currentUser?.role;
+    return (
+      !isAgriTechOpen &&
+      !selectedQuestionId &&
+      !!role &&
+      role !== "expert" &&
+      role !== "tester" &&
+      !document.querySelector('[role="dialog"], [role="alertdialog"]')
+    );
+  });
   const [search, setSearch] = useState("");
   const [searchTabMode, setSearchTabMode] = useState<string>("search");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
