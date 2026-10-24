@@ -13,6 +13,7 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { PlaygroundHeader } from "./PlaygroundHeader";
 import { UserManagement } from "./user-management";
@@ -274,6 +275,27 @@ export const PlaygroundPage = () => {
 
     initializeNotifications(userId);
   }, [user]);
+
+  // The service worker's push handler (service-worker.js) posts { type: 'new-notification' } to
+  // every open tab right after showing the push banner — but only after the FULL server-side
+  // chain has actually finished: the triggering PoP action resolves on the external PoP backend,
+  // this app's own backend resolves the right uploader/approvers/admins and writes their
+  // notification row, THEN sends the push. So this is the one signal guaranteed to arrive only
+  // once a fresh row genuinely exists — unlike the PoP queue's own SSE "upload"/"document" events,
+  // which fire the moment the queue item itself changes, well before that chain (and so before
+  // this invalidate would find anything new). Refetching the bell/sidebar on anything earlier
+  // just re-fetches stale data.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    function onMessage(event: MessageEvent) {
+      if (event.data?.type === "new-notification") {
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      }
+    }
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [queryClient]);
 
   return (
     <>
