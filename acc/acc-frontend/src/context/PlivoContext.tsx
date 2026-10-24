@@ -601,6 +601,30 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         disconnectWebSocket();
         handleMarkAgentAsAvailable();
       });
+
+      client.client.on("onIncomingCallCanceled", () => {
+        console.log("📴 [PlivoContext] Incoming call canceled or timed out");
+        handledAnsweredLegRef.current = null;
+        parentCallUuidRef.current = null;
+        activeCallUuidRef.current = null;
+        activeCallInfoRef.current = null;
+        setCallStatus("idle");
+        setActiveCall(null);
+        disconnectWebSocket();
+        handleMarkAgentAsAvailable();
+      });
+
+      client.client.on("onIncomingCallIgnored", () => {
+        console.log("📴 [PlivoContext] Incoming call ignored");
+        handledAnsweredLegRef.current = null;
+        parentCallUuidRef.current = null;
+        activeCallUuidRef.current = null;
+        activeCallInfoRef.current = null;
+        setCallStatus("idle");
+        setActiveCall(null);
+        disconnectWebSocket();
+        handleMarkAgentAsAvailable();
+      });
     };
 
     initializeClient();

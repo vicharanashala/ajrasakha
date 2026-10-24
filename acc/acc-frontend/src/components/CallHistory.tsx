@@ -741,6 +741,10 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         return "badge-status-busy";
       case "failed":
       case "no answer":
+      case "no-answer":
+      case "canceled":
+      case "cancelled":
+      case "rejected":
       case "disconnected":
       case "error":
       default:
@@ -848,7 +852,9 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                   <option value="">All Statuses</option>
                   <option value="completed">Completed</option>
                   <option value="failed">Failed</option>
-                  <option value="no answer">No Answer</option>
+                  <option value="no-answer">No Answer</option>
+                  <option value="canceled">Canceled</option>
+                  <option value="rejected">Rejected</option>
                   <option value="busy">Busy</option>
                   <option value="in-progress">In Progress</option>
                   <option value="ringing">Ringing</option>

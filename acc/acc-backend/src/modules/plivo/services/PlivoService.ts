@@ -785,7 +785,40 @@ export class PlivoService {
         duration = Math.max(0, Math.round((Date.now() - inMemoryMeta.startTime.getTime()) / 1000));
       }
 
-      const status = plivoCall?.callState || plivoCall?.status || 'completed';
+      const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
+      const terminalStatuses = ['canceled', 'rejected', 'no-answer', 'busy', 'failed', 'completed'];
+      let status: string;
+
+      if (existingCall?.status && terminalStatuses.includes(existingCall.status.toLowerCase())) {
+        status = existingCall.status.toLowerCase();
+      } else {
+        const rawPlivoStatus = String(plivoCall?.callStatus || plivoCall?.status || '').toLowerCase();
+        const hangupCause = String(
+          plivoCall?.hangupCauseName ||
+          plivoCall?.hangup_cause_name ||
+          plivoCall?.hangupCause ||
+          ''
+        ).toLowerCase();
+
+        if (existingCall?.status === 'connected') {
+          status = 'completed';
+        } else if (hangupCause.includes('reject')) {
+          status = 'rejected';
+        } else if (hangupCause.includes('cancel') || hangupCause.includes('originator')) {
+          status = 'canceled';
+        } else if (hangupCause.includes('busy') || rawPlivoStatus === 'busy') {
+          status = 'busy';
+        } else if (rawPlivoStatus === 'no-answer' || hangupCause.includes('timeout') || hangupCause.includes('no-answer')) {
+          status = 'no-answer';
+        } else if (rawPlivoStatus === 'failed') {
+          status = 'failed';
+        } else if (hangupCause.includes('normal') || hangupCause.includes('clearing') || duration < 10) {
+          status = 'canceled';
+        } else {
+          status = existingCall?.status === 'ringing' ? 'canceled' : 'completed';
+        }
+      }
+
       const direction = isOutbound ? 'outbound' : (plivoCall?.callDirection || plivoCall?.direction || 'inbound');
 
       const callDetails = {
@@ -808,13 +841,12 @@ export class PlivoService {
         }
       };
 
-      const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
       if (existingCall) {
         await this.callDetailsRepository.updateCallDetails(callUuid, callDetails);
-        console.log(`✅ [PLIVO-SERVICE] Updated existing call details for ${callUuid} in database.`);
+        console.log(`✅ [PLIVO-SERVICE] Updated existing call details for ${callUuid} in database (status: ${status}).`);
       } else {
         await this.callDetailsRepository.create(callDetails);
-        console.log(`✅ [PLIVO-SERVICE] Saved new call details for ${callUuid} to database.`);
+        console.log(`✅ [PLIVO-SERVICE] Saved new call details for ${callUuid} to database (status: ${status}).`);
       }
     } catch (err) {
       console.error(`❌ [PLIVO-SERVICE] Error saving call details for ${callUuid}:`, err);

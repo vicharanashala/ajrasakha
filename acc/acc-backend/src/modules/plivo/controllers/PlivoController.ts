@@ -810,17 +810,30 @@ export class PlivoController {
         DialHangupCause?.includes('Endpoint Not Registered') ||
         DialHangupCause?.includes('2020');
 
-      // If dial was not completed (failed, timeout, no-answer, busy, etc.), persist as failed call in DB for redial
       if (DialStatus !== 'completed') {
         const callerPhone = callMeta?.from || req.body?.From || req.query?.From || 'unknown';
         const myPlivoNumber = appConfig.plivo.plivo_number || '+918031150392';
+
+        let targetStatus = 'no-answer';
+        const causeLower = String(DialHangupCause || '').toLowerCase();
+        if (causeLower.includes('reject')) {
+          targetStatus = 'rejected';
+        } else if (causeLower.includes('cancel') || causeLower.includes('originator')) {
+          targetStatus = 'canceled';
+        } else if (causeLower.includes('busy') || DialStatus === 'busy') {
+          targetStatus = 'busy';
+        } else if (isDeliveryFailure || DialStatus === 'failed') {
+          targetStatus = 'failed';
+        } else if (DialStatus === 'no-answer') {
+          targetStatus = 'no-answer';
+        }
 
         try {
           if (callUuid) {
             const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
             if (existingCall) {
               await this.callDetailsRepository.updateCallDetails(callUuid, {
-                status: 'failed',
+                status: targetStatus,
                 duration: 0,
                 ...(callerPhone && callerPhone !== 'unknown' ? { from: callerPhone } : {}),
               });
@@ -834,7 +847,7 @@ export class PlivoController {
                 from: callerPhone,
                 to: myPlivoNumber,
                 direction: 'inbound',
-                status: 'failed',
+                status: targetStatus,
                 duration: 0,
                 caller: {
                   transcript: '',
@@ -853,7 +866,6 @@ export class PlivoController {
               };
               await this.callDetailsRepository.create(failedCallRecord);
             }
-            // console.log(`💾 [DIAL-ACTION] Saved failed call ${callUuid} (from: ${callerPhone}, agent: ${agentUserId || 'none'}) in DB for redial.`);
           }
         } catch (dbErr) {
           console.error(`❌ [DIAL-ACTION] Failed to persist failed call ${callUuid} in DB:`, dbErr);
@@ -1025,10 +1037,12 @@ export class PlivoController {
               ? Math.max(0, Math.round(Number(rawDuration)))
               : (existingCall.duration || 0);
 
-            if (existingCall.status === 'ringing') {
-              const hangupCause = String(req.body?.HangupCause || req.query?.HangupCause || '').toLowerCase();
-              const plivoCallStatus = String(req.body?.CallStatus || req.query?.CallStatus || '').toLowerCase();
+            const hangupCause = String(req.body?.HangupCause || req.query?.HangupCause || '').toLowerCase();
+            const plivoCallStatus = String(req.body?.CallStatus || req.query?.CallStatus || '').toLowerCase();
 
+            const wasConnected = existingCall.status === 'connected';
+
+            if (!wasConnected) {
               let terminalStatus = 'no-answer';
               if (hangupCause.includes('reject')) {
                 terminalStatus = 'rejected';
@@ -1038,18 +1052,23 @@ export class PlivoController {
                 terminalStatus = 'busy';
               } else if (plivoCallStatus === 'failed') {
                 terminalStatus = 'failed';
+              } else if (hangupCause.includes('normal') || hangupCause.includes('clearing') || duration < 10) {
+                // Caller hung up during welcome prompt or ringing before connecting to agent
+                terminalStatus = 'canceled';
               }
 
-              console.log(`📞 [PLIVO-CONTROLLER] Call ${callUuid} ended while ringing (hangupCause=${req.body?.HangupCause || 'none'}). Updating status to '${terminalStatus}'`);
+              console.log(`📞 [PLIVO-CONTROLLER] Call ${callUuid} ended uncompleted (hangupCause=${req.body?.HangupCause || 'none'}). Updating status to '${terminalStatus}'`);
               await this.callDetailsRepository.updateCallDetails(callUuid, {
                 status: terminalStatus,
-                duration: duration || 0,
+                duration: 0,
               });
-            } else if (existingCall.status === 'connected') {
-              const plivoCallStatus = req.body?.CallStatus || req.query?.CallStatus || 'completed';
-              console.log(`📞 [PLIVO-CONTROLLER] Connected call ${callUuid} ended. Updating status to '${plivoCallStatus}', duration=${duration}s`);
+            } else {
+              const finalStatus = (plivoCallStatus === 'completed' || plivoCallStatus === 'failed' || plivoCallStatus === 'busy')
+                ? plivoCallStatus
+                : 'completed';
+              console.log(`📞 [PLIVO-CONTROLLER] Connected call ${callUuid} ended. Updating status to '${finalStatus}', duration=${duration}s`);
               await this.callDetailsRepository.updateCallDetails(callUuid, {
-                status: plivoCallStatus,
+                status: finalStatus,
                 duration: duration,
               });
             }
