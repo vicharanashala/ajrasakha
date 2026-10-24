@@ -8,7 +8,6 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 
-import { Badge } from "../../components/atoms/badge";
 // import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
 
 import {
@@ -32,7 +31,6 @@ import {
   ChevronUp,
   Loader2,
   Beaker,
-  MessageSquare,
   MessageCircle,
   AlertTriangle,
   Download,
@@ -94,7 +92,10 @@ import {
 } from "@/components/atoms/dropdown-menu";
 import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
-import { UserCheck, LayoutDashboard } from "lucide-react";
+import { UserCheck, LayoutDashboard, Phone } from "lucide-react";
+import { NewBadge } from "@/components/atoms/new-badge";
+import { ShortcutKey, isDialogOpen } from "@/components/atoms/shortcut-key";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
@@ -751,6 +752,31 @@ export const QuestionsFilters = ({
     };
   }, [isDragging]);
 
+  // Opens WhatsApp history and closes the tools sidebar.
+  const openWhatsAppHistory = () => {
+    navigate({ to: "/whatsapp-history" });
+    setIsSidebarOpen(false);
+  };
+
+  // Single-key shortcuts for the Management Tools actions this component owns. The
+  // dialog-based tools (outreach, preferences, queues) register their own keys.
+  // "A" (AgriTech Management) is handled by the questions page.
+  const canUseTools = userRole !== "expert" && userRole !== "tester";
+  useKeyboardShortcuts(
+    [
+      { key: "t", handler: () => setIsSidebarOpen(true) },
+      ...(canUseTools && !isTrainingUser ? [{ key: "w", handler: openWhatsAppHistory }] : []),
+      ...(userRole === "admin" || userRole === "moderator"
+        ? [{ key: "s", handler: () => { setIsStateAliasModalOpen(true); setIsSidebarOpen(false); } }]
+        : []),
+      ...(canUseTools && !isTrainingUser
+        ? [{ key: "r", handler: () => { setIsReAllocateOpen(true); setIsSidebarOpen(false); } }]
+        : []),
+      ...(userRole !== "expert" ? [{ key: "l", handler: () => handleClick() }] : []),
+    ],
+    () => !isDialogOpen(),
+  );
+
   const handleClick = () => {
     navigate({ to: "/flags-reported" });
   }
@@ -972,12 +998,6 @@ export const QuestionsFilters = ({
                       : `ReAllocate Experts (${selectedQuestionIds.length})`}
                 </Button>
 
-                <Badge
-                  variant="default"
-                  className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                >
-                  New
-                </Badge>
               </div>
             )}
 
@@ -1198,62 +1218,57 @@ export const QuestionsFilters = ({
               {/* WhatsApp History */}
               {userRole !== "expert" && userRole !== 'tester' && !isTrainingUser && (
                 <button
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
-                  onClick={() => {
-                    navigate({ to: "/whatsapp-history" });
-                    setIsSidebarOpen(false);
-                  }}
+                  className="relative w-full flex items-center gap-3 p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  aria-keyshortcuts="W"
+                  onClick={openWhatsAppHistory}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
-                      <MessageSquare size={20} />
-                    </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
-                          WhatsApp History
-                        </p>
-                      </div>
-                      <p className="text-[11px] text-gray-500">
-                        View conversation logs
-                      </p>
-                    </div>
+                  {/* Chat bubble with a handset, on WhatsApp's green, so the card reads as WhatsApp. */}
+                  <div className="w-10 h-10 flex-shrink-0 rounded-lg bg-[#25D366] flex items-center justify-center text-white shadow-sm shadow-[#25D366]/30">
+                    <span className="relative flex items-center justify-center" aria-hidden>
+                      <MessageCircle size={22} strokeWidth={2.2} />
+                      <Phone size={9} strokeWidth={2.6} className="absolute fill-white" />
+                    </span>
                   </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="truncate text-sm font-bold text-gray-900 dark:text-white">WhatsApp History</p>
+                    <p className="truncate text-[11px] text-gray-500">View conversation logs</p>
+                  </div>
+                  <ShortcutKey keyLabel="W" />
                 </button>
               )}
 
-              {/* update crops */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {/* update crops - temporarily commented out */}
+              {/* {userRole !== "expert" && userRole !== "tester" && (
                 <button
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  className="relative w-full flex items-center gap-3 p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  aria-keyshortcuts={onOpenAgriTech ? "A" : undefined}
                   onClick={() => {
                     if (onOpenAgriTech) onOpenAgriTech();
                     else setIsCropModalOpen(true);
                     setIsSidebarOpen(false);
                   }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
-                      <Cpu size={20} />
-                    </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
-                          AgriTech Management
-                        </p>
-                      </div>
-                      <p className="text-[11px] text-gray-500">
-                        Manage AgriTech List
-                      </p>
-                    </div>
+                  <NewBadge className="pointer-events-none absolute -top-2 right-3" />
+                  <div className="w-10 h-10 flex-shrink-0 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-700 dark:text-green-400">
+                    <Cpu size={20} />
                   </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="truncate whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                      AgriTech Management
+                    </p>
+                    <p className="truncate text-[11px] text-gray-500">
+                      Manage AgriTech List
+                    </p>
+                  </div>
+                  {onOpenAgriTech && <ShortcutKey keyLabel="A" />}
                 </button>
-              )}
+              )} */}
 
               {/* Edit State & District (aliases) — admin/moderator only */}
               {(userRole === "admin" || userRole === "moderator") && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  aria-keyshortcuts="S"
                   onClick={() => {
                     setIsStateAliasModalOpen(true);
                     setIsSidebarOpen(false);
@@ -1274,6 +1289,7 @@ export const QuestionsFilters = ({
                       </p>
                     </div>
                   </div>
+                  <ShortcutKey keyLabel="S" />
                 </button>
               )}
 
@@ -1308,6 +1324,7 @@ export const QuestionsFilters = ({
               {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  aria-keyshortcuts="R"
                   onClick={() => {
                     setIsReAllocateOpen(true);
                     setIsSidebarOpen(false);
@@ -1330,12 +1347,13 @@ export const QuestionsFilters = ({
                       </p>
                     </div>
                   </div>
+                  <ShortcutKey keyLabel="R" />
                 </button>
               )}
 
               {/* send outreach rport */}
               {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
-                <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
+                <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} shortcut="o" />
               )}
               {/* preferences */}
               <AdvanceFilterDialog
@@ -1348,31 +1366,32 @@ export const QuestionsFilters = ({
                 onReset={onReset}
                 isForQA={false}
                 setIsSidebarOpen={setIsSidebarOpen}
+                shortcut="p"
               />
 
               {/* queue details — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && (
-                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
+                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} shortcut="q" />
               )}
 
               {/* moderator queue — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && (
-                <ModeratorQueueModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
+                <ModeratorQueueModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} shortcut="m" />
               )}
 
               {/* gate keeper / auditor queue — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && !isTrainingUser && (
-                <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+                <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} shortcut="g" />
               )}
 
               {/* feedback queue — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && !isTrainingUser && (
-                <FeedbackQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+                <FeedbackQueueModal setIsSidebarOpen={setIsSidebarOpen} shortcut="k" />
               )}
 
               {/* pae queue — admins, moderators */}
               {canViewQueueDetails(userRole) && !isTrainingUser && (
-                <PaeValidationQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+                <PaeValidationQueueModal setIsSidebarOpen={setIsSidebarOpen} shortcut="v" />
               )}
             </div>
           </section>
@@ -1506,6 +1525,7 @@ export const QuestionsFilters = ({
                     </p>
                   </div>
                 </div>
+                <ShortcutKey keyLabel="L" />
               </button>
             )}
 

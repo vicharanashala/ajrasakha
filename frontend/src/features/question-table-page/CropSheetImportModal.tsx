@@ -10,7 +10,7 @@ import { Button } from "@/components/atoms/button";
 import {
   AlertTriangle,
   CheckCircle2,
-  Copy,
+  ChevronDown,
   Download,
   FileSpreadsheet,
   Info,
@@ -33,6 +33,7 @@ import {
   type ICropImportResult,
 } from "@/hooks/services/cropService";
 import { Input } from "@/components/atoms/input";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/atoms/collapsible";
 import {
   Select,
   SelectContent,
@@ -198,7 +199,8 @@ const ENTRY_LEVEL_KEYS: FieldKey[] = ["name", "scientificName"];
 /** Columns stored on each vernacular term (everything except the entry-level fields). */
 const TERM_COLUMNS = COLUMNS.filter((c) => c.key !== "name" && c.key !== "scientificName");
 /** Headers that are known but carry nothing to store (the type comes from the tab). */
-const IGNORED_HEADERS = ["category"];
+// Report-only columns added by the failed/skipped export, ignored so that file uploads back cleanly.
+const IGNORED_HEADERS = ["category", "sheet row", "status", "reason"];
 const SPECIAL_CHARACTERS = /[^A-Za-z ]/;
 
 const ACCEPTED_EXTENSIONS = [".xlsx", ".xls", ".csv"];
@@ -463,23 +465,36 @@ const cellChangeOf = (
   return { change: dbValue ? "kept" : "empty", dbValue };
 };
 
+interface ExportColumn {
+  header: string;
+  key: string;
+  width: number;
+}
+
 /** Writes rows to an .xlsx using the import's own headers and downloads it, so
- *  anything exported here can be corrected and uploaded straight back. */
+ *  anything exported here can be corrected and uploaded straight back.
+ *  `before` and `after` add columns around the import columns. */
 const downloadSheet = async (
   fileName: string,
   sheetName: string,
-  rows: Record<FieldKey, string>[],
+  rows: Record<string, string | number>[],
+  extraColumns: { before?: ExportColumn[]; after?: ExportColumn[] } = {},
 ) => {
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(sheetName);
 
-  sheet.columns = COLUMNS.map((c) => ({
-    header: c.header,
-    key: c.key,
-    width: c.warnIfEmpty || c.required ? 30 : 24,
-  }));
+  sheet.columns = [
+    ...(extraColumns.before ?? []),
+    ...COLUMNS.map((c) => ({
+      header: c.header,
+      key: c.key,
+      width: c.warnIfEmpty || c.required ? 30 : 24,
+    })),
+    ...(extraColumns.after ?? []),
+  ];
   sheet.getRow(1).font = { bold: true };
+  sheet.views = [{ state: "frozen", ySplit: 1 }];
   rows.forEach((row) => sheet.addRow(row));
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -582,6 +597,8 @@ export const CropSheetImportModal = ({
   const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("all");
   const [documentScope, setDocumentScope] = useState<DocumentScope>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [reportFilter, setReportFilter] = useState<ReportEntry["status"] | "all">("all");
+  const [reportSearch, setReportSearch] = useState("");
   const [existing, setExisting] = useState<Map<string, string>>(new Map());
   const [existingAliases, setExistingAliases] = useState<Map<string, ICropAlias[]>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -596,6 +613,8 @@ export const CropSheetImportModal = ({
     setPreviewFilter("all");
     setDocumentScope("all");
     setSearchQuery("");
+    setReportFilter("all");
+    setReportSearch("");
     setExisting(new Map());
     setExistingAliases(new Map());
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -763,6 +782,22 @@ export const CropSheetImportModal = ({
   const revealedPreview = useProgressiveCount(visibleGroups.length, filterKey);
   const revealedReport = useStreamedReveal(report.length, step === "report");
 
+  // Report entries matching the status filter and the search, keeping each entry's
+  // position in the full report for the # column.
+  const visibleReport = useMemo(() => {
+    const query = reportSearch.trim().toLowerCase();
+    return report
+      .slice(0, revealedReport)
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => {
+        if (reportFilter !== "all" && entry.status !== reportFilter) return false;
+        if (!query) return true;
+        return [entry.name, entry.reason, ...entry.rows.flatMap((row) => [row.englishName, row.nativeName])]
+          .some((value) => value?.toLowerCase().includes(query));
+      });
+  }, [report, revealedReport, reportFilter, reportSearch]);
+  const isReportFiltered = reportFilter !== "all" || reportSearch.trim() !== "";
+
   // Asks the database which names already exist, with their aliases, so the preview
   // can show exactly what each row will change.
   const fetchExisting = async (
@@ -870,14 +905,23 @@ export const CropSheetImportModal = ({
     }
   };
 
-  // Sends the importable rows, then builds the per-entry report.
+  // Live progress of the running import job.
+  const [importProgress, setImportProgress] = useState({ processed: 0, total: 0 });
+
+  // Sends the importable rows as a background job and builds the per-entry report.
   const handleImport = async () => {
     if (!importRows.length) return;
     setStep("importing");
 
     try {
       const entries = toEntries(importRows);
-      const response = await importEntries({ type: entryType, entries, fileName });
+      setImportProgress({ processed: 0, total: entries.length });
+      const response = await importEntries({
+        type: entryType,
+        entries,
+        fileName,
+        onProgress: (processed, total) => setImportProgress({ processed, total }),
+      });
       const rowsByName = new Map<string, SheetRow[]>();
       importRows.forEach((row) => {
         const key = nameKeyOf(row.name);
@@ -965,25 +1009,34 @@ export const CropSheetImportModal = ({
   );
   const unimportedCount = failedEntries.length + skippedEntries.length;
 
-  // Copies the sheet rows of the given entries as TSV so they paste into a spreadsheet.
-  const copyEntries = async (entries: ReportEntry[], label: string) => {
-    const header = ["Sheet Row", ...COLUMNS.map((c) => c.header), "Reason"].join("\t");
-    const body = entries
-      .flatMap((entry) =>
-        entry.rows.map((row) =>
-          [
-            row.sheetRow,
-            ...COLUMNS.map((c) => row[c.key]),
-            entry.reason,
-          ].join("\t"),
-        ),
-      )
-      .join("\n");
+  // Downloads the sheet rows of the given entries with their status and reason. Extra
+  // columns are kept and the report columns are ignored on upload, so the file can be
+  // fixed and uploaded again as is.
+  const downloadEntries = async (entries: ReportEntry[], label: string) => {
+    const rows = entries.flatMap((entry) => entry.rows.map((row) => ({ entry, row })));
+    const extraKeys = [...new Set(rows.flatMap(({ row }) => Object.keys(row.extras)))];
     try {
-      await navigator.clipboard.writeText(`${header}\n${body}`);
-      toast.success(`Copied ${label} rows — paste into a sheet`);
+      await downloadSheet(
+        `${entryType}_import_${label}.xlsx`,
+        typeLabel,
+        rows.map(({ entry, row }) => ({
+          sheetRow: row.sheetRow,
+          ...pickColumns(row),
+          ...row.extras,
+          status: entry.status,
+          reason: entry.reason,
+        })),
+        {
+          before: [{ header: "Sheet Row", key: "sheetRow", width: 11 }],
+          after: [
+            ...extraKeys.map((key) => ({ header: key, key, width: 20 })),
+            { header: "Status", key: "status", width: 12 },
+            { header: "Reason", key: "reason", width: 70 },
+          ],
+        },
+      );
     } catch {
-      toast.error("Could not access the clipboard");
+      toast.error(`Could not download the ${label} rows`);
     }
   };
 
@@ -997,7 +1050,7 @@ export const CropSheetImportModal = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[1200px] max-w-[95vw] max-h-[88vh] overflow-hidden flex flex-col">
+      <DialogContent className={`${step === "upload" ? "sm:max-w-[620px]" : "sm:max-w-[1200px]"} max-w-[95vw] max-h-[88vh] overflow-hidden flex flex-col`}>
         <MotionConfig reducedMotion="user">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
@@ -1005,26 +1058,15 @@ export const CropSheetImportModal = ({
             Import {typeLabel} Sheet
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Upload the vernacular sheet. Rows are matched to existing entries by
-            Standardized Category Name and their aliases are merged in; new names are
-            created as {entryType}.
+            Merge vernacular names into existing {entryType} entries, matched by
+            Standardized Category Name.
           </DialogDescription>
         </DialogHeader>
 
         <AnimatePresence mode="wait" initial={false}>
         {/* ── Step 1: file ───────────────────────────────────────────────── */}
         {step === "upload" && (
-          <motion.div key="upload" {...stepMotion} className="flex flex-col gap-3 py-1">
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 dark:text-amber-300">
-                Every entry in this file is saved as{" "}
-                <strong className="font-semibold capitalize">{entryType}</strong>. For a
-                workbook with several sheets, the sheet named{" "}
-                <strong className="font-semibold">{typeLabel}</strong> is read.
-              </p>
-            </div>
-
+          <motion.div key="upload" {...stepMotion} className="flex flex-col gap-4 py-1">
             <div
               role="button"
               tabIndex={0}
@@ -1047,25 +1089,30 @@ export const CropSheetImportModal = ({
                 const file = e.dataTransfer.files?.[0];
                 if (file) void handleFile(file);
               }}
-              className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+              className={`group flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed px-6 py-12 text-center transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                 isDragging
-                  ? "border-emerald-500 bg-emerald-50/60 dark:bg-emerald-500/10"
-                  : "border-gray-200 dark:border-gray-700 hover:border-emerald-400 hover:bg-gray-50/60 dark:hover:bg-white/[0.02]"
+                  ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-500/10"
+                  : "border-gray-300 dark:border-gray-700 bg-gray-50/40 dark:bg-white/[0.015] hover:border-emerald-400 hover:bg-emerald-50/30 dark:hover:bg-emerald-500/[0.04]"
               }`}
             >
-              {isParsing ? (
-                <Loader2 className="h-6 w-6 animate-spin text-emerald-600 dark:text-emerald-400" />
-              ) : (
-                <Upload className="h-6 w-6 text-gray-400" />
-              )}
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                {isParsing
-                  ? "Reading your file and checking for duplicates..."
-                  : "Drop your file here, or click to browse"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                .xlsx, .xls or .csv
-              </p>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/50 transition-transform group-hover:-translate-y-0.5 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/5">
+                {isParsing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+              </span>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                  {isParsing ? (
+                    "Reading your file and checking for duplicates..."
+                  ) : (
+                    <>
+                      Drop your sheet here or{" "}
+                      <span className="text-emerald-600 dark:text-emerald-400 underline-offset-2 group-hover:underline">browse</span>
+                    </>
+                  )}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  XLSX, XLS or CSV · every row is saved as <span className="font-medium capitalize text-gray-700 dark:text-gray-300">{entryType}</span>
+                </p>
+              </div>
             </div>
 
             <input
@@ -1079,100 +1126,114 @@ export const CropSheetImportModal = ({
               }}
             />
 
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700/60 px-3 py-2.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-                  Sheet columns <span className="font-normal text-gray-400">(header names must match)</span>
-                </p>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="How sheet columns are saved"
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                    >
-                      <Info className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" align="start" className="max-w-[480px] p-3">
-                    <p className="text-[11px] font-semibold mb-2">How sheet columns are saved</p>
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="text-left opacity-70">
-                          <th scope="col" className="pr-3 pb-1 font-medium">Sheet column</th>
-                          <th scope="col" className="pr-3 pb-1 font-medium">Saved as</th>
-                          <th scope="col" className="pb-1 font-medium">Where</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {COLUMNS.map((column) => (
-                          <tr key={column.key}>
-                            <td className="pr-3 py-0.5">
-                              {column.header}
-                              {column.required && <span className="text-rose-400"> *</span>}
-                            </td>
-                            <td className="pr-3 py-0.5 font-mono">{column.dbKey}</td>
-                            <td className="py-0.5 opacity-80">
-                              {ENTRY_LEVEL_KEYS.includes(column.key) ? "Document" : "Each alias in aliases"}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr>
-                          <td className="pr-3 py-0.5">Category</td>
-                          <td className="pr-3 py-0.5 font-mono">not saved</td>
-                          <td className="py-0.5 opacity-80">Type comes from the tab ({entryType})</td>
-                        </tr>
-                        <tr>
-                          <td className="pr-3 py-0.5">Any other column</td>
-                          <td className="pr-3 py-0.5 font-mono">extra_fields.column_name</td>
-                          <td className="py-0.5 opacity-80">Each alias in aliases</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <p className="mt-2 text-[11px] opacity-80">
-                      Rows with the same Standardized Category Name become one document.
-                      A row matches an existing alias when language, region,
-                      english_representation and native_representation are the same; its
-                      empty fields are then filled in, never overwritten.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
+              <div className="flex items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Required columns</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="How sheet columns are saved"
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" align="start" className="max-w-[480px] p-3">
+                        <p className="text-[11px] font-semibold mb-2">How sheet columns are saved</p>
+                        <table className="w-full text-[11px]">
+                          <thead>
+                            <tr className="text-left opacity-70">
+                              <th scope="col" className="pr-3 pb-1 font-medium">Sheet column</th>
+                              <th scope="col" className="pr-3 pb-1 font-medium">Saved as</th>
+                              <th scope="col" className="pb-1 font-medium">Where</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {COLUMNS.map((column) => (
+                              <tr key={column.key}>
+                                <td className="pr-3 py-0.5">
+                                  {column.header}
+                                  {column.required && <span className="text-rose-400"> *</span>}
+                                </td>
+                                <td className="pr-3 py-0.5 font-mono">{column.dbKey}</td>
+                                <td className="py-0.5 opacity-80">
+                                  {ENTRY_LEVEL_KEYS.includes(column.key) ? "Document" : "Each alias in aliases"}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr>
+                              <td className="pr-3 py-0.5">Category</td>
+                              <td className="pr-3 py-0.5 font-mono">not saved</td>
+                              <td className="py-0.5 opacity-80">Type comes from the tab ({entryType})</td>
+                            </tr>
+                            <tr>
+                              <td className="pr-3 py-0.5">Any other column</td>
+                              <td className="pr-3 py-0.5 font-mono">extra_fields.column_name</td>
+                              <td className="py-0.5 opacity-80">Each alias in aliases</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <p className="mt-2 text-[11px] opacity-80">
+                          Rows with the same Standardized Category Name become one document.
+                          A row matches an existing alias when language, region,
+                          english_representation and native_representation are the same; its
+                          empty fields are then filled in, never overwritten.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Required columns">
+                    {COLUMNS.filter((column) => column.required).map((column) => (
+                      <li
+                        key={column.key}
+                        className="rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
+                      >
+                        {column.header}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void downloadTemplate()}
+                  className="h-8 shrink-0 text-xs"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Template
+                </Button>
               </div>
-              <ul className="flex flex-wrap gap-1.5" aria-label="Sheet columns">
-                {COLUMNS.map((column) => (
-                  <li
-                    key={column.key}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${
-                      column.required
-                        ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 font-medium"
-                        : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-400"
-                    }`}
-                  >
-                    {column.header}
-                    {column.required ? (
-                      <span className="text-[10px] uppercase tracking-wide">· Required</span>
-                    ) : (
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500">· Optional</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                Rows missing a required value are not imported. An empty Scientific
-                Name, State, Language or Native Script value shows as a warning but
-                still imports. Any other column is saved under extra fields.
-              </p>
-            </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void downloadTemplate()}
-              className="h-8 w-fit text-xs"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Download sample template
-            </Button>
+              <Collapsible>
+                <CollapsibleTrigger className="group/cols flex w-full items-center justify-between border-t border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500">
+                  <span>
+                    {COLUMNS.filter((column) => !column.required).length} optional columns and import rules
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]/cols:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="bg-gray-50/60 dark:bg-white/[0.02] px-4 pb-3">
+                  <ul className="flex flex-wrap gap-1.5" aria-label="Optional columns">
+                    {COLUMNS.filter((column) => !column.required).map((column) => (
+                      <li
+                        key={column.key}
+                        className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] text-gray-600 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-400"
+                      >
+                        {column.header}
+                      </li>
+                    ))}
+                  </ul>
+                  <ul className="mt-3 list-disc space-y-1 pl-4 text-[11px] text-gray-500 dark:text-gray-400">
+                    <li>Header names must match. In a workbook with several sheets, only the sheet named <strong className="font-semibold">{typeLabel}</strong> is read.</li>
+                    <li>Rows with the same Standardized Category Name become one entry. Existing aliases are only filled in, never overwritten.</li>
+                    <li>Rows missing a required value are skipped. Empty optional values show as warnings but still import.</li>
+                    <li>Any other column is saved under extra fields.</li>
+                  </ul>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </motion.div>
         )}
 
@@ -1503,13 +1564,28 @@ export const CropSheetImportModal = ({
             </div>
 
             {step === "importing" ? (
-              <div className="pt-3 flex flex-col gap-2">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                  <div className="h-full w-1/3 rounded-full bg-emerald-500 animate-indeterminate-bar" />
+              <div className="pt-3 flex flex-col gap-2" role="status" aria-live="polite">
+                <div
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={importProgress.total || 1}
+                  aria-valuenow={importProgress.processed}
+                >
+                  {importProgress.processed > 0 ? (
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-[width] duration-500 ease-out"
+                      style={{ width: `${Math.round((importProgress.processed / Math.max(1, importProgress.total)) * 100)}%` }}
+                    />
+                  ) : (
+                    <div className="h-full w-1/3 rounded-full bg-emerald-500 animate-indeterminate-bar" />
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Importing {importRows.length} rows...
+                  {importProgress.processed > 0
+                    ? `Processed ${importProgress.processed} of ${importProgress.total} ${entryType === "crop" ? "crops" : `${entryType} entries`} (${importRows.length} rows grouped by name). Large sheets take a few minutes.`
+                    : `Starting the import of ${importRows.length} rows...`}
                 </p>
               </div>
             ) : (
@@ -1551,19 +1627,44 @@ export const CropSheetImportModal = ({
         {/* ── Step 3: report ─────────────────────────────────────────────── */}
         {step === "report" && (
           <motion.div key="report" {...stepMotion} className="flex min-h-0 flex-1 flex-col">
-            <div className="flex flex-wrap gap-4 pb-3 border-b border-gray-100 dark:border-gray-800">
-              {(["created", "updated", "skipped", "failed"] as const).map((status) => {
-                const meta = STATUS_META[status];
-                return (
-                  <div key={status} className="flex items-center gap-1.5 text-sm">
-                    <meta.Icon className={`h-4 w-4 ${meta.className}`} />
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">
-                      {reportCounts[status] ?? 0}
-                    </span>
-                    <span className="text-gray-500 dark:text-gray-400">{meta.label}</span>
-                  </div>
-                );
-              })}
+            <div className="flex flex-col gap-2 pb-3 border-b border-gray-100 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+              <div role="radiogroup" aria-label="Filter by status" className="flex flex-wrap gap-1.5">
+                {(["all", "created", "updated", "skipped", "failed"] as const).map((status) => {
+                  const meta = status === "all" ? null : STATUS_META[status];
+                  const isActive = reportFilter === status;
+                  const count = status === "all" ? report.length : reportCounts[status] ?? 0;
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      role="radio"
+                      aria-checked={isActive}
+                      disabled={status !== "all" && count === 0}
+                      onClick={() => setReportFilter(status)}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 ${
+                        isActive
+                          ? "border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      {meta && <meta.Icon className={`h-3.5 w-3.5 ${isActive ? "" : meta.className}`} />}
+                      <span className="font-semibold">{count}</span>
+                      <span className={isActive ? "" : "text-gray-500 dark:text-gray-400"}>{meta ? meta.label : "All"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="relative sm:w-[280px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" aria-hidden />
+                <Input
+                  type="search"
+                  aria-label="Search the import report"
+                  placeholder="Search name, alias or reason..."
+                  value={reportSearch}
+                  onChange={(e) => setReportSearch(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
             </div>
 
             {unimportedCount > 0 && (
@@ -1571,7 +1672,7 @@ export const CropSheetImportModal = ({
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800 dark:text-amber-300">
                   {unimportedCount} entr{unimportedCount === 1 ? "y" : "ies"} did not
-                  reach the database. Copy them, fix the reason listed, and upload again.
+                  reach the database. Download them, fix the reason listed, and upload again.
                 </p>
               </div>
             )}
@@ -1587,7 +1688,7 @@ export const CropSheetImportModal = ({
                   </div>
                 ))}
               </div>
-              {report.slice(0, revealedReport).map((entry, i) => {
+              {visibleReport.map(({ entry, index: i }) => {
                 const meta = STATUS_META[entry.status];
                 return (
                   <div
@@ -1617,6 +1718,25 @@ export const CropSheetImportModal = ({
                   </div>
                 );
               })}
+              {visibleReport.length === 0 && revealedReport >= report.length && (
+                <div className="flex flex-col items-center gap-2 py-12 text-center">
+                  <Search className="h-5 w-5 text-gray-300 dark:text-gray-600" aria-hidden />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">No entries match these filters.</p>
+                  {isReportFiltered && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setReportFilter("all");
+                        setReportSearch("");
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-3">
@@ -1624,22 +1744,22 @@ export const CropSheetImportModal = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => void copyEntries(failedEntries, "failed")}
+                  onClick={() => void downloadEntries(failedEntries, "failed")}
                   className="h-8 text-xs mr-auto"
                 >
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy failed ({failedEntries.length})
+                  <Download className="h-3.5 w-3.5" />
+                  Download failed ({failedEntries.length})
                 </Button>
               )}
               {skippedEntries.length > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => void copyEntries(skippedEntries, "skipped")}
+                  onClick={() => void downloadEntries(skippedEntries, "skipped")}
                   className={`h-8 text-xs ${failedEntries.length ? "" : "mr-auto"}`}
                 >
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy skipped ({skippedEntries.length})
+                  <Download className="h-3.5 w-3.5" />
+                  Download skipped ({skippedEntries.length})
                 </Button>
               )}
               <Button

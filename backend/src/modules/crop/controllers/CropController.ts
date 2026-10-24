@@ -47,6 +47,7 @@ import * as XLSX from 'xlsx';
 import { FlexibleAuth } from '#root/shared/index.js';
 import { randomUUID } from 'crypto';
 import { CropImportChange, CropImportEntry } from '../utils/importAliases.js';
+import { CropImportJob, createImportJob, getImportJob } from '../utils/importJobs.js';
 
 /** Guards a single sheet import against an oversized payload. */
 const MAX_IMPORT_ENTRIES = 5000;
@@ -142,15 +143,16 @@ export class CropController {
     return { entries: await this.cropService.findExistingNames(data.names) };
   }
 
-  // Imports entries parsed from a sheet, merging vernacular terms into existing ones.
+  // Starts importing entries parsed from a sheet in the background and returns a job id;
+  // the client polls GET /crops/import/:jobId for progress and the result.
   @Post('/import')
-  @HttpCode(200)
+  @HttpCode(202)
   @Authorized(['admin', 'moderator'])
-  @OpenAPI({ summary: 'Bulk import AgriTech entries from a parsed sheet' })
+  @OpenAPI({ summary: 'Start a bulk import of AgriTech entries from a parsed sheet' })
   async importEntries(
     @Body() data: { type: string; entries: CropImportEntry[]; fileName?: string },
     @CurrentUser() user: IUser,
-  ): Promise<any> {
+  ): Promise<{ jobId: string; total: number }> {
     const type = data?.type?.trim().toLowerCase();
     if (!type || type === 'chemical') throw new BadRequestError('Invalid entry type');
     if (!Array.isArray(data?.entries) || data.entries.length === 0) {
@@ -180,10 +182,50 @@ export class CropController {
     };
     const totalAliases = entries.reduce((sum, e) => sum + e.aliases.length, 0);
 
-    let summary;
+    const job = createImportJob(user._id.toString(), entries.length);
+    void this.runImportJob(job, type, entries, actor, importContext, totalAliases);
+    return { jobId: job.id, total: job.total };
+  }
+
+  // Progress and, once finished, the result of an import started by this user.
+  @Get('/import/:jobId')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Status and result of a sheet import job' })
+  getImportStatus(@Params() params: { jobId: string }, @CurrentUser() user: IUser) {
+    const job = getImportJob(params.jobId);
+    if (!job || (job.userId !== user._id.toString() && user.role !== 'admin')) {
+      throw new NotFoundError('Import job not found');
+    }
+    const { userId: _owner, ...status } = job;
+    return status;
+  }
+
+  /** Runs an import job to completion, keeping its progress and audit trail up to date. */
+  private async runImportJob(
+    job: CropImportJob,
+    type: string,
+    entries: CropImportEntry[],
+    actor: ModeratorAuditTrail['actor'],
+    importContext: Record<string, any>,
+    totalAliases: number,
+  ): Promise<void> {
     try {
-      summary = await this.cropService.bulkImport(type, entries, user._id.toString());
+      const { changes, ...summary } = await this.cropService.bulkImport(
+        type,
+        entries,
+        String(actor.id),
+        processed => { job.processed = processed; },
+      );
+      job.result = summary;
+      job.status = 'completed';
+      this.auditImport(actor, importContext, entries.length, totalAliases, changes).catch(err =>
+        console.error('Failed to write AgriTech import audit trail:', err),
+      );
     } catch (err: any) {
+      job.status = 'failed';
+      job.error = 'Import failed. Please try again.';
+      console.error('AgriTech import job failed:', err);
       this.auditTrailsService
         .createAuditTrail({
           category: AuditCategory.CROP_MANAGEMENT,
@@ -199,14 +241,9 @@ export class CropController {
           },
         })
         .catch(auditErr => console.error('Failed to audit failed AgriTech import:', auditErr));
-      throw err;
+    } finally {
+      job.finishedAt = new Date();
     }
-
-    const { changes, ...response } = summary;
-    this.auditImport(actor, importContext, entries.length, totalAliases, changes).catch(err =>
-      console.error('Failed to write AgriTech import audit trail:', err),
-    );
-    return response;
   }
 
   /**

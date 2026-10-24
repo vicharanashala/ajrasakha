@@ -28,6 +28,7 @@ import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 import { CropManagementModal } from "@/features/question-table-page/CropManagementModal";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 
 export const QuestionsPage = ({
   currentUser,
@@ -69,6 +70,19 @@ export const QuestionsPage = ({
     setIsAgriTechOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  // "A" opens AgriTech Management from the questions list, for the roles that see it
+  // in the sidebar; paused while any dialog or drawer is open. (temporarily commented out)
+  // useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
+  //   const role = currentUser?.role;
+  //   return (
+  //     !isAgriTechOpen &&
+  //     !selectedQuestionId &&
+  //     !!role &&
+  //     role !== "expert" &&
+  //     role !== "tester" &&
+  //     !document.querySelector('[role="dialog"], [role="alertdialog"]')
+  //   );
+  // });
   const [search, setSearch] = useState("");
   const [searchTabMode, setSearchTabMode] = useState<string>("search");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");

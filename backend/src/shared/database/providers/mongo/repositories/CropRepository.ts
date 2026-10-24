@@ -375,14 +375,14 @@ export class CropRepository implements ICropRepository {
       if (updates.aliases !== undefined) {
         // Chemicals keep exact casing; crops/other are title-cased. The type may not be
         // sent (manual alias edits) — fall back to the stored entry's type.
-        let isChemical = updates.type === 'chemical';
-        if (updates.type === undefined) {
-          const existingDoc = await this.CropCollection.findOne(
-            { _id: new ObjectId(id) },
-            { projection: { type: 1 } },
-          );
-          isChemical = (existingDoc?.type ?? 'crop') === 'chemical';
-        }
+        const currentCrop = await this.CropCollection.findOne(
+          {_id: new ObjectId(id)},
+          {projection: {type: 1, name: 1, aliases: 1}},
+        );
+        const isChemical =
+          updates.type !== undefined
+            ? updates.type === 'chemical'
+            : (currentCrop?.type ?? 'crop') === 'chemical';
         const norm = (v?: string) =>
           isChemical ? (v ?? '').trim() : CropRepository.toTitleCase(v);
         const normalizedAliases = updates.aliases.map(a => {
@@ -398,9 +398,18 @@ export class CropRepository implements ICropRepository {
           };
         });
 
+        // Only aliases this entry does not already have are checked against other
+        // entries. Re-checking stored ones would block every save of an entry whose
+        // existing data already overlaps another entry, even when nothing new collides.
+        const checked = new Set(
+          (currentCrop?.aliases ?? [])
+            .map(a => CropRepository.getEnRepr(a).trim().toLowerCase())
+            .filter(Boolean),
+        );
         for (const alias of normalizedAliases) {
           const enRepr = CropRepository.getEnRepr(alias);
-          if (!enRepr) continue;
+          if (!enRepr || checked.has(enRepr.trim().toLowerCase())) continue;
+          checked.add(enRepr.trim().toLowerCase());
           const escaped = CropRepository.escapeRegex(enRepr);
           const regex = new RegExp(`^${escaped}$`, 'i');
 
@@ -422,7 +431,6 @@ export class CropRepository implements ICropRepository {
           }
         }
 
-        const currentCrop = await this.CropCollection.findOne({_id: new ObjectId(id)});
         const cropName = currentCrop?.name?.trim().toLowerCase() ?? '';
         const filteredAliases = normalizedAliases.filter(alias => {
           const enRepr = CropRepository.getEnRepr(alias);

@@ -73,6 +73,8 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useGetStates } from "@/hooks/api/location/useLocations";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
+import { ShortcutKey, isDialogOpen } from "@/components/atoms/shortcut-key";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "auditor_review" | "queue_duplicate";
 export type QuestionDateRangeFilter =
@@ -155,6 +157,8 @@ interface AdvanceFilterDialogProps {
   onReset: () => void;
   isForQA: boolean;
   setIsSidebarOpen: (value: boolean) => void;
+  /** Optional single-key shortcut that opens the dialog. */
+  shortcut?: string;
 }
 
 type SearchableFilterSelectOption = {
@@ -237,8 +241,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   onReset,
   isForQA,
   setIsSidebarOpen,
+  shortcut,
 }) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   const { data: userNameReponse, isLoading } = useGetAllUsers();
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
@@ -453,6 +460,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               <p className="text-[11px] text-gray-500">Advanced Filters</p>
             </div>
           </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 

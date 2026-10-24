@@ -34,6 +34,7 @@ export const AGRITECH_SHORTCUT_GROUPS: { title: string; items: { keys: string[];
     title: "General",
     items: [
       { keys: ["Esc"], label: "Close the open panel or form, or clear the search" },
+      { keys: ["E"], label: "Exit AgriTech Management" },
       { keys: ["?"], label: "Show these shortcuts" },
     ],
   },

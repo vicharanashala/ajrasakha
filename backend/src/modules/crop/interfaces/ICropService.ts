@@ -15,6 +15,7 @@ export interface ICropService {
     type: string,
     entries: CropImportEntry[],
     userId: string,
+    onProgress?: (processed: number) => void,
   ): Promise<{
     results: CropImportResult[];
     changes: CropImportChange[];

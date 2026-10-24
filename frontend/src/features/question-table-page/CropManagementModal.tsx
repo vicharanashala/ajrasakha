@@ -40,6 +40,7 @@ import { CropSheetImportModal } from "./CropSheetImportModal";
 import { AgriTechAuditModal } from "./AgriTechAuditModal";
 import { AgriTechShortcutsDialog } from "./AgriTechShortcutsDialog";
 import { EntryDetailsDialog } from "./EntryDetailsDialog";
+import { NewBadge } from "@/components/atoms/new-badge";
 import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 import {
   AgriTechFilterDrawer,
@@ -1975,6 +1976,14 @@ export const CropManagementModal = ({
       },
       { key: "f", handler: () => { if (!isOrgTab && !isOther) setIsFilterOpen(true); } },
       { key: "a", handler: () => setIsAuditOpen(true) },
+      {
+        key: "e",
+        handler: () => {
+          resetAll();
+          setAliasManagerCrop(null);
+          onOpenChange(false);
+        },
+      },
       { key: "r", handler: () => { if (!isOrgTab && !isOther) void refetchTab(); } },
       { key: "[", handler: () => switchTabBy(-1) },
       { key: "]", handler: () => switchTabBy(1) },
@@ -2041,9 +2050,10 @@ export const CropManagementModal = ({
                         variant="ghost"
                         aria-label="Keyboard shortcuts"
                         onClick={() => setIsShortcutsOpen(true)}
-                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                        className="relative h-9 w-9 text-muted-foreground hover:text-foreground"
                       >
                         <Keyboard className="h-4 w-4" />
+                        <NewBadge className="pointer-events-none absolute -top-2 -right-2" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
@@ -2054,10 +2064,11 @@ export const CropManagementModal = ({
                   size="sm"
                   variant="ghost"
                   onClick={() => setIsAuditOpen(true)}
-                  className="h-9 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                  className="relative h-9 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
                 >
                   <History className="h-4 w-4" />
                   Audit trail
+                  <NewBadge className="pointer-events-none absolute -top-2 -right-2" />
                 </Button>
                 {activeTab === "organization" ? (
                   <>
@@ -2072,9 +2083,10 @@ export const CropManagementModal = ({
                   </>
                 ) : (
                   !isChemical && !isOther && (
-                    <Button variant="outline" size="sm" onClick={() => setIsSheetImportOpen(true)} className="h-9 text-xs gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => setIsSheetImportOpen(true)} className="relative h-9 text-xs gap-1.5">
                       <Upload className="h-4 w-4" />
                       Import
+                      <NewBadge className="pointer-events-none absolute -top-2 -right-2" />
                     </Button>
                   )
                 )}
@@ -2101,6 +2113,8 @@ export const CropManagementModal = ({
                       setAliasManagerCrop(null);
                       onOpenChange(false);
                     }}
+                    title="Exit (E)"
+                    aria-keyshortcuts="E"
                     className="h-9 text-xs gap-1.5 border border-red-200 bg-red-50 text-red-700 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:border-red-500 dark:hover:bg-red-500 dark:hover:text-white"
                   >
                     <LogOut className="h-4 w-4" />
@@ -2262,8 +2276,9 @@ export const CropManagementModal = ({
                       size="sm"
                       aria-label="Sort and filter"
                       onClick={() => setIsFilterOpen(true)}
-                      className="h-9 text-xs gap-1.5"
+                      className="relative h-9 text-xs gap-1.5"
                     >
+                      <NewBadge className="pointer-events-none absolute -top-2 -right-2" />
                       <Filter className="h-4 w-4" />
                       Filters
                       {activeFilterCount > 0 && (
