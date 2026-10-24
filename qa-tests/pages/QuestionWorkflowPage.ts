@@ -18,11 +18,7 @@ export class QuestionWorkflowPage {
     await this.selectFieldOption(dialog, 'Priority*', 'High');
     await this.selectFieldOption(dialog, 'State*', 'Tamil Nadu');
 
-    const districtControl = this.fieldControl(dialog, 'District*');
-    await districtControl.click();
-    const firstDistrict = this.page.getByRole('listbox').getByRole('option').first();
-    const district = (await firstDistrict.innerText()).trim();
-    await firstDistrict.click();
+    const district = await this.selectFirstFieldOption(dialog, 'District*');
 
     await this.selectFieldOption(dialog, 'Crop*', 'Tomato');
     await this.selectFieldOption(dialog, 'Season*', 'Kharif');
@@ -43,10 +39,18 @@ export class QuestionWorkflowPage {
     await this.page.getByRole('option', { name: option, exact: true }).click();
   }
 
+  private async selectFirstFieldOption(dialog: Locator, label: string) {
+    await this.fieldControl(dialog, label).click();
+    const option = this.page.getByRole('listbox').getByRole('option').first();
+    const value = (await option.innerText()).trim();
+    await option.click();
+    return value;
+  }
+
   private fieldControl(dialog: Locator, label: string) {
     return dialog
       .getByText(label, { exact: true })
-      .locator('xpath=..')
+      .locator('xpath=../..')
       .getByRole('combobox')
       .first();
   }
