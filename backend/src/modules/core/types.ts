@@ -4,6 +4,10 @@ export const CORE_TYPES = {
   AnswerController: Symbol.for('AnswerController'),
   ContextController: Symbol.for('ContextController'),
   RequestController: Symbol.for('RequestController'),
+  TestersDashboardController: Symbol.for('TestersDashboardController'),
+  ZohoTicketStatusController: Symbol.for('ZohoTicketStatusController'),
+  TesterLogController: Symbol.for('TesterLogController'),
+  TestersDbAnalyticsController: Symbol.for('TestersDbAnalyticsController'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -21,6 +25,10 @@ export const CORE_TYPES = {
   SarvamService: Symbol.for('SarvamService'),
   NotificationService:Symbol.for('NotificationService'),
   PerformanceService:Symbol.for('PerformanceService'),
+  TestersDashboardService: Symbol.for('TestersDashboardService'),
+  ZohoTicketStatusService: Symbol.for('ZohoTicketStatusService'),
+  TesterLogService: Symbol.for('TesterLogService'),
+  TestersDbAnalyticsService: Symbol.for('TestersDbAnalyticsService'),
   OrganizationService: Symbol.for('OrganizationService'),
   PopService: Symbol.for('PopService'),
   NewSourceService: Symbol.for('NewSourceService'),

@@ -21,6 +21,7 @@ export const useSubmitAnswer = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question"] });
       queryClient.invalidateQueries({ queryKey: ["questions"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
     },
     onError: (error) => {
       toast.error(error.message || "Failed to submit response! Try again.");

@@ -307,7 +307,11 @@ export const QuestionsTable = ({
       />
 
       <div
-        className={`rounded-lg bg-card min-h-[90vh] ${view === "table" && "border"}`}
+        className={`min-h-[90vh] ${
+          view === "table"
+            ? "rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-[#111] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-6px_rgba(16,24,40,0.08)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_10px_28px_-8px_rgba(0,0,0,0.6)]"
+            : "rounded-lg bg-card"
+        }`}
       >
         <div className="hidden md:block">
           {view === "table" ? (

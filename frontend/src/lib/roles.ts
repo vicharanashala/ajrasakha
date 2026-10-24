@@ -63,3 +63,7 @@ export const QUEUE_DETAILS_ROLES = [
 /** Whether this role sees the queue tools in the Management Tools drawer. */
 export const canViewQueueDetails = (role?: string | UserRole | null): boolean =>
   QUEUE_DETAILS_ROLES.includes(role as (typeof QUEUE_DETAILS_ROLES)[number]);
+
+/** Whether this role may see the "Log Test Case" tester tab. */
+export const canLogTestCases = (role?: string | UserRole | null): boolean =>
+  role === 'tester';

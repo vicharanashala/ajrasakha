@@ -13,11 +13,12 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
+  InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
 import { IAnswerRepository, ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
-import { AiService } from '#root/modules/ai/services/AiService.js';
+import { AiService, ChemicalDetectionResponse } from '#root/modules/ai/services/AiService.js';
 import {
   FetchAiInitialAnswerBody,
   ReviewAnswerBody,
@@ -356,4 +357,18 @@ export class AnswerService extends BaseService implements IAnswerService {
       }
     };
   }
+
+  async detectChemicals(text: string): Promise<ChemicalDetectionResponse> {
+    if (!text || !text.trim()) {
+      return { matches: [] };
+    }
+    const result = await this.aiService.detectChemicals(text);
+    if (!result) {
+      throw new InternalServerError(
+        'Chemical verification service is temporarily unavailable. Please try again later.',
+      );
+    }
+    return result;
+  }
 }
+

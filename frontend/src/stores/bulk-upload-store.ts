@@ -1,10 +1,14 @@
 import { create } from "zustand";
 
+export type BulkOperationType = "upload" | "delete";
+
 export interface BulkUploadState {
   jobId: string | null;
+  operationType: BulkOperationType;
   total: number;
   processed: number;
   created: number;
+  deleted: number;
   duplicates: number;
   failed: number;
   status: "idle" | "running" | "completed" | "failed";
@@ -12,16 +16,22 @@ export interface BulkUploadState {
   isMinimized: boolean;
   autoDismissCountdown: number | null; // in seconds
 
-  startJob: (payload: { jobId: string; total: number }) => void;
+  startJob: (payload: {
+    jobId: string;
+    total: number;
+    operationType?: BulkOperationType;
+  }) => void;
   updateProgress: (payload: {
     processed?: number;
     created?: number;
+    deleted?: number;
     duplicates?: number;
     failed?: number;
     latestLog?: string;
   }) => void;
   finishJob: (payload: {
     created?: number;
+    deleted?: number;
     duplicates?: number;
     failed?: number;
     status: "completed" | "failed";
@@ -33,9 +43,11 @@ export interface BulkUploadState {
 
 export const useBulkUploadStore = create<BulkUploadState>((set) => ({
   jobId: null,
+  operationType: "upload",
   total: 0,
   processed: 0,
   created: 0,
+  deleted: 0,
   duplicates: 0,
   failed: 0,
   status: "idle",
@@ -43,16 +55,21 @@ export const useBulkUploadStore = create<BulkUploadState>((set) => ({
   isMinimized: false,
   autoDismissCountdown: null,
 
-  startJob: ({ jobId, total }) =>
+  startJob: ({ jobId, total, operationType = "upload" }) =>
     set({
       jobId,
+      operationType,
       total,
       processed: 0,
       created: 0,
+      deleted: 0,
       duplicates: 0,
       failed: 0,
       status: "running",
-      latestLog: "Initializing background worker...",
+      latestLog:
+        operationType === "delete"
+          ? "Initializing bulk delete worker..."
+          : "Initializing background worker...",
       isMinimized: false,
       autoDismissCountdown: null,
     }),
@@ -62,22 +79,26 @@ export const useBulkUploadStore = create<BulkUploadState>((set) => ({
       ...state,
       processed: payload.processed ?? state.processed,
       created: payload.created ?? state.created,
+      deleted: payload.deleted ?? state.deleted,
       duplicates: payload.duplicates ?? state.duplicates,
       failed: payload.failed ?? state.failed,
       latestLog: payload.latestLog ?? state.latestLog,
     })),
 
-  finishJob: ({ created, duplicates, failed, status }) =>
+  finishJob: ({ created, deleted, duplicates, failed, status }) =>
     set((state) => ({
       ...state,
       created: created ?? state.created,
+      deleted: deleted ?? state.deleted,
       duplicates: duplicates ?? state.duplicates,
       failed: failed ?? state.failed,
       processed: state.total,
       status,
       latestLog:
         status === "completed"
-          ? "All questions processed successfully!"
+          ? state.operationType === "delete"
+            ? "All selected questions deleted successfully!"
+            : "All questions processed successfully!"
           : "Processing finished with some issues.",
     })),
 
@@ -87,9 +108,11 @@ export const useBulkUploadStore = create<BulkUploadState>((set) => ({
   clearJob: () =>
     set({
       jobId: null,
+      operationType: "upload",
       total: 0,
       processed: 0,
       created: 0,
+      deleted: 0,
       duplicates: 0,
       failed: 0,
       status: "idle",

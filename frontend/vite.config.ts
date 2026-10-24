@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -12,18 +12,29 @@ export default defineConfig({
     viteReact(),
     tailwindcss(),
   ],
-  // test: {
-  //   globals: true,
-  //   environment: "jsdom",
-  // },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    include: [
+      "src/**/*.{test,spec}.?(c|m)[jt]s?(x)",
+      "../testers-dashboard/frontend/src/**/*.{test,spec}.?(c|m)[jt]s?(x)",
+    ],
+  },
 
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      "@testers-dashboard": resolve(__dirname, "../testers-dashboard/frontend/src"),
     },
   },
 
   server: {
+    fs: {
+      // Testers Dashboard code lives outside this project root
+      // (../testers-dashboard/frontend/src) but is still part of this same
+      // Vite build - allow the dev server to read it.
+      allow: [resolve(__dirname, ".."), resolve(__dirname)],
+    },
     proxy: {
       "/api": {
         target: "http://localhost:4000",

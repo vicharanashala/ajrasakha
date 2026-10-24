@@ -2,11 +2,13 @@ import './questionStatus.js';
 import './notificationDelete.js'
 import './backupDB.js'
 import './dailyReport.js'
+import './dailyActivityReport.js'
 // import './absentCron.js'//previously commented
 import './reAllocateCron.js'
 import './timeBoundReAllocateCron.js'
 import './moderatorQueueCron.js'
 import './agentStatusCleanupJob.js';
+import './testersDashboardSyncCron.js'
 import './gateKeeperAuditorQueueCron.js'
 import './feedbackAllocationCron.js'
 import './paeValidationQueueCron.js'

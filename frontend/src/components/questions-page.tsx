@@ -1,4 +1,5 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
+import { useQueryClient } from "@tanstack/react-query";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,6 +27,8 @@ import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLeve
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
+import { CropManagementModal } from "@/features/question-table-page/CropManagementModal";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 
 export const QuestionsPage = ({
   currentUser,
@@ -41,6 +44,7 @@ export const QuestionsPage = ({
     setSelectedCommentId: setRouteCommentId,
     setSelectedQuestionType,
   } = useSelectedQuestion();
+  const queryClient = useQueryClient();
 
   const getInitialSource = (): QuestionSourceFilter => {
     const sourceFromUrl = new URLSearchParams(window.location.search).get(
@@ -60,6 +64,25 @@ export const QuestionsPage = ({
 
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
+  // AgriTech Management replaces the filters and questions table while open.
+  const [isAgriTechOpen, setIsAgriTechOpen] = useState(false);
+  const openAgriTech = () => {
+    setIsAgriTechOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  // "A" opens AgriTech Management from the questions list, for the roles that see it
+  // in the sidebar; paused while any dialog or drawer is open. (temporarily commented out)
+  // useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
+  //   const role = currentUser?.role;
+  //   return (
+  //     !isAgriTechOpen &&
+  //     !selectedQuestionId &&
+  //     !!role &&
+  //     role !== "expert" &&
+  //     role !== "tester" &&
+  //     !document.querySelector('[role="dialog"], [role="alertdialog"]')
+  //   );
+  // });
   const [search, setSearch] = useState("");
   const [searchTabMode, setSearchTabMode] = useState<string>("search");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
@@ -113,7 +136,16 @@ export const QuestionsPage = ({
   const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
   const suppressAutoOpenRef = useRef(false);
+  const refetchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [dedicatedSubTab, setDedicatedSubTab] = useState<DedicatedSubTab>("questions");
+
+  useEffect(() => {
+    return () => {
+      if (refetchTimerRef.current) {
+        clearTimeout(refetchTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -376,8 +408,12 @@ export const QuestionsPage = ({
   // question's details to a view (like My Assignments) that has fewer pages — snap
   // back to the last valid page so the list isn't stuck on an empty out-of-range page.
   useEffect(() => {
-    if (viewMode !== "review-level" && totalPages > 0 && currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    if (viewMode !== "review-level") {
+      if (totalPages > 0 && currentPage > totalPages) {
+        setCurrentPage(totalPages);
+      } else if (totalPages === 0 && currentPage > 1) {
+        setCurrentPage(1);
+      }
     }
   }, [viewMode, totalPages, currentPage]);
 
@@ -551,6 +587,15 @@ export const QuestionsPage = ({
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
   };
+  const scheduleDedicatedRefetch = () => {
+    if (viewMode === "dedicated") {
+      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+      refetchTimerRef.current = setTimeout(() => {
+        refetch();
+      }, 800);
+    }
+  };
+
   const goBack = () => {
     if (routeCommentId || routeQuestionId) {
       suppressAutoOpenRef.current = true;
@@ -563,6 +608,14 @@ export const QuestionsPage = ({
       setSelectedQuestionType(null);
     }
     setSelectedQuestionId("");
+    queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
+    scheduleDedicatedRefetch();
+  };
+
+  const navigateToQuestionPage = () => {
+    setSelectedQuestionId("");
+    queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
+    scheduleDedicatedRefetch();
   };
 
   const handleBulkDelete = async () => {
@@ -603,7 +656,12 @@ export const QuestionsPage = ({
   };
 
   return (
-    <main className={"mx-auto w-full p-4 md:p-6 space-y-6"}>
+    <main
+      className={`mx-auto w-full p-4 md:p-6 space-y-6 ${
+        // The questions list and AgriTech Management sit close to the navbar.
+        !selectedQuestionId ? "!pt-0.5 md:!pt-1 !space-y-4" : ""
+      }`}
+    >
       {selectedQuestionId ? (
         isLoadingSelectedQuestion ? (
           <div className="flex items-center justify-center min-h-[60vh]">
@@ -617,9 +675,7 @@ export const QuestionsPage = ({
               refetchAnswers={refechSelectedQuestion}
               isRefetching={isLoadingSelectedQuestion}
               goBack={goBack}
-              navigateToQuestionPage={() => {
-                setSelectedQuestionId("");
-              }}
+              navigateToQuestionPage={navigateToQuestionPage}
               currentUser={currentUser!}
               onNext={handleNext}
               onPrev={handlePrev}
@@ -631,7 +687,16 @@ export const QuestionsPage = ({
         )
       ) : (
         <>
+          {isAgriTechOpen ? (
+            <CropManagementModal
+              variant="page"
+              open
+              onOpenChange={(value) => !value && setIsAgriTechOpen(false)}
+            />
+          ) : (
+          <>
           <QuestionsFilters
+            onOpenAgriTech={openAgriTech}
             search={search}
             setSearch={setSearch}
             appliedFilters={filter}
@@ -665,6 +730,7 @@ export const QuestionsPage = ({
             onAnswerModeChange={setSearchTabMode}
             dedicatedSubTab={dedicatedSubTab}
             onDedicatedSubTabChange={setDedicatedSubTab}
+            isFetching={isFetching}
           />
 
           {viewMode === "all" || viewMode === "dedicated" ? (
@@ -705,6 +771,8 @@ export const QuestionsPage = ({
               view={view}
               onRefresh={refetchReviewLevels}
             />
+          )}
+          </>
           )}
         </>
       )}

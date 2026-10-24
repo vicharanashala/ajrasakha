@@ -29,5 +29,7 @@ export const aiConfig = {
   accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
   minimaxServerIP: env('MINIMAX_API') || 'localhost',
   minimaxServerPort: Number(env('MINIMAX_PORT')?.trim()) || 8001,
-  minimaxApiKey: env('MINIMAX_API_KEY')
+  minimaxApiKey: env('MINIMAX_API_KEY'),
+  // Chemical Check Service Configuration
+  chemicalCheckPort: Number(env('CHEMICAL_CHECK_PORT')?.trim()) || 8002,
 };

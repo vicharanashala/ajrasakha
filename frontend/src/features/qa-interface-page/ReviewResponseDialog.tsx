@@ -36,6 +36,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { ReviewChecklist } from "./ReviewChecklist";
+import { ChemicalVerifiedTextarea } from "@/components/ChemicalVerifiedTextarea";
 
 
 interface ReviewResponseDialogProps {
@@ -65,6 +66,12 @@ interface ReviewResponseDialogProps {
   setConfirmOpen: (value: boolean) => void;
   remarks: string;
   setRemarks: (value: string) => void;
+  currentReviewingAnswer?: {
+    _id: string;
+    answer: string;
+    sources: SourceItem[];
+    remarks: string;
+  } | null;
 }
 
 export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
@@ -95,6 +102,7 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
     setConfirmOpen,
     remarks,
     setRemarks,
+    currentReviewingAnswer,
   } = props;
   const [tempRejectAnswer, setTempRejectAnswer] = useState("");
   const [tempSources, setTempSources] = useState<SourceItem[]>([]);
@@ -104,7 +112,11 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
     if (isOpen)
       if (type === "modify") {
         setTempRejectAnswer(newAnswer);
-        setTempSources(sources);
+        // Use sources from currentReviewingAnswer if available, otherwise fallback to props.sources
+        const sourcesToUse = currentReviewingAnswer?.sources?.length
+          ? currentReviewingAnswer.sources
+          : sources;
+        setTempSources(sourcesToUse);
         onChecklistChange({
           ...checklist,
           valueInsight: true,
@@ -121,7 +133,7 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
         setTempRejectAnswer("");
         setTempSources([]);
       }
-  }, [isOpen, type]);
+  }, [isOpen, type, currentReviewingAnswer]);
 
   useEffect(() => {
     const msg = getReviewSuggestion(checklist);
@@ -326,19 +338,18 @@ export const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
                 </div> */}
 
                 <div>
-                  <Label htmlFor="new-answer" className="text-sm font-medium">
-                    {type == "modify" && "Draft"} Response *
-                  </Label>
-
-                  <Textarea
+                  <ChemicalVerifiedTextarea
                     id="new-answer"
+                    label={`${type === "modify" ? "Draft " : ""}Response`}
+                    required
                     placeholder="Enter your Response..."
                     value={tempRejectAnswer}
-                    onChange={(e) => {
-                      setTempRejectAnswer(e.target.value);
-                      setNewAnswer(e.target.value);
+                    onChange={(val) => {
+                      setTempRejectAnswer(val);
+                      setNewAnswer(val);
                     }}
-                    className="mt-1 min-h-[100px] p-3 rounded-md"
+                    minHeight="min-h-[250px]"
+                    maxHeight="max-h-[500px]"
                   />
 
                   {type == "reject" && (

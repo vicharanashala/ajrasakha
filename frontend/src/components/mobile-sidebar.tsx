@@ -5,6 +5,8 @@ import {
   Bot,
   CheckCircle2,
   Clock,
+  ClipboardList,
+  ListChecks,
   Database,
   History,
   List,
@@ -17,7 +19,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { canManageUsers, isCoordinatorRole } from "@/lib/roles";
+import { canManageUsers, isCoordinatorRole, canLogTestCases } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -167,8 +169,16 @@ export const MobileSidebar = ({
         ]
       : []),
 
-    ...(user && (user.role === "admin" || user.role === "moderator" || user.role === "expert")
+    ...(user
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
+      : []),
+
+    ...(user && (user.role === "admin" || user.role === "gate_keeper")
+      ? [
+          { id: "manage_agents", label: "Manage Agents", icon: Users },
+          { id: "testers_dashboard", label: "Testers Dashboard", icon: ClipboardList },
+          { id: "gdb_cleaning", label: "GDB Cleaning", icon: ListChecks },
+        ]
       : []),
 
     ...(user && !isCoordinator && user.role !== "call_agent"
@@ -182,6 +192,10 @@ export const MobileSidebar = ({
             icon: MessageSquare,
           },
         ]
+      : []),
+
+    ...(user && canLogTestCases(user.role)
+      ? [{ id: "tester_log", label: "Log Test Case", icon: ClipboardList }]
       : []),
   ];
 
@@ -227,7 +241,6 @@ export const MobileSidebar = ({
               icon={item.icon}
               onClick={() => handleClick(item.id)}
               isActive={item.id === activeTab}
-              isNew={item.id === "closed_answers"}
             />
           ))}
         </nav>

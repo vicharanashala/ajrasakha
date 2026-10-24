@@ -8,22 +8,37 @@ import type { QuestionService } from '#root/modules/question/services/QuestionSe
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-interface BulkDeleteJobStatus {
+export interface BulkDeleteJobStatus {
   id: string;
   total: number;
   processed: number;
+  deleted: number;
+  failed: number;
   status: 'running' | 'completed' | 'failed';
   startedAt: Date;
   finishedAt?: Date;
   logs: string[];
+  errors: any[];
+  successIds: string[];
 }
 
 const bulkDeleteJobs: Record<string, BulkDeleteJobStatus> = {};
+
+function cleanupOldJobs() {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours
+  for (const [id, job] of Object.entries(bulkDeleteJobs)) {
+    if (job.startedAt && job.startedAt.getTime() < cutoff) {
+      delete bulkDeleteJobs[id];
+    }
+  }
+}
 
 export const startBulkDeleteWorker = (
   questionIds: string[],
   userId: string,
 ): string => {
+  cleanupOldJobs();
+
   const jobId = `delete_${Date.now()}`;
   const total = questionIds.length;
 
@@ -31,9 +46,13 @@ export const startBulkDeleteWorker = (
     id: jobId,
     total,
     processed: 0,
+    deleted: 0,
+    failed: 0,
     status: 'running',
     startedAt: new Date(),
     logs: [`🚀 Bulk Delete Job ${jobId} started for ${total} question(s)`],
+    errors: [],
+    successIds: [],
   };
   bulkDeleteJobs[jobId] = job;
 
@@ -49,11 +68,18 @@ export const startBulkDeleteWorker = (
 
   worker.on('message', (msg) => {
     if (msg?.processed !== undefined) job.processed += msg.processed;
-    if (msg?.successId) job.logs.push(`✅ Deleted question ${msg.successId}`);
-    if (msg?.failedQuestion)
+    if (msg?.successId) {
+      job.deleted = (job.deleted || 0) + 1;
+      job.successIds.push(msg.successId);
+      job.logs.push(`✅ Deleted question ${msg.successId}`);
+    }
+    if (msg?.failedQuestion) {
+      job.failed = (job.failed || 0) + 1;
+      job.errors.push(msg.failedQuestion);
       job.logs.push(
         `❌ Failed to delete question ${msg.failedQuestion.questionId}: ${msg.failedQuestion.reason}`,
       );
+    }
   });
 
   worker.on('error', (err) => {
@@ -67,7 +93,9 @@ export const startBulkDeleteWorker = (
       job.status = code === 0 ? 'completed' : 'failed';
     }
     job.finishedAt = new Date();
-    job.logs.push(`🏁 Bulk Delete Job finished with exit code ${code}`);
+    job.logs.push(
+      `🏁 Bulk Delete Job finished. Deleted: ${job.deleted}/${job.total}, Errors: ${job.failed}`,
+    );
 
     // Deleting questions may have freed PAE experts (a question they held for validation is
     // now gone) — run the PAE-validation queue once so freed experts pick up their next

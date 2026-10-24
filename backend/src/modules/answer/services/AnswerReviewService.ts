@@ -375,7 +375,27 @@ export class AnswerReviewService extends BaseService implements IAnswerReviewSer
         });
 
         // -----------------------------------------------------------
-        // 8. Handle submission by status
+        // 8. Chemical Detection Check
+        // -----------------------------------------------------------
+        // if (answer) {
+        //   const chemicalCheckResult = await this.aiService.detectChemicals(answer);
+        //   const bannedChemicals = chemicalCheckResult?.matches?.filter(
+        //     (chemical) => chemical.status?.toLowerCase() === 'banned'
+        //   );
+        //   if (bannedChemicals?.length) {
+        //     const chemicalDetails = bannedChemicals
+        //       .map((chemical) => chemical.name)
+        //       .join(', ');
+
+        //     throw new BadRequestError(
+        //       `The answer contains banned chemicals: ${chemicalDetails}`
+        //     );
+        //   }
+        //   console.log("Chemcial result ",chemicalCheckResult)
+        // }
+
+        // -----------------------------------------------------------
+        // 9. Handle submission by status
         // -----------------------------------------------------------
         if (!status) {
           // -------------------- FIRST SUBMISSION --------------------------------

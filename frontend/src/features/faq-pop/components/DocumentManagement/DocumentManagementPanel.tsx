@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   getDashboardConfig,
   getStats,
@@ -9,10 +10,16 @@ import {
   cancelDashboardUpload,
   addUploadToMatch,
   addUploadAsNew,
-  cancelPendingDuplicateUpload,
+  updateDashboardUpload,
+  approveDashboardUpload,
+  declineDashboardUpload,
+  resubmitDashboardUpload,
+  removeDashboardUpload,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
   deleteDashboardTranslationJob,
+  translateUniqueDocument,
+  getDashboardUploadsHistory,
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
 import MainTable from "./MainTable";
@@ -29,16 +36,6 @@ const MODES = [
   { id: "unique-documents", label: "Documents" },
 ];
 
-function TimeAgo({ ts }) {
-  const [, force] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  if (!ts) return null;
-  return <span>{Math.max(0, Math.round((Date.now() - ts) / 1000))}s ago</span>;
-}
-
 // Document Management dashboard (docs/first_render_frontend.md) — third mode alongside
 // FAQ-Cluster/POP-Translation, wired in as a TABS entry in ../../DataProcessingDashboard.tsx.
 //
@@ -49,8 +46,16 @@ function TimeAgo({ ts }) {
 // Documents" table row (the old cross-tab jump/pin/focus mechanism). All 3 sub-tables stay
 // mounted permanently — visibility toggles via a `hidden` className, not conditional unmount — so
 // polling is never torn down by a sub-mode switch.
-export default function DocumentManagementPanel() {
+export default function DocumentManagementPanel({
+  canEdit = false,
+  canTranslate = false,
+  canApproveUploads = false,
+  isAdmin = false,
+}) {
   const [activeMode, setActiveMode] = useState("main-table");
+  // approved_by (approver/admin columns) — the signed-in user's display name, same source as
+  // uploaded_by/translated_by (see TranslateReviewCell.tsx).
+  const currentUserName = useAuthStore((s) => s.user?.name);
 
   const [translationAvailable, setTranslationAvailable] = useState(false);
   useEffect(() => {
@@ -83,8 +88,31 @@ export default function DocumentManagementPanel() {
   // /dashboard/events); the interval further down is now just a slow fallback in case that
   // stream is unavailable, not the primary refresh mechanism.
   const [queueItems, setQueueItems] = useState([]);
+  // GET /dashboard/uploads returns, per caller: own uploads at ANY level, plus level 1 (approver)
+  // items if an upload approver, plus level 2 (admin) items if admin — but each queue should only
+  // show items that are actually THIS person's turn to act on right now, not every level they can
+  // merely see. `level` (0=with the uploader, 1=with the approvers, 2=with the admins) moves on
+  // every add/decline/resubmit, so this is re-derived from the live item on every render, not
+  // cached. `stage` is the same thing as a label, still sent — used here only as a fallback for an
+  // item that hasn't been re-fetched with `level` yet.
+  const LEVEL_BY_STAGE = { expert: 0, approver: 1, admin: 2 };
+  function itemLevel(i) {
+    return typeof i.level === "number" ? i.level : LEVEL_BY_STAGE[i.stage];
+  }
+  const visibleQueueItems = queueItems.filter((i) => {
+    const level = itemLevel(i);
+    if (canApproveUploads && isAdmin) return level === 1 || level === 2;
+    if (canApproveUploads) return level === 1;
+    if (isAdmin) return level === 2;
+    return level === 0;
+  });
   const [translationJobs, setTranslationJobs] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  // Doc-id -> most recent failed/cancelled job, kept up to date regardless of whether the Failed/
+  // Cancelled tab in the Translation Queue panel is open (unlike finishedJobs, which is lazy and
+  // only reflects whichever single tab was last toggled on). Seeds TranslateReviewCell's own mode
+  // dropdown so it doesn't silently diverge from the queue's "Translate again" dropdown — see
+  // TranslateReviewCell.tsx's lastTerminalJob prop.
+  const [terminalJobsByDocId, setTerminalJobsByDocId] = useState({});
   const [busyUploadId, setBusyUploadId] = useState(null);
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
   // "New" is async — a real Zoho upload happens server-side, and the item stays at
@@ -121,32 +149,55 @@ export default function DocumentManagementPanel() {
     }
   }
 
-  // Finished jobs (done/failed/cancelled) — hidden by default (default GET only lists
-  // queued+running), fetched on demand once the panel's "show finished" toggle is on. The API
-  // takes one `status` at a time, so history is 3 calls merged rather than one.
-  const [finishedJobs, setFinishedJobs] = useState([]);
-  const [showFinishedJobs, setShowFinishedJobs] = useState(false);
-  // Mirrors showFinishedJobs for the mount-only SSE effect below, whose "translation" handler
-  // would otherwise close over the value from mount time forever.
-  const showFinishedJobsRef = useRef(showFinishedJobs);
-  showFinishedJobsRef.current = showFinishedJobs;
-  const [removingJobIds, setRemovingJobIds] = useState(() => new Set());
-  async function refetchFinishedJobs() {
+  function jobDocId(job) {
+    return job.document_id || job.unique_document_id;
+  }
+
+  async function refetchTerminalJobs() {
     try {
-      const [done, failed, cancelled] = await Promise.all([
-        getDashboardTranslationJobs("done"),
+      const [failed, cancelled] = await Promise.all([
         getDashboardTranslationJobs("failed"),
         getDashboardTranslationJobs("cancelled"),
       ]);
-      setFinishedJobs([...(done || []), ...(failed || []), ...(cancelled || [])]);
+      const map = {};
+      for (const job of [...(failed || []), ...(cancelled || [])]) {
+        map[jobDocId(job)] = job;
+      }
+      setTerminalJobsByDocId(map);
+    } catch {
+      // ignore transient errors, next poll/manual refresh will retry
+    }
+  }
+
+  // Finished jobs — hidden by default, one status at a time behind a Succeeded/Failed/Cancelled
+  // segmented control (null = none selected, nothing fetched). The API only takes one `status` at
+  // a time, so switching tabs re-fetches rather than filtering a merged list.
+  const [finishedFilter, setFinishedFilterState] = useState(null); // null | "done" | "failed" | "cancelled"
+  const [finishedJobs, setFinishedJobs] = useState([]);
+  // Mirrors finishedFilter for the mount-only SSE effect below, whose "translation" handler would
+  // otherwise close over the value from mount time forever.
+  const finishedFilterRef = useRef(finishedFilter);
+  finishedFilterRef.current = finishedFilter;
+  const [removingJobIds, setRemovingJobIds] = useState(() => new Set());
+  const [redoingJobIds, setRedoingJobIds] = useState(() => new Set());
+  async function refetchFinishedJobs() {
+    if (!finishedFilterRef.current) return;
+    try {
+      const jobs = (await getDashboardTranslationJobs(finishedFilterRef.current)) || [];
+      setFinishedJobs(jobs);
     } catch {
       // ignore transient errors, next toggle/manual refresh will retry
     }
   }
+  function setFinishedFilter(status) {
+    // Clicking the active tab again toggles it off (the "toggle" half of the segmented control).
+    setFinishedFilterState((prev) => (prev === status ? null : status));
+  }
   useEffect(() => {
-    if (showFinishedJobs) refetchFinishedJobs();
+    if (finishedFilter) refetchFinishedJobs();
+    else setFinishedJobs([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFinishedJobs]);
+  }, [finishedFilter]);
 
   async function handleRemoveTranslationJob(job) {
     setRemovingJobIds((prev) => new Set(prev).add(job.id));
@@ -164,13 +215,34 @@ export default function DocumentManagementPanel() {
     }
   }
 
+  // Retry a failed job — same job id, backend only re-translates the pages whose link is "".
+  // Success means the job goes back to queued/running, which arrives over SSE like any other
+  // translation update (handled below), so no local state update is needed here beyond busy
+  // tracking and surfacing a 409 ("already in progress") if it somehow races another trigger.
+  async function handleRedoTranslationJob(job, mode) {
+    const docId = job.document_id || job.unique_document_id;
+    setRedoingJobIds((prev) => new Set(prev).add(job.id));
+    try {
+      await translateUniqueDocument(docId, currentUserName, mode || job.mode);
+      toast.success("Translation queued");
+    } catch (err) {
+      toast.error(err.message || "Failed to retry translation");
+    } finally {
+      setRedoingJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      });
+    }
+  }
+
   async function refetchAll() {
     await Promise.all([
       refetchUploads(),
       refetchTranslationJobs(),
-      ...(showFinishedJobs ? [refetchFinishedJobs()] : []),
+      refetchTerminalJobs(),
+      ...(finishedFilter ? [refetchFinishedJobs()] : []),
     ]);
-    setLastUpdated(Date.now());
   }
 
   // Both queues load up front regardless of which sub-mode is active.
@@ -181,19 +253,51 @@ export default function DocumentManagementPanel() {
 
   // Fallback only — GET /dashboard/events (below) is the primary way these queues stay live. Runs
   // unconditionally every 60s (no user-facing toggle — SSE is the real mechanism now). Recreated
-  // on showFinishedJobs too, so it doesn't leave the interval's refetchAll closure stale (it
+  // on finishedFilter too, so it doesn't leave the interval's refetchAll closure stale (it
   // decides whether to include the finished-jobs fetch).
   useEffect(() => {
     const id = setInterval(refetchAll, 60000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFinishedJobs]);
+  }, [finishedFilter]);
 
   // refetchAll's own closure goes stale if captured once by the mount-only SSE effect below (it
-  // reads showFinishedJobs) — mirror it in a ref so the "open" handler always calls the current
+  // reads finishedFilter) — mirror it in a ref so the "open" handler always calls the current
   // version instead.
   const refetchAllRef = useRef(refetchAll);
   refetchAllRef.current = refetchAll;
+  const refetchUploadsRef = useRef(refetchUploads);
+  refetchUploadsRef.current = refetchUploads;
+  const uploadRefetchTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(uploadRefetchTimerRef.current), []);
+
+  // Upload History — a toggle inside UploadQueuePanel itself that swaps the queue's own list for
+  // a read-only view of finished uploads (GET /dashboard/uploads/history), rather than a separate
+  // modal. showHistoryRef mirrors showHistory for the mount-only SSE effect below, same reason
+  // refetchUploadsRef exists.
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const showHistoryRef = useRef(false);
+  showHistoryRef.current = showHistory;
+  const historyRefetchTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(historyRefetchTimerRef.current), []);
+
+  async function refetchHistory() {
+    try {
+      const items = (await getDashboardUploadsHistory()) || [];
+      setHistoryItems(items);
+    } catch {
+      // ignore transient errors, next toggle/manual refresh will retry
+    }
+  }
+
+  useEffect(() => {
+    if (!showHistory) return;
+    setHistoryLoading(true);
+    refetchHistory().finally(() => setHistoryLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHistory]);
 
   // GET /dashboard/events — one shared SSE connection (see dashboardEvents.ts) driving live
   // updates for both queues, instead of polling. No replay on reconnect, so every (re)connect
@@ -202,29 +306,26 @@ export default function DocumentManagementPanel() {
   useEffect(() => {
     const unsubscribe = subscribeDashboardEvents({
       open: () => refetchAllRef.current(),
-      upload: (item) => {
-        setQueueItems((prev) => {
-          if (item.deleted) return prev.filter((it) => it.id !== item.id);
-          const idx = prev.findIndex((it) => it.id === item.id);
-          if (idx === -1) return [...prev, item];
-          const next = [...prev];
-          next[idx] = item;
-          return next;
-        });
-        setProcessingUploadIds((prev) => {
-          if (!prev.has(item.id)) return prev;
-          if (item.deleted || item.status !== "awaiting_review") {
-            const next = new Set(prev);
-            next.delete(item.id);
-            return next;
-          }
-          return prev;
-        });
-        setLastUpdated(Date.now());
+      // GET /dashboard/uploads is now per-caller (own uploads + approver-stage items if an upload
+      // approver + admin-stage items if admin) rather than one shared list, so the event's own
+      // payload can no longer be upserted into local state directly — it may not even be an item
+      // this caller is allowed to see. Refetch instead (debounced — an upload moving through
+      // several stages fires several events in quick succession).
+      upload: () => {
+        clearTimeout(uploadRefetchTimerRef.current);
+        uploadRefetchTimerRef.current = setTimeout(refetchUploadsRef.current, 300);
+        // An item leaving the queue (deleted:true) is exactly when it lands in history — refetch
+        // the history view too, same debounce, but only while it's actually showing.
+        if (showHistoryRef.current) {
+          clearTimeout(historyRefetchTimerRef.current);
+          historyRefetchTimerRef.current = setTimeout(refetchHistory, 300);
+        }
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
-        // — a job that just finished belongs in finishedJobs (if that's being shown), not here.
+        // — a job that just finished belongs in finishedJobs (if that tab is open), not here. A
+        // job can also go the other way (retried from "failed" back to queued/running), in which
+        // case it needs to drop out of whichever finished tab was showing it.
         const finished = job.deleted || ["done", "failed", "cancelled"].includes(job.status);
         setTranslationJobs((prev) => {
           if (finished) return prev.filter((j) => j.id !== job.id);
@@ -241,13 +342,23 @@ export default function DocumentManagementPanel() {
             next.delete(job.id);
             return next;
           });
-          setFinishedJobs((prev) => {
-            if (!showFinishedJobsRef.current) return prev;
-            const filtered = prev.filter((j) => j.id !== job.id);
-            return job.deleted ? filtered : [...filtered, job];
-          });
         }
-        setLastUpdated(Date.now());
+        setFinishedJobs((prev) => {
+          const filtered = prev.filter((j) => j.id !== job.id);
+          const belongsHere = !job.deleted && finished && job.status === finishedFilterRef.current;
+          return belongsHere ? [...filtered, job] : filtered;
+        });
+        setTerminalJobsByDocId((prev) => {
+          const docId = jobDocId(job);
+          const isTerminal = !job.deleted && (job.status === "failed" || job.status === "cancelled");
+          if (isTerminal) return { ...prev, [docId]: job };
+          if (prev[docId]?.id === job.id) {
+            const next = { ...prev };
+            delete next[docId];
+            return next;
+          }
+          return prev;
+        });
       },
       document: () => bumpRefresh(),
     });
@@ -259,6 +370,15 @@ export default function DocumentManagementPanel() {
     refetchUploads();
   }
 
+  // 404 means this upload isn't (or is no longer) visible to this caller at all; 409 means
+  // someone else just moved it to another stage; 403 covers losing standing to act on it (e.g.
+  // removed as an approver, or it moved to a stage that isn't this caller's) — in every case the
+  // locally-held item/queue is stale, so resync from the server instead of leaving a dead row the
+  // next click will just 403/404/409 again.
+  function isStaleUploadError(err) {
+    return err?.status === 403 || err?.status === 404 || err?.status === 409;
+  }
+
   async function handleCancelUpload(item) {
     setBusyUploadId(item.id);
     try {
@@ -266,20 +386,27 @@ export default function DocumentManagementPanel() {
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
     } catch (err) {
       toast.error(err.message || "Failed to cancel");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
   }
 
-  async function handleAddUpload(item, documentId) {
+  async function handleAddUpload(item, documentId, candidate) {
     setBusyUploadId(item.id);
     try {
-      const res = await addUploadToMatch(item.id, documentId);
-      toast.success(`Linked — ${res?.placements_created ?? 0} new placement(s) created`);
+      const res = await addUploadToMatch(item.id, documentId, currentUserName);
+      // The upload moves to status "uploading" right away and the worker creates placements
+      // afterward, so created_row_ids (and placements_created) in this reply is always empty —
+      // count from the candidate's own new_placements, what the row already showed as "would
+      // file it under N new place(s)".
+      const count = candidate?.new_placements?.length ?? res?.placements_created ?? 0;
+      toast.success(`Linked — ${count} new placement(s) created`);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
       bumpRefresh();
     } catch (err) {
       toast.error(err.message || "Failed to add");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
@@ -291,22 +418,109 @@ export default function DocumentManagementPanel() {
   async function handleNewUpload(item) {
     setBusyUploadId(item.id);
     try {
-      await addUploadAsNew(item.id);
+      await addUploadAsNew(item.id, currentUserName);
       setProcessingUploadIds((prev) => new Set(prev).add(item.id));
     } catch (err) {
       toast.error(err.message || "Failed to process as a new document");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
   }
 
-  async function handleCancelDuplicateUpload(item) {
+  // Upload approver: moves the item from stage "approver" to "admin".
+  async function handleApproveUpload(item) {
     setBusyUploadId(item.id);
     try {
-      await cancelPendingDuplicateUpload(item.id);
+      const updated = await approveDashboardUpload(item.id, currentUserName);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Approved");
+    } catch (err) {
+      toast.error(err.message || "Failed to approve");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // Approver or admin declining with a required note — sends it back a stage (approver -> expert,
+  // admin -> approver). The backend 400s on an empty note, so the panel below only calls this once
+  // the note box has content.
+  async function handleDeclineUpload(item, note) {
+    setBusyUploadId(item.id);
+    try {
+      const updated = await declineDashboardUpload(item.id, note);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Declined");
+    } catch (err) {
+      toast.error(err.message || "Failed to decline");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // Editing the upload's own submitted fields/placements — offered while actions.can_edit is true
+  // (approver or admin stage, whoever's turn it is). Only ever called with keys the backend
+  // actually accepts (language/placements/district_id/kvk_id/format_original/an upload-form
+  // metadata field) — it 422s on anything else, uploaded_by included.
+  async function handleEditUpload(item, fields) {
+    setBusyUploadId(item.id);
+    try {
+      const updated = await updateDashboardUpload(item.id, fields);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Saved");
+    } catch (err) {
+      toast.error(err.message || "Failed to save");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // The uploading expert sending their declined upload back to the approvers — offered while
+  // actions.can_resubmit is true (stage "expert", status awaiting_review only). The item stays in
+  // the expert's own list afterward (they always see their own uploads) but moves to stage
+  // "approver", with no actions left for them until it's decided again.
+  async function handleResubmitUpload(item) {
+    setBusyUploadId(item.id);
+    try {
+      const updated = await resubmitDashboardUpload(item.id);
+      setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      toast.success("Resubmitted");
+    } catch (err) {
+      toast.error(err.message || "Failed to resubmit");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // Admin discard (stage "admin") — same DELETE route as the uploader's own Remove below, kept as
+  // a separate handler so the two read as distinct actions even though the request is identical.
+  async function handleDiscardUpload(item) {
+    setBusyUploadId(item.id);
+    try {
+      await cancelDashboardUpload(item.id);
+      setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
+      toast.success("Discarded");
+    } catch (err) {
+      toast.error(err.message || "Failed to discard");
+      if (isStaleUploadError(err)) refetchUploads();
+    } finally {
+      setBusyUploadId(null);
+    }
+  }
+
+  // The uploading expert removing an item returned to them (stage "expert" only).
+  async function handleRemoveUpload(item) {
+    setBusyUploadId(item.id);
+    try {
+      await removeDashboardUpload(item.id);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
     } catch (err) {
-      toast.error(err.message || "Failed to cancel");
+      toast.error(err.message || "Failed to remove");
+      if (isStaleUploadError(err)) refetchUploads();
     } finally {
       setBusyUploadId(null);
     }
@@ -364,7 +578,6 @@ export default function DocumentManagementPanel() {
           <div className="w-full min-w-0 flex flex-col gap-2">
             <div className="flex items-center justify-end">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">Updated <TimeAgo ts={lastUpdated} /></span>
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   onClick={refetchAll}
@@ -376,42 +589,62 @@ export default function DocumentManagementPanel() {
             <ResizableSplitPanel
               top={
                 <UploadQueuePanel
-                  items={queueItems}
+                  items={visibleQueueItems}
                   onCancelQueued={handleCancelUpload}
                   onAdd={handleAddUpload}
                   onNew={handleNewUpload}
-                  onCancelDuplicate={handleCancelDuplicateUpload}
+                  onApprove={handleApproveUpload}
+                  onDecline={handleDeclineUpload}
+                  onEdit={handleEditUpload}
+                  onResubmit={handleResubmitUpload}
+                  onDiscard={handleDiscardUpload}
+                  onRemove={handleRemoveUpload}
                   onOpenDetail={openDetail}
                   busyId={busyUploadId}
                   processingIds={processingUploadIds}
+                  showHistory={showHistory}
+                  onToggleHistory={() => setShowHistory((v) => !v)}
+                  historyItems={historyItems}
+                  historyLoading={historyLoading}
                 />
               }
               bottom={
-                <TranslationQueuePanel
-                  jobs={translationJobs}
-                  onCancel={handleCancelTranslationJob}
-                  onOpenDetail={openDetail}
-                  stoppingIds={stoppingJobIds}
-                  finishedJobs={finishedJobs}
-                  showFinished={showFinishedJobs}
-                  onToggleFinished={setShowFinishedJobs}
-                  onRemove={handleRemoveTranslationJob}
-                  removingIds={removingJobIds}
-                />
+                canTranslate ? (
+                  <TranslationQueuePanel
+                    jobs={translationJobs}
+                    onCancel={handleCancelTranslationJob}
+                    onOpenDetail={openDetail}
+                    stoppingIds={stoppingJobIds}
+                    finishedJobs={finishedJobs}
+                    finishedFilter={finishedFilter}
+                    onSetFinishedFilter={setFinishedFilter}
+                    onRemove={handleRemoveTranslationJob}
+                    removingIds={removingJobIds}
+                    onRedo={handleRedoTranslationJob}
+                    redoingIds={redoingJobIds}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground italic">
+                    Translation Queue is only visible to admins.
+                  </div>
+                )
               }
             />
           </div>
         </div>
       </div>
       <div className={activeMode === "main-table" ? "" : "hidden"}>
-        <MainTable onOpenDetail={openDetail} refreshKey={refreshKey} />
+        <MainTable onOpenDetail={openDetail} refreshKey={refreshKey} canEdit={canEdit} />
       </div>
       <div className={activeMode === "unique-documents" ? "" : "hidden"}>
         <UniqueDocumentsTable
           onOpenDetail={openDetail}
           translationAvailable={translationAvailable}
+          canTranslate={canTranslate}
           refreshKey={refreshKey}
           onDataChanged={bumpRefresh}
+          canEdit={canEdit}
+          terminalJobsByDocId={terminalJobsByDocId}
         />
       </div>
 
@@ -425,8 +658,13 @@ export default function DocumentManagementPanel() {
           }
         }}
         translationAvailable={translationAvailable}
+        canTranslate={canTranslate}
         onTranslationStarted={refetchTranslationJobs}
         onPlacementsChanged={bumpRefresh}
+        canEdit={canEdit}
+        currentUserName={currentUserName}
+        translationJobs={translationJobs}
+        terminalJobsByDocId={terminalJobsByDocId}
       />
     </div>
   );

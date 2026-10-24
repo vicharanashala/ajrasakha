@@ -1,5 +1,4 @@
 import type {
-  ISubmissions,
   SubmitAnswerResponse,
   FinalizedAnswersResponse,
   ClosedAnswersResponse,
@@ -228,4 +227,26 @@ export class AnswerService {
       throw error;
     }
   }
+
+  async detectChemicals(text: string): Promise<ChemicalDetectionResponse | null> {
+    try {
+      return await apiFetch<ChemicalDetectionResponse>(`${this._baseUrl}/detect-chemicals`, {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+    } catch (error) {
+      console.error(`Error in detectChemicals:`, error);
+      throw error;
+    }
+  }
 }
+
+export interface ChemicalMatch {
+  name: string;
+  status: "Banned" | "Restricted" | "Allowed" | string;
+}
+
+export interface ChemicalDetectionResponse {
+  matches: ChemicalMatch[];
+}
+

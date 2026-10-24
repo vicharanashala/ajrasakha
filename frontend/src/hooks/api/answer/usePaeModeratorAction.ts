@@ -28,6 +28,7 @@ export const usePaeModeratorAction = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
     },
     onError: (error) => {
       console.error("PAE moderator action failed:", error.message);
