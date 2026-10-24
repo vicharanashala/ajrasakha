@@ -1761,6 +1761,10 @@ export class UserService extends BaseService {
 
     // If sendToEmail flag is set, send the report via email
     if (query.sendToEmail) {
+      if (user.role === 'pae_expert') {
+        throw new BadRequestError('Sending activity reports to PAE users is not allowed');
+      }
+
       // Primary recipient is the concern person whose report is being viewed/generated
       const recipient = user.email?.trim();
       const fallbackEmails = (appConfig.individualReportEmails || '')
@@ -1841,7 +1845,7 @@ export class UserService extends BaseService {
   /**
    * Daily 12:00 AM IST batch job:
    * Generates and emails the previous day's [12:00 AM - 11:59 PM] IST Activity Report
-   * for all active, non-blocked review staff (Experts, Moderators, PAE, Gatekeepers, Auditors).
+   * for all active, non-blocked review staff (Experts, Moderators, Gatekeepers, Auditors).
    * Primary 'To' is the user's email (the concern person), and 'CC' contains configured CC recipients.
    */
   async sendDailyUserActivityReports(targetDateStr?: string): Promise<{
@@ -1874,11 +1878,10 @@ export class UserService extends BaseService {
       `[sendDailyUserActivityReports] Generating reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
     );
 
-    // 2. Fetch all active, non-blocked review staff
+    // 2. Fetch all active, non-blocked review staff (excluding PAE users)
     const staff = await this.userRepo.getActiveReviewStaff([
       'expert',
       'moderator',
-      'pae_expert',
       'gate_keeper',
       'auditor',
     ]);
