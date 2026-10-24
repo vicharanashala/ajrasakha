@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { Loader2, Plus, PlusCircle, Save, Search, Trash2, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -155,11 +155,15 @@ export const AllDistrictsPanel = ({ enabled }: { enabled: boolean }) => {
       toast.error("District name cannot be empty.");
       return;
     }
+    let toastId;
     try {
       setSavingCode(districtCode);
+      toastId = toast.loading("Saving district...");
       await saveAliases({ districtCode, aliases: drafts[districtCode] ?? [], name });
+      if (toastId) toast.dismiss(toastId);
       toast.success("Saved.");
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error?.message || "Failed to save.");
     } finally {
       setSavingCode(null);
@@ -208,27 +212,35 @@ export const AllDistrictsPanel = ({ enabled }: { enabled: boolean }) => {
       toast.error("A reason is required to add a district.");
       return;
     }
+    let toastId;
     try {
+      toastId = toast.loading("Adding district...");
       await addDistrictMut({
         stateCode: Number(addStateCode),
         name: addName.trim(),
         reason: addReason.trim(),
         aliases: addAliases,
       });
+      if (toastId) toast.dismiss(toastId);
       toast.success(`District "${addName.trim()}" added.`);
       resetAddForm();
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error?.message || "Failed to add district.");
     }
   };
 
   const handleDeleteDistrict = async (reason: string) => {
     if (!deleteTarget) return;
+    let toastId;
     try {
+      toastId = toast.loading("Deleting district...");
       await deleteDistrictMut({ districtCode: deleteTarget.districtCode, reason });
+      if (toastId) toast.dismiss(toastId);
       toast.success(`District "${deleteTarget.districtNameEnglish}" deleted.`);
       setDeleteTarget(null);
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error?.message || "Failed to delete district.");
     }
   };

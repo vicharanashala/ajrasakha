@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2 } from "lucide-react";
 import { formatDateLocal } from "@/utils/formatDate";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   Dialog,
   DialogContent,
@@ -275,8 +275,10 @@ const DownloadShiftWiseReportButton = ({
   ];
 
   async function handleShiftWiseReportDownload() {
+    let toastId;
     try {
       setIsDownloading(true);
+      toastId = toast.loading("Preparing shift-wise report...");
 
       const rows: string[] = [];
 
@@ -404,10 +406,12 @@ const DownloadShiftWiseReportButton = ({
 
       window.URL.revokeObjectURL(url);
 
+      if (toastId) toast.dismiss(toastId);
       toast.success("Shift-wise report downloaded successfully!");
 
       // setIsDateDialogOpen(false);
     } catch (err) {
+      if (toastId) toast.dismiss(toastId);
       console.error(err);
 
       toast.error("Failed to generate report");

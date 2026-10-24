@@ -25,7 +25,7 @@ import type { IQuestionFullData, ISubmission, IUser } from "@/types";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { ChevronDown, GraduationCap, Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { cn } from "@/lib/utils";
 
 interface AllocationQueueHeaderProps {

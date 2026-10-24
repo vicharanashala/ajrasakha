@@ -6,7 +6,7 @@ import type {
   IUser,
 } from "@/types";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AllocationQueueHeader } from "./AllocationQueueHeader";
 import { ClosedFinalAnswerModal } from "./ClosedFinalAnswerModal";

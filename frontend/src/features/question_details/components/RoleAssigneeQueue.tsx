@@ -13,7 +13,7 @@ import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Switch } from "@/components/atoms/switch";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {

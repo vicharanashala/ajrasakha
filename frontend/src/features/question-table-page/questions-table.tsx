@@ -14,8 +14,7 @@ import { Pagination } from "../../components/pagination";
 
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 
-import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { QuestionRow } from "./QuestionRow";

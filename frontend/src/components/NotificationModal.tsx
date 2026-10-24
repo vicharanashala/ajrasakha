@@ -42,7 +42,6 @@ import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNot
 import { useMarkAllAsReadNotification } from "@/hooks/api/notification/useMarkAllAsRead";
 import { useAutoDeletePreference } from "@/hooks/api/user/useAutoDeleteNotifications";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { toast } from "sonner";
 import { formatDate } from "@/utils/formatDate";
 import {
     useNavigateToComment,
@@ -212,7 +211,7 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         setNotifications((prev) => prev.filter((n) => n._id !== notificationId));
         try {
             await deleteNotification(notificationId);
-            toast.success("Notification deleted");
+            toastSuccess("Notification deleted");
         } catch (error) {
             console.error("Error: ", error);
         }
@@ -222,7 +221,7 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         setDeletePreference(value);
         try {
             await autoDeletePreference(value);
-            toast.success("Preference Updated");
+            toastSuccess("Preference Updated");
         } catch (error) {
              toastError("Error updating Preference");
         }
