@@ -407,11 +407,7 @@ export class AnswerService extends BaseService implements IAnswerService {
     if (!payload?.question || !payload?.answer) {
       throw new BadRequestError('Question and answer are required for FFV generation.');
     }
-    const result = await this.aiService.generateFfv(payload);
-    if (!result) {
-      throw new InternalServerError('FFV generation service is temporarily unavailable.');
-    }
-    return result;
+    return this.aiService.generateFfv(payload);
   }
 }
 

@@ -9,6 +9,7 @@ import {
   Copy,
   Check,
   ClipboardList,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
@@ -19,6 +20,7 @@ import {
 } from "@/components/atoms/dialog";
 import { toast } from "sonner";
 import { PanelControls } from "./PanelControls";
+import { useGenerateFfv, type GenerateFfvResponse } from "@/hooks/api/answer/useGenerateFfv";
 
 // CHANGE: Define the shape of an individual farmer-friendly version.
 interface FarmerFriendlyVersion {
@@ -125,6 +127,9 @@ interface FarmerFriendlyVersionsPanelProps {
   onToggleCollapse?: () => void;
   isEnlarged?: boolean;
   onToggleEnlarge?: () => void;
+  questionText?: string;
+  answerText?: string;
+  domain?: string[];
 }
 
 // CHANGE: Track which version is selected in the View/Edit modal.
@@ -137,10 +142,24 @@ export const FarmerFriendlyVersionsPanel: React.FC<
   onToggleCollapse,
   isEnlarged = false,
   onToggleEnlarge,
+  questionText,
+  answerText,
+  domain,
 }) => {
+  // CHANGE: Console log the question, answer, and domain passed from the parent
+  console.log("[FarmerFriendlyVersionsPanel] question:", questionText);
+  console.log("[FarmerFriendlyVersionsPanel] answer:", answerText);
+  console.log("[FarmerFriendlyVersionsPanel] domain:", domain);
+
+  // CHANGE: Call the FFV generation API hook
+  const { mutateAsync: generateFfv, isPending: isGenerating } = useGenerateFfv();
+
   // CHANGE: Store the generated versions locally so editing a version
   // updates the displayed data without requiring a backend connection.
   const [versions, setVersions] = useState<FarmerFriendlyVersion[]>([]);
+
+  // CHANGE: Track the source domain from the API response.
+  const [sourceDomain, setSourceDomain] = useState<string>("");
 
   // CHANGE: Track whether the Generate FFVs button has been clicked.
   // Before generation, the component displays the empty state.
@@ -162,20 +181,37 @@ export const FarmerFriendlyVersionsPanel: React.FC<
   // The component can later replace this with the actual API response.
   const totalVersions = hasGenerated ? versions.length : 0;
 
-  // CHANGE: Generate the mock versions when the user clicks Generate FFVs.
-  // Clicking Regenerate FFVs reloads the mock response for now.
-  const handleGenerateVersions = () => {
-    const response = MOCK_FFV_RESPONSE;
-    const generatedVersions = response.results.flatMap(
-      (result) => result.versions
-    );
+  // CHANGE: Generate FFVs by calling the real API.
+  const handleGenerateVersions = async () => {
+    if (!questionText || !answerText) {
+      toast.error("Question and answer are required to generate FFVs.");
+      return;
+    }
 
-    setVersions(generatedVersions);
-    setHasGenerated(true);
+    try {
+      const response: GenerateFfvResponse = await generateFfv({
+        question: questionText,
+        answer: answerText,
+        domains: domain,
+      });
 
-    // CHANGE: Clear any previously selected version when regenerating.
-    setSelectedVersionIndex(null);
-    setIsModalOpen(false);
+      const generatedVersions = response.results.flatMap(
+        (result) => result.versions
+      );
+
+      setVersions(generatedVersions);
+      setHasGenerated(true);
+
+      // Set the first domain as source domain for display
+      if (response.results.length > 0) {
+        setSourceDomain(response.results[0].domain);
+      }
+
+      setSelectedVersionIndex(null);
+      setIsModalOpen(false);
+    } catch {
+      // Error is already handled in the hook's onError
+    }
   };
 
   // CHANGE: Open the shared modal in view or edit mode and initialize
@@ -277,15 +313,18 @@ export const FarmerFriendlyVersionsPanel: React.FC<
             variant="outline"
             size="sm"
             onClick={handleGenerateVersions}
+            disabled={isGenerating}
             className="h-8 px-2.5 text-xs font-medium rounded-lg border-border/80 hover:bg-muted text-foreground flex items-center gap-1.5 shadow-2xs"
           >
-            {hasGenerated ? (
+            {isGenerating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+            ) : hasGenerated ? (
               <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             ) : (
               <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             )}
             <span>
-              {hasGenerated ? "Regenerate FFVs" : "Generate FFVs"}
+              {isGenerating ? "Generating..." : hasGenerated ? "Regenerate FFVs" : "Generate FFVs"}
             </span>
           </Button>
 
@@ -301,7 +340,23 @@ export const FarmerFriendlyVersionsPanel: React.FC<
       {/* CHANGE: Use the same compact padding and flexible body layout
           as the ChecksPipelinePanel. */}
       <CardContent className="p-3.5 sm:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-        {!hasGenerated ? (
+        {isGenerating ? (
+          // CHANGE: Show a loading state while FFVs are being generated.
+          <div className="py-8 flex flex-col items-center justify-center text-center space-y-3 my-auto">
+            <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="space-y-1 max-w-sm">
+              <p className="text-sm font-semibold text-foreground">
+                Generating Farmer-Friendly Versions...
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Please wait while we create short, simple versions of the
+                answer from different angles.
+              </p>
+            </div>
+          </div>
+        ) : !hasGenerated ? (
           // CHANGE: Replace the old "Upcoming feature" placeholder with
           // a useful empty state, similar to the checks panel's idle state.
           <div className="py-8 flex flex-col items-center justify-center text-center space-y-3 my-auto">
@@ -351,15 +406,14 @@ export const FarmerFriendlyVersionsPanel: React.FC<
                 </div>
               </div>
 
-              {/* CHANGE: Show the source domain from the mock response,
-                  without introducing any approval or review status. */}
+              {/* CHANGE: Show the source domain from the API response. */}
               <div className="rounded-xl p-2.5 sm:p-3 bg-muted/30 border border-border/70 flex items-center gap-2.5 sm:gap-3 shadow-xs">
                 <div className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0">
                   <ClipboardList className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-foreground truncate">
-                    {MOCK_FFV_RESPONSE.results[0]?.domain ?? "Generated FFVs"}
+                    {sourceDomain || "Generated FFVs"}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-1">
                     Source domain
@@ -592,14 +646,34 @@ export const FarmerFriendlyVersionsPanel: React.FC<
                 </Button>
               </>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsModalOpen(false)}
-                className="h-8 text-xs"
-              >
-                Close
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // CHANGE: Switch to edit mode for the currently selected version.
+                    if (selectedVersionIndex !== null) {
+                      const version = versions[selectedVersionIndex];
+                      setEditedQuestion(version.question);
+                      setEditedAnswer(version.answer);
+                      setModalMode("edit");
+                    }
+                  }}
+                  className="h-8 text-xs gap-1.5"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsModalOpen(false)}
+                  className="h-8 text-xs"
+                >
+                  Close
+                </Button>
+              </>
             )}
           </div>
         </DialogContent>
