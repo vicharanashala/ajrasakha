@@ -608,6 +608,23 @@ export class PlivoService {
     }
   }
 
+  async saveCallRejected(payload: {
+    callUuid: string;
+    agentUserId?: string;
+  }): Promise<{ success: boolean }> {
+    try {
+      const url = `${this._baseUrl}/call-rejected`;
+      const response = await apiFetch<{ success: boolean }>(url, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return response || { success: false };
+    } catch (err) {
+      console.warn("⚠️ [PlivoApi] Failed to save call rejected state:", err);
+      return { success: false };
+    }
+  }
+
   async getAllCredentials(): Promise<PlivoAgentCredential[]> {
     const url = `${this._baseUrl}/credentials/all`;
     const response = await apiFetch<PlivoAgentCredential[]>(url);

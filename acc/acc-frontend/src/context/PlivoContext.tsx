@@ -851,6 +851,8 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [disconnectWebSocket, handleMarkAgentAsAvailable]);
 
   const rejectCall = useCallback(() => {
+    const currentUuid = activeCallUuidRef.current || parentCallUuidRef.current;
+    const currentAgentId = currentUserRef.current?._id ? String(currentUserRef.current._id) : undefined;
     handledAnsweredLegRef.current = null;
     if (plivoClientRef.current && plivoClientRef.current.client) {
       try {
@@ -859,6 +861,12 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.error("❌ [PlivoContext] Error rejecting call:", error);
       }
     }
+    if (currentUuid) {
+      plivoApi.saveCallRejected({ callUuid: currentUuid, agentUserId: currentAgentId }).catch(() => {});
+    }
+    parentCallUuidRef.current = null;
+    activeCallUuidRef.current = null;
+    activeCallInfoRef.current = null;
     setCallStatus("idle");
     setActiveCall(null);
     disconnectWebSocket();

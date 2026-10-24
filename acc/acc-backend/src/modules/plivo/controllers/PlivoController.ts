@@ -777,6 +777,31 @@ export class PlivoController {
     }
   }
 
+  @Post('/call-rejected')
+  @HttpCode(200)
+  @OpenAPI({ summary: 'Save call rejected state immediately when agent rejects incoming call' })
+  async handleBrowserCallRejected(
+    @Body() body: { callUuid: string; agentUserId?: string }
+  ): Promise<{ success: boolean }> {
+    try {
+      const { callUuid, agentUserId } = body;
+      if (callUuid) {
+        console.log(`❌ [PLIVO-CONTROLLER] Agent explicitly rejected call ${callUuid}`);
+        await this.callDetailsRepository.updateCallDetails(callUuid, {
+          status: 'rejected',
+          duration: 0,
+        });
+      }
+      if (agentUserId) {
+        await this.agentAssignmentService.markAgentAsAvailable(agentUserId);
+      }
+      return { success: true };
+    } catch (e: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error in call-rejected endpoint:', e);
+      return { success: false };
+    }
+  }
+
   @Post('/webhook/call-answered')
   @HttpCode(200)
   @UseBefore(urlencoded({ extended: true }))
@@ -816,16 +841,14 @@ export class PlivoController {
 
         let targetStatus = 'no-answer';
         const causeLower = String(DialHangupCause || '').toLowerCase();
-        if (causeLower.includes('reject')) {
+        if (causeLower.includes('reject') || causeLower.includes('busy') || causeLower.includes('decline')) {
           targetStatus = 'rejected';
         } else if (causeLower.includes('cancel') || causeLower.includes('originator')) {
           targetStatus = 'canceled';
-        } else if (causeLower.includes('busy') || DialStatus === 'busy') {
-          targetStatus = 'busy';
+        } else if (DialStatus === 'no-answer' || DialStatus === 'timeout') {
+          targetStatus = 'no-answer';
         } else if (isDeliveryFailure || DialStatus === 'failed') {
           targetStatus = 'failed';
-        } else if (DialStatus === 'no-answer') {
-          targetStatus = 'no-answer';
         }
 
         try {
@@ -1039,6 +1062,18 @@ export class PlivoController {
 
             const hangupCause = String(req.body?.HangupCause || req.query?.HangupCause || '').toLowerCase();
             const plivoCallStatus = String(req.body?.CallStatus || req.query?.CallStatus || '').toLowerCase();
+
+            // If call already has a specific terminal status (e.g. 'rejected' by agent or 'no-answer' by dial-action), preserve it!
+            const alreadyResolvedStatuses = ['rejected', 'no-answer', 'busy', 'failed'];
+            if (existingCall.status && alreadyResolvedStatuses.includes(existingCall.status)) {
+              console.log(`ℹ️ [PLIVO-CONTROLLER] Call ${callUuid} already has specific terminal status '${existingCall.status}'. Preserving.`);
+              if (!freedAgentId && existingCall.agent?.userid) {
+                const dbAgentId = existingCall.agent.userid.toString();
+                await this.agentAssignmentService.markAgentAsAvailable(dbAgentId);
+              }
+              res.status(200).send('OK');
+              return;
+            }
 
             const wasConnected = existingCall.status === 'connected';
 
