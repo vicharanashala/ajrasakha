@@ -991,14 +991,79 @@ export class PlivoController {
         this.plivoService.markCallEnded(callUuid);
       }
 
-      const allCallAgents = await this.userRepository.findCallAgents();
-      const agentWithCall = allCallAgents.find(agent => agent.currentCallUuid === callUuid);
+      // 1. Immediately free the agent so they can accept the next incoming call without delay
+      let freedAgentId: string | undefined;
+      try {
+        const allCallAgents = await this.userRepository.findCallAgents();
+        const agentWithCall = allCallAgents.find(agent => agent.currentCallUuid === callUuid);
 
-      if (agentWithCall) {
-        await this.agentAssignmentService.markAgentAsAvailable(agentWithCall._id.toString());
-        console.log(`✅ [PLIVO-CONTROLLER] Marked agent ${agentWithCall.agent} as available`);
-      } else {
-        console.log(`⚠️ [PLIVO-CONTROLLER] No agent found with currentCallUuid=${callUuid}`);
+        if (agentWithCall) {
+          freedAgentId = agentWithCall._id.toString();
+          await this.agentAssignmentService.markAgentAsAvailable(freedAgentId);
+          console.log(`✅ [PLIVO-CONTROLLER] Marked agent ${agentWithCall.agent} as available`);
+        } else if (callUuid) {
+          const mappedAgentId = this.plivoService.getCallAgent(callUuid);
+          if (mappedAgentId) {
+            freedAgentId = mappedAgentId;
+            await this.agentAssignmentService.markAgentAsAvailable(mappedAgentId);
+            console.log(`✅ [PLIVO-CONTROLLER] Marked agent ${mappedAgentId} as available (via PlivoService map)`);
+          } else {
+            console.log(`⚠️ [PLIVO-CONTROLLER] No agent found with currentCallUuid=${callUuid}`);
+          }
+        }
+      } catch (agentErr) {
+        console.error(`❌ [PLIVO-CONTROLLER] Error freeing agent in call ended webhook for ${callUuid}:`, agentErr);
+      }
+
+      // 2. Update call status and duration in MongoDB if call ended without answer or finalization
+      if (callUuid) {
+        try {
+          const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
+          if (existingCall) {
+            const rawDuration = req.body?.Duration || req.query?.Duration || req.body?.CallDuration;
+            const duration = rawDuration !== undefined && !isNaN(Number(rawDuration))
+              ? Math.max(0, Math.round(Number(rawDuration)))
+              : (existingCall.duration || 0);
+
+            if (existingCall.status === 'ringing') {
+              const hangupCause = String(req.body?.HangupCause || req.query?.HangupCause || '').toLowerCase();
+              const plivoCallStatus = String(req.body?.CallStatus || req.query?.CallStatus || '').toLowerCase();
+
+              let terminalStatus = 'no-answer';
+              if (hangupCause.includes('reject')) {
+                terminalStatus = 'rejected';
+              } else if (hangupCause.includes('cancel') || hangupCause.includes('originator')) {
+                terminalStatus = 'canceled';
+              } else if (hangupCause.includes('busy') || plivoCallStatus === 'busy') {
+                terminalStatus = 'busy';
+              } else if (plivoCallStatus === 'failed') {
+                terminalStatus = 'failed';
+              }
+
+              console.log(`📞 [PLIVO-CONTROLLER] Call ${callUuid} ended while ringing (hangupCause=${req.body?.HangupCause || 'none'}). Updating status to '${terminalStatus}'`);
+              await this.callDetailsRepository.updateCallDetails(callUuid, {
+                status: terminalStatus,
+                duration: duration || 0,
+              });
+            } else if (existingCall.status === 'connected') {
+              const plivoCallStatus = req.body?.CallStatus || req.query?.CallStatus || 'completed';
+              console.log(`📞 [PLIVO-CONTROLLER] Connected call ${callUuid} ended. Updating status to '${plivoCallStatus}', duration=${duration}s`);
+              await this.callDetailsRepository.updateCallDetails(callUuid, {
+                status: plivoCallStatus,
+                duration: duration,
+              });
+            }
+
+            // Fallback 2: If agent was still not freed, check call_details agent record
+            if (!freedAgentId && existingCall.agent?.userid) {
+              const dbAgentId = existingCall.agent.userid.toString();
+              await this.agentAssignmentService.markAgentAsAvailable(dbAgentId);
+              console.log(`✅ [PLIVO-CONTROLLER] Marked agent ${dbAgentId} as available (via call_details agent)`);
+            }
+          }
+        } catch (dbErr) {
+          console.error(`❌ [PLIVO-CONTROLLER] Failed to update call details in call-ended webhook for ${callUuid}:`, dbErr);
+        }
       }
 
       res.status(200).send('OK');

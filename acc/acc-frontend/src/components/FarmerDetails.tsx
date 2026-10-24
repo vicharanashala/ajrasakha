@@ -165,6 +165,9 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
         lastFetchedPhoneRef.current = phoneNo;
         fetchFarmerDetails();
       }
+    } else {
+      lastFetchedPhoneRef.current = null;
+      setFarmer(null);
     }
   }, [phoneNo]);
 

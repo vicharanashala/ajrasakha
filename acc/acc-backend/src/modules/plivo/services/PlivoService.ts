@@ -36,7 +36,10 @@ interface SarvamStreamSession {
 export class PlivoService {
 
   // SOCKS5 proxy agent for Tailscale network (localhost:1055)
-  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
+  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055', {
+    keepAlive: true,
+    maxSockets: 50,
+  });
 
   private createAxiosInstance(): AxiosInstance {
     return axios.create({

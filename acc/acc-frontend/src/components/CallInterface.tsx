@@ -1726,37 +1726,51 @@ export const CallInterface = () => {
             if (isActive) {
               isAtBottomRef.current = true;
               isProgrammaticScrollRef.current = false;
-              // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
-              setExtractedFarmerProfile(null);
-              setTranscriptsList([]);
-              setQuestions([]);
-              setTranslatedQuestions({});
-              setTranslatedAnswers({});
-              setTranslatingQuestions({});
-              setCopiedStates({});
-              lastTranscriptRef.current = "";
-              setIsSummaryOpen(false);
-              setEditableSummaryText("");
-              setExtractedState("");
-              setExtractedCrop("");
-              setHasGeneratedQuestions(false);
-              setThreadId(null);
-              setExtractedData(null);
-              setIsHumanVerificationMode(false);
-              setEditableQuery("");
-              setEditableCrop("");
-              setEditableState("");
-              setEditableDistrict("");
-              setEditableBlock("");
-              setEditableVillage("");
-              setEditableDomain([]);
-              setEditableSeason("");
-
-              setIsSimulatingMode(false);
             }
           }}
           onCallUuidChange={(uuid) => {
             if (uuid) {
+              // Only reset previous state when transitioning to a brand-new distinct call session from idle/ended
+              const isBrandNewCall = !callUuidRef.current && uuid !== lastCallUuidRef.current;
+              if (isBrandNewCall) {
+                console.log(`🔄 [CallInterface] New call session detected: ${uuid} (previous: ${lastCallUuidRef.current})`);
+                // Reset previous phone number and farmer profiles immediately so old call details never leak into new active call
+                setCallPhoneNumber(null);
+                callPhoneNumberRef.current = null;
+                setLastCallPhoneNumber(null);
+                lastCallPhoneNumberRef.current = null;
+                setFarmerProfile(null);
+                activeProfileRef.current = null;
+                setExtractedFarmerProfile(null);
+
+                // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
+                setTranscriptsList([]);
+                setQuestions([]);
+                setTranslatedQuestions({});
+                setTranslatedAnswers({});
+                setTranslatingQuestions({});
+                setCopiedStates({});
+                lastTranscriptRef.current = "";
+                setIsSummaryOpen(false);
+                setEditableSummaryText("");
+                setExtractedState("");
+                setExtractedCrop("");
+                setHasGeneratedQuestions(false);
+                setThreadId(null);
+                setExtractedData(null);
+                setIsHumanVerificationMode(false);
+                setEditableQuery("");
+                setEditableCrop("");
+                setEditableState("");
+                setEditableDistrict("");
+                setEditableBlock("");
+                setEditableVillage("");
+                setEditableDomain([]);
+                setEditableSeason("");
+
+                setIsSimulatingMode(false);
+              }
+
               callUuidRef.current = uuid;
               lastCallUuidRef.current = uuid;
               setCallUuid(uuid);
@@ -1767,12 +1781,12 @@ export const CallInterface = () => {
             }
           }}
           onPhoneNumberChange={(phone) => {
-            if (phone) {
+            if (phone && phone !== "Unknown" && phone !== "Unknown Caller") {
               callPhoneNumberRef.current = phone;
               lastCallPhoneNumberRef.current = phone;
               setCallPhoneNumber(phone);
               setLastCallPhoneNumber(phone);
-            } else {
+            } else if (!phone) {
               setCallPhoneNumber(null);
               callPhoneNumberRef.current = null;
             }
@@ -1787,7 +1801,7 @@ export const CallInterface = () => {
         <div className="w-full flex flex-col space-y-4 min-w-0">
           <FarmerDetails
             ref={farmerDetailsRef}
-            phoneNo={callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || ""}
+            phoneNo={isCallActive ? (callPhoneNumber || "") : (callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || "")}
             extractedProfile={extractedFarmerProfile}
             disabled={!isCallActive && !isSimulatingMode && !(callUuid && callUuid.startsWith("testing_")) && !callPhoneNumber && !lastCallPhoneNumber}
             onProfileUpdated={(profile) => {
