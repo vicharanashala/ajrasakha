@@ -560,6 +560,12 @@ export default function DocumentManagementPanel({
     try {
       const updated = await resubmitDashboardUpload(item.id);
       setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      // Reuses "upload_created" — same recipients (all current approvers) and the same
+      // "awaiting approval" meaning as a fresh upload; the backend resolves the approver list
+      // itself now (see NotificationService.fetchPopApproverIds), so no approverIds needed here.
+      notificationService
+        .notifyPopEvent({ type: "upload_created", itemName: item.shareable_name || item.id })
+        .catch(() => {}); // Best-effort — never block the resubmit action on it.
       toast.success("Resubmitted");
     } catch (err) {
       toast.error(err.message || "Failed to resubmit");
