@@ -160,7 +160,7 @@ export interface IUserRepository {
 
   /**
    * Finds all active, non-blocked users matching the specified roles.
-   * Defaults to review staff: expert, moderator, pae_expert, gate_keeper, auditor.
+   * Defaults to review staff: expert, moderator, gate_keeper, auditor.
    */
   getActiveReviewStaff(
     roles?: string[],
