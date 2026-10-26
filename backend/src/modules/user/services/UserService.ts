@@ -1880,7 +1880,7 @@ export class UserService extends BaseService {
       `[sendDailyUserActivityReports] Generating reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
     );
 
-    // 2. Fetch all active, non-blocked review staff (excluding PAE users)
+    // 2. Fetch all active review staff (excluding deactivated accounts and PAE users)
     const staff = await this.userRepo.getActiveReviewStaff([
       'expert',
       'moderator',
