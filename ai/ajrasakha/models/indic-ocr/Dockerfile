@@ -49,7 +49,7 @@ RUN . /opt/venv/bin/activate && \
     python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
-FROM nvidia/cuda:12.4-runtime-ubuntu22.04 AS runtime
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
